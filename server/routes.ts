@@ -575,6 +575,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send manual visitor report endpoint
+  app.post("/api/reports/send", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email address required" });
+      }
+
+      console.log(`Sending visitor report to: ${email}`);
+
+      // Get current data for report
+      const stats = await storage.getVisitorStats();
+      const currentVisitors = await storage.getCurrentVisitors();
+      const staff = await storage.getAllStaff();
+      const companySettings = await storage.getCompanySettings();
+      
+      // Create manual report data
+      const reportData = {
+        visitors: currentVisitors,
+        staff,
+        checkedOutVisitors: [],
+        stats,
+        reportDate: new Date().toLocaleDateString('en-GB'),
+        reportTime: new Date().toLocaleTimeString('en-GB')
+      };
+
+      // Generate mock report for the email
+      const report = {
+        id: `RPT-${Date.now()}`,
+        reportType: 'manual',
+        generatedAt: new Date(),
+        dateFrom: new Date(),
+        dateTo: new Date(),
+        totalVisitors: stats.todayCheckins.toString(),
+        avgDuration: stats.avgVisitDuration,
+        emailSent: false,
+        emailSentAt: null
+      };
+
+      console.log('Sending email with report data:', { totalVisitors: report.totalVisitors, currentVisitors: currentVisitors.length });
+
+      // Send email report
+      const emailSent = await emailService.sendReport(
+        report,
+        companySettings!,
+        [email],
+        reportData
+      );
+
+      if (emailSent) {
+        console.log(`Report email sent successfully to ${email}`);
+        res.json({ 
+          success: true, 
+          message: `Visitor report sent successfully to ${email}`,
+          reportId: report.id
+        });
+      } else {
+        console.log(`Failed to send report email to ${email}`);
+        res.status(500).json({ error: "Failed to send report email" });
+      }
+      
+    } catch (error) {
+      console.error("Error sending report:", error);
+      res.status(500).json({ error: "Failed to send visitor report" });
+    }
+  });
+
   // Initialize automatic reports
   setupAutomaticReports();
 
