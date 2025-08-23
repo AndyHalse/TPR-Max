@@ -1,5 +1,7 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain } from "lucide-react";
+import LogoutButton from "@/components/LogoutButton";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -7,6 +9,12 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
+  
+  // Get current user info
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/me"],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const navItems = [
     { path: "/", icon: ChartLine, label: "Dashboard" },
@@ -56,9 +64,15 @@ export default function Layout({ children }: LayoutProps) {
             <div className="glass-effect px-3 py-1 rounded-full">
               <span className="text-sm text-slate-700 font-medium">TechCorp Ltd</span>
             </div>
-            <button className="w-10 h-10 gradient-blue rounded-full flex items-center justify-center">
-              <User className="text-white" size={16} />
-            </button>
+            {user && (
+              <div className="flex items-center space-x-3">
+                <div className="glass-effect px-3 py-1 rounded-full flex items-center space-x-2">
+                  <User className="text-slate-600" size={14} />
+                  <span className="text-sm text-slate-700 font-medium">{user.username}</span>
+                </div>
+                <LogoutButton />
+              </div>
+            )}
           </div>
         </div>
       </nav>
