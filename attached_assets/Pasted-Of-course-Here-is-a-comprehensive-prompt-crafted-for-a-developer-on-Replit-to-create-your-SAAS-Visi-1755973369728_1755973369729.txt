@@ -1,0 +1,91 @@
+Of course. Here is a comprehensive prompt crafted for a developer on Replit to create your SAAS Visitor Management System. It includes all your specifications and adds modern, practical suggestions.
+
+---
+
+### **Prompt for Replit Developer: SAAS Visitor Management System**
+
+**Project Title:** VisiGate Pro - Modern Visitor Management SAAS
+
+**Objective:** Build a modern, cloud-based Software-as-a-Service (SAAS) system for managing visitors, contractors, and staff. The system must generate and print standardized ID passes (95mm x 66mm) using a B-FV4 desktop thermal printer and support multi-tenancy with individual SQL databases for each company.
+
+**Core Inspiration:** Functionality similar to [https://visitormanager.eu/](https://visitormanager.eu/), but with a modern "Glassmorphism" UI and a simplified user experience.
+
+---
+
+### **1. Core System Features & User Stories**
+
+**For the Company Admin (Tenant):**
+*   **Onboarding:** Sign-up, subscription plan selection (£19.95/mo or £200/yr), and initial database setup.
+*   **Dashboard:** Overview of current visitors, recent activity, and subscription status.
+*   **People Management:**
+    *   **Staff:** Add/manage staff members (Name, Dept, Photo, unique ID).
+    *   **Pre-register:** Add frequent contractors/visitors.
+*   **Settings:** Configure company details, enable/disable the optional 15% maintenance package (for free support & upgrades), and manage B-FV4 printer settings.
+
+**For the Receptionist/Kiosk Mode:**
+*   **Check-In:** A simple, full-screen interface.
+    *   **For Visitors/Contractors:** Form to capture: Full Name, Company, Host (select from staff list), Purpose of Visit, Car Reg (optional). *Upon submission, print a pass immediately.*
+    *   **For Staff:** Option to simply scan their existing ID card barcode to register their presence in the system (e.g., for fire safety muster).
+*   **Check-Out:** Quick search or barcode scan to sign someone out, logging the duration of their visit.
+*   **Muster List:** A prominent button to generate and print/export a real-time list of everyone currently on-site (Visitors, Contractors, and Staff), filterable by category.
+
+**For the End User (Visitor/Contractor/Staff):**
+*   Receive a professional, printed badge with their name, host, company, date, and a **unique 2D barcode**.
+*   Use the same barcode reader to scan their plastic ID card (staff) or paper pass (visitor) for quick check-in/out.
+
+---
+
+### **2. Technical Specifications**
+
+*   **Backend:** Node.js (Express) or Python (Flask/Django) on Replit. Use SQL (PostgreSQL is ideal on Replit) for the database.
+*   **Multi-Tenancy:** Each subscribing company gets its own dedicated SQL database. Use a connection pooler or a middleware to route requests to the correct database based on the subdomain or company ID (e.g., `company1.visigatepro.com`).
+*   **Frontend:** Modern HTML5, CSS3 (with Glassmorphism), and vanilla JavaScript or a lightweight framework like Vue.js/React for interactivity.
+*   **Printing:**
+    *   Integrate with the **B-FV4 Desktop Printer** using a JavaScript library like `qZQ.js` to generate raw ESC/POS commands directly from the browser.
+    *   Design the pass template in HTML/CSS and translate it into the thermal printer's command set. The pass size must be 95mm x 66mm.
+*   **Barcode:** Generate a unique 2D barcode (QR or Data Matrix) for each check-in. The barcode should encode a unique identifier that the system can scan to quickly pull up the visitor's record.
+
+---
+
+### **3. Design & UX Mandate**
+
+*   **Theme: Glassmorphism**
+    *   **Visuals:** Use of transparency, background blur, and a light border.
+    *   **Color Palette:** Suggest a cool, professional palette of blues, grays, and whites.
+    *   **Effects:** Subtle shadows and highlights to create the feeling of frosted glass layered over the background.
+*   **Principle:** "Simple to Use." The receptionist's check-in/out interface should have large buttons, clear text, and minimal steps. The admin dashboard should be intuitive and uncluttered.
+
+---
+
+### **4. Pricing & Subscription Model**
+
+*   Implement a subscription system using a payment gateway like Stripe.
+*   **Plan 1:** Monthly - £19.95
+*   **Plan 2:** Annual - £200 (approx. 16% discount)
+*   **Add-on:** A checkbox during sign-up/configuration for "Premium Support & Upgrades" adding a **15% surcharge** to the chosen plan. This must be tracked in the database and should grant users access to a dedicated support channel.
+
+---
+
+### **5. Additional Ideas to Implement**
+
+*   **Offline Mode:** Use browser local storage to temporarily store check-ins if the internet connection drops, syncing with the server once restored.
+*   **Email/SMS Notifications:** (Stretch goal) Send an automatic email or SMS to the host when their visitor arrives.
+*   **Health & Safety:** (Post-COVID relevance) Add an optional step for visitors to confirm they are well or agree to terms.
+*   **Data Export:** Allow admins to export visit history reports (CSV/PDF) for audit purposes.
+*   **Kiosk Mode:** A dedicated, simplified URL that runs in fullscreen on a tablet at reception, locked to just the check-in/out functions.
+
+---
+
+### **6. Setup Instructions for Developer on Replit**
+
+1.  Create a new Repl using the **Node.js (Express)** or **Python (Flask)** template.
+2.  Initialize a package.json (Node) or requirements.txt (Python) with the necessary dependencies (e.g., `express`, `pg` for PostgreSQL, `stripe`).
+3.  Set up a PostgreSQL database (use the Replit PostgreSQL plugin or a hosted service like Supabase/Aiven).
+4.  Create the core database schema for the master database (to hold company tenants) and a template schema for the individual tenant databases.
+5.  Build the authentication and tenant routing logic first.
+6.  Develop the UI with a focus on the Glassmorphism style. Use a CSS framework like Tailwind CSS for faster development if desired.
+7.  Integrate the B-FV4 printer last, using a mock pass template until the hardware is available for testing.
+
+**Success Criteria:** A company should be able to sign up, pay for a plan, log into their dashboard, add staff, and successfully check-in a visitor which immediately prints a correctly formatted 95x66mm pass with a scannable barcode.
+
+---
