@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStaffSchema, insertVisitorSchema, insertCompanySettingsSchema } from "@shared/schema";
+import { insertStaffSchema, insertVisitorSchema, insertCompanySettingsSchema, insertPreBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { emailService } from "./emailService";
@@ -466,6 +466,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   };
   
+  // Pre-booking endpoints
+  app.get("/api/prebookings", async (req, res) => {
+    try {
+      const preBookings = await storage.getAllPreBookings();
+      res.json(preBookings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch pre-bookings" });
+    }
+  });
+
+  app.get("/api/prebookings/upcoming", async (req, res) => {
+    try {
+      const preBookings = await storage.getUpcomingPreBookings();
+      res.json(preBookings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch upcoming pre-bookings" });
+    }
+  });
+
+  app.post("/api/prebookings", async (req, res) => {
+    try {
+      const preBookingData = insertPreBookingSchema.parse(req.body);
+      const preBooking = await storage.createPreBooking(preBookingData);
+      
+      // Get host staff and company settings for email
+      const hostStaff = await storage.getStaffById(preBooking.hostStaffId!);
+      const companySettings = await storage.getCompanySettings();
+      
+      if (hostStaff && companySettings) {
+        // Generate QR code URL for email
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(preBooking.qrCode)}`;
+        
+        // Send email
+        const emailSent = await emailService.sendPreBookingEmail(
+          preBooking,
+          hostStaff,
+          companySettings,
+          qrCodeUrl
+        );
+        
+        if (emailSent) {
+          await storage.updatePreBooking(preBooking.id, {
+            emailSent: true,
+            emailSentAt: new Date(),
+          });
+        }
+      }
+      
+      res.json(preBooking);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid pre-booking data", details: error.errors });
+      } else {
+        console.error("Error creating pre-booking:", error);
+        res.status(500).json({ error: "Failed to create pre-booking" });
+      }
+    }
+  });
+
+  app.post("/api/prebookings/checkin", async (req, res) => {
+    try {
+      const { qrCode } = req.body;
+      if (!qrCode) {
+        return res.status(400).json({ error: "QR code is required" });
+      }
+      
+      // Check if it's a pre-booking QR code
+      const preBooking = await storage.getPreBookingByQrCode(qrCode);
+      if (!preBooking) {
+        return res.status(404).json({ error: "Pre-booking not found" });
+      }
+      
+      if (preBooking.isCheckedIn) {
+        return res.status(400).json({ error: "Pre-booking already checked in" });
+      }
+      
+      // Create visitor record from pre-booking
+      const visitor = await storage.createVisitor({
+        name: preBooking.visitorName,
+        company: preBooking.company,
+        purpose: preBooking.purpose,
+        carRegistration: null,
+        hostStaffId: preBooking.hostStaffId,
+      });
+      
+      // Update pre-booking as checked in
+      await storage.updatePreBooking(preBooking.id, {
+        isCheckedIn: true,
+        checkedInAt: new Date(),
+        visitorId: visitor.id,
+      });
+      
+      res.json({ visitor, preBooking });
+    } catch (error) {
+      console.error("Error checking in pre-booking:", error);
+      res.status(500).json({ error: "Failed to check in pre-booking" });
+    }
+  });
+
+  app.get("/api/prebookings/today", async (req, res) => {
+    try {
+      const today = new Date();
+      const preBookings = await storage.getPreBookingsByDate(today);
+      res.json(preBookings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch today's pre-bookings" });
+    }
+  });
+
   // Initialize automatic reports
   setupAutomaticReports();
 

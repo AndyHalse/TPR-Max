@@ -1,4 +1,4 @@
-import { type Staff, type InsertStaff, type Visitor, type InsertVisitor, type User, type InsertUser, type CompanySettings, type InsertCompanySettings, type Report, type InsertReport } from "@shared/schema";
+import { type Staff, type InsertStaff, type Visitor, type InsertVisitor, type User, type InsertUser, type CompanySettings, type InsertCompanySettings, type Report, type InsertReport, type PreBooking, type InsertPreBooking } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -32,6 +32,15 @@ export interface IStorage {
   updateReport(id: string, updates: Partial<InsertReport>): Promise<Report | undefined>;
   getReportsByDateRange(from: Date, to: Date): Promise<Report[]>;
   
+  // Pre-booking methods
+  getAllPreBookings(): Promise<PreBooking[]>;
+  getPreBookingById(id: string): Promise<PreBooking | undefined>;
+  getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined>;
+  createPreBooking(preBooking: InsertPreBooking): Promise<PreBooking>;
+  updatePreBooking(id: string, updates: Partial<Omit<PreBooking, 'id' | 'createdAt'>>): Promise<PreBooking | undefined>;
+  getUpcomingPreBookings(): Promise<PreBooking[]>;
+  getPreBookingsByDate(date: Date): Promise<PreBooking[]>;
+  
   // Stats methods
   getVisitorStats(): Promise<{
     currentVisitors: number;
@@ -47,12 +56,14 @@ export class MemStorage implements IStorage {
   private visitors: Map<string, Visitor>;
   private companySettings: CompanySettings | undefined;
   private reports: Map<string, Report>;
+  private preBookings: Map<string, PreBooking>;
 
   constructor() {
     this.users = new Map();
     this.staffMembers = new Map();
     this.visitors = new Map();
     this.reports = new Map();
+    this.preBookings = new Map();
     
     // Initialize with some default data
     this.initializeDefaultData();
@@ -278,6 +289,69 @@ export class MemStorage implements IStorage {
     const allReports = await this.getAllReports();
     return allReports.filter(report => 
       report.generatedAt >= from && report.generatedAt <= to
+    );
+  }
+
+  async getAllPreBookings(): Promise<PreBooking[]> {
+    return Array.from(this.preBookings.values()).sort(
+      (a, b) => a.visitDate.getTime() - b.visitDate.getTime()
+    );
+  }
+
+  async getPreBookingById(id: string): Promise<PreBooking | undefined> {
+    return this.preBookings.get(id);
+  }
+
+  async getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined> {
+    return Array.from(this.preBookings.values()).find(booking => booking.qrCode === qrCode);
+  }
+
+  async createPreBooking(insertPreBooking: InsertPreBooking): Promise<PreBooking> {
+    const id = randomUUID();
+    const qrCode = `PBK-${id.substring(0, 8)}`;
+    
+    const preBooking: PreBooking = {
+      ...insertPreBooking,
+      id,
+      qrCode,
+      isCheckedIn: false,
+      checkedInAt: null,
+      visitorId: null,
+      emailSent: false,
+      emailSentAt: null,
+      createdAt: new Date(),
+    };
+    
+    this.preBookings.set(id, preBooking);
+    return preBooking;
+  }
+
+  async updatePreBooking(id: string, updates: Partial<Omit<PreBooking, 'id' | 'createdAt'>>): Promise<PreBooking | undefined> {
+    const preBooking = this.preBookings.get(id);
+    if (!preBooking) return undefined;
+    
+    const updatedPreBooking = { ...preBooking, ...updates };
+    this.preBookings.set(id, updatedPreBooking);
+    return updatedPreBooking;
+  }
+
+  async getUpcomingPreBookings(): Promise<PreBooking[]> {
+    const now = new Date();
+    const allBookings = await this.getAllPreBookings();
+    return allBookings.filter(booking => 
+      booking.visitDate >= now && !booking.isCheckedIn
+    );
+  }
+
+  async getPreBookingsByDate(date: Date): Promise<PreBooking[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const allBookings = await this.getAllPreBookings();
+    return allBookings.filter(booking => 
+      booking.visitDate >= startOfDay && booking.visitDate <= endOfDay
     );
   }
 }

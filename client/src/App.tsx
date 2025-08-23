@@ -12,6 +12,7 @@ import VisitorCheckIn from "@/pages/VisitorCheckIn";
 import MusterList from "@/pages/MusterList";
 import Settings from "@/pages/Settings";
 import Reports from "@/pages/Reports";
+import PreBooking from "@/pages/PreBooking";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/staff" component={StaffManagement} />
+        <Route path="/prebooking" component={PreBooking} />
         <Route path="/kiosk" component={KioskMode} />
         <Route path="/checkin" component={VisitorCheckIn} />
         <Route path="/muster" component={MusterList} />

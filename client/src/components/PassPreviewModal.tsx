@@ -9,9 +9,10 @@ interface PassPreviewModalProps {
   onClose: () => void;
   visitor: Visitor;
   hostName?: string;
+  isPreBooked?: boolean;
 }
 
-export default function PassPreviewModal({ isOpen, onClose, visitor, hostName }: PassPreviewModalProps) {
+export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, isPreBooked = false }: PassPreviewModalProps) {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
@@ -96,7 +97,12 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName }:
           </div>
           
           <div className="space-y-4">
-            <p className="text-slate-600">Your visitor pass has been generated and sent to the printer.</p>
+            <p className="text-slate-600">
+              {isPreBooked 
+                ? "Welcome! Your pre-booking has been confirmed and your visitor pass has been generated." 
+                : "Your visitor pass has been generated and sent to the printer."
+              }
+            </p>
             <div className="flex gap-3">
               <Button 
                 variant="outline"

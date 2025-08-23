@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import type { Report, CompanySettings } from '@shared/schema';
+import type { Report, CompanySettings, PreBooking, Staff } from '@shared/schema';
 
 // SMTP configuration for IONOS
 const SMTP_CONFIG = {
@@ -199,6 +199,235 @@ export class EmailService {
       console.error('Failed to send test email:', error);
       return false;
     }
+  }
+
+  async sendPreBookingEmail(
+    preBooking: PreBooking,
+    hostStaff: Staff,
+    companySettings: CompanySettings,
+    qrCodeUrl: string
+  ): Promise<boolean> {
+    try {
+      const visitDate = new Date(preBooking.visitDate).toLocaleDateString('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const visitorHtml = this.generatePreBookingVisitorEmail(preBooking, hostStaff, companySettings, qrCodeUrl, visitDate);
+      const hostHtml = this.generatePreBookingHostEmail(preBooking, hostStaff, companySettings, visitDate);
+
+      // Send to visitor
+      const visitorMailOptions = {
+        from: `"${companySettings.companyName} VisiGate Pro" <update@acsltd.eu>`,
+        to: preBooking.visitorEmail,
+        subject: `${companySettings.companyName} - Visit Confirmation for ${visitDate.split(',')[0]}`,
+        html: visitorHtml,
+      };
+
+      // Send to host
+      const hostMailOptions = {
+        from: `"${companySettings.companyName} VisiGate Pro" <update@acsltd.eu>`,
+        to: `${hostStaff.employeeId}@${companySettings.companyName.toLowerCase().replace(/\s+/g, '')}.com`, // Placeholder email
+        subject: `${companySettings.companyName} - Visitor Pre-booking Notification`,
+        html: hostHtml,
+      };
+
+      const [visitorResult, hostResult] = await Promise.all([
+        this.transporter.sendMail(visitorMailOptions),
+        this.transporter.sendMail(hostMailOptions)
+      ]);
+
+      console.log('Pre-booking emails sent:', visitorResult.messageId, hostResult.messageId);
+      return true;
+    } catch (error) {
+      console.error('Failed to send pre-booking emails:', error);
+      return false;
+    }
+  }
+
+  private generatePreBookingVisitorEmail(
+    preBooking: PreBooking,
+    hostStaff: Staff,
+    companySettings: CompanySettings,
+    qrCodeUrl: string,
+    visitDate: string
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${companySettings.companyName} - Visit Confirmation</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .qr-section { text-align: center; background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .qr-code { background: white; padding: 15px; border-radius: 8px; display: inline-block; }
+        .visit-details { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .safety-section { background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }
+        .safety-title { color: #dc2626; font-weight: bold; margin-bottom: 10px; }
+        .safety-list { margin: 10px 0; padding-left: 20px; }
+        .safety-list li { margin: 5px 0; }
+        .important { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Visit Confirmation</h1>
+          <p>${companySettings.companyName}</p>
+        </div>
+        
+        <div class="content">
+          <h2>Dear ${preBooking.visitorName},</h2>
+          <p>Your visit to <strong>${companySettings.companyName}</strong> has been confirmed. Please find your visit details and QR code below.</p>
+          
+          <div class="visit-details">
+            <h3>Visit Details</h3>
+            <p><strong>Visitor:</strong> ${preBooking.visitorName}</p>
+            <p><strong>Company:</strong> ${preBooking.company || 'N/A'}</p>
+            <p><strong>Date & Time:</strong> ${visitDate}</p>
+            <p><strong>Host:</strong> ${hostStaff.name} (${hostStaff.department})</p>
+            <p><strong>Purpose:</strong> ${preBooking.purpose || 'General visit'}</p>
+          </div>
+          
+          <div class="qr-section">
+            <h3>Your Visit QR Code</h3>
+            <p>Please scan this QR code at reception upon arrival:</p>
+            <div class="qr-code">
+              <img src="${qrCodeUrl}" alt="Visit QR Code" style="width: 150px; height: 150px;" />
+            </div>
+            <p><strong>Booking Reference:</strong> ${preBooking.qrCode}</p>
+          </div>
+          
+          <div class="important">
+            <p><strong>⚠️ Important:</strong> Please arrive 10 minutes early to allow time for the check-in process and security briefing.</p>
+          </div>
+          
+          <div class="safety-section">
+            <div class="safety-title">🛡️ UK Health & Safety Requirements</div>
+            <p>As per UK Health and Safety at Work etc. Act 1974 and associated regulations, all visitors must comply with the following:</p>
+            
+            <div class="safety-list">
+              <h4>Before Your Visit:</h4>
+              <ul>
+                <li>Ensure you are fit and well on the day of your visit</li>
+                <li>Inform us of any medical conditions that may affect your safety</li>
+                <li>Wear appropriate clothing and footwear (no open-toe shoes in work areas)</li>
+                <li>Bring valid photo identification</li>
+              </ul>
+              
+              <h4>During Your Visit:</h4>
+              <ul>
+                <li>Follow all safety instructions provided by your host</li>
+                <li>Wear provided Personal Protective Equipment (PPE) where required</li>
+                <li>Do not enter restricted or marked hazardous areas</li>
+                <li>Report any accidents, near misses, or safety concerns immediately</li>
+                <li>Remain with your host at all times unless otherwise instructed</li>
+                <li>Follow emergency evacuation procedures if alarms sound</li>
+              </ul>
+              
+              <h4>Prohibited Items:</h4>
+              <ul>
+                <li>Alcohol and illegal substances</li>
+                <li>Weapons or sharp objects</li>
+                <li>Photography/recording devices (without prior approval)</li>
+                <li>Any items deemed hazardous by security</li>
+              </ul>
+            </div>
+            
+            <p><strong>Emergency Contact:</strong> In case of emergency, dial 999 or contact site security immediately.</p>
+            <p><strong>First Aid:</strong> Trained first aiders are available on-site. Report any injuries immediately to your host.</p>
+          </div>
+          
+          <div class="important">
+            <p><strong>Note:</strong> By attending this visit, you acknowledge that you have read and understood these health and safety requirements and agree to comply with all site safety rules and procedures.</p>
+          </div>
+          
+          <p>If you need to reschedule or cancel your visit, please contact us as soon as possible.</p>
+          <p>We look forward to welcoming you to ${companySettings.companyName}.</p>
+        </div>
+        
+        <div class="footer">
+          <p>Generated by VisiGate Pro Visitor Management System</p>
+          <p>This is an automated email. Please do not reply directly to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+  }
+
+  private generatePreBookingHostEmail(
+    preBooking: PreBooking,
+    hostStaff: Staff,
+    companySettings: CompanySettings,
+    visitDate: string
+  ): string {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${companySettings.companyName} - Visitor Pre-booking Notification</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .visit-details { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Visitor Pre-booking Notification</h1>
+          <p>${companySettings.companyName}</p>
+        </div>
+        
+        <div class="content">
+          <h2>Dear ${hostStaff.name},</h2>
+          <p>A visitor has been pre-booked and you have been assigned as their host. Please find the details below:</p>
+          
+          <div class="visit-details">
+            <h3>Visitor Information</h3>
+            <p><strong>Name:</strong> ${preBooking.visitorName}</p>
+            <p><strong>Email:</strong> ${preBooking.visitorEmail}</p>
+            <p><strong>Company:</strong> ${preBooking.company || 'N/A'}</p>
+            <p><strong>Visit Date:</strong> ${visitDate}</p>
+            <p><strong>Purpose:</strong> ${preBooking.purpose || 'General visit'}</p>
+            <p><strong>Booking Reference:</strong> ${preBooking.qrCode}</p>
+          </div>
+          
+          <p><strong>Action Required:</strong></p>
+          <ul>
+            <li>Please be available at the scheduled time to meet your visitor</li>
+            <li>Ensure any necessary preparations are made for the visit</li>
+            <li>Conduct a safety briefing appropriate to the areas being visited</li>
+            <li>Escort the visitor at all times during their visit</li>
+          </ul>
+          
+          <p>The visitor will check in using their QR code at reception. You will be notified when they arrive.</p>
+        </div>
+        
+        <div class="footer">
+          <p>Generated by VisiGate Pro Visitor Management System</p>
+          <p>This is an automated email. Please do not reply directly to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
   }
 }
 

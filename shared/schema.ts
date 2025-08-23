@@ -71,6 +71,23 @@ export const reports = pgTable("reports", {
   emailSentAt: timestamp("email_sent_at"),
 });
 
+export const preBookings = pgTable("pre_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  visitorName: text("visitor_name").notNull(),
+  visitorEmail: text("visitor_email").notNull(),
+  company: text("company"),
+  purpose: text("purpose"),
+  hostStaffId: varchar("host_staff_id").references(() => staff.id),
+  visitDate: timestamp("visit_date").notNull(),
+  qrCode: text("qr_code").notNull(),
+  isCheckedIn: boolean("is_checked_in").default(false),
+  checkedInAt: timestamp("checked_in_at"),
+  visitorId: varchar("visitor_id").references(() => visitors.id), // Set when checked in
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -86,9 +103,22 @@ export const insertReportSchema = createInsertSchema(reports).omit({
   generatedAt: true,
 });
 
+export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
+  id: true,
+  qrCode: true,
+  isCheckedIn: true,
+  checkedInAt: true,
+  visitorId: true,
+  emailSent: true,
+  emailSentAt: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type CompanySettings = typeof companySettings.$inferSelect;
 export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
+export type PreBooking = typeof preBookings.$inferSelect;
+export type InsertPreBooking = z.infer<typeof insertPreBookingSchema>;
