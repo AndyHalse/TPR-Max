@@ -1,4 +1,4 @@
-import { type Staff, type InsertStaff, type Visitor, type InsertVisitor, type User, type InsertUser } from "@shared/schema";
+import { type Staff, type InsertStaff, type Visitor, type InsertVisitor, type User, type InsertUser, type CompanySettings, type InsertCompanySettings, type Report, type InsertReport } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -22,6 +22,16 @@ export interface IStorage {
   createVisitor(visitor: InsertVisitor): Promise<Visitor>;
   checkOutVisitor(id: string): Promise<Visitor | undefined>;
   
+  // Company Settings methods
+  getCompanySettings(): Promise<CompanySettings | undefined>;
+  updateCompanySettings(settings: Partial<InsertCompanySettings>): Promise<CompanySettings>;
+  
+  // Reports methods
+  getAllReports(): Promise<Report[]>;
+  createReport(report: InsertReport): Promise<Report>;
+  updateReport(id: string, updates: Partial<InsertReport>): Promise<Report | undefined>;
+  getReportsByDateRange(from: Date, to: Date): Promise<Report[]>;
+  
   // Stats methods
   getVisitorStats(): Promise<{
     currentVisitors: number;
@@ -35,17 +45,32 @@ export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private staffMembers: Map<string, Staff>;
   private visitors: Map<string, Visitor>;
+  private companySettings: CompanySettings | undefined;
+  private reports: Map<string, Report>;
 
   constructor() {
     this.users = new Map();
     this.staffMembers = new Map();
     this.visitors = new Map();
+    this.reports = new Map();
     
-    // Initialize with some default staff
+    // Initialize with some default data
     this.initializeDefaultData();
   }
 
   private initializeDefaultData() {
+    // Initialize default company settings
+    this.companySettings = {
+      id: randomUUID(),
+      companyName: "TechCorp Ltd",
+      logoUrl: null,
+      emailReportsEnabled: false,
+      reportFrequency: "weekly",
+      reportRecipients: ["admin@company.com"],
+      lastReportSent: null,
+      updatedAt: new Date(),
+    };
+
     const defaultStaff = [
       { name: "Sarah Wilson", department: "Engineering", employeeId: "ENG-001" },
       { name: "David Chen", department: "Marketing", employeeId: "MKT-002" },
@@ -194,6 +219,66 @@ export class MemStorage implements IStorage {
       staffOnSite: activeStaff.length,
       avgVisitDuration: `${avgDurationHours}h`,
     };
+  }
+
+  async getCompanySettings(): Promise<CompanySettings | undefined> {
+    return this.companySettings;
+  }
+
+  async updateCompanySettings(settings: Partial<InsertCompanySettings>): Promise<CompanySettings> {
+    if (!this.companySettings) {
+      this.companySettings = {
+        id: randomUUID(),
+        companyName: "TechCorp Ltd",
+        logoUrl: null,
+        emailReportsEnabled: false,
+        reportFrequency: "weekly",
+        reportRecipients: ["admin@company.com"],
+        lastReportSent: null,
+        updatedAt: new Date(),
+        ...settings,
+      };
+    } else {
+      this.companySettings = {
+        ...this.companySettings,
+        ...settings,
+        updatedAt: new Date(),
+      };
+    }
+    return this.companySettings;
+  }
+
+  async getAllReports(): Promise<Report[]> {
+    return Array.from(this.reports.values()).sort(
+      (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime()
+    );
+  }
+
+  async createReport(insertReport: InsertReport): Promise<Report> {
+    const id = randomUUID();
+    const report: Report = {
+      ...insertReport,
+      id,
+      generatedAt: new Date(),
+    };
+    this.reports.set(id, report);
+    return report;
+  }
+
+  async updateReport(id: string, updates: Partial<InsertReport>): Promise<Report | undefined> {
+    const report = this.reports.get(id);
+    if (!report) return undefined;
+    
+    const updatedReport = { ...report, ...updates };
+    this.reports.set(id, updatedReport);
+    return updatedReport;
+  }
+
+  async getReportsByDateRange(from: Date, to: Date): Promise<Report[]> {
+    const allReports = await this.getAllReports();
+    return allReports.filter(report => 
+      report.generatedAt >= from && report.generatedAt <= to
+    );
   }
 }
 

@@ -10,6 +10,8 @@ import StaffManagement from "@/pages/StaffManagement";
 import KioskMode from "@/pages/KioskMode";
 import VisitorCheckIn from "@/pages/VisitorCheckIn";
 import MusterList from "@/pages/MusterList";
+import Settings from "@/pages/Settings";
+import Reports from "@/pages/Reports";
 
 function Router() {
   return (
@@ -20,6 +22,8 @@ function Router() {
         <Route path="/kiosk" component={KioskMode} />
         <Route path="/checkin" component={VisitorCheckIn} />
         <Route path="/muster" component={MusterList} />
+        <Route path="/reports" component={Reports} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

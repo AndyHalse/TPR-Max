@@ -48,10 +48,47 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
 });
 
+export const companySettings = pgTable("company_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull().default("TechCorp Ltd"),
+  logoUrl: text("logo_url"),
+  emailReportsEnabled: boolean("email_reports_enabled").default(false),
+  reportFrequency: text("report_frequency").default("weekly"), // daily, weekly, monthly
+  reportRecipients: text("report_recipients").array().default(["admin@company.com"]),
+  lastReportSent: timestamp("last_report_sent"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const reports = pgTable("reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportType: text("report_type").notNull(), // daily, weekly, monthly, manual
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  dateFrom: timestamp("date_from").notNull(),
+  dateTo: timestamp("date_to").notNull(),
+  totalVisitors: text("total_visitors").notNull(),
+  avgDuration: text("avg_duration").notNull(),
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
 });
 
+export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertReportSchema = createInsertSchema(reports).omit({
+  id: true,
+  generatedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type CompanySettings = typeof companySettings.$inferSelect;
+export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = z.infer<typeof insertReportSchema>;

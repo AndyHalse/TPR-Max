@@ -1,7 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { generateQRCode } from "@/lib/qr-generator";
-import type { Visitor } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import type { Visitor, CompanySettings } from "@shared/schema";
 
 interface PassPreviewModalProps {
   isOpen: boolean;
@@ -11,6 +12,10 @@ interface PassPreviewModalProps {
 }
 
 export default function PassPreviewModal({ isOpen, onClose, visitor, hostName }: PassPreviewModalProps) {
+  const { data: settings } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
+  });
+
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -38,11 +43,22 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName }:
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-left">
-                  <h4 className="font-bold text-sm text-slate-800">TechCorp Ltd</h4>
+                  <h4 className="font-bold text-sm text-slate-800">{settings?.companyName || "TechCorp Ltd"}</h4>
                   <p className="text-xs text-slate-600">Visitor Pass</p>
                 </div>
                 <div className="w-8 h-8 gradient-blue rounded flex items-center justify-center">
-                  <span className="text-white text-xs">🏢</span>
+                  {settings?.logoUrl ? (
+                    <img 
+                      src={`/objects${settings.logoUrl}`}
+                      alt="Company Logo" 
+                      className="w-full h-full object-contain rounded"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: block');
+                      }}
+                    />
+                  ) : null}
+                  <span className="text-white text-xs" style={settings?.logoUrl ? {display: 'none'} : {}}>🏢</span>
                 </div>
               </div>
               
