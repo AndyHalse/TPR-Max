@@ -35,12 +35,13 @@ export class AIService {
         Staff Departments:
         ${staff.map(s => `- ${s.name} (${s.department})`).join('\n')}
 
-        Please provide a JSON response with:
-        1. insights: Array of 3-4 key business insights about visitor patterns
-        2. recommendations: Array of 3-4 actionable security/operational recommendations  
-        3. riskAssessment: Overall security risk assessment (Low/Medium/High) with brief explanation
-        4. prediction: Prediction about visitor trends for next week
+        Please provide a JSON response with simple string values:
+        1. insights: Array of 3-4 key business insights about visitor patterns (simple strings)
+        2. recommendations: Array of 3-4 actionable security/operational recommendations (simple strings)
+        3. riskAssessment: Overall security risk assessment (Low/Medium/High) with brief explanation (single string)
+        4. prediction: Prediction about visitor trends for next week (single string)
 
+        IMPORTANT: Return only simple strings, not complex objects. Each array item should be a plain text string.
         Focus on practical, actionable insights that help improve security and operations.
       `;
 
@@ -62,11 +63,34 @@ export class AIService {
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
       
+      // Helper function to extract string from object or return string directly
+      const extractString = (value: any, fallback: string): string => {
+        if (typeof value === 'string') return value;
+        if (typeof value === 'object' && value !== null) {
+          // Try to extract meaningful content from object
+          return value.summary || value.assessment || value.prediction || 
+                 value.insight || value.recommendation || 
+                 JSON.stringify(value).replace(/[{}]/g, '').replace(/"/g, '') || fallback;
+        }
+        return fallback;
+      };
+      
+      const extractArray = (value: any, fallback: string[]): string[] => {
+        if (Array.isArray(value)) {
+          return value.map(item => extractString(item, 'Standard insight'));
+        }
+        if (typeof value === 'string') return [value];
+        if (typeof value === 'object' && value !== null) {
+          return [extractString(value, 'Standard insight')];
+        }
+        return fallback;
+      };
+      
       return {
-        insights: result.insights || [],
-        recommendations: result.recommendations || [],
-        riskAssessment: result.riskAssessment || 'Unable to assess',
-        prediction: result.prediction || 'No prediction available'
+        insights: extractArray(result.insights, ['AI analysis temporarily unavailable']),
+        recommendations: extractArray(result.recommendations, ['Standard security protocols recommended']),
+        riskAssessment: extractString(result.riskAssessment, 'Unable to assess'),
+        prediction: extractString(result.prediction, 'No prediction available')
       };
 
     } catch (error) {
@@ -195,12 +219,13 @@ export class AIService {
         - Staff On-Site: ${currentTrends.staffOnSite}
         - Average Visit Duration: ${currentTrends.avgVisitDuration}
 
-        Provide JSON response with:
-        1. nextWeekPrediction: Forecast for next week's visitor volume
-        2. peakHoursForecast: Predicted peak visitor hours
-        3. capacityRecommendation: Staffing/space recommendations
-        4. departmentInsights: Array of insights about department visitor patterns
+        Provide JSON response with simple string values:
+        1. nextWeekPrediction: Single sentence forecast for next week's visitor volume
+        2. peakHoursForecast: Single sentence about predicted peak visitor hours
+        3. capacityRecommendation: Single sentence about staffing/space recommendations
+        4. departmentInsights: Array of simple string insights about department visitor patterns
 
+        IMPORTANT: Return only simple strings, not complex objects. Each field should be a plain text string or array of strings.
         Base predictions on typical business patterns and current data.
       `;
 
@@ -222,11 +247,31 @@ export class AIService {
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
       
+      // Helper function to extract string from object or return string directly
+      const extractString = (value: any, fallback: string): string => {
+        if (typeof value === 'string') return value;
+        if (typeof value === 'object' && value !== null) {
+          // Try to extract meaningful content from object
+          return value.summary || value.prediction || value.forecast || 
+                 value.recommendation || value.insight || 
+                 JSON.stringify(value).replace(/[{}]/g, '').replace(/"/g, '') || fallback;
+        }
+        return fallback;
+      };
+      
+      const extractArray = (value: any, fallback: string[]): string[] => {
+        if (Array.isArray(value)) {
+          return value.map(item => extractString(item, 'Standard insight'));
+        }
+        if (typeof value === 'string') return [value];
+        return fallback;
+      };
+      
       return {
-        nextWeekPrediction: result.nextWeekPrediction || 'Steady visitor flow expected',
-        peakHoursForecast: result.peakHoursForecast || '9AM-11AM typical peak hours',
-        capacityRecommendation: result.capacityRecommendation || 'Current capacity adequate',
-        departmentInsights: result.departmentInsights || ['Standard department activity']
+        nextWeekPrediction: extractString(result.nextWeekPrediction, 'Steady visitor flow expected'),
+        peakHoursForecast: extractString(result.peakHoursForecast, '9AM-11AM typical peak hours'),
+        capacityRecommendation: extractString(result.capacityRecommendation, 'Current capacity adequate'),
+        departmentInsights: extractArray(result.departmentInsights, ['Standard department activity'])
       };
 
     } catch (error) {
