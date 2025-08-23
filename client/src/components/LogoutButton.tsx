@@ -10,14 +10,7 @@ export default function LogoutButton() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/auth/logout", {
-        method: "POST",
-      });
-      
-      if (!response.ok) {
-        throw new Error("Logout failed");
-      }
-      
+      const response = await apiRequest("POST", "/api/auth/logout");
       return response.json();
     },
     onSuccess: () => {
