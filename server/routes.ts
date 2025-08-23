@@ -18,7 +18,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Staff endpoints
+  // Recent activity endpoint\n  app.get("/api/activity/recent", async (req, res) => {\n    try {\n      const activities = await storage.getRecentActivity();\n      res.json(activities);\n    } catch (error) {\n      res.status(500).json({ error: "Failed to fetch recent activity" });\n    }\n  });\n\n  // Muster endpoint for emergency situations\n  app.get("/api/muster", async (req, res) => {\n    try {\n      const musterList = await storage.getMusterList();\n      res.json(musterList);\n    } catch (error) {\n      res.status(500).json({ error: "Failed to fetch muster list" });\n    }\n  });\n\n  // Staff endpoints
   app.get("/api/staff", async (req, res) => {
     try {
       const staff = await storage.getAllStaff();

@@ -10,7 +10,7 @@ import Dashboard from "@/pages/Dashboard";
 import StaffManagement from "@/pages/StaffManagement";
 import KioskMode from "@/pages/KioskMode";
 import VisitorCheckIn from "@/pages/VisitorCheckIn";
-import MusterList from "@/pages/MusterList";
+import EmergencyMuster from "@/pages/EmergencyMuster";
 import Settings from "@/pages/Settings";
 import Reports from "@/pages/Reports";
 import PreBooking from "@/pages/PreBooking";
@@ -24,7 +24,7 @@ function Router() {
         <Route path="/prebooking" component={PreBooking} />
         <Route path="/kiosk" component={KioskMode} />
         <Route path="/checkin" component={VisitorCheckIn} />
-        <Route path="/muster" component={MusterList} />
+        <Route path="/muster" component={EmergencyMuster} />
         <Route path="/reports" component={Reports} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

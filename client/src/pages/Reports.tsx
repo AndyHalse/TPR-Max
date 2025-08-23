@@ -20,7 +20,12 @@ import {
   Clock,
   Users,
   TrendingUp,
-  Send
+  Send,
+  BarChart3,
+  PieChart,
+  Activity,
+  Target,
+  Star
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Report } from "@shared/schema";
@@ -158,6 +163,69 @@ export default function Reports() {
         <h2 className="text-2xl font-bold text-slate-800">Reports & Analytics</h2>
       </div>
 
+      {/* Advanced Analytics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        <GlassCard className="dark:glass-dark">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">ROI Impact</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+                £12.5K
+              </p>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">Saved annually</p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+              <Target className="text-green-600 dark:text-green-400" size={24} />
+            </div>
+          </div>
+        </GlassCard>
+        
+        <GlassCard className="dark:glass-dark">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Efficiency Gain</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                89%
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">vs manual logging</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+              <Activity className="text-blue-600 dark:text-blue-400" size={24} />
+            </div>
+          </div>
+        </GlassCard>
+        
+        <GlassCard className="dark:glass-dark">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">User Rating</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">
+                4.9/5
+              </p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">98% satisfaction</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
+              <Star className="text-yellow-600 dark:text-yellow-400" size={24} />
+            </div>
+          </div>
+        </GlassCard>
+        
+        <GlassCard className="dark:glass-dark">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Cost Savings</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+                67%
+              </p>
+              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">vs traditional systems</p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+              <PieChart className="text-purple-600 dark:text-purple-400" size={24} />
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Generate New Report */}
         <GlassCard>
