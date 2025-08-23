@@ -41,12 +41,14 @@ export default function AIInsights() {
   });
 
   const getRiskColor = (risk: string) => {
+    if (!risk || typeof risk !== 'string') return 'text-green-600';
     if (risk.toLowerCase().includes('high')) return 'text-red-600';
     if (risk.toLowerCase().includes('medium')) return 'text-yellow-600';
     return 'text-green-600';
   };
 
   const getRiskBadgeVariant = (risk: string) => {
+    if (!risk || typeof risk !== 'string') return 'default';
     if (risk.toLowerCase().includes('high')) return 'destructive';
     if (risk.toLowerCase().includes('medium')) return 'secondary';
     return 'default';
@@ -78,7 +80,7 @@ export default function AIInsights() {
             className="text-sm px-3 py-1"
             data-testid="ai-risk-badge"
           >
-            Risk: {insights?.insights.riskAssessment?.split(' ')[0] || 'Unknown'}
+            Risk: {typeof insights?.insights.riskAssessment === 'string' ? insights.insights.riskAssessment.split(' ')[0] : 'Unknown'}
           </Badge>
         </div>
         
@@ -157,7 +159,7 @@ export default function AIInsights() {
                 {analytics?.analytics.departmentInsights.slice(0, 3).map((insight, index) => (
                   <li key={index} className="flex items-start">
                     <span className="text-green-600 mr-2">•</span>
-                    {insight}
+                    {typeof insight === 'string' ? insight : JSON.stringify(insight)}
                   </li>
                 ))}
               </ul>

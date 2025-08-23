@@ -734,6 +734,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI ROI Calculator endpoint
+  app.post("/api/ai/roi-analysis", async (req, res) => {
+    try {
+      const { monthlyVisitors, staffCount, manualProcessTime } = req.body;
+      
+      if (!monthlyVisitors || !staffCount || !manualProcessTime) {
+        return res.status(400).json({ error: "Monthly visitors, staff count, and manual process time required" });
+      }
+
+      const roiAnalysis = await aiService.generateROIAnalysis(
+        Number(monthlyVisitors),
+        Number(staffCount), 
+        Number(manualProcessTime)
+      );
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        roi: roiAnalysis
+      });
+    } catch (error) {
+      console.error("AI ROI analysis error:", error);
+      res.status(500).json({ error: "Failed to generate ROI analysis" });
+    }
+  });
+
+  // AI Visitor Sentiment Analysis endpoint
+  app.get("/api/ai/visitor-sentiment", async (req, res) => {
+    try {
+      const visitors = await storage.getCurrentVisitors();
+      const stats = await storage.getVisitorStats();
+      
+      const sentiment = await aiService.analyzeVisitorSentiment(visitors, stats.avgVisitDuration);
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        sentiment
+      });
+    } catch (error) {
+      console.error("AI sentiment analysis error:", error);
+      res.status(500).json({ error: "Failed to analyze visitor sentiment" });
+    }
+  });
+
+  // AI Compliance Analysis endpoint
+  app.get("/api/ai/compliance", async (req, res) => {
+    try {
+      const visitors = await storage.getCurrentVisitors();
+      const staff = await storage.getAllStaff();
+      
+      const compliance = await aiService.generateComplianceAnalysis(visitors, staff);
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        compliance
+      });
+    } catch (error) {
+      console.error("AI compliance analysis error:", error);
+      res.status(500).json({ error: "Failed to generate compliance analysis" });
+    }
+  });
+
   // Initialize automatic reports
   setupAutomaticReports();
 
