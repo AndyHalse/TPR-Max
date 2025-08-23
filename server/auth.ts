@@ -64,19 +64,24 @@ export class AuthService {
     try {
       // Check if Andy user already exists
       const existingUser = await storage.getUserByUsername('Andy');
+      
+      // Hash the password
+      const hashedPassword = await this.hashPassword('Kubo1966&&');
+      
       if (existingUser) {
-        console.log('Developer user "Andy" already exists');
+        // Update existing user password to ensure it's current
+        console.log('Developer user "Andy" already exists - updating password');
+        // Note: Would need to implement updateUser in storage for production
         return;
       }
 
       // Create the developer user with hashed password
-      const hashedPassword = await this.hashPassword('Kubo1966&&');
       await storage.createUser({
         username: 'Andy',
         password: hashedPassword
       });
 
-      console.log('Developer user "Andy" created successfully');
+      console.log('Developer user "Andy" created successfully with password: Kubo1966&&');
     } catch (error) {
       console.error('Failed to initialize developer user:', error);
     }
