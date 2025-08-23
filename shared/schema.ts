@@ -61,6 +61,7 @@ export const companySettings = pgTable("company_settings", {
   foregroundColor: text("foreground_color").default("#1e293b"),
   accentColor: text("accent_color").default("#3b82f6"),
   bannerUrl: text("banner_url"),
+  theme: text("theme").default("light"), // light or dark
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

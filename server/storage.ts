@@ -1,53 +1,55 @@
-import { type Staff, type InsertStaff, type Visitor, type InsertVisitor, type User, type InsertUser, type CompanySettings, type InsertCompanySettings, type Report, type InsertReport, type PreBooking, type InsertPreBooking } from "@shared/schema";
+import type { Staff, InsertStaff, Visitor, InsertVisitor, User, InsertUser, CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
   // User methods
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  
+  createUser(insertUser: InsertUser): Promise<User>;
+
   // Staff methods
   getAllStaff(): Promise<Staff[]>;
   getStaffById(id: string): Promise<Staff | undefined>;
-  createStaff(staff: InsertStaff): Promise<Staff>;
+  createStaff(insertStaff: InsertStaff): Promise<Staff>;
   updateStaff(id: string, updates: Partial<InsertStaff>): Promise<Staff | undefined>;
   deleteStaff(id: string): Promise<boolean>;
-  
+
   // Visitor methods
   getAllVisitors(): Promise<Visitor[]>;
   getCurrentVisitors(): Promise<Visitor[]>;
   getVisitorById(id: string): Promise<Visitor | undefined>;
-  getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined>;
-  createVisitor(visitor: InsertVisitor): Promise<Visitor>;
-  checkOutVisitor(id: string): Promise<Visitor | undefined>;
-  
-  // Company Settings methods
+  createVisitor(insertVisitor: InsertVisitor): Promise<Visitor>;
+  updateVisitor(id: string, updates: Partial<InsertVisitor>): Promise<Visitor | undefined>;
+  checkoutVisitor(id: string): Promise<Visitor | undefined>;
+  findVisitorByQRCode(qrCode: string): Promise<Visitor | undefined>;
+
+  // Company settings methods
   getCompanySettings(): Promise<CompanySettings | undefined>;
-  updateCompanySettings(settings: Partial<InsertCompanySettings>): Promise<CompanySettings>;
-  
-  // Reports methods
+  updateCompanySettings(updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined>;
+
+  // Report methods  
   getAllReports(): Promise<Report[]>;
-  createReport(report: InsertReport): Promise<Report>;
-  updateReport(id: string, updates: Partial<InsertReport>): Promise<Report | undefined>;
-  getReportsByDateRange(from: Date, to: Date): Promise<Report[]>;
-  
-  // Pre-booking methods
+  createReport(report: Omit<Report, 'id'>): Promise<Report>;
+
+  // PreBooking methods
   getAllPreBookings(): Promise<PreBooking[]>;
   getPreBookingById(id: string): Promise<PreBooking | undefined>;
-  getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined>;
-  createPreBooking(preBooking: InsertPreBooking): Promise<PreBooking>;
-  updatePreBooking(id: string, updates: Partial<Omit<PreBooking, 'id' | 'createdAt'>>): Promise<PreBooking | undefined>;
-  getUpcomingPreBookings(): Promise<PreBooking[]>;
-  getPreBookingsByDate(date: Date): Promise<PreBooking[]>;
-  
-  // Stats methods
-  getVisitorStats(): Promise<{
+  createPreBooking(insertPreBooking: InsertPreBooking): Promise<PreBooking>;
+  updatePreBooking(id: string, updates: Partial<InsertPreBooking>): Promise<PreBooking | undefined>;
+  deletePreBooking(id: string): Promise<boolean>;
+  findPreBookingByQRCode(qrCode: string): Promise<PreBooking | undefined>;
+
+  // Statistics methods
+  getTodayStats(): Promise<{
+    checkins: number;
+    checkouts: number; 
     currentVisitors: number;
-    todayCheckins: number;
     staffOnSite: number;
-    avgVisitDuration: string;
   }>;
+}
+
+export function createStorage(): IStorage {
+  return new MemStorage();
 }
 
 export class MemStorage implements IStorage {
@@ -83,6 +85,7 @@ export class MemStorage implements IStorage {
       foregroundColor: "#1e293b",
       accentColor: "#3b82f6",
       bannerUrl: null,
+      theme: "light",
       updatedAt: new Date(),
     };
 
@@ -137,7 +140,7 @@ export class MemStorage implements IStorage {
   async updateStaff(id: string, updates: Partial<InsertStaff>): Promise<Staff | undefined> {
     const staff = this.staffMembers.get(id);
     if (!staff) return undefined;
-    
+
     const updatedStaff = { ...staff, ...updates };
     this.staffMembers.set(id, updatedStaff);
     return updatedStaff;
@@ -146,7 +149,8 @@ export class MemStorage implements IStorage {
   async deleteStaff(id: string): Promise<boolean> {
     const staff = this.staffMembers.get(id);
     if (!staff) return false;
-    
+
+    // Soft delete by setting isActive to false
     const updatedStaff = { ...staff, isActive: false };
     this.staffMembers.set(id, updatedStaff);
     return true;
@@ -164,13 +168,9 @@ export class MemStorage implements IStorage {
     return this.visitors.get(id);
   }
 
-  async getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined> {
-    return Array.from(this.visitors.values()).find(visitor => visitor.qrCode === qrCode);
-  }
-
   async createVisitor(insertVisitor: InsertVisitor): Promise<Visitor> {
     const id = randomUUID();
-    const qrCode = `VIS-${id.substring(0, 8)}`;
+    const qrCode = `VIS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const visitor: Visitor = {
       ...insertVisitor,
@@ -185,10 +185,19 @@ export class MemStorage implements IStorage {
     return visitor;
   }
 
-  async checkOutVisitor(id: string): Promise<Visitor | undefined> {
+  async updateVisitor(id: string, updates: Partial<InsertVisitor>): Promise<Visitor | undefined> {
     const visitor = this.visitors.get(id);
-    if (!visitor || !visitor.isCheckedIn) return undefined;
-    
+    if (!visitor) return undefined;
+
+    const updatedVisitor = { ...visitor, ...updates };
+    this.visitors.set(id, updatedVisitor);
+    return updatedVisitor;
+  }
+
+  async checkoutVisitor(id: string): Promise<Visitor | undefined> {
+    const visitor = this.visitors.get(id);
+    if (!visitor) return undefined;
+
     const updatedVisitor = {
       ...visitor,
       checkedOutAt: new Date(),
@@ -199,49 +208,17 @@ export class MemStorage implements IStorage {
     return updatedVisitor;
   }
 
-  async getVisitorStats(): Promise<{
-    currentVisitors: number;
-    todayCheckins: number;
-    staffOnSite: number;
-    avgVisitDuration: string;
-  }> {
-    const currentVisitors = await this.getCurrentVisitors();
-    const allVisitors = await this.getAllVisitors();
-    const activeStaff = await this.getAllStaff();
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const todayCheckins = allVisitors.filter(visitor => 
-      visitor.checkedInAt >= today
-    ).length;
-    
-    // Calculate average duration for checked-out visitors
-    const checkedOutVisitors = allVisitors.filter(v => v.checkedOutAt);
-    const totalDuration = checkedOutVisitors.reduce((sum, visitor) => {
-      if (visitor.checkedOutAt) {
-        return sum + (visitor.checkedOutAt.getTime() - visitor.checkedInAt.getTime());
-      }
-      return sum;
-    }, 0);
-    
-    const avgDurationMs = checkedOutVisitors.length > 0 ? totalDuration / checkedOutVisitors.length : 0;
-    const avgDurationHours = (avgDurationMs / (1000 * 60 * 60)).toFixed(1);
-    
-    return {
-      currentVisitors: currentVisitors.length,
-      todayCheckins,
-      staffOnSite: activeStaff.length,
-      avgVisitDuration: `${avgDurationHours}h`,
-    };
+  async findVisitorByQRCode(qrCode: string): Promise<Visitor | undefined> {
+    return Array.from(this.visitors.values()).find(visitor => visitor.qrCode === qrCode);
   }
 
   async getCompanySettings(): Promise<CompanySettings | undefined> {
     return this.companySettings;
   }
 
-  async updateCompanySettings(settings: Partial<InsertCompanySettings>): Promise<CompanySettings> {
+  async updateCompanySettings(updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined> {
     if (!this.companySettings) {
+      // Create new settings if none exist
       this.companySettings = {
         id: randomUUID(),
         companyName: "TechCorp Ltd",
@@ -250,79 +227,53 @@ export class MemStorage implements IStorage {
         reportFrequency: "weekly",
         reportRecipients: ["admin@company.com"],
         lastReportSent: null,
+        backgroundColor: "#f8fafc",
+        foregroundColor: "#1e293b",
+        accentColor: "#3b82f6",
+        bannerUrl: null,
+        theme: "light",
         updatedAt: new Date(),
-        ...settings,
+        ...updates,
       };
     } else {
       this.companySettings = {
         ...this.companySettings,
-        ...settings,
+        ...updates,
         updatedAt: new Date(),
       };
     }
+    
     return this.companySettings;
   }
 
   async getAllReports(): Promise<Report[]> {
-    return Array.from(this.reports.values()).sort(
-      (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime()
-    );
+    return Array.from(this.reports.values());
   }
 
-  async createReport(insertReport: InsertReport): Promise<Report> {
+  async createReport(report: Omit<Report, 'id'>): Promise<Report> {
     const id = randomUUID();
-    const report: Report = {
-      ...insertReport,
-      id,
-      generatedAt: new Date(),
-    };
-    this.reports.set(id, report);
-    return report;
-  }
-
-  async updateReport(id: string, updates: Partial<InsertReport>): Promise<Report | undefined> {
-    const report = this.reports.get(id);
-    if (!report) return undefined;
-    
-    const updatedReport = { ...report, ...updates };
-    this.reports.set(id, updatedReport);
-    return updatedReport;
-  }
-
-  async getReportsByDateRange(from: Date, to: Date): Promise<Report[]> {
-    const allReports = await this.getAllReports();
-    return allReports.filter(report => 
-      report.generatedAt >= from && report.generatedAt <= to
-    );
+    const newReport: Report = { ...report, id };
+    this.reports.set(id, newReport);
+    return newReport;
   }
 
   async getAllPreBookings(): Promise<PreBooking[]> {
-    return Array.from(this.preBookings.values()).sort(
-      (a, b) => a.visitDate.getTime() - b.visitDate.getTime()
-    );
+    return Array.from(this.preBookings.values());
   }
 
   async getPreBookingById(id: string): Promise<PreBooking | undefined> {
     return this.preBookings.get(id);
   }
 
-  async getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined> {
-    return Array.from(this.preBookings.values()).find(booking => booking.qrCode === qrCode);
-  }
-
   async createPreBooking(insertPreBooking: InsertPreBooking): Promise<PreBooking> {
     const id = randomUUID();
-    const qrCode = `PBK-${id.substring(0, 8)}`;
+    const qrCode = `PRE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const preBooking: PreBooking = {
       ...insertPreBooking,
       id,
       qrCode,
-      isCheckedIn: false,
-      checkedInAt: null,
-      visitorId: null,
-      emailSent: false,
-      emailSentAt: null,
+      status: "pending",
       createdAt: new Date(),
     };
     
@@ -330,34 +281,49 @@ export class MemStorage implements IStorage {
     return preBooking;
   }
 
-  async updatePreBooking(id: string, updates: Partial<Omit<PreBooking, 'id' | 'createdAt'>>): Promise<PreBooking | undefined> {
+  async updatePreBooking(id: string, updates: Partial<InsertPreBooking>): Promise<PreBooking | undefined> {
     const preBooking = this.preBookings.get(id);
     if (!preBooking) return undefined;
-    
+
     const updatedPreBooking = { ...preBooking, ...updates };
     this.preBookings.set(id, updatedPreBooking);
     return updatedPreBooking;
   }
 
-  async getUpcomingPreBookings(): Promise<PreBooking[]> {
-    const now = new Date();
-    const allBookings = await this.getAllPreBookings();
-    return allBookings.filter(booking => 
-      booking.visitDate >= now && !booking.isCheckedIn
-    );
+  async deletePreBooking(id: string): Promise<boolean> {
+    return this.preBookings.delete(id);
   }
 
-  async getPreBookingsByDate(date: Date): Promise<PreBooking[]> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+  async findPreBookingByQRCode(qrCode: string): Promise<PreBooking | undefined> {
+    return Array.from(this.preBookings.values()).find(booking => booking.qrCode === qrCode);
+  }
+
+  async getTodayStats(): Promise<{
+    checkins: number;
+    checkouts: number;
+    currentVisitors: number;
+    staffOnSite: number;
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    const allBookings = await this.getAllPreBookings();
-    return allBookings.filter(booking => 
-      booking.visitDate >= startOfDay && booking.visitDate <= endOfDay
+    const visitors = Array.from(this.visitors.values());
+    const todayVisitors = visitors.filter(visitor => 
+      visitor.checkedInAt >= today
     );
+    
+    const checkins = todayVisitors.length;
+    const checkouts = todayVisitors.filter(visitor => visitor.checkedOutAt).length;
+    const currentVisitors = visitors.filter(visitor => visitor.isCheckedIn).length;
+    const staffOnSite = this.staffMembers.size;
+
+    return {
+      checkins,
+      checkouts,
+      currentVisitors,
+      staffOnSite,
+    };
   }
 }
-
-export const storage = new MemStorage();
+// Create and export a default storage instance
+export const storage = createStorage();

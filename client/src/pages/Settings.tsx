@@ -13,11 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
 
 export default function Settings() {
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState<Partial<InsertCompanySettings>>({});
   const [testEmail, setTestEmail] = useState("");
   const [activeTab, setActiveTab] = useState("company");
@@ -176,7 +178,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -184,6 +186,10 @@ export default function Settings() {
           <TabsTrigger value="branding" className="flex items-center gap-2">
             <Palette size={16} />
             Branding
+          </TabsTrigger>
+          <TabsTrigger value="theme" className="flex items-center gap-2">
+            <Monitor size={16} />
+            Theme
           </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <Mail size={16} />
