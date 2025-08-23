@@ -5,6 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
+import WalkInVisitorForm from "@/components/WalkInVisitorForm";
 import { UserPlus, BadgeInfo, LogOut, QrCode, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import type { Staff, Visitor } from "@shared/schema";
 
 export default function KioskMode() {
   const { toast } = useToast();
-  const [activeSection, setActiveSection] = useState<"main" | "scan">("main");
+  const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin">("main");
   const [scannedCode, setScannedCode] = useState("");
   const [currentVisitor, setCurrentVisitor] = useState<Visitor | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -122,6 +123,12 @@ export default function KioskMode() {
     });
   };
 
+  if (activeSection === "walkin") {
+    return (
+      <WalkInVisitorForm onBack={() => setActiveSection("main")} />
+    );
+  }
+
   if (activeSection === "scan") {
     return (
       <div className="max-w-2xl mx-auto space-y-8">
@@ -219,15 +226,19 @@ export default function KioskMode() {
           </GlassCard>
         </div>
 
-        <Link href="/checkin">
+        <div 
+          className="cursor-pointer" 
+          onClick={() => setActiveSection("walkin")}
+          data-testid="button-manual-checkin"
+        >
           <GlassCard hover className="text-center p-8 group">
             <div className="w-24 h-24 gradient-blue rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
               <UserPlus className="text-white" size={32} />
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">Manual Check-In</h3>
-            <p className="text-slate-600 text-sm">New visitor or contractor</p>
+            <p className="text-slate-600 text-sm">Walk-in visitor entry</p>
           </GlassCard>
-        </Link>
+        </div>
 
         <GlassCard hover className="text-center p-8 group" data-testid="button-staff-checkin">
           <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">

@@ -79,6 +79,10 @@ export class MemStorage implements IStorage {
       reportFrequency: "weekly",
       reportRecipients: ["admin@company.com"],
       lastReportSent: null,
+      backgroundColor: "#f8fafc",
+      foregroundColor: "#1e293b",
+      accentColor: "#3b82f6",
+      bannerUrl: null,
       updatedAt: new Date(),
     };
 

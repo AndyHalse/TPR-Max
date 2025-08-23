@@ -56,6 +56,11 @@ export const companySettings = pgTable("company_settings", {
   reportFrequency: text("report_frequency").default("weekly"), // daily, weekly, monthly
   reportRecipients: text("report_recipients").array().default(["admin@company.com"]),
   lastReportSent: timestamp("last_report_sent"),
+  // Branding settings
+  backgroundColor: text("background_color").default("#f8fafc"),
+  foregroundColor: text("foreground_color").default("#1e293b"),
+  accentColor: text("accent_color").default("#3b82f6"),
+  bannerUrl: text("banner_url"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
