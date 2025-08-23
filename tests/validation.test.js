@@ -4,7 +4,7 @@
  * to ensure the system works correctly for potential customers.
  */
 
-const { describe, it, expect, beforeEach, afterEach } = require('@jest/globals');
+// Simple validation test runner for VisiGate Pro\n// This runs comprehensive tests to validate the system works correctly
 
 // Test configuration
 const TEST_CONFIG = {
