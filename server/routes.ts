@@ -5,6 +5,7 @@ import { insertStaffSchema, insertVisitorSchema, insertCompanySettingsSchema, in
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { emailService } from "./emailService";
+import { aiService } from "./aiService";
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -640,6 +641,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending report:", error);
       res.status(500).json({ error: "Failed to send visitor report" });
+    }
+  });
+
+  // AI-powered visitor insights endpoint
+  app.get("/api/ai/insights", async (req, res) => {
+    try {
+      const visitors = await storage.getCurrentVisitors();
+      const staff = await storage.getAllStaff();
+      const stats = await storage.getVisitorStats();
+      
+      const insights = await aiService.generateVisitorInsights(visitors, staff, stats);
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        insights
+      });
+    } catch (error) {
+      console.error("AI insights error:", error);
+      res.status(500).json({ error: "Failed to generate AI insights" });
+    }
+  });
+
+  // AI predictive analytics endpoint
+  app.get("/api/ai/analytics", async (req, res) => {
+    try {
+      const stats = await storage.getVisitorStats();
+      const currentTrends = {
+        currentVisitors: stats.currentVisitors,
+        todayCheckins: stats.todayCheckins,
+        staffOnSite: stats.staffOnSite,
+        avgVisitDuration: stats.avgVisitDuration
+      };
+      
+      const analytics = await aiService.generatePredictiveAnalytics({}, currentTrends);
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        analytics
+      });
+    } catch (error) {
+      console.error("AI analytics error:", error);
+      res.status(500).json({ error: "Failed to generate AI analytics" });
+    }
+  });
+
+  // AI security alert endpoint
+  app.post("/api/ai/security-alert", async (req, res) => {
+    try {
+      const { pattern } = req.body;
+      
+      if (!pattern) {
+        return res.status(400).json({ error: "Security pattern description required" });
+      }
+
+      const visitors = await storage.getCurrentVisitors();
+      const alert = await aiService.generateSecurityAlert(visitors, pattern);
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        alert,
+        riskLevel: alert.toLowerCase().includes('immediate') ? 'high' : 'medium'
+      });
+    } catch (error) {
+      console.error("AI security alert error:", error);
+      res.status(500).json({ error: "Failed to generate security alert" });
+    }
+  });
+
+  // AI photo analysis endpoint
+  app.post("/api/ai/analyze-photo", async (req, res) => {
+    try {
+      const { image } = req.body;
+      
+      if (!image) {
+        return res.status(400).json({ error: "Base64 image data required" });
+      }
+
+      const analysis = await aiService.analyzeVisitorPhoto(image);
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        analysis
+      });
+    } catch (error) {
+      console.error("AI photo analysis error:", error);
+      res.status(500).json({ error: "Failed to analyze photo" });
     }
   });
 

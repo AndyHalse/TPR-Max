@@ -14,6 +14,7 @@ import EmergencyMuster from "@/pages/EmergencyMuster";
 import Settings from "@/pages/Settings";
 import Reports from "@/pages/Reports";
 import PreBooking from "@/pages/PreBooking";
+import AIDemo from "@/pages/AIDemo";
 
 function Router() {
   return (
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/muster" component={EmergencyMuster} />
         <Route path="/reports" component={Reports} />
         <Route path="/settings" component={Settings} />
+        <Route path="/ai-demo" component={AIDemo} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

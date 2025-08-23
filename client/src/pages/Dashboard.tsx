@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
+import AIInsights from "@/components/AIInsights";
 import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -532,6 +533,17 @@ export default function Dashboard() {
             </div>
           </div>
         </GlassCard>
+      </div>
+
+      {/* AI-Powered Insights Section */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">AI-Powered Intelligence</h2>
+          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+            Powered by OpenAI
+          </Badge>
+        </div>
+        <AIInsights />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,6 +15,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
     { path: "/muster", icon: ListChecks, label: "Muster List" },
     { path: "/reports", icon: FileText, label: "Reports" },
+    { path: "/ai-demo", icon: Brain, label: "AI Demo" },
     { path: "/settings", icon: Settings, label: "Settings" },
   ];
 
