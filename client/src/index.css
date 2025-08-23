@@ -67,6 +67,11 @@
   --chart-3: hsl(30, 80%, 55%);
   --chart-4: hsl(280, 65%, 60%);
   --chart-5: hsl(340, 75%, 55%);
+  
+  /* Dark mode glassmorphism */
+  --glass-bg: rgba(30, 41, 59, 0.3);
+  --glass-border: rgba(71, 85, 105, 0.3);
+  --glass-hover: rgba(30, 41, 59, 0.4);
 }
 
 @layer base {
@@ -74,7 +79,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 font-[Inter] text-foreground min-h-screen;
+    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-[Inter] text-foreground min-h-screen transition-colors duration-300;
   }
 }
 
