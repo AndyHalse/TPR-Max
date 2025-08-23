@@ -76,11 +76,11 @@ export default function AIInsights() {
             <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">AI Security Intelligence</h3>
           </div>
           <Badge 
-            variant={getRiskBadgeVariant(insights?.insights.riskAssessment || 'low')}
+            variant={getRiskBadgeVariant(insights?.insights?.riskAssessment || 'low')}
             className="text-sm px-3 py-1"
             data-testid="ai-risk-badge"
           >
-            Risk: {typeof insights?.insights.riskAssessment === 'string' ? insights.insights.riskAssessment.split(' ')[0] : 'Unknown'}
+            Risk: {typeof insights?.insights?.riskAssessment === 'string' ? insights.insights.riskAssessment.split(' ')[0] : 'Unknown'}
           </Badge>
         </div>
         
@@ -90,7 +90,7 @@ export default function AIInsights() {
               <Lightbulb className="mr-2 text-yellow-600" size={18} />
               Key Insights
             </h4>
-            {insights?.insights.insights.slice(0, 2).map((insight, index) => (
+            {insights?.insights?.insights?.slice(0, 2).map((insight, index) => (
               <div key={index} className="bg-white/70 dark:bg-slate-800/70 p-3 rounded-lg">
                 <p className="text-sm text-slate-700 dark:text-slate-300">{insight}</p>
               </div>
@@ -102,7 +102,7 @@ export default function AIInsights() {
               <Shield className="mr-2 text-green-600" size={18} />
               Recommendations
             </h4>
-            {insights?.insights.recommendations.slice(0, 2).map((rec, index) => (
+            {insights?.insights?.recommendations?.slice(0, 2).map((rec, index) => (
               <div key={index} className="bg-white/70 dark:bg-slate-800/70 p-3 rounded-lg">
                 <p className="text-sm text-slate-700 dark:text-slate-300">{rec}</p>
               </div>
@@ -112,7 +112,7 @@ export default function AIInsights() {
 
         <div className="mt-4 bg-blue-100 dark:bg-blue-900/30 p-4 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Risk Assessment:</strong> {insights?.insights.riskAssessment}
+            <strong>Risk Assessment:</strong> {insights?.insights?.riskAssessment || 'Assessment in progress...'}
           </p>
         </div>
         
@@ -138,25 +138,25 @@ export default function AIInsights() {
           <div className="space-y-4">
             <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg">
               <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Next Week Forecast</h4>
-              <p className="text-sm text-slate-700 dark:text-slate-300">{analytics?.analytics.nextWeekPrediction}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">{analytics?.analytics?.nextWeekPrediction || 'Analyzing trends...'}</p>
             </div>
             
             <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg">
               <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Peak Hours Prediction</h4>
-              <p className="text-sm text-slate-700 dark:text-slate-300">{analytics?.analytics.peakHoursForecast}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">{analytics?.analytics?.peakHoursForecast || 'Calculating peak hours...'}</p>
             </div>
           </div>
           
           <div className="space-y-4">
             <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg">
               <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Capacity Planning</h4>
-              <p className="text-sm text-slate-700 dark:text-slate-300">{analytics?.analytics.capacityRecommendation}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">{analytics?.analytics?.capacityRecommendation || 'Evaluating capacity...'}</p>
             </div>
             
             <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg">
               <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Department Insights</h4>
               <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                {analytics?.analytics.departmentInsights.slice(0, 3).map((insight, index) => (
+                {analytics?.analytics?.departmentInsights?.slice(0, 3).map((insight, index) => (
                   <li key={index} className="flex items-start">
                     <span className="text-green-600 mr-2">•</span>
                     {typeof insight === 'string' ? insight : JSON.stringify(insight)}
@@ -180,7 +180,7 @@ export default function AIInsights() {
             <div>
               <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">All Insights</h4>
               <ul className="space-y-2">
-                {insights?.insights.insights.map((insight, index) => (
+                {insights?.insights?.insights?.map((insight, index) => (
                   <li key={index} className="text-sm text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-slate-800/50 p-2 rounded">
                     {insight}
                   </li>
@@ -191,7 +191,7 @@ export default function AIInsights() {
             <div>
               <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">All Recommendations</h4>
               <ul className="space-y-2">
-                {insights?.insights.recommendations.map((rec, index) => (
+                {insights?.insights?.recommendations?.map((rec, index) => (
                   <li key={index} className="text-sm text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-slate-800/50 p-2 rounded">
                     {rec}
                   </li>
@@ -201,7 +201,7 @@ export default function AIInsights() {
             
             <div className="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-lg">
               <h4 className="font-semibold text-purple-800 dark:text-purple-200 mb-2">AI Prediction</h4>
-              <p className="text-sm text-purple-700 dark:text-purple-300">{insights?.insights.prediction}</p>
+              <p className="text-sm text-purple-700 dark:text-purple-300">{insights?.insights?.prediction || 'Generating prediction...'}</p>
             </div>
           </div>
         </GlassCard>
