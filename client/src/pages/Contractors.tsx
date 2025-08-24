@@ -122,65 +122,7 @@ export default function Contractors() {
     refetchInterval: 30000,
   });
 
-  // Mock data for fallback - will be replaced with API calls
-  const mockContractors: ContractorCompany[] = [
-    {
-      id: "1",
-      name: "ABC Electrical Services Ltd",
-      email: "contact@abcelectrical.co.uk",
-      phone: "+44 1234 567890",
-      address: "123 Industrial Estate, Birmingham B1 1AA",
-      contactPerson: "John Smith",
-      status: "approved",
-      complianceScore: 92,
-      lastUpdated: "2025-01-20",
-      workersCount: 15,
-      documentsStatus: {
-        publicLiability: "valid",
-        employersLiability: "valid",
-        healthSafety: "expiring",
-        cisRegistration: "valid"
-      }
-    },
-    {
-      id: "2",
-      name: "Premier Plumbing Solutions",
-      email: "admin@premierplumbing.co.uk",
-      phone: "+44 1234 567891",
-      address: "456 Trade Park, Manchester M1 2BB",
-      contactPerson: "Sarah Johnson",
-      status: "pending",
-      complianceScore: 67,
-      lastUpdated: "2025-01-18",
-      workersCount: 8,
-      documentsStatus: {
-        publicLiability: "expired",
-        employersLiability: "valid",
-        healthSafety: "missing",
-        cisRegistration: "valid"
-      }
-    },
-    {
-      id: "3",
-      name: "Elite Construction Group",
-      email: "compliance@eliteconstruction.co.uk",
-      phone: "+44 1234 567892",
-      address: "789 Business Centre, Leeds LS1 3CC",
-      contactPerson: "Mike Thompson",
-      status: "approved",
-      complianceScore: 98,
-      lastUpdated: "2025-01-22",
-      workersCount: 45,
-      documentsStatus: {
-        publicLiability: "valid",
-        employersLiability: "valid",
-        healthSafety: "valid",
-        cisRegistration: "valid"
-      }
-    }
-  ];
-
-  const contractorData = contractors.length > 0 ? contractors : mockContractors;
+  const contractorData = contractors || [];
   const filteredContractors = contractorData.filter((contractor: ContractorCompany) =>
     contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     contractor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -349,7 +291,7 @@ export default function Contractors() {
             </div>
             <div>
               <p className="text-slate-600 text-sm">Total Contractors</p>
-              <p className="text-2xl font-bold text-slate-800">{mockContractors.length}</p>
+              <p className="text-2xl font-bold text-slate-800">{contractors?.length || 0}</p>
             </div>
           </div>
         </GlassCard>
@@ -362,7 +304,7 @@ export default function Contractors() {
             <div>
               <p className="text-slate-600 text-sm">Approved</p>
               <p className="text-2xl font-bold text-slate-800">
-                {mockContractors.filter(c => c.status === "approved").length}
+                {contractors?.filter(c => c.status === "approved").length || 0}
               </p>
             </div>
           </div>
@@ -376,7 +318,7 @@ export default function Contractors() {
             <div>
               <p className="text-slate-600 text-sm">Pending Review</p>
               <p className="text-2xl font-bold text-slate-800">
-                {mockContractors.filter(c => c.status === "pending").length}
+                {contractors?.filter(c => c.status === "pending").length || 0}
               </p>
             </div>
           </div>
@@ -390,7 +332,7 @@ export default function Contractors() {
             <div>
               <p className="text-slate-600 text-sm">Compliance Issues</p>
               <p className="text-2xl font-bold text-slate-800">
-                {mockContractors.filter(c => c.complianceScore < 80).length}
+                {contractors?.filter(c => (c.complianceScore || 0) < 80).length || 0}
               </p>
             </div>
           </div>
