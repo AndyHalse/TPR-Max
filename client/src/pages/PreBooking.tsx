@@ -207,7 +207,7 @@ export default function PreBooking() {
                 <SelectContent>
                   {staff?.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
-                      {member.name} - {member.department}
+                      {member.firstName} {member.lastName} - {member.department}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -391,7 +391,7 @@ export default function PreBooking() {
                         {formatBookingDate(booking.visitDate.toString())}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {hostStaffMember ? `${hostStaffMember.name} (${hostStaffMember.department})` : "Unknown"}
+                        {hostStaffMember ? `${hostStaffMember.firstName} ${hostStaffMember.lastName} (${hostStaffMember.department})` : "Unknown"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge className={getStatusColor(booking)}>
