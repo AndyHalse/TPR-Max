@@ -79,7 +79,7 @@ export default function Contractors() {
     lastName: "",
     email: "",
     phone: "",
-    rightToWorkStatus: "",
+    rightToWork: "",
     cscsCard: "",
     cscsStatus: "",
     ipafStatus: "",
@@ -209,7 +209,7 @@ export default function Contractors() {
       lastName: worker.lastName || "",
       email: worker.email || "",
       phone: worker.phone || "",
-      rightToWorkStatus: worker.rightToWork || "",
+      rightToWork: worker.rightToWork || "",
       cscsCard: worker.cscsCard || "",
       cscsStatus: worker.cscsStatus || "",
       ipafStatus: worker.ipafStatus || "",
@@ -1204,8 +1204,8 @@ export default function Contractors() {
                 <div>
                   <Label htmlFor="rightToWork">Right to Work Status</Label>
                   <Select 
-                    value={editWorkerForm.rightToWorkStatus} 
-                    onValueChange={(value) => setEditWorkerForm({...editWorkerForm, rightToWorkStatus: value})}
+                    value={editWorkerForm.rightToWork} 
+                    onValueChange={(value) => setEditWorkerForm({...editWorkerForm, rightToWork: value})}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
