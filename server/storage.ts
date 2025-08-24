@@ -324,6 +324,37 @@ export class MemStorage implements IStorage {
   }
 
   async createStaff(insertStaff: InsertStaff): Promise<Staff> {
+    // Validation: Check for required fields
+    if (!insertStaff.firstName?.trim()) {
+      throw new Error("First name is required");
+    }
+    if (!insertStaff.lastName?.trim()) {
+      throw new Error("Last name is required");
+    }
+    if (!insertStaff.email?.trim()) {
+      throw new Error("Email is required");
+    }
+    if (!insertStaff.employeeId?.trim()) {
+      throw new Error("Employee ID is required");
+    }
+    if (!insertStaff.department?.trim()) {
+      throw new Error("Department is required");
+    }
+    
+    // Validation: Check for duplicate email
+    const existingStaffByEmail = await this.getStaffByEmail(insertStaff.email);
+    if (existingStaffByEmail) {
+      throw new Error("A staff member with this email already exists");
+    }
+    
+    // Validation: Check for duplicate employee ID
+    const existingStaffByEmpId = Array.from(this.staffMembers.values()).find(
+      staff => staff.employeeId.toLowerCase() === insertStaff.employeeId.toLowerCase()
+    );
+    if (existingStaffByEmpId) {
+      throw new Error("A staff member with this employee ID already exists");
+    }
+    
     const id = randomUUID();
     
     // Hash password if provided
@@ -354,6 +385,41 @@ export class MemStorage implements IStorage {
   async updateStaff(id: string, updates: Partial<InsertStaff>): Promise<Staff | undefined> {
     const staff = this.staffMembers.get(id);
     if (!staff) return undefined;
+
+    // Validation: Check for duplicate email if email is being updated
+    if (updates.email && updates.email !== staff.email) {
+      const existingStaffByEmail = await this.getStaffByEmail(updates.email);
+      if (existingStaffByEmail && existingStaffByEmail.id !== id) {
+        throw new Error("A staff member with this email already exists");
+      }
+    }
+    
+    // Validation: Check for duplicate employee ID if employee ID is being updated
+    if (updates.employeeId && updates.employeeId !== staff.employeeId) {
+      const existingStaffByEmpId = Array.from(this.staffMembers.values()).find(
+        s => s.employeeId.toLowerCase() === updates.employeeId!.toLowerCase() && s.id !== id
+      );
+      if (existingStaffByEmpId) {
+        throw new Error("A staff member with this employee ID already exists");
+      }
+    }
+    
+    // Validation: Check required fields if they're being updated
+    if (updates.firstName !== undefined && !updates.firstName?.trim()) {
+      throw new Error("First name cannot be empty");
+    }
+    if (updates.lastName !== undefined && !updates.lastName?.trim()) {
+      throw new Error("Last name cannot be empty");
+    }
+    if (updates.email !== undefined && !updates.email?.trim()) {
+      throw new Error("Email cannot be empty");
+    }
+    if (updates.employeeId !== undefined && !updates.employeeId?.trim()) {
+      throw new Error("Employee ID cannot be empty");
+    }
+    if (updates.department !== undefined && !updates.department?.trim()) {
+      throw new Error("Department cannot be empty");
+    }
 
     // Hash password if being updated
     let hashedPassword = staff.password;
