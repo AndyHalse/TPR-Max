@@ -38,7 +38,12 @@ export default function TimeAttendance() {
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       
-      const response = await fetch(`/api/staff/time-attendance?${params}`);
+      const response = await fetch(`/api/staff/time-attendance?${params}`, {
+        cache: 'no-cache', // Ensure fresh data
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       if (!response.ok) throw new Error('Failed to fetch data');
       const data = await response.json();
       
@@ -50,15 +55,15 @@ export default function TimeAttendance() {
           checkInTime: new Date(session.checkInTime),
           checkOutTime: session.checkOutTime ? new Date(session.checkOutTime) : null,
         }))
-      }));
+      })) as TimeAttendanceRecord[];
     },
     staleTime: 0, // Always refetch when the component mounts
-    cacheTime: 0, // Don't cache the data
+    gcTime: 0, // Don't cache the data (React Query v5 syntax)
   });
 
   const handleDateChange = () => {
-    // Force a fresh refetch with new parameters
-    refetch();
+    // Force a fresh refetch with new parameters - this will trigger a new query
+    refetch({ cancelRefetch: true });
   };
 
   const formatTime = (date: Date) => {
@@ -75,14 +80,14 @@ export default function TimeAttendance() {
   };
 
   const exportToCSV = () => {
-    if (!timeAttendanceData) return;
+    if (!timeAttendanceData || !Array.isArray(timeAttendanceData)) return;
 
     const csvData = [
       ['Staff Name', 'Department', 'Date', 'Check In', 'Check Out', 'Hours Worked', 'Manual Entry'].join(',')
     ];
 
-    timeAttendanceData.forEach(record => {
-      record.sessions.forEach(session => {
+    timeAttendanceData.forEach((record: TimeAttendanceRecord) => {
+      record.sessions.forEach((session) => {
         csvData.push([
           `"${record.staffName}"`,
           `"${record.department}"`,
@@ -107,7 +112,7 @@ export default function TimeAttendance() {
   };
 
   const totalStaff = timeAttendanceData?.length || 0;
-  const totalHoursAllStaff = timeAttendanceData?.reduce((sum, record) => sum + record.totalHours, 0) || 0;
+  const totalHoursAllStaff = timeAttendanceData?.reduce((sum: number, record: TimeAttendanceRecord) => sum + record.totalHours, 0) || 0;
 
   if (isLoading) {
     return (
@@ -131,7 +136,7 @@ export default function TimeAttendance() {
           onClick={exportToCSV}
           className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
           data-testid="button-export-csv"
-          disabled={!timeAttendanceData || timeAttendanceData.length === 0}
+          disabled={!timeAttendanceData || !Array.isArray(timeAttendanceData) || timeAttendanceData.length === 0}
         >
           <Download className="mr-2" size={16} />
           Export CSV
@@ -221,7 +226,7 @@ export default function TimeAttendance() {
 
       {/* Time & Attendance Records */}
       <div className="space-y-6">
-        {!timeAttendanceData || timeAttendanceData.length === 0 ? (
+        {!timeAttendanceData || !Array.isArray(timeAttendanceData) || timeAttendanceData.length === 0 ? (
           <GlassCard>
             <div className="text-center py-12">
               <Clock className="mx-auto h-12 w-12 text-slate-400 mb-4" />
@@ -232,7 +237,7 @@ export default function TimeAttendance() {
             </div>
           </GlassCard>
         ) : (
-          timeAttendanceData.map((record) => (
+          timeAttendanceData.map((record: TimeAttendanceRecord) => (
             <GlassCard key={record.staffId}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -264,7 +269,7 @@ export default function TimeAttendance() {
                       </tr>
                     </thead>
                     <tbody>
-                      {record.sessions.map((session, index) => (
+                      {record.sessions.map((session, index: number) => (
                         <tr key={index} className="border-b border-slate-100">
                           <td className="py-2 text-slate-700">
                             {formatDate(session.checkInTime)}
