@@ -1802,7 +1802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if worker can check in (induction completed, valid status, etc.)
-      if (!worker.isActive || !worker.inductionCompleted || worker.rightToWorkStatus !== 'valid') {
+      if (!worker.isActive || !worker.inductionCompleted || worker.rightToWork !== 'valid') {
         return res.status(400).json({ 
           error: "Worker not cleared for check-in",
           details: "Worker must complete induction and have valid right to work status"
