@@ -237,6 +237,36 @@ export const contractorCompanies = pgTable("contractor_companies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Contractor Documents table
+export const contractorDocuments = pgTable("contractor_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull().references(() => contractorCompanies.id),
+  documentType: text("document_type").notNull(), // public_liability, employers_liability, health_safety, cis_registration, etc.
+  fileName: text("file_name"),
+  fileUrl: text("file_url"),
+  fileSize: text("file_size"),
+  mimeType: text("mime_type"),
+  expiryDate: timestamp("expiry_date"),
+  status: text("status").notNull().default("pending"), // pending, valid, expired, expiring, rejected
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  notes: text("notes"),
+});
+
+// Document Approvals table
+export const documentApprovals = pgTable("document_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => contractorDocuments.id),
+  contractorId: varchar("contractor_id").notNull().references(() => contractorCompanies.id),
+  documentType: text("document_type").notNull(),
+  approvalStatus: text("approval_status").notNull(), // approved, rejected, pending
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Contractor Workers table
 export const contractorWorkers = pgTable("contractor_workers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -335,6 +365,16 @@ export const insertComplianceDocumentSchema = createInsertSchema(complianceDocum
   uploadedAt: true,
 });
 
+export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export const insertDocumentApprovalSchema = createInsertSchema(documentApprovals).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertDocumentTypeSchema = createInsertSchema(documentTypes).omit({
   id: true,
   createdAt: true,
@@ -352,6 +392,10 @@ export type ContractorWorker = typeof contractorWorkers.$inferSelect;
 export type InsertContractorWorker = z.infer<typeof insertContractorWorkerSchema>;
 export type ComplianceDocument = typeof complianceDocuments.$inferSelect;
 export type InsertComplianceDocument = z.infer<typeof insertComplianceDocumentSchema>;
+export type ContractorDocument = typeof contractorDocuments.$inferSelect;
+export type InsertContractorDocument = z.infer<typeof insertContractorDocumentSchema>;
+export type DocumentApproval = typeof documentApprovals.$inferSelect;
+export type InsertDocumentApproval = z.infer<typeof insertDocumentApprovalSchema>;
 export type DocumentType = typeof documentTypes.$inferSelect;
 export type InsertDocumentType = z.infer<typeof insertDocumentTypeSchema>;
 export type WorkerCompetency = typeof workerCompetencies.$inferSelect;

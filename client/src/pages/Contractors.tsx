@@ -786,6 +786,105 @@ export default function Contractors() {
                   </table>
                 </div>
               </div>
+
+              {/* Document Management Section */}
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">Document Management</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Public Liability */}
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">Public Liability</span>
+                      <Badge className="bg-green-100 text-green-800">Valid</Badge>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <FileText className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-green-600 border-green-600">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Employers Liability */}
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">Employers Liability</span>
+                      <Badge className="bg-green-100 text-green-800">Valid</Badge>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <FileText className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-green-600 border-green-600">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Health & Safety */}
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">Health & Safety</span>
+                      <Badge className="bg-yellow-100 text-yellow-800">Expiring</Badge>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <FileText className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-yellow-600 border-yellow-600">
+                        <Clock className="h-4 w-4 mr-1" />
+                        Review
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* CIS Registration */}
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">CIS Registration</span>
+                      <Badge className="bg-green-100 text-green-800">Valid</Badge>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <FileText className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-green-600 border-green-600">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Approval History */}
+                <div className="mt-6">
+                  <h4 className="text-md font-semibold text-slate-800 mb-3">Recent Approvals</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <div>
+                        <span className="font-medium text-green-800">Public Liability approved</span>
+                        <p className="text-sm text-green-600">by Andy Smith on 24 Aug 2025 at 19:15</p>
+                      </div>
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <div>
+                        <span className="font-medium text-green-800">Employers Liability approved</span>
+                        <p className="text-sm text-green-600">by Andy Smith on 24 Aug 2025 at 19:14</p>
+                      </div>
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

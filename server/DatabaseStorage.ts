@@ -1,14 +1,15 @@
 import { db } from "./db";
 import { 
   staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
-  contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies
+  contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies,
+  documentApprovals
 } from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation,
   ContractorCompany, InsertContractorCompany, ContractorWorker, InsertContractorWorker,
   ComplianceDocument, InsertComplianceDocument, DocumentType, InsertDocumentType,
-  WorkerCompetency, InsertWorkerCompetency
+  WorkerCompetency, InsertWorkerCompetency, DocumentApproval, InsertDocumentApproval
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull } from "drizzle-orm";
@@ -977,6 +978,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(complianceDocuments.id, id));
     
     return (result.rowCount || 0) > 0;
+  }
+
+  async getComplianceDocumentById(id: string): Promise<ComplianceDocument | undefined> {
+    const [document] = await db.select().from(complianceDocuments).where(eq(complianceDocuments.id, id));
+    return document || undefined;
+  }
+
+  // Document Approval methods
+  async getDocumentApprovals(documentId: string): Promise<DocumentApproval[]> {
+    return await db.select().from(documentApprovals)
+      .where(eq(documentApprovals.documentId, documentId))
+      .orderBy(desc(documentApprovals.createdAt));
+  }
+
+  async createDocumentApproval(insertApproval: InsertDocumentApproval): Promise<DocumentApproval> {
+    const id = randomUUID();
+    
+    const [newApproval] = await db
+      .insert(documentApprovals)
+      .values({
+        ...insertApproval,
+        id,
+      })
+      .returning();
+    
+    return newApproval;
+  }
+
+  async getDocumentApprovalsByContractor(contractorId: string): Promise<DocumentApproval[]> {
+    return await db.select().from(documentApprovals)
+      .where(eq(documentApprovals.contractorId, contractorId))
+      .orderBy(desc(documentApprovals.createdAt));
   }
 
   // Document Type methods

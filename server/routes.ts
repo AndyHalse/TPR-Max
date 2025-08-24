@@ -1801,6 +1801,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Document approval endpoints
+  app.get("/api/contractors/:contractorId/documents/:documentId/approvals", async (req, res) => {
+    try {
+      const { documentId } = req.params;
+      const approvals = await storage.getDocumentApprovals(documentId);
+      res.json(approvals);
+    } catch (error) {
+      console.error("Error fetching document approvals:", error);
+      res.status(500).json({ error: "Failed to fetch document approvals" });
+    }
+  });
+
+  // Approve or reject document
+  app.post("/api/contractors/:contractorId/documents/:documentId/approve", async (req, res) => {
+    try {
+      const { contractorId, documentId } = req.params;
+      const { approvalStatus, comments, rejectionReason } = req.body;
+      // For now, use a default user ID until proper authentication is set up
+      const userId = "andy-smith-001";
+
+      // Get document to get document type
+      const document = await storage.getComplianceDocumentById(documentId);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Create approval record
+      const approval = await storage.createDocumentApproval({
+        documentId,
+        contractorId,
+        documentType: document.documentType,
+        approvalStatus,
+        approvedBy: userId,
+        approvedAt: approvalStatus === "approved" ? new Date() : null,
+        comments,
+        rejectionReason
+      });
+
+      // Update document status
+      await storage.updateComplianceDocument(documentId, {
+        status: approvalStatus === "approved" ? "valid" : approvalStatus === "rejected" ? "rejected" : "pending",
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+        reviewNotes: comments || rejectionReason
+      });
+
+      res.json(approval);
+    } catch (error) {
+      console.error("Error approving/rejecting document:", error);
+      res.status(500).json({ error: "Failed to process document approval" });
+    }
+  });
+
   // Contractor Worker Check-in/Check-out endpoints
   app.post("/api/contractors/workers/:workerId/checkin", async (req, res) => {
     try {
