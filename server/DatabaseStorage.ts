@@ -142,6 +142,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         isCheckedIn: true,
         checkedInAt: new Date(),
+        checkedOutAt: null, // Clear any old checkout time
         manualCheckIn: manual,
       })
       .where(eq(staff.id, id))
@@ -194,11 +195,11 @@ export class DatabaseStorage implements IStorage {
       if (staffMember.checkedInAt) {
         let hoursWorked = 0;
         
-        if (staffMember.isCheckedIn) {
-          // Still checked in - calculate hours from check-in to now
+        if (staffMember.isCheckedIn && !staffMember.checkedOutAt) {
+          // Still checked in and no checkout time - calculate hours from check-in to now
           hoursWorked = (new Date().getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
-        } else if (staffMember.checkedOutAt) {
-          // Already checked out - calculate hours from check-in to check-out
+        } else if (staffMember.checkedOutAt && staffMember.checkedOutAt > staffMember.checkedInAt) {
+          // Already checked out and checkout is after checkin - calculate hours from check-in to check-out
           hoursWorked = (staffMember.checkedOutAt.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
         }
         
@@ -206,7 +207,7 @@ export class DatabaseStorage implements IStorage {
         if (hoursWorked > 0) {
           sessions.push({
             checkInTime: staffMember.checkedInAt,
-            checkOutTime: staffMember.checkedOutAt || null,
+            checkOutTime: staffMember.checkedOutAt && staffMember.checkedOutAt > staffMember.checkedInAt ? staffMember.checkedOutAt : null,
             hoursWorked: hoursWorked,
             isManual: staffMember.manualCheckIn || false,
           });
