@@ -522,6 +522,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark all personnel as safe endpoint
+  app.post("/api/muster/mark-all-safe", async (req, res) => {
+    try {
+      // Get all current on-site personnel
+      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+        storage.getCurrentVisitors(),
+        storage.getCheckedInStaff(),
+        storage.getCheckedInContractors(),
+      ]);
+
+      let updatedCount = 0;
+      let errors = [];
+
+      // Mark all staff as accounted for
+      for (const staff of checkedInStaff) {
+        try {
+          const result = await storage.toggleStaffAccountedStatus(staff.id);
+          if (result) updatedCount++;
+        } catch (error) {
+          errors.push(`Staff ${staff.firstName} ${staff.lastName}: ${error}`);
+        }
+      }
+
+      // Mark all visitors as accounted for  
+      for (const visitor of currentVisitors) {
+        try {
+          const result = await storage.toggleVisitorAccountedStatus(visitor.id);
+          if (result) updatedCount++;
+        } catch (error) {
+          errors.push(`Visitor ${visitor.firstName} ${visitor.lastName}: ${error}`);
+        }
+      }
+
+      // Mark all contractors as accounted for
+      for (const contractor of checkedInContractors) {
+        try {
+          const result = await storage.toggleContractorAccountedStatus(contractor.id);
+          if (result) updatedCount++;
+        } catch (error) {
+          errors.push(`Contractor ${contractor.firstName} ${contractor.lastName}: ${error}`);
+        }
+      }
+
+      const totalPersonnel = checkedInStaff.length + currentVisitors.length + checkedInContractors.length;
+
+      res.json({
+        success: true,
+        message: "Mark all safe operation completed",
+        updatedCount,
+        totalPersonnel,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error) {
+      console.error("Failed to mark all safe:", error);
+      res.status(500).json({ error: "Failed to mark all personnel as safe" });
+    }
+  });
+
+  // Export muster list endpoint
+  app.get("/api/muster/export", async (req, res) => {
+    try {
+      const musterList = await storage.getMusterList();
+      
+      // Generate CSV content
+      const csvHeader = "Name,Type,Department/Company,Checked In Time,Location,Status,Accounted For\n";
+      const csvRows = musterList.map(person => {
+        const checkedInTime = new Date(person.checkedInAt).toLocaleString('en-GB', { 
+          timeZone: 'Europe/London',
+          year: 'numeric',
+          month: '2-digit', 
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        
+        return [
+          `"${person.name}"`,
+          person.type,
+          `"${person.department || person.company || 'N/A'}"`,
+          `"${checkedInTime}"`,
+          `"${person.location}"`,
+          person.type === 'staff' ? 'On-Site' : 'Current',
+          person.accounted ? 'Safe' : 'Unaccounted'
+        ].join(',');
+      }).join('\n');
+
+      const csvContent = csvHeader + csvRows;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `Emergency_Muster_List_${timestamp}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Failed to export muster list:", error);
+      res.status(500).json({ error: "Failed to export muster list" });
+    }
+  });
+
   // Emergency alert email endpoint
   app.post("/api/emergency/send-alert", async (req, res) => {
     try {

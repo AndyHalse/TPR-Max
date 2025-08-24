@@ -776,6 +776,35 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Set staff accounted status directly (for bulk operations)
+  async setStaffAccountedStatus(id: string, status: boolean): Promise<boolean> {
+    try {
+      const [currentStaff] = await db
+        .select()
+        .from(staff)
+        .where(eq(staff.id, id))
+        .limit(1);
+        
+      if (!currentStaff) {
+        console.log('Staff member not found:', id);
+        return false;
+      }
+      
+      await db
+        .update(staff)
+        .set({ 
+          isAccountedFor: status,
+          updatedAt: new Date() 
+        })
+        .where(eq(staff.id, id));
+        
+      return true;
+    } catch (error) {
+      console.error("Error setting staff accounted status:", error);
+      return false;
+    }
+  }
+
   async toggleVisitorAccountedStatus(id: string): Promise<boolean> {
     try {
       // First get current status

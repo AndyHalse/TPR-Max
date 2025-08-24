@@ -89,6 +89,74 @@ export default function EmergencyMuster() {
     },
   });
 
+  // Mutation to mark all personnel as safe
+  const markAllSafeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/muster/mark-all-safe", {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      queryClient.refetchQueries({ queryKey: ["/api/muster"] });
+      toast({
+        title: "All Personnel Marked Safe",
+        description: `Successfully marked ${data.updatedCount} out of ${data.totalPersonnel} personnel as safe`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Mark All Safe Failed", 
+        description: error.message || "Failed to mark all personnel as safe",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Function to export muster list
+  const exportMusterList = async () => {
+    try {
+      const response = await fetch("/api/muster/export", {
+        method: "GET",
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to export muster list");
+      }
+
+      // Get the filename from response headers
+      const contentDisposition = response.headers.get("content-disposition");
+      let filename = "Emergency_Muster_List.csv";
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) filename = match[1];
+      }
+
+      // Create and download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export Successful",
+        description: `Emergency muster list exported as ${filename}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export muster list",
+        variant: "destructive",
+      });
+    }
+  };
+
   const musterPoints = [
     { id: "main", name: "Main Car Park", capacity: 200, current: 45 },
     { id: "side", name: "Side Entrance", capacity: 100, current: 23 },
@@ -263,11 +331,22 @@ export default function EmergencyMuster() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Personnel Accountability</h3>
               <div className="flex space-x-2">
-                <Button variant="outline" size="sm" data-testid="button-mark-all-safe">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => markAllSafeMutation.mutate()}
+                  disabled={markAllSafeMutation.isPending}
+                  data-testid="button-mark-all-safe"
+                >
                   <CheckCircle className="mr-2" size={16} />
-                  Mark All Safe
+                  {markAllSafeMutation.isPending ? "Marking..." : "Mark All Safe"}
                 </Button>
-                <Button variant="outline" size="sm" data-testid="button-export-muster">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={exportMusterList}
+                  data-testid="button-export-muster"
+                >
                   <Download className="mr-2" size={16} />
                   Export List
                 </Button>
