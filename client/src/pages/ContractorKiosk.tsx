@@ -121,6 +121,15 @@ export default function ContractorKiosk() {
     },
   });
 
+  // Calculate dynamic compliance score from documents status
+  const calculateComplianceScore = (documentsStatus: any) => {
+    if (!documentsStatus) return 0;
+    const documents = Object.values(documentsStatus);
+    const validDocs = documents.filter((status: any) => status === 'valid').length;
+    const totalDocs = documents.length;
+    return totalDocs > 0 ? Math.round((validDocs / totalDocs) * 100) : 0;
+  };
+
   const approvedCompanies = companies.filter(company => company.status === 'approved');
   const filteredWorkers = workers.filter(worker =>
     worker.isActive &&
@@ -173,7 +182,7 @@ export default function ContractorKiosk() {
                       <Building2 className="h-4 w-4" />
                       {company.name}
                       <Badge className="bg-green-100 text-green-800">
-                        {company.complianceScore}% Compliant
+                        {calculateComplianceScore((company as any).documentsStatus)}% Compliant
                       </Badge>
                     </div>
                   </SelectItem>

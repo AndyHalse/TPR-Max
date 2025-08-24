@@ -55,7 +55,7 @@ function Router() {
             <Route path="/staff" component={StaffManagement} />
             <Route path="/visitors" component={Visitors} />
             <Route path="/contractors" component={Contractors} />
-            <Route path="/contractor-kiosk" component={ContractorKiosk} />
+            <Route path="/contractor" component={ContractorKiosk} />
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/reports" component={Reports} />
