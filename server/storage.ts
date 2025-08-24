@@ -1,5 +1,6 @@
 import type { Staff, InsertStaff, Visitor, InsertVisitor, User, InsertUser, CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking } from "@shared/schema";
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
   // User methods
@@ -10,9 +11,14 @@ export interface IStorage {
   // Staff methods
   getAllStaff(): Promise<Staff[]>;
   getStaffById(id: string): Promise<Staff | undefined>;
+  getStaffByEmail(email: string): Promise<Staff | undefined>;
   createStaff(insertStaff: InsertStaff): Promise<Staff>;
   updateStaff(id: string, updates: Partial<InsertStaff>): Promise<Staff | undefined>;
   deleteStaff(id: string): Promise<boolean>;
+  
+  // Staff authentication methods
+  authenticateStaff(email: string, password: string): Promise<Staff | null>;
+  updateStaffPassword(id: string, password: string): Promise<boolean>;
 
   // Visitor methods
   getAllVisitors(): Promise<Visitor[]>;
@@ -155,6 +161,9 @@ export class MemStorage implements IStorage {
         department: staffData.department,
         employeeId: staffData.employeeId,
         photoUrl: null,
+        accessLevel: "staff",
+        password: null,
+        lastLoginAt: null,
         userId: null,
         isActive: true,
         createdAt: new Date(),
@@ -238,10 +247,20 @@ export class MemStorage implements IStorage {
 
   async createStaff(insertStaff: InsertStaff): Promise<Staff> {
     const id = randomUUID();
+    
+    // Hash password if provided
+    let hashedPassword = null;
+    if (insertStaff.password) {
+      hashedPassword = await bcrypt.hash(insertStaff.password, 10);
+    }
+    
     const staff: Staff = {
       ...insertStaff,
       id,
       photoUrl: insertStaff.photoUrl || null,
+      accessLevel: insertStaff.accessLevel || "staff",
+      password: hashedPassword,
+      lastLoginAt: null,
       isActive: insertStaff.isActive ?? true,
       userId: insertStaff.userId || null,
       createdAt: new Date(),
@@ -254,13 +273,51 @@ export class MemStorage implements IStorage {
     const staff = this.staffMembers.get(id);
     if (!staff) return undefined;
 
-    const updatedStaff = { ...staff, ...updates };
+    // Hash password if being updated
+    let hashedPassword = staff.password;
+    if (updates.password) {
+      hashedPassword = await bcrypt.hash(updates.password, 10);
+    }
+
+    const updatedStaff = { 
+      ...staff, 
+      ...updates, 
+      password: updates.password ? hashedPassword : staff.password 
+    };
     this.staffMembers.set(id, updatedStaff);
     return updatedStaff;
   }
 
   async deleteStaff(id: string): Promise<boolean> {
     return this.staffMembers.delete(id);
+  }
+  
+  async authenticateStaff(email: string, password: string): Promise<Staff | null> {
+    const staff = await this.getStaffByEmail(email);
+    if (!staff || !staff.password) {
+      return null;
+    }
+    
+    const isValid = await bcrypt.compare(password, staff.password);
+    if (!isValid) {
+      return null;
+    }
+    
+    // Update last login time
+    staff.lastLoginAt = new Date();
+    this.staffMembers.set(staff.id, staff);
+    
+    return staff;
+  }
+  
+  async updateStaffPassword(id: string, password: string): Promise<boolean> {
+    const staff = this.staffMembers.get(id);
+    if (!staff) return false;
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    staff.password = hashedPassword;
+    this.staffMembers.set(id, staff);
+    return true;
   }
 
   // Visitor methods
@@ -283,8 +340,12 @@ export class MemStorage implements IStorage {
     const qrCode = `VIS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const visitor: Visitor = {
-      ...insertVisitor,
       id,
+      name: insertVisitor.name,
+      company: insertVisitor.company ?? null,
+      purpose: insertVisitor.purpose ?? null,
+      carRegistration: insertVisitor.carRegistration ?? null,
+      hostStaffId: insertVisitor.hostStaffId ?? null,
       qrCode,
       checkedInAt: new Date(),
       checkedOutAt: null,

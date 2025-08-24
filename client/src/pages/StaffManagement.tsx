@@ -58,6 +58,57 @@ export default function StaffManagement() {
     return gradients[index % gradients.length];
   };
 
+  const getAccessLevelBadgeColor = (accessLevel: string) => {
+    switch (accessLevel) {
+      case 'admin':
+        return 'bg-red-100 text-red-800';
+      case 'supervisor':
+        return 'bg-orange-100 text-orange-800';
+      case 'manager':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'security':
+        return 'bg-blue-100 text-blue-800';
+      case 'visitor':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-green-100 text-green-800';
+    }
+  };
+
+  const getAccessLevelIcon = (accessLevel: string) => {
+    switch (accessLevel) {
+      case 'admin':
+        return '👑';
+      case 'supervisor':
+        return '🔧';
+      case 'manager':
+        return '👔';
+      case 'security':
+        return '🛡️';
+      case 'visitor':
+        return '👥';
+      default:
+        return '👤';
+    }
+  };
+
+  const getAccessLevelLabel = (accessLevel: string) => {
+    switch (accessLevel) {
+      case 'admin':
+        return 'Admin';
+      case 'supervisor':
+        return 'Supervisor';
+      case 'manager':
+        return 'Manager';
+      case 'security':
+        return 'Security';
+      case 'visitor':
+        return 'Visitor';
+      default:
+        return 'Staff';
+    }
+  };
+
   if (isLoading) {
     return <div>Loading staff...</div>;
   }
@@ -111,6 +162,14 @@ export default function StaffManagement() {
                   <p className="text-slate-500 text-xs" data-testid={`staff-id-${member.id}`}>
                     ID: {member.employeeId}
                   </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getAccessLevelBadgeColor(member.accessLevel || 'staff')}`}>
+                      {getAccessLevelIcon(member.accessLevel || 'staff')} {getAccessLevelLabel(member.accessLevel || 'staff')}
+                    </span>
+                    {(member.accessLevel === 'admin' || member.accessLevel === 'supervisor') && member.lastLoginAt && (
+                      <span className="text-xs text-green-600">Last login: {new Date(member.lastLoginAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center justify-between">

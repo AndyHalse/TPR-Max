@@ -11,6 +11,9 @@ export const staff = pgTable("staff", {
   department: text("department").notNull(),
   employeeId: text("employee_id").notNull().unique(),
   photoUrl: text("photo_url"),
+  accessLevel: text("access_level").notNull().default("staff"), // admin, supervisor, manager, staff, security, visitor
+  password: text("password"), // Only for admin and supervisor levels
+  lastLoginAt: timestamp("last_login_at"),
   userId: varchar("user_id").references(() => users.id), // Link to user account
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -3,6 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertStaffSchema, insertVisitorSchema, insertCompanySettingsSchema, insertPreBookingSchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
+
+// Staff authentication schema
+const staffAuthSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { emailService } from "./emailService";
 import { aiService } from "./aiService";
@@ -148,6 +154,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete staff member" });
+    }
+  });
+
+  // Staff authentication endpoint
+  app.post("/api/staff/auth", async (req, res) => {
+    try {
+      const { email, password } = staffAuthSchema.parse(req.body);
+      const staff = await storage.authenticateStaff(email, password);
+      
+      if (!staff) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+      
+      // Don't send password in response
+      const { password: _, ...staffResponse } = staff;
+      res.json({ success: true, staff: staffResponse });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid authentication data", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Authentication failed" });
+      }
+    }
+  });
+
+  // Check staff access level endpoint
+  app.get("/api/staff/:id/access", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const staff = await storage.getStaffById(id);
+      
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      
+      res.json({ accessLevel: staff.accessLevel, lastLoginAt: staff.lastLoginAt });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get staff access information" });
     }
   });
 

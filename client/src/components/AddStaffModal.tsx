@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CloudUpload, Upload, X } from "lucide-react";
+import { CloudUpload, Upload, X, Shield } from "lucide-react";
 import type { InsertStaff } from "@shared/schema";
 
 interface AddStaffModalProps {
@@ -26,6 +26,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     department: "",
     employeeId: "",
     photoUrl: "",
+    accessLevel: "staff",
+    password: "",
   });
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -42,6 +44,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         department: staffToEdit.department || "",
         employeeId: staffToEdit.employeeId || "",
         photoUrl: staffToEdit.photoUrl || "",
+        accessLevel: staffToEdit.accessLevel || "staff",
+        password: "", // Never pre-fill password
       });
       setUploadedPhoto(staffToEdit.photoUrl || null);
     } else {
@@ -52,6 +56,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         department: "",
         employeeId: "",
         photoUrl: "",
+        accessLevel: "staff",
+        password: "",
       });
       setUploadedPhoto(null);
     }
@@ -83,7 +89,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
   });
 
   const handleClose = () => {
-    setFormData({ firstName: "", lastName: "", email: "", department: "", employeeId: "", photoUrl: "" });
+    setFormData({ firstName: "", lastName: "", email: "", department: "", employeeId: "", photoUrl: "", accessLevel: "staff", password: "" });
     setUploadedPhoto(null);
     onClose();
   };
@@ -169,18 +175,36 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       return;
     }
 
+    // Check if password is required for admin/supervisor levels
+    if ((formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && !formData.password.trim()) {
+      toast({
+        title: "Error",
+        description: "Password is required for admin and supervisor access levels",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Generate employee ID if not provided
     const employeeId = formData.employeeId.trim() || 
       `${formData.department.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-3)}`;
 
-    staffMutation.mutate({
+    const staffData: any = {
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       email: formData.email.trim(),
       department: formData.department,
       employeeId,
       photoUrl: uploadedPhoto || undefined,
-    });
+      accessLevel: formData.accessLevel,
+    };
+
+    // Only include password if it's provided and user has admin/supervisor access
+    if (formData.password.trim() && (formData.accessLevel === "admin" || formData.accessLevel === "supervisor")) {
+      staffData.password = formData.password.trim();
+    }
+
+    staffMutation.mutate(staffData);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -280,6 +304,46 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               data-testid="input-employee-id"
             />
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="accessLevel" className="text-sm font-medium text-slate-700">
+              Access Level *
+            </Label>
+            <Select value={formData.accessLevel} onValueChange={(value) => handleInputChange("accessLevel", value)}>
+              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-access-level">
+                <SelectValue placeholder="Select access level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">👑 Admin - Full system access</SelectItem>
+                <SelectItem value="supervisor">🔧 Supervisor - Manage staff & visitors</SelectItem>
+                <SelectItem value="manager">👔 Manager - Department oversight</SelectItem>
+                <SelectItem value="staff">👤 Staff - Standard access</SelectItem>
+                <SelectItem value="security">🛡️ Security - Safety & monitoring</SelectItem>
+                <SelectItem value="visitor">👥 Visitor - Guest access</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {(formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && (
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-slate-700">
+                Password * {isEditMode ? "(leave blank to keep current)" : ""}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                placeholder="Enter secure password"
+                data-testid="input-password"
+                required={!isEditMode}
+              />
+              <p className="text-xs text-slate-500">
+                Admin and supervisor access requires password authentication
+              </p>
+            </div>
+          )}
           
           <div className="space-y-2">
             <Label className="text-sm font-medium text-slate-700">
