@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText } from "lucide-react";
@@ -23,6 +24,8 @@ export default function Settings() {
   const [formData, setFormData] = useState<Partial<InsertCompanySettings>>({});
   const [testEmail, setTestEmail] = useState("");
   const [activeTab, setActiveTab] = useState("company");
+  const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
+  const [newEmailRecipient, setNewEmailRecipient] = useState("");
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -188,11 +191,21 @@ export default function Settings() {
   };
 
   const addRecipient = () => {
-    const currentRecipients = formData.reportRecipients || settings?.reportRecipients || [];
-    const newRecipient = prompt("Enter email address:");
-    if (newRecipient && newRecipient.trim()) {
-      handleInputChange("reportRecipients", [...currentRecipients, newRecipient.trim()]);
+    setShowAddEmailDialog(true);
+  };
+
+  const handleAddEmailSubmit = () => {
+    if (newEmailRecipient && newEmailRecipient.trim()) {
+      const currentRecipients = formData.reportRecipients || settings?.reportRecipients || [];
+      handleInputChange("reportRecipients", [...currentRecipients, newEmailRecipient.trim()]);
+      setNewEmailRecipient("");
+      setShowAddEmailDialog(false);
     }
+  };
+
+  const handleAddEmailCancel = () => {
+    setNewEmailRecipient("");
+    setShowAddEmailDialog(false);
   };
 
   const removeRecipient = (index: number) => {
@@ -1326,6 +1339,55 @@ export default function Settings() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Add Email Recipient Dialog */}
+      <Dialog open={showAddEmailDialog} onOpenChange={setShowAddEmailDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Email Recipient</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-email" className="text-sm font-medium text-slate-700">
+                Email Address
+              </Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={newEmailRecipient}
+                onChange={(e) => setNewEmailRecipient(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                placeholder="Enter email address"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddEmailSubmit();
+                  }
+                }}
+                data-testid="input-new-email-recipient"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={handleAddEmailCancel}
+              data-testid="button-cancel-email"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddEmailSubmit}
+              disabled={!newEmailRecipient.trim()}
+              className="gradient-blue text-white"
+              data-testid="button-add-email"
+            >
+              Add Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
