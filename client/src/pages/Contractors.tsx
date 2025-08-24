@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { 
   HardHat, 
@@ -850,22 +851,18 @@ export default function Contractors() {
               {/* Document Management Section */}
               <div className="mt-8">
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">Document Management</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {documents.map((document: any) => (
-                    <div 
-                      key={document.id}
-                      className="border rounded-lg p-4 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer bg-white"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        console.log('Document panel clicked:', document.documentName);
-                        handleViewDocument(document);
-                      }}
-                      style={{ 
-                        pointerEvents: 'auto',
-                        zIndex: 10,
-                        position: 'relative'
-                      }}
-                    >
+                <TooltipProvider>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {documents.map((document: any) => (
+                      <Tooltip key={document.id}>
+                        <TooltipTrigger asChild>
+                          <div 
+                            className="border-2 border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-white select-none"
+                            onClick={() => {
+                              console.log('Document panel clicked:', document.documentName);
+                              handleViewDocument(document);
+                            }}
+                          >
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium">{document.documentName}</span>
                         <Badge className={`${
@@ -881,53 +878,53 @@ export default function Contractors() {
                       <div className="text-sm text-slate-500 mb-3">
                         {document.expiryDate ? `Expires: ${new Date(document.expiryDate).toLocaleDateString()}` : 'No expiry date'}
                       </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewDocument(document);
-                          }}
-                          data-testid={`button-view-document-${document.id}`}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUploadDocument(document.documentType);
-                          }}
-                          data-testid={`button-upload-document-${document.id}`}
-                        >
-                          <Upload className="h-4 w-4 mr-1" />
-                          Upload New
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewDocument(document);
+                                }}
+                                data-testid={`button-view-document-${document.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUploadDocument(document.documentType);
+                                }}
+                                data-testid={`button-upload-document-${document.id}`}
+                              >
+                                <Upload className="h-4 w-4 mr-1" />
+                                Upload New
+                              </Button>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Click to open {document.documentName}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
 
-                  {/* Placeholder for missing documents */}
-                  {['public_liability', 'employers_liability', 'health_safety', 'cis_registration'].filter(
-                    type => !documents.some((doc: any) => doc.documentType === type)
-                  ).map((docType) => (
-                    <div 
-                      key={docType}
-                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer bg-gray-50"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        console.log('Missing document clicked:', docType);
-                        handleUploadDocument(docType);
-                      }}
-                      style={{ 
-                        pointerEvents: 'auto',
-                        zIndex: 10,
-                        position: 'relative'
-                      }}
-                    >
+                    {/* Placeholder for missing documents */}
+                    {['public_liability', 'employers_liability', 'health_safety', 'cis_registration'].filter(
+                      type => !documents.some((doc: any) => doc.documentType === type)
+                    ).map((docType) => (
+                      <Tooltip key={docType}>
+                        <TooltipTrigger asChild>
+                          <div 
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-gray-50 select-none"
+                            onClick={() => {
+                              console.log('Missing document clicked:', docType);
+                              handleUploadDocument(docType);
+                            }}
+                          >
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium text-gray-600">
                           {docType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
@@ -935,22 +932,28 @@ export default function Contractors() {
                         <Badge className="bg-gray-100 text-gray-600">Missing</Badge>
                       </div>
                       <div className="text-sm text-gray-500 mb-3">Document not uploaded</div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUploadDocument(docType);
-                        }}
-                        data-testid={`button-upload-${docType}`}
-                      >
-                        <Upload className="h-4 w-4 mr-1" />
-                        Upload Document
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUploadDocument(docType);
+                              }}
+                              data-testid={`button-upload-${docType}`}
+                            >
+                              <Upload className="h-4 w-4 mr-1" />
+                              Upload Document
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Click to upload {docType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
 
                 {/* Approval History */}
                 <div className="mt-6">
