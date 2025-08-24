@@ -12,7 +12,7 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   
   // Get current user info
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<{ id: string; username: string }>({
     queryKey: ["/api/auth/me"],
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

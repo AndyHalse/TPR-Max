@@ -82,6 +82,17 @@ export const companySettings = pgTable("company_settings", {
   enable2dBarcodes: boolean("enable_2d_barcodes").default(false),
   barcodeFormat: text("barcode_format").default("QR_CODE"), // QR_CODE, DATA_MATRIX, PDF417
   printQuality: text("print_quality").default("normal"), // draft, normal, high
+  // Suprema Biostar integration settings
+  biostarEnabled: boolean("biostar_enabled").default(false),
+  biostarServerUrl: text("biostar_server_url").default(""), // e.g., "https://your-biostar-server.com:8443"
+  biostarApiKey: text("biostar_api_key").default(""),
+  biostarUsername: text("biostar_username").default(""),
+  biostarPassword: text("biostar_password").default(""),
+  biostarDatabaseId: text("biostar_database_id").default("1"), // Default database ID
+  biostarSyncInterval: text("biostar_sync_interval").default("300"), // Sync every 5 minutes (300 seconds)
+  // Biometric reader device settings
+  biometricDevices: text("biometric_devices").array().default([]), // Array of configured device IDs
+  readerSettings: text("reader_settings").default("{}"), // JSON string for device-specific settings
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

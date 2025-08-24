@@ -178,7 +178,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -192,8 +192,12 @@ export default function Settings() {
             Theme
           </TabsTrigger>
           <TabsTrigger value="printer" className="flex items-center gap-2">
-            <Settings as SettingsIcon size={16} />
+            <Printer size={16} />
             Printer
+          </TabsTrigger>
+          <TabsTrigger value="biostar" className="flex items-center gap-2">
+            <Shield size={16} />
+            Biostar
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users size={16} />
@@ -1017,6 +1021,201 @@ export default function Settings() {
                       </p>
                     </div>
                   )}
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="biostar" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Shield className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Suprema Biostar Integration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700">
+                      Enable Biostar Integration
+                    </Label>
+                    <p className="text-xs text-slate-500">Connect to Suprema Biostar 2 API for staff attendance</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.biostarEnabled || false}
+                    onCheckedChange={(checked) => handleInputChange("biostarEnabled", checked)}
+                    data-testid="switch-biostar-enabled"
+                  />
+                </div>
+                
+                {currentSettings?.biostarEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-slate-700">
+                        Biostar Server URL
+                      </Label>
+                      <Input
+                        id="biostarServerUrl"
+                        type="url"
+                        value={currentSettings?.biostarServerUrl || ""}
+                        onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                        placeholder="https://your-biostar-server.com:8443"
+                        data-testid="input-biostar-server-url"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="biostarApiKey" className="text-sm font-medium text-slate-700">
+                        API Key
+                      </Label>
+                      <Input
+                        id="biostarApiKey"
+                        type="password"
+                        value={currentSettings?.biostarApiKey || ""}
+                        onChange={(e) => handleInputChange("biostarApiKey", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                        placeholder="Enter your Biostar API key"
+                        data-testid="input-biostar-api-key"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarUsername" className="text-sm font-medium text-slate-700">
+                          Username
+                        </Label>
+                        <Input
+                          id="biostarUsername"
+                          type="text"
+                          value={currentSettings?.biostarUsername || ""}
+                          onChange={(e) => handleInputChange("biostarUsername", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="Biostar username"
+                          data-testid="input-biostar-username"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarPassword" className="text-sm font-medium text-slate-700">
+                          Password
+                        </Label>
+                        <Input
+                          id="biostarPassword"
+                          type="password"
+                          value={currentSettings?.biostarPassword || ""}
+                          onChange={(e) => handleInputChange("biostarPassword", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="Biostar password"
+                          data-testid="input-biostar-password"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarDatabaseId" className="text-sm font-medium text-slate-700">
+                          Database ID
+                        </Label>
+                        <Input
+                          id="biostarDatabaseId"
+                          type="text"
+                          value={currentSettings?.biostarDatabaseId || "1"}
+                          onChange={(e) => handleInputChange("biostarDatabaseId", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="1"
+                          data-testid="input-biostar-database-id"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarSyncInterval" className="text-sm font-medium text-slate-700">
+                          Sync Interval (seconds)
+                        </Label>
+                        <Input
+                          id="biostarSyncInterval"
+                          type="number"
+                          value={currentSettings?.biostarSyncInterval || "300"}
+                          onChange={(e) => handleInputChange("biostarSyncInterval", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="300"
+                          min="60"
+                          data-testid="input-biostar-sync-interval"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </GlassCard>
+            
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Shield className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Biometric Devices</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Supported Devices:</h4>
+                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>• Suprema X-Station 2</li>
+                    <li>• Suprema XPass 2</li>
+                    <li>• Suprema FaceStation 2</li>
+                    <li>• Suprema BioEntry Plus 2</li>
+                  </ul>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Configured Devices
+                  </Label>
+                  <div className="space-y-2">
+                    {(currentSettings?.biometricDevices || []).length === 0 ? (
+                      <div className="text-sm text-slate-500 italic p-4 bg-white/50 rounded-lg">
+                        No devices configured. Add device IDs using the Biostar Device Manager.
+                      </div>
+                    ) : (
+                      (currentSettings?.biometricDevices || []).map((deviceId, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                          <span className="text-sm font-mono text-slate-700">{deviceId}</span>
+                          <Badge variant="outline">Connected</Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-2">Setup Instructions:</h4>
+                  <ol className="text-sm text-amber-700 dark:text-amber-300 space-y-1 ml-4 list-decimal">
+                    <li>Configure devices in Biostar Device Manager</li>
+                    <li>Note device IDs for each reader</li>
+                    <li>Enable API access in Biostar settings</li>
+                    <li>Test connection using the button below</li>
+                  </ol>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    data-testid="button-test-biostar-connection"
+                  >
+                    <Shield className="mr-2" size={16} />
+                    Test Connection
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    data-testid="button-sync-devices"
+                  >
+                    Sync Devices
+                  </Button>
                 </div>
               </div>
             </GlassCard>

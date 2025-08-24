@@ -7,6 +7,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { emailService } from "./emailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
+import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -966,6 +967,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI compliance analysis error:", error);
       res.status(500).json({ error: "Failed to generate compliance analysis" });
+    }
+  });
+
+  // Biostar integration endpoints
+  app.post("/api/biostar/test-connection", async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      if (!settings?.biostarEnabled) {
+        return res.status(400).json({ error: "Biostar integration is not enabled" });
+      }
+
+      // Test connection to Biostar API
+      const connectionResult = await testBiostarConnection(settings);
+      res.json({
+        success: connectionResult.success,
+        message: connectionResult.message,
+        serverInfo: connectionResult.serverInfo
+      });
+    } catch (error) {
+      console.error("Biostar connection test failed:", error);
+      res.status(500).json({ error: "Connection test failed" });
+    }
+  });
+
+  app.post("/api/biostar/sync-devices", async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      if (!settings?.biostarEnabled) {
+        return res.status(400).json({ error: "Biostar integration is not enabled" });
+      }
+
+      // Sync devices from Biostar
+      const syncResult = await syncBiostarDevices(settings);
+      
+      // Update settings with discovered devices
+      await storage.updateCompanySettings({
+        biometricDevices: syncResult.devices,
+        readerSettings: JSON.stringify(syncResult.deviceSettings)
+      });
+
+      res.json({
+        success: true,
+        devices: syncResult.devices,
+        message: `Found ${syncResult.devices.length} devices`
+      });
+    } catch (error) {
+      console.error("Biostar device sync failed:", error);
+      res.status(500).json({ error: "Device sync failed" });
+    }
+  });
+
+  app.get("/api/biostar/staff-status", async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      if (!settings?.biostarEnabled) {
+        return res.status(400).json({ error: "Biostar integration is not enabled" });
+      }
+
+      // Get staff attendance status from Biostar
+      const staffStatus = await getBiostarStaffStatus(settings);
+      res.json(staffStatus);
+    } catch (error) {
+      console.error("Failed to get Biostar staff status:", error);
+      res.status(500).json({ error: "Failed to get staff status" });
     }
   });
 

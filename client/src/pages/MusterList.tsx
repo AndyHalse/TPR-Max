@@ -1,9 +1,22 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { Download, Printer, Users, UserCheck } from "lucide-react";
+import { Download, Printer, Users, UserCheck, Shield, Fingerprint, Eye, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+
+interface BiostarStaffMember {
+  userId: string;
+  userName: string;
+  lastEvent: number;
+  lastEventTime: Date;
+  isOnSite: boolean;
+  deviceId: string;
+  department: string;
+}
 
 interface MusterEntry {
   id: string;
@@ -16,21 +29,34 @@ interface MusterEntry {
   hostStaffId?: string;
   checkedInAt: string;
   location: string;
+  isBiostarOnly?: boolean;
 }
 
 export default function MusterList() {
   const [activeFilter, setActiveFilter] = useState<"all" | "staff" | "visitors">("all");
+  const [showBiostarData, setShowBiostarData] = useState(true);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: musterList, isLoading } = useQuery<MusterEntry[]>({
     queryKey: ["/api/muster"],
   });
 
-  const filteredList = musterList?.filter(entry => {
-    if (activeFilter === "all") return true;
-    if (activeFilter === "staff") return entry.type === "staff";
-    if (activeFilter === "visitors") return entry.type === "visitor";
-    return true;
-  }) || [];
+  const { data: biostarStaff, isLoading: biostarLoading } = useQuery<BiostarStaffMember[]>({
+    queryKey: ["/api/biostar/staff-status"],
+    enabled: showBiostarData,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { data: settings } = useQuery<{
+    biostarEnabled?: boolean;
+    biostarServerUrl?: string;
+  }>({
+    queryKey: ["/api/settings"],
+  });
+
+  // This will be defined after enhancedMusterList
+  // const filteredList is moved after getCounts
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -52,20 +78,59 @@ export default function MusterList() {
     });
   };
 
-  const getCounts = () => {
-    if (!musterList) return { all: 0, staff: 0, visitors: 0 };
+  // Merge muster list with Biostar data
+  const getEnhancedMusterList = () => {
+    const regularMuster = musterList || [];
     
-    const staff = musterList.filter(e => e.type === "staff").length;
-    const visitors = musterList.filter(e => e.type === "visitor").length;
+    if (!showBiostarData || !biostarStaff || !settings?.biostarEnabled) {
+      return regularMuster;
+    }
+
+    // Add Biostar staff who are on-site but not in regular muster
+    const biostarOnSite = biostarStaff.filter(staff => staff.isOnSite);
+    const existingStaffIds = new Set(regularMuster
+      .filter(entry => entry.type === 'staff')
+      .map(entry => entry.employeeId));
+    
+    const biostarOnlyStaff: MusterEntry[] = biostarOnSite
+      .filter(staff => !existingStaffIds.has(staff.userId))
+      .map(staff => ({
+        id: `biostar-${staff.userId}`,
+        name: staff.userName,
+        type: 'staff' as const,
+        department: staff.department,
+        employeeId: staff.userId,
+        checkedInAt: staff.lastEventTime.toISOString(),
+        location: `Device ${staff.deviceId}`,
+        isBiostarOnly: true
+      }));
+
+    return [...regularMuster, ...biostarOnlyStaff];
+  };
+
+  const enhancedMusterList = getEnhancedMusterList();
+
+  const getCounts = () => {
+    const staff = enhancedMusterList.filter(e => e.type === "staff").length;
+    const visitors = enhancedMusterList.filter(e => e.type === "visitor").length;
+    const biostarOnly = enhancedMusterList.filter(e => e.isBiostarOnly).length;
     
     return {
-      all: musterList.length,
+      all: enhancedMusterList.length,
       staff,
-      visitors
+      visitors,
+      biostarOnly
     };
   };
 
   const counts = getCounts();
+
+  const filteredList = enhancedMusterList.filter(entry => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "staff") return entry.type === "staff";
+    if (activeFilter === "visitors") return entry.type === "visitor";
+    return true;
+  });
 
   if (isLoading) {
     return <div>Loading muster list...</div>;
@@ -74,7 +139,38 @@ export default function MusterList() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-800">Muster List</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Muster List</h2>
+          {settings?.biostarEnabled && (
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="text-blue-600" />
+                <span className="text-sm text-slate-600">Biostar Integration</span>
+                {biostarLoading ? (
+                  <WifiOff size={14} className="text-amber-500" />
+                ) : biostarStaff ? (
+                  <Wifi size={14} className="text-green-500" />
+                ) : (
+                  <WifiOff size={14} className="text-red-500" />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={showBiostarData}
+                  onCheckedChange={setShowBiostarData}
+                  data-testid="switch-biostar-muster"
+                />
+                <Label className="text-sm text-slate-600">Include Biometric Data</Label>
+              </div>
+              {counts.biostarOnly > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  <Fingerprint size={12} className="mr-1" />
+                  {counts.biostarOnly} from biometric only
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex gap-3">
           <Button
             variant="outline"
@@ -188,13 +284,21 @@ export default function MusterList() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge 
-                        variant={entry.type === "staff" ? "default" : "secondary"}
-                        className={entry.type === "staff" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
-                      >
-                        <UserCheck className="mr-1" size={12} />
-                        {entry.type === "staff" ? "Staff" : "Visitor"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={entry.type === "staff" ? "default" : "secondary"}
+                          className={entry.type === "staff" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
+                        >
+                          <UserCheck className="mr-1" size={12} />
+                          {entry.type === "staff" ? "Staff" : "Visitor"}
+                        </Badge>
+                        {entry.isBiostarOnly && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                            <Fingerprint className="mr-1" size={10} />
+                            Biometric
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {entry.type === "staff" ? entry.department : entry.company || "No company"}

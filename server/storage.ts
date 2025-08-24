@@ -123,6 +123,16 @@ export class MemStorage implements IStorage {
       enable2dBarcodes: false,
       barcodeFormat: "QR_CODE",
       printQuality: "normal",
+      // Suprema Biostar integration defaults
+      biostarEnabled: false,
+      biostarServerUrl: "",
+      biostarApiKey: "",
+      biostarUsername: "",
+      biostarPassword: "",
+      biostarDatabaseId: "1",
+      biostarSyncInterval: "300",
+      biometricDevices: [],
+      readerSettings: "{}",
       updatedAt: new Date(),
     };
 
