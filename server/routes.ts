@@ -804,6 +804,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NEW: Manual check-in for pre-booked visitors (no QR code needed)
+  app.post("/api/prebookings/manual-checkin", async (req, res) => {
+    try {
+      const { preBookingId } = req.body;
+      
+      if (!preBookingId) {
+        return res.status(400).json({ error: "Pre-booking ID is required" });
+      }
+
+      // Find the pre-booking
+      const preBooking = await storage.getPreBookingById(preBookingId);
+      if (!preBooking) {
+        return res.status(404).json({ error: "Pre-booking not found" });
+      }
+
+      if (preBooking.isCheckedIn) {
+        return res.status(400).json({ error: "Visitor already checked in" });
+      }
+
+      // Check if visit date is valid (today or future)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const visitDate = new Date(preBooking.visitDate);
+      visitDate.setHours(0, 0, 0, 0);
+      
+      if (visitDate < today) {
+        return res.status(400).json({ error: "Cannot check in for past visits" });
+      }
+
+      // Create visitor record from pre-booking
+      const visitor = await storage.createVisitor({
+        name: preBooking.visitorName,
+        company: preBooking.company,
+        purpose: preBooking.purpose,
+        carRegistration: null,
+        hostStaffId: preBooking.hostStaffId,
+      });
+
+      // Update pre-booking to mark as checked in
+      const updatedPreBooking = await storage.updatePreBooking(preBooking.id, {
+        isCheckedIn: true,
+        checkedInAt: new Date(),
+        visitorId: visitor.id,
+      });
+
+      res.json({ 
+        success: true,
+        visitor, 
+        preBooking: updatedPreBooking,
+        message: "Visitor checked in manually successfully"
+      });
+    } catch (error) {
+      console.error("Manual pre-booking check-in error:", error);
+      res.status(500).json({ error: "Failed to manually check in visitor" });
+    }
+  });
+
   app.get("/api/prebookings/today", async (req, res) => {
     try {
       const today = new Date();

@@ -20,7 +20,8 @@ import {
   Clock,
   CheckCircle,
   Send,
-  Building2
+  Building2,
+  UserPlus
 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import type { Staff, PreBooking, InsertPreBooking } from "@shared/schema";
@@ -63,6 +64,30 @@ export default function PreBooking() {
       toast({
         title: "Error",
         description: "Failed to create pre-booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const manualCheckInMutation = useMutation({
+    mutationFn: async (preBookingId: string) => {
+      const response = await apiRequest("POST", "/api/prebookings/manual-checkin", { preBookingId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({
+        title: "Success",
+        description: "Visitor checked in manually!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error", 
+        description: "Failed to check in visitor",
         variant: "destructive",
       });
     },
@@ -313,9 +338,23 @@ export default function PreBooking() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end space-y-2">
-                      <Badge className={getStatusColor(booking)}>
-                        {getStatusText(booking)}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={getStatusColor(booking)}>
+                          {getStatusText(booking)}
+                        </Badge>
+                        {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
+                          <Button
+                            size="sm"
+                            onClick={() => manualCheckInMutation.mutate(booking.id)}
+                            disabled={manualCheckInMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-7"
+                            data-testid={`button-manual-checkin-${booking.id}`}
+                          >
+                            <UserPlus size={12} className="mr-1" />
+                            {manualCheckInMutation.isPending ? "..." : "Check In"}
+                          </Button>
+                        )}
+                      </div>
                       {booking.emailSent && (
                         <div className="flex items-center text-xs text-green-600">
                           <Mail size={12} className="mr-1" />
