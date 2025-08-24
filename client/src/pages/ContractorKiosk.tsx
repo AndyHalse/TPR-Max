@@ -31,7 +31,7 @@ interface ContractorWorker {
   lastName: string;
   email: string;
   phone: string;
-  rightToWorkStatus: string;
+  rightToWork: string;
   cscsCard: string;
   cscsStatus: string;
   ipafStatus: string;
@@ -141,7 +141,7 @@ export default function ContractorKiosk() {
 
   const getWorkerStatusColor = (worker: ContractorWorker) => {
     if (!worker.isActive || !worker.inductionCompleted) return "bg-red-100 text-red-800";
-    if (worker.rightToWorkStatus !== 'valid' || worker.cscsStatus === 'expired') return "bg-red-100 text-red-800";
+    if (worker.rightToWork !== 'valid' || worker.cscsStatus === 'expired') return "bg-red-100 text-red-800";
     if (worker.cscsStatus === 'expiring') return "bg-yellow-100 text-yellow-800";
     return "bg-green-100 text-green-800";
   };
@@ -149,7 +149,7 @@ export default function ContractorKiosk() {
   const canWorkerCheckIn = (worker: ContractorWorker) => {
     return worker.isActive && 
            worker.inductionCompleted && 
-           worker.rightToWorkStatus === 'valid' &&
+           worker.rightToWork === 'valid' &&
            worker.cscsStatus !== 'expired';
   };
 
@@ -245,9 +245,9 @@ export default function ContractorKiosk() {
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="outline" className={
-                        worker.rightToWorkStatus === 'valid' ? 'border-green-500 text-green-700' : 'border-red-500 text-red-700'
+                        worker.rightToWork === 'valid' ? 'border-green-500 text-green-700' : 'border-red-500 text-red-700'
                       }>
-                        Right to Work: {worker.rightToWorkStatus}
+                        Right to Work: {worker.rightToWork}
                       </Badge>
                       <Badge variant="outline" className={
                         worker.cscsStatus === 'valid' ? 'border-green-500 text-green-700' :
