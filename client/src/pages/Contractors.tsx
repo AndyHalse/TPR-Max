@@ -743,7 +743,7 @@ export default function Contractors() {
 
       {/* Manage Workers Modal */}
       <Dialog open={showWorkersModal} onOpenChange={setShowWorkersModal}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
