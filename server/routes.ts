@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStaffSchema, insertVisitorSchema, insertCompanySettingsSchema, insertPreBookingSchema, insertUserSchema } from "@shared/schema";
+import { insertStaffSchema, insertVisitorSchema, insertCompanySettingsSchema, insertPreBookingSchema, insertUserSchema, insertUserInvitationSchema } from "@shared/schema";
 import { z } from "zod";
 
 // Staff authentication schema
@@ -1261,6 +1261,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to get Biostar staff status:", error);
       res.status(500).json({ error: "Failed to get staff status" });
+    }
+  });
+
+  // User invitation endpoints
+  app.post("/api/invitations", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertUserInvitationSchema.omit({ token: true, expires: true, createdAt: true, used: true }).parse(req.body);
+      
+      // Check if invitation already exists for this email
+      const existingInvitation = await storage.getUserInvitationByEmail(validatedData.email);
+      if (existingInvitation && !existingInvitation.used) {
+        return res.status(400).json({ error: "An invitation already exists for this email address" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "A user already exists with this email address" });
+      }
+
+      // Get current user
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Create invitation with invitedBy field
+      const invitation = await storage.createUserInvitation({
+        ...validatedData,
+        invitedBy: currentUser.id
+      });
+
+      // Get company settings and send email
+      const companySettings = await storage.getCompanySettings();
+      if (companySettings) {
+        const emailSent = await emailService.sendUserInvitation(
+          invitation.email,
+          invitation.role,
+          invitation.token,
+          currentUser,
+          companySettings
+        );
+
+        if (!emailSent) {
+          console.warn("Failed to send invitation email, but invitation was created");
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        invitation: {
+          id: invitation.id,
+          email: invitation.email,
+          role: invitation.role,
+          createdAt: invitation.createdAt,
+          expires: invitation.expires,
+          used: invitation.used
+        }
+      });
+    } catch (error) {
+      console.error("Failed to create invitation:", error);
+      res.status(500).json({ error: "Failed to create invitation" });
+    }
+  });
+
+  app.get("/api/invitations", requireAuth, async (req, res) => {
+    try {
+      const invitations = await storage.getAllUserInvitations();
+      res.json(invitations.map(inv => ({
+        id: inv.id,
+        email: inv.email,
+        role: inv.role,
+        createdAt: inv.createdAt,
+        expires: inv.expires,
+        used: inv.used,
+        invitedBy: inv.invitedBy
+      })));
+    } catch (error) {
+      console.error("Failed to fetch invitations:", error);
+      res.status(500).json({ error: "Failed to fetch invitations" });
+    }
+  });
+
+  app.post("/api/invitations/accept", async (req, res) => {
+    try {
+      const { token, username, password } = req.body;
+      
+      if (!token || !username || !password) {
+        return res.status(400).json({ error: "Token, username, and password are required" });
+      }
+
+      // Get invitation
+      const invitation = await storage.getUserInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invalid or expired invitation token" });
+      }
+
+      if (invitation.used) {
+        return res.status(400).json({ error: "This invitation has already been used" });
+      }
+
+      if (new Date() > invitation.expires) {
+        return res.status(400).json({ error: "This invitation has expired" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+
+      // Create user
+      const newUser = await storage.createUser({
+        username,
+        password,
+        email: invitation.email
+      });
+
+      // Mark invitation as used
+      await storage.markInvitationAsUsed(token);
+
+      res.json({ 
+        success: true, 
+        user: { id: newUser.id, username: newUser.username, email: newUser.email }
+      });
+    } catch (error) {
+      console.error("Failed to accept invitation:", error);
+      res.status(500).json({ error: "Failed to accept invitation" });
+    }
+  });
+
+  app.delete("/api/invitations/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteUserInvitation(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete invitation:", error);
+      res.status(500).json({ error: "Failed to delete invitation" });
     }
   });
 

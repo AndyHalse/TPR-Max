@@ -26,6 +26,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("company");
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [newEmailRecipient, setNewEmailRecipient] = useState("");
+  const [inviteForm, setInviteForm] = useState({ email: "", role: "user" });
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -77,6 +78,27 @@ export default function Settings() {
       toast({
         title: "Error",
         description: "Failed to send test email",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: async (inviteData: { email: string; role: string }) => {
+      const response = await apiRequest("POST", "/api/invitations", inviteData);
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Invitation sent successfully!",
+      });
+      setInviteForm({ email: "", role: "user" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send invitation",
         variant: "destructive",
       });
     },
@@ -188,6 +210,19 @@ export default function Settings() {
       return;
     }
     testEmailMutation.mutate(testEmail);
+  };
+
+  const handleInviteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteForm.email.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an email address",
+        variant: "destructive",
+      });
+      return;
+    }
+    inviteMutation.mutate(inviteForm);
   };
 
   const addRecipient = () => {
@@ -901,7 +936,7 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold text-slate-800">Invite New User</h3>
               </div>
               
-              <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+              <form className="space-y-4" onSubmit={handleInviteSubmit}>
                 <div className="space-y-2">
                   <Label htmlFor="inviteEmail" className="text-sm font-medium text-slate-700">
                     Email Address
@@ -909,9 +944,12 @@ export default function Settings() {
                   <Input
                     id="inviteEmail"
                     type="email"
+                    value={inviteForm.email}
+                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                     placeholder="user@example.com"
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                     data-testid="input-invite-email"
+                    required
                   />
                 </div>
                 
@@ -919,7 +957,7 @@ export default function Settings() {
                   <Label htmlFor="userRole" className="text-sm font-medium text-slate-700">
                     User Role
                   </Label>
-                  <Select defaultValue="user">
+                  <Select value={inviteForm.role} onValueChange={(value) => setInviteForm({ ...inviteForm, role: value })}>
                     <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-user-role">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
@@ -932,10 +970,11 @@ export default function Settings() {
                 
                 <Button 
                   type="submit" 
-                  className="w-full gradient-blue text-white"
+                  disabled={inviteMutation.isPending || !inviteForm.email.trim()}
+                  className="w-full gradient-blue text-white disabled:opacity-50"
                   data-testid="button-send-invitation"
                 >
-                  Send Invitation
+                  {inviteMutation.isPending ? 'Sending...' : 'Send Invitation'}
                 </Button>
               </form>
               

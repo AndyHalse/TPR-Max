@@ -1,8 +1,8 @@
 import { db } from "./db";
-import { staff, staffSessions, visitors, users, companySettings, reports, preBookings } from "@shared/schema";
+import { staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations } from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
-  CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking 
+  CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull } from "drizzle-orm";
@@ -680,5 +680,71 @@ export class DatabaseStorage implements IStorage {
     ];
     
     return musterList;
+  }
+
+  // User invitation methods
+  async createUserInvitation(insertInvitation: InsertUserInvitation): Promise<UserInvitation> {
+    const token = randomUUID();
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 7); // Expire in 7 days
+
+    const [invitation] = await db
+      .insert(userInvitations)
+      .values({
+        ...insertInvitation,
+        token,
+        expires,
+      })
+      .returning();
+
+    return invitation;
+  }
+
+  async getUserInvitationByToken(token: string): Promise<UserInvitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(userInvitations)
+      .where(eq(userInvitations.token, token));
+    
+    return invitation || undefined;
+  }
+
+  async getUserInvitationByEmail(email: string): Promise<UserInvitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(userInvitations)
+      .where(and(
+        eq(userInvitations.email, email),
+        eq(userInvitations.used, false)
+      ))
+      .orderBy(desc(userInvitations.createdAt));
+    
+    return invitation || undefined;
+  }
+
+  async getAllUserInvitations(): Promise<UserInvitation[]> {
+    const results = await db
+      .select()
+      .from(userInvitations)
+      .orderBy(desc(userInvitations.createdAt));
+    
+    return results;
+  }
+
+  async markInvitationAsUsed(token: string): Promise<boolean> {
+    const result = await db
+      .update(userInvitations)
+      .set({ used: true })
+      .where(eq(userInvitations.token, token));
+    
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deleteUserInvitation(id: string): Promise<boolean> {
+    const result = await db
+      .delete(userInvitations)
+      .where(eq(userInvitations.id, id));
+    
+    return (result.rowCount || 0) > 0;
   }
 }
