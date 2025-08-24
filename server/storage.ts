@@ -228,6 +228,60 @@ export class MemStorage implements IStorage {
         isCheckedIn: visitor.isCheckedIn,
       });
     });
+
+    // Add some sample pre-bookings
+    const samplePreBookings = [
+      {
+        visitorName: "James Thompson",
+        visitorEmail: "james.thompson@consultingfirm.com",
+        company: "Strategic Consulting Ltd",
+        purpose: "Quarterly Business Review",
+        visitDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+        visitTime: "09:30",
+        hostStaffId: staffArray[0]?.id,
+        status: "pending" as const,
+      },
+      {
+        visitorName: "Lisa Chen",
+        visitorEmail: "l.chen@techsolutions.com", 
+        company: "Tech Solutions Inc",
+        purpose: "Software Demo",
+        visitDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+        visitTime: "14:00",
+        hostStaffId: staffArray[1]?.id,
+        status: "confirmed" as const,
+      },
+      {
+        visitorName: "Robert Wilson",
+        visitorEmail: "rwilson@legalpartners.co.uk",
+        company: "Wilson & Partners Legal",
+        purpose: "Contract Review Meeting", 
+        visitDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
+        visitTime: "11:00",
+        hostStaffId: staffArray[2]?.id,
+        status: "pending" as const,
+      },
+    ];
+
+    samplePreBookings.forEach((booking) => {
+      const id = randomUUID();
+      const qrCode = `PRE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      this.preBookings.set(id, {
+        id,
+        visitorName: booking.visitorName,
+        visitorEmail: booking.visitorEmail,
+        company: booking.company,
+        purpose: booking.purpose,
+        visitDate: booking.visitDate,
+        visitTime: booking.visitTime,
+        hostStaffId: booking.hostStaffId || staffArray[0]?.id || "",
+        qrCode,
+        status: booking.status,
+        isCheckedIn: false,
+        checkedInAt: null,
+        createdAt: new Date(),
+      });
+    });
   }
 
   // User methods
