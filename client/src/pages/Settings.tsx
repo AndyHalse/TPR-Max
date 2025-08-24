@@ -77,9 +77,11 @@ export default function Settings() {
     },
   });
 
-  const handleLogoUpload = async (fileUrl: string) => {
+  const handleLogoUpload = async (objectPath: string) => {
     try {
-      const logoUrl = fileUrl.replace('https://storage.googleapis.com', '');
+      // objectPath comes from ObjectUploader as /objects/uploads/...
+      // We need to store just the path part without /objects prefix for the database
+      const logoUrl = objectPath.replace('/objects', '');
       await updateSettingsMutation.mutateAsync({
         logoUrl: logoUrl,
       });
@@ -88,6 +90,7 @@ export default function Settings() {
         description: "Logo uploaded and saved successfully!",
       });
     } catch (error) {
+      console.error('Logo upload error:', error);
       toast({
         title: "Error",
         description: "Failed to save logo",
@@ -96,9 +99,11 @@ export default function Settings() {
     }
   };
 
-  const handleBannerUpload = async (fileUrl: string) => {
+  const handleBannerUpload = async (objectPath: string) => {
     try {
-      const bannerUrl = fileUrl.replace('https://storage.googleapis.com', '');
+      // objectPath comes from ObjectUploader as /objects/uploads/...
+      // We need to store just the path part without /objects prefix for the database
+      const bannerUrl = objectPath.replace('/objects', '');
       await updateSettingsMutation.mutateAsync({
         bannerUrl: bannerUrl,
       });
@@ -107,6 +112,7 @@ export default function Settings() {
         description: "Banner uploaded and saved successfully!",
       });
     } catch (error) {
+      console.error('Banner upload error:', error);
       toast({
         title: "Error",
         description: "Failed to save banner",
@@ -505,6 +511,14 @@ export default function Settings() {
                         src={`/objects${currentSettings.bannerUrl}`}
                         alt="Banner Preview" 
                         className="w-full h-16 object-cover rounded mb-4"
+                        onError={(e) => {
+                          console.error("Kiosk banner preview failed to load:", currentSettings.bannerUrl);
+                          e.currentTarget.style.display = 'none';
+                          const fallback = document.createElement('div');
+                          fallback.className = 'w-full h-16 bg-slate-200 rounded mb-4 flex items-center justify-center text-slate-500 text-sm';
+                          fallback.textContent = 'Banner preview unavailable';
+                          e.currentTarget.parentNode?.insertBefore(fallback, e.currentTarget.nextSibling);
+                        }}
                       />
                       <h3 className="text-lg font-bold">Welcome to {currentSettings?.companyName || "Your Company"}</h3>
                       <p className="text-sm opacity-75">Touch to begin check-in</p>

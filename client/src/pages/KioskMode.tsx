@@ -143,6 +143,14 @@ export default function KioskMode() {
               src={`/objects${settings.bannerUrl}`} 
               alt={settings.companyName}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error("Kiosk banner failed to load:", settings.bannerUrl);
+                e.currentTarget.style.display = 'none';
+                const container = e.currentTarget.parentElement;
+                if (container) {
+                  container.style.display = 'none';
+                }
+              }}
             />
           </div>
         )}

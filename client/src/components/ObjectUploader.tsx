@@ -24,7 +24,7 @@ export function ObjectUploader({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -38,10 +38,13 @@ export function ObjectUploader({
     }
 
     setSelectedFile(file);
+    // Auto-upload the file immediately after selection
+    await handleUpload(file);
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
+  const handleUpload = async (fileToUpload?: File) => {
+    const file = fileToUpload || selectedFile;
+    if (!file) return;
 
     setIsUploading(true);
     try {
@@ -62,9 +65,9 @@ export function ObjectUploader({
       // Upload file directly to object storage
       const uploadResponse = await fetch(uploadURL, {
         method: 'PUT',
-        body: selectedFile,
+        body: file,
         headers: {
-          'Content-Type': selectedFile.type,
+          'Content-Type': file.type,
         },
       });
 
@@ -74,7 +77,7 @@ export function ObjectUploader({
 
       // Convert upload URL to object path for serving
       const objectPath = uploadURL.split('/').slice(-2).join('/');
-      const normalizedPath = `/uploads/${objectPath}`;
+      const normalizedPath = `/objects/uploads/${objectPath}`;
       
       // Notify parent component with the object path
       onUploadComplete?.(normalizedPath);
@@ -140,21 +143,10 @@ export function ObjectUploader({
         )}
       </div>
 
-      {selectedFile && (
-        <div className="flex gap-2">
-          <Button
-            onClick={handleUpload}
-            disabled={isUploading}
-            className="gradient-blue text-white"
-          >
-            {isUploading ? "Uploading..." : "Upload"}
-          </Button>
-          <Button
-            onClick={clearFile}
-            variant="outline"
-          >
-            Cancel
-          </Button>
+      {isUploading && (
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+          <span>Uploading...</span>
         </div>
       )}
     </div>
