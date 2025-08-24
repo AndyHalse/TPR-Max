@@ -186,20 +186,33 @@ export class DatabaseStorage implements IStorage {
     // This would need to be enhanced with actual time tracking data
     const allStaff = await this.getAllStaff();
     
-    return allStaff.map(staffMember => ({
-      staffId: staffMember.id,
-      staffName: `${staffMember.firstName} ${staffMember.lastName}`,
-      department: staffMember.department,
-      sessions: staffMember.isCheckedIn && staffMember.checkedInAt ? [{
-        checkInTime: staffMember.checkedInAt,
-        checkOutTime: staffMember.checkedOutAt || null,
-        hoursWorked: staffMember.checkedOutAt && staffMember.checkedInAt 
-          ? (staffMember.checkedOutAt.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60)
-          : 0,
-        isManual: staffMember.manualCheckIn || false,
-      }] : [],
-      totalHours: 0, // Calculate based on sessions
-    }));
+    return allStaff.map(staffMember => {
+      const sessions = [];
+      let totalHours = 0;
+
+      if (staffMember.isCheckedIn && staffMember.checkedInAt) {
+        // Calculate hours worked - if still checked in, calculate up to now
+        const endTime = staffMember.checkedOutAt || new Date();
+        const hoursWorked = (endTime.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
+        
+        sessions.push({
+          checkInTime: staffMember.checkedInAt,
+          checkOutTime: staffMember.checkedOutAt || null,
+          hoursWorked: hoursWorked,
+          isManual: staffMember.manualCheckIn || false,
+        });
+        
+        totalHours = hoursWorked;
+      }
+
+      return {
+        staffId: staffMember.id,
+        staffName: `${staffMember.firstName} ${staffMember.lastName}`,
+        department: staffMember.department,
+        sessions: sessions,
+        totalHours: totalHours,
+      };
+    });
   }
 
   // Visitor methods with search functionality
