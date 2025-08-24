@@ -66,6 +66,10 @@ export default function Visitors() {
   // Edit visitor state
   const [editingVisitor, setEditingVisitor] = useState<Visitor | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  
+  // Duplicate check-in dialog state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateMessage, setDuplicateMessage] = useState("");
   const [checkedInVisitor, setCheckedInVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
 
@@ -161,7 +165,12 @@ export default function Visitors() {
         carRegistration: "",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      if (error?.message?.includes("Visitor already checked in")) {
+        setDuplicateMessage(error.details || "This visitor is already checked in and on-site.");
+        setShowDuplicateDialog(true);
+        return;
+      }
       toast({
         title: "Error",
         description: "Failed to check in visitor",
@@ -188,7 +197,15 @@ export default function Visitors() {
         description: "Previous visitor checked in successfully!",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      if (error?.message?.includes("Visitor already checked in")) {
+        setDuplicateMessage(error.details || "This visitor is already checked in and on-site.");
+        setShowDuplicateDialog(true);
+        setShowHostSelection(false);
+        setSelectedPreviousVisitor(null);
+        setSelectedHostForPrevious("");
+        return;
+      }
       toast({
         title: "Error",
         description: "Failed to check in visitor",
@@ -879,6 +896,34 @@ export default function Visitors() {
           }
         }}
       />
+
+      {/* Duplicate Check-in Information Dialog */}
+      <Dialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
+        <DialogContent className="glass-effect border border-white/30 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              ℹ️ Visitor Already On-Site
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-slate-600">
+              {duplicateMessage}
+            </p>
+            <p className="text-sm text-slate-500">
+              The visitor is currently checked in. If they need to check out and check in again, please check them out first.
+            </p>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowDuplicateDialog(false)}
+                className="bg-blue-600 hover:bg-blue-700"
+                data-testid="button-acknowledge-duplicate"
+              >
+                Got it
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Pass Preview Modal */}
       {checkedInVisitor && showPassPreview && (
