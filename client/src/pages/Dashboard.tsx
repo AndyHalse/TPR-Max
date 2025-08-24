@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import AIInsights from "@/components/AIInsights";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ interface Stats {
   currentVisitors: number;
   todayCheckins: number;
   staffOnSite: number;
-  avgVisitDuration: string;
+  contractorsOnSite: number;
 }
 
 
@@ -260,16 +260,16 @@ export default function Dashboard() {
           </div>
         </GlassCard>
         
-        <GlassCard hover>
+        <GlassCard hover className="cursor-pointer" onClick={() => setLocation('/contractor')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Avg. Visit Duration</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-avg-duration">
-                {stats?.avgVisitDuration || "0h"}
+              <p className="text-slate-600 text-sm font-medium">Contractors On Site</p>
+              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-contractors-onsite">
+                {stats?.contractorsOnSite || 0}
               </p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-              <Clock className="text-orange-600" size={24} />
+              <HardHat className="text-orange-600" size={24} />
             </div>
           </div>
         </GlassCard>

@@ -85,7 +85,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats", async (req, res) => {
     try {
       const stats = await storage.getVisitorStats();
-      res.json(stats);
+      
+      // Get contractor counts
+      const contractorCompanies = await storage.getAllContractorCompanies();
+      let contractorsOnSite = 0;
+      
+      for (const company of contractorCompanies) {
+        const workers = await storage.getWorkersByCompanyId(company.id);
+        contractorsOnSite += workers.filter(worker => worker.isCheckedIn).length;
+      }
+      
+      // Replace avgVisitDuration with contractorsOnSite
+      const { avgVisitDuration, ...otherStats } = stats;
+      
+      res.json({
+        ...otherStats,
+        contractorsOnSite
+      });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch stats" });
     }
