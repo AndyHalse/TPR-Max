@@ -119,14 +119,24 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 overflow-hidden">
       <div className="flex flex-col h-screen">
-        {/* Company Banner */}
+        {/* Company Banner - Compact for touchscreen */}
         {settings?.bannerUrl && (
-          <div className="w-full h-24 flex-shrink-0">
-            <img 
-              src={settings.bannerUrl} 
-              alt={settings.companyName}
-              className="w-full h-full object-cover"
-            />
+          <div className="w-full flex-shrink-0 bg-white/90 backdrop-blur-sm border-b border-white/30">
+            <div className="flex items-center justify-center py-3 px-6">
+              <img 
+                src={`/objects${settings.bannerUrl}`} 
+                alt={settings.companyName}
+                className="h-10 max-w-sm object-contain"
+                onError={(e) => {
+                  console.error("Kiosk banner failed to load:", settings.bannerUrl);
+                  e.currentTarget.style.display = 'none';
+                  const container = e.currentTarget.parentElement?.parentElement;
+                  if (container) {
+                    container.style.display = 'none';
+                  }
+                }}
+              />
+            </div>
           </div>
         )}
 
