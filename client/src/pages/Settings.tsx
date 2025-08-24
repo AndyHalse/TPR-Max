@@ -38,11 +38,8 @@ export default function Settings() {
     onSuccess: (data) => {
       console.log('Mutation success:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      toast({
-        title: "Success",
-        description: "Settings updated successfully!",
-      });
-      setFormData({});
+      // Only clear form data for manual saves, not uploads
+      // setFormData({}) - REMOVED to prevent clearing typed data
     },
     onError: (error) => {
       console.error('Mutation error:', error);
@@ -97,6 +94,8 @@ export default function Settings() {
       console.log('Merging logo with form data:', updateData);
       
       await updateSettingsMutation.mutateAsync(updateData);
+      // Clear form data after successful upload
+      setFormData({});
       toast({
         title: "Success",
         description: "Logo uploaded and saved successfully!",
@@ -126,6 +125,8 @@ export default function Settings() {
       console.log('Merging banner with form data:', updateData);
       
       await updateSettingsMutation.mutateAsync(updateData);
+      // Clear form data after successful upload
+      setFormData({});
       toast({
         title: "Success",
         description: "Banner uploaded and saved successfully!",
@@ -162,7 +163,16 @@ export default function Settings() {
     }
     
     console.log('Submitting form data:', formData);
-    updateSettingsMutation.mutate(formData);
+    updateSettingsMutation.mutate(formData, {
+      onSuccess: () => {
+        // Clear form data only after manual save
+        setFormData({});
+        toast({
+          title: "Success",
+          description: "Settings saved successfully!",
+        });
+      }
+    });
   };
 
   const handleTestEmail = () => {
