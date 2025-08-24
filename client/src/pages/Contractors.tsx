@@ -854,13 +854,17 @@ export default function Contractors() {
                   {documents.map((document: any) => (
                     <div 
                       key={document.id}
-                      className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      className="border rounded-lg p-4 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer bg-white"
                       onClick={(e) => {
                         e.preventDefault();
                         console.log('Document panel clicked:', document.documentName);
                         handleViewDocument(document);
                       }}
-                      style={{ pointerEvents: 'auto' }}
+                      style={{ 
+                        pointerEvents: 'auto',
+                        zIndex: 10,
+                        position: 'relative'
+                      }}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium">{document.documentName}</span>
@@ -912,8 +916,17 @@ export default function Contractors() {
                   ).map((docType) => (
                     <div 
                       key={docType}
-                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors cursor-pointer"
-                      onClick={() => handleUploadDocument(docType)}
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer bg-gray-50"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        console.log('Missing document clicked:', docType);
+                        handleUploadDocument(docType);
+                      }}
+                      style={{ 
+                        pointerEvents: 'auto',
+                        zIndex: 10,
+                        position: 'relative'
+                      }}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium text-gray-600">
