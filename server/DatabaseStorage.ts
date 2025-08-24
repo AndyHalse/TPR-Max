@@ -744,10 +744,31 @@ export class DatabaseStorage implements IStorage {
   // Accounted status toggle methods
   async toggleStaffAccountedStatus(id: string): Promise<boolean> {
     try {
+      // First get current status - use full select to avoid issues
+      const [currentStaff] = await db
+        .select()
+        .from(staff)
+        .where(eq(staff.id, id))
+        .limit(1);
+        
+      if (!currentStaff) {
+        console.log('Staff member not found:', id);
+        return false;
+      }
+      
+      // Toggle the status - default to false if undefined
+      const currentStatus = currentStaff.isAccountedFor || false;
+      const newStatus = !currentStatus;
+      console.log(`Toggling staff ${id} from ${currentStatus} to ${newStatus}`);
+      
       await db
         .update(staff)
-        .set({ isAccountedFor: not(staff.isAccountedFor) })
+        .set({ 
+          isAccountedFor: newStatus,
+          updatedAt: new Date() 
+        })
         .where(eq(staff.id, id));
+        
       return true;
     } catch (error) {
       console.error("Error toggling staff accounted status:", error);
@@ -757,10 +778,29 @@ export class DatabaseStorage implements IStorage {
 
   async toggleVisitorAccountedStatus(id: string): Promise<boolean> {
     try {
+      // First get current status
+      const [currentVisitor] = await db
+        .select({ isAccountedFor: visitors.isAccountedFor })
+        .from(visitors)
+        .where(eq(visitors.id, id));
+        
+      if (!currentVisitor) {
+        console.log('Visitor not found:', id);
+        return false;
+      }
+      
+      // Toggle the status
+      const newStatus = !currentVisitor.isAccountedFor;
+      console.log(`Toggling visitor ${id} from ${currentVisitor.isAccountedFor} to ${newStatus}`);
+      
       await db
         .update(visitors)
-        .set({ isAccountedFor: not(visitors.isAccountedFor) })
+        .set({ 
+          isAccountedFor: newStatus,
+          updatedAt: new Date() 
+        })
         .where(eq(visitors.id, id));
+        
       return true;
     } catch (error) {
       console.error("Error toggling visitor accounted status:", error);
@@ -770,10 +810,29 @@ export class DatabaseStorage implements IStorage {
 
   async toggleContractorAccountedStatus(id: string): Promise<boolean> {
     try {
+      // First get current status
+      const [currentContractor] = await db
+        .select({ isAccountedFor: contractorWorkers.isAccountedFor })
+        .from(contractorWorkers)
+        .where(eq(contractorWorkers.id, id));
+        
+      if (!currentContractor) {
+        console.log('Contractor not found:', id);
+        return false;
+      }
+      
+      // Toggle the status
+      const newStatus = !currentContractor.isAccountedFor;
+      console.log(`Toggling contractor ${id} from ${currentContractor.isAccountedFor} to ${newStatus}`);
+      
       await db
         .update(contractorWorkers)
-        .set({ isAccountedFor: not(contractorWorkers.isAccountedFor) })
+        .set({ 
+          isAccountedFor: newStatus,
+          updatedAt: new Date() 
+        })
         .where(eq(contractorWorkers.id, id));
+        
       return true;
     } catch (error) {
       console.error("Error toggling contractor accounted status:", error);

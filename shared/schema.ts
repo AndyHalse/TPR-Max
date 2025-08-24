@@ -19,6 +19,8 @@ export const staff = pgTable("staff", {
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
   manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
+  // Emergency muster tracking
+  isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   userId: varchar("user_id").references(() => users.id), // Link to user account
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
