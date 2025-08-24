@@ -1,7 +1,7 @@
 import { db } from "./db";
-import { staff, visitors, users, companySettings, reports, preBookings } from "@shared/schema";
+import { staff, staffSessions, visitors, users, companySettings, reports, preBookings } from "@shared/schema";
 import type { 
-  Staff, InsertStaff, Visitor, InsertVisitor, User, InsertUser, 
+  Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking 
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -137,30 +137,60 @@ export class DatabaseStorage implements IStorage {
 
   // Staff check-in/out methods
   async checkInStaff(id: string, manual: boolean = false): Promise<Staff | undefined> {
+    const now = new Date();
+    
+    // Update staff status
     const [updatedStaff] = await db
       .update(staff)
       .set({
         isCheckedIn: true,
-        checkedInAt: new Date(),
+        checkedInAt: now,
         checkedOutAt: null, // Clear any old checkout time
         manualCheckIn: manual,
       })
       .where(eq(staff.id, id))
       .returning();
     
+    // Create session record
+    if (updatedStaff) {
+      await db.insert(staffSessions).values({
+        staffId: id,
+        checkInTime: now,
+        isManual: manual,
+        checkInMethod: manual ? "manual" : "card",
+      });
+    }
+    
     return updatedStaff || undefined;
   }
 
   async checkOutStaff(id: string): Promise<Staff | undefined> {
+    const now = new Date();
+    
+    // Update staff status
     const [updatedStaff] = await db
       .update(staff)
       .set({
         isCheckedIn: false,
-        checkedOutAt: new Date(),
+        checkedOutAt: now,
         manualCheckIn: false,
       })
       .where(eq(staff.id, id))
       .returning();
+    
+    // Update the most recent open session
+    if (updatedStaff) {
+      await db
+        .update(staffSessions)
+        .set({
+          checkOutTime: now,
+          checkOutMethod: "card", // Default to card, could be manual too
+        })
+        .where(and(
+          eq(staffSessions.staffId, id),
+          eq(staffSessions.checkOutTime, null) // Only update sessions without checkout
+        ));
+    }
     
     return updatedStaff || undefined;
   }
@@ -183,46 +213,75 @@ export class DatabaseStorage implements IStorage {
     }>;
     totalHours: number;
   }>> {
-    // Enhanced to return all sessions within date range
+    // Query all sessions within date range for all staff
     const allStaff = await this.getAllStaff();
     
-    return allStaff.map(staffMember => {
-      const sessions = [];
-      let totalHours = 0;
-
-      // Show session if staff has a check-in time (regardless of current status)
-      if (staffMember.checkedInAt) {
+    const result = [];
+    
+    for (const staffMember of allStaff) {
+      // Get all sessions for this staff member within date range
+      let sessionsQuery = db
+        .select()
+        .from(staffSessions)
+        .where(eq(staffSessions.staffId, staffMember.id));
+      
+      // Apply date filters if provided
+      if (dateFrom) {
+        sessionsQuery = sessionsQuery.where(
+          and(
+            eq(staffSessions.staffId, staffMember.id),
+            gte(staffSessions.checkInTime, dateFrom)
+          )
+        );
+      }
+      
+      if (dateTo) {
+        const endOfDay = new Date(dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        sessionsQuery = sessionsQuery.where(
+          and(
+            eq(staffSessions.staffId, staffMember.id),
+            lte(staffSessions.checkInTime, endOfDay),
+            dateFrom ? gte(staffSessions.checkInTime, dateFrom) : undefined
+          ).filter(Boolean)
+        );
+      }
+      
+      const sessions = await sessionsQuery;
+      
+      // Calculate sessions with hours worked
+      const processedSessions = sessions.map(session => {
         let hoursWorked = 0;
         
-        if (staffMember.isCheckedIn && !staffMember.checkedOutAt) {
-          // Still checked in and no checkout time - calculate hours from check-in to now
-          hoursWorked = (new Date().getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
-        } else if (staffMember.checkedOutAt && staffMember.checkedOutAt > staffMember.checkedInAt) {
-          // Already checked out and checkout is after checkin - calculate hours from check-in to check-out
-          hoursWorked = (staffMember.checkedOutAt.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
+        if (session.checkOutTime) {
+          // Session completed - calculate actual hours
+          hoursWorked = (session.checkOutTime.getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
+        } else {
+          // Session still active - calculate hours up to now
+          hoursWorked = (new Date().getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
         }
         
-        // Only include session if hours are positive (valid check-in/out sequence)
-        if (hoursWorked > 0) {
-          sessions.push({
-            checkInTime: staffMember.checkedInAt,
-            checkOutTime: staffMember.checkedOutAt && staffMember.checkedOutAt > staffMember.checkedInAt ? staffMember.checkedOutAt : null,
-            hoursWorked: hoursWorked,
-            isManual: staffMember.manualCheckIn || false,
-          });
-          
-          totalHours = hoursWorked;
-        }
-      }
-
-      return {
+        return {
+          checkInTime: session.checkInTime,
+          checkOutTime: session.checkOutTime,
+          hoursWorked: Math.max(0, hoursWorked), // Ensure no negative hours
+          isManual: session.isManual,
+        };
+      });
+      
+      // Calculate total hours for this staff member
+      const totalHours = processedSessions.reduce((sum, session) => sum + session.hoursWorked, 0);
+      
+      result.push({
         staffId: staffMember.id,
         staffName: `${staffMember.firstName} ${staffMember.lastName}`,
         department: staffMember.department,
-        sessions: sessions,
+        sessions: processedSessions,
         totalHours: totalHours,
-      };
-    });
+      });
+    }
+    
+    return result;
   }
 
   // Visitor methods with search functionality

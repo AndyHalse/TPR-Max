@@ -24,6 +24,19 @@ export const staff = pgTable("staff", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Staff sessions table for historical tracking of all check-ins/outs
+export const staffSessions = pgTable("staff_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  staffId: varchar("staff_id").notNull().references(() => staff.id),
+  checkInTime: timestamp("check_in_time").notNull(),
+  checkOutTime: timestamp("check_out_time"),
+  isManual: boolean("is_manual").default(false).notNull(),
+  checkInMethod: text("check_in_method").default("card"), // card, manual, pin
+  checkOutMethod: text("check_out_method"), // card, manual, pin
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const visitors = pgTable("visitors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -69,8 +82,15 @@ export const insertVisitorSchema = createInsertSchema(visitors).omit({
   qrCode: true,
 });
 
+export const insertStaffSessionSchema = createInsertSchema(staffSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type Staff = typeof staff.$inferSelect;
 export type InsertStaff = z.infer<typeof insertStaffSchema>;
+export type StaffSession = typeof staffSessions.$inferSelect;
+export type InsertStaffSession = z.infer<typeof insertStaffSessionSchema>;
 export type Visitor = typeof visitors.$inferSelect;
 export type InsertVisitor = z.infer<typeof insertVisitorSchema>;
 
