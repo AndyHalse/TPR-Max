@@ -256,11 +256,11 @@ export const contractorDocuments = pgTable("contractor_documents", {
 // Document Approvals table
 export const documentApprovals = pgTable("document_approvals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  documentId: varchar("document_id").notNull().references(() => contractorDocuments.id),
+  documentId: varchar("document_id").notNull().references(() => complianceDocuments.id),
   contractorId: varchar("contractor_id").notNull().references(() => contractorCompanies.id),
   documentType: text("document_type").notNull(),
   approvalStatus: text("approval_status").notNull(), // approved, rejected, pending
-  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedBy: varchar("approved_by"),
   approvedAt: timestamp("approved_at"),
   rejectionReason: text("rejection_reason"),
   comments: text("comments"),
@@ -314,7 +314,7 @@ export const complianceDocuments = pgTable("compliance_documents", {
   status: text("status").notNull().default("pending"), // valid, expired, expiring, pending_review, rejected
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
   expiryDate: timestamp("expiry_date"),
-  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedBy: varchar("reviewed_by"),
   reviewedAt: timestamp("reviewed_at"),
   reviewNotes: text("review_notes"),
   version: text("version").default("1"), // For version control

@@ -80,13 +80,13 @@ export default function Contractors() {
   });
 
   // Fetch contractor companies from API
-  const { data: contractors = [], isLoading } = useQuery({
+  const { data: contractors = [], isLoading } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Fetch workers for selected contractor
-  const { data: workers = [] } = useQuery({
+  const { data: workers = [] } = useQuery<any[]>({
     queryKey: ["/api/contractors", selectedContractor?.id, "workers"],
     enabled: !!selectedContractor?.id,
     refetchInterval: 30000,
@@ -193,13 +193,7 @@ export default function Contractors() {
 
   const updateWorkerMutation = useMutation({
     mutationFn: async (workerData: any) => {
-      return await apiRequest(`/api/workers/${selectedWorker.id}`, {
-        method: "PUT",
-        body: JSON.stringify(workerData),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      return await apiRequest(`/api/workers/${selectedWorker.id}`, "PUT", workerData);
     },
     onSuccess: () => {
       toast({
@@ -721,7 +715,7 @@ export default function Contractors() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                      {workers.length > 0 ? workers.map((worker: any) => (
+                      {(workers as any[]).length > 0 ? (workers as any[]).map((worker: any) => (
                         <tr key={worker.id} className="hover:bg-slate-50">
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="font-medium text-slate-900">{worker.firstName} {worker.lastName}</div>
