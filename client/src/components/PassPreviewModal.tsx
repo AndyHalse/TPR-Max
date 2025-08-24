@@ -25,6 +25,133 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
     });
   };
 
+  const handlePrint = () => {
+    // For thermal printers, we create a print-optimized version
+    const printContent = document.getElementById('visitor-pass-print');
+    if (printContent) {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Visitor Pass - ${visitor.name}</title>
+              <style>
+                @page { 
+                  size: 95mm 66mm; 
+                  margin: 0; 
+                }
+                @media print {
+                  body { 
+                    margin: 0; 
+                    padding: 8px;
+                    font-family: Arial, sans-serif;
+                    background: white;
+                  }
+                  .pass-container {
+                    width: 95mm;
+                    height: 66mm;
+                    border: 1px solid #000;
+                    padding: 4mm;
+                    box-sizing: border-box;
+                    position: relative;
+                  }
+                  .header { 
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: flex-start;
+                    margin-bottom: 2mm;
+                  }
+                  .company-info { 
+                    flex: 1; 
+                    text-align: left;
+                  }
+                  .company-name { 
+                    font-size: 10pt; 
+                    font-weight: bold; 
+                    margin: 0;
+                  }
+                  .visitor-pass { 
+                    font-size: 7pt; 
+                    margin: 0;
+                  }
+                  .address { 
+                    font-size: 6pt; 
+                    line-height: 1.2;
+                    margin: 1mm 0;
+                  }
+                  .main-content { 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: space-between;
+                    margin: 2mm 0;
+                  }
+                  .visitor-details { 
+                    flex: 1; 
+                    text-align: left;
+                  }
+                  .visitor-name { 
+                    font-size: 12pt; 
+                    font-weight: bold; 
+                    margin: 0;
+                  }
+                  .visitor-info { 
+                    font-size: 7pt; 
+                    margin: 0.5mm 0;
+                  }
+                  .qr-code { 
+                    width: 15mm; 
+                    height: 15mm; 
+                    border: 1px solid #ccc;
+                  }
+                  .footer { 
+                    position: absolute;
+                    bottom: 2mm;
+                    left: 4mm;
+                    right: 4mm;
+                    font-size: 6pt;
+                    border-top: 1px solid #ccc;
+                    padding-top: 1mm;
+                    display: flex;
+                    justify-content: space-between;
+                  }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="pass-container">
+                <div class="header">
+                  <div class="company-info">
+                    <h4 class="company-name">${settings?.companyName || 'TechCorp Ltd'}</h4>
+                    <p class="visitor-pass">Visitor Pass</p>
+                    ${settings?.address ? `<p class="address">${settings.address}</p>` : ''}
+                  </div>
+                </div>
+                
+                <div class="main-content">
+                  <div class="visitor-details">
+                    <p class="visitor-name">${visitor.name}</p>
+                    <p class="visitor-info">${visitor.company || 'No company'}</p>
+                    <p class="visitor-info">${formatDate(visitor.checkedInAt)}</p>
+                    <p class="visitor-info">Host: ${hostName || 'Unknown'}</p>
+                  </div>
+                  <img src="${generateQRCode(visitor.qrCode)}" alt="QR Code" class="qr-code" />
+                </div>
+                
+                <div class="footer">
+                  <span>Valid: ${formatDate(visitor.checkedInAt)}</span>
+                  <span>VisiGate Pro</span>
+                </div>
+              </div>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.close();
+      }
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md glass-effect border-white/20" data-testid="pass-preview-modal">
@@ -37,7 +164,8 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
         <div className="text-center space-y-6">
           {/* Mock ID Pass (95mm x 66mm aspect ratio) */}
           <div 
-            className="bg-white rounded-lg p-4 shadow-lg mx-auto border-2 border-slate-200"
+            id="visitor-pass-print"
+            className="bg-white rounded-lg p-4 shadow-lg mx-auto border-2 border-slate-200 relative"
             style={{ width: "285px", height: "198px" }}
             data-testid="visitor-pass-preview"
           >
@@ -110,33 +238,39 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                     <span>Valid: {formatDate(visitor.checkedInAt)}</span>
                     <span>VisiGate Pro</span>
                   </div>
-                  <p className="text-center text-xs text-slate-400 mt-1">Scan QR code to check out</p>
                 </div>
               </div>
             </div>
           </div>
           
-          <div className="space-y-4">
-            <p className="text-slate-600">
-              {isPreBooked 
-                ? "Welcome! Your pre-booking has been confirmed and your visitor pass has been generated." 
-                : "Your visitor pass has been generated and sent to the printer."
-              }
-            </p>
-            <div className="flex gap-3">
+          <div className="space-y-6 mt-6">
+            <div className="text-center">
+              <p className="text-slate-600 text-base leading-relaxed px-4">
+                {isPreBooked 
+                  ? "Welcome! Your pre-booking has been confirmed and your visitor pass has been generated." 
+                  : "Your visitor pass has been generated and is ready to print."
+                }
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                Show this pass to reception or scan the QR code to check out.
+              </p>
+            </div>
+            
+            <div className="flex gap-3 px-4">
               <Button 
                 variant="outline"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
                 data-testid="button-close-pass-preview"
               >
                 Close
               </Button>
               <Button 
-                className="flex-1 gradient-blue text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all duration-300"
-                data-testid="button-print-another"
+                onClick={handlePrint}
+                className="flex-1 gradient-blue text-white px-4 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300"
+                data-testid="button-print-pass"
               >
-                Print Another
+                Print Pass
               </Button>
             </div>
           </div>
