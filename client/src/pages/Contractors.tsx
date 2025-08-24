@@ -223,7 +223,7 @@ export default function Contractors() {
 
   const updateWorkerMutation = useMutation({
     mutationFn: async (workerData: any) => {
-      return await apiRequest(`/api/workers/${selectedWorker.id}`, "PUT", workerData);
+      return await apiRequest("PUT", `/api/workers/${selectedWorker.id}`, workerData);
     },
     onSuccess: () => {
       toast({
