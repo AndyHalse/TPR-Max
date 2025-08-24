@@ -574,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Send emergency alert emails
-      const emailService = (await import("./emailService")).default;
+      const { emailService } = await import("./emailService");
       let sentCount = 0;
       
       for (const email of emailList) {
