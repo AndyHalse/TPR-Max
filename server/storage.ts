@@ -118,6 +118,11 @@ export class MemStorage implements IStorage {
       reportFrequency: "weekly",
       reportRecipients: ["admin@techcorp.com"],
       lastReportSent: null,
+      selectedPrinter: "PDF Printer",
+      enableQrCodes: true,
+      enable2dBarcodes: false,
+      barcodeFormat: "QR_CODE",
+      printQuality: "normal",
       updatedAt: new Date(),
     };
 
