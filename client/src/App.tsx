@@ -37,26 +37,30 @@ function Router() {
   }
 
   // If not authenticated, show login page
-  if (!user || user.error) {
+  if (!user) {
     return <Login />;
   }
 
   // If authenticated, show main app
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/staff" component={StaffManagement} />
-        <Route path="/prebooking" component={PreBooking} />
-        <Route path="/kiosk" component={KioskMode} />
-        <Route path="/checkin" component={VisitorCheckIn} />
-        <Route path="/muster" component={EmergencyMuster} />
-        <Route path="/reports" component={Reports} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/ai-demo" component={AIDemo} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      <Route path="/kiosk" component={KioskMode} />
+      <Route>
+        <Layout>
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/staff" component={StaffManagement} />
+            <Route path="/prebooking" component={PreBooking} />
+            <Route path="/checkin" component={VisitorCheckIn} />
+            <Route path="/muster" component={EmergencyMuster} />
+            <Route path="/reports" component={Reports} />
+            <Route path="/settings" component={Settings} />
+            <Route path="/ai-demo" component={AIDemo} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 

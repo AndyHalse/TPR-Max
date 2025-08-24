@@ -10,7 +10,7 @@ import { UserPlus, BadgeInfo, LogOut, QrCode, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import type { Staff, Visitor } from "@shared/schema";
+import type { Staff, Visitor, CompanySettings } from "@shared/schema";
 
 export default function KioskMode() {
   const { toast } = useToast();
@@ -25,8 +25,8 @@ export default function KioskMode() {
     queryKey: ["/api/staff"],
   });
 
-  const { data: currentVisitors } = useQuery<Visitor[]>({
-    queryKey: ["/api/visitors/current"],
+  const { data: settings } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
   });
 
   const checkOutMutation = useMutation({
@@ -75,7 +75,7 @@ export default function KioskMode() {
       
       // Find host name
       const hostStaffMember = staff?.find(s => s.id === data.visitor.hostStaffId);
-      setHostName(hostStaffMember?.name);
+      setHostName(hostStaffMember ? `${hostStaffMember.firstName} ${hostStaffMember.lastName}` : undefined);
       
       toast({
         title: "Success",
@@ -103,10 +103,11 @@ export default function KioskMode() {
     }
     
     // Check if it's a checkout (existing visitor QR code)
-    const existingVisitor = currentVisitors?.find(v => v.qrCode === scannedCode);
-    if (existingVisitor) {
-      checkOutMutation.mutate(scannedCode);
+    try {
+      await checkOutMutation.mutateAsync(scannedCode);
       return;
+    } catch (error) {
+      // If checkout fails, continue to try pre-booking check-in
     }
     
     // Check if it's a pre-booking QR code (starts with PBK-)
@@ -125,62 +126,176 @@ export default function KioskMode() {
 
   if (activeSection === "walkin") {
     return (
-      <WalkInVisitorForm onBack={() => setActiveSection("main")} />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+        <WalkInVisitorForm onBack={() => setActiveSection("main")} />
+      </div>
     );
   }
 
   if (activeSection === "scan") {
     return (
-      <div className="max-w-2xl mx-auto space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-slate-800 mb-2">QR Code Scanner</h2>
-          <p className="text-slate-600 text-lg">Scan your visitor pass or pre-booking QR code</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+        {/* Company Banner */}
+        {settings?.bannerUrl && (
+          <div className="w-full h-32 mb-8 rounded-2xl overflow-hidden">
+            <img 
+              src={settings.bannerUrl} 
+              alt={settings.companyName}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        
+        <div className="max-w-2xl mx-auto space-y-8">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-slate-800 mb-4">QR Code Scanner</h2>
+            <p className="text-slate-600 text-xl">Scan your visitor pass or pre-booking QR code</p>
+          </div>
 
-        <GlassCard className="p-8">
-          <div className="text-center space-y-6">
-            <div className="w-32 h-32 mx-auto border-4 border-dashed border-blue-400 rounded-xl flex items-center justify-center bg-blue-50">
-              <QrCode className="text-blue-600" size={48} />
-            </div>
-            
-            <div className="space-y-4">
-              <Input
-                type="text"
-                placeholder="Scan QR code or enter code manually..."
-                value={scannedCode}
-                onChange={(e) => setScannedCode(e.target.value)}
-                className="w-full px-4 py-4 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-center font-mono text-lg"
-                data-testid="input-qr-code"
-                autoFocus
-              />
+          <GlassCard className="p-8">
+            <div className="text-center space-y-6">
+              <div className="w-32 h-32 mx-auto border-4 border-dashed border-blue-400 rounded-xl flex items-center justify-center bg-blue-50">
+                <QrCode className="text-blue-600" size={48} />
+              </div>
               
-              <div className="flex gap-4">
-                <Button
-                  onClick={handleQrScan}
-                  disabled={checkOutMutation.isPending || preBookingCheckInMutation.isPending}
-                  className="flex-1 gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
-                  data-testid="button-scan-qr"
-                >
-                  <Scan className="mr-2" size={16} />
-                  {(checkOutMutation.isPending || preBookingCheckInMutation.isPending) ? "Processing..." : "Scan"}
-                </Button>
+              <div className="space-y-4">
+                <Input
+                  type="text"
+                  placeholder="Scan QR code or enter code manually..."
+                  value={scannedCode}
+                  onChange={(e) => setScannedCode(e.target.value)}
+                  className="w-full px-6 py-6 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-center font-mono text-2xl"
+                  data-testid="input-qr-code"
+                  autoFocus
+                  style={{ fontSize: '24px', minHeight: '60px' }}
+                />
                 
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setActiveSection("main");
-                    setScannedCode("");
-                  }}
-                  className="px-8 bg-white/50 border-white/30 text-slate-700 hover:bg-white/70"
-                >
-                  Back
-                </Button>
+                <div className="flex gap-4">
+                  <Button
+                    onClick={handleQrScan}
+                    disabled={checkOutMutation.isPending || preBookingCheckInMutation.isPending}
+                    className="flex-1 gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 h-16 text-xl"
+                    data-testid="button-scan-qr"
+                  >
+                    <Scan className="mr-3" size={24} />
+                    {(checkOutMutation.isPending || preBookingCheckInMutation.isPending) ? "Processing..." : "Scan"}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setActiveSection("main");
+                      setScannedCode("");
+                    }}
+                    className="px-8 bg-white/50 border-white/30 text-slate-700 hover:bg-white/70 h-16 text-xl"
+                  >
+                    Back
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="text-lg text-slate-500 space-y-3">
+                <p>✓ Pre-booked visitors: Scan your email QR code to check in</p>
+                <p>✓ Current visitors: Scan your pass QR code to check out</p>
               </div>
             </div>
-            
-            <div className="text-sm text-slate-500 space-y-2">
-              <p>✓ Pre-booked visitors: Scan your email QR code to check in</p>
-              <p>✓ Current visitors: Scan your pass QR code to check out</p>
+          </GlassCard>
+
+          {showPreview && currentVisitor && (
+            <PassPreviewModal
+              isOpen={showPreview}
+              onClose={() => {
+                setShowPreview(false);
+                setCurrentVisitor(null);
+                setHostName(undefined);
+                setIsPreBookedCheckIn(false);
+              }}
+              visitor={currentVisitor}
+              hostName={hostName}
+              isPreBooked={isPreBookedCheckIn}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+      {/* Company Banner */}
+      {settings?.bannerUrl && (
+        <div className="w-full h-32 mb-8 rounded-2xl overflow-hidden">
+          <img 
+            src={settings.bannerUrl} 
+            alt={settings.companyName}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+      
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="text-center">
+          <h2 className="text-4xl font-bold text-slate-800 mb-4">Welcome to {settings?.companyName || 'TechCorp Ltd'}</h2>
+          <p className="text-slate-600 text-xl">Please select your check-in option below</p>
+        </div>
+
+        {/* Kiosk Options */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div 
+            className="cursor-pointer" 
+            onClick={() => setActiveSection("scan")}
+            data-testid="button-qr-scanner"
+          >
+            <GlassCard hover className="text-center p-12 group">
+              <div className="w-32 h-32 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <QrCode className="text-white" size={48} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 mb-3">QR Scanner</h3>
+              <p className="text-slate-600 text-lg">Scan to check in or check out</p>
+            </GlassCard>
+          </div>
+
+          <div 
+            className="cursor-pointer" 
+            onClick={() => setActiveSection("walkin")}
+            data-testid="button-manual-checkin"
+          >
+            <GlassCard hover className="text-center p-12 group">
+              <div className="w-32 h-32 gradient-blue rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <UserPlus className="text-white" size={48} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 mb-3">Manual Check-In</h3>
+              <p className="text-slate-600 text-lg">Walk-in visitor entry</p>
+            </GlassCard>
+          </div>
+
+          <GlassCard hover className="text-center p-12 group" data-testid="button-staff-checkin">
+            <div className="w-32 h-32 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+              <BadgeInfo className="text-white" size={48} />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-800 mb-3">Staff Check-In</h3>
+            <p className="text-slate-600 text-lg">Scan your employee ID</p>
+          </GlassCard>
+        </div>
+
+        {/* Instructions for touchscreen users */}
+        <GlassCard className="p-8">
+          <h3 className="text-2xl font-semibold text-slate-800 mb-6 text-center">Instructions</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-lg text-slate-700">
+            <div className="text-center">
+              <QrCode className="mx-auto mb-3 text-purple-600" size={32} />
+              <p className="font-medium mb-2">Pre-booked visitors</p>
+              <p className="text-sm">Use QR Scanner with your email QR code</p>
+            </div>
+            <div className="text-center">
+              <UserPlus className="mx-auto mb-3 text-blue-600" size={32} />
+              <p className="font-medium mb-2">New visitors</p>
+              <p className="text-sm">Use Manual Check-In to register</p>
+            </div>
+            <div className="text-center">
+              <LogOut className="mx-auto mb-3 text-green-600" size={32} />
+              <p className="font-medium mb-2">Leaving</p>
+              <p className="text-sm">Use QR Scanner with your pass QR code</p>
             </div>
           </div>
         </GlassCard>
@@ -200,89 +315,6 @@ export default function KioskMode() {
           />
         )}
       </div>
-    );
-  }
-
-  return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-slate-800 mb-2">Welcome to TechCorp Ltd</h2>
-        <p className="text-slate-600 text-lg">Please select your check-in option below</p>
-      </div>
-
-      {/* Kiosk Options */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div 
-          className="cursor-pointer" 
-          onClick={() => setActiveSection("scan")}
-          data-testid="button-qr-scanner"
-        >
-          <GlassCard hover className="text-center p-8 group">
-            <div className="w-24 h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-              <QrCode className="text-white" size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">QR Scanner</h3>
-            <p className="text-slate-600 text-sm">Scan to check in or check out</p>
-          </GlassCard>
-        </div>
-
-        <div 
-          className="cursor-pointer" 
-          onClick={() => setActiveSection("walkin")}
-          data-testid="button-manual-checkin"
-        >
-          <GlassCard hover className="text-center p-8 group">
-            <div className="w-24 h-24 gradient-blue rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-              <UserPlus className="text-white" size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Manual Check-In</h3>
-            <p className="text-slate-600 text-sm">Walk-in visitor entry</p>
-          </GlassCard>
-        </div>
-
-        <GlassCard hover className="text-center p-8 group" data-testid="button-staff-checkin">
-          <div className="w-24 h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-            <BadgeInfo className="text-white" size={32} />
-          </div>
-          <h3 className="text-xl font-bold text-slate-800 mb-2">Staff Check-In</h3>
-          <p className="text-slate-600 text-sm">Scan your employee ID</p>
-        </GlassCard>
-      </div>
-
-      {/* Quick Status */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <GlassCard className="p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-3">Current Visitors On-Site</h3>
-          <div className="text-3xl font-bold text-blue-600 mb-2">
-            {currentVisitors?.length || 0}
-          </div>
-          <p className="text-slate-600 text-sm">Active visitor passes</p>
-        </GlassCard>
-        
-        <GlassCard className="p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-3">Instructions</h3>
-          <div className="space-y-2 text-sm text-slate-600">
-            <p>• Pre-booked? Use QR Scanner with your email QR code</p>
-            <p>• New visitor? Use Manual Check-In</p>
-            <p>• Leaving? Use QR Scanner with your pass QR code</p>
-          </div>
-        </GlassCard>
-      </div>
-
-      {showPreview && currentVisitor && (
-        <PassPreviewModal
-          isOpen={showPreview}
-          onClose={() => {
-            setShowPreview(false);
-            setCurrentVisitor(null);
-            setHostName(undefined);
-            setIsPreBookedCheckIn(false);
-          }}
-          visitor={currentVisitor}
-          hostName={hostName}
-          isPreBooked={isPreBookedCheckIn}
-        />
-      )}
     </div>
   );
 }
