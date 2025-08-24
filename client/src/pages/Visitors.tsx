@@ -278,7 +278,8 @@ export default function Visitors() {
 
     if (selectedPreviousVisitor) {
       checkInPreviousVisitorMutation.mutate({
-        name: selectedPreviousVisitor.name,
+        firstName: selectedPreviousVisitor.firstName,
+        lastName: selectedPreviousVisitor.lastName,
         company: selectedPreviousVisitor.company,
         hostStaffId: selectedHostForPrevious,
         purpose: selectedPreviousVisitor.purpose,
