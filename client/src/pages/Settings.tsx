@@ -88,9 +88,15 @@ export default function Settings() {
       // We need to store just /uploads/objectId for the database
       const logoUrl = objectPath.replace('/objects', '');
       console.log('Saving logo URL:', logoUrl);
-      await updateSettingsMutation.mutateAsync({
+      
+      // Merge logo with any pending form data to avoid overwriting user input
+      const updateData = {
+        ...formData,
         logoUrl: logoUrl,
-      });
+      };
+      console.log('Merging logo with form data:', updateData);
+      
+      await updateSettingsMutation.mutateAsync(updateData);
       toast({
         title: "Success",
         description: "Logo uploaded and saved successfully!",
@@ -111,9 +117,15 @@ export default function Settings() {
       // We need to store just /uploads/objectId for the database
       const bannerUrl = objectPath.replace('/objects', '');
       console.log('Saving banner URL:', bannerUrl);
-      await updateSettingsMutation.mutateAsync({
+      
+      // Merge banner with any pending form data to avoid overwriting user input
+      const updateData = {
+        ...formData,
         bannerUrl: bannerUrl,
-      });
+      };
+      console.log('Merging banner with form data:', updateData);
+      
+      await updateSettingsMutation.mutateAsync(updateData);
       toast({
         title: "Success",
         description: "Banner uploaded and saved successfully!",
