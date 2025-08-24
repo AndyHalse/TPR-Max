@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { 
   HardHat, 
@@ -26,7 +27,12 @@ import {
   FileCheck,
   ExternalLink,
   Calendar,
-  User
+  User,
+  Upload,
+  Eye,
+  X,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 
 interface ContractorCompany {
@@ -58,6 +64,15 @@ export default function Contractors() {
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [showViewWorkerModal, setShowViewWorkerModal] = useState(false);
   const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadDocumentType, setUploadDocumentType] = useState('');
+  const [approvalForm, setApprovalForm] = useState({
+    status: '',
+    comments: '',
+    rejectionReason: ''
+  });
   const [editWorkerForm, setEditWorkerForm] = useState({
     firstName: "",
     lastName: "",
@@ -89,6 +104,20 @@ export default function Contractors() {
   const { data: workers = [] } = useQuery<any[]>({
     queryKey: ["/api/contractors", selectedContractor?.id, "workers"],
     enabled: !!selectedContractor?.id,
+    refetchInterval: 30000,
+  });
+
+  // Fetch documents for selected contractor
+  const { data: documents = [] } = useQuery<any[]>({
+    queryKey: ["/api/contractors", selectedContractor?.id, "documents"],
+    enabled: !!selectedContractor?.id,
+    refetchInterval: 30000,
+  });
+
+  // Fetch document approvals
+  const { data: approvals = [] } = useQuery<any[]>({
+    queryKey: ["/api/contractors", selectedContractor?.id, "documents", selectedDocument?.id, "approvals"],
+    enabled: !!selectedContractor?.id && !!selectedDocument?.id,
     refetchInterval: 30000,
   });
 
@@ -214,6 +243,42 @@ export default function Contractors() {
 
   const handleUpdateWorker = () => {
     updateWorkerMutation.mutate(editWorkerForm);
+  };
+
+  const handleViewDocument = (document: any) => {
+    setSelectedDocument(document);
+    setShowDocumentModal(true);
+  };
+
+  const handleUploadDocument = (documentType: string) => {
+    setUploadDocumentType(documentType);
+    setShowUploadModal(true);
+  };
+
+  const handleApproveDocument = async (documentId: string, status: 'approved' | 'rejected') => {
+    try {
+      await apiRequest(`/api/contractors/${selectedContractor?.id}/documents/${documentId}/approve`, 'POST', {
+        approvalStatus: status,
+        comments: approvalForm.comments,
+        rejectionReason: status === 'rejected' ? approvalForm.rejectionReason : undefined
+      });
+      
+      toast({
+        title: "Success",
+        description: `Document ${status} successfully`,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      
+      setApprovalForm({ status: '', comments: '', rejectionReason: '' });
+      setShowDocumentModal(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to ${status} document`,
+        variant: "destructive",
+      });
+    }
   };
 
   const getComplianceIcon = (score: number) => {
@@ -785,97 +850,122 @@ export default function Contractors() {
               <div className="mt-8">
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">Document Management</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Public Liability */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">Public Liability</span>
-                      <Badge className="bg-green-100 text-green-800">Valid</Badge>
+                  {documents.map((document: any) => (
+                    <div 
+                      key={document.id}
+                      className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleViewDocument(document)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">{document.documentName}</span>
+                        <Badge className={`${
+                          document.status === 'valid' ? 'bg-green-100 text-green-800' :
+                          document.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          document.status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
+                          document.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-slate-500 mb-3">
+                        {document.expiryDate ? `Expires: ${new Date(document.expiryDate).toLocaleDateString()}` : 'No expiry date'}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDocument(document);
+                          }}
+                          data-testid={`button-view-document-${document.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUploadDocument(document.documentType);
+                          }}
+                          data-testid={`button-upload-document-${document.id}`}
+                        >
+                          <Upload className="h-4 w-4 mr-1" />
+                          Upload New
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-green-600 border-green-600">
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                    </div>
-                  </div>
+                  ))}
 
-                  {/* Employers Liability */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">Employers Liability</span>
-                      <Badge className="bg-green-100 text-green-800">Valid</Badge>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-green-600 border-green-600">
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Health & Safety */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">Health & Safety</span>
-                      <Badge className="bg-yellow-100 text-yellow-800">Expiring</Badge>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-yellow-600 border-yellow-600">
-                        <Clock className="h-4 w-4 mr-1" />
-                        Review
+                  {/* Placeholder for missing documents */}
+                  {['public_liability', 'employers_liability', 'health_safety', 'cis_registration'].filter(
+                    type => !documents.some((doc: any) => doc.documentType === type)
+                  ).map((docType) => (
+                    <div 
+                      key={docType}
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors cursor-pointer"
+                      onClick={() => handleUploadDocument(docType)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-600">
+                          {docType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        </span>
+                        <Badge className="bg-gray-100 text-gray-600">Missing</Badge>
+                      </div>
+                      <div className="text-sm text-gray-500 mb-3">Document not uploaded</div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUploadDocument(docType);
+                        }}
+                        data-testid={`button-upload-${docType}`}
+                      >
+                        <Upload className="h-4 w-4 mr-1" />
+                        Upload Document
                       </Button>
                     </div>
-                  </div>
-
-                  {/* CIS Registration */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">CIS Registration</span>
-                      <Badge className="bg-green-100 text-green-800">Valid</Badge>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-green-600 border-green-600">
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 {/* Approval History */}
                 <div className="mt-6">
                   <h4 className="text-md font-semibold text-slate-800 mb-3">Recent Approvals</h4>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <div>
-                        <span className="font-medium text-green-800">Public Liability approved</span>
-                        <p className="text-sm text-green-600">by Andy Smith on 24 Aug 2025 at 19:15</p>
+                    {approvals.length > 0 ? approvals.slice(0, 5).map((approval: any) => (
+                      <div key={approval.id} className={`flex items-center justify-between p-3 rounded-lg ${
+                        approval.approvalStatus === 'approved' ? 'bg-green-50' : 'bg-red-50'
+                      }`}>
+                        <div>
+                          <span className={`font-medium ${
+                            approval.approvalStatus === 'approved' ? 'text-green-800' : 'text-red-800'
+                          }`}>
+                            {approval.documentType.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} {approval.approvalStatus}
+                          </span>
+                          <p className={`text-sm ${
+                            approval.approvalStatus === 'approved' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            by {approval.approvedBy} on {new Date(approval.createdAt).toLocaleDateString()} at {new Date(approval.createdAt).toLocaleTimeString()}
+                          </p>
+                          {approval.comments && (
+                            <p className="text-sm text-gray-600 mt-1">"{approval.comments}"</p>
+                          )}
+                        </div>
+                        {approval.approvalStatus === 'approved' ? 
+                          <CheckCircle className="h-5 w-5 text-green-600" /> :
+                          <X className="h-5 w-5 text-red-600" />
+                        }
                       </div>
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <div>
-                        <span className="font-medium text-green-800">Employers Liability approved</span>
-                        <p className="text-sm text-green-600">by Andy Smith on 24 Aug 2025 at 19:14</p>
+                    )) : (
+                      <div className="text-center py-4 text-gray-500">
+                        No approval history available
                       </div>
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1173,6 +1263,279 @@ export default function Contractors() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document View Modal */}
+      <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Document Details: {selectedDocument?.documentName}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedDocument && (
+            <div className="space-y-6 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-800">Document Information</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Document Type</Label>
+                      <p className="text-slate-900">{selectedDocument.documentType.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Status</Label>
+                      <Badge className={`${
+                        selectedDocument.status === 'valid' ? 'bg-green-100 text-green-800' :
+                        selectedDocument.status === 'approved' ? 'bg-green-100 text-green-800' :
+                        selectedDocument.status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
+                        selectedDocument.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedDocument.status.charAt(0).toUpperCase() + selectedDocument.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Uploaded</Label>
+                      <p className="text-slate-900">{new Date(selectedDocument.uploadedAt).toLocaleString()}</p>
+                    </div>
+                    {selectedDocument.expiryDate && (
+                      <div>
+                        <Label className="text-sm font-medium text-slate-600">Expires</Label>
+                        <p className="text-slate-900">{new Date(selectedDocument.expiryDate).toLocaleDateString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-800">Document Actions</h3>
+                  <div className="space-y-3">
+                    <Button className="w-full" onClick={() => window.open(selectedDocument.documentUrl, '_blank')}>
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Document
+                    </Button>
+                    
+                    {selectedDocument.status !== 'approved' && (
+                      <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                        <Label className="text-sm font-medium text-slate-600">Approval Actions</Label>
+                        <Textarea
+                          placeholder="Add comments..."
+                          value={approvalForm.comments}
+                          onChange={(e) => setApprovalForm({...approvalForm, comments: e.target.value})}
+                        />
+                        {approvalForm.status === 'rejected' && (
+                          <Textarea
+                            placeholder="Reason for rejection..."
+                            value={approvalForm.rejectionReason}
+                            onChange={(e) => setApprovalForm({...approvalForm, rejectionReason: e.target.value})}
+                          />
+                        )}
+                        <div className="flex gap-2">
+                          <Button 
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => handleApproveDocument(selectedDocument.id, 'approved')}
+                          >
+                            <ThumbsUp className="h-4 w-4 mr-2" />
+                            Approve
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
+                            onClick={() => {
+                              setApprovalForm({...approvalForm, status: 'rejected'});
+                              if (approvalForm.rejectionReason) {
+                                handleApproveDocument(selectedDocument.id, 'rejected');
+                              }
+                            }}
+                          >
+                            <ThumbsDown className="h-4 w-4 mr-2" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Approval History for this document */}
+              <div>
+                <h4 className="text-md font-semibold text-slate-800 mb-3">Approval History</h4>
+                <div className="space-y-2">
+                  {approvals.length > 0 ? approvals.map((approval: any) => (
+                    <div key={approval.id} className={`flex items-center justify-between p-3 rounded-lg ${
+                      approval.approvalStatus === 'approved' ? 'bg-green-50' : 'bg-red-50'
+                    }`}>
+                      <div>
+                        <span className={`font-medium ${
+                          approval.approvalStatus === 'approved' ? 'text-green-800' : 'text-red-800'
+                        }`}>
+                          Document {approval.approvalStatus}
+                        </span>
+                        <p className={`text-sm ${
+                          approval.approvalStatus === 'approved' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          by {approval.approvedBy} on {new Date(approval.createdAt).toLocaleString()}
+                        </p>
+                        {approval.comments && (
+                          <p className="text-sm text-gray-600 mt-1">"{approval.comments}"</p>
+                        )}
+                      </div>
+                      {approval.approvalStatus === 'approved' ? 
+                        <CheckCircle className="h-5 w-5 text-green-600" /> :
+                        <X className="h-5 w-5 text-red-600" />
+                      }
+                    </div>
+                  )) : (
+                    <div className="text-center py-4 text-gray-500">
+                      No approval history for this document
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Document Modal */}
+      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload {uploadDocumentType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Document
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4">
+            <div className="text-center">
+              <p className="text-slate-600">
+                You can upload a PDF or image file for the {uploadDocumentType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} document.
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                For demo purposes, you can download and upload our sample documents:
+              </p>
+            </div>
+
+            {/* Demo Sample Downloads */}
+            <div className="grid grid-cols-2 gap-4">
+              {uploadDocumentType === 'public_liability' && (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/sample-public-liability.pdf';
+                    link.download = 'sample-public-liability.pdf';
+                    link.click();
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download Sample
+                </Button>
+              )}
+              {uploadDocumentType === 'employers_liability' && (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/sample-employers-liability.pdf';
+                    link.download = 'sample-employers-liability.pdf';
+                    link.click();
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download Sample
+                </Button>
+              )}
+              {uploadDocumentType === 'health_safety' && (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/sample-health-safety.pdf';
+                    link.download = 'sample-health-safety.pdf';
+                    link.click();
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download Sample
+                </Button>
+              )}
+              {uploadDocumentType === 'cis_registration' && (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/sample-cis-registration.pdf';
+                    link.download = 'sample-cis-registration.pdf';
+                    link.click();
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download Sample
+                </Button>
+              )}
+            </div>
+
+            {/* Upload Area */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+              <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-medium text-gray-600 mb-2">
+                Drop your document here or click to browse
+              </p>
+              <p className="text-sm text-gray-500">
+                Supports PDF, JPG, PNG files up to 10MB
+              </p>
+              <Input 
+                type="file" 
+                className="hidden" 
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => {
+                  // Handle file upload logic here
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    toast({
+                      title: "Upload Started",
+                      description: `Uploading ${file.name}...`,
+                    });
+                    // In a real implementation, you'd upload the file here
+                    setTimeout(() => {
+                      toast({
+                        title: "Upload Successful",
+                        description: "Document has been uploaded successfully.",
+                      });
+                      setShowUploadModal(false);
+                    }, 2000);
+                  }
+                }}
+              />
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => {
+                  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                  fileInput?.click();
+                }}
+              >
+                Choose File
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUploadModal(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

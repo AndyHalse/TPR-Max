@@ -13,6 +13,8 @@ import {
   insertComplianceDocumentSchema
 } from "@shared/schema";
 import { z } from "zod";
+import path from "path";
+import express from "express";
 
 // Staff authentication schema
 const staffAuthSchema = z.object({
@@ -27,6 +29,9 @@ import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve static files from public directory
+  app.use('/sample-*.pdf', express.static(path.join(process.cwd(), 'public')));
+  
   // Authentication endpoints
   app.post("/api/auth/login", async (req, res) => {
     try {
