@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "light" | "dark";
+type Theme = "light" | "dark" | "system";
 
 interface ThemeContextType {
   theme: Theme;
@@ -21,7 +21,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Apply theme to document
     const root = document.documentElement;
     root.classList.remove("light", "dark");
-    root.classList.add(theme);
+    
+    if (theme === "system") {
+      // Use system preference
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(theme);
+    }
     
     // Save to localStorage
     localStorage.setItem("theme", theme);

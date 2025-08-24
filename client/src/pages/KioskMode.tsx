@@ -140,7 +140,7 @@ export default function KioskMode() {
         {settings?.bannerUrl && (
           <div className="w-full h-32 mb-8 rounded-2xl overflow-hidden">
             <img 
-              src={settings.bannerUrl} 
+              src={`/objects${settings.bannerUrl}`} 
               alt={settings.companyName}
               className="w-full h-full object-cover"
             />
@@ -233,7 +233,7 @@ export default function KioskMode() {
       {settings?.bannerUrl && (
         <div className="w-full h-32 mb-8 rounded-2xl overflow-hidden">
           <img 
-            src={settings.bannerUrl} 
+            src={`/objects${settings.bannerUrl}`} 
             alt={settings.companyName}
             className="w-full h-full object-cover"
           />

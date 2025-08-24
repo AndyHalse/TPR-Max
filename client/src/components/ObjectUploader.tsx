@@ -72,8 +72,12 @@ export function ObjectUploader({
         throw new Error('Failed to upload file');
       }
 
-      // Notify parent component
-      onUploadComplete?.(uploadURL);
+      // Convert upload URL to object path for serving
+      const objectPath = uploadURL.split('/').slice(-2).join('/');
+      const normalizedPath = `/uploads/${objectPath}`;
+      
+      // Notify parent component with the object path
+      onUploadComplete?.(normalizedPath);
       
       toast({
         title: "Success",

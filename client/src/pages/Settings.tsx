@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
 
 export default function Settings() {
@@ -178,7 +178,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -190,6 +190,10 @@ export default function Settings() {
           <TabsTrigger value="theme" className="flex items-center gap-2">
             <Monitor size={16} />
             Theme
+          </TabsTrigger>
+          <TabsTrigger value="printer" className="flex items-center gap-2">
+            <Settings as SettingsIcon size={16} />
+            Printer
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users size={16} />
@@ -582,6 +586,187 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
+            </div>
+          </GlassCard>
+        </TabsContent>
+
+        <TabsContent value="printer" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Printer className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Printer Configuration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="selectedPrinter" className="text-sm font-medium text-slate-700">
+                    Default Printer
+                  </Label>
+                  <Select
+                    value={currentSettings?.selectedPrinter || "PDF Printer"}
+                    onValueChange={(value) => handleInputChange("selectedPrinter", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-printer">
+                      <SelectValue placeholder="Select a printer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PDF Printer">PDF Printer (Testing)</SelectItem>
+                      <SelectItem value="B-FV4 Thermal Printer">B-FV4 Thermal Printer</SelectItem>
+                      <SelectItem value="Brother QL-800">Brother QL-800</SelectItem>
+                      <SelectItem value="DYMO LabelWriter 450">DYMO LabelWriter 450</SelectItem>
+                      <SelectItem value="Zebra ZD410">Zebra ZD410</SelectItem>
+                      <SelectItem value="System Default">System Default Printer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">Select your installed printer or use PDF for testing</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="printQuality" className="text-sm font-medium text-slate-700">
+                    Print Quality
+                  </Label>
+                  <Select
+                    value={currentSettings?.printQuality || "normal"}
+                    onValueChange={(value) => handleInputChange("printQuality", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-print-quality">
+                      <SelectValue placeholder="Select print quality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft (Fast)</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">High Quality</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">Higher quality uses more ink but provides clearer text</p>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-white/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-700">Auto-Print Passes</Label>
+                      <p className="text-xs text-slate-500">Automatically print visitor passes after check-in</p>
+                    </div>
+                    <Switch
+                      checked={currentSettings?.enableQrCodes !== false}
+                      onCheckedChange={(checked) => handleInputChange("enableQrCodes", checked)}
+                      data-testid="switch-auto-print"
+                    />
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <QrCode className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Barcode & QR Settings</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="barcodeFormat" className="text-sm font-medium text-slate-700">
+                    Barcode Format
+                  </Label>
+                  <Select
+                    value={currentSettings?.barcodeFormat || "QR_CODE"}
+                    onValueChange={(value) => handleInputChange("barcodeFormat", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-barcode-format">
+                      <SelectValue placeholder="Select barcode format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="QR_CODE">QR Code (Recommended)</SelectItem>
+                      <SelectItem value="DATA_MATRIX">Data Matrix</SelectItem>
+                      <SelectItem value="PDF417">PDF417</SelectItem>
+                      <SelectItem value="CODE128">Code 128</SelectItem>
+                      <SelectItem value="CODE39">Code 39</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">QR codes work best for mobile scanning</p>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-white/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-700">Enable 2D Barcodes</Label>
+                      <p className="text-xs text-slate-500">Use advanced 2D barcode formats for enhanced data storage</p>
+                    </div>
+                    <Switch
+                      checked={currentSettings?.enable2dBarcodes === true}
+                      onCheckedChange={(checked) => handleInputChange("enable2dBarcodes", checked)}
+                      data-testid="switch-2d-barcodes"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border-2 border-dashed border-slate-300">
+                  <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                    <Barcode size={16} />
+                    Barcode Preview
+                  </h4>
+                  <div className="text-center">
+                    <div className="inline-block p-4 bg-white rounded border-2 border-dashed border-slate-400">
+                      {currentSettings?.barcodeFormat === "QR_CODE" ? (
+                        <QrCode size={48} className="text-slate-800 mx-auto" />
+                      ) : (
+                        <Barcode size={48} className="text-slate-800 mx-auto" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Sample {currentSettings?.barcodeFormat || "QR_CODE"} code
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <FileText className="mr-3 text-blue-600" size={24} />
+              <h3 className="text-lg font-semibold text-slate-800">Print Test & Troubleshooting</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 border-white/30"
+                data-testid="button-test-print"
+              >
+                <Printer size={24} />
+                <span>Test Print</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 border-white/30"
+                data-testid="button-print-to-pdf"
+              >
+                <FileText size={24} />
+                <span>Print to PDF</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 border-white/30"
+                data-testid="button-printer-status"
+              >
+                <Monitor size={24} />
+                <span>Printer Status</span>
+              </Button>
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <h4 className="font-semibold text-blue-800 mb-2">Supported Printers</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• B-FV4 Desktop Thermal Printer (95mm x 66mm passes)</li>
+                <li>• Brother QL series label printers</li>
+                <li>• DYMO LabelWriter series</li>
+                <li>• Zebra desktop printers</li>
+                <li>• Any Windows-compatible printer via PDF export</li>
+              </ul>
             </div>
           </GlassCard>
         </TabsContent>

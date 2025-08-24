@@ -76,6 +76,12 @@ export const companySettings = pgTable("company_settings", {
   accentColor: text("accent_color").default("#3b82f6"),
   bannerUrl: text("banner_url"),
   theme: text("theme").default("light"), // light or dark
+  // Printer settings
+  selectedPrinter: text("selected_printer").default("PDF Printer"),
+  enableQrCodes: boolean("enable_qr_codes").default(true),
+  enable2dBarcodes: boolean("enable_2d_barcodes").default(false),
+  barcodeFormat: text("barcode_format").default("QR_CODE"), // QR_CODE, DATA_MATRIX, PDF417
+  printQuality: text("print_quality").default("normal"), // draft, normal, high
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
