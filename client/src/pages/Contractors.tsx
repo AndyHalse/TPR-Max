@@ -663,27 +663,54 @@ export default function Contractors() {
                   
                   <div className="space-y-2">
                     <h4 className="text-sm font-semibold text-slate-700">Document Status</h4>
-                    {Object.entries({
-                      publicLiability: "Public Liability Insurance",
-                      employersLiability: "Employers Liability Insurance", 
-                      healthSafety: "Health & Safety Certificate",
-                      cisRegistration: "CIS Registration"
-                    }).map(([key, label]) => {
-                      const status = selectedContractor.documentsStatus[key as keyof typeof selectedContractor.documentsStatus];
-                      return (
-                        <div key={key} className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">{label}</span>
-                          <Badge className={`${
-                            status === 'valid' ? 'bg-green-100 text-green-800' :
-                            status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
-                            status === 'expired' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {status}
-                          </Badge>
-                        </div>
-                      );
-                    })}
+                    <TooltipProvider>
+                      {Object.entries({
+                        publicLiability: "Public Liability Insurance",
+                        employersLiability: "Employers Liability Insurance", 
+                        healthSafety: "Health & Safety Certificate",
+                        cisRegistration: "CIS Registration"
+                      }).map(([key, label]) => {
+                        const status = selectedContractor.documentsStatus[key as keyof typeof selectedContractor.documentsStatus];
+                        return (
+                          <Tooltip key={key}>
+                            <TooltipTrigger asChild>
+                              <div 
+                                className="flex items-center justify-between p-2 rounded-md hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer"
+                                onClick={() => {
+                                  console.log('Document status clicked:', label);
+                                  // Find the document from API data
+                                  const document = documents.find((doc: any) => 
+                                    doc.documentType === key.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '')
+                                  );
+                                  if (document) {
+                                    handleViewDocument(document);
+                                  } else {
+                                    toast({
+                                      title: "Document not found",
+                                      description: "This document hasn't been uploaded yet.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                              >
+                                <span className="text-sm text-slate-600">{label}</span>
+                                <Badge className={`${
+                                  status === 'valid' ? 'bg-green-100 text-green-800' :
+                                  status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
+                                  status === 'expired' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {status}
+                                </Badge>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Click to open {label}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                    </TooltipProvider>
                   </div>
                 </div>
               </div>
