@@ -64,12 +64,12 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const handleFieldChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Auto-advance to next required field if current field has content
-    if (value.trim()) {
+    // Auto-advance to next required field if current field has meaningful content (3+ characters)
+    if (value.trim().length >= 2) {
       if (field === "firstName" && !formData.lastName) {
-        setTimeout(() => setActiveField("lastName"), 100);
+        setTimeout(() => setActiveField("lastName"), 500);
       } else if (field === "lastName" && !formData.hostStaffId) {
-        setTimeout(() => setActiveField(null), 100); // Close keyboard to show host selector
+        setTimeout(() => setActiveField(null), 500); // Close keyboard to show host selector
       }
     }
   };

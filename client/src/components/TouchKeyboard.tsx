@@ -36,6 +36,11 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
   const [isUppercase, setIsUppercase] = useState(true);
 
   const handleKeyPress = (key: string) => {
+    // Add haptic feedback for better touch experience
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+    
     if (key === "SPACE") {
       onChange(value + " ");
     } else if (key === "BACKSPACE") {
@@ -71,41 +76,50 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
   };
 
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/20">
+    <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30">
       {/* Display */}
-      <div className="mb-6">
-        <div className="bg-slate-100 rounded-xl p-4 min-h-[60px] flex items-center">
-          <span className={`text-lg ${value ? "text-slate-800" : "text-slate-400"}`}>
+      <div className="mb-8">
+        <div className="bg-slate-100 rounded-2xl p-6 min-h-[80px] flex items-center shadow-inner">
+          <span className={`text-2xl font-medium ${value ? "text-slate-800" : "text-slate-400"}`}>
             {value || placeholder || "Type here..."}
           </span>
-          <span className="ml-1 animate-pulse text-slate-600">|</span>
+          <span className="ml-2 animate-pulse text-slate-600 text-2xl font-light">|</span>
         </div>
       </div>
 
       {/* Layout switcher for text mode */}
       {type === "text" && (
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-3 mb-6">
           <Button
-            variant={layout === "text" ? "default" : "outline"}
-            size="sm"
             onClick={() => setLayout("text")}
-            className="flex-1"
+            size="lg"
+            className={`flex-1 text-lg font-semibold py-4 rounded-xl transition-all transform active:scale-95 ${
+              layout === "text" 
+                ? "bg-blue-500 hover:bg-blue-600 text-white shadow-lg" 
+                : "bg-white/70 hover:bg-white/90 border-slate-300 text-slate-700"
+            }`}
           >
             ABC
           </Button>
           <Button
-            variant={layout === "numbers" ? "default" : "outline"}
-            size="sm"
             onClick={() => setLayout("numbers")}
-            className="flex-1"
+            size="lg"
+            className={`flex-1 text-lg font-semibold py-4 rounded-xl transition-all transform active:scale-95 ${
+              layout === "numbers" 
+                ? "bg-blue-500 hover:bg-blue-600 text-white shadow-lg" 
+                : "bg-white/70 hover:bg-white/90 border-slate-300 text-slate-700"
+            }`}
           >
             123
           </Button>
           <Button
-            variant={layout === "symbols" ? "default" : "outline"}
-            size="sm"
             onClick={() => setLayout("symbols")}
-            className="flex-1"
+            size="lg"
+            className={`flex-1 text-lg font-semibold py-4 rounded-xl transition-all transform active:scale-95 ${
+              layout === "symbols" 
+                ? "bg-blue-500 hover:bg-blue-600 text-white shadow-lg" 
+                : "bg-white/70 hover:bg-white/90 border-slate-300 text-slate-700"
+            }`}
           >
             #+=
           </Button>
@@ -113,14 +127,13 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
       )}
 
       {/* Keyboard */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {getKeyboardLayout().map((row, rowIndex) => (
-          <div key={rowIndex} className="flex gap-2 justify-center">
+          <div key={rowIndex} className="flex gap-3 justify-center">
             {row.map((key) => (
               <Button
                 key={key}
-                variant="outline"
-                className="h-14 flex-1 max-w-[60px] text-lg font-medium bg-white hover:bg-blue-50 border-slate-300 hover:border-blue-300 transition-all"
+                className="h-16 flex-1 max-w-[70px] text-xl font-semibold bg-white hover:bg-blue-50 border-2 border-slate-300 hover:border-blue-400 transition-all transform active:scale-95 hover:shadow-md rounded-xl"
                 onClick={() => handleKeyPress(key)}
               >
                 {layout === "text" && !isUppercase ? key.toLowerCase() : key}
@@ -130,12 +143,13 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
         ))}
 
         {/* Action row */}
-        <div className="flex gap-2 justify-center mt-4">
+        <div className="flex gap-3 justify-center mt-6">
           {layout === "text" && (
             <Button
-              variant="outline"
-              className={`h-14 px-6 text-sm font-medium transition-all ${
-                isUppercase ? "bg-blue-100 border-blue-300" : "bg-white border-slate-300"
+              className={`h-16 px-8 text-lg font-semibold rounded-xl transition-all transform active:scale-95 ${
+                isUppercase 
+                  ? "bg-blue-100 border-blue-400 text-blue-700 hover:bg-blue-200" 
+                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
               }`}
               onClick={() => handleKeyPress("CAPS")}
             >
@@ -144,25 +158,22 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
           )}
           
           <Button
-            variant="outline"
-            className="h-14 flex-1 max-w-[120px] text-sm font-medium bg-white hover:bg-slate-50 border-slate-300"
+            className="h-16 flex-1 max-w-[140px] text-lg font-semibold bg-white hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 rounded-xl transition-all transform active:scale-95"
             onClick={() => handleKeyPress("SPACE")}
           >
-            <Space className="mr-2" size={16} />
+            <Space className="mr-2" size={20} />
             Space
           </Button>
           
           <Button
-            variant="outline"
-            className="h-14 px-6 text-sm font-medium bg-white hover:bg-red-50 border-slate-300 hover:border-red-300"
+            className="h-16 px-8 text-lg font-semibold bg-white hover:bg-red-50 border-2 border-slate-300 hover:border-red-400 text-red-600 rounded-xl transition-all transform active:scale-95"
             onClick={() => handleKeyPress("BACKSPACE")}
           >
-            <Delete size={18} />
+            <Delete size={20} />
           </Button>
           
           <Button
-            variant="outline"
-            className="h-14 px-6 text-sm font-medium bg-white hover:bg-orange-50 border-slate-300 hover:border-orange-300"
+            className="h-16 px-8 text-lg font-semibold bg-white hover:bg-orange-50 border-2 border-slate-300 hover:border-orange-400 text-orange-600 rounded-xl transition-all transform active:scale-95"
             onClick={() => handleKeyPress("CLEAR")}
           >
             Clear
