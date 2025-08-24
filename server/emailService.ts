@@ -569,7 +569,22 @@ export class EmailService {
         </div>
       `;
 
-      return await this.sendEmail(to, alertSubject, html);
+      // Use the existing email sending method that should be somewhere in this class
+      if (!this.transporter) {
+        console.log('No email transporter configured, skipping emergency alert send');
+        return false;
+      }
+
+      const mailOptions = {
+        from: `"VisiGate Pro Emergency" <update@acsltd.eu>`,
+        to: to,
+        subject: alertSubject,
+        html: html
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log('Emergency alert sent successfully:', result.messageId);
+      return true;
     } catch (error) {
       console.error("Failed to send emergency alert:", error);
       return false;

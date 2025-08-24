@@ -12,7 +12,7 @@ import type {
   WorkerCompetency, InsertWorkerCompetency, DocumentApproval, InsertDocumentApproval
 } from "@shared/schema";
 import type { IStorage } from "./storage";
-import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -208,25 +208,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCheckedInContractors(): Promise<ContractorWorker[]> {
-    const checkedInContractors = await db.select({
-      id: contractorWorkers.id,
-      firstName: contractorWorkers.firstName,
-      lastName: contractorWorkers.lastName,
-      companyId: contractorWorkers.companyId,
-      companyName: contractorCompanies.companyName,
-      trade: contractorWorkers.trade,
-      certificateNumber: contractorWorkers.certificateNumber,
-      cscsCardType: contractorWorkers.cscsCardType,
-      isCheckedIn: contractorWorkers.isCheckedIn,
-      checkedInAt: contractorWorkers.checkedInAt,
-      checkedOutAt: contractorWorkers.checkedOutAt,
-      isAccountedFor: contractorWorkers.isAccountedFor,
-      createdAt: contractorWorkers.createdAt,
-      updatedAt: contractorWorkers.updatedAt,
-    })
-    .from(contractorWorkers)
-    .leftJoin(contractorCompanies, eq(contractorWorkers.companyId, contractorCompanies.id))
-    .where(eq(contractorWorkers.isCheckedIn, true));
+    // Get all checked-in contractors
+    const checkedInContractors = await db.select()
+      .from(contractorWorkers)
+      .where(eq(contractorWorkers.isCheckedIn, true));
 
     return checkedInContractors;
   }
