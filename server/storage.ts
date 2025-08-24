@@ -439,137 +439,15 @@ export class MemStorage implements IStorage {
   }
 
   private initializeSampleData(): void {
-    // Only initialize if no data exists to avoid overwriting real customer data
-    console.log('🔄 Initializing sample data...');
+    // No mock data - zero fake data policy
+    console.log('🔄 Database initialized - no sample data loaded');
 
-    // Add some sample staff
-    const sampleStaff = [
-      { firstName: "Sarah", lastName: "Wilson", email: "sarah.wilson@techcorp.com", department: "Engineering", employeeId: "ENG001" },
-      { firstName: "Michael", lastName: "Chen", email: "michael.chen@techcorp.com", department: "Sales", employeeId: "SAL001" },
-      { firstName: "Emma", lastName: "Johnson", email: "emma.johnson@techcorp.com", department: "Marketing", employeeId: "MKT001" },
-      { firstName: "David", lastName: "Rodriguez", email: "david.rodriguez@techcorp.com", department: "HR", employeeId: "HR001" },
-      { firstName: "Lisa", lastName: "Thompson", email: "lisa.thompson@techcorp.com", department: "Operations", employeeId: "OPS001" },
-    ];
-
-    sampleStaff.forEach((staffData) => {
-      const id = randomUUID();
-      this.staffMembers.set(id, {
-        id,
-        firstName: staffData.firstName,
-        lastName: staffData.lastName,
-        email: staffData.email,
-        department: staffData.department,
-        employeeId: staffData.employeeId,
-        photoUrl: null,
-        accessLevel: "staff",
-        password: null,
-        lastLoginAt: null,
-        isCheckedIn: false,
-        checkedInAt: null,
-        checkedOutAt: null,
-        manualCheckIn: false,
-        userId: null,
-        isActive: true,
-        createdAt: new Date(),
-      });
-    });
-
-    // Add some sample visitors for demonstration
-    const sampleVisitors = [
-      { 
-        name: "John Anderson", 
-        company: "ABC Corp", 
-        purpose: "Business Meeting",
-        checkedInAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        isCheckedIn: true 
-      },
-      { 
-        name: "Maria Garcia", 
-        company: "XYZ Ltd", 
-        purpose: "Interview",
-        checkedInAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
-        isCheckedIn: true 
-      },
-    ];
-
-    const staffArray = Array.from(this.staffMembers.values());
-    sampleVisitors.forEach((visitor, index) => {
-      const id = randomUUID();
-      const qrCode = `VIS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      this.visitors.set(id, {
-        id,
-        name: visitor.name,
-        company: visitor.company,
-        purpose: visitor.purpose,
-        carRegistration: null,
-        hostStaffId: staffArray[index % staffArray.length]?.id,
-        qrCode,
-        checkedInAt: visitor.checkedInAt,
-        checkedOutAt: null,
-        isCheckedIn: visitor.isCheckedIn,
-      });
-    });
-
-    // Add some sample pre-bookings
-    const samplePreBookings = [
-      {
-        visitorName: "James Thompson",
-        visitorEmail: "james.thompson@consultingfirm.com",
-        company: "Strategic Consulting Ltd",
-        purpose: "Quarterly Business Review",
-        visitDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-        visitTime: "09:30",
-        hostStaffId: staffArray[0]?.id,
-        status: "pending" as const,
-      },
-      {
-        visitorName: "Lisa Chen",
-        visitorEmail: "l.chen@techsolutions.com", 
-        company: "Tech Solutions Inc",
-        purpose: "Software Demo",
-        visitDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-        visitTime: "14:00",
-        hostStaffId: staffArray[1]?.id,
-        status: "confirmed" as const,
-      },
-      {
-        visitorName: "Robert Wilson",
-        visitorEmail: "rwilson@legalpartners.co.uk",
-        company: "Wilson & Partners Legal",
-        purpose: "Contract Review Meeting", 
-        visitDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
-        visitTime: "11:00",
-        hostStaffId: staffArray[2]?.id,
-        status: "pending" as const,
-      },
-    ];
-
-    samplePreBookings.forEach((booking) => {
-      const id = randomUUID();
-      const qrCode = `PRE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      this.preBookings.set(id, {
-        id,
-        visitorName: booking.visitorName,
-        visitorEmail: booking.visitorEmail,
-        company: booking.company,
-        purpose: booking.purpose,
-        visitDate: booking.visitDate,
-        visitTime: booking.visitTime,
-        hostStaffId: booking.hostStaffId || staffArray[0]?.id || "",
-        qrCode,
-        status: booking.status,
-        isCheckedIn: false,
-        checkedInAt: null,
-        createdAt: new Date(),
-      });
-    });
-
-    // 💾 CRITICAL: Save all sample data to persistent storage
+    // 💾 Save data structures to files (no sample data)
     this.saveStaffToFile();
     this.saveVisitorsToFile();
     this.savePreBookingsToFile();
     this.saveReportsToFile(); // Even if empty, create the file
-    console.log('💾 Sample data saved to persistent storage');
+    console.log('💾 Data files initialized');
   }
 
   // User methods
