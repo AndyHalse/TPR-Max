@@ -246,8 +246,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/staff/time-attendance", async (req, res) => {
     try {
       const { dateFrom, dateTo } = req.query;
-      const fromDate = dateFrom ? new Date(dateFrom as string) : undefined;
-      const toDate = dateTo ? new Date(dateTo as string) : undefined;
+      let fromDate = dateFrom ? new Date(dateFrom as string) : undefined;
+      let toDate = dateTo ? new Date(dateTo as string) : undefined;
+      
+      // Fix: Set toDate to end of day (23:59:59.999) instead of start of day (00:00:00)
+      if (toDate) {
+        toDate.setHours(23, 59, 59, 999);
+      }
+      
+      // Fix: Set fromDate to start of day for consistency
+      if (fromDate) {
+        fromDate.setHours(0, 0, 0, 0);
+      }
       
       const timeAttendance = await storage.getStaffTimeAndAttendance(fromDate, toDate);
       res.json(timeAttendance);
