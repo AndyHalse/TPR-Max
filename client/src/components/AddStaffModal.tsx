@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { CloudUpload, Upload, X, Shield } from "lucide-react";
 import type { InsertStaff } from "@shared/schema";
+import IdCardDesigner from "./IdCardDesigner";
 
 interface AddStaffModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
   });
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showIdCardDesigner, setShowIdCardDesigner] = useState(false);
   
   const isEditMode = !!staffToEdit;
 
@@ -404,6 +406,17 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             >
               Cancel
             </Button>
+            {isEditMode && staffToEdit && (
+              <Button 
+                type="button"
+                variant="outline"
+                onClick={() => setShowIdCardDesigner(true)}
+                className="px-4 py-3 rounded-xl border border-blue-300 text-blue-700 font-medium hover:bg-blue-50 transition-colors"
+                data-testid="button-print-id-card"
+              >
+                Print ID Card
+              </Button>
+            )}
             <Button 
               type="submit"
               disabled={staffMutation.isPending || uploading}
@@ -415,6 +428,15 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
           </div>
         </form>
       </DialogContent>
+      
+      {/* ID Card Designer Modal */}
+      {showIdCardDesigner && staffToEdit && (
+        <IdCardDesigner
+          isOpen={showIdCardDesigner}
+          onClose={() => setShowIdCardDesigner(false)}
+          staff={staffToEdit}
+        />
+      )}
     </Dialog>
   );
 }

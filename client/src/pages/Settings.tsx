@@ -739,6 +739,30 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="idCardPrinter" className="text-sm font-medium text-slate-700">
+                    ID Card Staff Printer
+                  </Label>
+                  <Select
+                    value={currentSettings?.idCardPrinter || "PDF Printer"}
+                    onValueChange={(value) => handleInputChange("idCardPrinter", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-id-card-printer">
+                      <SelectValue placeholder="Select ID card printer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PDF Printer">PDF Printer (Testing)</SelectItem>
+                      <SelectItem value="B-FV4 Desktop Printer">B-FV4 Desktop Printer (95mm x 66mm)</SelectItem>
+                      <SelectItem value="Brother QL-800">Brother QL-800 (ID Card Mode)</SelectItem>
+                      <SelectItem value="DYMO LabelWriter 450">DYMO LabelWriter 450 (Card Stock)</SelectItem>
+                      <SelectItem value="Zebra ZD410">Zebra ZD410 (Card Mode)</SelectItem>
+                      <SelectItem value="Evolis Primacy">Evolis Primacy (Professional ID Cards)</SelectItem>
+                      <SelectItem value="Fargo DTC1250e">Fargo DTC1250e (Plastic Cards)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">Dedicated printer for staff ID cards (95mm x 66mm format)</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="printQuality" className="text-sm font-medium text-slate-700">
                     Print Quality
                   </Label>

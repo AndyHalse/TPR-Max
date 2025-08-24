@@ -232,6 +232,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ID Card printing endpoint
+  app.post("/api/staff/:id/print-id-card", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { design } = req.body;
+      
+      const staff = await storage.getStaff(id);
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+
+      // Here you would integrate with actual printer hardware
+      // For now, we'll simulate the printing process
+      console.log(`Printing ID card for staff: ${staff.firstName} ${staff.lastName}`);
+      console.log(`Design elements:`, design);
+      
+      // Simulate print job
+      const printJob = {
+        id: `print-${Date.now()}`,
+        staffId: id,
+        status: "completed",
+        timestamp: new Date().toISOString(),
+        printer: "B-FV4 Desktop Printer", // This would come from settings
+        design: design
+      };
+
+      res.json({
+        success: true,
+        message: `ID card printed for ${staff.firstName} ${staff.lastName}`,
+        printJob
+      });
+    } catch (error) {
+      console.error("Error printing ID card:", error);
+      res.status(500).json({ error: "Failed to print ID card" });
+    }
+  });
+
   // Get checked-in staff endpoint
   app.get("/api/staff/checked-in", async (req, res) => {
     try {
