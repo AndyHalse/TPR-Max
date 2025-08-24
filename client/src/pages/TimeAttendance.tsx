@@ -22,9 +22,8 @@ interface TimeAttendanceRecord {
 
 export default function TimeAttendance() {
   const [dateFrom, setDateFrom] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30); // Default to last 30 days
-    return date.toISOString().split('T')[0];
+    // Default to today only
+    return new Date().toISOString().split('T')[0];
   });
   
   const [dateTo, setDateTo] = useState(() => {

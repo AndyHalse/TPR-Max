@@ -190,19 +190,29 @@ export class DatabaseStorage implements IStorage {
       const sessions = [];
       let totalHours = 0;
 
-      if (staffMember.isCheckedIn && staffMember.checkedInAt) {
-        // Calculate hours worked - if still checked in, calculate up to now
-        const endTime = staffMember.checkedOutAt || new Date();
-        const hoursWorked = (endTime.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
+      // Show session if staff has a check-in time (regardless of current status)
+      if (staffMember.checkedInAt) {
+        let hoursWorked = 0;
         
-        sessions.push({
-          checkInTime: staffMember.checkedInAt,
-          checkOutTime: staffMember.checkedOutAt || null,
-          hoursWorked: hoursWorked,
-          isManual: staffMember.manualCheckIn || false,
-        });
+        if (staffMember.isCheckedIn) {
+          // Still checked in - calculate hours from check-in to now
+          hoursWorked = (new Date().getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
+        } else if (staffMember.checkedOutAt) {
+          // Already checked out - calculate hours from check-in to check-out
+          hoursWorked = (staffMember.checkedOutAt.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60);
+        }
         
-        totalHours = hoursWorked;
+        // Only include session if hours are positive (valid check-in/out sequence)
+        if (hoursWorked > 0) {
+          sessions.push({
+            checkInTime: staffMember.checkedInAt,
+            checkOutTime: staffMember.checkedOutAt || null,
+            hoursWorked: hoursWorked,
+            isManual: staffMember.manualCheckIn || false,
+          });
+          
+          totalHours = hoursWorked;
+        }
       }
 
       return {
