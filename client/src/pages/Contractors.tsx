@@ -6,6 +6,8 @@ import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -23,7 +25,8 @@ import {
   Users,
   FileCheck,
   ExternalLink,
-  Calendar
+  Calendar,
+  User
 } from "lucide-react";
 
 interface ContractorCompany {
@@ -52,6 +55,23 @@ export default function Contractors() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showWorkersModal, setShowWorkersModal] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
+  const [selectedWorker, setSelectedWorker] = useState<any>(null);
+  const [showViewWorkerModal, setShowViewWorkerModal] = useState(false);
+  const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
+  const [editWorkerForm, setEditWorkerForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    rightToWorkStatus: "",
+    cscsCard: "",
+    cscsStatus: "",
+    ipafStatus: "",
+    asbestosAwareness: false,
+    manualHandling: false,
+    inductionCompleted: false,
+    isActive: true
+  });
   const [inviteForm, setInviteForm] = useState({
     companyName: "",
     email: "",
@@ -63,6 +83,13 @@ export default function Contractors() {
   const { data: contractors = [], isLoading } = useQuery({
     queryKey: ["/api/contractors"],
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch workers for selected contractor
+  const { data: workers = [] } = useQuery({
+    queryKey: ["/api/contractors", selectedContractor?.id, "workers"],
+    enabled: !!selectedContractor?.id,
+    refetchInterval: 30000,
   });
 
   // Mock data for fallback - will be replaced with API calls
@@ -138,6 +165,61 @@ export default function Contractors() {
     });
     setShowInviteDialog(false);
     setInviteForm({ companyName: "", email: "", contactPerson: "", phone: "" });
+  };
+
+  const handleViewWorker = (worker: any) => {
+    setSelectedWorker(worker);
+    setShowViewWorkerModal(true);
+  };
+
+  const handleEditWorker = (worker: any) => {
+    setSelectedWorker(worker);
+    setEditWorkerForm({
+      firstName: worker.firstName || "",
+      lastName: worker.lastName || "",
+      email: worker.email || "",
+      phone: worker.phone || "",
+      rightToWorkStatus: worker.rightToWork || "",
+      cscsCard: worker.cscsCard || "",
+      cscsStatus: worker.cscsStatus || "",
+      ipafStatus: worker.ipafStatus || "",
+      asbestosAwareness: worker.asbestosAwareness || false,
+      manualHandling: worker.manualHandling || false,
+      inductionCompleted: worker.inductionCompleted || false,
+      isActive: worker.isActive !== undefined ? worker.isActive : true
+    });
+    setShowEditWorkerModal(true);
+  };
+
+  const updateWorkerMutation = useMutation({
+    mutationFn: async (workerData: any) => {
+      return await apiRequest(`/api/workers/${selectedWorker.id}`, {
+        method: "PUT",
+        body: JSON.stringify(workerData),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Worker Updated",
+        description: "Worker information has been updated successfully.",
+      });
+      setShowEditWorkerModal(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update worker",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUpdateWorker = () => {
+    updateWorkerMutation.mutate(editWorkerForm);
   };
 
   const getComplianceIcon = (score: number) => {
@@ -639,52 +721,365 @@ export default function Contractors() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                      {/* Mock worker data */}
-                      {[
-                        { id: 1, name: "James Wilson", role: "Electrician", certifications: "NICEIC, 18th Edition", status: "active" },
-                        { id: 2, name: "Sarah Johnson", role: "Supervisor", certifications: "SMSTS, First Aid", status: "active" },
-                        { id: 3, name: "Mike Brown", role: "Apprentice", certifications: "Level 2 Electrical", status: "pending" },
-                        { id: 4, name: "David Lee", role: "Electrician", certifications: "NICEIC", status: "expired" },
-                      ].map((worker) => (
+                      {workers.length > 0 ? workers.map((worker: any) => (
                         <tr key={worker.id} className="hover:bg-slate-50">
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="font-medium text-slate-900">{worker.name}</div>
+                            <div className="font-medium text-slate-900">{worker.firstName} {worker.lastName}</div>
+                            {worker.email && <div className="text-sm text-slate-500">{worker.email}</div>}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="text-slate-600">{worker.role}</div>
+                            <div className="text-slate-600">
+                              {worker.cscsCard ? "Certified Worker" : "General Worker"}
+                            </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="text-slate-600 text-sm">{worker.certifications}</div>
+                            <div className="text-slate-600 text-sm">
+                              {[
+                                worker.cscsStatus === 'valid' && worker.cscsCard && `CSCS: ${worker.cscsCard}`,
+                                worker.ipafStatus === 'valid' && 'IPAF',
+                                worker.asbestosAwareness && 'Asbestos Awareness',
+                                worker.manualHandling && 'Manual Handling'
+                              ].filter(Boolean).join(', ') || 'No certifications'}
+                            </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <Badge className={`${
-                              worker.status === 'active' ? 'bg-green-100 text-green-800' :
-                              worker.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              worker.isActive && worker.inductionCompleted && worker.rightToWork === 'valid' ? 'bg-green-100 text-green-800' :
+                              !worker.inductionCompleted ? 'bg-yellow-100 text-yellow-800' :
                               'bg-red-100 text-red-800'
                             }`}>
-                              {worker.status}
+                              {worker.isActive && worker.inductionCompleted && worker.rightToWork === 'valid' ? 'Active' :
+                               !worker.inductionCompleted ? 'Pending' : 'Inactive'}
                             </Badge>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex gap-2">
-                              <Button variant="outline" size="sm">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewWorker(worker)}
+                                data-testid={`button-view-worker-${worker.id}`}
+                              >
                                 <FileCheck className="h-4 w-4 mr-1" />
                                 View
                               </Button>
-                              <Button variant="outline" size="sm">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleEditWorker(worker)}
+                                data-testid={`button-edit-worker-${worker.id}`}
+                              >
                                 <FileText className="h-4 w-4 mr-1" />
                                 Edit
                               </Button>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      )) : (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                            No workers found for this contractor
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Worker Modal */}
+      <Dialog open={showViewWorkerModal} onOpenChange={setShowViewWorkerModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Worker Details: {selectedWorker?.firstName} {selectedWorker?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedWorker && (
+            <div className="space-y-6 mt-4">
+              {/* Personal Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-800">Personal Information</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Full Name</Label>
+                      <p className="text-slate-900">{selectedWorker.firstName} {selectedWorker.lastName}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Email</Label>
+                      <p className="text-slate-900">{selectedWorker.email || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Phone</Label>
+                      <p className="text-slate-900">{selectedWorker.phone || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-800">Work Status</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Right to Work</Label>
+                      <Badge className={`${
+                        selectedWorker.rightToWork === 'valid' ? 'bg-green-100 text-green-800' :
+                        selectedWorker.rightToWork === 'expired' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {selectedWorker.rightToWork || 'Pending'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Active Status</Label>
+                      <Badge className={selectedWorker.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                        {selectedWorker.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-slate-600">Induction</Label>
+                      <Badge className={selectedWorker.inductionCompleted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                        {selectedWorker.inductionCompleted ? 'Completed' : 'Pending'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Certifications */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800">Certifications & Training</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">CSCS Card</span>
+                      <Badge className={`${
+                        selectedWorker.cscsStatus === 'valid' ? 'bg-green-100 text-green-800' :
+                        selectedWorker.cscsStatus === 'expired' ? 'bg-red-100 text-red-800' :
+                        selectedWorker.cscsStatus === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedWorker.cscsStatus || 'Missing'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-600">{selectedWorker.cscsCard || 'Not provided'}</p>
+                  </div>
+                  
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">IPAF Training</span>
+                      <Badge className={`${
+                        selectedWorker.ipafStatus === 'valid' ? 'bg-green-100 text-green-800' :
+                        selectedWorker.ipafStatus === 'expired' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedWorker.ipafStatus || 'Missing'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">Asbestos Awareness</span>
+                      <Badge className={selectedWorker.asbestosAwareness ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                        {selectedWorker.asbestosAwareness ? 'Completed' : 'Not Completed'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">Manual Handling</span>
+                      <Badge className={selectedWorker.manualHandling ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                        {selectedWorker.manualHandling ? 'Completed' : 'Not Completed'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Worker Modal */}
+      <Dialog open={showEditWorkerModal} onOpenChange={setShowEditWorkerModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Edit Worker: {selectedWorker?.firstName} {selectedWorker?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4">
+            {/* Personal Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-800">Personal Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    value={editWorkerForm.firstName}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, firstName: e.target.value})}
+                    data-testid="input-first-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    value={editWorkerForm.lastName}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, lastName: e.target.value})}
+                    data-testid="input-last-name"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={editWorkerForm.email}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, email: e.target.value})}
+                    data-testid="input-email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={editWorkerForm.phone}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, phone: e.target.value})}
+                    data-testid="input-phone"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Work Status */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-800">Work Status</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="rightToWork">Right to Work Status</Label>
+                  <Select 
+                    value={editWorkerForm.rightToWorkStatus} 
+                    onValueChange={(value) => setEditWorkerForm({...editWorkerForm, rightToWorkStatus: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="valid">Valid</SelectItem>
+                      <SelectItem value="expired">Expired</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="cscsStatus">CSCS Status</Label>
+                  <Select 
+                    value={editWorkerForm.cscsStatus} 
+                    onValueChange={(value) => setEditWorkerForm({...editWorkerForm, cscsStatus: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="valid">Valid</SelectItem>
+                      <SelectItem value="expired">Expired</SelectItem>
+                      <SelectItem value="expiring">Expiring</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="cscsCard">CSCS Card Number</Label>
+                <Input
+                  id="cscsCard"
+                  value={editWorkerForm.cscsCard}
+                  onChange={(e) => setEditWorkerForm({...editWorkerForm, cscsCard: e.target.value})}
+                  data-testid="input-cscs-card"
+                />
+              </div>
+            </div>
+
+            {/* Training & Certifications */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-800">Training & Certifications</h3>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="asbestosAwareness"
+                    checked={editWorkerForm.asbestosAwareness}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, asbestosAwareness: e.target.checked})}
+                    className="rounded"
+                  />
+                  <Label htmlFor="asbestosAwareness">Asbestos Awareness Training</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="manualHandling"
+                    checked={editWorkerForm.manualHandling}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, manualHandling: e.target.checked})}
+                    className="rounded"
+                  />
+                  <Label htmlFor="manualHandling">Manual Handling Training</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="inductionCompleted"
+                    checked={editWorkerForm.inductionCompleted}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, inductionCompleted: e.target.checked})}
+                    className="rounded"
+                  />
+                  <Label htmlFor="inductionCompleted">Induction Completed</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={editWorkerForm.isActive}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, isActive: e.target.checked})}
+                    className="rounded"
+                  />
+                  <Label htmlFor="isActive">Active Worker</Label>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEditWorkerModal(false)}
+                data-testid="button-cancel-edit"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateWorker}
+                disabled={updateWorkerMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700"
+                data-testid="button-save-worker"
+              >
+                {updateWorkerMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
