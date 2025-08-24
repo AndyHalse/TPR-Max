@@ -71,14 +71,15 @@ export class AuthService {
       if (existingUser) {
         // Update existing user password to ensure it's current
         console.log('Developer user "Andy" already exists - updating password');
-        // Note: Would need to implement updateUser in storage for production
+        await storage.updateUser(existingUser.id, { password: 'Kubo1966&&' });
+        console.log('Developer user password updated successfully');
         return;
       }
 
-      // Create the developer user with hashed password
+      // Create the developer user with raw password (storage will hash it)
       await storage.createUser({
         username: 'Andy',
-        password: hashedPassword
+        password: 'Kubo1966&&'
       });
 
       console.log('Developer user "Andy" created successfully with password: Kubo1966&&');

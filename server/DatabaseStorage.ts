@@ -37,6 +37,21 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    // Hash password if updating
+    if (updates.password) {
+      updates.password = await bcrypt.hash(updates.password, 10);
+    }
+
+    const [updatedUser] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    
+    return updatedUser || undefined;
+  }
+
   // Staff methods
   async getAllStaff(): Promise<Staff[]> {
     const results = await db.select().from(staff).orderBy(asc(staff.firstName));
