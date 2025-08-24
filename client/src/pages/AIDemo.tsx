@@ -3,6 +3,10 @@ import { useMutation } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import AIROICalculator from "@/components/AIROICalculator";
 import AIBusinessInsights from "@/components/AIBusinessInsights";
+import AICompetitiveAnalysis from "@/components/AICompetitiveAnalysis";
+import AISuccessMetrics from "@/components/AISuccessMetrics";
+import AIFlowOptimization from "@/components/AIFlowOptimization";
+import AISalesPitchGenerator from "@/components/AISalesPitchGenerator";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +118,31 @@ export default function AIDemo() {
       
       {/* AI Business Intelligence Section */}
       <AIBusinessInsights />
+      
+      {/* AI Sales & Competitive Analysis Tools */}
+      <div className="space-y-8">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200 mb-4">
+            🚀 Sales-Focused AI Features
+          </h2>
+          <p className="text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+            Powerful AI tools designed to demonstrate clear business value, competitive advantages, 
+            and measurable ROI that help close deals and justify investments.
+          </p>
+        </div>
+        
+        {/* Competitive Analysis */}
+        <AICompetitiveAnalysis />
+        
+        {/* Customer Success Metrics */}
+        <AISuccessMetrics />
+        
+        {/* Flow Optimization */}
+        <AIFlowOptimization />
+        
+        {/* Sales Pitch Generator */}
+        <AISalesPitchGenerator />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         

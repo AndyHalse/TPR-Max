@@ -738,6 +738,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI competitive analysis endpoint
+  app.post("/api/ai/competitive-analysis", async (req, res) => {
+    try {
+      const { companySize, currentSystem, monthlyVisitors } = req.body;
+      
+      const analysis = await aiService.generateCompetitiveAnalysis(
+        parseInt(companySize) || 50,
+        currentSystem || 'manual system',
+        parseInt(monthlyVisitors) || 100
+      );
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        analysis
+      });
+    } catch (error) {
+      console.error("Failed to generate competitive analysis:", error);
+      res.status(500).json({ error: "Failed to generate competitive analysis" });
+    }
+  });
+
+  // AI customer success metrics endpoint
+  app.get("/api/ai/success-metrics", async (req, res) => {
+    try {
+      const stats = await storage.getVisitorStats();
+      
+      const metrics = await aiService.generateSuccessMetrics(
+        8, // 8 weeks implementation
+        stats.todayCheckins * 30, // Monthly estimate
+        stats.staffOnSite
+      );
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        metrics
+      });
+    } catch (error) {
+      console.error("Failed to generate success metrics:", error);
+      res.status(500).json({ error: "Failed to generate success metrics" });
+    }
+  });
+
+  // AI flow optimization endpoint
+  app.post("/api/ai/flow-optimization", async (req, res) => {
+    try {
+      const { peakHourVisitors, currentWaitTime, facilityLayout } = req.body;
+      
+      const optimization = await aiService.generateFlowOptimization(
+        parseInt(peakHourVisitors) || 20,
+        parseInt(currentWaitTime) || 5,
+        facilityLayout || 'standard office'
+      );
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        optimization
+      });
+    } catch (error) {
+      console.error("Failed to generate flow optimization:", error);
+      res.status(500).json({ error: "Failed to generate flow optimization" });
+    }
+  });
+
+  // AI sales pitch generator endpoint
+  app.post("/api/ai/sales-pitch", async (req, res) => {
+    try {
+      const { companyName, industry, companySize, currentChallenges, budget } = req.body;
+      
+      const pitch = await aiService.generateSalesPitch(
+        companyName || 'Prospect Company',
+        industry || 'Business Services',
+        parseInt(companySize) || 50,
+        currentChallenges || 'Manual visitor management inefficiencies',
+        budget || '£500-£2000/month'
+      );
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        pitch
+      });
+    } catch (error) {
+      console.error("Failed to generate sales pitch:", error);
+      res.status(500).json({ error: "Failed to generate sales pitch" });
+    }
+  });
+
   // AI security alert endpoint
   app.post("/api/ai/security-alert", async (req, res) => {
     try {
