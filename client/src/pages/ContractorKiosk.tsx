@@ -76,7 +76,8 @@ export default function ContractorKiosk() {
   // Check-in mutation
   const checkInMutation = useMutation({
     mutationFn: async (workerId: string) => {
-      return await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`);
+      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`);
+      return await response.json();
     },
     onSuccess: (data) => {
       setSelectedWorker(data.worker);
@@ -99,7 +100,8 @@ export default function ContractorKiosk() {
   // Check-out mutation
   const checkOutMutation = useMutation({
     mutationFn: async (workerId: string) => {
-      return await apiRequest("POST", `/api/contractors/workers/${workerId}/checkout`);
+      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkout`);
+      return await response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
