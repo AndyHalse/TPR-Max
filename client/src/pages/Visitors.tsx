@@ -398,7 +398,7 @@ export default function Visitors() {
             </div>
 
             {/* Show All Button */}
-            {filteredVisitors.length > 12 && !showAllPreviousVisitors && (
+            {filteredVisitors.length > 24 && !showAllPreviousVisitors && (
               <div className="mb-4 text-center">
                 <Button
                   variant="outline"
@@ -414,7 +414,7 @@ export default function Visitors() {
             {/* Visitors List */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredVisitors.length > 0 ? (
-                (showAllPreviousVisitors ? filteredVisitors : filteredVisitors.slice(0, 12)).map((visitor) => (
+                (showAllPreviousVisitors ? filteredVisitors : filteredVisitors.slice(0, 24)).map((visitor) => (
                   <div
                     key={visitor.id}
                     className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all cursor-pointer"
@@ -455,7 +455,7 @@ export default function Visitors() {
             </div>
 
             {/* Show Less Button */}
-            {filteredVisitors.length > 12 && showAllPreviousVisitors && (
+            {filteredVisitors.length > 24 && showAllPreviousVisitors && (
               <div className="mt-4 text-center">
                 <Button
                   variant="outline"
@@ -463,7 +463,7 @@ export default function Visitors() {
                   className="bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300"
                   data-testid="button-show-less-visitors"
                 >
-                  Show Less (First 12 Only)
+                  Show Regular View (24 Visitors)
                 </Button>
               </div>
             )}
