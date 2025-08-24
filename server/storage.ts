@@ -156,13 +156,18 @@ export interface IStorage {
   getMusterList(): Promise<Array<{
     id: string;
     name: string;
-    type: 'staff' | 'visitor';
+    type: 'staff' | 'visitor' | 'contractor';
     department?: string;
     company?: string;
     checkedInAt: string;
     location: string;
     accounted: boolean;
   }>>;
+  
+  // Accounted status toggle methods
+  toggleStaffAccountedStatus(id: string): Promise<boolean>;
+  toggleVisitorAccountedStatus(id: string): Promise<boolean>;
+  toggleContractorAccountedStatus(id: string): Promise<boolean>;
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";
@@ -1117,11 +1122,39 @@ export class MemStorage implements IStorage {
     };
   }
 
+  // Accounted status toggle methods
+  async toggleStaffAccountedStatus(id: string): Promise<boolean> {
+    const staff = this.staffMembers.get(id);
+    if (!staff) return false;
+    
+    staff.isAccountedFor = !staff.isAccountedFor;
+    this.staffMembers.set(id, staff);
+    return true;
+  }
+
+  async toggleVisitorAccountedStatus(id: string): Promise<boolean> {
+    const visitor = this.visitors.get(id);
+    if (!visitor) return false;
+    
+    visitor.isAccountedFor = !visitor.isAccountedFor;
+    this.visitors.set(id, visitor);
+    return true;
+  }
+
+  async toggleContractorAccountedStatus(id: string): Promise<boolean> {
+    const worker = this.contractorWorkers.get(id);
+    if (!worker) return false;
+    
+    worker.isAccountedFor = !worker.isAccountedFor;
+    this.contractorWorkers.set(id, worker);
+    return true;
+  }
+
   // Get muster list for emergency situations
   async getMusterList(): Promise<Array<{
     id: string;
     name: string;
-    type: 'staff' | 'visitor';
+    type: 'staff' | 'visitor' | 'contractor';
     department?: string;
     company?: string;
     checkedInAt: string;
@@ -1139,7 +1172,7 @@ export class MemStorage implements IStorage {
         department: staff.department,
         checkedInAt: new Date().toISOString(),
         location: 'Building A',
-        accounted: Math.random() > 0.3 // Simulate some people not yet accounted for
+        accounted: staff.isAccountedFor || false
       })),
       ...allVisitors.map(visitor => ({
         id: visitor.id,
@@ -1148,7 +1181,7 @@ export class MemStorage implements IStorage {
         company: visitor.company || undefined,
         checkedInAt: visitor.checkedInAt.toISOString(),
         location: 'Reception',
-        accounted: Math.random() > 0.2
+        accounted: visitor.isAccountedFor || false
       }))
     ];
     

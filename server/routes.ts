@@ -117,12 +117,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Muster endpoint for emergency situations
+  // Muster endpoint for emergency situations (includes staff, visitors, and contractors)
   app.get("/api/muster", async (req, res) => {
     try {
-      const musterList = await storage.getMusterList();
+      const [currentVisitors, checkedInStaff, contractorCompanies] = await Promise.all([
+        storage.getCurrentVisitors(),
+        storage.getCheckedInStaff(),
+        storage.getAllContractorCompanies(),
+      ]);
+      
+      // Get all checked-in contractors
+      let checkedInContractors: any[] = [];
+      for (const company of contractorCompanies) {
+        const workers = await storage.getWorkersByCompanyId(company.id);
+        checkedInContractors.push(
+          ...workers
+            .filter(worker => worker.isCheckedIn)
+            .map(worker => ({
+              id: worker.id,
+              name: `${worker.firstName} ${worker.lastName}`,
+              type: 'contractor' as const,
+              company: company.name,
+              checkedInAt: worker.checkedInAt || worker.createdAt,
+              location: 'Building A',
+              accounted: worker.isAccountedFor || false
+            }))
+        );
+      }
+      
+      // Combine all personnel for muster list
+      const musterList = [
+        ...checkedInStaff.map(staff => ({
+          id: staff.id,
+          name: `${staff.firstName} ${staff.lastName}`,
+          type: 'staff' as const,
+          department: staff.department,
+          checkedInAt: staff.checkedInAt || staff.createdAt,
+          location: 'Building A',
+          accounted: staff.isAccountedFor || false
+        })),
+        ...currentVisitors.map(visitor => ({
+          id: visitor.id,
+          name: `${visitor.firstName} ${visitor.lastName}`,
+          type: 'visitor' as const,
+          company: visitor.company,
+          checkedInAt: visitor.checkedInAt,
+          location: 'Building A', 
+          accounted: visitor.isAccountedFor || false
+        })),
+        ...checkedInContractors
+      ];
+      
       res.json(musterList);
     } catch (error) {
+      console.error("Failed to fetch muster list:", error);
       res.status(500).json({ error: "Failed to fetch muster list" });
     }
   });
@@ -444,38 +492,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Muster list endpoint
-  app.get("/api/muster", async (req, res) => {
+  // Muster accounted status toggle endpoint
+  app.post("/api/muster/:personId/toggle", async (req, res) => {
     try {
-      const currentVisitors = await storage.getCurrentVisitors();
-      const allStaff = await storage.getAllStaff();
+      const { personId } = req.params;
+      const { type } = req.body;
       
-      // Combine staff and visitors for muster list
-      const musterList = [
-        ...allStaff.map(staff => ({
-          id: staff.id,
-          name: `${staff.firstName} ${staff.lastName}`,
-          type: 'staff' as const,
-          department: staff.department,
-          employeeId: staff.employeeId,
-          checkedInAt: staff.createdAt, // Using created date as staff "check-in"
-          location: 'On-Site'
-        })),
-        ...currentVisitors.map(visitor => ({
-          id: visitor.id,
-          name: visitor.name,
-          type: 'visitor' as const,
-          company: visitor.company,
-          purpose: visitor.purpose,
-          hostStaffId: visitor.hostStaffId,
-          checkedInAt: visitor.checkedInAt,
-          location: 'Reception'
-        }))
-      ];
+      let updated = false;
       
-      res.json(musterList);
+      if (type === 'staff') {
+        const result = await storage.toggleStaffAccountedStatus(personId);
+        updated = result;
+      } else if (type === 'visitor') {
+        const result = await storage.toggleVisitorAccountedStatus(personId);
+        updated = result;
+      } else if (type === 'contractor') {
+        const result = await storage.toggleContractorAccountedStatus(personId);
+        updated = result;
+      }
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Person not found" });
+      }
+      
+      res.json({ success: true, personId, type });
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch muster list" });
+      console.error("Failed to toggle accounted status:", error);
+      res.status(500).json({ error: "Failed to toggle accounted status" });
     }
   });
 

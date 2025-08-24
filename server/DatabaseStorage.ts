@@ -732,19 +732,60 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // Accounted status toggle methods
+  async toggleStaffAccountedStatus(id: string): Promise<boolean> {
+    try {
+      await this.db
+        .update(staff)
+        .set({ isAccountedFor: not(staff.isAccountedFor) })
+        .where(eq(staff.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error toggling staff accounted status:", error);
+      return false;
+    }
+  }
+
+  async toggleVisitorAccountedStatus(id: string): Promise<boolean> {
+    try {
+      await this.db
+        .update(visitors)
+        .set({ isAccountedFor: not(visitors.isAccountedFor) })
+        .where(eq(visitors.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error toggling visitor accounted status:", error);
+      return false;
+    }
+  }
+
+  async toggleContractorAccountedStatus(id: string): Promise<boolean> {
+    try {
+      await this.db
+        .update(contractorWorkers)
+        .set({ isAccountedFor: not(contractorWorkers.isAccountedFor) })
+        .where(eq(contractorWorkers.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error toggling contractor accounted status:", error);
+      return false;
+    }
+  }
+
   async getMusterList(): Promise<Array<{
     id: string;
     name: string;
-    type: 'staff' | 'visitor';
+    type: 'staff' | 'visitor' | 'contractor';
     department?: string;
     company?: string;
     checkedInAt: string;
     location: string;
     accounted: boolean;
   }>> {
-    const [allStaff, allVisitors] = await Promise.all([
+    const [allStaff, allVisitors, allContractors] = await Promise.all([
       this.getCheckedInStaff(),
       this.getCurrentVisitors(),
+      this.getCheckedInContractors(),
     ]);
     
     const musterList = [
@@ -755,7 +796,7 @@ export class DatabaseStorage implements IStorage {
         department: staffMember.department,
         checkedInAt: (staffMember.checkedInAt || new Date()).toISOString(),
         location: 'Building A',
-        accounted: Math.random() > 0.3 // Simulate some people not yet accounted for
+        accounted: staffMember.isAccountedFor || false
       })),
       ...allVisitors.map(visitor => ({
         id: visitor.id,
@@ -764,7 +805,16 @@ export class DatabaseStorage implements IStorage {
         company: visitor.company || undefined,
         checkedInAt: visitor.checkedInAt.toISOString(),
         location: 'Reception',
-        accounted: Math.random() > 0.2
+        accounted: visitor.isAccountedFor || false
+      })),
+      ...allContractors.map(contractor => ({
+        id: contractor.id,
+        name: `${contractor.firstName} ${contractor.lastName}`,
+        type: 'contractor' as const,
+        company: contractor.companyName || undefined,
+        checkedInAt: (contractor.checkedInAt || new Date()).toISOString(),
+        location: 'Site',
+        accounted: contractor.isAccountedFor || false
       }))
     ];
     

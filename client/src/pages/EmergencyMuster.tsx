@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +25,7 @@ import {
 interface MusterListItem {
   id: string;
   name: string;
-  type: 'staff' | 'visitor';
+  type: 'staff' | 'visitor' | 'contractor';
   department?: string;
   company?: string;
   checkedInAt: string;
@@ -35,9 +37,33 @@ export default function EmergencyMuster() {
   const [searchTerm, setSearchTerm] = useState("");
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [selectedMusterPoint, setSelectedMusterPoint] = useState("main");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: musterList = [], isLoading } = useQuery<MusterListItem[]>({
     queryKey: ["/api/muster"],
+  });
+
+  // Mutation to toggle accounted status
+  const toggleAccountedMutation = useMutation({
+    mutationFn: async ({ personId, type }: { personId: string, type: string }) => {
+      const response = await apiRequest("POST", `/api/muster/${personId}/toggle`, { type });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      toast({
+        title: "Status Updated",
+        description: `Successfully updated accounted status for ${data.type}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update accounted status",
+        variant: "destructive",
+      });
+    },
   });
 
   const musterPoints = [
@@ -56,14 +82,14 @@ export default function EmergencyMuster() {
   const accountedFor = musterList.filter(p => p.accounted).length;
   const staffCount = musterList.filter(p => p.type === 'staff').length;
   const visitorCount = musterList.filter(p => p.type === 'visitor').length;
+  const contractorCount = musterList.filter(p => p.type === 'contractor').length;
 
   const handleEmergencyToggle = () => {
     setEmergencyActive(!emergencyActive);
   };
 
-  const toggleAccountedStatus = (id: string) => {
-    // In a real app, this would update the backend
-    console.log(`Toggle accounted status for ${id}`);
+  const toggleAccountedStatus = (id: string, type: string) => {
+    toggleAccountedMutation.mutate({ personId: id, type });
   };
 
   if (isLoading) {
@@ -256,7 +282,8 @@ export default function EmergencyMuster() {
                 >
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      person.type === 'staff' ? 'bg-blue-500' : 'bg-orange-500'
+                      person.type === 'staff' ? 'bg-blue-500' : 
+                      person.type === 'visitor' ? 'bg-orange-500' : 'bg-yellow-500'
                     }`}>
                       <span className="text-white font-medium text-sm">
                         {person.name.split(' ').map(n => n[0]).join('').toUpperCase()}
@@ -277,7 +304,7 @@ export default function EmergencyMuster() {
                     <Button
                       size="sm"
                       variant={person.accounted ? "destructive" : "default"}
-                      onClick={() => toggleAccountedStatus(person.id)}
+                      onClick={() => toggleAccountedStatus(person.id, person.type)}
                       data-testid={`button-toggle-${person.id}`}
                     >
                       {person.accounted ? (
@@ -313,8 +340,8 @@ export default function EmergencyMuster() {
             
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
               <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Fire Marshal</h4>
-              <p className="text-blue-700 dark:text-blue-300">John Smith</p>
-              <p className="text-blue-600 dark:text-blue-400 text-sm">+44 123 456 7890</p>
+              <p className="text-blue-700 dark:text-blue-300">Contact Security</p>
+              <p className="text-blue-600 dark:text-blue-400 text-sm">Call Reception</p>
             </div>
             
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
