@@ -27,6 +27,7 @@ import {
   Mail,
   Search,
   UserCheck,
+  UserX,
   History,
   Edit
 } from "lucide-react";
@@ -119,6 +120,30 @@ export default function Visitors() {
     visitor.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (visitor.company && visitor.company.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || [];
+
+  // Visitor checkout mutation
+  const checkoutVisitorMutation = useMutation({
+    mutationFn: async (visitorId: string) => {
+      const response = await apiRequest("POST", `/api/visitors/${visitorId}/checkout`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({
+        title: "Success",
+        description: "Visitor checked out successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to check out visitor",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Mutations
   const createPreBookingMutation = useMutation({
@@ -448,42 +473,92 @@ export default function Visitors() {
                 (showAllPreviousVisitors ? filteredVisitors : filteredVisitors.slice(0, 24)).map((visitor) => (
                   <div
                     key={visitor.id}
-                    className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all cursor-pointer"
+                    className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all"
                     data-testid={`card-visitor-${visitor.id}`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-slate-800">{visitor.firstName} {visitor.lastName}</h3>
-                        {visitor.company && (
-                          <p className="text-sm text-slate-600">{visitor.company}</p>
-                        )}
-                        <p className="text-xs text-slate-500 mt-1">
-                          Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
-                            day: 'numeric', 
-                            month: 'short', 
-                            year: 'numeric' 
-                          })}
-                        </p>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-slate-800">{visitor.firstName} {visitor.lastName}</h3>
+                          {visitor.company && (
+                            <p className="text-sm text-slate-600">{visitor.company}</p>
+                          )}
+                          <p className="text-xs text-slate-500 mt-1">
+                            Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric' 
+                            })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handleEditVisitor(visitor)}
-                          data-testid={`button-edit-visitor-${visitor.id}`}
-                          className="p-2"
-                        >
-                          <Edit size={14} />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handlePreviousVisitorSelect(visitor)}
-                          data-testid={`button-select-visitor-${visitor.id}`}
-                        >
-                          <UserCheck size={16} className="mr-1" />
-                          Select
-                        </Button>
+
+                      {/* Check-in status like staff */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              visitor.isCheckedIn 
+                                ? 'bg-blue-100 text-blue-800' 
+                                : 'bg-gray-100 text-gray-600'
+                            }`} data-testid={`visitor-checkin-status-${visitor.id}`}>
+                              {visitor.isCheckedIn ? (
+                                <>
+                                  <UserCheck size={12} className="mr-1" />
+                                  Checked In
+                                </>
+                              ) : (
+                                <>
+                                  <UserX size={12} className="mr-1" />
+                                  Checked Out
+                                </>
+                              )}
+                            </span>
+                            {visitor.isCheckedIn && visitor.checkedInAt && (
+                              <span className="text-xs text-gray-500 flex items-center">
+                                <Clock size={10} className="mr-1" />
+                                {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleEditVisitor(visitor)}
+                            data-testid={`button-edit-visitor-${visitor.id}`}
+                            className="p-2"
+                            title="Edit visitor details"
+                          >
+                            <Edit size={14} />
+                          </Button>
+                          {visitor.isCheckedIn ? (
+                            <button
+                              onClick={() => checkoutVisitorMutation.mutate(visitor.id)}
+                              disabled={checkoutVisitorMutation.isPending}
+                              className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                              data-testid={`button-checkout-visitor-${visitor.id}`}
+                              title="Check out visitor"
+                            >
+                              <UserX size={16} />
+                            </button>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handlePreviousVisitorSelect(visitor)}
+                              data-testid={`button-select-visitor-${visitor.id}`}
+                              title="Check in visitor"
+                            >
+                              <UserCheck size={16} className="mr-1" />
+                              Check In
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
