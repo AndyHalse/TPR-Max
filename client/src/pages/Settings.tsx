@@ -504,7 +504,7 @@ export default function Settings() {
                       <img 
                         src={`/objects${currentSettings.bannerUrl}`}
                         alt="Kiosk Banner" 
-                        className="w-full h-24 object-cover rounded-lg"
+                        className="w-full max-w-lg h-auto object-contain rounded-lg"
                         onError={(e) => {
                           console.error("Banner failed to load:", currentSettings.bannerUrl);
                           e.currentTarget.style.display = 'none';
@@ -539,7 +539,7 @@ export default function Settings() {
                       <img 
                         src={`/objects${currentSettings.bannerUrl}`}
                         alt="Banner Preview" 
-                        className="w-full h-16 object-cover rounded mb-4 mx-auto"
+                        className="w-full max-w-md h-auto object-contain rounded mb-4 mx-auto"
                         onError={(e) => {
                           console.error("Kiosk banner preview failed to load:", currentSettings.bannerUrl);
                           e.currentTarget.style.display = 'none';

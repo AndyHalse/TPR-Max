@@ -138,11 +138,11 @@ export default function KioskMode() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
         {/* Company Banner - Centered */}
         {settings?.bannerUrl && (
-          <div className="w-full max-w-4xl mx-auto h-32 mb-8 rounded-2xl overflow-hidden">
+          <div className="w-full max-w-5xl mx-auto mb-8 rounded-2xl overflow-hidden">
             <img 
               src={`/objects${settings.bannerUrl}`} 
               alt={settings.companyName}
-              className="w-full h-full object-cover"
+              className="w-full h-auto object-contain"
               onError={(e) => {
                 console.error("Kiosk banner failed to load:", settings.bannerUrl);
                 e.currentTarget.style.display = 'none';
@@ -239,11 +239,11 @@ export default function KioskMode() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
       {/* Company Banner - Centered */}
       {settings?.bannerUrl && (
-        <div className="w-full max-w-4xl mx-auto h-32 mb-8 rounded-2xl overflow-hidden">
+        <div className="w-full max-w-5xl mx-auto mb-8 rounded-2xl overflow-hidden">
           <img 
             src={`/objects${settings.bannerUrl}`} 
             alt={settings.companyName}
-            className="w-full h-full object-cover"
+            className="w-full h-auto object-contain"
             onError={(e) => {
               console.error("Main kiosk banner failed to load:", settings.bannerUrl);
               e.currentTarget.style.display = 'none';
