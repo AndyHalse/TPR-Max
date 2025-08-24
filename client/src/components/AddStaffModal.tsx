@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -20,17 +20,42 @@ interface AddStaffModalProps {
 export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaffModalProps) {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    firstName: staffToEdit?.firstName || "",
-    lastName: staffToEdit?.lastName || "",
-    email: staffToEdit?.email || "",
-    department: staffToEdit?.department || "",
-    employeeId: staffToEdit?.employeeId || "",
-    photoUrl: staffToEdit?.photoUrl || "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    department: "",
+    employeeId: "",
+    photoUrl: "",
   });
-  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(staffToEdit?.photoUrl || null);
+  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   
   const isEditMode = !!staffToEdit;
+
+  // Update form data when staffToEdit changes
+  useEffect(() => {
+    if (staffToEdit) {
+      setFormData({
+        firstName: staffToEdit.firstName || "",
+        lastName: staffToEdit.lastName || "",
+        email: staffToEdit.email || "",
+        department: staffToEdit.department || "",
+        employeeId: staffToEdit.employeeId || "",
+        photoUrl: staffToEdit.photoUrl || "",
+      });
+      setUploadedPhoto(staffToEdit.photoUrl || null);
+    } else {
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        department: "",
+        employeeId: "",
+        photoUrl: "",
+      });
+      setUploadedPhoto(null);
+    }
+  }, [staffToEdit]);
 
   const staffMutation = useMutation({
     mutationFn: async (staff: InsertStaff & { id?: string }) => {
@@ -86,8 +111,10 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         throw new Error("Failed to upload photo");
       }
 
-      // Set photo URL for the form
-      const photoPath = `/objects/uploads/${uploadURL.split('/uploads/')[1].split('?')[0]}`;
+      // Extract object key from upload URL and create photo path
+      const urlParts = uploadURL.split('/.private/')[1] || uploadURL.split('/uploads/')[1];
+      const objectKey = urlParts ? urlParts.split('?')[0] : 'uploaded-photo';
+      const photoPath = `/objects/${objectKey.includes('uploads/') ? objectKey : 'uploads/' + objectKey}`;
       setUploadedPhoto(photoPath);
       setFormData(prev => ({ ...prev, photoUrl: photoPath }));
       
@@ -280,7 +307,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               <div className="border-2 border-dashed border-white/30 rounded-xl p-6 text-center">
                 <input 
                   type="file" 
-                  accept="image/*" 
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/bmp,image/svg+xml" 
                   onChange={handlePhotoUpload}
                   className="hidden" 
                   id="photo-upload"

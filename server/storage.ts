@@ -39,7 +39,7 @@ export interface IStorage {
   getPreBookingById(id: string): Promise<PreBooking | undefined>;
   getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined>;
   createPreBooking(insertPreBooking: InsertPreBooking): Promise<PreBooking>;
-  updatePreBooking(id: string, updates: Partial<InsertPreBooking>): Promise<PreBooking | undefined>;
+  updatePreBooking(id: string, updates: Partial<PreBooking>): Promise<PreBooking | undefined>;
   deletePreBooking(id: string): Promise<boolean>;
 
   // Statistics methods
