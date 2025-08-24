@@ -219,3 +219,135 @@ export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type PreBooking = typeof preBookings.$inferSelect;
 export type InsertPreBooking = z.infer<typeof insertPreBookingSchema>;
+
+// Contractor Companies table
+export const contractorCompanies = pgTable("contractor_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  address: text("address"),
+  contactPerson: text("contact_person").notNull(),
+  status: text("status").notNull().default("pending"), // pending, approved, suspended
+  complianceScore: text("compliance_score").default("0"), // Stored as text for flexibility
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+  invitedBy: varchar("invited_by").references(() => users.id),
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  portalAccessEnabled: boolean("portal_access_enabled").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Contractor Workers table
+export const contractorWorkers = pgTable("contractor_workers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  photoUrl: text("photo_url"),
+  // Identity verification
+  rightToWork: text("right_to_work_status").default("pending"), // valid, expired, pending, missing
+  rightToWorkExpiry: timestamp("right_to_work_expiry"),
+  // Competence cards
+  cscsCard: text("cscs_card"),
+  cscsExpiry: timestamp("cscs_expiry"),
+  cscsStatus: text("cscs_status").default("missing"), // valid, expired, expiring, missing
+  ipafCard: text("ipaf_card"),
+  ipafExpiry: timestamp("ipaf_expiry"),
+  ipafStatus: text("ipaf_status").default("missing"),
+  // Training certificates
+  asbestosAwareness: boolean("asbestos_awareness").default(false),
+  asbestosExpiry: timestamp("asbestos_expiry"),
+  manualHandling: boolean("manual_handling").default(false),
+  manualHandlingExpiry: timestamp("manual_handling_expiry"),
+  // Site-specific status
+  isPreRegistered: boolean("is_pre_registered").default(false),
+  inductionCompleted: boolean("induction_completed").default(false),
+  inductionCompletedAt: timestamp("induction_completed_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Compliance Documents table
+export const complianceDocuments = pgTable("compliance_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  documentType: text("document_type").notNull(), // public_liability, employers_liability, health_safety, cis_registration, rams, slavery_statement
+  documentName: text("document_name").notNull(),
+  documentUrl: text("document_url").notNull(),
+  status: text("status").notNull().default("pending"), // valid, expired, expiring, pending_review, rejected
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  expiryDate: timestamp("expiry_date"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  version: text("version").default("1"), // For version control
+  isActive: boolean("is_active").default(true),
+});
+
+// Document Types configuration
+export const documentTypes = pgTable("document_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(), // public_liability, employers_liability, etc.
+  description: text("description"),
+  isMandatory: boolean("is_mandatory").default(true),
+  requiresExpiry: boolean("requires_expiry").default(true),
+  alertDaysBefore: text("alert_days_before").default("14"), // Days before expiry to send alerts
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Worker Competencies table (for tracking specific skills/certifications)
+export const workerCompetencies = pgTable("worker_competencies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  competencyType: text("competency_type").notNull(), // cscs, ipaf, pasma, asbestos, manual_handling, face_fit, etc.
+  certificateNumber: text("certificate_number"),
+  issuer: text("issuer"),
+  issuedDate: timestamp("issued_date"),
+  expiryDate: timestamp("expiry_date"),
+  status: text("status").notNull().default("valid"), // valid, expired, expiring, suspended
+  documentUrl: text("document_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Create insert schemas
+export const insertContractorCompanySchema = createInsertSchema(contractorCompanies).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertContractorWorkerSchema = createInsertSchema(contractorWorkers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertComplianceDocumentSchema = createInsertSchema(complianceDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export const insertDocumentTypeSchema = createInsertSchema(documentTypes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertWorkerCompetencySchema = createInsertSchema(workerCompetencies).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type ContractorCompany = typeof contractorCompanies.$inferSelect;
+export type InsertContractorCompany = z.infer<typeof insertContractorCompanySchema>;
+export type ContractorWorker = typeof contractorWorkers.$inferSelect;
+export type InsertContractorWorker = z.infer<typeof insertContractorWorkerSchema>;
+export type ComplianceDocument = typeof complianceDocuments.$inferSelect;
+export type InsertComplianceDocument = z.infer<typeof insertComplianceDocumentSchema>;
+export type DocumentType = typeof documentTypes.$inferSelect;
+export type InsertDocumentType = z.infer<typeof insertDocumentTypeSchema>;
+export type WorkerCompetency = typeof workerCompetencies.$inferSelect;
+export type InsertWorkerCompetency = z.infer<typeof insertWorkerCompetencySchema>;

@@ -1,7 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStaffSchema, insertVisitorSchema, insertCompanySettingsSchema, insertPreBookingSchema, insertUserSchema, insertUserInvitationSchema } from "@shared/schema";
+import { 
+  insertStaffSchema, 
+  insertVisitorSchema, 
+  insertCompanySettingsSchema, 
+  insertPreBookingSchema, 
+  insertUserSchema, 
+  insertUserInvitationSchema,
+  insertContractorCompanySchema,
+  insertContractorWorkerSchema,
+  insertComplianceDocumentSchema
+} from "@shared/schema";
 import { z } from "zod";
 
 // Staff authentication schema
@@ -1610,6 +1620,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to delete invitation:", error);
       res.status(500).json({ error: "Failed to delete invitation" });
+    }
+  });
+
+  // Contractor Company endpoints
+  app.get("/api/contractors", async (req, res) => {
+    try {
+      const contractors = await storage.getAllContractorCompanies();
+      res.json(contractors);
+    } catch (error) {
+      console.error("Error fetching contractors:", error);
+      res.status(500).json({ error: "Failed to fetch contractors" });
+    }
+  });
+
+  app.get("/api/contractors/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const contractor = await storage.getContractorCompanyById(id);
+      
+      if (!contractor) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      
+      // Get additional details
+      const workers = await storage.getWorkersByCompanyId(id);
+      const documents = await storage.getDocumentsByCompanyId(id);
+      
+      res.json({ ...contractor, workers, documents });
+    } catch (error) {
+      console.error("Error fetching contractor:", error);
+      res.status(500).json({ error: "Failed to fetch contractor" });
+    }
+  });
+
+  app.post("/api/contractors", async (req, res) => {
+    try {
+      const contractorData = insertContractorCompanySchema.parse(req.body);
+      const contractor = await storage.createContractorCompany(contractorData);
+      res.json(contractor);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid contractor data", details: error.errors });
+      } else {
+        console.error("Error creating contractor:", error);
+        res.status(500).json({ error: "Failed to create contractor" });
+      }
+    }
+  });
+
+  app.put("/api/contractors/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const contractor = await storage.updateContractorCompany(id, updates);
+      
+      if (!contractor) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      
+      res.json(contractor);
+    } catch (error) {
+      console.error("Error updating contractor:", error);
+      res.status(500).json({ error: "Failed to update contractor" });
+    }
+  });
+
+  app.delete("/api/contractors/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteContractorCompany(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting contractor:", error);
+      res.status(500).json({ error: "Failed to delete contractor" });
+    }
+  });
+
+  // Contractor Worker endpoints
+  app.get("/api/contractors/:companyId/workers", async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const workers = await storage.getWorkersByCompanyId(companyId);
+      res.json(workers);
+    } catch (error) {
+      console.error("Error fetching workers:", error);
+      res.status(500).json({ error: "Failed to fetch workers" });
+    }
+  });
+
+  app.post("/api/contractors/:companyId/workers", async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const workerData = insertContractorWorkerSchema.parse({
+        ...req.body,
+        companyId
+      });
+      
+      const worker = await storage.createContractorWorker(workerData);
+      res.json(worker);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid worker data", details: error.errors });
+      } else {
+        console.error("Error creating worker:", error);
+        res.status(500).json({ error: "Failed to create worker" });
+      }
+    }
+  });
+
+  app.put("/api/workers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const worker = await storage.updateContractorWorker(id, updates);
+      
+      if (!worker) {
+        return res.status(404).json({ error: "Worker not found" });
+      }
+      
+      res.json(worker);
+    } catch (error) {
+      console.error("Error updating worker:", error);
+      res.status(500).json({ error: "Failed to update worker" });
+    }
+  });
+
+  app.delete("/api/workers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteContractorWorker(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Worker not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting worker:", error);
+      res.status(500).json({ error: "Failed to delete worker" });
+    }
+  });
+
+  // Compliance Document endpoints
+  app.get("/api/contractors/:companyId/documents", async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const documents = await storage.getDocumentsByCompanyId(companyId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  app.post("/api/contractors/:companyId/documents", async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const documentData = insertComplianceDocumentSchema.parse({
+        ...req.body,
+        companyId
+      });
+      
+      const document = await storage.createComplianceDocument(documentData);
+      res.json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid document data", details: error.errors });
+      } else {
+        console.error("Error creating document:", error);
+        res.status(500).json({ error: "Failed to create document" });
+      }
     }
   });
 

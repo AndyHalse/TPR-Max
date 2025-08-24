@@ -49,6 +49,8 @@ export default function Contractors() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showWorkersModal, setShowWorkersModal] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
   const [inviteForm, setInviteForm] = useState({
     companyName: "",
@@ -340,7 +342,10 @@ export default function Contractors() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setSelectedContractor(contractor)}
+                  onClick={() => {
+                    setSelectedContractor(contractor);
+                    setShowDetailsModal(true);
+                  }}
                   className="w-full"
                   data-testid={`button-view-contractor-${contractor.id}`}
                 >
@@ -350,6 +355,10 @@ export default function Contractors() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => {
+                    setSelectedContractor(contractor);
+                    setShowWorkersModal(true);
+                  }}
                   className="w-full"
                   data-testid={`button-manage-workers-${contractor.id}`}
                 >
@@ -425,6 +434,244 @@ export default function Contractors() {
               Send Invitation
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Contractor Details: {selectedContractor?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedContractor && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+              {/* Company Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-700">Company Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Company Name</label>
+                    <p className="text-slate-800 font-medium">{selectedContractor.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Contact Person</label>
+                    <p className="text-slate-800">{selectedContractor.contactPerson}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Email</label>
+                    <p className="text-slate-800">{selectedContractor.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Phone</label>
+                    <p className="text-slate-800">{selectedContractor.phone}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Address</label>
+                    <p className="text-slate-800">{selectedContractor.address}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600">Status</label>
+                    <Badge 
+                      className={`ml-2 ${
+                        selectedContractor.status === 'approved' 
+                          ? 'bg-green-100 text-green-800'
+                          : selectedContractor.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {selectedContractor.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Compliance Status */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-700">Compliance Status</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-600">Overall Score</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        selectedContractor.complianceScore >= 90 ? 'bg-green-500' :
+                        selectedContractor.complianceScore >= 75 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`} />
+                      <span className="font-semibold">{selectedContractor.complianceScore}%</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-slate-700">Document Status</h4>
+                    {Object.entries({
+                      publicLiability: "Public Liability Insurance",
+                      employersLiability: "Employers Liability Insurance", 
+                      healthSafety: "Health & Safety Certificate",
+                      cisRegistration: "CIS Registration"
+                    }).map(([key, label]) => {
+                      const status = selectedContractor.documentsStatus[key as keyof typeof selectedContractor.documentsStatus];
+                      return (
+                        <div key={key} className="flex items-center justify-between">
+                          <span className="text-sm text-slate-600">{label}</span>
+                          <Badge className={`${
+                            status === 'valid' ? 'bg-green-100 text-green-800' :
+                            status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
+                            status === 'expired' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {status}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Information */}
+              <div className="lg:col-span-2 space-y-4">
+                <h3 className="text-lg font-semibold text-slate-700">Additional Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-slate-50 rounded-lg">
+                    <Users className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                    <p className="text-2xl font-bold text-slate-800">{selectedContractor.workersCount}</p>
+                    <p className="text-sm text-slate-600">Workers Registered</p>
+                  </div>
+                  <div className="text-center p-4 bg-slate-50 rounded-lg">
+                    <Calendar className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                    <p className="text-lg font-bold text-slate-800">{selectedContractor.lastUpdated}</p>
+                    <p className="text-sm text-slate-600">Last Updated</p>
+                  </div>
+                  <div className="text-center p-4 bg-slate-50 rounded-lg">
+                    <Shield className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                    <p className="text-lg font-bold text-slate-800">UK Compliant</p>
+                    <p className="text-sm text-slate-600">Health & Safety</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Workers Modal */}
+      <Dialog open={showWorkersModal} onOpenChange={setShowWorkersModal}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Manage Workers: {selectedContractor?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedContractor && (
+            <div className="mt-4 space-y-4">
+              {/* Workers Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <Users className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                  <p className="text-xl font-bold text-blue-800">{selectedContractor.workersCount}</p>
+                  <p className="text-sm text-blue-600">Total Workers</p>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <CheckCircle className="h-6 w-6 mx-auto mb-2 text-green-600" />
+                  <p className="text-xl font-bold text-green-800">12</p>
+                  <p className="text-sm text-green-600">Certified</p>
+                </div>
+                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <Clock className="h-6 w-6 mx-auto mb-2 text-yellow-600" />
+                  <p className="text-xl font-bold text-yellow-800">2</p>
+                  <p className="text-sm text-yellow-600">Pending</p>
+                </div>
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-600" />
+                  <p className="text-xl font-bold text-red-800">1</p>
+                  <p className="text-sm text-red-600">Expired</p>
+                </div>
+              </div>
+
+              {/* Add Worker Button */}
+              <div className="flex justify-end">
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add New Worker
+                </Button>
+              </div>
+
+              {/* Workers Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Worker Name
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Role
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Certifications
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                      {/* Mock worker data */}
+                      {[
+                        { id: 1, name: "James Wilson", role: "Electrician", certifications: "NICEIC, 18th Edition", status: "active" },
+                        { id: 2, name: "Sarah Johnson", role: "Supervisor", certifications: "SMSTS, First Aid", status: "active" },
+                        { id: 3, name: "Mike Brown", role: "Apprentice", certifications: "Level 2 Electrical", status: "pending" },
+                        { id: 4, name: "David Lee", role: "Electrician", certifications: "NICEIC", status: "expired" },
+                      ].map((worker) => (
+                        <tr key={worker.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="font-medium text-slate-900">{worker.name}</div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="text-slate-600">{worker.role}</div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="text-slate-600 text-sm">{worker.certifications}</div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <Badge className={`${
+                              worker.status === 'active' ? 'bg-green-100 text-green-800' :
+                              worker.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {worker.status}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm">
+                                <FileCheck className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button variant="outline" size="sm">
+                                <FileText className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

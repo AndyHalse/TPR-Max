@@ -1,4 +1,26 @@
-import type { Staff, InsertStaff, Visitor, InsertVisitor, User, InsertUser, CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking } from "@shared/schema";
+import type { 
+  Staff, 
+  InsertStaff, 
+  Visitor, 
+  InsertVisitor, 
+  User, 
+  InsertUser, 
+  CompanySettings, 
+  InsertCompanySettings, 
+  Report, 
+  PreBooking, 
+  InsertPreBooking,
+  ContractorCompany,
+  InsertContractorCompany,
+  ContractorWorker,
+  InsertContractorWorker,
+  ComplianceDocument,
+  InsertComplianceDocument,
+  DocumentType,
+  InsertDocumentType,
+  WorkerCompetency,
+  InsertWorkerCompetency
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import fs from "fs";
@@ -99,6 +121,36 @@ export interface IStorage {
     timestamp: Date;
     details?: string;
   }>>;
+
+  // Contractor Company methods
+  getAllContractorCompanies(): Promise<Array<ContractorCompany & { workersCount: number; documentsStatus: Record<string, string> }>>;
+  getContractorCompanyById(id: string): Promise<ContractorCompany | undefined>;
+  createContractorCompany(insertCompany: InsertContractorCompany): Promise<ContractorCompany>;
+  updateContractorCompany(id: string, updates: Partial<InsertContractorCompany>): Promise<ContractorCompany | undefined>;
+  deleteContractorCompany(id: string): Promise<boolean>;
+  
+  // Contractor Worker methods
+  getWorkersByCompanyId(companyId: string): Promise<ContractorWorker[]>;
+  getContractorWorkerById(id: string): Promise<ContractorWorker | undefined>;
+  createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker>;
+  updateContractorWorker(id: string, updates: Partial<InsertContractorWorker>): Promise<ContractorWorker | undefined>;
+  deleteContractorWorker(id: string): Promise<boolean>;
+  
+  // Compliance Document methods
+  getDocumentsByCompanyId(companyId: string): Promise<ComplianceDocument[]>;
+  createComplianceDocument(insertDocument: InsertComplianceDocument): Promise<ComplianceDocument>;
+  updateComplianceDocument(id: string, updates: Partial<InsertComplianceDocument>): Promise<ComplianceDocument | undefined>;
+  deleteComplianceDocument(id: string): Promise<boolean>;
+  
+  // Document Type methods
+  getAllDocumentTypes(): Promise<DocumentType[]>;
+  createDocumentType(insertType: InsertDocumentType): Promise<DocumentType>;
+  
+  // Worker Competency methods
+  getCompetenciesByWorkerId(workerId: string): Promise<WorkerCompetency[]>;
+  createWorkerCompetency(insertCompetency: InsertWorkerCompetency): Promise<WorkerCompetency>;
+  updateWorkerCompetency(id: string, updates: Partial<InsertWorkerCompetency>): Promise<WorkerCompetency | undefined>;
+  deleteWorkerCompetency(id: string): Promise<boolean>;
 
   // Emergency muster methods
   getMusterList(): Promise<Array<{

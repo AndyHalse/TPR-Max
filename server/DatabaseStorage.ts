@@ -1,8 +1,14 @@
 import { db } from "./db";
-import { staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations } from "@shared/schema";
+import { 
+  staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
+  contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies
+} from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
-  CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation
+  CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation,
+  ContractorCompany, InsertContractorCompany, ContractorWorker, InsertContractorWorker,
+  ComplianceDocument, InsertComplianceDocument, DocumentType, InsertDocumentType,
+  WorkerCompetency, InsertWorkerCompetency
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull } from "drizzle-orm";
@@ -826,6 +832,205 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(userInvitations)
       .where(eq(userInvitations.id, id));
+    
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Contractor Company methods
+  async getAllContractorCompanies(): Promise<Array<ContractorCompany & { workersCount: number; documentsStatus: Record<string, string> }>> {
+    const companies = await db.select().from(contractorCompanies).orderBy(desc(contractorCompanies.createdAt));
+    
+    const enrichedCompanies = await Promise.all(companies.map(async (company) => {
+      // Get workers count
+      const workersCount = (await db.select().from(contractorWorkers).where(eq(contractorWorkers.companyId, company.id))).length;
+      
+      // Get document statuses
+      const documents = await db.select().from(complianceDocuments).where(eq(complianceDocuments.companyId, company.id));
+      const documentsStatus = {
+        publicLiability: documents.find(d => d.documentType === 'public_liability')?.status || 'missing',
+        employersLiability: documents.find(d => d.documentType === 'employers_liability')?.status || 'missing',
+        healthSafety: documents.find(d => d.documentType === 'health_safety')?.status || 'missing',
+        cisRegistration: documents.find(d => d.documentType === 'cis_registration')?.status || 'missing',
+      };
+      
+      return {
+        ...company,
+        workersCount,
+        documentsStatus
+      };
+    }));
+    
+    return enrichedCompanies;
+  }
+
+  async getContractorCompanyById(id: string): Promise<ContractorCompany | undefined> {
+    const [company] = await db.select().from(contractorCompanies).where(eq(contractorCompanies.id, id));
+    return company || undefined;
+  }
+
+  async createContractorCompany(insertCompany: InsertContractorCompany): Promise<ContractorCompany> {
+    const id = randomUUID();
+    
+    const [newCompany] = await db
+      .insert(contractorCompanies)
+      .values({
+        ...insertCompany,
+        id,
+      })
+      .returning();
+    
+    return newCompany;
+  }
+
+  async updateContractorCompany(id: string, updates: Partial<InsertContractorCompany>): Promise<ContractorCompany | undefined> {
+    const [updatedCompany] = await db
+      .update(contractorCompanies)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(contractorCompanies.id, id))
+      .returning();
+    
+    return updatedCompany || undefined;
+  }
+
+  async deleteContractorCompany(id: string): Promise<boolean> {
+    const result = await db
+      .delete(contractorCompanies)
+      .where(eq(contractorCompanies.id, id));
+    
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Contractor Worker methods
+  async getWorkersByCompanyId(companyId: string): Promise<ContractorWorker[]> {
+    return await db.select().from(contractorWorkers).where(eq(contractorWorkers.companyId, companyId));
+  }
+
+  async getContractorWorkerById(id: string): Promise<ContractorWorker | undefined> {
+    const [worker] = await db.select().from(contractorWorkers).where(eq(contractorWorkers.id, id));
+    return worker || undefined;
+  }
+
+  async createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker> {
+    const id = randomUUID();
+    
+    const [newWorker] = await db
+      .insert(contractorWorkers)
+      .values({
+        ...insertWorker,
+        id,
+      })
+      .returning();
+    
+    return newWorker;
+  }
+
+  async updateContractorWorker(id: string, updates: Partial<InsertContractorWorker>): Promise<ContractorWorker | undefined> {
+    const [updatedWorker] = await db
+      .update(contractorWorkers)
+      .set(updates)
+      .where(eq(contractorWorkers.id, id))
+      .returning();
+    
+    return updatedWorker || undefined;
+  }
+
+  async deleteContractorWorker(id: string): Promise<boolean> {
+    const result = await db
+      .delete(contractorWorkers)
+      .where(eq(contractorWorkers.id, id));
+    
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Compliance Document methods
+  async getDocumentsByCompanyId(companyId: string): Promise<ComplianceDocument[]> {
+    return await db.select().from(complianceDocuments).where(eq(complianceDocuments.companyId, companyId));
+  }
+
+  async createComplianceDocument(insertDocument: InsertComplianceDocument): Promise<ComplianceDocument> {
+    const id = randomUUID();
+    
+    const [newDocument] = await db
+      .insert(complianceDocuments)
+      .values({
+        ...insertDocument,
+        id,
+      })
+      .returning();
+    
+    return newDocument;
+  }
+
+  async updateComplianceDocument(id: string, updates: Partial<InsertComplianceDocument>): Promise<ComplianceDocument | undefined> {
+    const [updatedDocument] = await db
+      .update(complianceDocuments)
+      .set(updates)
+      .where(eq(complianceDocuments.id, id))
+      .returning();
+    
+    return updatedDocument || undefined;
+  }
+
+  async deleteComplianceDocument(id: string): Promise<boolean> {
+    const result = await db
+      .delete(complianceDocuments)
+      .where(eq(complianceDocuments.id, id));
+    
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Document Type methods
+  async getAllDocumentTypes(): Promise<DocumentType[]> {
+    return await db.select().from(documentTypes).where(eq(documentTypes.isActive, true));
+  }
+
+  async createDocumentType(insertType: InsertDocumentType): Promise<DocumentType> {
+    const id = randomUUID();
+    
+    const [newType] = await db
+      .insert(documentTypes)
+      .values({
+        ...insertType,
+        id,
+      })
+      .returning();
+    
+    return newType;
+  }
+
+  // Worker Competency methods
+  async getCompetenciesByWorkerId(workerId: string): Promise<WorkerCompetency[]> {
+    return await db.select().from(workerCompetencies).where(eq(workerCompetencies.workerId, workerId));
+  }
+
+  async createWorkerCompetency(insertCompetency: InsertWorkerCompetency): Promise<WorkerCompetency> {
+    const id = randomUUID();
+    
+    const [newCompetency] = await db
+      .insert(workerCompetencies)
+      .values({
+        ...insertCompetency,
+        id,
+      })
+      .returning();
+    
+    return newCompetency;
+  }
+
+  async updateWorkerCompetency(id: string, updates: Partial<InsertWorkerCompetency>): Promise<WorkerCompetency | undefined> {
+    const [updatedCompetency] = await db
+      .update(workerCompetencies)
+      .set(updates)
+      .where(eq(workerCompetencies.id, id))
+      .returning();
+    
+    return updatedCompetency || undefined;
+  }
+
+  async deleteWorkerCompetency(id: string): Promise<boolean> {
+    const result = await db
+      .delete(workerCompetencies)
+      .where(eq(workerCompetencies.id, id));
     
     return (result.rowCount || 0) > 0;
   }
