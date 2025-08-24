@@ -14,14 +14,19 @@ interface BiostarDeviceSync {
 // Test connection to Biostar API
 export async function testBiostarConnection(settings: CompanySettings): Promise<BiostarConnectionResult> {
   try {
+    console.log('🔗 Starting Biostar connection test...');
+    
     const { biostarServerUrl, biostarUsername, biostarPassword, biostarApiKey } = settings;
     
     if (!biostarServerUrl || !biostarUsername || !biostarPassword) {
+      console.log('❌ Missing required Biostar connection settings');
       return {
         success: false,
-        message: "Missing required Biostar connection settings"
+        message: "Missing required Biostar connection settings (server URL, username, or password)"
       };
     }
+
+    console.log('📡 Attempting to connect to:', biostarServerUrl);
 
     // Basic auth for Biostar API
     const auth = Buffer.from(`${biostarUsername}:${biostarPassword}`).toString('base64');
@@ -32,14 +37,18 @@ export async function testBiostarConnection(settings: CompanySettings): Promise<
     };
 
     // Test connection by getting server info
+    console.log('🔍 Making test request to Biostar API...');
     const response = await fetch(`${biostarServerUrl}/api/server/info`, {
       method: 'GET',
       headers,
-      // Ignore SSL certificate errors for development
-      ...({} as any) // TypeScript workaround
+      // Add timeout for connection
+      signal: AbortSignal.timeout(10000)
     });
 
+    console.log('📊 Response status:', response.status, response.statusText);
+
     if (!response.ok) {
+      console.log('❌ Connection failed with status:', response.status);
       return {
         success: false,
         message: `Connection failed: ${response.status} ${response.statusText}`

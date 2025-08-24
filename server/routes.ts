@@ -975,11 +975,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const settings = await storage.getCompanySettings();
       if (!settings?.biostarEnabled) {
+        console.log("Biostar integration not enabled in settings");
         return res.status(400).json({ error: "Biostar integration is not enabled" });
       }
 
+      console.log("Testing Biostar connection with settings:", {
+        serverUrl: settings.biostarServerUrl,
+        username: settings.biostarUsername ? "[SET]" : "[NOT SET]",
+        apiKey: settings.biostarApiKey ? "[SET]" : "[NOT SET]"
+      });
+
       // Test connection to Biostar API
       const connectionResult = await testBiostarConnection(settings);
+      
+      console.log("Biostar connection result:", connectionResult);
+      
       res.json({
         success: connectionResult.success,
         message: connectionResult.message,
@@ -987,19 +997,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Biostar connection test failed:", error);
-      res.status(500).json({ error: "Connection test failed" });
+      res.status(500).json({ error: "Connection test failed: " + (error as Error).message });
     }
   });
 
   app.post("/api/biostar/sync-devices", async (req, res) => {
     try {
+      console.log('🔄 Starting Biostar device sync...');
+      
       const settings = await storage.getCompanySettings();
       if (!settings?.biostarEnabled) {
+        console.log('❌ Biostar integration not enabled');
         return res.status(400).json({ error: "Biostar integration is not enabled" });
       }
 
       // Sync devices from Biostar
+      console.log('📡 Syncing devices with Biostar...');
       const syncResult = await syncBiostarDevices(settings);
+      
+      console.log(`✅ Found ${syncResult.devices.length} devices:`, syncResult.devices);
       
       // Update settings with discovered devices
       await storage.updateCompanySettings({
@@ -1013,8 +1029,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Found ${syncResult.devices.length} devices`
       });
     } catch (error) {
-      console.error("Biostar device sync failed:", error);
-      res.status(500).json({ error: "Device sync failed" });
+      console.error("❌ Biostar device sync failed:", error);
+      res.status(500).json({ error: "Device sync failed: " + (error as Error).message });
     }
   });
 

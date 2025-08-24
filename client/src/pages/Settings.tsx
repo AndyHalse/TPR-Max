@@ -1203,6 +1203,29 @@ export default function Settings() {
                     type="button"
                     variant="outline"
                     className="flex-1"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/biostar/test-connection', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        const result = await response.json();
+                        
+                        toast({
+                          title: result.success ? "Connection Successful" : "Connection Failed",
+                          description: result.message,
+                          variant: result.success ? "default" : "destructive"
+                        });
+                      } catch (error) {
+                        console.error('Biostar connection test error:', error);
+                        toast({
+                          title: "Connection Error",
+                          description: "Failed to test Biostar connection",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
                     data-testid="button-test-biostar-connection"
                   >
                     <Shield className="mr-2" size={16} />
@@ -1212,6 +1235,34 @@ export default function Settings() {
                     type="button"
                     variant="outline"
                     className="flex-1"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/biostar/sync-devices', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                          // Refresh settings to show new devices
+                          window.location.reload();
+                        }
+                        
+                        toast({
+                          title: result.success ? "Sync Successful" : "Sync Failed",
+                          description: result.message,
+                          variant: result.success ? "default" : "destructive"
+                        });
+                      } catch (error) {
+                        console.error('Biostar device sync error:', error);
+                        toast({
+                          title: "Sync Error",
+                          description: "Failed to sync devices",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
                     data-testid="button-sync-devices"
                   >
                     Sync Devices

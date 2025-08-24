@@ -4,6 +4,25 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
 
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (error) => {
+  console.error('🔥 Uncaught Exception:', error);
+  console.error('Stack trace:', error.stack);
+  // Don't exit the process in development to keep the server running
+  if (process.env.NODE_ENV === 'production') {
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🔥 Unhandled Rejection at:', promise);
+  console.error('Reason:', reason);
+  // Don't exit the process in development to keep the server running
+  if (process.env.NODE_ENV === 'production') {
+    process.exit(1);
+  }
+});
+
 const app = express();
 
 // CORS middleware
@@ -69,17 +88,36 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize developer user
-  await AuthService.initializeDeveloperUser();
-  
-  const server = await registerRoutes(app);
+  try {
+    console.log('🚀 Starting VisiGate Pro server...');
+    
+    // Initialize developer user
+    console.log('👤 Initializing developer user...');
+    await AuthService.initializeDeveloperUser();
+    
+    console.log('🛣️ Registering routes...');
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+    console.error('🔥 Express error handler caught:', {
+      error: err.message,
+      stack: err.stack,
+      url: req.url,
+      method: req.method,
+      body: req.body,
+      params: req.params,
+      query: req.query
+    });
+    
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    // Don't expose detailed error messages in production
+    const responseMessage = process.env.NODE_ENV === 'production' ? 'Internal Server Error' : message;
+    
+    if (!res.headersSent) {
+      res.status(status).json({ error: responseMessage });
+    }
   });
 
   // importantly only setup vite in development and after
@@ -96,11 +134,19 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+    console.log('🌐 Starting server...');
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      console.log('✅ VisiGate Pro server started successfully!');
+      log(`serving on port ${port}`);
+    });
+  } catch (error) {
+    console.error('🔥 Failed to start server:', error);
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
+  }
 })();

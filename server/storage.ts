@@ -194,7 +194,6 @@ export class MemStorage implements IStorage {
         checkedInAt: visitor.checkedInAt,
         checkedOutAt: null,
         isCheckedIn: visitor.isCheckedIn,
-        createdAt: visitor.checkedInAt,
       });
     });
   }
@@ -211,8 +210,12 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const user: User = {
-      ...insertUser,
       id,
+      username: insertUser.username,
+      password: insertUser.password,
+      email: insertUser.email || null,
+      role: insertUser.role || 'user',
+      isActive: insertUser.isActive ?? true,
       createdAt: new Date(),
     };
     this.users.set(id, user);
@@ -286,7 +289,6 @@ export class MemStorage implements IStorage {
       checkedInAt: new Date(),
       checkedOutAt: null,
       isCheckedIn: true,
-      createdAt: new Date(),
     };
     
     this.visitors.set(id, visitor);
@@ -335,7 +337,7 @@ export class MemStorage implements IStorage {
   // Report methods
   async getAllReports(): Promise<Report[]> {
     return Array.from(this.reports.values())
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      .sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
   }
 
   async createReport(report: Omit<Report, 'id'>): Promise<Report> {
@@ -343,7 +345,7 @@ export class MemStorage implements IStorage {
     const newReport: Report = {
       ...report,
       id,
-      createdAt: new Date(),
+      generatedAt: new Date(),
     };
     
     this.reports.set(id, newReport);
@@ -399,8 +401,13 @@ export class MemStorage implements IStorage {
     const qrCode = `PRE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const preBooking: PreBooking = {
-      ...insertPreBooking,
       id,
+      visitorName: insertPreBooking.visitorName,
+      visitorEmail: insertPreBooking.visitorEmail,
+      company: insertPreBooking.company || null,
+      purpose: insertPreBooking.purpose || null,
+      hostStaffId: insertPreBooking.hostStaffId || null,
+      visitDate: insertPreBooking.visitDate,
       qrCode,
       isCheckedIn: false,
       checkedInAt: null,
@@ -577,8 +584,8 @@ export class MemStorage implements IStorage {
         id: visitor.id,
         name: visitor.name,
         type: 'visitor' as const,
-        company: visitor.company,
-        checkedInAt: visitor.checkedInAt,
+        company: visitor.company || undefined,
+        checkedInAt: visitor.checkedInAt.toISOString(),
         location: 'Reception',
         accounted: Math.random() > 0.2
       }))
