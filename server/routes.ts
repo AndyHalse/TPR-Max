@@ -335,6 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const report = await storage.createReport({
         reportType,
+        generatedAt: new Date(),
         dateFrom: fromDate,
         dateTo: toDate,
         totalVisitors: visitorsInRange.length.toString(),
@@ -476,6 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const report = await storage.createReport({
           reportType: `auto_${settings.reportFrequency}`,
+          generatedAt: new Date(),
           dateFrom: fromDate,
           dateTo: now,
           totalVisitors: visitorsInRange.length.toString(),
@@ -495,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const emailSent = await emailService.sendReport(
           report, 
           settings, 
-          settings.reportRecipients, 
+          settings.reportRecipients || [], 
           reportData
         );
         
@@ -538,7 +540,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/prebookings", async (req, res) => {
     try {
-      const preBookingData = insertPreBookingSchema.parse(req.body);
+      // Transform the request body to ensure proper date handling
+      const transformedData = {
+        ...req.body,
+        visitDate: new Date(req.body.visitDate)
+      };
+      
+      const preBookingData = insertPreBookingSchema.parse(transformedData);
       const preBooking = await storage.createPreBooking(preBookingData);
       
       // Get host staff and company settings for email

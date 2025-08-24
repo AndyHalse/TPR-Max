@@ -374,7 +374,11 @@ export class MemStorage implements IStorage {
       ...insertPreBooking,
       id,
       qrCode,
-      status: "pending",
+      isCheckedIn: false,
+      checkedInAt: null,
+      visitorId: null,
+      emailSent: false,
+      emailSentAt: null,
       createdAt: new Date(),
     };
     
@@ -382,7 +386,7 @@ export class MemStorage implements IStorage {
     return preBooking;
   }
 
-  async updatePreBooking(id: string, updates: Partial<InsertPreBooking>): Promise<PreBooking | undefined> {
+  async updatePreBooking(id: string, updates: Partial<PreBooking>): Promise<PreBooking | undefined> {
     const preBooking = this.preBookings.get(id);
     if (!preBooking) return undefined;
 
