@@ -520,12 +520,12 @@ export default function Settings() {
             </div>
             
             <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+              <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                 <div className="flex items-center space-x-4">
                   <Sun className="text-yellow-500" size={24} />
                   <div>
-                    <h4 className="font-medium text-slate-800">Light Mode</h4>
-                    <p className="text-sm text-slate-600">Clean, bright interface</p>
+                    <h4 className="font-medium text-slate-800 dark:text-slate-200">Light Mode</h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Clean, bright interface</p>
                   </div>
                 </div>
                 <Button
@@ -537,12 +537,12 @@ export default function Settings() {
                 </Button>
               </div>
               
-              <div className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+              <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                 <div className="flex items-center space-x-4">
-                  <Moon className="text-slate-700" size={24} />
+                  <Moon className="text-slate-700 dark:text-slate-300" size={24} />
                   <div>
-                    <h4 className="font-medium text-slate-800">Dark Mode</h4>
-                    <p className="text-sm text-slate-600">Easy on the eyes for long sessions</p>
+                    <h4 className="font-medium text-slate-800 dark:text-slate-200">Dark Mode</h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Easy on the eyes for long sessions</p>
                   </div>
                 </div>
                 <Button
@@ -554,12 +554,12 @@ export default function Settings() {
                 </Button>
               </div>
               
-              <div className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+              <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                 <div className="flex items-center space-x-4">
-                  <Monitor className="text-blue-600" size={24} />
+                  <Monitor className="text-blue-600 dark:text-blue-400" size={24} />
                   <div>
-                    <h4 className="font-medium text-slate-800">System</h4>
-                    <p className="text-sm text-slate-600">Follow system preference</p>
+                    <h4 className="font-medium text-slate-800 dark:text-slate-200">System</h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Follow system preference</p>
                   </div>
                 </div>
                 <Button
@@ -571,8 +571,8 @@ export default function Settings() {
                 </Button>
               </div>
               
-              <div className="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-300">
-                <h4 className="font-semibold mb-3">Theme Preview</h4>
+              <div className="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600">
+                <h4 className="font-semibold mb-3 text-slate-800 dark:text-slate-200">Theme Preview</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 bg-white rounded-lg shadow-sm">
                     <h5 className="font-medium text-slate-800 mb-2">Light Theme</h5>
@@ -584,6 +584,17 @@ export default function Settings() {
                     <p className="text-sm text-slate-300 mb-3">Reduced eye strain for extended use</p>
                     <div className="h-2 bg-blue-400 rounded"></div>
                   </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Current Theme:</strong> {theme}
+                    {theme === "system" && (
+                      <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-800 rounded text-xs">
+                        Auto: {typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "Dark" : "Light"}
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
             </div>
