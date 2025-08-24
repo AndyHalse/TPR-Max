@@ -46,12 +46,22 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email"),
+  role: text("role").notNull().default("user"), // admin, user
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const companySettings = pgTable("company_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyName: text("company_name").notNull().default("TechCorp Ltd"),
   logoUrl: text("logo_url"),
+  // Company contact information
+  address: text("address").default(""),
+  phone: text("phone").default(""),
+  website: text("website").default(""),
+  email: text("email").default(""),
+  // Email and report settings
   emailReportsEnabled: boolean("email_reports_enabled").default(false),
   reportFrequency: text("report_frequency").default("weekly"), // daily, weekly, monthly
   reportRecipients: text("report_recipients").array().default(["admin@company.com"]),
@@ -63,6 +73,18 @@ export const companySettings = pgTable("company_settings", {
   bannerUrl: text("banner_url"),
   theme: text("theme").default("light"), // light or dark
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User invitations table for user management
+export const userInvitations = pgTable("user_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("user"), // admin, user
+  invitedBy: varchar("invited_by").references(() => users.id),
+  token: text("token").notNull().unique(),
+  expires: timestamp("expires").notNull(),
+  used: boolean("used").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const reports = pgTable("reports", {
@@ -94,9 +116,16 @@ export const preBookings = pgTable("pre_bookings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserInvitationSchema = createInsertSchema(userInvitations).omit({
+  id: true,
+  token: true,
+  used: true,
+  createdAt: true,
 });
 
 export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({
@@ -121,7 +150,9 @@ export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUserInvitation = z.infer<typeof insertUserInvitationSchema>;
 export type User = typeof users.$inferSelect;
+export type UserInvitation = typeof userInvitations.$inferSelect;
 export type CompanySettings = typeof companySettings.$inferSelect;
 export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
 export type Report = typeof reports.$inferSelect;

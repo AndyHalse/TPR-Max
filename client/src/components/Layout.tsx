@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
+import type { CompanySettings } from "@shared/schema";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,6 +15,12 @@ export default function Layout({ children }: LayoutProps) {
   const { data: user } = useQuery({
     queryKey: ["/api/auth/me"],
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Get company settings for branding
+  const { data: settings } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
+    staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
   const navItems = [
@@ -34,10 +41,21 @@ export default function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 gradient-blue rounded-xl flex items-center justify-center">
-              <IdCard className="text-white" size={20} />
+              {settings?.logoUrl ? (
+                <img 
+                  src={`/objects${settings.logoUrl}`}
+                  alt="Company Logo" 
+                  className="w-8 h-8 object-contain rounded"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.setAttribute('style', 'display: block');
+                  }}
+                />
+              ) : null}
+              <IdCard className="text-white" size={20} style={settings?.logoUrl ? {display: 'none'} : {}} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-800">VisiGate Pro</h1>
+              <h1 className="text-xl font-bold text-slate-800">{settings?.companyName || "VisiGate Pro"}</h1>
               <p className="text-xs text-slate-600">Visitor Management</p>
             </div>
           </div>
@@ -62,7 +80,7 @@ export default function Layout({ children }: LayoutProps) {
           
           <div className="flex items-center space-x-4">
             <div className="glass-effect px-3 py-1 rounded-full">
-              <span className="text-sm text-slate-700 font-medium">TechCorp Ltd</span>
+              <span className="text-sm text-slate-700 font-medium">{settings?.companyName || "TechCorp Ltd"}</span>
             </div>
             {user && (
               <div className="flex items-center space-x-3">

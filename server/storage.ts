@@ -105,14 +105,20 @@ export class MemStorage implements IStorage {
       id: randomUUID(),
       companyName: "TechCorp Ltd",
       logoUrl: null,
+      address: "123 Business Street, London, SW1A 1AA",
+      phone: "+44 20 1234 5678",
+      website: "https://www.techcorp.com",
+      email: "info@techcorp.com",
       bannerUrl: null,
       backgroundColor: "#f8fafc",
       foregroundColor: "#1e293b",
+      accentColor: "#3b82f6",
+      theme: "light",
       emailReportsEnabled: true,
       reportFrequency: "weekly",
       reportRecipients: ["admin@techcorp.com"],
       lastReportSent: null,
-      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     // Add some sample staff

@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
 
 export default function Settings() {
@@ -178,7 +178,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -190,6 +190,10 @@ export default function Settings() {
           <TabsTrigger value="theme" className="flex items-center gap-2">
             <Monitor size={16} />
             Theme
+          </TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users size={16} />
+            Users
           </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <Mail size={16} />
@@ -217,6 +221,68 @@ export default function Settings() {
                     onChange={(e) => handleInputChange("companyName", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                     data-testid="input-company-name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="text-sm font-medium text-slate-700">
+                    Company Address
+                  </Label>
+                  <Input
+                    id="address"
+                    type="text"
+                    value={currentSettings?.address || ""}
+                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    placeholder="123 Business Street, City, Postcode"
+                    data-testid="input-company-address"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700">
+                      Phone Number
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={currentSettings?.phone || ""}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      placeholder="+44 20 1234 5678"
+                      data-testid="input-company-phone"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+                      Company Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={currentSettings?.email || ""}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      placeholder="info@yourcompany.com"
+                      data-testid="input-company-email"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="website" className="text-sm font-medium text-slate-700">
+                    Company Website
+                  </Label>
+                  <Input
+                    id="website"
+                    type="url"
+                    value={currentSettings?.website || ""}
+                    onChange={(e) => handleInputChange("website", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    placeholder="https://www.yourcompany.com"
+                    data-testid="input-company-website"
                   />
                 </div>
                 
@@ -437,6 +503,184 @@ export default function Settings() {
                     </div>
                   </div>
                 )}
+              </div>
+            </GlassCard>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="theme" className="space-y-6 mt-6">
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <Monitor className="mr-3 text-blue-600" size={24} />
+              <h3 className="text-lg font-semibold text-slate-800">Application Theme</h3>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                <div className="flex items-center space-x-4">
+                  <Sun className="text-yellow-500" size={24} />
+                  <div>
+                    <h4 className="font-medium text-slate-800">Light Mode</h4>
+                    <p className="text-sm text-slate-600">Clean, bright interface</p>
+                  </div>
+                </div>
+                <Button
+                  variant={theme === "light" ? "default" : "outline"}
+                  onClick={() => setTheme("light")}
+                  data-testid="button-light-theme"
+                >
+                  {theme === "light" && "✓"} Select
+                </Button>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                <div className="flex items-center space-x-4">
+                  <Moon className="text-slate-700" size={24} />
+                  <div>
+                    <h4 className="font-medium text-slate-800">Dark Mode</h4>
+                    <p className="text-sm text-slate-600">Easy on the eyes for long sessions</p>
+                  </div>
+                </div>
+                <Button
+                  variant={theme === "dark" ? "default" : "outline"}
+                  onClick={() => setTheme("dark")}
+                  data-testid="button-dark-theme"
+                >
+                  {theme === "dark" && "✓"} Select
+                </Button>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                <div className="flex items-center space-x-4">
+                  <Monitor className="text-blue-600" size={24} />
+                  <div>
+                    <h4 className="font-medium text-slate-800">System</h4>
+                    <p className="text-sm text-slate-600">Follow system preference</p>
+                  </div>
+                </div>
+                <Button
+                  variant={theme === "system" ? "default" : "outline"}
+                  onClick={() => setTheme("system")}
+                  data-testid="button-system-theme"
+                >
+                  {theme === "system" && "✓"} Select
+                </Button>
+              </div>
+              
+              <div className="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-300">
+                <h4 className="font-semibold mb-3">Theme Preview</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-white rounded-lg shadow-sm">
+                    <h5 className="font-medium text-slate-800 mb-2">Light Theme</h5>
+                    <p className="text-sm text-slate-600 mb-3">Clean and professional appearance</p>
+                    <div className="h-2 bg-blue-500 rounded"></div>
+                  </div>
+                  <div className="p-4 bg-slate-800 text-white rounded-lg shadow-sm">
+                    <h5 className="font-medium mb-2">Dark Theme</h5>
+                    <p className="text-sm text-slate-300 mb-3">Reduced eye strain for extended use</p>
+                    <div className="h-2 bg-blue-400 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                  <Users className="mr-3 text-blue-600" size={24} />
+                  <h3 className="text-lg font-semibold text-slate-800">User Management</h3>
+                </div>
+                <Button
+                  size="sm"
+                  className="gradient-blue text-white"
+                  data-testid="button-invite-user"
+                >
+                  <UserPlus className="mr-2" size={16} />
+                  Invite User
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">A</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">Andy (You)</p>
+                      <p className="text-sm text-slate-600">Administrator</p>
+                    </div>
+                  </div>
+                  <Badge variant="default">Admin</Badge>
+                </div>
+                
+                <div className="text-center py-8">
+                  <Shield className="mx-auto text-slate-400 mb-4" size={48} />
+                  <p className="text-slate-600 mb-4">No additional users yet</p>
+                  <Button variant="outline" size="sm">
+                    <UserPlus className="mr-2" size={16} />
+                    Send First Invitation
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
+            
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <UserPlus className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Invite New User</h3>
+              </div>
+              
+              <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                <div className="space-y-2">
+                  <Label htmlFor="inviteEmail" className="text-sm font-medium text-slate-700">
+                    Email Address
+                  </Label>
+                  <Input
+                    id="inviteEmail"
+                    type="email"
+                    placeholder="user@example.com"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-invite-email"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="userRole" className="text-sm font-medium text-slate-700">
+                    User Role
+                  </Label>
+                  <Select defaultValue="user">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-user-role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Standard User</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full gradient-blue text-white"
+                  data-testid="button-send-invitation"
+                >
+                  Send Invitation
+                </Button>
+              </form>
+              
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Invitation Process:</h4>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <li>• User receives email invitation with secure link</li>
+                  <li>• They create their account using the invitation</li>
+                  <li>• Access permissions are based on assigned role</li>
+                  <li>• Invitations expire after 7 days</li>
+                </ul>
               </div>
             </GlassCard>
           </div>

@@ -42,12 +42,16 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
             data-testid="visitor-pass-preview"
           >
             <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-left">
-                  <h4 className="font-bold text-sm text-slate-800">{settings?.companyName || "TechCorp Ltd"}</h4>
+              {/* Header with Company Info */}
+              <div className="flex items-start justify-between mb-2">
+                <div className="text-left flex-1 pr-2">
+                  <h4 className="font-bold text-sm text-slate-800 leading-tight">{settings?.companyName || "TechCorp Ltd"}</h4>
                   <p className="text-xs text-slate-600">Visitor Pass</p>
+                  {settings?.address && (
+                    <p className="text-xs text-slate-500 mt-1 leading-tight">{settings.address}</p>
+                  )}
                 </div>
-                <div className="w-8 h-8 gradient-blue rounded flex items-center justify-center">
+                <div className="w-8 h-8 gradient-blue rounded flex items-center justify-center flex-shrink-0">
                   {settings?.logoUrl ? (
                     <img 
                       src={`/objects${settings.logoUrl}`}
@@ -90,8 +94,24 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                 </div>
               </div>
               
-              <div className="text-center border-t pt-2">
-                <p className="text-xs text-slate-500">Scan QR code to check out</p>
+              {/* Company Contact Info Footer */}
+              <div className="mt-auto pt-1 border-t border-slate-200">
+                <div className="flex flex-col space-y-1">
+                  <div className="flex justify-between text-xs text-slate-500 leading-tight">
+                    {settings?.phone && <span>📞 {settings.phone}</span>}
+                    {settings?.website && <span className="truncate">🌐 {settings.website.replace('https://', '').replace('http://', '').replace('www.', '')}</span>}
+                  </div>
+                  {settings?.email && (
+                    <div className="text-xs text-slate-500 truncate">
+                      ✉️ {settings.email}
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-xs text-slate-500 border-t pt-1">
+                    <span>Valid: {formatDate(visitor.checkedInAt)}</span>
+                    <span>VisiGate Pro</span>
+                  </div>
+                  <p className="text-center text-xs text-slate-400 mt-1">Scan QR code to check out</p>
+                </div>
               </div>
             </div>
           </div>
