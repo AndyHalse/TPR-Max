@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain, Menu, X } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import type { CompanySettings } from "@shared/schema";
+import { useState } from "react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +11,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Get current user info
   const { data: user } = useQuery<{ id: string; username: string }>({
@@ -37,10 +39,10 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen">
       {/* Navigation */}
-      <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-6 py-4">
+      <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 gradient-blue rounded-xl flex items-center justify-center">
+          <div className="flex items-center space-x-3 min-w-0 flex-shrink-0">
+            <div className="w-10 h-10 gradient-blue rounded-xl flex items-center justify-center flex-shrink-0">
               {settings?.logoUrl ? (
                 <img 
                   src={`/objects${settings.logoUrl}`}
@@ -54,45 +56,76 @@ export default function Layout({ children }: LayoutProps) {
               ) : null}
               <IdCard className="text-white" size={20} style={settings?.logoUrl ? {display: 'none'} : {}} />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">{settings?.companyName || "VisiGate Pro"}</h1>
-              <p className="text-xs text-slate-600">Visitor Management</p>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{settings?.companyName || "VisiGate Pro"}</h1>
+              <p className="text-xs text-slate-600 hidden sm:block">Visitor Management</p>
             </div>
           </div>
           
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden lg:flex items-center space-x-2 xl:space-x-4 flex-1 justify-center">
             {navItems.map((item) => (
               <Link key={item.path} href={item.path}>
                 <button 
-                  className={`nav-btn px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+                  className={`nav-btn px-2 xl:px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 xl:space-x-2 ${
                     location === item.path 
                       ? 'bg-white text-blue-600 shadow-sm' 
                       : 'text-slate-700 hover:text-blue-600'
                   }`}
                   data-testid={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
                 >
-                  <item.icon size={16} />
-                  <span>{item.label}</span>
+                  <item.icon size={14} />
+                  <span className="hidden xl:inline">{item.label}</span>
+                  <span className="xl:hidden">{item.label.split(' ')[0]}</span>
                 </button>
               </Link>
             ))}
           </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="glass-effect px-3 py-1 rounded-full">
-              <span className="text-sm text-slate-700 font-medium">{settings?.companyName || "TechCorp Ltd"}</span>
-            </div>
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            {/* Mobile menu button */}
+            <button
+              className="lg:hidden p-2 rounded-lg text-slate-700 hover:bg-white/50 transition-colors"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              data-testid="mobile-menu-button"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            
             {user && (
-              <div className="flex items-center space-x-3">
-                <div className="glass-effect px-3 py-1 rounded-full flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
+                <div className="glass-effect px-2 sm:px-3 py-1 rounded-full flex items-center space-x-1 sm:space-x-2">
                   <User className="text-slate-600" size={14} />
-                  <span className="text-sm text-slate-700 font-medium">{user.username}</span>
+                  <span className="text-xs sm:text-sm text-slate-700 font-medium">{user.username}</span>
                 </div>
                 <LogoutButton />
               </div>
             )}
           </div>
         </div>
+        
+        {/* Mobile Navigation Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden absolute top-full left-0 right-0 glass-effect border-t border-white/30">
+            <div className="px-4 py-3 space-y-2">
+              {navItems.map((item) => (
+                <Link key={item.path} href={item.path}>
+                  <button 
+                    className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center space-x-3 ${
+                      location === item.path 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-slate-700 hover:bg-white/30'
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
+                  >
+                    <item.icon size={16} />
+                    <span>{item.label}</span>
+                  </button>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Main Content */}
