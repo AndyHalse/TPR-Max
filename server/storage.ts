@@ -1,6 +1,8 @@
 import type { Staff, InsertStaff, Visitor, InsertVisitor, User, InsertUser, CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
+import fs from "fs";
+import path from "path";
 
 export interface IStorage {
   // User methods
@@ -113,6 +115,7 @@ export class MemStorage implements IStorage {
   private companySettings: CompanySettings | undefined;
   private reports: Map<string, Report>;
   private preBookings: Map<string, PreBooking>;
+  private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
 
   constructor() {
     this.users = new Map();
@@ -121,12 +124,52 @@ export class MemStorage implements IStorage {
     this.reports = new Map();
     this.preBookings = new Map();
     
-    // Initialize with some default data
-    this.initializeDefaultData();
+    // Ensure data directory exists
+    this.ensureDataDirectory();
+    
+    // Load existing company settings or initialize defaults
+    this.loadOrInitializeSettings();
+    
+    // Initialize sample data (but not company settings)
+    this.initializeSampleData();
   }
 
-  private initializeDefaultData() {
-    // Initialize default company settings
+  private ensureDataDirectory(): void {
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+  }
+
+  private loadOrInitializeSettings(): void {
+    try {
+      if (fs.existsSync(this.settingsFilePath)) {
+        // Load existing settings from file
+        const settingsData = fs.readFileSync(this.settingsFilePath, 'utf8');
+        this.companySettings = JSON.parse(settingsData);
+        
+        // Convert date strings back to Date objects
+        if (this.companySettings) {
+          this.companySettings.updatedAt = new Date(this.companySettings.updatedAt);
+          if (this.companySettings.lastReportSent) {
+            this.companySettings.lastReportSent = new Date(this.companySettings.lastReportSent);
+          }
+        }
+        
+        console.log('✅ Company settings loaded from persistent storage');
+      } else {
+        // Initialize default company settings for first time
+        this.initializeDefaultSettings();
+        this.saveSettingsToFile();
+        console.log('🆕 New company settings initialized and saved');
+      }
+    } catch (error) {
+      console.error('❌ Error loading company settings, using defaults:', error);
+      this.initializeDefaultSettings();
+    }
+  }
+
+  private initializeDefaultSettings(): void {
     this.companySettings = {
       id: randomUUID(),
       companyName: "TechCorp Ltd",
@@ -161,6 +204,18 @@ export class MemStorage implements IStorage {
       readerSettings: "{}",
       updatedAt: new Date(),
     };
+  }
+
+  private saveSettingsToFile(): void {
+    try {
+      const settingsJson = JSON.stringify(this.companySettings, null, 2);
+      fs.writeFileSync(this.settingsFilePath, settingsJson, 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving company settings:', error);
+    }
+  }
+
+  private initializeSampleData(): void {
 
     // Add some sample staff
     const sampleStaff = [
@@ -652,7 +707,12 @@ export class MemStorage implements IStorage {
   async updateCompanySettings(updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined> {
     if (!this.companySettings) return undefined;
 
-    this.companySettings = { ...this.companySettings, ...updates };
+    this.companySettings = { ...this.companySettings, ...updates, updatedAt: new Date() };
+    
+    // Save to file immediately for persistence
+    this.saveSettingsToFile();
+    
+    console.log('💾 Company settings updated and saved to persistent storage');
     return this.companySettings;
   }
 
