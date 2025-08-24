@@ -14,7 +14,7 @@ import EmergencyMuster from "@/pages/EmergencyMuster";
 import Settings from "@/pages/Settings";
 import Reports from "@/pages/Reports";
 import TimeAttendance from "@/pages/TimeAttendance";
-import PreBooking from "@/pages/PreBooking";
+import Visitors from "@/pages/Visitors";
 import AIDemo from "@/pages/AIDemo";
 import Login from "@/pages/Login";
 
@@ -51,7 +51,7 @@ function Router() {
           <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/staff" component={StaffManagement} />
-            <Route path="/prebooking" component={PreBooking} />
+            <Route path="/visitors" component={Visitors} />
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/reports" component={Reports} />

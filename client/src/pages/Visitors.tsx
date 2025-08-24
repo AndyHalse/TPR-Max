@@ -1,0 +1,664 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import GlassCard from "@/components/GlassCard";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Users, 
+  UserPlus, 
+  CalendarPlus, 
+  Calendar as CalendarIcon, 
+  Clock,
+  CheckCircle,
+  Send,
+  Building2,
+  Mail,
+  Search,
+  UserCheck,
+  History
+} from "lucide-react";
+import { format, addDays } from "date-fns";
+import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor } from "@shared/schema";
+
+export default function Visitors() {
+  const { toast } = useToast();
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState("existing");
+  
+  // Pre-booking form state
+  const [preBookingData, setPreBookingData] = useState<Partial<InsertPreBooking>>({
+    visitDate: addDays(new Date(), 1),
+  });
+  const [selectedDate, setSelectedDate] = useState<Date>(addDays(new Date(), 1));
+  
+  // Walk-in visitor form state
+  const [walkInData, setWalkInData] = useState({
+    name: "",
+    company: "",
+    hostStaffId: "",
+    purpose: "",
+    carRegistration: "",
+  });
+  
+  // Search state for existing visitors
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Queries
+  const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
+    queryKey: ["/api/staff"],
+  });
+
+  const { data: preBookings } = useQuery<PreBooking[]>({
+    queryKey: ["/api/prebookings"],
+  });
+
+  const { data: upcomingBookings } = useQuery<PreBooking[]>({
+    queryKey: ["/api/prebookings/upcoming"],
+  });
+
+  const { data: allVisitors } = useQuery<Visitor[]>({
+    queryKey: ["/api/visitors"],
+  });
+
+  // Filter existing visitors based on search
+  const filteredVisitors = allVisitors?.filter(visitor => 
+    visitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (visitor.company && visitor.company.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) || [];
+
+  // Mutations
+  const createPreBookingMutation = useMutation({
+    mutationFn: async (data: InsertPreBooking) => {
+      const response = await apiRequest("POST", "/api/prebookings", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      toast({
+        title: "Success",
+        description: "Pre-booking created and confirmation emails sent!",
+      });
+      setPreBookingData({ visitDate: addDays(new Date(), 1) });
+      setSelectedDate(addDays(new Date(), 1));
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create pre-booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const checkInWalkInMutation = useMutation({
+    mutationFn: async (visitor: InsertVisitor) => {
+      const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({
+        title: "Success",
+        description: "Visitor checked in successfully!",
+      });
+      setWalkInData({
+        name: "",
+        company: "",
+        hostStaffId: "",
+        purpose: "",
+        carRegistration: "",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to check in visitor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const manualCheckInMutation = useMutation({
+    mutationFn: async (preBookingId: string) => {
+      const response = await apiRequest("POST", "/api/prebookings/manual-checkin", { preBookingId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({
+        title: "Success",
+        description: "Visitor checked in manually!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error", 
+        description: "Failed to check in visitor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Helper functions
+  const handlePreBookingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!preBookingData.visitorName || !preBookingData.visitorEmail || !preBookingData.hostStaffId || !preBookingData.visitDate) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createPreBookingMutation.mutate(preBookingData as InsertPreBooking);
+  };
+
+  const handleWalkInSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!walkInData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!walkInData.hostStaffId) {
+      toast({
+        title: "Error",
+        description: "Please select a host",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    checkInWalkInMutation.mutate({
+      name: walkInData.name.trim(),
+      company: walkInData.company.trim() || null,
+      hostStaffId: walkInData.hostStaffId,
+      purpose: walkInData.purpose.trim() || null,
+      carRegistration: walkInData.carRegistration.trim() || null,
+    });
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      const dateWithTime = new Date(date);
+      dateWithTime.setHours(9, 0, 0, 0);
+      setSelectedDate(date);
+      setPreBookingData(prev => ({ ...prev, visitDate: dateWithTime }));
+    }
+  };
+
+  const handleTimeChange = (time: string) => {
+    if (selectedDate) {
+      const [hours, minutes] = time.split(":").map(Number);
+      const newDate = new Date(selectedDate);
+      newDate.setHours(hours, minutes, 0, 0);
+      setPreBookingData(prev => ({ ...prev, visitDate: newDate }));
+    }
+  };
+
+  const formatBookingDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusColor = (booking: PreBooking) => {
+    if (booking.isCheckedIn) return "bg-green-100 text-green-800";
+    if (new Date(booking.visitDate) < new Date()) return "bg-red-100 text-red-800";
+    return "bg-blue-100 text-blue-800";
+  };
+
+  const getStatusText = (booking: PreBooking) => {
+    if (booking.isCheckedIn) return "Checked In";
+    if (new Date(booking.visitDate) < new Date()) return "Expired";
+    return "Pending";
+  };
+
+  if (isLoadingStaff) {
+    return <div className="flex items-center justify-center h-64">Loading...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-slate-800">Visitor Management</h1>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 bg-white/50 backdrop-blur-sm rounded-xl p-2">
+          <TabsTrigger 
+            value="existing" 
+            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <History size={18} />
+            Previous Visitors
+          </TabsTrigger>
+          <TabsTrigger 
+            value="walkin" 
+            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <UserPlus size={18} />
+            Walk-in Registration
+          </TabsTrigger>
+          <TabsTrigger 
+            value="prebook" 
+            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <CalendarPlus size={18} />
+            Pre-booking
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Existing Visitors Tab */}
+        <TabsContent value="existing" className="space-y-6">
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <History className="text-blue-600" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-800">Previous Visitors</h2>
+                  <p className="text-slate-600">Select a visitor who has been onsite before</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+              <Input
+                placeholder="Search by visitor name or company..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 py-3 text-lg"
+                data-testid="input-search-visitors"
+              />
+            </div>
+
+            {/* Visitors List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredVisitors.length > 0 ? (
+                filteredVisitors.slice(0, 12).map((visitor) => (
+                  <div
+                    key={visitor.id}
+                    className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all cursor-pointer"
+                    data-testid={`card-visitor-${visitor.id}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-slate-800">{visitor.name}</h3>
+                        {visitor.company && (
+                          <p className="text-sm text-slate-600">{visitor.company}</p>
+                        )}
+                        <p className="text-xs text-slate-500 mt-1">
+                          Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
+                            day: 'numeric', 
+                            month: 'short', 
+                            year: 'numeric' 
+                          })}
+                        </p>
+                      </div>
+                      <Button size="sm" variant="outline" className="ml-2">
+                        <UserCheck size={16} className="mr-1" />
+                        Select
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8 text-slate-500">
+                  {searchTerm ? "No visitors found matching your search." : "No previous visitors found."}
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        </TabsContent>
+
+        {/* Walk-in Registration Tab */}
+        <TabsContent value="walkin" className="space-y-6">
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <UserPlus className="text-green-600" size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-slate-800">Walk-in Registration</h2>
+                <p className="text-slate-600">Register a new visitor who just turned up</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleWalkInSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium text-slate-700">
+                    Visitor Name *
+                  </Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={walkInData.name}
+                    onChange={(e) => setWalkInData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                    required
+                    data-testid="input-walkin-name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="company" className="text-sm font-medium text-slate-700">
+                    Company
+                  </Label>
+                  <Input
+                    id="company"
+                    type="text"
+                    value={walkInData.company}
+                    onChange={(e) => setWalkInData(prev => ({ ...prev, company: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                    data-testid="input-walkin-company"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="hostStaffId" className="text-sm font-medium text-slate-700">
+                  Host Staff Member *
+                </Label>
+                <Select 
+                  value={walkInData.hostStaffId} 
+                  onValueChange={(value) => setWalkInData(prev => ({ ...prev, hostStaffId: value }))}
+                >
+                  <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50">
+                    <SelectValue placeholder="Select host staff member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staff?.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.firstName} {member.lastName} - {member.department}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="purpose" className="text-sm font-medium text-slate-700">
+                    Purpose of Visit
+                  </Label>
+                  <Input
+                    id="purpose"
+                    type="text"
+                    value={walkInData.purpose}
+                    onChange={(e) => setWalkInData(prev => ({ ...prev, purpose: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                    data-testid="input-walkin-purpose"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="carRegistration" className="text-sm font-medium text-slate-700">
+                    Car Registration
+                  </Label>
+                  <Input
+                    id="carRegistration"
+                    type="text"
+                    value={walkInData.carRegistration}
+                    onChange={(e) => setWalkInData(prev => ({ ...prev, carRegistration: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                    data-testid="input-walkin-car"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+                disabled={checkInWalkInMutation.isPending}
+                data-testid="button-walkin-submit"
+              >
+                <UserCheck size={20} />
+                {checkInWalkInMutation.isPending ? "Checking In..." : "Check In Visitor"}
+              </Button>
+            </form>
+          </GlassCard>
+        </TabsContent>
+
+        {/* Pre-booking Tab */}
+        <TabsContent value="prebook" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Create Pre-booking Form */}
+            <GlassCard className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <CalendarPlus className="text-blue-600" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-800">Create Pre-booking</h2>
+                  <p className="text-slate-600">Schedule a future visitor</p>
+                </div>
+              </div>
+              
+              <form onSubmit={handlePreBookingSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="visitorName" className="text-sm font-medium text-slate-700">
+                      Visitor Name *
+                    </Label>
+                    <Input
+                      id="visitorName"
+                      type="text"
+                      value={preBookingData.visitorName || ""}
+                      onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorName: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      required
+                      data-testid="input-prebook-name"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="visitorEmail" className="text-sm font-medium text-slate-700">
+                      Visitor Email *
+                    </Label>
+                    <Input
+                      id="visitorEmail"
+                      type="email"
+                      value={preBookingData.visitorEmail || ""}
+                      onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorEmail: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      required
+                      data-testid="input-prebook-email"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="company" className="text-sm font-medium text-slate-700">
+                    Company
+                  </Label>
+                  <Input
+                    id="company"
+                    type="text"
+                    value={preBookingData.company || ""}
+                    onChange={(e) => setPreBookingData(prev => ({ ...prev, company: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-prebook-company"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="hostStaffId" className="text-sm font-medium text-slate-700">
+                    Host Staff Member *
+                  </Label>
+                  <Select 
+                    value={preBookingData.hostStaffId || ""} 
+                    onValueChange={(value) => setPreBookingData(prev => ({ ...prev, hostStaffId: value }))}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50">
+                      <SelectValue placeholder="Select host staff member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staff?.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.firstName} {member.lastName} - {member.department}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">Visit Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 text-left justify-start"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={handleDateSelect}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="visitTime" className="text-sm font-medium text-slate-700">
+                      Visit Time *
+                    </Label>
+                    <Input
+                      id="visitTime"
+                      type="time"
+                      defaultValue="09:00"
+                      onChange={(e) => handleTimeChange(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="purpose" className="text-sm font-medium text-slate-700">
+                    Purpose of Visit
+                  </Label>
+                  <Textarea
+                    id="purpose"
+                    value={preBookingData.purpose || ""}
+                    onChange={(e) => setPreBookingData(prev => ({ ...prev, purpose: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    placeholder="Brief description of the visit purpose"
+                    rows={3}
+                    data-testid="textarea-prebook-purpose"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+                  disabled={createPreBookingMutation.isPending}
+                  data-testid="button-prebook-submit"
+                >
+                  <Send size={20} />
+                  {createPreBookingMutation.isPending ? "Creating..." : "Create Pre-booking"}
+                </Button>
+              </form>
+            </GlassCard>
+
+            {/* Upcoming Visits */}
+            <GlassCard className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <Clock className="text-amber-600" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-800">Upcoming Visits</h2>
+                  <p className="text-slate-600">Recent and scheduled pre-bookings</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {upcomingBookings && upcomingBookings.length > 0 ? (
+                  upcomingBookings.map((booking) => (
+                    <div key={booking.id} className="p-4 bg-white/50 rounded-xl border border-white/30">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-slate-800">{booking.visitorName}</h4>
+                          <p className="text-sm text-slate-600">{booking.company}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {formatBookingDate(booking.visitDate)}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge className={getStatusColor(booking)}>
+                              {getStatusText(booking)}
+                            </Badge>
+                            {staff?.find(s => s.id === booking.hostStaffId) && (
+                              <span className="text-xs text-slate-500">
+                                Host: {staff.find(s => s.id === booking.hostStaffId)?.firstName} {staff.find(s => s.id === booking.hostStaffId)?.lastName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => manualCheckInMutation.mutate(booking.id)}
+                            disabled={manualCheckInMutation.isPending}
+                            className="ml-2"
+                          >
+                            <CheckCircle size={16} className="mr-1" />
+                            Check In
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    No upcoming visits scheduled.
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

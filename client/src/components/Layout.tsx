@@ -28,7 +28,7 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { path: "/", icon: ChartLine, label: "Dashboard" },
     { path: "/staff", icon: Users, label: "Staff" },
-    { path: "/prebooking", icon: CalendarPlus, label: "Pre-booking" },
+    { path: "/visitors", icon: User, label: "Visitors" },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
     { path: "/muster", icon: ListChecks, label: "Muster List" },
     { path: "/reports", icon: FileText, label: "Reports" },
