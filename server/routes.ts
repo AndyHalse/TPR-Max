@@ -298,6 +298,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/visitors/checkin", async (req, res) => {
     try {
       const visitorData = insertVisitorSchema.parse(req.body);
+      
+      // Check if visitor with same name and company is already checked in
+      const existingVisitor = await storage.findCheckedInVisitor(
+        visitorData.firstName, 
+        visitorData.lastName, 
+        visitorData.company
+      );
+      
+      if (existingVisitor) {
+        return res.status(400).json({ 
+          error: "Visitor already checked in", 
+          details: `${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'this company'} is already on-site.`
+        });
+      }
+      
       const visitor = await storage.createVisitor(visitorData);
       res.json(visitor);
     } catch (error) {
@@ -306,6 +321,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to check in visitor" });
       }
+    }
+  });
+
+  app.put("/api/visitors/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      // Validate the updates (optional, but recommended)
+      const visitor = await storage.updateVisitor(id, updates);
+      
+      if (!visitor) {
+        return res.status(404).json({ error: "Visitor not found" });
+      }
+      
+      res.json(visitor);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update visitor" });
     }
   });
 

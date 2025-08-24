@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import PassPreviewModal from "@/components/PassPreviewModal";
+import { VisitorEditModal } from "@/components/VisitorEditModal";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -26,7 +27,8 @@ import {
   Mail,
   Search,
   UserCheck,
-  History
+  History,
+  Edit
 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor } from "@shared/schema";
@@ -60,6 +62,10 @@ export default function Visitors() {
   const [selectedPreviousVisitor, setSelectedPreviousVisitor] = useState<Visitor | null>(null);
   const [showHostSelection, setShowHostSelection] = useState(false);
   const [selectedHostForPrevious, setSelectedHostForPrevious] = useState("");
+  
+  // Edit visitor state
+  const [editingVisitor, setEditingVisitor] = useState<Visitor | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [checkedInVisitor, setCheckedInVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
 
@@ -266,6 +272,11 @@ export default function Visitors() {
     setShowHostSelection(true);
   };
 
+  const handleEditVisitor = (visitor: Visitor) => {
+    setEditingVisitor(visitor);
+    setShowEditModal(true);
+  };
+
   const handleHostSelectionConfirm = () => {
     if (!selectedHostForPrevious) {
       toast({
@@ -437,16 +448,26 @@ export default function Visitors() {
                           })}
                         </p>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="ml-2"
-                        onClick={() => handlePreviousVisitorSelect(visitor)}
-                        data-testid={`button-select-visitor-${visitor.id}`}
-                      >
-                        <UserCheck size={16} className="mr-1" />
-                        Select
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleEditVisitor(visitor)}
+                          data-testid={`button-edit-visitor-${visitor.id}`}
+                          className="p-2"
+                        >
+                          <Edit size={14} />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handlePreviousVisitorSelect(visitor)}
+                          data-testid={`button-select-visitor-${visitor.id}`}
+                        >
+                          <UserCheck size={16} className="mr-1" />
+                          Select
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -846,6 +867,18 @@ export default function Visitors() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Visitor Edit Modal */}
+      <VisitorEditModal
+        visitor={editingVisitor}
+        open={showEditModal}
+        onOpenChange={(open) => {
+          setShowEditModal(open);
+          if (!open) {
+            setEditingVisitor(null);
+          }
+        }}
+      />
 
       {/* Pass Preview Modal */}
       {checkedInVisitor && showPassPreview && (

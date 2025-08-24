@@ -56,6 +56,8 @@ export interface IStorage {
   updateVisitor(id: string, updates: Partial<InsertVisitor>): Promise<Visitor | undefined>;
   checkOutVisitor(id: string): Promise<Visitor | undefined>;
   getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined>;
+  findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined>;
+  searchVisitors(searchTerm: string): Promise<Visitor[]>;
 
   // Company settings methods
   getCompanySettings(): Promise<CompanySettings | undefined>;

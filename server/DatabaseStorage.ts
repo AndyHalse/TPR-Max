@@ -303,6 +303,38 @@ export class DatabaseStorage implements IStorage {
     return visitor || undefined;
   }
 
+  async findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
+    const whereConditions = [
+      eq(visitors.firstName, firstName),
+      eq(visitors.lastName, lastName),
+      eq(visitors.isCheckedIn, true)
+    ];
+    
+    if (company) {
+      whereConditions.push(eq(visitors.company, company));
+    } else {
+      whereConditions.push(isNull(visitors.company));
+    }
+    
+    const [visitor] = await db
+      .select()
+      .from(visitors)
+      .where(and(...whereConditions))
+      .limit(1);
+    
+    return visitor;
+  }
+
+  async updateVisitor(id: string, updates: Partial<Visitor>): Promise<Visitor | undefined> {
+    const [updatedVisitor] = await db
+      .update(visitors)
+      .set(updates)
+      .where(eq(visitors.id, id))
+      .returning();
+    
+    return updatedVisitor || undefined;
+  }
+
   async createVisitor(insertVisitor: InsertVisitor): Promise<Visitor> {
     const id = randomUUID();
     const qrCode = `VIS_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
