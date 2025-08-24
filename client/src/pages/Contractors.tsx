@@ -259,7 +259,7 @@ export default function Contractors() {
 
   const handleApproveDocument = async (documentId: string, status: 'approved' | 'rejected') => {
     try {
-      await apiRequest(`/api/contractors/${selectedContractor?.id}/documents/${documentId}/approve`, 'POST', {
+      await apiRequest('POST', `/api/contractors/${selectedContractor?.id}/documents/${documentId}/approve`, {
         approvalStatus: status,
         comments: approvalForm.comments,
         rejectionReason: status === 'rejected' ? approvalForm.rejectionReason : undefined
