@@ -79,6 +79,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/staff/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updatedStaff = await storage.updateStaff(id, req.body);
+      if (!updatedStaff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      res.json(updatedStaff);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update staff member" });
+    }
+  });
+
+  // Object storage endpoints for photo uploads
+  app.post("/api/objects/upload", async (req, res) => {
+    try {
+      // Generate a unique object key
+      const objectKey = `uploads/${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const uploadURL = `https://storage.googleapis.com/replit-objstore-9ec67884-ec26-4167-84d1-c8ceecee21b7/.private/${objectKey}?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Date=${new Date().toISOString().slice(0, 10).replace(/-/g, '')}T000000Z&X-Goog-Expires=900`;
+      
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    try {
+      const objectPath = req.params.objectPath;
+      // For now, just return a placeholder response
+      // In a full implementation, this would fetch from object storage
+      res.status(404).json({ error: "Object not found" });
+    } catch (error) {
+      console.error("Error serving object:", error);
+      res.status(500).json({ error: "Failed to serve object" });
+    }
+  });
+
   app.post("/api/staff", async (req, res) => {
     try {
       const staffData = insertStaffSchema.parse(req.body);
@@ -205,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const musterList = [
         ...allStaff.map(staff => ({
           id: staff.id,
-          name: staff.name,
+          name: `${staff.firstName} ${staff.lastName}`,
           type: 'staff' as const,
           department: staff.department,
           employeeId: staff.employeeId,

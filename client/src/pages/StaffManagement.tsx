@@ -7,18 +7,11 @@ import AddStaffModal from "@/components/AddStaffModal";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-
-interface Staff {
-  id: string;
-  name: string;
-  department: string;
-  employeeId: string;
-  isActive: boolean;
-  createdAt: string;
-}
+import type { Staff } from "@shared/schema";
 
 export default function StaffManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const { toast } = useToast();
 
   const { data: staff, isLoading } = useQuery<Staff[]>({
@@ -45,8 +38,12 @@ export default function StaffManagement() {
     },
   });
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const getInitials = (staff: Staff) => {
+    return `${staff.firstName[0]}${staff.lastName[0]}`.toUpperCase();
+  };
+
+  const getFullName = (staff: Staff) => {
+    return `${staff.firstName} ${staff.lastName}`;
   };
 
   const getGradientClass = (index: number) => {
@@ -90,14 +87,25 @@ export default function StaffManagement() {
           staff.map((member, index) => (
             <GlassCard key={member.id} hover>
               <div className="flex items-center space-x-4 mb-4">
-                <div className={`w-16 h-16 ${getGradientClass(index)} rounded-full flex items-center justify-center`}>
-                  <span className="text-white font-bold text-lg">{getInitials(member.name)}</span>
-                </div>
+                {member.photoUrl ? (
+                  <img 
+                    src={member.photoUrl} 
+                    alt={getFullName(member)}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className={`w-16 h-16 ${getGradientClass(index)} rounded-full flex items-center justify-center`}>
+                    <span className="text-white font-bold text-lg">{getInitials(member)}</span>
+                  </div>
+                )}
                 <div className="flex-1">
                   <h3 className="font-semibold text-slate-800" data-testid={`staff-name-${member.id}`}>
-                    {member.name}
+                    {getFullName(member)}
                   </h3>
-                  <p className="text-slate-600 text-sm" data-testid={`staff-department-${member.id}`}>
+                  <p className="text-slate-600 text-sm" data-testid={`staff-email-${member.id}`}>
+                    {member.email}
+                  </p>
+                  <p className="text-slate-500 text-sm" data-testid={`staff-department-${member.id}`}>
                     {member.department}
                   </p>
                   <p className="text-slate-500 text-xs" data-testid={`staff-id-${member.id}`}>
@@ -106,11 +114,17 @@ export default function StaffManagement() {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  Active
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {member.isActive ? 'Active' : 'Inactive'}
                 </span>
                 <div className="flex space-x-2">
-                  <button className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors" data-testid={`button-edit-staff-${member.id}`}>
+                  <button 
+                    onClick={() => setEditingStaff(member)}
+                    className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors" 
+                    data-testid={`button-edit-staff-${member.id}`}
+                  >
                     <Edit size={16} />
                   </button>
                   <button 
@@ -129,8 +143,12 @@ export default function StaffManagement() {
       </div>
 
       <AddStaffModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+        isOpen={isAddModalOpen || !!editingStaff} 
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingStaff(null);
+        }}
+        staffToEdit={editingStaff}
       />
     </div>
   );

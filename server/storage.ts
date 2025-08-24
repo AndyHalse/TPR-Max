@@ -123,20 +123,25 @@ export class MemStorage implements IStorage {
 
     // Add some sample staff
     const sampleStaff = [
-      { name: "Sarah Wilson", department: "Engineering", employeeId: "ENG001" },
-      { name: "Michael Chen", department: "Sales", employeeId: "SAL001" },
-      { name: "Emma Johnson", department: "Marketing", employeeId: "MKT001" },
-      { name: "David Rodriguez", department: "HR", employeeId: "HR001" },
-      { name: "Lisa Thompson", department: "Operations", employeeId: "OPS001" },
+      { firstName: "Sarah", lastName: "Wilson", email: "sarah.wilson@techcorp.com", department: "Engineering", employeeId: "ENG001" },
+      { firstName: "Michael", lastName: "Chen", email: "michael.chen@techcorp.com", department: "Sales", employeeId: "SAL001" },
+      { firstName: "Emma", lastName: "Johnson", email: "emma.johnson@techcorp.com", department: "Marketing", employeeId: "MKT001" },
+      { firstName: "David", lastName: "Rodriguez", email: "david.rodriguez@techcorp.com", department: "HR", employeeId: "HR001" },
+      { firstName: "Lisa", lastName: "Thompson", email: "lisa.thompson@techcorp.com", department: "Operations", employeeId: "OPS001" },
     ];
 
-    sampleStaff.forEach((staff) => {
+    sampleStaff.forEach((staffData) => {
       const id = randomUUID();
       this.staffMembers.set(id, {
         id,
-        name: staff.name,
-        department: staff.department,
-        employeeId: staff.employeeId,
+        firstName: staffData.firstName,
+        lastName: staffData.lastName,
+        email: staffData.email,
+        department: staffData.department,
+        employeeId: staffData.employeeId,
+        photoUrl: null,
+        userId: null,
+        isActive: true,
         createdAt: new Date(),
       });
     });
@@ -201,11 +206,16 @@ export class MemStorage implements IStorage {
 
   // Staff methods
   async getAllStaff(): Promise<Staff[]> {
-    return Array.from(this.staffMembers.values());
+    return Array.from(this.staffMembers.values())
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   }
 
   async getStaffById(id: string): Promise<Staff | undefined> {
     return this.staffMembers.get(id);
+  }
+
+  async getStaffByEmail(email: string): Promise<Staff | undefined> {
+    return Array.from(this.staffMembers.values()).find(staff => staff.email === email);
   }
 
   async createStaff(insertStaff: InsertStaff): Promise<Staff> {
@@ -213,6 +223,9 @@ export class MemStorage implements IStorage {
     const staff: Staff = {
       ...insertStaff,
       id,
+      photoUrl: insertStaff.photoUrl || null,
+      isActive: insertStaff.isActive ?? true,
+      userId: insertStaff.userId || null,
       createdAt: new Date(),
     };
     this.staffMembers.set(id, staff);
@@ -467,7 +480,7 @@ export class MemStorage implements IStorage {
       activities.push({
         id: `staff-${staff.id}`,
         type: 'staff_added' as const,
-        name: staff.name,
+        name: `${staff.firstName} ${staff.lastName}`,
         timestamp: new Date(staff.createdAt || new Date()),
         details: `added to ${staff.department}`
       });
@@ -538,7 +551,7 @@ export class MemStorage implements IStorage {
     const musterList = [
       ...allStaff.map(staff => ({
         id: staff.id,
-        name: staff.name,
+        name: `${staff.firstName} ${staff.lastName}`,
         type: 'staff' as const,
         department: staff.department,
         checkedInAt: new Date().toISOString(),
