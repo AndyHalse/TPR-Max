@@ -13,6 +13,7 @@ import VisitorCheckIn from "@/pages/VisitorCheckIn";
 import EmergencyMuster from "@/pages/EmergencyMuster";
 import Settings from "@/pages/Settings";
 import Reports from "@/pages/Reports";
+import TimeAttendance from "@/pages/TimeAttendance";
 import PreBooking from "@/pages/PreBooking";
 import AIDemo from "@/pages/AIDemo";
 import Login from "@/pages/Login";
@@ -54,6 +55,7 @@ function Router() {
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/reports" component={Reports} />
+            <Route path="/time-attendance" component={TimeAttendance} />
             <Route path="/settings" component={Settings} />
             <Route path="/ai-demo" component={AIDemo} />
             <Route component={NotFound} />

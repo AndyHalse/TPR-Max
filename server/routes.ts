@@ -238,6 +238,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Time & Attendance report endpoint
+  app.get("/api/staff/time-attendance", async (req, res) => {
+    try {
+      const { dateFrom, dateTo } = req.query;
+      const fromDate = dateFrom ? new Date(dateFrom as string) : undefined;
+      const toDate = dateTo ? new Date(dateTo as string) : undefined;
+      
+      const timeAttendance = await storage.getStaffTimeAndAttendance(fromDate, toDate);
+      res.json(timeAttendance);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch time and attendance data" });
+    }
+  });
+
   // Visitor endpoints
   app.get("/api/visitors", async (req, res) => {
     try {

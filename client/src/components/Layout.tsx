@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain, Menu, X } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain, Clock, Menu, X } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import type { CompanySettings } from "@shared/schema";
 import { useState } from "react";
@@ -32,6 +32,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
     { path: "/muster", icon: ListChecks, label: "Muster List" },
     { path: "/reports", icon: FileText, label: "Reports" },
+    { path: "/time-attendance", icon: Clock, label: "T&A Report" },
     { path: "/ai-demo", icon: Brain, label: "AI Demo" },
     { path: "/settings", icon: Settings, label: "Settings" },
   ];

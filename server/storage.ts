@@ -24,6 +24,20 @@ export interface IStorage {
   checkInStaff(id: string, manual?: boolean): Promise<Staff | undefined>;
   checkOutStaff(id: string): Promise<Staff | undefined>;
   getCheckedInStaff(): Promise<Staff[]>;
+  
+  // Time & Attendance methods
+  getStaffTimeAndAttendance(dateFrom?: Date, dateTo?: Date): Promise<Array<{
+    staffId: string;
+    staffName: string;
+    department: string;
+    sessions: Array<{
+      checkInTime: Date;
+      checkOutTime: Date | null;
+      hoursWorked: number;
+      isManual: boolean;
+    }>;
+    totalHours: number;
+  }>>;
 
   // Visitor methods
   getAllVisitors(): Promise<Visitor[]>;
@@ -370,6 +384,68 @@ export class MemStorage implements IStorage {
       .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   }
 
+  async getStaffTimeAndAttendance(dateFrom?: Date, dateTo?: Date): Promise<Array<{
+    staffId: string;
+    staffName: string;
+    department: string;
+    sessions: Array<{
+      checkInTime: Date;
+      checkOutTime: Date | null;
+      hoursWorked: number;
+      isManual: boolean;
+    }>;
+    totalHours: number;
+  }>> {
+    const fromDate = dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default to last 30 days
+    const toDate = dateTo || new Date();
+    
+    return Array.from(this.staffMembers.values())
+      .filter(staff => staff.isActive)
+      .map(staff => {
+        const sessions: Array<{
+          checkInTime: Date;
+          checkOutTime: Date | null;
+          hoursWorked: number;
+          isManual: boolean;
+        }> = [];
+        
+        // For current session if checked in
+        if (staff.isCheckedIn && staff.checkedInAt && staff.checkedInAt >= fromDate && staff.checkedInAt <= toDate) {
+          const currentSession = {
+            checkInTime: staff.checkedInAt,
+            checkOutTime: null,
+            hoursWorked: (Date.now() - staff.checkedInAt.getTime()) / (1000 * 60 * 60), // Hours since check-in
+            isManual: staff.manualCheckIn || false,
+          };
+          sessions.push(currentSession);
+        }
+        
+        // For completed sessions (this is simplified - in a real app you'd store session history)
+        if (staff.checkedOutAt && staff.checkedInAt && 
+            staff.checkedInAt >= fromDate && staff.checkedInAt <= toDate) {
+          const completedSession = {
+            checkInTime: staff.checkedInAt,
+            checkOutTime: staff.checkedOutAt,
+            hoursWorked: (staff.checkedOutAt.getTime() - staff.checkedInAt.getTime()) / (1000 * 60 * 60),
+            isManual: staff.manualCheckIn || false,
+          };
+          sessions.push(completedSession);
+        }
+        
+        const totalHours = sessions.reduce((sum, session) => sum + session.hoursWorked, 0);
+        
+        return {
+          staffId: staff.id,
+          staffName: `${staff.firstName} ${staff.lastName}`,
+          department: staff.department,
+          sessions,
+          totalHours,
+        };
+      })
+      .filter(record => record.sessions.length > 0) // Only return staff with time records
+      .sort((a, b) => a.staffName.localeCompare(b.staffName));
+  }
+
   // Visitor methods
   async getAllVisitors(): Promise<Visitor[]> {
     return Array.from(this.visitors.values());
@@ -554,7 +630,7 @@ export class MemStorage implements IStorage {
     const todayCheckins = Array.from(this.visitors.values()).filter(v => 
       v.checkedInAt >= today
     ).length;
-    const staffOnSite = Array.from(this.staffMembers.values()).length;
+    const staffOnSite = Array.from(this.staffMembers.values()).filter(s => s.isActive && s.isCheckedIn).length;
     
     // Calculate average visit duration for checked out visitors
     const checkedOutVisitors = Array.from(this.visitors.values()).filter(v => v.checkedOutAt);
@@ -657,7 +733,7 @@ export class MemStorage implements IStorage {
     const checkins = todayVisitors.length;
     const checkouts = todayVisitors.filter(visitor => visitor.checkedOutAt).length;
     const currentVisitors = visitors.filter(visitor => visitor.isCheckedIn).length;
-    const staffOnSite = this.staffMembers.size;
+    const staffOnSite = Array.from(this.staffMembers.values()).filter(s => s.isActive && s.isCheckedIn).length;
 
     return {
       checkins,
