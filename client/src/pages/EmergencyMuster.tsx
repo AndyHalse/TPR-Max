@@ -52,8 +52,10 @@ export default function EmergencyMuster() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      // Also refetch immediately to ensure latest data
+      queryClient.refetchQueries({ queryKey: ["/api/muster"] });
       toast({
-        title: "Status Updated",
+        title: "Status Updated", 
         description: `Successfully updated accounted status for ${data.type}`,
       });
     },
