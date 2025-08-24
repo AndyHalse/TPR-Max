@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import AIInsights from "@/components/AIInsights";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
 
 interface Stats {
   currentVisitors: number;
@@ -42,6 +45,8 @@ interface Activity {
 export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | null>(null);
   
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
     queryKey: ["/api/stats"],
@@ -53,6 +58,14 @@ export default function Dashboard() {
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
+  });
+
+  const { data: todayVisitors } = useQuery<Visitor[]>({
+    queryKey: ["/api/visitors/today"],
+  });
+
+  const { data: checkedInStaff } = useQuery<Staff[]>({
+    queryKey: ["/api/staff/checked-in"],
   });
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<Activity[]>({
@@ -161,6 +174,55 @@ export default function Dashboard() {
     });
   };
 
+  // Checkout mutations
+  const checkoutVisitorMutation = useMutation({
+    mutationFn: async (visitorId: string) => {
+      const response = await apiRequest("POST", `/api/visitors/${visitorId}/checkout`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      toast({
+        title: "Success",
+        description: "Visitor checked out successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to check out visitor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const checkoutStaffMutation = useMutation({
+    mutationFn: async (staffId: string) => {
+      const response = await apiRequest("POST", `/api/staff/${staffId}/checkout`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      toast({
+        title: "Success", 
+        description: "Staff member checked out successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to check out staff member",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (statsLoading) {
     return <div>Loading dashboard...</div>;
   }
@@ -169,7 +231,7 @@ export default function Dashboard() {
     <div className="space-y-8">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <GlassCard hover>
+        <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-600 text-sm font-medium">Current Visitors</p>
@@ -183,7 +245,7 @@ export default function Dashboard() {
           </div>
         </GlassCard>
         
-        <GlassCard hover>
+        <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('checkins')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-600 text-sm font-medium">Today's Check-ins</p>
@@ -197,7 +259,7 @@ export default function Dashboard() {
           </div>
         </GlassCard>
         
-        <GlassCard hover>
+        <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('staff')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-600 text-sm font-medium">Staff On-Site</p>
@@ -545,6 +607,155 @@ export default function Dashboard() {
         </div>
         <AIInsights />
       </div>
+
+      {/* Modal Dialogs */}
+      {/* Current Visitors Modal */}
+      <Dialog open={openModal === 'visitors'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <UsersRound className="text-blue-600" size={24} />
+              Current Visitors ({currentVisitors?.length || 0})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {currentVisitors && currentVisitors.length > 0 ? (
+              currentVisitors.map((visitor) => (
+                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="text-blue-600" size={20} />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">{visitor.name}</p>
+                      <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
+                      <p className="text-xs text-slate-500">Checked in: {formatTime(visitor.checkedInAt)}</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => checkoutVisitorMutation.mutate(visitor.id)}
+                    disabled={checkoutVisitorMutation.isPending}
+                    className="flex items-center gap-1"
+                    data-testid={`checkout-visitor-${visitor.id}`}
+                  >
+                    <LogOut size={14} />
+                    Check Out
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                No visitors currently on-site
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Today's Check-ins Modal */}
+      <Dialog open={openModal === 'checkins'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <AtSign className="text-green-600" size={24} />
+              Today's Check-ins ({todayVisitors?.length || 0})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {todayVisitors && todayVisitors.length > 0 ? (
+              todayVisitors.map((visitor) => (
+                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <User className="text-green-600" size={20} />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">{visitor.name}</p>
+                      <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
+                      <p className="text-xs text-slate-500">Checked in: {formatTime(visitor.checkedInAt)}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className="text-xs">
+                          {visitor.isCheckedIn ? "On-site" : "Checked out"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  {visitor.isCheckedIn && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => checkoutVisitorMutation.mutate(visitor.id)}
+                      disabled={checkoutVisitorMutation.isPending}
+                      className="flex items-center gap-1"
+                      data-testid={`checkout-visitor-${visitor.id}`}
+                    >
+                      <LogOut size={14} />
+                      Check Out
+                    </Button>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                No visitors checked in today
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Staff On-Site Modal */}
+      <Dialog open={openModal === 'staff'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <BadgeInfo className="text-purple-600" size={24} />
+              Staff On-Site ({checkedInStaff?.length || 0})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {checkedInStaff && checkedInStaff.length > 0 ? (
+              checkedInStaff.map((staffMember) => (
+                <div key={staffMember.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                      <span className="text-purple-600 font-semibold text-sm">
+                        {getInitials(staffMember.name)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">{staffMember.name}</p>
+                      <p className="text-sm text-slate-600">{staffMember.department}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {staffMember.employeeId}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => checkoutStaffMutation.mutate(staffMember.id)}
+                    disabled={checkoutStaffMutation.isPending}
+                    className="flex items-center gap-1"
+                    data-testid={`checkout-staff-${staffMember.id}`}
+                  >
+                    <LogOut size={14} />
+                    Check Out
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                No staff members currently on-site
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

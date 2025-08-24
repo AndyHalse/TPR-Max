@@ -42,6 +42,7 @@ export interface IStorage {
   // Visitor methods
   getAllVisitors(): Promise<Visitor[]>;
   getCurrentVisitors(): Promise<Visitor[]>;
+  getTodayVisitors(): Promise<Visitor[]>;
   getVisitorById(id: string): Promise<Visitor | undefined>;
   createVisitor(insertVisitor: InsertVisitor): Promise<Visitor>;
   updateVisitor(id: string, updates: Partial<InsertVisitor>): Promise<Visitor | undefined>;
@@ -509,6 +510,20 @@ export class MemStorage implements IStorage {
     const currentVisitors = Array.from(this.visitors.values()).filter(visitor => visitor.isCheckedIn);
     return currentVisitors
       .sort((a, b) => b.checkedInAt.getTime() - a.checkedInAt.getTime());
+  }
+
+  async getTodayVisitors(): Promise<Visitor[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return Array.from(this.visitors.values())
+      .filter(visitor => {
+        const checkedInAt = new Date(visitor.checkedInAt || 0);
+        return checkedInAt >= today && checkedInAt < tomorrow;
+      })
+      .sort((a, b) => new Date(a.checkedInAt || 0).getTime() - new Date(b.checkedInAt || 0).getTime());
   }
 
   async getVisitorById(id: string): Promise<Visitor | undefined> {

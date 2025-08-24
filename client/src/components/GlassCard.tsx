@@ -4,9 +4,10 @@ interface GlassCardProps {
   children: React.ReactNode;
   className?: string;
   hover?: boolean;
+  onClick?: () => void;
 }
 
-export default function GlassCard({ children, className, hover = false }: GlassCardProps) {
+export default function GlassCard({ children, className, hover = false, onClick }: GlassCardProps) {
   return (
     <div 
       className={cn(
@@ -14,6 +15,7 @@ export default function GlassCard({ children, className, hover = false }: GlassC
         hover && "glass-hover cursor-pointer",
         className
       )}
+      onClick={onClick}
     >
       {children}
     </div>

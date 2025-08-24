@@ -271,6 +271,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/visitors/today", async (req, res) => {
+    try {
+      const todayVisitors = await storage.getTodayVisitors();
+      res.json(todayVisitors);
+    } catch (error) {
+      console.error("Error fetching today visitors:", error);
+      res.status(500).json({ error: "Failed to fetch today visitors" });
+    }
+  });
+
   app.post("/api/visitors/checkin", async (req, res) => {
     try {
       const visitorData = insertVisitorSchema.parse(req.body);
