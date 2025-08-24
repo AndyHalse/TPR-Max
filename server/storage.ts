@@ -19,6 +19,11 @@ export interface IStorage {
   // Staff authentication methods
   authenticateStaff(email: string, password: string): Promise<Staff | null>;
   updateStaffPassword(id: string, password: string): Promise<boolean>;
+  
+  // Staff check-in/out methods
+  checkInStaff(id: string, manual?: boolean): Promise<Staff | undefined>;
+  checkOutStaff(id: string): Promise<Staff | undefined>;
+  getCheckedInStaff(): Promise<Staff[]>;
 
   // Visitor methods
   getAllVisitors(): Promise<Visitor[]>;
@@ -164,6 +169,10 @@ export class MemStorage implements IStorage {
         accessLevel: "staff",
         password: null,
         lastLoginAt: null,
+        isCheckedIn: false,
+        checkedInAt: null,
+        checkedOutAt: null,
+        manualCheckIn: false,
         userId: null,
         isActive: true,
         createdAt: new Date(),
@@ -261,6 +270,10 @@ export class MemStorage implements IStorage {
       accessLevel: insertStaff.accessLevel || "staff",
       password: hashedPassword,
       lastLoginAt: null,
+      isCheckedIn: insertStaff.isCheckedIn ?? false,
+      checkedInAt: insertStaff.checkedInAt || null,
+      checkedOutAt: insertStaff.checkedOutAt || null,
+      manualCheckIn: insertStaff.manualCheckIn ?? false,
       isActive: insertStaff.isActive ?? true,
       userId: insertStaff.userId || null,
       createdAt: new Date(),
@@ -318,6 +331,43 @@ export class MemStorage implements IStorage {
     staff.password = hashedPassword;
     this.staffMembers.set(id, staff);
     return true;
+  }
+
+  async checkInStaff(id: string, manual: boolean = false): Promise<Staff | undefined> {
+    const staff = this.staffMembers.get(id);
+    if (!staff) return undefined;
+
+    const updatedStaff = {
+      ...staff,
+      isCheckedIn: true,
+      checkedInAt: new Date(),
+      checkedOutAt: null,
+      manualCheckIn: manual,
+    };
+    
+    this.staffMembers.set(id, updatedStaff);
+    return updatedStaff;
+  }
+
+  async checkOutStaff(id: string): Promise<Staff | undefined> {
+    const staff = this.staffMembers.get(id);
+    if (!staff || !staff.isCheckedIn) return undefined;
+
+    const updatedStaff = {
+      ...staff,
+      isCheckedIn: false,
+      checkedOutAt: new Date(),
+      manualCheckIn: false, // Reset manual flag on checkout
+    };
+    
+    this.staffMembers.set(id, updatedStaff);
+    return updatedStaff;
+  }
+
+  async getCheckedInStaff(): Promise<Staff[]> {
+    return Array.from(this.staffMembers.values())
+      .filter(staff => staff.isCheckedIn && staff.isActive)
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   }
 
   // Visitor methods

@@ -195,6 +195,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Staff manual check-in endpoint
+  app.post("/api/staff/:id/checkin", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { manual = true } = req.body;
+      const staff = await storage.checkInStaff(id, manual);
+      
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      
+      res.json({ success: true, staff });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check in staff member" });
+    }
+  });
+
+  // Staff check-out endpoint
+  app.post("/api/staff/:id/checkout", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const staff = await storage.checkOutStaff(id);
+      
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found or not checked in" });
+      }
+      
+      res.json({ success: true, staff });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check out staff member" });
+    }
+  });
+
+  // Get checked-in staff endpoint
+  app.get("/api/staff/checked-in", async (req, res) => {
+    try {
+      const checkedInStaff = await storage.getCheckedInStaff();
+      res.json(checkedInStaff);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch checked-in staff" });
+    }
+  });
+
   // Visitor endpoints
   app.get("/api/visitors", async (req, res) => {
     try {

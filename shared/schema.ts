@@ -14,6 +14,11 @@ export const staff = pgTable("staff", {
   accessLevel: text("access_level").notNull().default("staff"), // admin, supervisor, manager, staff, security, visitor
   password: text("password"), // Only for admin and supervisor levels
   lastLoginAt: timestamp("last_login_at"),
+  // Check-in/out tracking
+  isCheckedIn: boolean("is_checked_in").default(false).notNull(),
+  checkedInAt: timestamp("checked_in_at"),
+  checkedOutAt: timestamp("checked_out_at"),
+  manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
   userId: varchar("user_id").references(() => users.id), // Link to user account
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
