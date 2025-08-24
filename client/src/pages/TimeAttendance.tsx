@@ -52,9 +52,12 @@ export default function TimeAttendance() {
         }))
       }));
     },
+    staleTime: 0, // Always refetch when the component mounts
+    cacheTime: 0, // Don't cache the data
   });
 
   const handleDateChange = () => {
+    // Force a fresh refetch with new parameters
     refetch();
   };
 
