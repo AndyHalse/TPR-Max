@@ -104,8 +104,11 @@ export interface IStorage {
   }>>;
 }
 
+import { DatabaseStorage } from "./DatabaseStorage";
+
 export function createStorage(): IStorage {
-  return new MemStorage();
+  // Using SQL database storage for production-ready data persistence
+  return new DatabaseStorage();
 }
 
 export class MemStorage implements IStorage {

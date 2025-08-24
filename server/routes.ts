@@ -686,6 +686,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NEW: Search visitors for quick rebooking
+  app.get("/api/visitors/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ message: "Search query required" });
+      }
+      
+      const visitors = await (storage as any).searchVisitors(q);
+      res.json(visitors);
+    } catch (error) {
+      console.error("Error searching visitors:", error);
+      res.status(500).json({ message: "Failed to search visitors" });
+    }
+  });
+
+  // NEW: Search pre-bookings for quick rebooking
+  app.get("/api/prebookings/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ message: "Search query required" });
+      }
+      
+      const preBookings = await (storage as any).searchPreBookings(q);
+      res.json(preBookings);
+    } catch (error) {
+      console.error("Error searching pre-bookings:", error);
+      res.status(500).json({ message: "Failed to search pre-bookings" });
+    }
+  });
+
   app.post("/api/prebookings", async (req, res) => {
     try {
       // Transform the request body to ensure proper date handling

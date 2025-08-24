@@ -37,6 +37,26 @@ export const visitors = pgTable("visitors", {
   qrCode: text("qr_code").notNull(),
 });
 
+// Pre-bookings table for visitor appointments
+export const preBookings = pgTable("pre_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  visitorName: text("visitor_name").notNull(),
+  visitorEmail: text("visitor_email").notNull(),
+  company: text("company"),
+  purpose: text("purpose"),
+  visitDate: timestamp("visit_date").notNull(),
+  visitTime: text("visit_time"), // Store time as string for UI compatibility
+  hostStaffId: varchar("host_staff_id").references(() => staff.id),
+  qrCode: text("qr_code").notNull(),
+  status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
+  isCheckedIn: boolean("is_checked_in").default(false).notNull(),
+  checkedInAt: timestamp("checked_in_at"),
+  visitorId: varchar("visitor_id").references(() => visitors.id), // Link to visitor when checked in
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertStaffSchema = createInsertSchema(staff).omit({
   id: true,
   createdAt: true,
@@ -128,22 +148,6 @@ export const reports = pgTable("reports", {
   emailSentAt: timestamp("email_sent_at"),
 });
 
-export const preBookings = pgTable("pre_bookings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  visitorName: text("visitor_name").notNull(),
-  visitorEmail: text("visitor_email").notNull(),
-  company: text("company"),
-  purpose: text("purpose"),
-  hostStaffId: varchar("host_staff_id").references(() => staff.id),
-  visitDate: timestamp("visit_date").notNull(),
-  qrCode: text("qr_code").notNull(),
-  isCheckedIn: boolean("is_checked_in").default(false),
-  checkedInAt: timestamp("checked_in_at"),
-  visitorId: varchar("visitor_id").references(() => visitors.id), // Set when checked in
-  emailSent: boolean("email_sent").default(false),
-  emailSentAt: timestamp("email_sent_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
