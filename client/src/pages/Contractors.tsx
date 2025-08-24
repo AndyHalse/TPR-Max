@@ -246,6 +246,7 @@ export default function Contractors() {
   };
 
   const handleViewDocument = (document: any) => {
+    console.log('Document clicked:', document);
     setSelectedDocument(document);
     setShowDocumentModal(true);
   };
@@ -854,7 +855,12 @@ export default function Contractors() {
                     <div 
                       key={document.id}
                       className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => handleViewDocument(document)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        console.log('Document panel clicked:', document.documentName);
+                        handleViewDocument(document);
+                      }}
+                      style={{ pointerEvents: 'auto' }}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium">{document.documentName}</span>
