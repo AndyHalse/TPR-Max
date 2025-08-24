@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { CloudUpload, Upload, X, Shield } from "lucide-react";
 import type { InsertStaff } from "@shared/schema";
-import IdCardDesigner from "./IdCardDesigner";
 
 interface AddStaffModalProps {
   isOpen: boolean;
@@ -32,7 +31,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
   });
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [showIdCardDesigner, setShowIdCardDesigner] = useState(false);
+  const [showTemplateSelect, setShowTemplateSelect] = useState(false);
   
   const isEditMode = !!staffToEdit;
 
@@ -85,6 +84,43 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       toast({
         title: "Error",
         description: error.message || (isEditMode ? "Failed to update staff member" : "Failed to add staff member"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const printIdCardMutation = useMutation({
+    mutationFn: async ({ staffId, template }: { staffId: string; template: string }) => {
+      const response = await apiRequest("POST", `/api/staff/${staffId}/print-id-card`, {
+        template: template,
+        design: {
+          cardSize: "cr80",
+          orientation: "landscape", 
+          template: template,
+          elements: {
+            photo: { x: 16, y: 16, width: 64, height: 64 },
+            name: { x: 96, y: 16, fontSize: 18, fontWeight: "bold" },
+            department: { x: 96, y: 36, fontSize: 14 },
+            employeeId: { x: 96, y: 52, fontSize: 12 },
+            company: { x: 16, y: 180, fontSize: 12 },
+            accessLevel: { x: 16, y: 196, fontSize: 12, fontWeight: "bold" },
+            qrCode: { x: 276, y: 164, width: 48, height: 48 }
+          }
+        }
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: data.message || "ID card printed successfully!",
+      });
+      setShowTemplateSelect(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Print Error",
+        description: error.message || "Failed to print ID card",
         variant: "destructive",
       });
     },
@@ -410,7 +446,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               <Button 
                 type="button"
                 variant="outline"
-                onClick={() => setShowIdCardDesigner(true)}
+                onClick={() => setShowTemplateSelect(true)}
                 className="px-4 py-3 rounded-xl border border-blue-300 text-blue-700 font-medium hover:bg-blue-50 transition-colors"
                 data-testid="button-print-id-card"
               >
@@ -429,14 +465,77 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         </form>
       </DialogContent>
       
-      {/* ID Card Designer Modal */}
-      {showIdCardDesigner && staffToEdit && (
-        <IdCardDesigner
-          isOpen={showIdCardDesigner}
-          onClose={() => setShowIdCardDesigner(false)}
-          staff={staffToEdit}
-        />
-      )}
+      {/* Template Selection Dialog */}
+      <Dialog open={showTemplateSelect} onOpenChange={setShowTemplateSelect}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select ID Card Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-slate-600 mb-4">
+              Choose a template to print {staffToEdit?.firstName} {staffToEdit?.lastName}'s ID card
+            </p>
+            
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full p-4 h-auto flex items-center justify-between hover:bg-blue-50 border-blue-200"
+                onClick={() => printIdCardMutation.mutate({ staffId: staffToEdit.id, template: "standard" })}
+                disabled={printIdCardMutation.isPending}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Staff Standard</div>
+                  <div className="text-xs text-slate-500">General employee template</div>
+                </div>
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full p-4 h-auto flex items-center justify-between hover:bg-green-50 border-green-200"
+                onClick={() => printIdCardMutation.mutate({ staffId: staffToEdit.id, template: "management" })}
+                disabled={printIdCardMutation.isPending}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Management</div>
+                  <div className="text-xs text-slate-500">Executive & supervisor template</div>
+                </div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full p-4 h-auto flex items-center justify-between hover:bg-yellow-50 border-yellow-200"
+                onClick={() => printIdCardMutation.mutate({ staffId: staffToEdit.id, template: "contractor" })}
+                disabled={printIdCardMutation.isPending}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Contractor</div>
+                  <div className="text-xs text-slate-500">Temporary access template</div>
+                </div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full p-4 h-auto flex items-center justify-between hover:bg-red-50 border-red-200"
+                onClick={() => printIdCardMutation.mutate({ staffId: staffToEdit.id, template: "security" })}
+                disabled={printIdCardMutation.isPending}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Security</div>
+                  <div className="text-xs text-slate-500">High-security access template</div>
+                </div>
+              </Button>
+            </div>
+            
+            <div className="mt-6 pt-4 border-t border-slate-200">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Shield size={14} />
+                <span>Templates configured in Settings → ID Cards</span>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
 
 export default function Settings() {
@@ -271,7 +271,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -287,6 +287,10 @@ export default function Settings() {
           <TabsTrigger value="printer" className="flex items-center gap-2">
             <Printer size={16} />
             Printer
+          </TabsTrigger>
+          <TabsTrigger value="idcards" className="flex items-center gap-2">
+            <CreditCard size={16} />
+            ID Cards
           </TabsTrigger>
           <TabsTrigger value="biostar" className="flex items-center gap-2">
             <Shield size={16} />
@@ -1399,6 +1403,256 @@ export default function Settings() {
                 </div>
               </div>
             </GlassCard>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="idcards" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            {/* Card Designer */}
+            <div className="xl:col-span-2">
+              <GlassCard>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <CreditCard className="mr-3 text-blue-600" size={24} />
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">ID Card Designer</h3>
+                      <p className="text-sm text-slate-600">Design templates for staff ID cards</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      Save Template
+                    </Button>
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                      Load Template
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Card Preview - CR80 Standard */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium text-slate-800">Card Preview</h4>
+                    <div className="text-xs text-slate-500">
+                      CR80 Standard: 85.60 × 53.98 mm (3.375" × 2.125")
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-center p-6 bg-slate-50 rounded-xl">
+                    <div 
+                      className="relative bg-white border-2 border-slate-300 shadow-lg rounded-lg overflow-hidden"
+                      style={{ 
+                        width: '340px',  // CR80 scaled: 85.60mm * 4 = 342.4px ≈ 340px
+                        height: '216px', // CR80 scaled: 53.98mm * 4 = 215.92px ≈ 216px
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'
+                      }}
+                    >
+                      {/* Company Logo Background */}
+                      <div className="absolute inset-0 opacity-5">
+                        <Building size={80} className="absolute right-4 bottom-4 text-slate-400" />
+                      </div>
+                      
+                      {/* ID Card Elements */}
+                      <div className="absolute top-4 left-4 w-16 h-16 bg-slate-200 rounded border flex items-center justify-center">
+                        <User className="text-slate-400" size={32} />
+                      </div>
+                      
+                      <div className="absolute top-4 left-24 right-4">
+                        <h3 className="font-bold text-slate-800 text-lg">John Smith</h3>
+                        <p className="text-slate-600 text-sm">Engineering Department</p>
+                        <p className="text-slate-500 text-xs">ID: ENG-123</p>
+                      </div>
+                      
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-xs text-slate-600 font-medium">ACS Safety & Security Ltd</p>
+                            <p className="text-xs text-blue-600 font-bold">STAFF ACCESS</p>
+                          </div>
+                          <div className="w-12 h-12 bg-slate-100 border rounded flex items-center justify-center">
+                            <QrCode size={40} className="text-slate-400" />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Card Border */}
+                      <div className="absolute inset-0 border border-slate-300 rounded-lg pointer-events-none"></div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 text-center">
+                    <p className="text-sm text-slate-600">
+                      Click and drag elements to reposition • Professional CR80 credit card size
+                    </p>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+            
+            {/* Card Elements & Templates */}
+            <div className="space-y-6">
+              {/* Templates */}
+              <GlassCard>
+                <div className="flex items-center mb-4">
+                  <CreditCard className="mr-2 text-blue-600" size={20} />
+                  <h4 className="font-semibold text-slate-800">Templates</h4>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="font-medium text-slate-800">Staff Standard</h5>
+                        <p className="text-xs text-slate-600">General employee template</p>
+                      </div>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="font-medium text-slate-800">Management</h5>
+                        <p className="text-xs text-slate-600">Executive & supervisor template</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="font-medium text-slate-800">Contractor</h5>
+                        <p className="text-xs text-slate-600">Temporary access template</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="font-medium text-slate-800">Security</h5>
+                        <p className="text-xs text-slate-600">High-security access template</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button variant="outline" size="sm" className="w-full mt-4">
+                  + Create New Template
+                </Button>
+              </GlassCard>
+              
+              {/* Card Elements */}
+              <GlassCard>
+                <div className="flex items-center mb-4">
+                  <Move className="mr-2 text-blue-600" size={20} />
+                  <h4 className="font-semibold text-slate-800">Card Elements</h4>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <User size={16} className="text-slate-600" />
+                      <span className="text-sm">Photo</span>
+                    </div>
+                    <Move size={14} className="text-slate-400" />
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <User size={16} className="text-slate-600" />
+                      <span className="text-sm">Name</span>
+                    </div>
+                    <Move size={14} className="text-slate-400" />
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Building size={16} className="text-slate-600" />
+                      <span className="text-sm">Department</span>
+                    </div>
+                    <Move size={14} className="text-slate-400" />
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Hash size={16} className="text-slate-600" />
+                      <span className="text-sm">Employee ID</span>
+                    </div>
+                    <Move size={14} className="text-slate-400" />
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Building size={16} className="text-slate-600" />
+                      <span className="text-sm">Company</span>
+                    </div>
+                    <Move size={14} className="text-slate-400" />
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Shield size={16} className="text-slate-600" />
+                      <span className="text-sm">Access Level</span>
+                    </div>
+                    <Move size={14} className="text-slate-400" />
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <QrCode size={16} className="text-slate-600" />
+                      <span className="text-sm">QR Code</span>
+                    </div>
+                    <Move size={14} className="text-slate-400" />
+                  </div>
+                </div>
+              </GlassCard>
+              
+              {/* Card Settings */}
+              <GlassCard>
+                <div className="flex items-center mb-4">
+                  <SettingsIcon className="mr-2 text-blue-600" size={20} />
+                  <h4 className="font-semibold text-slate-800">Card Settings</h4>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">Card Size</Label>
+                    <Select defaultValue="cr80">
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cr80">CR80 Standard (85.60 × 53.98 mm)</SelectItem>
+                        <SelectItem value="cr79">CR79 (76 × 54 mm)</SelectItem>
+                        <SelectItem value="custom">Custom Size</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">Orientation</Label>
+                    <Select defaultValue="landscape">
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="landscape">Landscape</SelectItem>
+                        <SelectItem value="portrait">Portrait</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">Background</Label>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1">Solid Color</Button>
+                      <Button variant="outline" size="sm" className="flex-1">Gradient</Button>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
