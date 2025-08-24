@@ -1,0 +1,47 @@
+[
+  {
+    "id": "fd4d2f6b-7ddd-4025-850c-a2c9662998cb",
+    "visitorName": "James Thompson",
+    "visitorEmail": "james.thompson@consultingfirm.com",
+    "company": "Strategic Consulting Ltd",
+    "purpose": "Quarterly Business Review",
+    "visitDate": "2025-08-26T15:51:24.759Z",
+    "visitTime": "09:30",
+    "hostStaffId": "f3d8ad9b-e5eb-4440-ba45-57ce0662ba31",
+    "qrCode": "PRE-1756050684759-9kf43qn0q",
+    "status": "pending",
+    "isCheckedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-24T15:51:24.759Z"
+  },
+  {
+    "id": "56a0f00c-1f42-4367-8d68-b73eeb0cc281",
+    "visitorName": "Lisa Chen",
+    "visitorEmail": "l.chen@techsolutions.com",
+    "company": "Tech Solutions Inc",
+    "purpose": "Software Demo",
+    "visitDate": "2025-08-27T15:51:24.759Z",
+    "visitTime": "14:00",
+    "hostStaffId": "0d11a269-1cb2-4657-81f0-ce847d6f7002",
+    "qrCode": "PRE-1756050684759-caahuigxn",
+    "status": "confirmed",
+    "isCheckedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-24T15:51:24.759Z"
+  },
+  {
+    "id": "c5bf459c-eb35-4bed-a647-574cc22b2d98",
+    "visitorName": "Robert Wilson",
+    "visitorEmail": "rwilson@legalpartners.co.uk",
+    "company": "Wilson & Partners Legal",
+    "purpose": "Contract Review Meeting",
+    "visitDate": "2025-08-29T15:51:24.759Z",
+    "visitTime": "11:00",
+    "hostStaffId": "b9a8b36a-cd51-4556-8b59-52b85688ac99",
+    "qrCode": "PRE-1756050684759-6qe2k1wuf",
+    "status": "pending",
+    "isCheckedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-24T15:51:24.759Z"
+  }
+]

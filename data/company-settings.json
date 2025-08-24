@@ -7,7 +7,7 @@
   "website": "https://www.acsltd.eu",
   "email": "Andy@acsltd.eu",
   "bannerUrl": "/uploads/2dd87117-9090-4827-a3fc-cfdc841c5e76",
-  "backgroundColor": "#f8fafc",
+  "backgroundColor": "#96bfe9",
   "foregroundColor": "#1e293b",
   "accentColor": "#3b82f6",
   "theme": "light",
@@ -31,5 +31,5 @@
   "biostarSyncInterval": "300",
   "biometricDevices": [],
   "readerSettings": "{}",
-  "updatedAt": "2025-08-24T15:41:00.104Z"
+  "updatedAt": "2025-08-24T15:50:55.395Z"
 }

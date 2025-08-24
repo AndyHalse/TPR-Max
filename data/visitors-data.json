@@ -1,0 +1,26 @@
+[
+  {
+    "id": "58f0482c-7167-4d76-b598-536945edb86c",
+    "name": "John Anderson",
+    "company": "ABC Corp",
+    "purpose": "Business Meeting",
+    "carRegistration": null,
+    "hostStaffId": "f3d8ad9b-e5eb-4440-ba45-57ce0662ba31",
+    "qrCode": "VIS-1756050684759-qy3mc843o",
+    "checkedInAt": "2025-08-24T13:51:24.758Z",
+    "checkedOutAt": null,
+    "isCheckedIn": true
+  },
+  {
+    "id": "c3323197-27fd-4a6e-a566-047f08aad231",
+    "name": "Maria Garcia",
+    "company": "XYZ Ltd",
+    "purpose": "Interview",
+    "carRegistration": null,
+    "hostStaffId": "0d11a269-1cb2-4657-81f0-ce847d6f7002",
+    "qrCode": "VIS-1756050684759-qixkv7a15",
+    "checkedInAt": "2025-08-24T14:51:24.758Z",
+    "checkedOutAt": null,
+    "isCheckedIn": true
+  }
+]

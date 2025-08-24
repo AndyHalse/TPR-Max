@@ -116,6 +116,11 @@ export class MemStorage implements IStorage {
   private reports: Map<string, Report>;
   private preBookings: Map<string, PreBooking>;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
+  private readonly staffFilePath = path.join(process.cwd(), 'data', 'staff-data.json');
+  private readonly visitorsFilePath = path.join(process.cwd(), 'data', 'visitors-data.json');
+  private readonly reportsFilePath = path.join(process.cwd(), 'data', 'reports-data.json');
+  private readonly preBookingsFilePath = path.join(process.cwd(), 'data', 'prebookings-data.json');
+  private readonly usersFilePath = path.join(process.cwd(), 'data', 'users-data.json');
 
   constructor() {
     this.users = new Map();
@@ -127,11 +132,18 @@ export class MemStorage implements IStorage {
     // Ensure data directory exists
     this.ensureDataDirectory();
     
-    // Load existing company settings or initialize defaults
+    // Load existing data or initialize defaults
     this.loadOrInitializeSettings();
+    this.loadOrInitializeStaff();
+    this.loadOrInitializeVisitors();
+    this.loadOrInitializeReports();
+    this.loadOrInitializePreBookings();
+    this.loadOrInitializeUsers();
     
-    // Initialize sample data (but not company settings)
-    this.initializeSampleData();
+    // Initialize sample data only if no existing data
+    if (this.staffMembers.size === 0) {
+      this.initializeSampleData();
+    }
   }
 
   private ensureDataDirectory(): void {
@@ -215,7 +227,156 @@ export class MemStorage implements IStorage {
     }
   }
 
+  private loadOrInitializeStaff(): void {
+    try {
+      if (fs.existsSync(this.staffFilePath)) {
+        const staffData = fs.readFileSync(this.staffFilePath, 'utf8');
+        const staffArray = JSON.parse(staffData);
+        this.staffMembers = new Map();
+        staffArray.forEach((staff: Staff) => {
+          // Convert date strings back to Date objects
+          if (staff.checkedInAt) staff.checkedInAt = new Date(staff.checkedInAt);
+          if (staff.checkedOutAt) staff.checkedOutAt = new Date(staff.checkedOutAt);
+          if (staff.lastLoginAt) staff.lastLoginAt = new Date(staff.lastLoginAt);
+          if (staff.createdAt) staff.createdAt = new Date(staff.createdAt);
+          this.staffMembers.set(staff.id, staff);
+        });
+        console.log(`✅ Staff data loaded: ${this.staffMembers.size} members`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading staff data:', error);
+    }
+  }
+
+  private saveStaffToFile(): void {
+    try {
+      const staffArray = Array.from(this.staffMembers.values());
+      const staffJson = JSON.stringify(staffArray, null, 2);
+      fs.writeFileSync(this.staffFilePath, staffJson, 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving staff data:', error);
+    }
+  }
+
+  private loadOrInitializeVisitors(): void {
+    try {
+      if (fs.existsSync(this.visitorsFilePath)) {
+        const visitorsData = fs.readFileSync(this.visitorsFilePath, 'utf8');
+        const visitorsArray = JSON.parse(visitorsData);
+        this.visitors = new Map();
+        visitorsArray.forEach((visitor: Visitor) => {
+          // Convert date strings back to Date objects
+          if (visitor.checkedInAt) visitor.checkedInAt = new Date(visitor.checkedInAt);
+          if (visitor.checkedOutAt) visitor.checkedOutAt = new Date(visitor.checkedOutAt);
+          this.visitors.set(visitor.id, visitor);
+        });
+        console.log(`✅ Visitor data loaded: ${this.visitors.size} visitors`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading visitor data:', error);
+    }
+  }
+
+  private saveVisitorsToFile(): void {
+    try {
+      const visitorsArray = Array.from(this.visitors.values());
+      const visitorsJson = JSON.stringify(visitorsArray, null, 2);
+      fs.writeFileSync(this.visitorsFilePath, visitorsJson, 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving visitor data:', error);
+    }
+  }
+
+  private loadOrInitializeReports(): void {
+    try {
+      if (fs.existsSync(this.reportsFilePath)) {
+        const reportsData = fs.readFileSync(this.reportsFilePath, 'utf8');
+        const reportsArray = JSON.parse(reportsData);
+        this.reports = new Map();
+        reportsArray.forEach((report: Report) => {
+          // Convert date strings back to Date objects
+          if (report.generatedAt) report.generatedAt = new Date(report.generatedAt);
+          this.reports.set(report.id, report);
+        });
+        console.log(`✅ Reports data loaded: ${this.reports.size} reports`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading reports data:', error);
+    }
+  }
+
+  private saveReportsToFile(): void {
+    try {
+      const reportsArray = Array.from(this.reports.values());
+      const reportsJson = JSON.stringify(reportsArray, null, 2);
+      fs.writeFileSync(this.reportsFilePath, reportsJson, 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving reports data:', error);
+    }
+  }
+
+  private loadOrInitializePreBookings(): void {
+    try {
+      if (fs.existsSync(this.preBookingsFilePath)) {
+        const preBookingsData = fs.readFileSync(this.preBookingsFilePath, 'utf8');
+        const preBookingsArray = JSON.parse(preBookingsData);
+        this.preBookings = new Map();
+        preBookingsArray.forEach((preBooking: PreBooking) => {
+          // Convert date strings back to Date objects
+          if (preBooking.visitDate) preBooking.visitDate = new Date(preBooking.visitDate);
+          if (preBooking.checkedInAt) preBooking.checkedInAt = new Date(preBooking.checkedInAt);
+          if (preBooking.emailSentAt) preBooking.emailSentAt = new Date(preBooking.emailSentAt);
+          if (preBooking.createdAt) preBooking.createdAt = new Date(preBooking.createdAt);
+          this.preBookings.set(preBooking.id, preBooking);
+        });
+        console.log(`✅ PreBookings data loaded: ${this.preBookings.size} bookings`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading prebookings data:', error);
+    }
+  }
+
+  private savePreBookingsToFile(): void {
+    try {
+      const preBookingsArray = Array.from(this.preBookings.values());
+      const preBookingsJson = JSON.stringify(preBookingsArray, null, 2);
+      fs.writeFileSync(this.preBookingsFilePath, preBookingsJson, 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving prebookings data:', error);
+    }
+  }
+
+  private loadOrInitializeUsers(): void {
+    try {
+      if (fs.existsSync(this.usersFilePath)) {
+        const usersData = fs.readFileSync(this.usersFilePath, 'utf8');
+        const usersArray = JSON.parse(usersData);
+        this.users = new Map();
+        usersArray.forEach((user: User) => {
+          // Convert date strings back to Date objects
+          if (user.createdAt) user.createdAt = new Date(user.createdAt);
+          this.users.set(user.id, user);
+        });
+        console.log(`✅ Users data loaded: ${this.users.size} users`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading users data:', error);
+    }
+  }
+
+  private saveUsersToFile(): void {
+    try {
+      const usersArray = Array.from(this.users.values());
+      const usersJson = JSON.stringify(usersArray, null, 2);
+      fs.writeFileSync(this.usersFilePath, usersJson, 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving users data:', error);
+    }
+  }
+
   private initializeSampleData(): void {
+    // Only initialize if no data exists to avoid overwriting real customer data
+    console.log('🔄 Initializing sample data...');
 
     // Add some sample staff
     const sampleStaff = [
@@ -338,6 +499,13 @@ export class MemStorage implements IStorage {
         createdAt: new Date(),
       });
     });
+
+    // 💾 CRITICAL: Save all sample data to persistent storage
+    this.saveStaffToFile();
+    this.saveVisitorsToFile();
+    this.savePreBookingsToFile();
+    this.saveReportsToFile(); // Even if empty, create the file
+    console.log('💾 Sample data saved to persistent storage');
   }
 
   // User methods
@@ -361,6 +529,7 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
     };
     this.users.set(id, user);
+    this.saveUsersToFile(); // 💾 PERSIST IMMEDIATELY
     return user;
   }
 
@@ -434,6 +603,7 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
     };
     this.staffMembers.set(id, staff);
+    this.saveStaffToFile(); // 💾 PERSIST IMMEDIATELY
     return staff;
   }
 
@@ -488,11 +658,16 @@ export class MemStorage implements IStorage {
       password: updates.password ? hashedPassword : staff.password 
     };
     this.staffMembers.set(id, updatedStaff);
+    this.saveStaffToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedStaff;
   }
 
   async deleteStaff(id: string): Promise<boolean> {
-    return this.staffMembers.delete(id);
+    const result = this.staffMembers.delete(id);
+    if (result) {
+      this.saveStaffToFile(); // 💾 PERSIST IMMEDIATELY
+    }
+    return result;
   }
   
   async authenticateStaff(email: string, password: string): Promise<Staff | null> {
@@ -509,6 +684,7 @@ export class MemStorage implements IStorage {
     // Update last login time
     staff.lastLoginAt = new Date();
     this.staffMembers.set(staff.id, staff);
+    this.saveStaffToFile(); // 💾 PERSIST IMMEDIATELY
     
     return staff;
   }
@@ -520,6 +696,7 @@ export class MemStorage implements IStorage {
     const hashedPassword = await bcrypt.hash(password, 10);
     staff.password = hashedPassword;
     this.staffMembers.set(id, staff);
+    this.saveStaffToFile(); // 💾 PERSIST IMMEDIATELY
     return true;
   }
 
@@ -536,6 +713,7 @@ export class MemStorage implements IStorage {
     };
     
     this.staffMembers.set(id, updatedStaff);
+    this.saveStaffToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedStaff;
   }
 
@@ -551,6 +729,7 @@ export class MemStorage implements IStorage {
     };
     
     this.staffMembers.set(id, updatedStaff);
+    this.saveStaffToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedStaff;
   }
 
@@ -669,6 +848,7 @@ export class MemStorage implements IStorage {
     };
     
     this.visitors.set(id, visitor);
+    this.saveVisitorsToFile(); // 💾 PERSIST IMMEDIATELY
     return visitor;
   }
 
@@ -678,6 +858,7 @@ export class MemStorage implements IStorage {
 
     const updatedVisitor = { ...visitor, ...updates };
     this.visitors.set(id, updatedVisitor);
+    this.saveVisitorsToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedVisitor;
   }
 
@@ -692,6 +873,7 @@ export class MemStorage implements IStorage {
     };
     
     this.visitors.set(id, updatedVisitor);
+    this.saveVisitorsToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedVisitor;
   }
 
@@ -731,6 +913,7 @@ export class MemStorage implements IStorage {
     };
     
     this.reports.set(id, newReport);
+    this.saveReportsToFile(); // 💾 PERSIST IMMEDIATELY
     return newReport;
   }
 
@@ -740,6 +923,7 @@ export class MemStorage implements IStorage {
 
     const updatedReport = { ...report, ...updates };
     this.reports.set(id, updatedReport);
+    this.saveReportsToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedReport;
   }
 
@@ -800,6 +984,7 @@ export class MemStorage implements IStorage {
     };
     
     this.preBookings.set(id, preBooking);
+    this.savePreBookingsToFile(); // 💾 PERSIST IMMEDIATELY
     return preBooking;
   }
 
@@ -809,11 +994,16 @@ export class MemStorage implements IStorage {
 
     const updatedPreBooking = { ...preBooking, ...updates };
     this.preBookings.set(id, updatedPreBooking);
+    this.savePreBookingsToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedPreBooking;
   }
 
   async deletePreBooking(id: string): Promise<boolean> {
-    return this.preBookings.delete(id);
+    const result = this.preBookings.delete(id);
+    if (result) {
+      this.savePreBookingsToFile(); // 💾 PERSIST IMMEDIATELY
+    }
+    return result;
   }
 
   // Statistics methods
