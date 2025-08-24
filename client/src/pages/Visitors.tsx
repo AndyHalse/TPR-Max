@@ -62,6 +62,28 @@ export default function Visitors() {
   const [checkedInVisitor, setCheckedInVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
 
+  // Test data generation mutation
+  const generateTestDataMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/test-data/visitors");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      toast({
+        title: "Success!",
+        description: `Generated ${data.visitors?.length || 30} test visitors for load testing`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate test data",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Queries
   const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -310,6 +332,16 @@ export default function Visitors() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-800">Visitor Management</h1>
+        <Button
+          onClick={() => generateTestDataMutation.mutate()}
+          disabled={generateTestDataMutation.isPending}
+          variant="outline"
+          size="sm"
+          className="bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
+          data-testid="button-generate-test-data"
+        >
+          {generateTestDataMutation.isPending ? "Generating..." : "Generate 30 Test Visitors"}
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

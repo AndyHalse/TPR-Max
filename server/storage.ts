@@ -48,6 +48,11 @@ export interface IStorage {
   getTodayVisitors(): Promise<Visitor[]>;
   getVisitorById(id: string): Promise<Visitor | undefined>;
   createVisitor(insertVisitor: InsertVisitor): Promise<Visitor>;
+  createVisitorWithTimestamps(visitorData: InsertVisitor & {
+    checkedInAt: Date;
+    checkedOutAt?: Date;
+    isCheckedIn: boolean;
+  }): Promise<Visitor>;
   updateVisitor(id: string, updates: Partial<InsertVisitor>): Promise<Visitor | undefined>;
   checkOutVisitor(id: string): Promise<Visitor | undefined>;
   getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined>;
@@ -862,6 +867,32 @@ export class MemStorage implements IStorage {
       checkedInAt: new Date(),
       checkedOutAt: null,
       isCheckedIn: true,
+    };
+    
+    this.visitors.set(id, visitor);
+    this.saveVisitorsToFile(); // 💾 PERSIST IMMEDIATELY
+    return visitor;
+  }
+
+  async createVisitorWithTimestamps(visitorData: InsertVisitor & {
+    checkedInAt: Date;
+    checkedOutAt?: Date;
+    isCheckedIn: boolean;
+  }): Promise<Visitor> {
+    const id = randomUUID();
+    const qrCode = `VIS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const visitor: Visitor = {
+      id,
+      name: visitorData.name,
+      company: visitorData.company ?? null,
+      purpose: visitorData.purpose ?? null,
+      carRegistration: visitorData.carRegistration ?? null,
+      hostStaffId: visitorData.hostStaffId ?? null,
+      qrCode,
+      checkedInAt: visitorData.checkedInAt,
+      checkedOutAt: visitorData.checkedOutAt ?? null,
+      isCheckedIn: visitorData.isCheckedIn,
     };
     
     this.visitors.set(id, visitor);

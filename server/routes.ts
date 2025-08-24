@@ -444,6 +444,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports endpoints
+  // Generate test data for load testing
+  app.post("/api/test-data/visitors", async (req, res) => {
+    try {
+      const staff = await storage.getAllStaff();
+      if (staff.length === 0) {
+        return res.status(400).json({ error: "No staff members found to assign as hosts" });
+      }
+
+      // Generate 30 random previous visitors
+      const testVisitors = [];
+      const firstNames = ["James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica", "Thomas", "Sarah", "Christopher", "Karen", "Charles", "Nancy", "Daniel", "Lisa", "Matthew", "Betty", "Anthony", "Helen", "Mark", "Sandra"];
+      const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson"];
+      const companies = ["Tech Solutions Ltd", "Global Industries", "Innovation Corp", "Digital Services", "Engineering Solutions", "Consulting Group", "Marketing Agency", "Design Studio", "Software Systems", "Business Partners", "Strategic Advisors", "Creative Solutions", "Professional Services", "Development Group", "Management Consulting", "Technology Partners"];
+      const purposes = ["Business Meeting", "Project Discussion", "Consultation", "Training Session", "Interview", "Site Visit", "Maintenance", "Delivery", "Inspection", "Client Meeting", "Partnership Meeting", "Product Demo", "Technical Support", "Contract Review", "Planning Session"];
+
+      for (let i = 0; i < 30; i++) {
+        const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+        const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+        const randomCompany = companies[Math.floor(Math.random() * companies.length)];
+        const randomPurpose = purposes[Math.floor(Math.random() * purposes.length)];
+        const randomHost = staff[Math.floor(Math.random() * staff.length)];
+        
+        // Generate random check-in time in the past 90 days
+        const daysAgo = Math.floor(Math.random() * 90) + 1;
+        const checkInTime = new Date();
+        checkInTime.setDate(checkInTime.getDate() - daysAgo);
+        checkInTime.setHours(Math.floor(Math.random() * 10) + 8); // 8 AM to 6 PM
+        checkInTime.setMinutes(Math.floor(Math.random() * 60));
+        
+        // Generate check-out time 1-8 hours later
+        const checkOutTime = new Date(checkInTime);
+        checkOutTime.setHours(checkInTime.getHours() + Math.floor(Math.random() * 8) + 1);
+
+        const visitorData = {
+          name: `${randomFirstName} ${randomLastName}`,
+          company: randomCompany,
+          purpose: randomPurpose,
+          hostStaffId: randomHost.id,
+          carRegistration: Math.random() > 0.6 ? `${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)} ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}` : null,
+        };
+
+        // Create the visitor with custom timestamps
+        const visitor = await storage.createVisitorWithTimestamps({
+          ...visitorData,
+          checkedInAt: checkInTime,
+          checkedOutAt: checkOutTime,
+          isCheckedIn: false, // Mark as checked out (previous visitor)
+        });
+        
+        testVisitors.push(visitor);
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Created ${testVisitors.length} test visitors`,
+        visitors: testVisitors 
+      });
+    } catch (error) {
+      console.error("Error generating test visitors:", error);
+      res.status(500).json({ error: "Failed to generate test visitors" });
+    }
+  });
+
   app.get("/api/reports", async (req, res) => {
     try {
       const reports = await storage.getAllReports();
