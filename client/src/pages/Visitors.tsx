@@ -104,7 +104,9 @@ export default function Visitors() {
 
   // Filter existing visitors based on search
   const filteredVisitors = allVisitors?.filter(visitor => 
-    visitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${visitor.firstName} ${visitor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    visitor.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    visitor.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (visitor.company && visitor.company.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || [];
 
@@ -422,7 +424,7 @@ export default function Visitors() {
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-semibold text-slate-800">{visitor.name}</h3>
+                        <h3 className="font-semibold text-slate-800">{visitor.firstName} {visitor.lastName}</h3>
                         {visitor.company && (
                           <p className="text-sm text-slate-600">{visitor.company}</p>
                         )}

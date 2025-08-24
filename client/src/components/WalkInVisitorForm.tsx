@@ -103,7 +103,8 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     }
 
     const visitorData: InsertVisitor = {
-      name: `${formData.firstName} ${formData.lastName}`,
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
       company: formData.company || null,
       purpose: formData.purpose || null,
       hostStaffId: formData.hostStaffId,

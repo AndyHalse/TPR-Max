@@ -198,7 +198,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               <div className="flex-1 flex items-center">
                 <div className="flex-1">
                   <p className="font-bold text-lg text-slate-800" data-testid="pass-visitor-name">
-                    {visitor.name}
+                    {visitor.firstName} {visitor.lastName}
                   </p>
                   <p className="text-sm text-slate-600" data-testid="pass-visitor-company">
                     {visitor.company || "No company"}

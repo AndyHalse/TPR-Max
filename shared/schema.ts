@@ -39,7 +39,8 @@ export const staffSessions = pgTable("staff_sessions", {
 
 export const visitors = pgTable("visitors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
   company: text("company"),
   purpose: text("purpose"),
   carRegistration: text("car_registration"),
@@ -53,7 +54,8 @@ export const visitors = pgTable("visitors", {
 // Pre-bookings table for visitor appointments
 export const preBookings = pgTable("pre_bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  visitorName: text("visitor_name").notNull(),
+  visitorFirstName: text("visitor_first_name").notNull(),
+  visitorLastName: text("visitor_last_name").notNull(),
   visitorEmail: text("visitor_email").notNull(),
   company: text("company"),
   purpose: text("purpose"),

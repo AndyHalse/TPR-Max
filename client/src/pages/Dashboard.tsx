@@ -448,11 +448,11 @@ export default function Dashboard() {
                 <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl" data-testid={`visitor-${visitor.id}`}>
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-medium text-sm">{getInitials(visitor.name)}</span>
+                      <span className="text-white font-medium text-sm">{getInitials(`${visitor.firstName} ${visitor.lastName}`)}</span>
                     </div>
                     <div>
                       <p className="font-medium text-slate-800" data-testid={`visitor-name-${visitor.id}`}>
-                        {visitor.name}
+                        {visitor.firstName} {visitor.lastName}
                       </p>
                       <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
                     </div>
@@ -614,7 +614,7 @@ export default function Dashboard() {
                       <User className="text-blue-600" size={20} />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{visitor.name}</p>
+                      <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
                       <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
                       <p className="text-xs text-slate-500">Checked in: {formatTime(visitor.checkedInAt)}</p>
                     </div>

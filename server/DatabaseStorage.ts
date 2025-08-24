@@ -331,7 +331,8 @@ export class DatabaseStorage implements IStorage {
       .insert(visitors)
       .values({
         id,
-        name: visitorData.name,
+        firstName: visitorData.firstName,
+        lastName: visitorData.lastName,
         company: visitorData.company ?? null,
         purpose: visitorData.purpose ?? null,
         carRegistration: visitorData.carRegistration ?? null,
@@ -381,7 +382,8 @@ export class DatabaseStorage implements IStorage {
       .from(visitors)
       .where(
         or(
-          ilike(visitors.name, `%${searchTerm}%`),
+          ilike(visitors.firstName, `%${searchTerm}%`),
+          ilike(visitors.lastName, `%${searchTerm}%`),
           ilike(visitors.company, `%${searchTerm}%`)
         )
       )
@@ -530,7 +532,8 @@ export class DatabaseStorage implements IStorage {
       .from(preBookings)
       .where(
         or(
-          ilike(preBookings.visitorName, `%${searchTerm}%`),
+          ilike(preBookings.visitorFirstName, `%${searchTerm}%`),
+          ilike(preBookings.visitorLastName, `%${searchTerm}%`),
           ilike(preBookings.visitorEmail, `%${searchTerm}%`),
           ilike(preBookings.company, `%${searchTerm}%`)
         )
@@ -613,7 +616,7 @@ export class DatabaseStorage implements IStorage {
       activities.push({
         id: `visitor-${visitor.id}`,
         type: visitor.isCheckedIn ? "checkin" : "checkout",
-        name: visitor.name,
+        name: `${visitor.firstName} ${visitor.lastName}`,
         timestamp: visitor.checkedInAt,
         details: visitor.company || undefined,
       });
@@ -635,7 +638,7 @@ export class DatabaseStorage implements IStorage {
       activities.push({
         id: `prebooking-${booking.id}`,
         type: "prebooking",
-        name: booking.visitorName,
+        name: `${booking.visitorFirstName} ${booking.visitorLastName}`,
         timestamp: booking.createdAt,
         details: `Visit scheduled for ${booking.visitDate.toLocaleDateString()}`,
       });
@@ -697,7 +700,7 @@ export class DatabaseStorage implements IStorage {
       })),
       ...allVisitors.map(visitor => ({
         id: visitor.id,
-        name: visitor.name,
+        name: `${visitor.firstName} ${visitor.lastName}`,
         type: 'visitor' as const,
         company: visitor.company || undefined,
         checkedInAt: visitor.checkedInAt.toISOString(),
