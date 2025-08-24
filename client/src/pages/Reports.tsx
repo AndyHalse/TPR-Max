@@ -41,6 +41,10 @@ export default function Reports() {
     queryKey: ["/api/reports"],
   });
 
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"],
+  });
+
   const generateReportMutation = useMutation({
     mutationFn: async (data: { reportType: string; dateFrom: Date; dateTo: Date }) => {
       const response = await apiRequest("POST", "/api/reports/generate", data);
@@ -112,24 +116,35 @@ export default function Reports() {
   };
 
   const handleEmailReport = (reportId: string) => {
-    if (!emailRecipients.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter email recipients",
-        variant: "destructive",
-      });
-      return;
+    // Use administrator email from settings if no manual recipients entered
+    let recipients: string[] = [];
+    
+    if (emailRecipients.trim()) {
+      // Use manually entered emails if provided
+      recipients = emailRecipients
+        .split(",")
+        .map(email => email.trim())
+        .filter(email => email.length > 0);
+    } else {
+      // Use administrator email from company settings
+      if (settings?.email) {
+        recipients = [settings.email];
+      } else if (settings?.reportRecipients && settings.reportRecipients.length > 0) {
+        recipients = settings.reportRecipients;
+      } else {
+        toast({
+          title: "Error",
+          description: "No administrator email configured. Please contact support.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
-
-    const recipients = emailRecipients
-      .split(",")
-      .map(email => email.trim())
-      .filter(email => email.length > 0);
 
     if (recipients.length === 0) {
       toast({
         title: "Error",
-        description: "Please enter valid email addresses",
+        description: "No valid email addresses found",
         variant: "destructive",
       });
       return;
@@ -340,16 +355,19 @@ export default function Reports() {
             
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700">
-                Email Recipients (comma-separated)
+                Email Recipients (optional - defaults to administrator)
               </Label>
               <Input
                 type="text"
-                placeholder="email1@company.com, email2@company.com"
+                placeholder={`Default: ${settings?.email || settings?.reportRecipients?.[0] || 'admin@company.com'}`}
                 value={emailRecipients}
                 onChange={(e) => setEmailRecipients(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                 data-testid="input-email-recipients"
               />
+              <p className="text-xs text-slate-500">
+                Leave empty to send to administrator email: {settings?.email || settings?.reportRecipients?.[0] || 'admin@company.com'}
+              </p>
             </div>
           </div>
         </GlassCard>
@@ -441,7 +459,7 @@ export default function Reports() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleEmailReport(report.id)}
-                          disabled={emailReportMutation.isPending || !emailRecipients.trim()}
+                          disabled={emailReportMutation.isPending}
                           data-testid={`button-email-report-${report.id}`}
                         >
                           <Send size={12} className="mr-1" />
