@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -14,6 +14,7 @@ import type { Staff, Visitor, CompanySettings } from "@shared/schema";
 
 export default function KioskMode() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin">("main");
   const [scannedCode, setScannedCode] = useState("");
   const [currentVisitor, setCurrentVisitor] = useState<Visitor | null>(null);
@@ -148,7 +149,13 @@ export default function KioskMode() {
         
         <div className="max-w-2xl mx-auto space-y-8">
           <div className="text-center">
-            <h2 className="text-4xl font-bold text-slate-800 mb-4">QR Code Scanner</h2>
+            <h2 
+              className="text-4xl font-bold text-slate-800 mb-4 select-none"
+              onClick={() => setLocation("/")}
+              style={{ cursor: 'default' }}
+            >
+              QR Code Scanner
+            </h2>
             <p className="text-slate-600 text-xl">Scan your visitor pass or pre-booking QR code</p>
           </div>
 
@@ -235,7 +242,13 @@ export default function KioskMode() {
       
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="text-center">
-          <h2 className="text-4xl font-bold text-slate-800 mb-4">Welcome to {settings?.companyName || 'TechCorp Ltd'}</h2>
+          <h2 
+            className="text-4xl font-bold text-slate-800 mb-4 select-none" 
+            onClick={() => setLocation("/")}
+            style={{ cursor: 'default' }}
+          >
+            Welcome to {settings?.companyName || 'TechCorp Ltd'}
+          </h2>
           <p className="text-slate-600 text-xl">Please select your check-in option below</p>
         </div>
 
