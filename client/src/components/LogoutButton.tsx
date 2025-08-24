@@ -18,7 +18,11 @@ export default function LogoutButton() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
+      // Clear the user query cache and force immediate refetch
+      queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      // Clear all cached data to ensure clean logout
+      queryClient.clear();
     },
     onError: (error: Error) => {
       toast({

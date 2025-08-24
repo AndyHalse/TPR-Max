@@ -1,12 +1,12 @@
 {
   "id": "0f97f5a9-2b83-45ae-9ebf-cead4a9abd6a",
   "companyName": "ACS Safety & Security Ltd",
-  "logoUrl": null,
+  "logoUrl": "/uploads/fae8e451-0479-4bc8-8092-59b5a9f57e61",
   "address": "Wittas House Two Rivers Station Lane Witney OX28 4BH",
   "phone": "+44 1344 771569",
   "website": "https://www.acsltd.eu",
   "email": "Andy@acsltd.eu",
-  "bannerUrl": null,
+  "bannerUrl": "/uploads/2dd87117-9090-4827-a3fc-cfdc841c5e76",
   "backgroundColor": "#f8fafc",
   "foregroundColor": "#1e293b",
   "accentColor": "#3b82f6",
@@ -31,5 +31,5 @@
   "biostarSyncInterval": "300",
   "biometricDevices": [],
   "readerSettings": "{}",
-  "updatedAt": "2025-08-24T15:39:40.715Z"
+  "updatedAt": "2025-08-24T15:41:00.104Z"
 }
