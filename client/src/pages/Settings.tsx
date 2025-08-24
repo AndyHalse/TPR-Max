@@ -79,9 +79,10 @@ export default function Settings() {
 
   const handleLogoUpload = async (objectPath: string) => {
     try {
-      // objectPath comes from ObjectUploader as /objects/uploads/...
-      // We need to store just the path part without /objects prefix for the database
+      // objectPath comes from ObjectUploader as /objects/uploads/objectId
+      // We need to store just /uploads/objectId for the database
       const logoUrl = objectPath.replace('/objects', '');
+      console.log('Saving logo URL:', logoUrl);
       await updateSettingsMutation.mutateAsync({
         logoUrl: logoUrl,
       });
@@ -101,9 +102,10 @@ export default function Settings() {
 
   const handleBannerUpload = async (objectPath: string) => {
     try {
-      // objectPath comes from ObjectUploader as /objects/uploads/...
-      // We need to store just the path part without /objects prefix for the database
+      // objectPath comes from ObjectUploader as /objects/uploads/objectId
+      // We need to store just /uploads/objectId for the database
       const bannerUrl = objectPath.replace('/objects', '');
+      console.log('Saving banner URL:', bannerUrl);
       await updateSettingsMutation.mutateAsync({
         bannerUrl: bannerUrl,
       });
@@ -305,7 +307,7 @@ export default function Settings() {
                     Company Logo
                   </Label>
                   <div className="space-y-4">
-                    {currentSettings?.logoUrl && (
+                    {currentSettings?.logoUrl && !currentSettings.logoUrl.includes('test') && (
                       <div className="flex items-center justify-center p-4 bg-white/50 rounded-xl border border-white/30">
                         <img 
                           src={`/objects${currentSettings.logoUrl}`}
@@ -470,7 +472,7 @@ export default function Settings() {
                   </Label>
                   <p className="text-xs text-slate-500 mb-3">Displayed prominently on kiosk mode. Recommended: 1200x300px or similar wide format</p>
                   
-                  {currentSettings?.bannerUrl && (
+                  {currentSettings?.bannerUrl && !currentSettings.bannerUrl.includes('test') && (
                     <div className="mb-4 p-4 bg-white/50 rounded-xl border border-white/30">
                       <img 
                         src={`/objects${currentSettings.bannerUrl}`}
@@ -497,7 +499,7 @@ export default function Settings() {
                   <p className="text-xs text-slate-500">Recommended: JPG or PNG, max 5MB, wide format (3:1 or 4:1 ratio)</p>
                 </div>
                 
-                {currentSettings?.bannerUrl && (
+                {currentSettings?.bannerUrl && !currentSettings.bannerUrl.includes('test') && (
                   <div className="p-4 rounded-xl border-2 border-dashed border-slate-300">
                     <h4 className="font-semibold mb-2 text-sm">Kiosk Preview</h4>
                     <div 
@@ -510,7 +512,7 @@ export default function Settings() {
                       <img 
                         src={`/objects${currentSettings.bannerUrl}`}
                         alt="Banner Preview" 
-                        className="w-full h-16 object-cover rounded mb-4"
+                        className="w-full h-16 object-cover rounded mb-4 mx-auto"
                         onError={(e) => {
                           console.error("Kiosk banner preview failed to load:", currentSettings.bannerUrl);
                           e.currentTarget.style.display = 'none';

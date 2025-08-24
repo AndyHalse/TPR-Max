@@ -136,9 +136,9 @@ export default function KioskMode() {
   if (activeSection === "scan") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
-        {/* Company Banner */}
+        {/* Company Banner - Centered */}
         {settings?.bannerUrl && (
-          <div className="w-full h-32 mb-8 rounded-2xl overflow-hidden">
+          <div className="w-full max-w-4xl mx-auto h-32 mb-8 rounded-2xl overflow-hidden">
             <img 
               src={`/objects${settings.bannerUrl}`} 
               alt={settings.companyName}
@@ -237,13 +237,21 @@ export default function KioskMode() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
-      {/* Company Banner */}
+      {/* Company Banner - Centered */}
       {settings?.bannerUrl && (
-        <div className="w-full h-32 mb-8 rounded-2xl overflow-hidden">
+        <div className="w-full max-w-4xl mx-auto h-32 mb-8 rounded-2xl overflow-hidden">
           <img 
             src={`/objects${settings.bannerUrl}`} 
             alt={settings.companyName}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              console.error("Main kiosk banner failed to load:", settings.bannerUrl);
+              e.currentTarget.style.display = 'none';
+              const container = e.currentTarget.parentElement;
+              if (container) {
+                container.style.display = 'none';
+              }
+            }}
           />
         </div>
       )}
