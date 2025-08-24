@@ -11,6 +11,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PassPreviewModal from "@/components/PassPreviewModal";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -52,6 +54,13 @@ export default function Visitors() {
   
   // Search state for existing visitors
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Previous visitor check-in state
+  const [selectedPreviousVisitor, setSelectedPreviousVisitor] = useState<Visitor | null>(null);
+  const [showHostSelection, setShowHostSelection] = useState(false);
+  const [selectedHostForPrevious, setSelectedHostForPrevious] = useState("");
+  const [checkedInVisitor, setCheckedInVisitor] = useState<Visitor | null>(null);
+  const [showPassPreview, setShowPassPreview] = useState(false);
 
   // Queries
   const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
@@ -119,6 +128,33 @@ export default function Visitors() {
         hostStaffId: "",
         purpose: "",
         carRegistration: "",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to check in visitor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const checkInPreviousVisitorMutation = useMutation({
+    mutationFn: async (visitor: InsertVisitor) => {
+      const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
+      return response.json();
+    },
+    onSuccess: (visitor: Visitor) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      setCheckedInVisitor(visitor);
+      setShowPassPreview(true);
+      setShowHostSelection(false);
+      setSelectedPreviousVisitor(null);
+      setSelectedHostForPrevious("");
+      toast({
+        title: "Success",
+        description: "Previous visitor checked in successfully!",
       });
     },
     onError: () => {
@@ -198,6 +234,32 @@ export default function Visitors() {
       purpose: walkInData.purpose.trim() || null,
       carRegistration: walkInData.carRegistration.trim() || null,
     });
+  };
+
+  const handlePreviousVisitorSelect = (visitor: Visitor) => {
+    setSelectedPreviousVisitor(visitor);
+    setShowHostSelection(true);
+  };
+
+  const handleHostSelectionConfirm = () => {
+    if (!selectedHostForPrevious) {
+      toast({
+        title: "Error",
+        description: "Please select a host",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedPreviousVisitor) {
+      checkInPreviousVisitorMutation.mutate({
+        name: selectedPreviousVisitor.name,
+        company: selectedPreviousVisitor.company,
+        hostStaffId: selectedHostForPrevious,
+        purpose: selectedPreviousVisitor.purpose,
+        carRegistration: selectedPreviousVisitor.carRegistration,
+      });
+    }
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -325,7 +387,13 @@ export default function Visitors() {
                           })}
                         </p>
                       </div>
-                      <Button size="sm" variant="outline" className="ml-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="ml-2"
+                        onClick={() => handlePreviousVisitorSelect(visitor)}
+                        data-testid={`button-select-visitor-${visitor.id}`}
+                      >
                         <UserCheck size={16} className="mr-1" />
                         Select
                       </Button>
@@ -659,6 +727,77 @@ export default function Visitors() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Host Selection Dialog for Previous Visitors */}
+      <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Host for {selectedPreviousVisitor?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-slate-600">
+              Who is {selectedPreviousVisitor?.name} visiting today?
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="hostSelection" className="text-sm font-medium text-slate-700">
+                Host Staff Member *
+              </Label>
+              <Select 
+                value={selectedHostForPrevious} 
+                onValueChange={setSelectedHostForPrevious}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select host staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff?.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.firstName} {member.lastName} - {member.department}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowHostSelection(false);
+                  setSelectedPreviousVisitor(null);
+                  setSelectedHostForPrevious("");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleHostSelectionConfirm}
+                disabled={checkInPreviousVisitorMutation.isPending || !selectedHostForPrevious}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                data-testid="button-confirm-host"
+              >
+                {checkInPreviousVisitorMutation.isPending ? "Checking In..." : "Check In & Print Pass"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pass Preview Modal */}
+      {checkedInVisitor && showPassPreview && (
+        <PassPreviewModal
+          isOpen={showPassPreview}
+          onClose={() => {
+            setShowPassPreview(false);
+            setCheckedInVisitor(null);
+          }}
+          visitor={checkedInVisitor}
+          hostName={staff?.find(s => s.id === checkedInVisitor.hostStaffId) ? 
+            `${staff.find(s => s.id === checkedInVisitor.hostStaffId)?.firstName} ${staff.find(s => s.id === checkedInVisitor.hostStaffId)?.lastName}` : 
+            undefined
+          }
+        />
+      )}
     </div>
   );
 }
