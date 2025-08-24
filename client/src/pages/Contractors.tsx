@@ -653,11 +653,21 @@ export default function Contractors() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-slate-600">Overall Score</span>
                     <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        selectedContractor.complianceScore >= 90 ? 'bg-green-500' :
-                        selectedContractor.complianceScore >= 75 ? 'bg-yellow-500' : 'bg-red-500'
-                      }`} />
-                      <span className="font-semibold">{selectedContractor.complianceScore}%</span>
+                      {(() => {
+                        const validDocs = documents?.filter(doc => doc.status === 'valid').length || 0;
+                        const totalDocs = documents?.length || 0;
+                        const complianceScore = totalDocs > 0 ? Math.round((validDocs / totalDocs) * 100) : 0;
+                        
+                        return (
+                          <>
+                            <div className={`w-3 h-3 rounded-full ${
+                              complianceScore >= 90 ? 'bg-green-500' :
+                              complianceScore >= 75 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`} />
+                            <span className="font-semibold">{complianceScore}%</span>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                   
