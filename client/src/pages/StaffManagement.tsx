@@ -44,7 +44,9 @@ export default function StaffManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       toast({
         title: "Success",
         description: "Staff member checked in successfully",
@@ -65,7 +67,9 @@ export default function StaffManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       toast({
         title: "Success",
         description: "Staff member checked out successfully",

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
+import type { Staff, Visitor } from "@shared/schema";
 
 interface Stats {
   currentVisitors: number;
@@ -18,21 +19,6 @@ interface Stats {
   avgVisitDuration: string;
 }
 
-interface Visitor {
-  id: string;
-  name: string;
-  company?: string;
-  hostStaffId?: string;
-  checkedInAt: string;
-  isCheckedIn: boolean;
-}
-
-interface Staff {
-  id: string;
-  name: string;
-  department: string;
-  employeeId: string;
-}
 
 interface Activity {
   id: string;
@@ -75,7 +61,7 @@ export default function Dashboard() {
   const getStaffName = (staffId?: string) => {
     if (!staffId || !staff) return "Unknown";
     const staffMember = staff.find(s => s.id === staffId);
-    return staffMember?.name || "Unknown";
+    return staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : "Unknown";
   };
 
   const getInitials = (name: string) => {
@@ -167,8 +153,9 @@ export default function Dashboard() {
     });
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
+  const formatTime = (date: string | Date) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -472,7 +459,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-slate-800">
-                      Host: {getStaffName(visitor.hostStaffId)}
+                      Host: {getStaffName(visitor.hostStaffId || undefined)}
                     </p>
                     <p className="text-xs text-slate-500">
                       Checked in: {formatTime(visitor.checkedInAt)}
@@ -722,11 +709,11 @@ export default function Dashboard() {
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
                       <span className="text-purple-600 font-semibold text-sm">
-                        {getInitials(staffMember.name)}
+                        {getInitials(`${staffMember.firstName} ${staffMember.lastName}`)}
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{staffMember.name}</p>
+                      <p className="font-medium text-slate-800">{`${staffMember.firstName} ${staffMember.lastName}`}</p>
                       <p className="text-sm text-slate-600">{staffMember.department}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-xs">
