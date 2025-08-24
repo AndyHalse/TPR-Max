@@ -207,6 +207,30 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
+  async getCheckedInContractors(): Promise<ContractorWorker[]> {
+    const checkedInContractors = await db.select({
+      id: contractorWorkers.id,
+      firstName: contractorWorkers.firstName,
+      lastName: contractorWorkers.lastName,
+      companyId: contractorWorkers.companyId,
+      companyName: contractorCompanies.companyName,
+      trade: contractorWorkers.trade,
+      certificateNumber: contractorWorkers.certificateNumber,
+      cscsCardType: contractorWorkers.cscsCardType,
+      isCheckedIn: contractorWorkers.isCheckedIn,
+      checkedInAt: contractorWorkers.checkedInAt,
+      checkedOutAt: contractorWorkers.checkedOutAt,
+      isAccountedFor: contractorWorkers.isAccountedFor,
+      createdAt: contractorWorkers.createdAt,
+      updatedAt: contractorWorkers.updatedAt,
+    })
+    .from(contractorWorkers)
+    .leftJoin(contractorCompanies, eq(contractorWorkers.companyId, contractorCompanies.id))
+    .where(eq(contractorWorkers.isCheckedIn, true));
+
+    return checkedInContractors;
+  }
+
   // Time & Attendance methods
   async getStaffTimeAndAttendance(dateFrom?: Date, dateTo?: Date): Promise<Array<{
     staffId: string;
@@ -735,7 +759,7 @@ export class DatabaseStorage implements IStorage {
   // Accounted status toggle methods
   async toggleStaffAccountedStatus(id: string): Promise<boolean> {
     try {
-      await this.db
+      await db
         .update(staff)
         .set({ isAccountedFor: not(staff.isAccountedFor) })
         .where(eq(staff.id, id));
@@ -748,7 +772,7 @@ export class DatabaseStorage implements IStorage {
 
   async toggleVisitorAccountedStatus(id: string): Promise<boolean> {
     try {
-      await this.db
+      await db
         .update(visitors)
         .set({ isAccountedFor: not(visitors.isAccountedFor) })
         .where(eq(visitors.id, id));
@@ -761,7 +785,7 @@ export class DatabaseStorage implements IStorage {
 
   async toggleContractorAccountedStatus(id: string): Promise<boolean> {
     try {
-      await this.db
+      await db
         .update(contractorWorkers)
         .set({ isAccountedFor: not(contractorWorkers.isAccountedFor) })
         .where(eq(contractorWorkers.id, id));

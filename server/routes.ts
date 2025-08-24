@@ -522,6 +522,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Emergency alert email endpoint
+  app.post("/api/emergency/send-alert", async (req, res) => {
+    try {
+      const { subject, message } = req.body;
+      
+      if (!subject || !message) {
+        return res.status(400).json({ error: "Subject and message are required" });
+      }
+      
+      // Get all on-site personnel
+      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+        storage.getCurrentVisitors(),
+        storage.getCheckedInStaff(),
+        storage.getCheckedInContractors(),
+      ]);
+      
+      // Collect all unique email addresses
+      const emailAddresses = new Set<string>();
+      
+      // Add staff emails
+      checkedInStaff.forEach(staffMember => {
+        if (staffMember.email) {
+          emailAddresses.add(staffMember.email);
+        }
+      });
+      
+      // Add visitor emails
+      currentVisitors.forEach(visitor => {
+        if (visitor.email) {
+          emailAddresses.add(visitor.email);
+        }
+      });
+      
+      // Add contractor emails (using company email if available)
+      checkedInContractors.forEach(contractor => {
+        // Note: contractors don't have individual emails in current schema
+        // This would need to be added to the contractor worker schema
+        // For now, we'll skip contractor emails
+      });
+      
+      const emailList = Array.from(emailAddresses);
+      
+      if (emailList.length === 0) {
+        return res.json({
+          success: true,
+          message: "No email addresses found for on-site personnel",
+          sentCount: 0,
+          totalPersonnel: currentVisitors.length + checkedInStaff.length + checkedInContractors.length
+        });
+      }
+      
+      // Send emergency alert emails
+      const emailService = (await import("./emailService")).default;
+      let sentCount = 0;
+      
+      for (const email of emailList) {
+        try {
+          await emailService.sendEmergencyAlert(email, subject, message);
+          sentCount++;
+        } catch (error) {
+          console.error(`Failed to send emergency alert to ${email}:`, error);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Emergency alert sent successfully`,
+        sentCount,
+        totalEmails: emailList.length,
+        totalPersonnel: currentVisitors.length + checkedInStaff.length + checkedInContractors.length
+      });
+    } catch (error) {
+      console.error("Failed to send emergency alerts:", error);
+      res.status(500).json({ error: "Failed to send emergency alerts" });
+    }
+  });
+
   // Company Settings endpoints
   app.get("/api/settings", async (req, res) => {
     try {

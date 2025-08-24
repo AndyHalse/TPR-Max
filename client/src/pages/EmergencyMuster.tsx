@@ -66,6 +66,27 @@ export default function EmergencyMuster() {
     },
   });
 
+  // Mutation to send emergency alert emails
+  const sendAlertMutation = useMutation({
+    mutationFn: async ({ subject, message }: { subject: string, message: string }) => {
+      const response = await apiRequest("POST", "/api/emergency/send-alert", { subject, message });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Alert Sent Successfully",
+        description: `Emergency alert sent to ${data.sentCount} people out of ${data.totalPersonnel} on-site personnel`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Alert Failed",
+        description: error.message || "Failed to send emergency alert",
+        variant: "destructive",
+      });
+    },
+  });
+
   const musterPoints = [
     { id: "main", name: "Main Car Park", capacity: 200, current: 45 },
     { id: "side", name: "Side Entrance", capacity: 100, current: 23 },
@@ -355,9 +376,19 @@ export default function EmergencyMuster() {
               Quick Call Emergency
             </Button>
             
-            <Button className="w-full" variant="outline" data-testid="button-send-alert">
+            <Button 
+              className="w-full" 
+              variant="outline" 
+              data-testid="button-send-alert"
+              onClick={() => {
+                const subject = "Emergency Muster Activation";
+                const message = `Emergency muster has been activated at ${new Date().toLocaleString()}.\n\nAll on-site personnel must immediately proceed to the designated muster point.\n\nPlease follow your emergency procedures and await further instructions from the Fire Marshal.`;
+                sendAlertMutation.mutate({ subject, message });
+              }}
+              disabled={sendAlertMutation.isPending}
+            >
               <Mail className="mr-2" size={16} />
-              Send Alert Email
+              {sendAlertMutation.isPending ? "Sending..." : "Send Alert Email"}
             </Button>
           </div>
         </GlassCard>

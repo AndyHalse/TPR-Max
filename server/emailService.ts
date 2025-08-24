@@ -545,6 +545,36 @@ export class EmailService {
     </html>
     `;
   }
+
+  // Send emergency alert to all on-site personnel
+  async sendEmergencyAlert(to: string, subject: string, message: string): Promise<boolean> {
+    try {
+      const alertSubject = `🚨 EMERGENCY ALERT - ${subject}`;
+      const html = `
+        <div style="background-color: #dc2626; color: white; text-align: center; padding: 20px; margin-bottom: 20px;">
+          <h1 style="margin: 0; font-size: 24px;">🚨 EMERGENCY ALERT 🚨</h1>
+        </div>
+        <div style="background-color: #fee2e2; border: 2px solid #dc2626; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h2 style="color: #dc2626; margin-top: 0;">${subject}</h2>
+          <div style="font-size: 16px; line-height: 1.6; margin: 15px 0;">
+            ${message.replace(/\n/g, '<br>')}
+          </div>
+          <hr style="border: 1px solid #dc2626; margin: 20px 0;">
+          <p style="color: #7f1d1d; font-weight: bold;">
+            <strong>Time:</strong> ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}
+          </p>
+          <p style="color: #7f1d1d; font-size: 14px;">
+            This is an automated emergency alert from VisiGate Pro. Please follow your company's emergency procedures immediately.
+          </p>
+        </div>
+      `;
+
+      return await this.sendEmail(to, alertSubject, html);
+    } catch (error) {
+      console.error("Failed to send emergency alert:", error);
+      return false;
+    }
+  }
 }
 
 export const emailService = new EmailService();
