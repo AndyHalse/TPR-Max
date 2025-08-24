@@ -319,41 +319,119 @@ export default function ContractorKiosk() {
 
         {/* Contractor Pass Modal */}
         <Dialog open={showPassModal} onOpenChange={setShowPassModal}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle className="text-center">Contractor Pass Generated</DialogTitle>
+              <DialogTitle className="text-center">Contractor Pass Ready</DialogTitle>
             </DialogHeader>
             {selectedWorker && (
-              <div className="text-center space-y-4">
-                <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-6">
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    <HardHat className="h-8 w-8 text-orange-600" />
-                    <span className="text-xl font-bold text-orange-800">CONTRACTOR</span>
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-bold text-slate-800">
-                      {selectedWorker.firstName} {selectedWorker.lastName}
-                    </h3>
-                    <p className="text-slate-600">
-                      {companies.find(c => c.id === selectedCompany)?.name}
-                    </p>
-                    {selectedWorker.qrCode && (
-                      <div className="flex justify-center mt-4">
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(selectedWorker.qrCode)}`}
-                          alt="QR Code"
-                          className="border rounded"
-                        />
+              <div className="space-y-4">
+                {/* Pass Preview */}
+                <div 
+                  id="contractor-pass-print"
+                  className="bg-white border-2 border-gray-800 rounded-lg p-4"
+                  style={{ width: '95mm', minHeight: '66mm' }}
+                >
+                  {/* Pass Header */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <div className="text-xs font-bold text-gray-800">ACS Safety & Security Ltd</div>
+                      <div className="text-xs text-gray-600">Visitor Management</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-1">
+                        <HardHat className="h-4 w-4 text-orange-600" />
+                        <span className="text-xs font-bold text-orange-700">CONTRACTOR</span>
                       </div>
-                    )}
-                    <p className="text-xs text-slate-500 mt-2">
-                      Checked in: {new Date().toLocaleString()}
-                    </p>
+                    </div>
+                  </div>
+
+                  {/* Main Content */}
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-gray-900 mb-1">
+                        {selectedWorker.firstName} {selectedWorker.lastName}
+                      </div>
+                      <div className="text-xs text-gray-700 mb-1">
+                        {companies.find(c => c.id === selectedCompany)?.name}
+                      </div>
+                      <div className="text-xs text-gray-600 mb-2">
+                        {selectedWorker.email}
+                      </div>
+                      
+                      {/* Certifications */}
+                      <div className="space-y-1">
+                        <div className="text-xs text-green-700">
+                          ✓ Right to Work: {selectedWorker.rightToWork}
+                        </div>
+                        <div className="text-xs text-green-700">
+                          ✓ CSCS: {selectedWorker.cscsStatus}
+                        </div>
+                        <div className="text-xs text-green-700">
+                          ✓ Induction Complete
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* QR Code */}
+                    <div className="w-16 h-16">
+                      {selectedWorker.qrCode && (
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=${encodeURIComponent(selectedWorker.qrCode)}`}
+                          alt="QR Code"
+                          className="w-full h-full border border-gray-300 rounded"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="mt-3 pt-2 border-t border-gray-300">
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Check-in: {new Date(selectedWorker.checkedInAt || new Date()).toLocaleDateString()}</span>
+                      <span>Pass ID: {selectedWorker.id.slice(-8)}</span>
+                    </div>
                   </div>
                 </div>
-                <Button onClick={() => setShowPassModal(false)} className="w-full">
-                  Print Pass
-                </Button>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      // Print functionality
+                      const printContent = document.getElementById('contractor-pass-print');
+                      if (printContent) {
+                        const printWindow = window.open('', '_blank');
+                        if (printWindow) {
+                          printWindow.document.write(`
+                            <html>
+                              <head>
+                                <title>Contractor Pass - ${selectedWorker.firstName} ${selectedWorker.lastName}</title>
+                                <style>
+                                  @page { size: 95mm 66mm; margin: 0; }
+                                  body { margin: 0; padding: 8px; font-family: Arial, sans-serif; }
+                                  .pass-container { width: 95mm; height: 66mm; border: 2px solid #000; padding: 4mm; box-sizing: border-box; }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="pass-container">${printContent.innerHTML}</div>
+                              </body>
+                            </html>
+                          `);
+                          printWindow.document.close();
+                          printWindow.print();
+                        }
+                      }
+                      setShowPassModal(false);
+                    }}
+                    className="flex-1 bg-orange-600 hover:bg-orange-700"
+                  >
+                    <HardHat className="h-4 w-4 mr-2" />
+                    Print Contractor Pass
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowPassModal(false)}>
+                    Close
+                  </Button>
+                </div>
               </div>
             )}
           </DialogContent>
