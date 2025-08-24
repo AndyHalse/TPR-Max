@@ -5,7 +5,7 @@ import type {
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking 
 } from "@shared/schema";
 import type { IStorage } from "./storage";
-import { eq, and, gte, lte, desc, asc, like, ilike, or } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -188,7 +188,7 @@ export class DatabaseStorage implements IStorage {
         })
         .where(and(
           eq(staffSessions.staffId, id),
-          eq(staffSessions.checkOutTime, null) // Only update sessions without checkout
+          isNull(staffSessions.checkOutTime) // Only update sessions without checkout
         ));
     }
     
@@ -219,35 +219,26 @@ export class DatabaseStorage implements IStorage {
     const result = [];
     
     for (const staffMember of allStaff) {
-      // Get all sessions for this staff member within date range
-      let sessionsQuery = db
-        .select()
-        .from(staffSessions)
-        .where(eq(staffSessions.staffId, staffMember.id));
+      // Build where conditions
+      const whereConditions = [eq(staffSessions.staffId, staffMember.id)];
       
       // Apply date filters if provided
       if (dateFrom) {
-        sessionsQuery = sessionsQuery.where(
-          and(
-            eq(staffSessions.staffId, staffMember.id),
-            gte(staffSessions.checkInTime, dateFrom)
-          )
-        );
+        whereConditions.push(gte(staffSessions.checkInTime, dateFrom));
       }
       
       if (dateTo) {
         const endOfDay = new Date(dateTo);
         endOfDay.setHours(23, 59, 59, 999);
-        sessionsQuery = sessionsQuery.where(
-          and(
-            eq(staffSessions.staffId, staffMember.id),
-            lte(staffSessions.checkInTime, endOfDay),
-            dateFrom ? gte(staffSessions.checkInTime, dateFrom) : undefined
-          ).filter(Boolean)
-        );
+        whereConditions.push(lte(staffSessions.checkInTime, endOfDay));
       }
       
-      const sessions = await sessionsQuery;
+      // Get all sessions for this staff member within date range
+      const sessions = await db
+        .select()
+        .from(staffSessions)
+        .where(and(...whereConditions))
+        .orderBy(desc(staffSessions.checkInTime));
       
       // Calculate sessions with hours worked
       const processedSessions = sessions.map(session => {
