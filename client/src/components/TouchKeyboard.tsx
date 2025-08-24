@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Delete, Space } from "lucide-react";
+import { formatName } from "@/utils/textFormat";
 
 interface TouchKeyboardProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   type?: "text" | "email" | "phone";
+  fieldType?: "name" | "general"; // Add field type for name formatting
 }
 
 const KEYBOARD_LAYOUTS = {
@@ -31,7 +33,7 @@ const KEYBOARD_LAYOUTS = {
   ]
 };
 
-export default function TouchKeyboard({ value, onChange, placeholder, type = "text" }: TouchKeyboardProps) {
+export default function TouchKeyboard({ value, onChange, placeholder, type = "text", fieldType = "general" }: TouchKeyboardProps) {
   const [layout, setLayout] = useState<"text" | "numbers" | "symbols">("text");
   const [isUppercase, setIsUppercase] = useState(true);
 
@@ -51,7 +53,14 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
       setIsUppercase(!isUppercase);
     } else {
       const finalKey = layout === "text" && !isUppercase ? key.toLowerCase() : key;
-      onChange(value + finalKey);
+      const newValue = value + finalKey;
+      
+      // Apply name formatting for name fields
+      if (fieldType === "name" && layout === "text") {
+        onChange(formatName(newValue));
+      } else {
+        onChange(newValue);
+      }
     }
   };
 

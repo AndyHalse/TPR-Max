@@ -336,6 +336,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   onChange={(value) => handleFieldChange(activeField, value)}
                   placeholder={`Enter ${activeField.replace(/([A-Z])/g, ' $1').toLowerCase()}`}
                   type="text"
+                  fieldType={activeField === "firstName" || activeField === "lastName" ? "name" : "general"}
                 />
               </div>
             ) : (
