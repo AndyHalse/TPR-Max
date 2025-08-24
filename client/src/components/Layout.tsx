@@ -31,6 +31,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/staff", icon: Users, label: "Staff" },
     { path: "/visitors", icon: User, label: "Visitors" },
     { path: "/contractors", icon: HardHat, label: "Contractors" },
+    { path: "/contractor-kiosk", icon: CalendarPlus, label: "Contractor Kiosk" },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
     { path: "/muster", icon: ListChecks, label: "Muster List" },
     { path: "/reports", icon: FileText, label: "Reports" },

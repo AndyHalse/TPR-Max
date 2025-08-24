@@ -1801,6 +1801,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contractor Worker Check-in/Check-out endpoints
+  app.post("/api/contractors/workers/:workerId/checkin", async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      
+      // Get worker details first
+      const worker = await storage.getContractorWorkerById(workerId);
+      if (!worker) {
+        return res.status(404).json({ error: "Worker not found" });
+      }
+
+      // Check if worker can check in (induction completed, valid status, etc.)
+      if (!worker.isActive || !worker.inductionCompleted || worker.rightToWorkStatus !== 'valid') {
+        return res.status(400).json({ 
+          error: "Worker not cleared for check-in",
+          details: "Worker must complete induction and have valid right to work status"
+        });
+      }
+
+      // Check if worker is already checked in
+      if (worker.isCheckedIn) {
+        return res.status(400).json({ error: "Worker is already checked in" });
+      }
+
+      // Generate QR code
+      const qrCode = `CONTRACTOR-${workerId}-${Date.now()}`;
+      
+      // Update worker status
+      const updatedWorker = await storage.updateContractorWorker(workerId, {
+        isCheckedIn: true,
+        checkedInAt: new Date(),
+        qrCode: qrCode
+      });
+
+      res.json({
+        success: true,
+        worker: updatedWorker,
+        message: "Worker checked in successfully"
+      });
+    } catch (error) {
+      console.error("Error checking in worker:", error);
+      res.status(500).json({ error: "Failed to check in worker" });
+    }
+  });
+
+  app.post("/api/contractors/workers/:workerId/checkout", async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      
+      // Get worker details first
+      const worker = await storage.getContractorWorkerById(workerId);
+      if (!worker) {
+        return res.status(404).json({ error: "Worker not found" });
+      }
+
+      // Check if worker is currently checked in
+      if (!worker.isCheckedIn) {
+        return res.status(400).json({ error: "Worker is not currently checked in" });
+      }
+
+      // Update worker status
+      const updatedWorker = await storage.updateContractorWorker(workerId, {
+        isCheckedIn: false,
+        checkedOutAt: new Date(),
+        qrCode: null
+      });
+
+      res.json({
+        success: true,
+        worker: updatedWorker,
+        message: "Worker checked out successfully"
+      });
+    } catch (error) {
+      console.error("Error checking out worker:", error);
+      res.status(500).json({ error: "Failed to check out worker" });
+    }
+  });
+
   // Initialize automatic reports
   setupAutomaticReports();
 

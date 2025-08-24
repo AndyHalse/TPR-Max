@@ -59,7 +59,13 @@ export default function Contractors() {
     phone: "",
   });
 
-  // Mock data for now - will be replaced with API calls
+  // Fetch contractor companies from API
+  const { data: contractors = [], isLoading } = useQuery({
+    queryKey: ["/api/contractors"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Mock data for fallback - will be replaced with API calls
   const mockContractors: ContractorCompany[] = [
     {
       id: "1",
@@ -117,9 +123,11 @@ export default function Contractors() {
     }
   ];
 
-  const filteredContractors = mockContractors.filter(contractor =>
+  const contractorData = contractors.length > 0 ? contractors : mockContractors;
+  const filteredContractors = contractorData.filter((contractor: ContractorCompany) =>
     contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contractor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())
+    contractor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    contractor.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleInviteSubmit = () => {
@@ -265,7 +273,12 @@ export default function Contractors() {
 
       {/* Contractors List */}
       <div className="grid grid-cols-1 gap-6">
-        {filteredContractors.map((contractor) => (
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+            <p className="mt-2 text-slate-600">Loading contractors...</p>
+          </div>
+        ) : filteredContractors.map((contractor) => (
           <GlassCard key={contractor.id}>
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex-1">

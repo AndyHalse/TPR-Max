@@ -266,6 +266,11 @@ export const contractorWorkers = pgTable("contractor_workers", {
   inductionCompleted: boolean("induction_completed").default(false),
   inductionCompletedAt: timestamp("induction_completed_at"),
   isActive: boolean("is_active").default(true),
+  // Check-in/out status
+  isCheckedIn: boolean("is_checked_in").default(false),
+  checkedInAt: timestamp("checked_in_at"),
+  checkedOutAt: timestamp("checked_out_at"),
+  qrCode: text("qr_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
