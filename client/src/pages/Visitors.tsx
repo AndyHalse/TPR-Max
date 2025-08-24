@@ -204,6 +204,28 @@ export default function Visitors() {
     },
   });
 
+  // Cleanup duplicates mutation
+  const cleanupDuplicatesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", "/api/test-data/visitors/duplicates");
+      return response.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      toast({
+        title: "Success",
+        description: `Removed ${result.duplicatesRemoved} duplicate visitors. ${result.uniqueVisitorsRemaining} unique visitors remaining.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to clean up duplicate visitors",
+        variant: "destructive",
+      });
+    },
+  });
+
   const checkInPreviousVisitorMutation = useMutation({
     mutationFn: async (visitor: InsertVisitor) => {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
@@ -439,6 +461,16 @@ export default function Visitors() {
                   <p className="text-slate-600">Select a visitor who has been onsite before</p>
                 </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => cleanupDuplicatesMutation.mutate()}
+                disabled={cleanupDuplicatesMutation.isPending}
+                data-testid="button-cleanup-duplicates"
+                className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
+              >
+                {cleanupDuplicatesMutation.isPending ? "Cleaning..." : "Remove Duplicates"}
+              </Button>
             </div>
 
             {/* Search */}

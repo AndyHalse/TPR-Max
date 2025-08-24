@@ -478,6 +478,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Reports endpoints
   // Generate test data for load testing
+  // Clear duplicate visitors endpoint
+  app.delete("/api/test-data/visitors/duplicates", async (req, res) => {
+    try {
+      const allVisitors = await storage.getAllVisitors();
+      const uniqueVisitors = new Map();
+      const duplicatesToRemove = [];
+
+      // Find duplicates based on firstName + lastName combination
+      for (const visitor of allVisitors) {
+        const nameKey = `${visitor.firstName.toLowerCase()}_${visitor.lastName.toLowerCase()}`;
+        if (uniqueVisitors.has(nameKey)) {
+          // Keep the newest visitor, mark older ones for removal
+          const existing = uniqueVisitors.get(nameKey);
+          if (new Date(visitor.checkedInAt) > new Date(existing.checkedInAt)) {
+            duplicatesToRemove.push(existing.id);
+            uniqueVisitors.set(nameKey, visitor);
+          } else {
+            duplicatesToRemove.push(visitor.id);
+          }
+        } else {
+          uniqueVisitors.set(nameKey, visitor);
+        }
+      }
+
+      // Remove duplicates
+      let removedCount = 0;
+      for (const visitorId of duplicatesToRemove) {
+        await storage.deleteVisitor(visitorId);
+        removedCount++;
+      }
+
+      res.json({ 
+        success: true,
+        message: `Removed ${removedCount} duplicate visitors`,
+        duplicatesRemoved: removedCount,
+        uniqueVisitorsRemaining: uniqueVisitors.size
+      });
+    } catch (error) {
+      console.error("Error removing duplicate visitors:", error);
+      res.status(500).json({ error: "Failed to remove duplicate visitors" });
+    }
+  });
+
   app.post("/api/test-data/visitors", async (req, res) => {
     try {
       const staff = await storage.getAllStaff();
@@ -485,16 +528,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No staff members found to assign as hosts" });
       }
 
-      // Generate 30 random previous visitors
+      // Generate 30 unique previous visitors
       const testVisitors = [];
-      const firstNames = ["James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica", "Thomas", "Sarah", "Christopher", "Karen", "Charles", "Nancy", "Daniel", "Lisa", "Matthew", "Betty", "Anthony", "Helen", "Mark", "Sandra"];
-      const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson"];
-      const companies = ["Tech Solutions Ltd", "Global Industries", "Innovation Corp", "Digital Services", "Engineering Solutions", "Consulting Group", "Marketing Agency", "Design Studio", "Software Systems", "Business Partners", "Strategic Advisors", "Creative Solutions", "Professional Services", "Development Group", "Management Consulting", "Technology Partners"];
-      const purposes = ["Business Meeting", "Project Discussion", "Consultation", "Training Session", "Interview", "Site Visit", "Maintenance", "Delivery", "Inspection", "Client Meeting", "Partnership Meeting", "Product Demo", "Technical Support", "Contract Review", "Planning Session"];
+      const firstNames = ["James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica", "Thomas", "Sarah", "Christopher", "Karen", "Charles", "Nancy", "Daniel", "Lisa", "Matthew", "Betty", "Anthony", "Helen", "Mark", "Sandra", "Paul", "Dorothy", "Joshua", "Carol", "Andrew", "Ruth", "Kenneth", "Sharon", "Kevin", "Michelle", "Brian", "Laura", "George", "Emily", "Timothy", "Kimberly", "Ronald", "Deborah", "Jason", "Donna"];
+      const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores", "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell", "Carter", "Roberts"];
+      const companies = ["Tech Solutions Ltd", "Global Industries", "Innovation Corp", "Digital Services", "Engineering Solutions", "Consulting Group", "Marketing Agency", "Design Studio", "Software Systems", "Business Partners", "Strategic Advisors", "Creative Solutions", "Professional Services", "Development Group", "Management Consulting", "Technology Partners", "Data Analytics Co", "Cloud Computing Ltd", "Security Systems Inc", "Mobile Development", "AI Research Labs", "Blockchain Solutions", "Green Energy Corp", "Healthcare Tech", "Financial Services", "Education Solutions", "Retail Innovation", "Manufacturing Plus", "Transport Systems", "Media Production"];
+      const purposes = ["Business Meeting", "Project Discussion", "Consultation", "Training Session", "Interview", "Site Visit", "Maintenance", "Delivery", "Inspection", "Client Meeting", "Partnership Meeting", "Product Demo", "Technical Support", "Contract Review", "Planning Session", "Audit", "Installation", "Conference", "Negotiation", "Workshop"];
+
+      // Create unique name combinations to avoid duplicates
+      const usedNames = new Set();
+      const existingVisitors = await storage.getAllVisitors();
+      
+      // Add existing visitor names to avoid conflicts
+      existingVisitors.forEach(visitor => {
+        usedNames.add(`${visitor.firstName.toLowerCase()}_${visitor.lastName.toLowerCase()}`);
+      });
 
       for (let i = 0; i < 30; i++) {
-        const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-        const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+        let firstName, lastName, nameKey;
+        let attempts = 0;
+        
+        // Generate unique name combination
+        do {
+          firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+          lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+          nameKey = `${firstName.toLowerCase()}_${lastName.toLowerCase()}`;
+          attempts++;
+          
+          // Fallback: append number if we can't find unique combination
+          if (attempts > 50) {
+            firstName = firstNames[i % firstNames.length];
+            lastName = lastNames[Math.floor(i / firstNames.length) % lastNames.length];
+            nameKey = `${firstName.toLowerCase()}_${lastName.toLowerCase()}_${i}`;
+            break;
+          }
+        } while (usedNames.has(nameKey));
+        
+        usedNames.add(nameKey);
+        
         const randomCompany = companies[Math.floor(Math.random() * companies.length)];
         const randomPurpose = purposes[Math.floor(Math.random() * purposes.length)];
         const randomHost = staff[Math.floor(Math.random() * staff.length)];
@@ -511,7 +582,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkOutTime.setHours(checkInTime.getHours() + Math.floor(Math.random() * 8) + 1);
 
         const visitorData = {
-          name: `${randomFirstName} ${randomLastName}`,
+          firstName: firstName,
+          lastName: lastName,
           company: randomCompany,
           purpose: randomPurpose,
           hostStaffId: randomHost.id,

@@ -407,6 +407,26 @@ export class DatabaseStorage implements IStorage {
     return visitor || undefined;
   }
 
+  async deleteVisitor(id: string): Promise<boolean> {
+    try {
+      // Use a transaction to ensure both operations succeed
+      return await db.transaction(async (tx) => {
+        // First, update any pre-bookings that reference this visitor
+        await tx
+          .update(preBookings)
+          .set({ visitorId: null })
+          .where(eq(preBookings.visitorId, id));
+        
+        // Then delete the visitor
+        const result = await tx.delete(visitors).where(eq(visitors.id, id));
+        return result.rowCount > 0;
+      });
+    } catch (error) {
+      console.error("Error deleting visitor:", error);
+      return false;
+    }
+  }
+
   // NEW: Search visitors for quick rebooking
   async searchVisitors(searchTerm: string): Promise<Visitor[]> {
     const results = await db
