@@ -319,6 +319,33 @@ export class DatabaseStorage implements IStorage {
     return newVisitor;
   }
 
+  async createVisitorWithTimestamps(visitorData: InsertVisitor & {
+    checkedInAt: Date;
+    checkedOutAt?: Date;
+    isCheckedIn: boolean;
+  }): Promise<Visitor> {
+    const id = randomUUID();
+    const qrCode = `VIS_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+    
+    const [visitor] = await db
+      .insert(visitors)
+      .values({
+        id,
+        name: visitorData.name,
+        company: visitorData.company ?? null,
+        purpose: visitorData.purpose ?? null,
+        carRegistration: visitorData.carRegistration ?? null,
+        hostStaffId: visitorData.hostStaffId ?? null,
+        qrCode,
+        checkedInAt: visitorData.checkedInAt,
+        checkedOutAt: visitorData.checkedOutAt ?? null,
+        isCheckedIn: visitorData.isCheckedIn,
+      })
+      .returning();
+      
+    return visitor;
+  }
+
   async updateVisitor(id: string, updates: Partial<InsertVisitor>): Promise<Visitor | undefined> {
     const [updatedVisitor] = await db
       .update(visitors)
