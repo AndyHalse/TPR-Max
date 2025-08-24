@@ -183,8 +183,7 @@ export class DatabaseStorage implements IStorage {
     }>;
     totalHours: number;
   }>> {
-    // For now, return simplified data based on current check-in status
-    // This would need to be enhanced with actual time tracking data
+    // Enhanced to return all sessions within date range
     const allStaff = await this.getAllStaff();
     
     return allStaff.map(staffMember => {

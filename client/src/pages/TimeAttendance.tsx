@@ -4,7 +4,8 @@ import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock, Download, Calendar, Users, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Clock, Download, Calendar, Users, FileText, Eye, BarChart3, TrendingUp } from "lucide-react";
 import { format, formatDuration, intervalToDuration } from "date-fns";
 
 interface TimeAttendanceRecord {
@@ -29,6 +30,9 @@ export default function TimeAttendance() {
   const [dateTo, setDateTo] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
+
+  const [advancedView, setAdvancedView] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<TimeAttendanceRecord | null>(null);
 
   const { data: timeAttendanceData, isLoading, refetch } = useQuery<TimeAttendanceRecord[]>({
     queryKey: ["/api/staff/time-attendance", dateFrom, dateTo],
@@ -131,15 +135,26 @@ export default function TimeAttendance() {
           <h2 className="text-2xl font-bold text-slate-800">Time & Attendance Report</h2>
           <p className="text-slate-600 mt-1">Track staff working hours and attendance patterns</p>
         </div>
-        <Button
-          onClick={exportToCSV}
-          className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
-          data-testid="button-export-csv"
-          disabled={!timeAttendanceData || !Array.isArray(timeAttendanceData) || timeAttendanceData.length === 0}
-        >
-          <Download className="mr-2" size={16} />
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setAdvancedView(!advancedView)}
+            variant={advancedView ? "default" : "outline"}
+            className={advancedView ? "gradient-blue text-white" : "bg-white/80 hover:bg-white border-white/30"}
+            data-testid="button-advanced-view"
+          >
+            <Eye className="mr-2" size={16} />
+            {advancedView ? "Simple View" : "Advanced View"}
+          </Button>
+          <Button
+            onClick={exportToCSV}
+            className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
+            data-testid="button-export-csv"
+            disabled={!timeAttendanceData || !Array.isArray(timeAttendanceData) || timeAttendanceData.length === 0}
+          >
+            <Download className="mr-2" size={16} />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Date Range Controls */}
@@ -240,15 +255,24 @@ export default function TimeAttendance() {
             <GlassCard key={record.staffId}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-800" data-testid={`staff-name-${record.staffId}`}>
-                      {record.staffName}
-                    </h3>
-                    <p className="text-slate-600" data-testid={`staff-department-${record.staffId}`}>
-                      {record.department}
-                    </p>
+                  <div 
+                    className="flex-1 cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
+                    onClick={() => setSelectedStaff(record)}
+                    data-testid={`staff-card-${record.staffId}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800" data-testid={`staff-name-${record.staffId}`}>
+                          {record.staffName}
+                        </h3>
+                        <p className="text-slate-600" data-testid={`staff-department-${record.staffId}`}>
+                          {record.department}
+                        </p>
+                      </div>
+                      <BarChart3 className="text-slate-400 ml-auto" size={16} />
+                    </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right ml-4">
                     <p className="text-sm text-slate-600">Total Hours</p>
                     <p className="text-xl font-bold text-blue-600" data-testid={`total-hours-${record.staffId}`}>
                       {formatHours(record.totalHours)}
@@ -256,55 +280,202 @@ export default function TimeAttendance() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-2 text-slate-600 font-medium">Date</th>
-                        <th className="text-left py-2 text-slate-600 font-medium">Check In</th>
-                        <th className="text-left py-2 text-slate-600 font-medium">Check Out</th>
-                        <th className="text-left py-2 text-slate-600 font-medium">Hours</th>
-                        <th className="text-left py-2 text-slate-600 font-medium">Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {record.sessions.map((session, index: number) => (
-                        <tr key={index} className="border-b border-slate-100">
-                          <td className="py-2 text-slate-700">
-                            {formatDate(session.checkInTime)}
-                          </td>
-                          <td className="py-2 text-slate-700">
-                            {formatTime(session.checkInTime)}
-                          </td>
-                          <td className="py-2 text-slate-700">
-                            {session.checkOutTime ? formatTime(session.checkOutTime) : (
-                              <span className="text-green-600 font-medium">Still on site</span>
-                            )}
-                          </td>
-                          <td className="py-2 text-slate-700">
-                            {formatHours(session.hoursWorked)}
-                          </td>
-                          <td className="py-2">
-                            {session.isManual ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                📝 Manual
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                🎫 Card
-                              </span>
-                            )}
-                          </td>
+                {advancedView && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-2 text-slate-600 font-medium">Date</th>
+                          <th className="text-left py-2 text-slate-600 font-medium">Check In</th>
+                          <th className="text-left py-2 text-slate-600 font-medium">Check Out</th>
+                          <th className="text-left py-2 text-slate-600 font-medium">Hours</th>
+                          <th className="text-left py-2 text-slate-600 font-medium">Type</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {record.sessions.map((session, index: number) => (
+                          <tr key={index} className="border-b border-slate-100">
+                            <td className="py-2 text-slate-700">
+                              {formatDate(session.checkInTime)}
+                            </td>
+                            <td className="py-2 text-slate-700">
+                              {formatTime(session.checkInTime)}
+                            </td>
+                            <td className="py-2 text-slate-700">
+                              {session.checkOutTime ? formatTime(session.checkOutTime) : (
+                                <span className="text-green-600 font-medium">Still on site</span>
+                              )}
+                            </td>
+                            <td className="py-2 text-slate-700">
+                              {formatHours(session.hoursWorked)}
+                            </td>
+                            <td className="py-2">
+                              {session.isManual ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  📝 Manual
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                  🎫 Card
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                
+                {!advancedView && record.sessions.length > 0 && (
+                  <div className="text-sm text-slate-600 text-center py-2">
+                    {record.sessions.length} session(s) - Click staff name for detailed view
+                  </div>
+                )}
               </div>
             </GlassCard>
           ))
         )}
       </div>
+
+      {/* Detailed Staff Modal */}
+      <Dialog open={!!selectedStaff} onOpenChange={() => setSelectedStaff(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="text-blue-500" size={20} />
+              Detailed Report: {selectedStaff?.staffName}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedStaff && (
+            <div className="space-y-6">
+              {/* Staff Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Clock className="text-blue-600" size={16} />
+                    <span className="text-sm font-medium text-blue-800">Total Hours</span>
+                  </div>
+                  <p className="text-xl font-bold text-blue-600 mt-1">
+                    {formatHours(selectedStaff.totalHours)}
+                  </p>
+                </div>
+                
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="text-green-600" size={16} />
+                    <span className="text-sm font-medium text-green-800">Sessions</span>
+                  </div>
+                  <p className="text-xl font-bold text-green-600 mt-1">
+                    {selectedStaff.sessions.length}
+                  </p>
+                </div>
+                
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Users className="text-purple-600" size={16} />
+                    <span className="text-sm font-medium text-purple-800">Department</span>
+                  </div>
+                  <p className="text-xl font-bold text-purple-600 mt-1">
+                    {selectedStaff.department}
+                  </p>
+                </div>
+              </div>
+
+              {/* Detailed Sessions Table */}
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">All Sessions</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border border-slate-200 rounded-lg">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Date</th>
+                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Check In</th>
+                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Check Out</th>
+                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Duration</th>
+                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Entry Type</th>
+                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedStaff.sessions.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-8 text-slate-500">
+                            No sessions found for selected date range
+                          </td>
+                        </tr>
+                      ) : (
+                        selectedStaff.sessions.map((session, index) => (
+                          <tr key={index} className="border-t border-slate-100 hover:bg-slate-50">
+                            <td className="py-3 px-4 text-slate-700">
+                              {formatDate(session.checkInTime)}
+                            </td>
+                            <td className="py-3 px-4 text-slate-700">
+                              {formatTime(session.checkInTime)}
+                            </td>
+                            <td className="py-3 px-4 text-slate-700">
+                              {session.checkOutTime ? formatTime(session.checkOutTime) : (
+                                <span className="text-green-600 font-medium">Still on site</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-slate-700 font-medium">
+                              {formatHours(session.hoursWorked)}
+                            </td>
+                            <td className="py-3 px-4">
+                              {session.isManual ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  📝 Manual Entry
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  🎫 Card Scan
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {session.checkOutTime ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  ✅ Complete
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                  🔄 Active
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Analysis Section */}
+              {selectedStaff.sessions.length > 0 && (
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-slate-800 mb-2">Quick Analysis</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-600">Average session length:</span>
+                      <span className="ml-2 font-medium">
+                        {formatHours(selectedStaff.totalHours / selectedStaff.sessions.length)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Longest session:</span>
+                      <span className="ml-2 font-medium">
+                        {formatHours(Math.max(...selectedStaff.sessions.map(s => s.hoursWorked)))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
