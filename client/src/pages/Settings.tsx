@@ -30,9 +30,13 @@ export default function Settings() {
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: Partial<InsertCompanySettings>) => {
-      return apiRequest("PUT", "/api/settings", updates);
+      console.log('Mutation function called with:', updates);
+      const response = await apiRequest("PUT", "/api/settings", updates);
+      console.log('Mutation response:', response);
+      return response;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Mutation success:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({
         title: "Success",
@@ -40,7 +44,8 @@ export default function Settings() {
       });
       setFormData({});
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Mutation error:', error);
       toast({
         title: "Error",
         description: "Failed to update settings",
@@ -124,10 +129,18 @@ export default function Settings() {
   };
 
   const handleInputChange = (field: keyof InsertCompanySettings, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    console.log('Input changed:', field, '=', value);
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      console.log('Updated form data:', newData);
+      return newData;
+    });
   };
 
   const handleSave = () => {
+    console.log('Form data to save:', formData);
+    console.log('Form data keys:', Object.keys(formData));
+    
     if (Object.keys(formData).length === 0) {
       toast({
         title: "Info",
@@ -135,6 +148,8 @@ export default function Settings() {
       });
       return;
     }
+    
+    console.log('Submitting form data:', formData);
     updateSettingsMutation.mutate(formData);
   };
 
