@@ -1,0 +1,87 @@
+1. Core Features & User Stories
+For the Company Admin (The Hirer):
+
+Contractor Company Database: Maintain a list of approved contractor firms.
+
+Compliance Dashboard: For each contractor company, view a live "Compliance Status" dashboard with traffic-light indicators (Red/Amber/Green) for each critical document.
+
+Pre-Approval Workflow: Invite or add a contractor company and define the mandatory documents and inductions required for their workers.
+
+Automated Alerts: Receive email alerts for expiring contractor documents (e.g., "ABC Plumbing's Public Liability Insurance expires in 14 days").
+
+Audit Log: A full, uneditable history of all document uploads, approvals, and visits for compliance auditing.
+
+For the Contractor Company Admin (The Hirer's Contact):
+
+Dedicated Portal: A secure login for the contractor firm to manage their own profile.
+
+Document Upload & Management: Ability to upload, edit, and renew all necessary compliance documents for their company and their employees.
+
+Worker Management: Add/remove their employees and assign them specific, validated competencies (e.g., "CSCS Card", "IPAF 3a", "Asbestos Awareness").
+
+Pre-Register Workers: For a specific site visit, pre-register their workers, who will then be fast-tracked on arrival.
+
+For the Contractor Employee (The Worker):
+
+Self-Service Pre-Registration: Receive a link from their boss to provide their personal details and upload any individual-specific credentials (e.g., photo for ID card) ahead of time.
+
+Site-Specific Inductions: Complete mandatory digital inductions (e.g., site safety video, quiz) online before arrival.
+
+For the Receptionist/Site Manager:
+
+Verified Check-In: When a contractor employee arrives, their name is already in the system. A quick scan of the barcode on their pre-printed ID card or a search confirms their identity and shows their cleared compliance status for a swift, secure sign-in.
+
+2. UK-Specific Compliance Requirements (Mandatory)
+The system must enforce validation and tracking for these key areas:
+
+Company-Level Documents (The Contractor Firm must provide):
+
+Public Liability Insurance: Track provider, policy number, level of cover, and expiry date. (Mandatory)
+
+Employers' Liability Insurance: As above. Legal requirement. (Mandatory)
+
+Health & Safety Policy: Document upload and expiry date.
+
+Risk Assessments & Method Statements (RAMS): For the contractor company generally and/or for specific high-risk tasks. Track version control.
+
+CIS (Construction Industry Scheme) Registration: Verify UTR number and status for applicable contractors.
+
+Modern Slavery Act Statement: For larger contractors.
+
+Employee-Level Credentials (The Individual Worker must have):
+
+Identity Verification: Photo ID check (e.g., passport, driving licence).
+
+Right to Work (RTW): Document check and expiry tracking. (Mandatory)
+
+Industry Competence Cards: CSCS, CPCS, IPAF, PASMA, etc. Track card number and expiry.
+
+Role-Specific Training: Asbestos Awareness, Manual Handling, Face Fit Testing, etc. Track expiry.
+
+Medical Fitness: e.g., FP Medical, if required.
+
+3. Technical & Design Specifications
+Integration: This is not a standalone product. It must be seamlessly integrated into the existing VisiGate Pro admin and kiosk dashboards.
+
+Database: Extend the tenant SQL database schema with new tables: contractor_companies, contractor_employees, compliance_documents, document_types, competencies.
+
+Document Storage: Securely store uploaded PDFs, images, and other documents. Consider integration with cloud storage (e.g., AWS S3) for scalability and security.
+
+Notifications: Build a cron job/scheduled task system to scan documents daily and send expiry alerts to both the Hirer and the Contractor company admin.
+
+UI/UX: Maintain the Glassmorphism design language. Use clear, colour-coded status indicators (Green = Valid, Amber = Expiring soon, Red = Expired). The process must be intuitive for all user types.
+
+4. Workflow Process
+Invitation: Hirer invites "XYZ Electrical" to their portal.
+
+Onboarding: XYZ Electrical's admin logs in, fills in company details, and uploads all requested mandatory documents (Insurance, H&S Policy, etc.).
+
+Validation: Hirer's admin reviews and approves the documents, granting the company "Approved" status.
+
+Adding Workers: XYZ Electrical's admin adds their electrician, John Doe, and uploads his CSCS card, Right to Work proof, and photo.
+
+Pre-Registration: For a job next week, the admin pre-registers John Doe for the site. John receives a link to complete a short site induction online.
+
+Arrival: On the day, John arrives at site. The receptionist finds his pre-vetted profile and prints a temporary visitor pass (or he uses his company ID). The check-in is complete in seconds because compliance was pre-verified.
+
+Success Criteria: A site manager can prevent a contractor from being checked in because the system automatically flags an expired insurance certificate, thereby enforcing compliance and reducing risk.

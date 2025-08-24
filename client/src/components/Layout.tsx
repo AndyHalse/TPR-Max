@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain, Clock, Menu, X } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain, Clock, Menu, X, HardHat } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import type { CompanySettings } from "@shared/schema";
 import { useState } from "react";
@@ -29,6 +30,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/", icon: ChartLine, label: "Dashboard" },
     { path: "/staff", icon: Users, label: "Staff" },
     { path: "/visitors", icon: User, label: "Visitors" },
+    { path: "/contractors", icon: HardHat, label: "Contractors" },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
     { path: "/muster", icon: ListChecks, label: "Muster List" },
     { path: "/reports", icon: FileText, label: "Reports" },
@@ -63,23 +65,30 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
           
-          <div className="hidden lg:flex items-center space-x-2 xl:space-x-4 flex-1 justify-center">
-            {navItems.map((item) => (
-              <Link key={item.path} href={item.path}>
-                <button 
-                  className={`nav-btn px-2 xl:px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 xl:space-x-2 ${
-                    location === item.path 
-                      ? 'bg-white text-blue-600 shadow-sm' 
-                      : 'text-slate-700 hover:text-blue-600'
-                  }`}
-                  data-testid={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
-                >
-                  <item.icon size={14} />
-                  <span className="hidden xl:inline">{item.label}</span>
-                  <span className="xl:hidden">{item.label.split(' ')[0]}</span>
-                </button>
-              </Link>
-            ))}
+          <div className="hidden lg:flex items-center space-x-1 flex-1 justify-center">
+            <TooltipProvider>
+              {navItems.map((item) => (
+                <Tooltip key={item.path}>
+                  <TooltipTrigger asChild>
+                    <Link href={item.path}>
+                      <button 
+                        className={`nav-btn p-3 rounded-lg transition-colors ${
+                          location === item.path 
+                            ? 'bg-white text-blue-600 shadow-sm' 
+                            : 'text-slate-700 hover:text-blue-600 hover:bg-white/50'
+                        }`}
+                        data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <item.icon size={18} />
+                      </button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.label}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </TooltipProvider>
           </div>
           
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
