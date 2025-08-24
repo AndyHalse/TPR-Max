@@ -129,6 +129,15 @@ export default function Contractors() {
     contractor.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Calculate dynamic compliance score from documents status
+  const calculateComplianceScore = (documentsStatus: any) => {
+    if (!documentsStatus) return 0;
+    const documents = Object.values(documentsStatus);
+    const validDocs = documents.filter((status: any) => status === 'valid').length;
+    const totalDocs = documents.length;
+    return totalDocs > 0 ? Math.round((validDocs / totalDocs) * 100) : 0;
+  };
+
   const handleInviteSubmit = () => {
     // TODO: Implement invite API call
     toast({
@@ -387,9 +396,16 @@ export default function Contractors() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {getComplianceIcon(contractor.complianceScore)}
-                    <span className="text-sm font-medium text-slate-700">{contractor.complianceScore}%</span>
-                    {getStatusBadge(contractor.status)}
+                    {(() => {
+                      const dynamicScore = calculateComplianceScore(contractor.documentsStatus);
+                      return (
+                        <>
+                          {getComplianceIcon(dynamicScore)}
+                          <span className="text-sm font-medium text-slate-700">{dynamicScore}%</span>
+                          {getStatusBadge(contractor.status)}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
