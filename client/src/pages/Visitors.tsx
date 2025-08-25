@@ -65,8 +65,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
-    // Only open dropdown when user has typed at least 1 character
-    setOpen(newValue.length >= 1);
+    // Only show dropdown after user types at least 2 characters to avoid interference
+    setOpen(newValue.length >= 2);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -126,8 +126,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
         size="sm"
         className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
         onClick={() => {
-          // Only open if there's text to search or show companies
-          if (inputValue.trim()) {
+          // Only toggle dropdown if user has typed enough to avoid interference
+          if (inputValue.length >= 2) {
             setOpen(!open);
           }
         }}

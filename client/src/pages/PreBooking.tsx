@@ -43,7 +43,7 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onValueChange(newValue);
-    setOpen(newValue.length >= 1);
+    setOpen(newValue.length >= 2);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -95,7 +95,7 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
         size="sm"
         className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
         onClick={() => {
-          if (inputValue.trim()) {
+          if (inputValue.length >= 2) {
             setOpen(!open);
           }
         }}
