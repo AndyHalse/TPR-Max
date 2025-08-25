@@ -59,15 +59,20 @@ export default function Login() {
     e.preventDefault();
     setError("");
     
-    console.log("Form submitted with credentials:", credentials);
+    // Get values directly from form elements (handles autofill)
+    const formData = new FormData(e.target as HTMLFormElement);
+    const username = formData.get('username') as string || credentials.username;
+    const password = formData.get('password') as string || credentials.password;
     
-    if (!credentials.username || !credentials.password) {
+    console.log("Form submitted with credentials:", { username, password });
+    
+    if (!username || !password) {
       setError("Please enter both username and password");
       return;
     }
     
     console.log("Attempting login...");
-    loginMutation.mutate(credentials);
+    loginMutation.mutate({ username, password });
   };
 
   return (
@@ -104,6 +109,7 @@ export default function Login() {
                 <Input
                   ref={usernameInputRef}
                   id="username"
+                  name="username"
                   type="text"
                   placeholder="Enter your username"
                   className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
@@ -125,6 +131,7 @@ export default function Login() {
                 <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   placeholder="Enter your password"
                   className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
@@ -132,6 +139,7 @@ export default function Login() {
                   onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
                   data-testid="input-password"
                   disabled={loginMutation.isPending}
+                  autoComplete="current-password"
                 />
               </div>
             </div>
