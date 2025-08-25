@@ -1418,9 +1418,11 @@ export class DatabaseStorage implements IStorage {
     color: string;
   }>> {
     try {
+      // Get ALL departments from the departments table
+      const allDepartments = await db.select().from(departments).where(eq(departments.isActive, true));
+      
       // Get all staff grouped by department
       const allStaff = await db.select().from(staff);
-      const checkedInStaff = allStaff.filter(s => s.isCheckedIn);
       
       // Get current visitors with their host department info
       const currentVisitors = await db
@@ -1432,44 +1434,21 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(staff, eq(visitors.hostStaffId, staff.id))
         .where(eq(visitors.isCheckedIn, true));
 
-      // Group staff by department
+      // Initialize all departments with zero counts
       const departmentStats = new Map<string, {
         staffCount: number;
         visitorCount: number;
         totalStaff: number;
+        color: string;
       }>();
-
-      // Count staff by department
-      allStaff.forEach(staffMember => {
-        const dept = staffMember.department;
-        if (!departmentStats.has(dept)) {
-          departmentStats.set(dept, { staffCount: 0, visitorCount: 0, totalStaff: 0 });
-        }
-        const stats = departmentStats.get(dept)!;
-        stats.totalStaff++;
-        if (staffMember.isCheckedIn) {
-          stats.staffCount++;
-        }
-      });
-
-      // Count visitors by host department
-      currentVisitors.forEach(({ visitor, hostStaff }) => {
-        if (hostStaff?.department) {
-          const dept = hostStaff.department;
-          if (!departmentStats.has(dept)) {
-            departmentStats.set(dept, { staffCount: 0, visitorCount: 0, totalStaff: 0 });
-          }
-          departmentStats.get(dept)!.visitorCount++;
-        }
-      });
 
       // Define department colors
       const departmentColors = {
         'Engineering': 'bg-blue-500',
-        'Sales': 'bg-green-500', 
-        'Marketing': 'bg-purple-500',
+        'Sales': 'bg-green-600', 
+        'Marketing': 'bg-green-500',
         'HR': 'bg-orange-500',
-        'Operations': 'bg-indigo-500',
+        'Operations': 'bg-purple-500',
         'Finance': 'bg-yellow-500',
         'Security': 'bg-red-500',
         'Management': 'bg-pink-500',
@@ -1477,7 +1456,36 @@ export class DatabaseStorage implements IStorage {
         'Quality': 'bg-emerald-500',
       };
 
-      // Calculate trends (simplified - could be enhanced with historical data)
+      // Initialize all departments
+      allDepartments.forEach(dept => {
+        departmentStats.set(dept.name, {
+          staffCount: 0,
+          visitorCount: 0,
+          totalStaff: 0,
+          color: dept.color || departmentColors[dept.name] || 'bg-gray-500',
+        });
+      });
+
+      // Count staff by department
+      allStaff.forEach(staffMember => {
+        const dept = staffMember.department;
+        if (departmentStats.has(dept)) {
+          const stats = departmentStats.get(dept)!;
+          stats.totalStaff++;
+          if (staffMember.isCheckedIn) {
+            stats.staffCount++;
+          }
+        }
+      });
+
+      // Count visitors by host department
+      currentVisitors.forEach(({ visitor, hostStaff }) => {
+        if (hostStaff?.department && departmentStats.has(hostStaff.department)) {
+          departmentStats.get(hostStaff.department)!.visitorCount++;
+        }
+      });
+
+      // Calculate trends and build results
       const results = Array.from(departmentStats.entries()).map(([department, stats]) => {
         const totalCount = stats.visitorCount + stats.staffCount;
         // Simple trend calculation based on visitor/staff ratio
@@ -1490,12 +1498,17 @@ export class DatabaseStorage implements IStorage {
           staffCount: stats.staffCount,
           totalCount,
           trend,
-          color: departmentColors[department] || 'bg-gray-500',
+          color: stats.color,
         };
       });
 
-      // Sort by total count descending
-      return results.sort((a, b) => b.totalCount - a.totalCount);
+      // Sort by total count descending, then by name
+      return results.sort((a, b) => {
+        if (b.totalCount !== a.totalCount) {
+          return b.totalCount - a.totalCount;
+        }
+        return a.department.localeCompare(b.department);
+      });
     } catch (error) {
       console.error('Error getting department analytics:', error);
       return [];
