@@ -348,15 +348,6 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
-  async updateVisitor(id: string, updates: Partial<Visitor>): Promise<Visitor | undefined> {
-    const [updatedVisitor] = await db
-      .update(visitors)
-      .set(updates)
-      .where(eq(visitors.id, id))
-      .returning();
-    
-    return updatedVisitor || undefined;
-  }
 
   async createVisitor(insertVisitor: InsertVisitor): Promise<Visitor> {
     // First check if there's an existing visitor with same name (checked out)
@@ -364,7 +355,7 @@ export class DatabaseStorage implements IStorage {
     const existingVisitor = await this.findExistingVisitorToReuse(
       insertVisitor.firstName,
       insertVisitor.lastName,
-      insertVisitor.company
+      insertVisitor.company || undefined
     );
     
     if (existingVisitor) {
