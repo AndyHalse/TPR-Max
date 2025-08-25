@@ -382,6 +382,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Company endpoints (for autocomplete)
+  app.get("/api/companies", async (req, res) => {
+    try {
+      const companies = await storage.getUniqueCompanies();
+      res.json(companies);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
   // Visitor endpoints
   app.get("/api/visitors", async (req, res) => {
     try {

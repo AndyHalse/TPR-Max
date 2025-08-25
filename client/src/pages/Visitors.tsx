@@ -31,8 +31,109 @@ import {
   History,
   Edit
 } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { format, addDays } from "date-fns";
 import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor } from "@shared/schema";
+import { cn } from "@/lib/utils";
+
+// Company Combobox Component
+interface CompanyComboboxProps {
+  value: string;
+  onChange: (value: string) => void;
+  companies: string[];
+  placeholder?: string;
+  className?: string;
+  testId?: string;
+}
+
+function CompanyCombobox({ value, onChange, companies, placeholder = "Select or type company...", className, testId }: CompanyComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+
+  const handleSelect = (selectedValue: string) => {
+    onChange(selectedValue);
+    setInputValue(selectedValue);
+    setOpen(false);
+  };
+
+  const handleInputChange = (newValue: string) => {
+    setInputValue(newValue);
+    onChange(newValue);
+  };
+
+  const filteredCompanies = companies.filter(company =>
+    company.toLowerCase().includes(inputValue.toLowerCase())
+  );
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <div className="relative">
+          <Input
+            value={inputValue}
+            onChange={(e) => handleInputChange(e.target.value)}
+            placeholder={placeholder}
+            className={cn("w-full pr-8", className)}
+            data-testid={testId}
+            onFocus={() => setOpen(true)}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+            onClick={() => setOpen(!open)}
+          >
+            <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+          </Button>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Search companies..."
+            value={inputValue}
+            onValueChange={handleInputChange}
+          />
+          <CommandList>
+            {filteredCompanies.length === 0 && inputValue.trim() ? (
+              <CommandEmpty>
+                No existing companies found. Press Enter to add "{inputValue}" as new company.
+              </CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {filteredCompanies.map((company) => (
+                  <CommandItem
+                    key={company}
+                    value={company}
+                    onSelect={() => handleSelect(company)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === company ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {company}
+                  </CommandItem>
+                ))}
+                {inputValue.trim() && !companies.includes(inputValue.trim()) && (
+                  <CommandItem
+                    value={inputValue}
+                    onSelect={() => handleSelect(inputValue.trim())}
+                  >
+                    <Check className="mr-2 h-4 w-4 opacity-0" />
+                    Add "{inputValue.trim()}" as new company
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function Visitors() {
   const { toast } = useToast();
@@ -117,6 +218,10 @@ export default function Visitors() {
 
   const { data: allVisitors } = useQuery<Visitor[]>({
     queryKey: ["/api/visitors"],
+  });
+
+  const { data: companies = [] } = useQuery<string[]>({
+    queryKey: ["/api/companies"],
   });
 
   // Filter existing visitors based on search
@@ -780,13 +885,13 @@ export default function Visitors() {
                     <Label htmlFor="company" className="text-sm font-medium text-slate-700">
                       Company
                     </Label>
-                    <Input
-                      id="company"
-                      type="text"
+                    <CompanyCombobox
                       value={walkInData.company}
-                      onChange={(e) => setWalkInData(prev => ({ ...prev, company: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
-                      data-testid="input-walkin-company"
+                      onChange={(value) => setWalkInData(prev => ({ ...prev, company: value }))}
+                      companies={companies}
+                      placeholder="Select or type company name..."
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      testId="input-walkin-company"
                     />
                   </div>
                 </div>
@@ -941,13 +1046,13 @@ export default function Visitors() {
                   <Label htmlFor="company" className="text-sm font-medium text-slate-700">
                     Company
                   </Label>
-                  <Input
-                    id="company"
-                    type="text"
+                  <CompanyCombobox
                     value={preBookingData.company || ""}
-                    onChange={(e) => setPreBookingData(prev => ({ ...prev, company: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                    data-testid="input-prebook-company"
+                    onChange={(value) => setPreBookingData(prev => ({ ...prev, company: value }))}
+                    companies={companies}
+                    placeholder="Select or type company name..."
+                    className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    testId="input-prebook-company"
                   />
                 </div>
                 

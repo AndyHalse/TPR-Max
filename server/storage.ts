@@ -81,6 +81,7 @@ export interface IStorage {
   getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined>;
   findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined>;
   searchVisitors(searchTerm: string): Promise<Visitor[]>;
+  getUniqueCompanies(): Promise<string[]>;
 
   // Company settings methods
   getCompanySettings(): Promise<CompanySettings | undefined>;
@@ -1186,6 +1187,33 @@ export class MemStorage implements IStorage {
     ];
     
     return musterList;
+  }
+
+  async searchVisitors(searchTerm: string): Promise<Visitor[]> {
+    const visitors = Array.from(this.visitors.values());
+    const normalizedTerm = searchTerm.toLowerCase();
+    
+    return visitors.filter(visitor => 
+      visitor.firstName.toLowerCase().includes(normalizedTerm) ||
+      visitor.lastName.toLowerCase().includes(normalizedTerm) ||
+      visitor.company?.toLowerCase().includes(normalizedTerm) ||
+      visitor.email?.toLowerCase().includes(normalizedTerm)
+    );
+  }
+
+  async getUniqueCompanies(): Promise<string[]> {
+    const visitors = Array.from(this.visitors.values());
+    const companies = new Set<string>();
+    
+    // Collect unique company names from visitors
+    visitors.forEach(visitor => {
+      if (visitor.company && visitor.company.trim()) {
+        companies.add(visitor.company.trim());
+      }
+    });
+    
+    // Convert to array and sort alphabetically
+    return Array.from(companies).sort();
   }
 }
 
