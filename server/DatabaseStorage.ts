@@ -320,25 +320,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
-    const whereConditions = [
+    // First try exact match including company
+    const exactConditions = [
       eq(visitors.firstName, firstName),
       eq(visitors.lastName, lastName),
       eq(visitors.isCheckedIn, true)
     ];
     
     if (company) {
-      whereConditions.push(eq(visitors.company, company));
+      exactConditions.push(eq(visitors.company, company));
     } else {
-      whereConditions.push(isNull(visitors.company));
+      exactConditions.push(isNull(visitors.company));
     }
     
-    const [visitor] = await db
+    const [exactMatch] = await db
       .select()
       .from(visitors)
-      .where(and(...whereConditions))
+      .where(and(...exactConditions))
       .limit(1);
     
-    return visitor;
+    if (exactMatch) {
+      return exactMatch;
+    }
+    
+    // If no exact match, check for name-only match (ignore company)
+    // This prevents duplicates when company info varies slightly
+    const [nameMatch] = await db
+      .select()
+      .from(visitors)
+      .where(and(
+        eq(visitors.firstName, firstName),
+        eq(visitors.lastName, lastName),
+        eq(visitors.isCheckedIn, true)
+      ))
+      .limit(1);
+    
+    return nameMatch;
   }
 
   async updateVisitor(id: string, updates: Partial<Visitor>): Promise<Visitor | undefined> {
