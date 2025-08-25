@@ -266,6 +266,9 @@ export default function Visitors() {
     carRegistration: "",
   });
   
+  // Walk-in validation errors
+  const [walkInValidationErrors, setWalkInValidationErrors] = useState<{[key: string]: boolean}>({});
+  
   // Search state for existing visitors
   const [searchTerm, setSearchTerm] = useState("");
   const [showAllPreviousVisitors, setShowAllPreviousVisitors] = useState(false);
@@ -420,6 +423,7 @@ export default function Visitors() {
         purpose: "",
         carRegistration: "",
       });
+      setWalkInValidationErrors({});
       
       toast({
         title: "Success",
@@ -543,31 +547,52 @@ export default function Visitors() {
     createPreBookingMutation.mutate(preBookingData as InsertPreBooking);
   };
 
+  // Validate walk-in form
+  const validateWalkInForm = () => {
+    const errors: {[key: string]: boolean} = {};
+    
+    if (!walkInData.firstName.trim()) errors.firstName = true;
+    if (!walkInData.lastName.trim()) errors.lastName = true;
+    if (!walkInData.email.trim()) errors.email = true;
+    if (!walkInData.company.trim()) errors.company = true;
+    if (!walkInData.hostStaffId.trim()) errors.hostStaffId = true;
+    
+    setWalkInValidationErrors(errors);
+    
+    // Focus on first error field
+    const errorFields = Object.keys(errors);
+    if (errorFields.length > 0) {
+      const firstErrorField = errorFields[0];
+      setTimeout(() => {
+        const element = document.querySelector(`[data-testid="input-walkin-${firstErrorField.replace('hostStaffId', 'host')}"]`) as HTMLElement;
+        if (element) {
+          element.focus();
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Handle walk-in input changes with validation clearing
+  const handleWalkInInputChange = (field: string, value: string) => {
+    setWalkInData(prev => ({ ...prev, [field]: value }));
+    // Clear validation error when user starts typing
+    if (walkInValidationErrors[field]) {
+      setWalkInValidationErrors(prev => ({ ...prev, [field]: false }));
+    }
+  };
+
   const handleWalkInSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!walkInData.firstName.trim()) {
+    // Validate required fields with professional highlighting
+    if (!validateWalkInForm()) {
       toast({
-        title: "Error",
-        description: "First name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!walkInData.lastName.trim()) {
-      toast({
-        title: "Error",
-        description: "Last name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!walkInData.hostStaffId) {
-      toast({
-        title: "Error",
-        description: "Please select a host",
+        title: "Validation Error",
+        description: "Please fill in all required fields highlighted in red.",
         variant: "destructive",
       });
       return;
@@ -901,8 +926,12 @@ export default function Visitors() {
                       id="firstName"
                       type="text"
                       value={walkInData.firstName}
-                      onChange={(e) => setWalkInData(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      onChange={(e) => handleWalkInInputChange("firstName", e.target.value)}
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                        walkInValidationErrors.firstName 
+                          ? 'border-red-500 focus:ring-red-500 ring-red-200' 
+                          : 'border-white/30 focus:ring-green-500'
+                      }`}
                       required
                       data-testid="input-walkin-firstname"
                     />
@@ -916,8 +945,12 @@ export default function Visitors() {
                       id="lastName"
                       type="text"
                       value={walkInData.lastName}
-                      onChange={(e) => setWalkInData(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      onChange={(e) => handleWalkInInputChange("lastName", e.target.value)}
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                        walkInValidationErrors.lastName 
+                          ? 'border-red-500 focus:ring-red-500 ring-red-200' 
+                          : 'border-white/30 focus:ring-green-500'
+                      }`}
                       required
                       data-testid="input-walkin-lastname"
                     />
@@ -931,10 +964,14 @@ export default function Visitors() {
                     </Label>
                     <CompanyCombobox
                       value={walkInData.company}
-                      onChange={(value) => setWalkInData(prev => ({ ...prev, company: value }))}
+                      onChange={(value) => handleWalkInInputChange("company", value)}
                       companies={companies}
                       placeholder="Select or type company name..."
-                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      className={`px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                        walkInValidationErrors.company 
+                          ? 'border-red-500 focus:ring-red-500 ring-red-200' 
+                          : 'border-white/30 focus:ring-green-500'
+                      }`}
                       testId="input-walkin-company"
                     />
                   </div>
@@ -947,8 +984,12 @@ export default function Visitors() {
                       id="email-required"
                       type="email"
                       value={walkInData.email}
-                      onChange={(e) => setWalkInData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      onChange={(e) => handleWalkInInputChange("email", e.target.value)}
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                        walkInValidationErrors.email 
+                          ? 'border-red-500 focus:ring-red-500 ring-red-200' 
+                          : 'border-white/30 focus:ring-green-500'
+                      }`}
                       required
                       data-testid="input-walkin-email"
                     />
@@ -1028,9 +1069,16 @@ export default function Visitors() {
                   </Label>
                   <Select 
                     value={walkInData.hostStaffId} 
-                    onValueChange={(value) => setWalkInData(prev => ({ ...prev, hostStaffId: value }))}
+                    onValueChange={(value) => handleWalkInInputChange("hostStaffId", value)}
                   >
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50">
+                    <SelectTrigger 
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 ${
+                        walkInValidationErrors.hostStaffId 
+                          ? 'border-red-500 focus:ring-red-500 ring-red-200' 
+                          : 'border-white/30 focus:ring-green-500'
+                      }`}
+                      data-testid="input-walkin-host"
+                    >
                       <SelectValue placeholder="Select host staff member" />
                     </SelectTrigger>
                     <SelectContent>

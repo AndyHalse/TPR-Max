@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Staff, PreBooking, InsertPreBooking } from "@shared/schema";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,8 @@ import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "@/components/ui/glass-card";
-import { CalendarPlus, FileText, Clock, CheckCircle2, AlertCircle, Users, Eye, Check, ChevronsUpDown } from "lucide-react";
-import { queryClient } from "@/lib/queryClient";
+import { CalendarPlus, FileText, Clock, CheckCircle2, AlertCircle, Users, Eye, Check, ChevronsUpDown, Calendar as CalendarIcon, Send, UserPlus } from "lucide-react";
+
 // Company Combobox Component - IDENTICAL to Walk-in Registration
 interface CompanyComboboxProps {
   value: string;
@@ -24,6 +24,12 @@ interface CompanyComboboxProps {
   placeholder?: string;
   className?: string;
   testId?: string;
+}
+
+declare global {
+  interface Window {
+    companyTimeout?: NodeJS.Timeout;
+  }
 }
 
 function CompanyCombobox({ value, onValueChange, companies, placeholder = "Select or type company...", className, testId }: CompanyComboboxProps) {
@@ -217,30 +223,6 @@ function CompanyCombobox({ value, onValueChange, companies, placeholder = "Selec
     </div>
   );
 }
-import { apiRequest } from "@/lib/queryClient";
-import GlassCard from "@/components/GlassCard";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { 
-  CalendarPlus, 
-  Calendar as CalendarIcon, 
-  Users, 
-  Mail, 
-  Clock,
-  CheckCircle,
-  Send,
-  Building2,
-  UserPlus
-} from "lucide-react";
-import { format, addDays } from "date-fns";
-import type { Staff, PreBooking, InsertPreBooking } from "@shared/schema";
 
 export default function PreBooking() {
   const { toast } = useToast();
@@ -280,6 +262,7 @@ export default function PreBooking() {
       });
       setFormData({ visitDate: new Date() });
       setSelectedDate(new Date());
+      setValidationErrors({});
     },
     onError: () => {
       toast({
@@ -344,7 +327,8 @@ export default function PreBooking() {
   const validateForm = () => {
     const errors: {[key: string]: boolean} = {};
     
-    if (!formData.visitorName?.trim()) errors.visitorName = true;
+    if (!formData.visitorFirstName?.trim()) errors.visitorFirstName = true;
+    if (!formData.visitorLastName?.trim()) errors.visitorLastName = true;
     if (!formData.visitorEmail?.trim()) errors.visitorEmail = true;
     if (!formData.company?.trim()) errors.company = true;
     if (!formData.hostStaffId?.trim()) errors.hostStaffId = true;
@@ -427,42 +411,61 @@ export default function PreBooking() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="visitorName" className="text-sm font-medium text-slate-700">
-                  Visitor Name *
+                <Label htmlFor="visitorFirstName" className="text-sm font-medium text-slate-700">
+                  Visitor First Name *
                 </Label>
                 <Input
-                  id="visitorName"
+                  id="visitorFirstName"
                   type="text"
-                  value={formData.visitorName || ""}
-                  onChange={(e) => handleInputChange("visitorName", e.target.value)}
+                  value={formData.visitorFirstName || ""}
+                  onChange={(e) => handleInputChange("visitorFirstName", e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
-                    validationErrors.visitorName 
-                      ? 'border-red-500 focus:ring-red-500' 
+                    validationErrors.visitorFirstName 
+                      ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                       : 'border-white/30 focus:ring-blue-500'
                   }`}
                   required
-                  data-testid="input-visitorName"
+                  data-testid="input-visitorFirstName"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="visitorEmail" className="text-sm font-medium text-slate-700">
-                  Visitor Email *
+                <Label htmlFor="visitorLastName" className="text-sm font-medium text-slate-700">
+                  Visitor Last Name *
                 </Label>
                 <Input
-                  id="visitorEmail"
-                  type="email"
-                  value={formData.visitorEmail || ""}
-                  onChange={(e) => handleInputChange("visitorEmail", e.target.value)}
+                  id="visitorLastName"
+                  type="text"
+                  value={formData.visitorLastName || ""}
+                  onChange={(e) => handleInputChange("visitorLastName", e.target.value)}
                   className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
-                    validationErrors.visitorEmail 
-                      ? 'border-red-500 focus:ring-red-500' 
+                    validationErrors.visitorLastName 
+                      ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                       : 'border-white/30 focus:ring-blue-500'
                   }`}
                   required
-                  data-testid="input-visitorEmail"
+                  data-testid="input-visitorLastName"
                 />
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="visitorEmail" className="text-sm font-medium text-slate-700">
+                Visitor Email *
+              </Label>
+              <Input
+                id="visitorEmail"
+                type="email"
+                value={formData.visitorEmail || ""}
+                onChange={(e) => handleInputChange("visitorEmail", e.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                  validationErrors.visitorEmail 
+                    ? 'border-red-500 focus:ring-red-500 ring-red-200' 
+                    : 'border-white/30 focus:ring-blue-500'
+                }`}
+                required
+                data-testid="input-visitorEmail"
+              />
             </div>
             
             <div className="space-y-2">
@@ -476,7 +479,7 @@ export default function PreBooking() {
                 placeholder="Select or type company name..."
                 className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
                   validationErrors.company 
-                    ? 'border-red-500 focus:ring-red-500' 
+                    ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                     : 'border-white/30 focus:ring-blue-500'
                 }`}
                 testId="input-company"
@@ -494,7 +497,7 @@ export default function PreBooking() {
                 <SelectTrigger 
                   className={`w-full px-4 py-3 rounded-xl border bg-white/50 ${
                     validationErrors.hostStaffId 
-                      ? 'border-red-500 focus:ring-red-500' 
+                      ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                       : 'border-white/30 focus:ring-blue-500'
                   }`} 
                   data-testid="input-host-staff"
@@ -520,7 +523,7 @@ export default function PreBooking() {
                       variant="outline"
                       className={`w-full px-4 py-3 rounded-xl border bg-white/50 justify-start text-left font-normal ${
                         validationErrors.visitDate 
-                          ? 'border-red-500 focus:ring-red-500' 
+                          ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                           : 'border-white/30 focus:ring-blue-500'
                       }`}
                       data-testid="input-visitDate"
@@ -587,150 +590,101 @@ export default function PreBooking() {
         {/* Upcoming Bookings */}
         <GlassCard>
           <div className="flex items-center mb-6">
-            <Clock className="mr-3 text-blue-600" size={24} />
+            <Clock className="mr-3 text-orange-600" size={24} />
             <h3 className="text-lg font-semibold text-slate-800">Upcoming Visits</h3>
           </div>
           
-          {!upcomingBookings || upcomingBookings.length === 0 ? (
-            <div className="text-center py-8">
-              <CalendarIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-slate-600">No upcoming visits</p>
-              <p className="text-slate-500 text-sm mt-1">Pre-booked visits will appear here</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {upcomingBookings.slice(0, 10).map((booking) => (
-                <div 
-                  key={booking.id} 
-                  className="p-4 bg-white/50 rounded-xl border border-white/30 hover:bg-white/70 transition-colors"
-                  data-testid={`upcoming-booking-${booking.id}`}
-                >
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {upcomingBookings?.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <Users size={48} className="mx-auto mb-4 opacity-50" />
+                <p>No upcoming pre-bookings</p>
+              </div>
+            ) : (
+              upcomingBookings?.map((booking) => (
+                <div key={booking.id} className="border border-white/30 rounded-xl p-4 bg-white/30">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="font-medium text-slate-800">{booking.visitorName}</h4>
-                      <p className="text-sm text-slate-600">{booking.company || "No company"}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {formatBookingDate(booking.visitDate.toString())}
-                      </p>
+                      <h4 className="font-semibold text-slate-800">
+                        {booking.visitorFirstName} {booking.visitorLastName}
+                      </h4>
+                      <p className="text-sm text-slate-600">{booking.company}</p>
+                      <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
+                      <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
                     </div>
-                    <div className="flex flex-col items-end space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Badge className={getStatusColor(booking)}>
-                          {getStatusText(booking)}
-                        </Badge>
-                        {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
-                          <Button
-                            size="sm"
-                            onClick={() => manualCheckInMutation.mutate(booking.id)}
-                            disabled={manualCheckInMutation.isPending}
-                            className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-7"
-                            data-testid={`button-manual-checkin-${booking.id}`}
-                          >
-                            <UserPlus size={12} className="mr-1" />
-                            {manualCheckInMutation.isPending ? "..." : "Check In"}
-                          </Button>
-                        )}
-                      </div>
-                      {booking.emailSent && (
-                        <div className="flex items-center text-xs text-green-600">
-                          <Mail size={12} className="mr-1" />
-                          Email sent
-                        </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking)}`}>
+                        {getStatusText(booking)}
+                      </span>
+                      {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
+                        <Button
+                          size="sm"
+                          onClick={() => manualCheckInMutation.mutate(booking.id)}
+                          disabled={manualCheckInMutation.isPending}
+                          className="text-xs"
+                        >
+                          Check In
+                        </Button>
                       )}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </GlassCard>
       </div>
 
       {/* All Pre-bookings */}
       <GlassCard>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center mb-6">
+          <FileText className="mr-3 text-purple-600" size={24} />
           <h3 className="text-lg font-semibold text-slate-800">All Pre-bookings</h3>
-          <Badge variant="outline" className="bg-white/50">
-            {preBookings?.length || 0} total
-          </Badge>
         </div>
         
-        {isLoadingBookings ? (
-          <div className="text-center py-8">Loading pre-bookings...</div>
-        ) : !preBookings || preBookings.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-slate-600 text-lg">No pre-bookings yet</p>
-            <p className="text-slate-500 text-sm mt-2">Create your first pre-booking to get started</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-white/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Visitor
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Company
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Visit Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Host
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    QR Code
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/20">
-                {preBookings.map((booking) => {
-                  const hostStaffMember = staff?.find(s => s.id === booking.hostStaffId);
-                  return (
-                    <tr key={booking.id} className="hover:bg-white/20" data-testid={`prebooking-${booking.id}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-slate-800">{booking.visitorName}</div>
-                          <div className="text-xs text-slate-500">{booking.visitorEmail}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {booking.company || "—"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {formatBookingDate(booking.visitDate.toString())}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {hostStaffMember ? `${hostStaffMember.firstName} ${hostStaffMember.lastName} (${hostStaffMember.department})` : "Unknown"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={getStatusColor(booking)}>
-                          {getStatusText(booking)}
-                        </Badge>
-                        {booking.emailSent && (
-                          <div className="flex items-center text-xs text-green-600 mt-1">
-                            <Mail size={12} className="mr-1" />
-                            Sent {booking.emailSentAt ? new Date(booking.emailSentAt).toLocaleDateString() : ""}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <code className="px-2 py-1 bg-slate-100 rounded text-xs font-mono">
-                          {booking.qrCode}
-                        </code>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="space-y-4 max-h-96 overflow-y-auto">
+          {isLoadingBookings ? (
+            <div className="text-center py-4">Loading bookings...</div>
+          ) : preBookings?.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <FileText size={48} className="mx-auto mb-4 opacity-50" />
+              <p>No pre-bookings found</p>
+            </div>
+          ) : (
+            preBookings?.map((booking) => (
+              <div key={booking.id} className="border border-white/30 rounded-xl p-4 bg-white/30">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-slate-800">
+                      {booking.visitorFirstName} {booking.visitorLastName}
+                    </h4>
+                    <p className="text-sm text-slate-600">{booking.visitorEmail}</p>
+                    <p className="text-sm text-slate-600">{booking.company}</p>
+                    <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
+                    <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
+                    {booking.purpose && <p className="text-sm text-slate-600 mt-1">Purpose: {booking.purpose}</p>}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking)}`}>
+                      {getStatusText(booking)}
+                    </span>
+                    {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
+                      <Button
+                        size="sm"
+                        onClick={() => manualCheckInMutation.mutate(booking.id)}
+                        disabled={manualCheckInMutation.isPending}
+                        className="text-xs"
+                      >
+                        <UserPlus size={14} className="mr-1" />
+                        Check In
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </GlassCard>
     </div>
   );
