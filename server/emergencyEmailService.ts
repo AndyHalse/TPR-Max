@@ -55,21 +55,27 @@ export class EmergencyEmailService {
       : 'http://localhost:5000';
     const marshalUrl = `${baseUrl}/fire-marshal?token=${emailData.emergencyToken}`;
     
-    // Force development mode for testing - always show console URL
-    if (true) { // Temporary override for development testing
-      console.log('\n🚨 EMERGENCY ACTIVATED - DEVELOPMENT MODE 🚨');
-      console.log('=============================================');
-      console.log(`Fire Marshal: ${emailData.marshalName}`);
-      console.log(`Email: ${emailData.marshalEmail}`);
-      console.log(`Department: ${emailData.marshalDepartment}`);
-      console.log(`Activated by: ${emailData.activatedBy}`);
-      console.log(`Personnel on-site: ${emailData.totalPersonnel}`);
-      console.log('\n🔗 FIRE MARSHAL EMERGENCY ACCESS URL:');
-      console.log(marshalUrl);
-      console.log('\n📱 Copy this URL to test the mobile Fire Marshal interface!');
-      console.log('=============================================\n');
-      return true; // Return success for development testing
+    // Always show console URL for testing/debugging
+    console.log('\n🚨 EMERGENCY ACTIVATED 🚨');
+    console.log('=============================================');
+    console.log(`Fire Marshal: ${emailData.marshalName}`);
+    console.log(`Email: ${emailData.marshalEmail}`);
+    console.log(`Department: ${emailData.marshalDepartment}`);
+    console.log(`Activated by: ${emailData.activatedBy}`);
+    console.log(`Personnel on-site: ${emailData.totalPersonnel}`);
+    console.log('\n🔗 FIRE MARSHAL EMERGENCY ACCESS URL:');
+    console.log(marshalUrl);
+    console.log('\n📱 Copy this URL to test the mobile Fire Marshal interface!');
+    console.log('=============================================\n');
+
+    // If SMTP credentials are not configured, return success (console-only mode)
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log('ℹ️  SMTP not configured - Console URL only (perfect for development testing)');
+      return true;
     }
+
+    // SMTP is configured - attempt to send actual email
+    console.log('📧 SMTP configured - Sending emergency email...');
 
     const emailHtml = `
     <!DOCTYPE html>
