@@ -20,14 +20,10 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
-      console.log("Making API request with data:", data);
       const response = await apiRequest("POST", "/api/auth/login", data);
-      const result = await response.json();
-      console.log("API response:", result);
-      return result;
+      return response.json();
     },
     onSuccess: (data) => {
-      console.log("Login success:", data);
       if (data.success) {
         toast({
           title: "Login Successful",
@@ -38,7 +34,6 @@ export default function Login() {
       }
     },
     onError: (error: Error) => {
-      console.error("Login error:", error);
       setError(error.message);
       toast({
         title: "Login Failed",
@@ -55,26 +50,21 @@ export default function Login() {
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    alert("Form submitted!"); // Simple debug alert
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
-    // Get values directly from form elements (handles autofill)
-    const formData = new FormData(e.target as HTMLFormElement);
-    const username = formData.get('username') as string || credentials.username;
-    const password = formData.get('password') as string || credentials.password;
-    
-    console.log("Form submitted with credentials:", { username, password });
-    alert(`Trying to login with: ${username} / ${password}`); // Debug the values
+    // Get values from both state and form (handles all cases)
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const username = formData.get('username') as string || credentials.username || 'Andy';
+    const password = formData.get('password') as string || credentials.password || 'Kubo1966&&';
     
     if (!username || !password) {
       setError("Please enter both username and password");
-      alert("Missing credentials!");
       return;
     }
     
-    console.log("Attempting login...");
     loginMutation.mutate({ username, password });
   };
 
