@@ -30,6 +30,7 @@ export default function Settings() {
   const [inviteForm, setInviteForm] = useState({ email: "", role: "user" });
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
+  const [showManualResetDialog, setShowManualResetDialog] = useState(false);
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -129,9 +130,16 @@ export default function Settings() {
       return response.json();
     },
     onSuccess: (data) => {
+      // Invalidate all relevant queries to refresh data across the app
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({
         title: "Manual Reset Complete",
         description: `Checked out ${data.visitorsCheckedOut} visitors, ${data.staffCheckedOut} staff, and ${data.contractorsCheckedOut} contractors.`,
@@ -333,11 +341,14 @@ export default function Settings() {
   };
 
   const handleManualReset = () => {
-    if (window.confirm("Are you sure you want to manually reset the system now? This will check out all current visitors, staff, and contractors.")) {
-      setIsManualResetDisabled(true);
-      manualResetMutation.mutate();
-      setTimeout(() => setIsManualResetDisabled(false), 5000); // Prevent spam clicking
-    }
+    setShowManualResetDialog(true);
+  };
+
+  const confirmManualReset = () => {
+    setIsManualResetDisabled(true);
+    setShowManualResetDialog(false);
+    manualResetMutation.mutate();
+    setTimeout(() => setIsManualResetDisabled(false), 5000); // Prevent spam clicking
   };
 
   const handleTestReset = () => {
@@ -2307,6 +2318,58 @@ export default function Settings() {
               data-testid="button-add-email"
             >
               Add Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Reset Confirmation Dialog */}
+      <Dialog open={showManualResetDialog} onOpenChange={setShowManualResetDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <RotateCcw className="w-5 h-5" />
+              Confirm Manual Reset
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-sm text-orange-800 font-medium mb-2">
+                ⚠️ This action will immediately:
+              </p>
+              <ul className="text-sm text-orange-700 space-y-1 ml-4">
+                <li>• Check out all current visitors</li>
+                <li>• Check out all staff members</li>
+                <li>• Check out all contractors</li>
+                <li>• Clear all muster list data</li>
+                <li>• Reset the system for new entries</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> All checkout records will be marked as "manual reset" 
+                for reporting purposes. Historical data will be preserved.
+              </p>
+            </div>
+            <p className="text-sm text-slate-600">
+              Are you sure you want to perform a manual system reset now?
+            </p>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowManualResetDialog(false)}
+              data-testid="button-cancel-reset"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmManualReset}
+              disabled={isManualResetDisabled}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              data-testid="button-confirm-reset"
+            >
+              {isManualResetDisabled ? "Resetting..." : "Reset System Now"}
             </Button>
           </DialogFooter>
         </DialogContent>

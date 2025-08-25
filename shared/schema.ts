@@ -18,6 +18,7 @@ export const staff = pgTable("staff", {
   isCheckedIn: boolean("is_checked_in").default(false).notNull(),
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
+  checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
   manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
@@ -54,6 +55,7 @@ export const visitors = pgTable("visitors", {
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
   checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
   checkedOutAt: timestamp("checked_out_at"),
+  checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
   isCheckedIn: boolean("is_checked_in").default(true).notNull(),
   qrCode: text("qr_code").notNull(),
 });
@@ -330,6 +332,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   isCheckedIn: boolean("is_checked_in").default(false),
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
+  checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
   qrCode: text("qr_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
