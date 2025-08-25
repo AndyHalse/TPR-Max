@@ -32,7 +32,8 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | null>(null);
+  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'department-details' | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
     queryKey: ["/api/stats"],
@@ -56,6 +57,40 @@ export default function Dashboard() {
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<Activity[]>({
     queryKey: ["/api/activity/recent"],
+  });
+
+  const { data: departmentAnalytics, isLoading: departmentsLoading } = useQuery<Array<{
+    department: string;
+    visitorCount: number;
+    staffCount: number;
+    totalCount: number;
+    trend: string;
+    color: string;
+  }>>({
+    queryKey: ["/api/analytics/departments"],
+  });
+
+  const { data: departmentDetails } = useQuery<{
+    department: string;
+    staff: Array<{
+      id: string;
+      name: string;
+      checkedInAt: Date | null;
+      isCheckedIn: boolean;
+      accessLevel: string;
+    }>;
+    visitors: Array<{
+      id: string;
+      name: string;
+      company: string | null;
+      checkedInAt: Date;
+      isCheckedIn: boolean;
+      hostName: string;
+    }>;
+    totalCount: number;
+  }>({
+    queryKey: ["/api/analytics/departments", selectedDepartment],
+    enabled: !!selectedDepartment,
   });
 
   const getStaffName = (staffId?: string) => {
@@ -90,11 +125,7 @@ export default function Dashboard() {
 
   // Action handlers for dashboard buttons
   const handleViewDepartmentAnalytics = () => {
-    toast({
-      title: "Department Analytics",
-      description: "Opening detailed department analytics dashboard...",
-    });
-    // In a real app, this would navigate to a detailed analytics page
+    setOpenModal('department-details');
   };
 
   const handleEmergencyMuster = () => {
@@ -354,26 +385,36 @@ export default function Dashboard() {
           </div>
           
           <div className="space-y-4">
-            {[
-              { dept: "Engineering", visitors: 12, trend: "+15%", color: "bg-blue-500" },
-              { dept: "Sales", visitors: 8, trend: "+8%", color: "bg-green-500" },
-              { dept: "Marketing", visitors: 5, trend: "-2%", color: "bg-purple-500" },
-              { dept: "HR", visitors: 3, trend: "+5%", color: "bg-orange-500" },
-              { dept: "Operations", visitors: 7, trend: "+12%", color: "bg-indigo-500" }
-            ].map((dept) => (
-              <div key={dept.dept} className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${dept.color}`}></div>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">{dept.dept}</span>
+            {departmentsLoading ? (
+              <div className="text-center py-4 text-slate-600">Loading departments...</div>
+            ) : !departmentAnalytics || departmentAnalytics.length === 0 ? (
+              <div className="text-center py-4 text-slate-600">No department data available</div>
+            ) : (
+              departmentAnalytics.map((dept) => (
+                <div 
+                  key={dept.department} 
+                  className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg cursor-pointer hover:bg-white/70 dark:hover:bg-slate-800/70 transition-colors"
+                  onClick={() => {
+                    setSelectedDepartment(dept.department);
+                    setOpenModal('department-details');
+                  }}
+                  data-testid={`department-${dept.department}`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${dept.color}`}></div>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{dept.department}</span>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <span className="text-slate-600 dark:text-slate-400">
+                      {dept.totalCount} people ({dept.visitorCount} visitors, {dept.staffCount} staff)
+                    </span>
+                    <Badge variant={dept.trend.startsWith('+') ? 'default' : 'secondary'} className="text-xs">
+                      {dept.trend}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <span className="text-slate-600 dark:text-slate-400">{dept.visitors} visitors</span>
-                  <Badge variant={dept.trend.startsWith('+') ? 'default' : 'secondary'} className="text-xs">
-                    {dept.trend}
-                  </Badge>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </GlassCard>
         
@@ -743,6 +784,131 @@ export default function Dashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Department Details Modal */}
+      {openModal === 'department-details' && (
+        <Dialog open={true} onOpenChange={() => setOpenModal(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <span className="text-xl">Department Details: {selectedDepartment}</span>
+                {departmentDetails && (
+                  <Badge variant="secondary" className="ml-2">
+                    {departmentDetails.totalCount} people on-site
+                  </Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {!departmentDetails ? (
+              <div className="text-center py-8">
+                <div className="text-lg font-medium text-slate-600">Loading department details...</div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {departmentDetails.staff.filter(s => s.isCheckedIn).length}
+                    </div>
+                    <div className="text-sm text-blue-800">Staff On-Site</div>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {departmentDetails.visitors.length}
+                    </div>
+                    <div className="text-sm text-green-800">Current Visitors</div>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {departmentDetails.totalCount}
+                    </div>
+                    <div className="text-sm text-purple-800">Total People</div>
+                  </div>
+                </div>
+
+                {/* Staff Section */}
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                    <User className="mr-2" size={20} />
+                    Staff Members ({departmentDetails.staff.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {departmentDetails.staff.length === 0 ? (
+                      <div className="text-center py-4 text-slate-600">No staff assigned to this department</div>
+                    ) : (
+                      departmentDetails.staff.map((staffMember) => (
+                        <div key={staffMember.id} className="flex items-center justify-between p-4 bg-white border rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              staffMember.isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              <User size={20} />
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-800">{staffMember.name}</p>
+                              <p className="text-sm text-slate-600 capitalize">{staffMember.accessLevel}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {staffMember.isCheckedIn ? (
+                              <div>
+                                <Badge variant="default" className="mb-1">On-Site</Badge>
+                                <p className="text-xs text-slate-500">
+                                  Since: {staffMember.checkedInAt ? formatTime(staffMember.checkedInAt) : 'Unknown'}
+                                </p>
+                              </div>
+                            ) : (
+                              <Badge variant="secondary">Off-Site</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Visitors Section */}
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                    <UsersRound className="mr-2" size={20} />
+                    Current Visitors ({departmentDetails.visitors.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {departmentDetails.visitors.length === 0 ? (
+                      <div className="text-center py-4 text-slate-600">No visitors currently hosted by this department</div>
+                    ) : (
+                      departmentDetails.visitors.map((visitor) => (
+                        <div key={visitor.id} className="flex items-center justify-between p-4 bg-white border rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-blue-600 font-medium text-sm">
+                                {getInitials(visitor.name)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-800">{visitor.name}</p>
+                              <p className="text-sm text-slate-600">{visitor.company || 'No company'}</p>
+                              <p className="text-xs text-slate-500">Host: {visitor.hostName}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="default" className="mb-1">Checked In</Badge>
+                            <p className="text-xs text-slate-500">
+                              Since: {formatTime(visitor.checkedInAt)}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

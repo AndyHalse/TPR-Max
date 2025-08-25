@@ -1406,4 +1406,175 @@ export class DatabaseStorage implements IStorage {
       return 0;
     }
   }
+
+  // Department analytics methods
+  async getDepartmentAnalytics(): Promise<Array<{
+    department: string;
+    visitorCount: number;
+    staffCount: number;
+    totalCount: number;
+    trend: string;
+    color: string;
+  }>> {
+    try {
+      // Get all staff grouped by department
+      const allStaff = await db.select().from(staff);
+      const checkedInStaff = allStaff.filter(s => s.isCheckedIn);
+      
+      // Get current visitors with their host department info
+      const currentVisitors = await db
+        .select({
+          visitor: visitors,
+          hostStaff: staff,
+        })
+        .from(visitors)
+        .leftJoin(staff, eq(visitors.hostStaffId, staff.id))
+        .where(eq(visitors.isCheckedIn, true));
+
+      // Group staff by department
+      const departmentStats = new Map<string, {
+        staffCount: number;
+        visitorCount: number;
+        totalStaff: number;
+      }>();
+
+      // Count staff by department
+      allStaff.forEach(staffMember => {
+        const dept = staffMember.department;
+        if (!departmentStats.has(dept)) {
+          departmentStats.set(dept, { staffCount: 0, visitorCount: 0, totalStaff: 0 });
+        }
+        const stats = departmentStats.get(dept)!;
+        stats.totalStaff++;
+        if (staffMember.isCheckedIn) {
+          stats.staffCount++;
+        }
+      });
+
+      // Count visitors by host department
+      currentVisitors.forEach(({ visitor, hostStaff }) => {
+        if (hostStaff?.department) {
+          const dept = hostStaff.department;
+          if (!departmentStats.has(dept)) {
+            departmentStats.set(dept, { staffCount: 0, visitorCount: 0, totalStaff: 0 });
+          }
+          departmentStats.get(dept)!.visitorCount++;
+        }
+      });
+
+      // Define department colors
+      const departmentColors = {
+        'Engineering': 'bg-blue-500',
+        'Sales': 'bg-green-500', 
+        'Marketing': 'bg-purple-500',
+        'HR': 'bg-orange-500',
+        'Operations': 'bg-indigo-500',
+        'Finance': 'bg-yellow-500',
+        'Security': 'bg-red-500',
+        'Management': 'bg-pink-500',
+        'IT': 'bg-cyan-500',
+        'Quality': 'bg-emerald-500',
+      };
+
+      // Calculate trends (simplified - could be enhanced with historical data)
+      const results = Array.from(departmentStats.entries()).map(([department, stats]) => {
+        const totalCount = stats.visitorCount + stats.staffCount;
+        // Simple trend calculation based on visitor/staff ratio
+        const visitorRatio = totalCount > 0 ? (stats.visitorCount / totalCount) * 100 : 0;
+        const trend = visitorRatio > 40 ? '+15%' : visitorRatio > 20 ? '+8%' : visitorRatio > 10 ? '+5%' : '+2%';
+        
+        return {
+          department,
+          visitorCount: stats.visitorCount,
+          staffCount: stats.staffCount,
+          totalCount,
+          trend,
+          color: departmentColors[department] || 'bg-gray-500',
+        };
+      });
+
+      // Sort by total count descending
+      return results.sort((a, b) => b.totalCount - a.totalCount);
+    } catch (error) {
+      console.error('Error getting department analytics:', error);
+      return [];
+    }
+  }
+
+  async getDepartmentDetails(department: string): Promise<{
+    department: string;
+    staff: Array<{
+      id: string;
+      name: string;
+      checkedInAt: Date | null;
+      isCheckedIn: boolean;
+      accessLevel: string;
+    }>;
+    visitors: Array<{
+      id: string;
+      name: string;
+      company: string | null;
+      checkedInAt: Date;
+      isCheckedIn: boolean;
+      hostName: string;
+    }>;
+    totalCount: number;
+  }> {
+    try {
+      // Get all staff in the department
+      const departmentStaff = await db
+        .select()
+        .from(staff)
+        .where(eq(staff.department, department));
+
+      // Get visitors hosted by staff in this department
+      const departmentVisitors = await db
+        .select({
+          visitor: visitors,
+          hostStaff: staff,
+        })
+        .from(visitors)
+        .leftJoin(staff, eq(visitors.hostStaffId, staff.id))
+        .where(
+          and(
+            eq(visitors.isCheckedIn, true),
+            eq(staff.department, department)
+          )
+        );
+
+      // Format staff data
+      const staffData = departmentStaff.map(s => ({
+        id: s.id,
+        name: `${s.firstName} ${s.lastName}`,
+        checkedInAt: s.checkedInAt,
+        isCheckedIn: s.isCheckedIn,
+        accessLevel: s.accessLevel,
+      }));
+
+      // Format visitor data
+      const visitorData = departmentVisitors.map(({ visitor, hostStaff }) => ({
+        id: visitor.id,
+        name: `${visitor.firstName} ${visitor.lastName}`,
+        company: visitor.company,
+        checkedInAt: visitor.checkedInAt,
+        isCheckedIn: visitor.isCheckedIn,
+        hostName: hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'Unknown',
+      }));
+
+      return {
+        department,
+        staff: staffData,
+        visitors: visitorData,
+        totalCount: staffData.filter(s => s.isCheckedIn).length + visitorData.length,
+      };
+    } catch (error) {
+      console.error('Error getting department details:', error);
+      return {
+        department,
+        staff: [],
+        visitors: [],
+        totalCount: 0,
+      };
+    }
+  }
 }

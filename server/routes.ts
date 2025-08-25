@@ -118,6 +118,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Department analytics endpoint
+  app.get("/api/analytics/departments", async (req, res) => {
+    try {
+      const departmentData = await storage.getDepartmentAnalytics();
+      res.json(departmentData);
+    } catch (error) {
+      console.error("Failed to fetch department analytics:", error);
+      res.status(500).json({ error: "Failed to fetch department analytics" });
+    }
+  });
+
+  // Department details endpoint
+  app.get("/api/analytics/departments/:department", async (req, res) => {
+    try {
+      const { department } = req.params;
+      const details = await storage.getDepartmentDetails(department);
+      res.json(details);
+    } catch (error) {
+      console.error("Failed to fetch department details:", error);
+      res.status(500).json({ error: "Failed to fetch department details" });
+    }
+  });
+
   // Muster endpoint for emergency situations (includes staff, visitors, and contractors)
   app.get("/api/muster", async (req, res) => {
     try {

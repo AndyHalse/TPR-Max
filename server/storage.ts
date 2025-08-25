@@ -175,6 +175,35 @@ export interface IStorage {
   updateStaffEmergencyToken(staffId: string, token: string, expires: Date): Promise<boolean>;
   validateEmergencyToken(token: string): Promise<Staff | null>;
   getTotalOnSitePersonnel(): Promise<number>;
+
+  // Department analytics methods
+  getDepartmentAnalytics(): Promise<Array<{
+    department: string;
+    visitorCount: number;
+    staffCount: number;
+    totalCount: number;
+    trend: string;
+    color: string;
+  }>>;
+  getDepartmentDetails(department: string): Promise<{
+    department: string;
+    staff: Array<{
+      id: string;
+      name: string;
+      checkedInAt: Date | null;
+      isCheckedIn: boolean;
+      accessLevel: string;
+    }>;
+    visitors: Array<{
+      id: string;
+      name: string;
+      company: string | null;
+      checkedInAt: Date;
+      isCheckedIn: boolean;
+      hostName: string;
+    }>;
+    totalCount: number;
+  }>;
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";
