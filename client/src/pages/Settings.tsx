@@ -24,6 +24,7 @@ export default function Settings() {
   const [formData, setFormData] = useState<Partial<InsertCompanySettings>>({});
   const [testEmail, setTestEmail] = useState("");
   const [activeTab, setActiveTab] = useState("company");
+  const [brandingSubTab, setBrandingSubTab] = useState("visual");
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [newEmailRecipient, setNewEmailRecipient] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "user" });
@@ -276,7 +277,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -284,10 +285,6 @@ export default function Settings() {
           <TabsTrigger value="branding" className="flex items-center gap-2">
             <Palette size={16} />
             Branding
-          </TabsTrigger>
-          <TabsTrigger value="theme" className="flex items-center gap-2">
-            <Monitor size={16} />
-            Theme
           </TabsTrigger>
           <TabsTrigger value="printer" className="flex items-center gap-2">
             <Printer size={16} />
@@ -525,12 +522,25 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="branding" className="space-y-6 mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <GlassCard>
-              <div className="flex items-center mb-6">
-                <Palette className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Color Theme</h3>
-              </div>
+          <Tabs value={brandingSubTab} onValueChange={setBrandingSubTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="visual" className="flex items-center gap-2">
+                <Palette size={16} />
+                Visual Branding
+              </TabsTrigger>
+              <TabsTrigger value="theme" className="flex items-center gap-2">
+                <Monitor size={16} />
+                Theme Settings
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="visual" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <Palette className="mr-3 text-blue-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">Color Theme</h3>
+                  </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -694,95 +704,70 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
-        </TabsContent>
+            </TabsContent>
 
-        <TabsContent value="theme" className="space-y-6 mt-6">
-          <GlassCard>
-            <div className="flex items-center mb-6">
-              <Monitor className="mr-3 text-blue-600" size={24} />
-              <h3 className="text-lg font-semibold text-slate-800">Application Theme</h3>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
-                <div className="flex items-center space-x-4">
-                  <Sun className="text-yellow-500" size={24} />
-                  <div>
-                    <h4 className="font-medium text-slate-800 dark:text-slate-200">Light Mode</h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Clean, bright interface</p>
-                  </div>
-                </div>
-                <Button
-                  variant={theme === "light" ? "default" : "outline"}
-                  onClick={() => setTheme("light")}
-                  data-testid="button-light-theme"
-                >
-                  {theme === "light" && "✓"} Select
-                </Button>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
-                <div className="flex items-center space-x-4">
-                  <Moon className="text-slate-700 dark:text-slate-300" size={24} />
-                  <div>
-                    <h4 className="font-medium text-slate-800 dark:text-slate-200">Dark Mode</h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Easy on the eyes for long sessions</p>
-                  </div>
-                </div>
-                <Button
-                  variant={theme === "dark" ? "default" : "outline"}
-                  onClick={() => setTheme("dark")}
-                  data-testid="button-dark-theme"
-                >
-                  {theme === "dark" && "✓"} Select
-                </Button>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
-                <div className="flex items-center space-x-4">
-                  <Monitor className="text-blue-600 dark:text-blue-400" size={24} />
-                  <div>
-                    <h4 className="font-medium text-slate-800 dark:text-slate-200">System</h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Follow system preference</p>
-                  </div>
-                </div>
-                <Button
-                  variant={theme === "system" ? "default" : "outline"}
-                  onClick={() => setTheme("system")}
-                  data-testid="button-system-theme"
-                >
-                  {theme === "system" && "✓"} Select
-                </Button>
-              </div>
-              
-              <div className="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600">
-                <h4 className="font-semibold mb-3 text-slate-800 dark:text-slate-200">Theme Preview</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-white rounded-lg shadow-sm">
-                    <h5 className="font-medium text-slate-800 mb-2">Light Theme</h5>
-                    <p className="text-sm text-slate-600 mb-3">Clean and professional appearance</p>
-                    <div className="h-2 bg-blue-500 rounded"></div>
-                  </div>
-                  <div className="p-4 bg-slate-800 text-white rounded-lg shadow-sm">
-                    <h5 className="font-medium mb-2">Dark Theme</h5>
-                    <p className="text-sm text-slate-300 mb-3">Reduced eye strain for extended use</p>
-                    <div className="h-2 bg-blue-400 rounded"></div>
-                  </div>
+            <TabsContent value="theme" className="space-y-6">
+              <GlassCard>
+                <div className="flex items-center mb-6">
+                  <Monitor className="mr-3 text-blue-600" size={24} />
+                  <h3 className="text-lg font-semibold text-slate-800">Application Theme</h3>
                 </div>
                 
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>Current Theme:</strong> {theme}
-                    {theme === "system" && (
-                      <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-800 rounded text-xs">
-                        Auto: {typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "Dark" : "Light"}
-                      </span>
-                    )}
-                  </p>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="flex items-center space-x-4">
+                      <Sun className="text-yellow-500" size={24} />
+                      <div>
+                        <h4 className="font-medium text-slate-800 dark:text-slate-200">Light Mode</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Clean, bright interface</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant={theme === "light" ? "default" : "outline"}
+                      onClick={() => setTheme("light")}
+                      data-testid="button-light-theme"
+                    >
+                      {theme === "light" && "✓"} Select
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="flex items-center space-x-4">
+                      <Moon className="text-slate-700 dark:text-slate-300" size={24} />
+                      <div>
+                        <h4 className="font-medium text-slate-800 dark:text-slate-200">Dark Mode</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Easy on the eyes for long sessions</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant={theme === "dark" ? "default" : "outline"}
+                      onClick={() => setTheme("dark")}
+                      data-testid="button-dark-theme"
+                    >
+                      {theme === "dark" && "✓"} Select
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="flex items-center space-x-4">
+                      <Monitor className="text-blue-600" size={24} />
+                      <div>
+                        <h4 className="font-medium text-slate-800 dark:text-slate-200">System Default</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Matches your device settings</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant={theme === "system" ? "default" : "outline"}
+                      onClick={() => setTheme("system")}
+                      data-testid="button-system-theme"
+                    >
+                      {theme === "system" && "✓"} Select
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </GlassCard>
+              </GlassCard>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="printer" className="space-y-6 mt-6">

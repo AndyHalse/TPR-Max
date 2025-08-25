@@ -722,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check database connection
       try {
-        await storage.getStats();
+        await storage.getCompanySettings();
         status.database = true;
       } catch (dbError) {
         console.error("Database status check failed:", dbError);
