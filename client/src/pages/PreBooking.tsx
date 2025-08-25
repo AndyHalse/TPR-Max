@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { CompanyCombobox } from "./Visitors";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -119,10 +120,10 @@ export default function PreBooking() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.visitorName || !formData.visitorEmail || !formData.hostStaffId || !formData.visitDate) {
+    if (!formData.visitorName || !formData.visitorEmail || !formData.company || !formData.hostStaffId || !formData.visitDate) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (Name, Email, Company, Host, Visit Date)",
         variant: "destructive",
       });
       return;
@@ -206,15 +207,14 @@ export default function PreBooking() {
             
             <div className="space-y-2">
               <Label htmlFor="company" className="text-sm font-medium text-slate-700">
-                Company
+                Company *
               </Label>
-              <Input
-                id="company"
-                type="text"
+              <CompanyCombobox
                 value={formData.company || ""}
-                onChange={(e) => handleInputChange("company", e.target.value)}
+                onValueChange={(value) => handleInputChange("company", value)}
+                placeholder="Select or type company name..."
                 className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                data-testid="input-company"
+                testId="input-company"
               />
             </div>
             

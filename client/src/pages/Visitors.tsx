@@ -88,31 +88,32 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <div className="relative">
-          <Input
-            value={inputValue}
-            onChange={(e) => handleInputChange(e.target.value)}
-            placeholder={placeholder}
-            className={cn("w-full pr-8", className)}
-            data-testid={testId}
-            onFocus={() => setOpen(true)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            autoComplete="off"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-            onClick={() => setOpen(!open)}
-          >
-            <ChevronsUpDown className="h-4 w-4 text-gray-400" />
-          </Button>
-        </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+    <div className="relative">
+      <Input
+        value={inputValue}
+        onChange={(e) => handleInputChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn("w-full pr-8", className)}
+        data-testid={testId}
+        onFocus={() => setOpen(true)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+        onClick={() => setOpen(!open)}
+      >
+        <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+      </Button>
+      
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div className="absolute inset-0 pointer-events-none" />
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
         <Command>
           <CommandInput
             placeholder="Search companies..."
@@ -154,8 +155,9 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
             )}
           </CommandList>
         </Command>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 

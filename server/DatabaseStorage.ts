@@ -1291,4 +1291,30 @@ export class DatabaseStorage implements IStorage {
     
     return (result.rowCount || 0) > 0;
   }
+
+  async getUniqueCompanies(): Promise<string[]> {
+    try {
+      const visitorList = await db.select({
+        company: visitors.company
+      }).from(visitors).where(and(
+        not(eq(visitors.company, '')),
+        not(isNull(visitors.company))
+      ));
+      
+      const companies = new Set<string>();
+      
+      // Collect unique company names from visitors
+      visitorList.forEach(visitor => {
+        if (visitor.company && visitor.company.trim()) {
+          companies.add(visitor.company.trim());
+        }
+      });
+      
+      // Convert to array and sort alphabetically
+      return Array.from(companies).sort();
+    } catch (error) {
+      console.error("Error in DatabaseStorage.getUniqueCompanies:", error);
+      return [];
+    }
+  }
 }
