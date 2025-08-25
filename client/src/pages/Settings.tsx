@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
 
 export default function Settings() {
@@ -29,6 +29,7 @@ export default function Settings() {
   const [newEmailRecipient, setNewEmailRecipient] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "user" });
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -117,6 +118,49 @@ export default function Settings() {
       toast({
         title: "Error",
         description: error.message || "Failed to send invitation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const manualResetMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/daily-reset/manual");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
+      toast({
+        title: "Manual Reset Complete",
+        description: `Checked out ${data.visitorsCheckedOut} visitors, ${data.staffCheckedOut} staff, and ${data.contractorsCheckedOut} contractors.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to perform manual reset",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const testResetMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/daily-reset/preview");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Reset Preview",
+        description: `Would check out: ${data.visitorsToCheckOut} visitors, ${data.staffToCheckOut} staff, ${data.contractorsToCheckOut} contractors.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to preview daily reset",
         variant: "destructive",
       });
     },
@@ -288,6 +332,18 @@ export default function Settings() {
     setShowAddEmailDialog(false);
   };
 
+  const handleManualReset = () => {
+    if (window.confirm("Are you sure you want to manually reset the system now? This will check out all current visitors, staff, and contractors.")) {
+      setIsManualResetDisabled(true);
+      manualResetMutation.mutate();
+      setTimeout(() => setIsManualResetDisabled(false), 5000); // Prevent spam clicking
+    }
+  };
+
+  const handleTestReset = () => {
+    testResetMutation.mutate();
+  };
+
   const removeRecipient = (index: number) => {
     const currentRecipients = formData.reportRecipients || settings?.reportRecipients || [];
     const updated = currentRecipients.filter((_, i) => i !== index);
@@ -316,7 +372,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -344,6 +400,10 @@ export default function Settings() {
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <Mail size={16} />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="system" className="flex items-center gap-2">
+            <SettingsIcon size={16} />
+            System
           </TabsTrigger>
         </TabsList>
 
@@ -1974,6 +2034,230 @@ export default function Settings() {
                   </div>
                 </div>
               </GlassCard>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Daily Reset Configuration */}
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <RotateCcw className="w-5 h-5" />
+                Daily Reset / End of Day
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700">Enable Daily Reset</Label>
+                    <p className="text-xs text-slate-500">Automatically check out all personnel at end of day</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.enableDailyReset !== false}
+                    onCheckedChange={(checked) => handleInputChange("enableDailyReset", checked)}
+                    data-testid="switch-daily-reset"
+                  />
+                </div>
+
+                {currentSettings?.enableDailyReset !== false && (
+                  <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+                    <div className="space-y-2">
+                      <Label htmlFor="dailyResetTime" className="text-sm font-medium text-slate-700">
+                        Reset Time
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="dailyResetTime"
+                          type="time"
+                          value={currentSettings?.dailyResetTime || "00:00"}
+                          onChange={(e) => handleInputChange("dailyResetTime", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                          data-testid="input-reset-time"
+                        />
+                        <Select
+                          value={currentSettings?.dailyResetTimezone || "Europe/London"}
+                          onValueChange={(value) => handleInputChange("dailyResetTimezone", value)}
+                        >
+                          <SelectTrigger className="w-48 px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-timezone">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+                            <SelectItem value="Europe/Dublin">Dublin (GMT/IST)</SelectItem>
+                            <SelectItem value="Europe/Paris">Paris (CET/CEST)</SelectItem>
+                            <SelectItem value="Europe/Berlin">Berlin (CET/CEST)</SelectItem>
+                            <SelectItem value="America/New_York">New York (EST/EDT)</SelectItem>
+                            <SelectItem value="America/Los_Angeles">Los Angeles (PST/PDT)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-slate-500">Time when daily reset will automatically occur</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="gracePeriod" className="text-sm font-medium text-slate-700">
+                        Grace Period (minutes)
+                      </Label>
+                      <Input
+                        id="gracePeriod"
+                        type="number"
+                        min="0"
+                        max="60"
+                        value={currentSettings?.gracePeriodMinutes || "15"}
+                        onChange={(e) => handleInputChange("gracePeriodMinutes", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        data-testid="input-grace-period"
+                      />
+                      <p className="text-xs text-slate-500">Time to alert personnel before automatic checkout</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Weekend Reset</Label>
+                          <p className="text-xs text-slate-500">Reset on weekends</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.enableWeekendReset === true}
+                          onCheckedChange={(checked) => handleInputChange("enableWeekendReset", checked)}
+                          data-testid="switch-weekend-reset"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Holiday Reset</Label>
+                          <p className="text-xs text-slate-500">Reset on holidays</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.enableHolidayReset === true}
+                          onCheckedChange={(checked) => handleInputChange("enableHolidayReset", checked)}
+                          data-testid="switch-holiday-reset"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700">Notify Forgotten Checkouts</Label>
+                        <p className="text-xs text-slate-500">Email alerts for unchecked personnel</p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.notifyForgottenCheckouts !== false}
+                        onCheckedChange={(checked) => handleInputChange("notifyForgottenCheckouts", checked)}
+                        data-testid="switch-notify-checkouts"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700">24/7 Operations</Label>
+                        <p className="text-xs text-slate-500">Skip reset for continuous operations</p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.enable24x7Operations === true}
+                        onCheckedChange={(checked) => handleInputChange("enable24x7Operations", checked)}
+                        data-testid="switch-24x7-ops"
+                      />
+                    </div>
+
+                    {currentSettings?.lastDailyReset && (
+                      <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
+                        <p className="text-sm text-green-800 dark:text-green-200">
+                          <strong>Last Reset:</strong> {new Date(currentSettings.lastDailyReset).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        onClick={handleManualReset}
+                        disabled={isManualResetDisabled}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        data-testid="button-manual-reset"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Manual Reset Now
+                      </Button>
+                      <Button
+                        onClick={handleTestReset}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        data-testid="button-test-reset"
+                      >
+                        <TestTube className="w-4 h-4" />
+                        Test Reset (Preview)
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+
+            {/* System Status */}
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                System Status
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4" />
+                    <span className="text-sm font-medium">Database</span>
+                  </div>
+                  {systemStatus?.services?.database ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    <span className="text-sm font-medium">Email Service</span>
+                  </div>
+                  {systemStatus?.services?.email ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Server className="w-4 h-4" />
+                    <span className="text-sm font-medium">Authentication</span>
+                  </div>
+                  {systemStatus?.services?.authentication ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  )}
+                </div>
+
+                {systemStatus?.uptime && (
+                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <strong>System Uptime:</strong> {Math.floor(systemStatus.uptime / 1000 / 60)} minutes
+                    </p>
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+          </div>
+
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Industry Standard Features</h4>
+            <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+              <p>• <strong>Automatic Daily Reset:</strong> Check out all personnel at specified time</p>
+              <p>• <strong>Grace Period Alerts:</strong> Email notifications before automatic checkout</p>
+              <p>• <strong>Weekend/Holiday Options:</strong> Configure reset behavior for non-working days</p>
+              <p>• <strong>24/7 Operations Mode:</strong> Disable reset for continuous operations</p>
+              <p>• <strong>Manual Override:</strong> Emergency reset capability with confirmation</p>
+              <p>• <strong>Audit Logging:</strong> Complete record of all reset activities</p>
             </div>
           </div>
         </TabsContent>

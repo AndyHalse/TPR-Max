@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -140,6 +140,21 @@ export const companySettings = pgTable("company_settings", {
   smtpConnectionTimeout: text("smtp_connection_timeout").default("30"), // seconds
   smtpTestEmailSent: boolean("smtp_test_email_sent").default(false),
   smtpLastTested: timestamp("smtp_last_tested"),
+
+  // Daily Reset / End of Day Configuration (Industry Standard)
+  enableDailyReset: boolean("enable_daily_reset").default(true),
+  dailyResetTime: text("daily_reset_time").default("00:00"), // HH:MM format
+  dailyResetTimezone: text("daily_reset_timezone").default("Europe/London"),
+  gracePeriodMinutes: text("grace_period_minutes").default("15"), // Minutes before auto-checkout
+  enableWeekendReset: boolean("enable_weekend_reset").default(false),
+  enableHolidayReset: boolean("enable_holiday_reset").default(false),
+  notifyForgottenCheckouts: boolean("notify_forgotten_checkouts").default(true),
+  lastDailyReset: timestamp("last_daily_reset"),
+  allowManualReset: boolean("allow_manual_reset").default(true),
+  resetLogRetentionDays: text("reset_log_retention_days").default("90"),
+  enable24x7Operations: boolean("enable_24x7_operations").default(false),
+  alertBeforeReset: boolean("alert_before_reset").default(true),
+  alertMinutesBefore: text("alert_minutes_before").default("30"),
   // Branding settings
   backgroundColor: text("background_color").default("#f8fafc"),
   foregroundColor: text("foreground_color").default("#1e293b"),

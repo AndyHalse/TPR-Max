@@ -2180,8 +2180,331 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Daily Reset helper function
+  async function performDailyReset(isManual: boolean = false) {
+    const resetTime = new Date();
+    
+    // Get all currently checked-in personnel
+    const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+      storage.getCurrentVisitors(),
+      storage.getCheckedInStaff(),
+      storage.getCheckedInContractors()
+    ]);
+    
+    const resetCounts = {
+      visitorsCheckedOut: 0,
+      staffCheckedOut: 0,
+      contractorsCheckedOut: 0
+    };
+    
+    // Check out all visitors
+    for (const visitor of currentVisitors) {
+      try {
+        await storage.updateVisitor(visitor.id, {
+          isCheckedIn: false,
+          checkedOutAt: resetTime
+        });
+        resetCounts.visitorsCheckedOut++;
+      } catch (error) {
+        console.error(`Failed to check out visitor ${visitor.id}:`, error);
+      }
+    }
+    
+    // Check out all staff
+    for (const staff of checkedInStaff) {
+      try {
+        await storage.updateStaff(staff.id, {
+          isCheckedIn: false,
+          checkedOutAt: resetTime
+        });
+        resetCounts.staffCheckedOut++;
+      } catch (error) {
+        console.error(`Failed to check out staff ${staff.id}:`, error);
+      }
+    }
+    
+    // Check out all contractors
+    for (const contractor of checkedInContractors) {
+      try {
+        await storage.updateContractorWorker(contractor.id, {
+          isCheckedIn: false,
+          checkedOutAt: resetTime
+        });
+        resetCounts.contractorsCheckedOut++;
+      } catch (error) {
+        console.error(`Failed to check out contractor ${contractor.id}:`, error);
+      }
+    }
+    
+    // Update settings with last reset time
+    try {
+      await storage.updateCompanySettings({
+        lastDailyReset: resetTime.toISOString()
+      });
+    } catch (error) {
+      console.error("Failed to update lastDailyReset in settings:", error);
+    }
+    
+    // Send notification emails if configured
+    try {
+      const settings = await storage.getCompanySettings();
+      if (settings?.notifyForgottenCheckouts !== false && settings?.emailReportsEnabled) {
+        const totalCheckedOut = resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut;
+        if (totalCheckedOut > 0) {
+          const { EmailService } = await import("./emailService");
+          const emailService = new EmailService();
+          
+          const recipients = settings.reportRecipients || [];
+          const subject = `Daily Reset ${isManual ? '(Manual)' : '(Automatic)'} - ${totalCheckedOut} Personnel Checked Out`;
+          const message = `
+            Daily reset completed at ${resetTime.toLocaleString()}
+            
+            Personnel automatically checked out:
+            • Visitors: ${resetCounts.visitorsCheckedOut}
+            • Staff: ${resetCounts.staffCheckedOut}
+            • Contractors: ${resetCounts.contractorsCheckedOut}
+            • Total: ${totalCheckedOut}
+            
+            Reset type: ${isManual ? 'Manual reset initiated by user' : 'Automatic scheduled reset'}
+            
+            This is an automated notification from VisiGate Pro.
+          `;
+          
+          for (const email of recipients) {
+            try {
+              await emailService.sendPlainEmail(email, subject, message);
+            } catch (error) {
+              console.error(`Failed to send reset notification to ${email}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to send reset notification emails:", error);
+    }
+    
+    return {
+      success: true,
+      resetTime: resetTime.toISOString(),
+      isManual,
+      ...resetCounts,
+      totalCheckedOut: resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut
+    };
+  }
+
+  // Daily Reset endpoints
+  app.post("/api/daily-reset/manual", async (req, res) => {
+    try {
+      const result = await performDailyReset(true); // manual = true
+      res.json(result);
+    } catch (error) {
+      console.error("Error performing manual daily reset:", error);
+      res.status(500).json({ error: "Failed to perform daily reset" });
+    }
+  });
+
+  app.post("/api/daily-reset/preview", async (req, res) => {
+    try {
+      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+        storage.getCurrentVisitors(),
+        storage.getCheckedInStaff(),
+        storage.getCheckedInContractors()
+      ]);
+
+      res.json({
+        visitorsToCheckOut: currentVisitors.length,
+        staffToCheckOut: checkedInStaff.length,
+        contractorsToCheckOut: checkedInContractors.length,
+        totalToCheckOut: currentVisitors.length + checkedInStaff.length + checkedInContractors.length
+      });
+    } catch (error) {
+      console.error("Error previewing daily reset:", error);
+      res.status(500).json({ error: "Failed to preview daily reset" });
+    }
+  });
+
+  // Setup automatic daily reset
+  async function setupAutomaticDailyReset() {
+    try {
+      const settings = await storage.getCompanySettings();
+      
+      if (settings?.enableDailyReset !== false) {
+        const resetTime = settings?.dailyResetTime || "00:00";
+        const timezone = settings?.dailyResetTimezone || "Europe/London";
+        const enableWeekendReset = settings?.enableWeekendReset === true;
+        const enableHolidayReset = settings?.enableHolidayReset === true;
+        const enable24x7Operations = settings?.enable24x7Operations === true;
+        
+        // Skip setup if 24/7 operations mode is enabled
+        if (enable24x7Operations) {
+          console.log("📅 Daily reset disabled - 24/7 operations mode active");
+          return;
+        }
+        
+        // Parse time (format: "HH:MM")
+        const [hours, minutes] = resetTime.split(':').map(Number);
+        
+        // Create cron expression
+        let cronExpression = `${minutes} ${hours} * * *`; // Every day
+        
+        if (!enableWeekendReset) {
+          cronExpression = `${minutes} ${hours} * * 1-5`; // Monday to Friday only
+        }
+        
+        console.log(`📅 Setting up automatic daily reset at ${resetTime} (${timezone})`);
+        console.log(`📅 Cron expression: ${cronExpression}`);
+        console.log(`📅 Weekend reset: ${enableWeekendReset ? 'enabled' : 'disabled'}`);
+        console.log(`📅 Holiday reset: ${enableHolidayReset ? 'enabled' : 'disabled'}`);
+        
+        // Schedule the daily reset
+        cron.schedule(cronExpression, async () => {
+          try {
+            console.log(`🔄 Executing scheduled daily reset at ${new Date().toLocaleString()}`);
+            
+            // Check if it's a holiday and holiday reset is disabled
+            if (!enableHolidayReset) {
+              const today = new Date();
+              const isHoliday = await checkIfHoliday(today);
+              if (isHoliday) {
+                console.log("📅 Skipping daily reset - holiday detected and holiday reset disabled");
+                return;
+              }
+            }
+            
+            // Send grace period notification first
+            const gracePeriodMinutes = settings?.gracePeriodMinutes ? parseInt(settings.gracePeriodMinutes.toString()) : 15;
+            if (gracePeriodMinutes > 0) {
+              await sendGracePeriodNotification(gracePeriodMinutes);
+              
+              // Wait for grace period before actual reset
+              setTimeout(async () => {
+                try {
+                  const result = await performDailyReset(false); // automatic = false
+                  console.log("🔄 Automatic daily reset completed:", result);
+                } catch (error) {
+                  console.error("❌ Automatic daily reset failed:", error);
+                }
+              }, gracePeriodMinutes * 60 * 1000); // Convert minutes to milliseconds
+            } else {
+              // No grace period, reset immediately
+              const result = await performDailyReset(false);
+              console.log("🔄 Automatic daily reset completed:", result);
+            }
+          } catch (error) {
+            console.error("❌ Error in scheduled daily reset:", error);
+          }
+        }, {
+          timezone: timezone
+        });
+        
+        console.log(`✅ Automatic daily reset scheduled successfully`);
+      } else {
+        console.log("📅 Daily reset disabled in settings");
+      }
+    } catch (error) {
+      console.error("❌ Error setting up automatic daily reset:", error);
+    }
+  }
+
+  // Helper function to check if a date is a holiday
+  async function checkIfHoliday(date: Date): Promise<boolean> {
+    // Basic UK holiday check - you could expand this with a holiday API
+    const month = date.getMonth() + 1; // 1-12
+    const day = date.getDate();
+    
+    // Common UK holidays (simplified)
+    const holidays = [
+      { month: 1, day: 1 },   // New Year's Day
+      { month: 12, day: 25 }, // Christmas Day
+      { month: 12, day: 26 }, // Boxing Day
+    ];
+    
+    return holidays.some(holiday => holiday.month === month && holiday.day === day);
+  }
+
+  // Helper function to send grace period notification
+  async function sendGracePeriodNotification(gracePeriodMinutes: number) {
+    try {
+      const settings = await storage.getCompanySettings();
+      if (!settings?.notifyForgottenCheckouts || !settings?.emailReportsEnabled) {
+        return;
+      }
+      
+      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+        storage.getCurrentVisitors(),
+        storage.getCheckedInStaff(),
+        storage.getCheckedInContractors()
+      ]);
+      
+      const totalPersonnel = currentVisitors.length + checkedInStaff.length + checkedInContractors.length;
+      
+      if (totalPersonnel === 0) {
+        return; // No one to notify
+      }
+      
+      const { EmailService } = await import("./emailService");
+      const emailService = new EmailService();
+      
+      // Collect all emails from on-site personnel
+      const emailAddresses = new Set<string>();
+      
+      checkedInStaff.forEach(staff => {
+        if (staff.email) emailAddresses.add(staff.email);
+      });
+      
+      currentVisitors.forEach(visitor => {
+        if (visitor.email) emailAddresses.add(visitor.email);
+      });
+      
+      const recipients = Array.from(emailAddresses);
+      const subject = `Daily Reset Warning - Check Out Required in ${gracePeriodMinutes} Minutes`;
+      const message = `
+        AUTOMATIC CHECK-OUT WARNING
+        
+        This is an automated reminder that the daily reset will occur in ${gracePeriodMinutes} minutes.
+        
+        All personnel currently on-site will be automatically checked out at ${new Date(Date.now() + gracePeriodMinutes * 60 * 1000).toLocaleTimeString()}.
+        
+        If you need to remain on-site, please check out manually and then check back in after the reset.
+        
+        Current personnel on-site:
+        • Visitors: ${currentVisitors.length}
+        • Staff: ${checkedInStaff.length}
+        • Contractors: ${checkedInContractors.length}
+        
+        This is an automated notification from VisiGate Pro.
+      `;
+      
+      // Send to on-site personnel
+      for (const email of recipients) {
+        try {
+          await emailService.sendPlainEmail(email, subject, message);
+        } catch (error) {
+          console.error(`Failed to send grace period notification to ${email}:`, error);
+        }
+      }
+      
+      // Also send to admin recipients
+      const adminRecipients = settings.reportRecipients || [];
+      for (const email of adminRecipients) {
+        try {
+          await emailService.sendPlainEmail(email, `Admin: ${subject}`, message);
+        } catch (error) {
+          console.error(`Failed to send grace period admin notification to ${email}:`, error);
+        }
+      }
+      
+      console.log(`📧 Grace period notifications sent to ${recipients.length} personnel and ${adminRecipients.length} admins`);
+    } catch (error) {
+      console.error("Failed to send grace period notifications:", error);
+    }
+  }
+
   // Initialize automatic reports
   setupAutomaticReports();
+
+  // Initialize automatic daily reset
+  setupAutomaticDailyReset();
 
   const httpServer = createServer(app);
   return httpServer;
