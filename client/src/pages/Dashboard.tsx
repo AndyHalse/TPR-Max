@@ -184,7 +184,7 @@ export default function Dashboard() {
   };
 
   const handleViewAllVisitors = () => {
-    setLocation('/checkin');
+    setOpenModal('visitors');
   };
 
   const handleViewAllActivity = () => {
@@ -479,7 +479,7 @@ export default function Dashboard() {
         {/* Current Visitors */}
         <GlassCard>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-800">Current Visitors</h3>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Current Visitors</h3>
             <button 
               className="text-blue-600 hover:text-blue-700 text-sm font-medium" 
               onClick={handleViewAllVisitors}
@@ -489,13 +489,13 @@ export default function Dashboard() {
             </button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
             {visitorsLoading ? (
               <div className="text-center py-4 text-slate-600">Loading visitors...</div>
             ) : !currentVisitors || currentVisitors.length === 0 ? (
               <div className="text-center py-4 text-slate-600">No current visitors</div>
             ) : (
-              currentVisitors.slice(0, 3).map((visitor) => (
+              currentVisitors.map((visitor) => (
                 <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl" data-testid={`visitor-${visitor.id}`}>
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
@@ -649,25 +649,41 @@ export default function Dashboard() {
       {/* Modal Dialogs */}
       {/* Current Visitors Modal */}
       <Dialog open={openModal === 'visitors'} onOpenChange={() => setOpenModal(null)}>
-        <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-800">
               <UsersRound className="text-blue-600" size={24} />
               Current Visitors ({currentVisitors?.length || 0})
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
             {currentVisitors && currentVisitors.length > 0 ? (
               currentVisitors.map((visitor) => (
-                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30 hover:bg-white/70 transition-colors">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="text-blue-600" size={20} />
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-medium text-sm">
+                        {getInitials(`${visitor.firstName} ${visitor.lastName}`)}
+                      </span>
                     </div>
                     <div>
                       <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
                       <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
-                      <p className="text-xs text-slate-500">Checked in: {formatTime(visitor.checkedInAt)}</p>
+                      <div className="flex items-center gap-4 mt-1">
+                        <p className="text-xs text-slate-500">👤 Host: {getStaffName(visitor.hostStaffId || undefined)}</p>
+                        <p className="text-xs text-slate-400">🕐 Arrived: {formatTime(visitor.checkedInAt)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="default" className="text-xs">
+                          On-site
+                        </Badge>
+                        {visitor.phoneNumber && (
+                          <span className="text-xs text-slate-400">📞 {visitor.phoneNumber}</span>
+                        )}
+                        {visitor.email && (
+                          <span className="text-xs text-slate-400">✉️ {visitor.email}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <Button
