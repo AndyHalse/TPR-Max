@@ -65,16 +65,16 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
-    // Show suggestions immediately after 2+ characters - but use debouncing to avoid interference
+    // Show suggestions with longer delay to allow continuous typing
     if (newValue.length >= 2) {
       // Clear any existing timeout
       if (window.companyTimeout) {
         clearTimeout(window.companyTimeout);
       }
-      // Set new timeout
+      // Set new timeout with longer delay for smooth typing
       window.companyTimeout = setTimeout(() => {
         setOpen(true);
-      }, 500); // 500ms delay to let user finish typing
+      }, 800); // 800ms delay to allow user to type full company names
     } else {
       setOpen(false);
       if (window.companyTimeout) {
@@ -191,8 +191,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
               </CommandGroup>
             )}
             
-            {/* Add new company option */}
-            {inputValue.trim() && !companies.find(c => c.toLowerCase() === inputValue.trim().toLowerCase()) && (
+            {/* Add new company option - always show if input has text */}
+            {inputValue.trim() && (
               <CommandGroup>
                 {filteredCompanies.length > 0 && <div className="border-t border-slate-200 my-1" />}
                 <div className="px-2 py-1.5 text-xs font-medium text-green-600 uppercase tracking-wide">
@@ -207,7 +207,7 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
                     <span className="text-green-600 text-sm font-bold">+</span>
                   </div>
                   <span className="text-green-700 font-medium truncate">
-                    Create "{inputValue.trim()}"
+                    Use "{inputValue.trim()}"
                   </span>
                 </CommandItem>
               </CommandGroup>
