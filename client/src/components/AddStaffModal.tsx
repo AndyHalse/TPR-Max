@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +35,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
   const [showTemplateSelect, setShowTemplateSelect] = useState(false);
   
   const isEditMode = !!staffToEdit;
+
+  // Fetch departments dynamically
+  const { data: departmentNames } = useQuery<string[]>({
+    queryKey: ["/api/departments/names"],
+  });
 
   // Update form data when staffToEdit changes
   useEffect(() => {
@@ -322,12 +327,20 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Engineering">Engineering</SelectItem>
-                <SelectItem value="Marketing">Marketing</SelectItem>
-                <SelectItem value="Operations">Operations</SelectItem>
-                <SelectItem value="Finance">Finance</SelectItem>
-                <SelectItem value="Human Resources">Human Resources</SelectItem>
-                <SelectItem value="Sales">Sales</SelectItem>
+                {departmentNames && departmentNames.length > 0 ? (
+                  departmentNames.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))
+                ) : (
+                  <>
+                    <SelectItem value="Engineering">Engineering</SelectItem>
+                    <SelectItem value="Marketing">Marketing</SelectItem>
+                    <SelectItem value="Operations">Operations</SelectItem>
+                    <SelectItem value="Finance">Finance</SelectItem>
+                    <SelectItem value="Human Resources">Human Resources</SelectItem>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>

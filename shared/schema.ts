@@ -109,6 +109,17 @@ export type InsertStaffSession = z.infer<typeof insertStaffSessionSchema>;
 export type Visitor = typeof visitors.$inferSelect;
 export type InsertVisitor = z.infer<typeof insertVisitorSchema>;
 
+// Departments table for dynamic department management
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  color: text("color").notNull().default("bg-blue-500"), // CSS color class for UI
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -422,7 +433,15 @@ export const insertWorkerCompetencySchema = createInsertSchema(workerCompetencie
   createdAt: true,
 });
 
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
+export type Department = typeof departments.$inferSelect;
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 export type ContractorCompany = typeof contractorCompanies.$inferSelect;
 export type InsertContractorCompany = z.infer<typeof insertContractorCompanySchema>;
 export type ContractorWorker = typeof contractorWorkers.$inferSelect;

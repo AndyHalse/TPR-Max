@@ -2,14 +2,15 @@ import { db } from "./db";
 import { 
   staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
   contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies,
-  documentApprovals
+  documentApprovals, departments
 } from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation,
   ContractorCompany, InsertContractorCompany, ContractorWorker, InsertContractorWorker,
   ComplianceDocument, InsertComplianceDocument, DocumentType, InsertDocumentType,
-  WorkerCompetency, InsertWorkerCompetency, DocumentApproval, InsertDocumentApproval
+  WorkerCompetency, InsertWorkerCompetency, DocumentApproval, InsertDocumentApproval,
+  Department, InsertDepartment
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, count } from "drizzle-orm";
@@ -1575,6 +1576,90 @@ export class DatabaseStorage implements IStorage {
         visitors: [],
         totalCount: 0,
       };
+    }
+  }
+
+  // Department management methods
+  async getAllDepartments(): Promise<Department[]> {
+    try {
+      const result = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
+      return result;
+    } catch (error) {
+      console.error('Error getting all departments:', error);
+      return [];
+    }
+  }
+
+  async getDepartmentById(id: string): Promise<Department | undefined> {
+    try {
+      const [department] = await db.select().from(departments).where(eq(departments.id, id));
+      return department;
+    } catch (error) {
+      console.error('Error getting department by ID:', error);
+      return undefined;
+    }
+  }
+
+  async createDepartment(insertDepartment: InsertDepartment): Promise<Department> {
+    try {
+      const [department] = await db
+        .insert(departments)
+        .values({
+          ...insertDepartment,
+          id: randomUUID(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      return department;
+    } catch (error) {
+      console.error('Error creating department:', error);
+      throw error;
+    }
+  }
+
+  async updateDepartment(id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined> {
+    try {
+      const [department] = await db
+        .update(departments)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+        })
+        .where(eq(departments.id, id))
+        .returning();
+      return department;
+    } catch (error) {
+      console.error('Error updating department:', error);
+      return undefined;
+    }
+  }
+
+  async deleteDepartment(id: string): Promise<boolean> {
+    try {
+      // Soft delete by setting isActive to false
+      const [department] = await db
+        .update(departments)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(departments.id, id))
+        .returning();
+      return !!department;
+    } catch (error) {
+      console.error('Error deleting department:', error);
+      return false;
+    }
+  }
+
+  async getDepartmentNames(): Promise<string[]> {
+    try {
+      const result = await db.select({ name: departments.name }).from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
+      return result.map(d => d.name);
+    } catch (error) {
+      console.error('Error getting department names:', error);
+      return [];
     }
   }
 }

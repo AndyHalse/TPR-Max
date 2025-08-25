@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube } from "lucide-react";
-import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
+import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -31,6 +31,13 @@ export default function Settings() {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
   const [showManualResetDialog, setShowManualResetDialog] = useState(false);
+  const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
+  const [departmentToEdit, setDepartmentToEdit] = useState<Department | null>(null);
+  const [departmentForm, setDepartmentForm] = useState<Partial<InsertDepartment>>({
+    name: "",
+    description: "",
+    color: "bg-blue-500"
+  });
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -50,6 +57,10 @@ export default function Settings() {
   }>({
     queryKey: ["/api/system/status"],
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { data: departments } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
   });
 
   const updateSettingsMutation = useMutation({
@@ -169,6 +180,59 @@ export default function Settings() {
       toast({
         title: "Error",
         description: "Failed to preview daily reset",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const departmentMutation = useMutation({
+    mutationFn: async (data: { department: InsertDepartment; isEdit: boolean; id?: string }) => {
+      const { department, isEdit, id } = data;
+      if (isEdit && id) {
+        const response = await apiRequest("PUT", `/api/departments/${id}`, department);
+        return response.json();
+      } else {
+        const response = await apiRequest("POST", "/api/departments", department);
+        return response.json();
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/departments/names"] });
+      setShowDepartmentDialog(false);
+      setDepartmentToEdit(null);
+      setDepartmentForm({ name: "", description: "", color: "bg-blue-500" });
+      toast({
+        title: "Success",
+        description: departmentToEdit ? "Department updated successfully!" : "Department created successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save department",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteDepartmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/departments/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/departments/names"] });
+      toast({
+        title: "Success",
+        description: "Department deleted successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete department",
         variant: "destructive",
       });
     },
@@ -340,6 +404,45 @@ export default function Settings() {
     setShowAddEmailDialog(false);
   };
 
+  const handleDepartmentSubmit = () => {
+    if (!departmentForm.name?.trim()) {
+      toast({
+        title: "Error",
+        description: "Department name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    departmentMutation.mutate({
+      department: departmentForm as InsertDepartment,
+      isEdit: !!departmentToEdit,
+      id: departmentToEdit?.id,
+    });
+  };
+
+  const handleEditDepartment = (department: Department) => {
+    setDepartmentToEdit(department);
+    setDepartmentForm({
+      name: department.name,
+      description: department.description || "",
+      color: department.color || "bg-blue-500",
+    });
+    setShowDepartmentDialog(true);
+  };
+
+  const handleDeleteDepartment = (id: string) => {
+    if (confirm("Are you sure you want to delete this department? This action cannot be undone.")) {
+      deleteDepartmentMutation.mutate(id);
+    }
+  };
+
+  const resetDepartmentForm = () => {
+    setDepartmentToEdit(null);
+    setDepartmentForm({ name: "", description: "", color: "bg-blue-500" });
+    setShowDepartmentDialog(false);
+  };
+
   const handleManualReset = () => {
     setShowManualResetDialog(true);
   };
@@ -383,7 +486,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -407,6 +510,10 @@ export default function Settings() {
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users size={16} />
             Users
+          </TabsTrigger>
+          <TabsTrigger value="departments" className="flex items-center gap-2">
+            <Building size={16} />
+            Departments
           </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <Mail size={16} />
@@ -2049,6 +2156,95 @@ export default function Settings() {
           </div>
         </TabsContent>
 
+        <TabsContent value="departments" className="space-y-6 mt-6">
+          <GlassCard>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <Building className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Department Management</h3>
+              </div>
+              <Button
+                onClick={() => setShowDepartmentDialog(true)}
+                className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
+                data-testid="button-add-department"
+              >
+                <Building className="mr-2" size={16} />
+                Add Department
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {departments && departments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {departments.map((department) => (
+                    <div
+                      key={department.id}
+                      className={`p-4 rounded-xl border border-white/30 bg-white/50 backdrop-blur-sm ${department.color || 'bg-blue-500'} bg-opacity-10`}
+                      data-testid={`card-department-${department.id}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold text-slate-800" data-testid={`text-department-name-${department.id}`}>
+                          {department.name}
+                        </h4>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditDepartment(department)}
+                            className="text-blue-600 hover:text-blue-800"
+                            data-testid={`button-edit-department-${department.id}`}
+                          >
+                            <Edit size={14} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteDepartment(department.id)}
+                            className="text-red-600 hover:text-red-800"
+                            data-testid={`button-delete-department-${department.id}`}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                      {department.description && (
+                        <p className="text-sm text-slate-600" data-testid={`text-department-description-${department.id}`}>
+                          {department.description}
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center gap-2">
+                        <div
+                          className={`w-4 h-4 rounded-full ${department.color || 'bg-blue-500'}`}
+                          data-testid={`color-indicator-${department.id}`}
+                        />
+                        <span className="text-xs text-slate-500">
+                          {department.color?.replace('bg-', '').replace('-500', '') || 'blue'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12" data-testid="empty-departments-state">
+                  <Building className="mx-auto mb-4 text-slate-400" size={48} />
+                  <p className="text-slate-600 mb-4">No departments configured</p>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Create departments to organize your staff and improve visitor management
+                  </p>
+                  <Button
+                    onClick={() => setShowDepartmentDialog(true)}
+                    className="gradient-blue text-white"
+                    data-testid="button-add-first-department"
+                  >
+                    <Building className="mr-2" size={16} />
+                    Add Your First Department
+                  </Button>
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        </TabsContent>
+
         <TabsContent value="system" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Daily Reset Configuration */}
@@ -2370,6 +2566,95 @@ export default function Settings() {
               data-testid="button-confirm-reset"
             >
               {isManualResetDisabled ? "Resetting..." : "Reset System Now"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Department Add/Edit Dialog */}
+      <Dialog open={showDepartmentDialog} onOpenChange={setShowDepartmentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {departmentToEdit ? "Edit Department" : "Add Department"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="department-name" className="text-sm font-medium text-slate-700">
+                Department Name *
+              </Label>
+              <Input
+                id="department-name"
+                type="text"
+                value={departmentForm.name || ""}
+                onChange={(e) => setDepartmentForm(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                placeholder="Enter department name"
+                data-testid="input-department-name"
+                autoFocus
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="department-description" className="text-sm font-medium text-slate-700">
+                Description
+              </Label>
+              <Input
+                id="department-description"
+                type="text"
+                value={departmentForm.description || ""}
+                onChange={(e) => setDepartmentForm(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                placeholder="Enter description (optional)"
+                data-testid="input-department-description"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">
+                Color Theme
+              </Label>
+              <div className="grid grid-cols-6 gap-2">
+                {[
+                  { label: "Blue", value: "bg-blue-500", color: "bg-blue-500" },
+                  { label: "Green", value: "bg-green-500", color: "bg-green-500" },
+                  { label: "Purple", value: "bg-purple-500", color: "bg-purple-500" },
+                  { label: "Red", value: "bg-red-500", color: "bg-red-500" },
+                  { label: "Orange", value: "bg-orange-500", color: "bg-orange-500" },
+                  { label: "Indigo", value: "bg-indigo-500", color: "bg-indigo-500" },
+                ].map((colorOption) => (
+                  <button
+                    key={colorOption.value}
+                    type="button"
+                    onClick={() => setDepartmentForm(prev => ({ ...prev, color: colorOption.value }))}
+                    className={`w-8 h-8 rounded-full ${colorOption.color} border-2 ${
+                      departmentForm.color === colorOption.value
+                        ? "border-slate-800 ring-2 ring-blue-500"
+                        : "border-slate-300"
+                    } hover:scale-110 transition-transform`}
+                    data-testid={`color-${colorOption.label.toLowerCase()}`}
+                    title={colorOption.label}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={resetDepartmentForm}
+              data-testid="button-cancel-department"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleDepartmentSubmit}
+              disabled={departmentMutation.isPending || !departmentForm.name?.trim()}
+              className="gradient-blue text-white"
+              data-testid="button-save-department"
+            >
+              {departmentMutation.isPending ? "Saving..." : (departmentToEdit ? "Update" : "Create")}
             </Button>
           </DialogFooter>
         </DialogContent>

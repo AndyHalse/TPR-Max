@@ -89,7 +89,7 @@ export default function Dashboard() {
     }>;
     totalCount: number;
   }>({
-    queryKey: [`/api/analytics/departments/${selectedDepartment}`],
+    queryKey: ["/api/analytics/departments", selectedDepartment],
     enabled: !!selectedDepartment && openModal === 'department-details',
   });
 

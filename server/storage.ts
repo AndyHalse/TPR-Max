@@ -19,7 +19,9 @@ import type {
   DocumentType,
   InsertDocumentType,
   WorkerCompetency,
-  InsertWorkerCompetency
+  InsertWorkerCompetency,
+  Department,
+  InsertDepartment
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -204,6 +206,14 @@ export interface IStorage {
     }>;
     totalCount: number;
   }>;
+
+  // Department management methods
+  getAllDepartments(): Promise<Department[]>;
+  getDepartmentById(id: string): Promise<Department | undefined>;
+  createDepartment(insertDepartment: InsertDepartment): Promise<Department>;
+  updateDepartment(id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined>;
+  deleteDepartment(id: string): Promise<boolean>;
+  getDepartmentNames(): Promise<string[]>;
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";

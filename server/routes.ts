@@ -141,6 +141,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Department management endpoints
+  app.get("/api/departments", async (req, res) => {
+    try {
+      const departments = await storage.getAllDepartments();
+      res.json(departments);
+    } catch (error) {
+      console.error("Failed to fetch departments:", error);
+      res.status(500).json({ error: "Failed to fetch departments" });
+    }
+  });
+
+  app.post("/api/departments", async (req, res) => {
+    try {
+      const department = await storage.createDepartment(req.body);
+      res.status(201).json(department);
+    } catch (error) {
+      console.error("Failed to create department:", error);
+      res.status(500).json({ error: "Failed to create department" });
+    }
+  });
+
+  app.put("/api/departments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const department = await storage.updateDepartment(id, req.body);
+      if (!department) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      res.json(department);
+    } catch (error) {
+      console.error("Failed to update department:", error);
+      res.status(500).json({ error: "Failed to update department" });
+    }
+  });
+
+  app.delete("/api/departments/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteDepartment(id);
+      if (!success) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete department:", error);
+      res.status(500).json({ error: "Failed to delete department" });
+    }
+  });
+
+  app.get("/api/departments/names", async (req, res) => {
+    try {
+      const names = await storage.getDepartmentNames();
+      res.json(names);
+    } catch (error) {
+      console.error("Failed to fetch department names:", error);
+      res.status(500).json({ error: "Failed to fetch department names" });
+    }
+  });
+
   // Muster endpoint for emergency situations (includes staff, visitors, and contractors)
   app.get("/api/muster", async (req, res) => {
     try {
