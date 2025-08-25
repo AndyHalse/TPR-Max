@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -29,6 +29,71 @@ export default function KioskMode() {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
+
+  // Apply branding colors dynamically to kiosk mode
+  useEffect(() => {
+    if (settings?.backgroundColor || settings?.textColor || settings?.accentColor) {
+      const root = document.documentElement;
+      
+      // Convert hex to HSL for CSS variables
+      const hexToHsl = (hex: string) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (!result) return null;
+        
+        const r = parseInt(result[1], 16) / 255;
+        const g = parseInt(result[2], 16) / 255;
+        const b = parseInt(result[3], 16) / 255;
+        
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0, s = 0;
+        const l = (max + min) / 2;
+        
+        if (max !== min) {
+          const d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+          }
+          h /= 6;
+        }
+        
+        return `${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%`;
+      };
+
+      // Apply background color
+      if (settings.backgroundColor) {
+        const hsl = hexToHsl(settings.backgroundColor);
+        if (hsl) {
+          root.style.setProperty('--background', `hsl(${hsl})`);
+          root.style.setProperty('--card', `hsl(${hsl})`);
+          root.style.setProperty('--popover', `hsl(${hsl})`);
+        }
+      }
+
+      // Apply text color
+      if (settings.textColor) {
+        const hsl = hexToHsl(settings.textColor);
+        if (hsl) {
+          root.style.setProperty('--foreground', `hsl(${hsl})`);
+          root.style.setProperty('--card-foreground', `hsl(${hsl})`);
+          root.style.setProperty('--popover-foreground', `hsl(${hsl})`);
+        }
+      }
+
+      // Apply accent color
+      if (settings.accentColor) {
+        const hsl = hexToHsl(settings.accentColor);
+        if (hsl) {
+          root.style.setProperty('--primary', `hsl(${hsl})`);
+          root.style.setProperty('--accent', `hsl(${hsl})`);
+          root.style.setProperty('--ring', `hsl(${hsl})`);
+        }
+      }
+    }
+  }, [settings?.backgroundColor, settings?.textColor, settings?.accentColor]);
 
   const checkOutMutation = useMutation({
     mutationFn: async (qrCode: string) => {
@@ -275,7 +340,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("scan")}
             data-testid="button-qr-scanner"
           >
-            <GlassCard hover className="text-center p-6 sm:p-8 lg:p-10 group h-full flex flex-col justify-center">
+            <GlassCard hover className="text-center p-4 sm:p-6 lg:p-8 group h-full flex flex-col justify-center">
               <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white" size={32} />
               </div>
@@ -289,7 +354,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("walkin")}
             data-testid="button-manual-checkin"
           >
-            <GlassCard hover className="text-center p-6 sm:p-8 lg:p-10 group h-full flex flex-col justify-center">
+            <GlassCard hover className="text-center p-4 sm:p-6 lg:p-8 group h-full flex flex-col justify-center">
               <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 gradient-blue rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white" size={32} />
               </div>
@@ -298,7 +363,7 @@ export default function KioskMode() {
             </GlassCard>
           </div>
 
-          <GlassCard hover className="text-center p-6 sm:p-8 lg:p-10 group h-full flex flex-col justify-center" data-testid="button-staff-checkin">
+          <GlassCard hover className="text-center p-4 sm:p-6 lg:p-8 group h-full flex flex-col justify-center" data-testid="button-staff-checkin">
             <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform">
               <BadgeInfo className="text-white" size={32} />
             </div>
