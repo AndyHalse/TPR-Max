@@ -55,7 +55,8 @@ export class EmergencyEmailService {
       : 'http://localhost:5000';
     const marshalUrl = `${baseUrl}/fire-marshal?token=${emailData.emergencyToken}`;
     
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    // Force development mode for testing - always show console URL
+    if (true) { // Temporary override for development testing
       console.log('\n🚨 EMERGENCY ACTIVATED - DEVELOPMENT MODE 🚨');
       console.log('=============================================');
       console.log(`Fire Marshal: ${emailData.marshalName}`);
