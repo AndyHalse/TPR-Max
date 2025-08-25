@@ -222,9 +222,9 @@ import type { Staff, PreBooking, InsertPreBooking } from "@shared/schema";
 export default function PreBooking() {
   const { toast } = useToast();
   const [formData, setFormData] = useState<Partial<InsertPreBooking>>({
-    visitDate: addDays(new Date(), 1), // Default to tomorrow
+    visitDate: new Date(), // Default to today - allow same-day bookings
   });
-  const [selectedDate, setSelectedDate] = useState<Date>(addDays(new Date(), 1));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -250,8 +250,8 @@ export default function PreBooking() {
         title: "Success",
         description: "Pre-booking created and confirmation emails sent!",
       });
-      setFormData({ visitDate: addDays(new Date(), 1) });
-      setSelectedDate(addDays(new Date(), 1));
+      setFormData({ visitDate: new Date() });
+      setSelectedDate(new Date());
     },
     onError: () => {
       toast({

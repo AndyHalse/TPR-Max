@@ -1216,18 +1216,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(preBooking.qrCode)}`;
         
         // Send email
-        const emailSent = await emailService.sendPreBookingEmail(
-          preBooking,
-          hostStaff,
-          companySettings,
-          qrCodeUrl
-        );
-        
-        if (emailSent) {
-          await storage.updatePreBooking(preBooking.id, {
-            emailSent: true,
-            emailSentAt: new Date(),
-          });
+        try {
+          const { EmailService } = await import("./emailService");
+          const emailService = new EmailService();
+          const emailSent = await emailService.sendPreBookingEmail(
+            preBooking,
+            hostStaff,
+            companySettings,
+            qrCodeUrl
+          );
+          
+          if (emailSent) {
+            await storage.updatePreBooking(preBooking.id, {
+              emailSent: true,
+              emailSentAt: new Date(),
+            });
+          }
+        } catch (emailError) {
+          console.error("Failed to send pre-booking email:", emailError);
+          // Don't fail the pre-booking if email fails
         }
       }
       
