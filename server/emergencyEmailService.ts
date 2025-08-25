@@ -21,7 +21,10 @@ interface EmergencyEmailData {
 }
 
 export class EmergencyEmailService {
-  private static readonly FROM_EMAIL = 'emergency@visigatepro.com';
+  private static getFromEmail(): string {
+    // Use environment variable or fallback to a common domain
+    return process.env.EMERGENCY_FROM_EMAIL || 'noreply@example.com';
+  }
   private static readonly FROM_NAME = 'VisiGate Pro Emergency System';
 
   static async generateEmergencyToken(staffId: string): Promise<string> {
@@ -273,8 +276,8 @@ VisiGate Pro Emergency System - Automated Notification
     const msg = {
       to: emailData.marshalEmail,
       from: {
-        email: this.FROM_EMAIL,
-        name: this.FROM_NAME,
+        email: EmergencyEmailService.getFromEmail(),
+        name: EmergencyEmailService.FROM_NAME,
       },
       subject: `🚨 EMERGENCY MUSTER ACTIVATION - Fire Marshal Response Required`,
       text: emailText,
