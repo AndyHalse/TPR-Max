@@ -1300,9 +1300,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Cannot check in for past visits" });
       }
 
+      // Split visitor name into firstName and lastName for duplicate checking
+      const nameParts = preBooking.visitorName.split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || firstName;
+      
+      console.log(`🔍 Pre-booking manual check-in: ${firstName} ${lastName} from ${preBooking.company || 'no company'}`);
+      
+      // Check if visitor with same name and company is already checked in
+      const existingVisitor = await storage.findCheckedInVisitor(
+        firstName,
+        lastName,
+        preBooking.company
+      );
+      
+      if (existingVisitor) {
+        console.log(`❌ DUPLICATE FOUND in pre-booking: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id}) is already checked in`);
+        return res.status(400).json({ 
+          error: "Visitor already checked in", 
+          details: `${firstName} ${lastName} from ${preBooking.company || 'this company'} is already on-site.`
+        });
+      }
+      
+      console.log(`✅ No duplicate found in pre-booking, creating new visitor: ${firstName} ${lastName}`);
+
       // Create visitor record from pre-booking
       const visitor = await storage.createVisitor({
-        name: preBooking.visitorName,
+        firstName,
+        lastName,
         company: preBooking.company,
         purpose: preBooking.purpose,
         carRegistration: null,
