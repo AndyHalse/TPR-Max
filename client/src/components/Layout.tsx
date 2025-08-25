@@ -28,14 +28,14 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { path: "/", icon: ChartLine, label: "Dashboard" },
-    { path: "/staff", icon: Users, label: "Staff" },
     { path: "/visitors", icon: User, label: "Visitors" },
     { path: "/contractors", icon: HardHat, label: "Contractors" },
-    { path: "/contractor", icon: CalendarPlus, label: "Contractor Kiosk" },
-    { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
+    { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out" },
+    { path: "/staff", icon: Users, label: "Staff" },
+    { path: "/time-attendance", icon: Clock, label: "T&A Report" },
     { path: "/muster", icon: ListChecks, label: "Muster List" },
     { path: "/reports", icon: FileText, label: "Reports" },
-    { path: "/time-attendance", icon: Clock, label: "T&A Report" },
+    { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
     { path: "/ai-demo", icon: Brain, label: "AI Demo" },
     { path: "/settings", icon: Settings, label: "Settings" },
   ];
@@ -80,7 +80,7 @@ export default function Layout({ children }: LayoutProps) {
                         }`}
                         data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                       >
-                        <item.icon size={18} />
+                        <item.icon size={21} />
                       </button>
                     </Link>
                   </TooltipTrigger>
@@ -129,7 +129,7 @@ export default function Layout({ children }: LayoutProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
                   >
-                    <item.icon size={16} />
+                    <item.icon size={18} />
                     <span>{item.label}</span>
                   </button>
                 </Link>
