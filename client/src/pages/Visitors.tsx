@@ -65,8 +65,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
-    // Auto-open dropdown when typing, close when empty
-    setOpen(newValue.trim().length > 0);
+    // Only open dropdown when user has typed at least 1 character
+    setOpen(newValue.length >= 1);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -114,10 +114,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
         className={cn("w-full pr-8", className)}
         data-testid={testId}
         onFocus={() => {
-          // Only auto-open if there's content to show
-          if (inputValue.trim() || companies.length > 0) {
-            setOpen(true);
-          }
+          // Don't auto-open dropdown on focus - let user type first
+          // This prevents the annoying flash of all companies
         }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
@@ -127,7 +125,12 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
         variant="ghost"
         size="sm"
         className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          // Only open if there's text to search or show companies
+          if (inputValue.trim()) {
+            setOpen(!open);
+          }
+        }}
       >
         <ChevronsUpDown className="h-4 w-4 text-gray-400" />
       </Button>
@@ -192,12 +195,11 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
               </CommandGroup>
             )}
             
-            {/* Empty state */}
-            {filteredCompanies.length === 0 && !inputValue.trim() && (
-              <div className="px-4 py-8 text-center text-slate-500">
-                <div className="text-lg mb-2">🏢</div>
-                <div className="text-sm">Start typing to search companies</div>
-                <div className="text-xs mt-1 text-slate-400">or add a new one</div>
+            {/* Empty state - only show when user has typed but no matches */}
+            {filteredCompanies.length === 0 && inputValue.trim() && (
+              <div className="px-4 py-6 text-center text-slate-500">
+                <div className="text-sm mb-1">No existing companies found</div>
+                <div className="text-xs text-slate-400">Press Enter to add "{inputValue.trim()}" as new company</div>
               </div>
             )}
           </CommandList>

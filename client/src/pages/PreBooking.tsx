@@ -1,7 +1,179 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { format, addDays } from "date-fns";
+import { apiRequest } from "@/lib/queryClient";
+import { Staff, PreBooking, InsertPreBooking } from "@shared/schema";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { GlassCard } from "@/components/ui/glass-card";
+import { CalendarPlus, FileText, Clock, CheckCircle2, AlertCircle, Users, Eye, Check, ChevronsUpDown } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
-import { CompanyCombobox } from "./Visitors";
+// Import CompanyCombobox component
+interface CompanyComboboxProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  testId?: string;
+}
+
+function CompanyCombobox({ value, onValueChange, placeholder = "Select or type company...", className, testId }: CompanyComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+  const { data: companies = [] } = useQuery<string[]>({ queryKey: ["/api/companies"] });
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  const handleSelect = (selectedValue: string) => {
+    onValueChange(selectedValue);
+    setInputValue(selectedValue);
+    setOpen(false);
+  };
+
+  const handleInputChange = (newValue: string) => {
+    setInputValue(newValue);
+    onValueChange(newValue);
+    setOpen(newValue.length >= 1);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && inputValue.trim()) {
+      event.preventDefault();
+      onValueChange(inputValue.trim());
+      setOpen(false);
+    }
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => setOpen(false), 200);
+  };
+
+  const filteredCompanies = companies
+    .filter(company => company.toLowerCase().includes(inputValue.toLowerCase()))
+    .sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      const searchLower = inputValue.toLowerCase();
+      
+      if (aLower === searchLower) return -1;
+      if (bLower === searchLower) return 1;
+      
+      const aStarts = aLower.startsWith(searchLower);
+      const bStarts = bLower.startsWith(searchLower);
+      if (aStarts && !bStarts) return -1;
+      if (bStarts && !aStarts) return 1;
+      
+      return a.localeCompare(b);
+    })
+    .slice(0, 6);
+
+  return (
+    <div className="relative">
+      <Input
+        value={inputValue}
+        onChange={(e) => handleInputChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn("w-full pr-8", className)}
+        data-testid={testId}
+        onFocus={() => {}}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+        onClick={() => {
+          if (inputValue.trim()) {
+            setOpen(!open);
+          }
+        }}
+      >
+        <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+      </Button>
+      
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div className="absolute inset-0 pointer-events-none" />
+        </PopoverTrigger>
+        <PopoverContent 
+          className="w-full p-2 shadow-lg border border-slate-200" 
+          align="start" 
+          style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '320px' }}
+        >
+          <Command>
+            <CommandList className="max-h-64 overflow-auto">
+              {filteredCompanies.length > 0 && (
+                <CommandGroup>
+                  <div className="px-2 py-1.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
+                    Existing Companies
+                  </div>
+                  {filteredCompanies.map((company) => (
+                    <CommandItem
+                      key={company}
+                      value={company}
+                      onSelect={() => handleSelect(company)}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer rounded-md mx-2"
+                    >
+                      <div className="flex-shrink-0">
+                        <Check
+                          className={cn(
+                            "h-4 w-4 text-blue-600",
+                            value === company ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                      </div>
+                      <span className="text-slate-700 truncate">{company}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              
+              {inputValue.trim() && !companies.find(c => c.toLowerCase() === inputValue.trim().toLowerCase()) && (
+                <CommandGroup>
+                  {filteredCompanies.length > 0 && <div className="border-t border-slate-200 my-1" />}
+                  <div className="px-2 py-1.5 text-xs font-medium text-green-600 uppercase tracking-wide">
+                    Add New
+                  </div>
+                  <CommandItem
+                    value={inputValue}
+                    onSelect={() => handleSelect(inputValue.trim())}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer rounded-md mx-2 bg-green-25"
+                  >
+                    <div className="flex-shrink-0 w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 text-sm font-bold">+</span>
+                    </div>
+                    <span className="text-green-700 font-medium truncate">
+                      Create "{inputValue.trim()}"
+                    </span>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              
+              {filteredCompanies.length === 0 && inputValue.trim() && (
+                <div className="px-4 py-6 text-center text-slate-500">
+                  <div className="text-sm mb-1">No existing companies found</div>
+                  <div className="text-xs text-slate-400">Press Enter to add "{inputValue.trim()}" as new company</div>
+                </div>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -120,10 +292,10 @@ export default function PreBooking() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.visitorName || !formData.visitorEmail || !formData.company || !formData.hostStaffId || !formData.visitDate) {
+    if (!formData.visitorFirstName || !formData.visitorLastName || !formData.visitorEmail || !formData.company || !formData.hostStaffId || !formData.visitDate) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields (Name, Email, Company, Host, Visit Date)",
+        description: "Please fill in all required fields (First Name, Last Name, Email, Company, Host, Visit Date)",
         variant: "destructive",
       });
       return;
