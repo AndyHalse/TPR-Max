@@ -1,13 +1,26 @@
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import { storage } from './storage';
 import crypto from 'crypto';
 
-// Initialize SendGrid
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-} else {
-  console.warn('SENDGRID_API_KEY not found - Emergency email notifications will not work');
-}
+// Create SMTP transporter
+const createTransporter = () => {
+  // For testing, you can use these common SMTP settings:
+  // Gmail: smtp.gmail.com:587, TLS
+  // Outlook: smtp-mail.outlook.com:587, TLS
+  // Yahoo: smtp.mail.yahoo.com:587, TLS
+  
+  const config = {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER, // Your email address
+      pass: process.env.SMTP_PASS, // Your email password or app password
+    },
+  };
+  
+  return nodemailer.createTransporter(config);
+};
 
 interface EmergencyEmailData {
   marshalName: string;
@@ -36,8 +49,9 @@ export class EmergencyEmailService {
   }
 
   static async sendFireMarshalAlert(emailData: EmergencyEmailData): Promise<boolean> {
-    if (!process.env.SENDGRID_API_KEY) {
-      console.error('Cannot send emergency email - SENDGRID_API_KEY not configured');
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.error('Cannot send emergency email - SMTP credentials not configured');
+      console.log('Required: SMTP_USER, SMTP_PASS, optional: SMTP_HOST, SMTP_PORT');
       return false;
     }
 
@@ -291,11 +305,13 @@ VisiGate Pro Emergency System - Automated Notification
     };
 
     try {
-      await sgMail.send(msg);
+      const transporter = createTransporter();
+      await transporter.sendMail(msg);
       console.log(`Emergency email sent successfully to Fire Marshal: ${emailData.marshalEmail}`);
       return true;
     } catch (error) {
       console.error('Error sending emergency email:', error);
+      console.log('Check your SMTP settings: SMTP_USER, SMTP_PASS, SMTP_HOST, SMTP_PORT');
       return false;
     }
   }
