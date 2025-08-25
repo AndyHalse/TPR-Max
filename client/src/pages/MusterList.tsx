@@ -137,7 +137,7 @@ export default function MusterList() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Muster List</h2>

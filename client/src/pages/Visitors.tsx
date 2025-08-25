@@ -690,7 +690,7 @@ export default function Visitors() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-800">Visitor Management</h1>
         <Button
