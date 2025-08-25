@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -12,11 +12,11 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [username, setUsername] = useState("Andy");
+  const [password, setPassword] = useState("Kubo1966&&");
   const [error, setError] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const usernameInputRef = useRef<HTMLInputElement>(null);
 
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
@@ -43,22 +43,8 @@ export default function Login() {
     },
   });
 
-  // Auto-focus the username field when component mounts
-  useEffect(() => {
-    if (usernameInputRef.current) {
-      usernameInputRef.current.focus();
-    }
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = () => {
     setError("");
-    
-    // Get values from both state and form (handles all cases)
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-    const username = formData.get('username') as string || credentials.username || 'Andy';
-    const password = formData.get('password') as string || credentials.password || 'Kubo1966&&';
     
     if (!username || !password) {
       setError("Please enter both username and password");
@@ -92,7 +78,7 @@ export default function Login() {
             </Alert>
           )}
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-slate-700 dark:text-slate-300">
                 Username
@@ -100,14 +86,12 @@ export default function Login() {
               <div className="relative">
                 <User className="absolute left-3 top-3 text-slate-400" size={18} />
                 <Input
-                  ref={usernameInputRef}
                   id="username"
-                  name="username"
                   type="text"
                   placeholder="Enter your username"
                   className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
-                  value={credentials.username}
-                  onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   data-testid="input-username"
                   disabled={loginMutation.isPending}
                   autoComplete="username"
@@ -124,21 +108,25 @@ export default function Login() {
                 <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
                 <Input
                   id="password"
-                  name="password"
                   type="password"
                   placeholder="Enter your password"
                   className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
-                  value={credentials.password}
-                  onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   data-testid="input-password"
                   disabled={loginMutation.isPending}
                   autoComplete="current-password"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleLogin();
+                    }
+                  }}
                 />
               </div>
             </div>
             
             <Button
-              type="submit"
+              onClick={handleLogin}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
               disabled={loginMutation.isPending}
               data-testid="button-login"
@@ -152,7 +140,7 @@ export default function Login() {
                 </>
               )}
             </Button>
-          </form>
+          </div>
           
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
