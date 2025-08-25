@@ -43,7 +43,7 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onValueChange(newValue);
-    setOpen(newValue.length >= 2);
+    // Don't auto-open dropdown while typing - let user click arrow to see suggestions
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -95,9 +95,8 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
         size="sm"
         className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
         onClick={() => {
-          if (inputValue.length >= 2) {
-            setOpen(!open);
-          }
+          // Always allow user to toggle dropdown when they click the arrow
+          setOpen(!open);
         }}
       >
         <ChevronsUpDown className="h-4 w-4 text-gray-400" />

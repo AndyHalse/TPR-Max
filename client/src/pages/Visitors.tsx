@@ -65,8 +65,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
-    // Only show dropdown after user types at least 2 characters to avoid interference
-    setOpen(newValue.length >= 2);
+    // Don't auto-open dropdown while typing - let user click arrow to see suggestions
+    // This prevents any interference with typing
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -126,10 +126,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
         size="sm"
         className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
         onClick={() => {
-          // Only toggle dropdown if user has typed enough to avoid interference
-          if (inputValue.length >= 2) {
-            setOpen(!open);
-          }
+          // Always allow user to toggle dropdown when they click the arrow
+          setOpen(!open);
         }}
       >
         <ChevronsUpDown className="h-4 w-4 text-gray-400" />
