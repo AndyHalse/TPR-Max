@@ -406,6 +406,7 @@ export default function EmergencyMuster() {
                     <Button
                       size="sm"
                       variant={person.accounted ? "destructive" : "default"}
+                      className={person.accounted ? "" : "bg-green-600 hover:bg-green-700 text-white"}
                       onClick={() => toggleAccountedStatus(person.id, person.type)}
                       data-testid={`button-toggle-${person.id}`}
                     >
