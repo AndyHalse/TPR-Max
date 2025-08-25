@@ -111,12 +111,12 @@ export default function Layout({ children }: LayoutProps) {
       <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3 min-w-0 flex-shrink-0">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
               {settings?.logoUrl ? (
                 <img 
                   src={`/objects${settings.logoUrl}`}
                   alt="Company Logo" 
-                  className="w-8 h-8 object-contain rounded"
+                  className="w-10 h-10 object-contain rounded"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.nextElementSibling?.setAttribute('style', 'display: block');
