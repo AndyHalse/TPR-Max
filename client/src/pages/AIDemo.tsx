@@ -99,7 +99,7 @@ export default function AIDemo() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">
           AI-Powered Features Demo

@@ -269,7 +269,7 @@ export default function Contractors() {
   };
 
   return (
-    <div className="space-y-6 pt-20 pb-6">
+    <div className="space-y-6 pt-20 pb-6 p-6 rounded-xl bg-background min-h-screen">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
