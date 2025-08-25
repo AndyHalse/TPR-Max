@@ -70,7 +70,7 @@ export default function Dashboard() {
     queryKey: ["/api/analytics/departments"],
   });
 
-  const { data: departmentDetails } = useQuery<{
+  const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
     department: string;
     staff: Array<{
       id: string;
@@ -89,8 +89,8 @@ export default function Dashboard() {
     }>;
     totalCount: number;
   }>({
-    queryKey: ["/api/analytics/departments", selectedDepartment],
-    enabled: !!selectedDepartment,
+    queryKey: [`/api/analytics/departments/${selectedDepartment}`],
+    enabled: !!selectedDepartment && openModal === 'department-details',
   });
 
   const getStaffName = (staffId?: string) => {
@@ -800,7 +800,7 @@ export default function Dashboard() {
               </DialogTitle>
             </DialogHeader>
             
-            {!departmentDetails ? (
+            {departmentDetailsLoading || !departmentDetails ? (
               <div className="text-center py-8">
                 <div className="text-lg font-medium text-slate-600">Loading department details...</div>
               </div>
