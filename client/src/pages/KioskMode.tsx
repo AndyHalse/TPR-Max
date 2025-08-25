@@ -334,13 +334,13 @@ export default function KioskMode() {
         </div>
 
         {/* Kiosk Options - Responsive and screen-fitted */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 flex-1 max-h-80 sm:max-h-96">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           <div 
-            className="cursor-pointer h-full" 
+            className="cursor-pointer aspect-square" 
             onClick={() => setActiveSection("scan")}
             data-testid="button-qr-scanner"
           >
-            <GlassCard hover className="text-center p-2 sm:p-3 lg:p-4 group h-full flex flex-col justify-center">
+            <GlassCard hover className="text-center p-2 sm:p-3 lg:p-4 group aspect-square flex flex-col justify-center">
               <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2 lg:mb-3 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white" size={32} />
               </div>
@@ -350,11 +350,11 @@ export default function KioskMode() {
           </div>
 
           <div 
-            className="cursor-pointer h-full" 
+            className="cursor-pointer aspect-square" 
             onClick={() => setActiveSection("walkin")}
             data-testid="button-manual-checkin"
           >
-            <GlassCard hover className="text-center p-2 sm:p-3 lg:p-4 group h-full flex flex-col justify-center">
+            <GlassCard hover className="text-center p-2 sm:p-3 lg:p-4 group aspect-square flex flex-col justify-center">
               <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 gradient-blue rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2 lg:mb-3 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white" size={32} />
               </div>
@@ -363,13 +363,15 @@ export default function KioskMode() {
             </GlassCard>
           </div>
 
-          <GlassCard hover className="text-center p-4 sm:p-6 lg:p-8 group h-full flex flex-col justify-center" data-testid="button-staff-checkin">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2 lg:mb-3 group-hover:scale-110 transition-transform">
-              <BadgeInfo className="text-white" size={32} />
-            </div>
-            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">Staff Check-In</h3>
-            <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">Scan your employee ID</p>
-          </GlassCard>
+          <div className="cursor-pointer aspect-square" data-testid="button-staff-checkin">
+            <GlassCard hover className="text-center p-2 sm:p-3 lg:p-4 group aspect-square flex flex-col justify-center">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2 lg:mb-3 group-hover:scale-110 transition-transform">
+                <BadgeInfo className="text-white" size={32} />
+              </div>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">Staff Check-In</h3>
+              <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">Scan your employee ID</p>
+            </GlassCard>
+          </div>
         </div>
 
         {/* Instructions - Responsive and compact */}
