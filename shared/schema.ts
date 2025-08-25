@@ -127,6 +127,19 @@ export const companySettings = pgTable("company_settings", {
   reportFrequency: text("report_frequency").default("weekly"), // daily, weekly, monthly
   reportRecipients: text("report_recipients").array().default(["admin@company.com"]),
   lastReportSent: timestamp("last_report_sent"),
+  // SMTP Configuration (Industry Standard)
+  smtpHost: text("smtp_host").default(""),
+  smtpPort: text("smtp_port").default("587"), // 25, 587, 465, 2525
+  smtpSecurity: text("smtp_security").default("STARTTLS"), // None, STARTTLS, SSL/TLS
+  smtpUsername: text("smtp_username").default(""),
+  smtpPassword: text("smtp_password").default(""),
+  smtpFromEmail: text("smtp_from_email").default(""),
+  smtpFromName: text("smtp_from_name").default(""),
+  smtpReplyTo: text("smtp_reply_to").default(""),
+  smtpAuthMethod: text("smtp_auth_method").default("LOGIN"), // LOGIN, PLAIN, CRAM-MD5
+  smtpConnectionTimeout: text("smtp_connection_timeout").default("30"), // seconds
+  smtpTestEmailSent: boolean("smtp_test_email_sent").default(false),
+  smtpLastTested: timestamp("smtp_last_tested"),
   // Branding settings
   backgroundColor: text("background_color").default("#f8fafc"),
   foregroundColor: text("foreground_color").default("#1e293b"),

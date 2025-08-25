@@ -432,14 +432,7 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold text-slate-800">Configuration Status</h3>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                <div className="text-center">
-                  <Badge variant={currentSettings?.logoUrl ? "default" : "secondary"} className="mb-2">
-                    {currentSettings?.logoUrl ? "✓ Logo Set" : "○ No Logo"}
-                  </Badge>
-                  <p className="text-xs text-slate-600">Company Branding</p>
-                </div>
-                
+              <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <Badge variant={systemStatus?.services?.database ? "default" : "destructive"} className="mb-2">
                     {systemStatus?.services?.database ? (
@@ -475,23 +468,6 @@ export default function Settings() {
                 </div>
 
                 <div className="text-center">
-                  <Badge variant={systemStatus?.services?.storage ? "default" : "destructive"} className="mb-2">
-                    {systemStatus?.services?.storage ? (
-                      <>
-                        <CheckCircle className="mr-1" size={12} />
-                        Storage OK
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="mr-1" size={12} />
-                        Storage Error
-                      </>
-                    )}
-                  </Badge>
-                  <p className="text-xs text-slate-600">File Storage</p>
-                </div>
-
-                <div className="text-center">
                   <Badge variant={systemStatus?.services?.workflow ? "default" : "destructive"} className="mb-2">
                     {systemStatus?.services?.workflow ? (
                       <>
@@ -505,7 +481,7 @@ export default function Settings() {
                       </>
                     )}
                   </Badge>
-                  <p className="text-xs text-slate-600">Workflow</p>
+                  <p className="text-xs text-slate-600">Server Status</p>
                 </div>
               </div>
 
@@ -517,6 +493,253 @@ export default function Settings() {
                   </div>
                 </div>
               )}
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Mail className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Email Configuration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpHost" className="text-sm font-medium text-slate-700">
+                      SMTP Server Host
+                    </Label>
+                    <Input
+                      id="smtpHost"
+                      value={currentSettings?.smtpHost || ""}
+                      onChange={(e) => handleInputChange("smtpHost", e.target.value)}
+                      placeholder="smtp.gmail.com"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-smtp-host"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpPort" className="text-sm font-medium text-slate-700">
+                      SMTP Port
+                    </Label>
+                    <Select
+                      value={currentSettings?.smtpPort || "587"}
+                      onValueChange={(value) => handleInputChange("smtpPort", value)}
+                    >
+                      <SelectTrigger className="px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-smtp-port">
+                        <SelectValue placeholder="Select port" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25 (Standard SMTP)</SelectItem>
+                        <SelectItem value="587">587 (Submission - Recommended)</SelectItem>
+                        <SelectItem value="465">465 (SMTP over SSL)</SelectItem>
+                        <SelectItem value="2525">2525 (Alternative)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpSecurity" className="text-sm font-medium text-slate-700">
+                      Security/Encryption
+                    </Label>
+                    <Select
+                      value={currentSettings?.smtpSecurity || "STARTTLS"}
+                      onValueChange={(value) => handleInputChange("smtpSecurity", value)}
+                    >
+                      <SelectTrigger className="px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-smtp-security">
+                        <SelectValue placeholder="Select security" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="None">None (Not recommended)</SelectItem>
+                        <SelectItem value="STARTTLS">STARTTLS (Recommended)</SelectItem>
+                        <SelectItem value="SSL/TLS">SSL/TLS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpAuthMethod" className="text-sm font-medium text-slate-700">
+                      Authentication Method
+                    </Label>
+                    <Select
+                      value={currentSettings?.smtpAuthMethod || "LOGIN"}
+                      onValueChange={(value) => handleInputChange("smtpAuthMethod", value)}
+                    >
+                      <SelectTrigger className="px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-smtp-auth">
+                        <SelectValue placeholder="Select auth method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LOGIN">LOGIN</SelectItem>
+                        <SelectItem value="PLAIN">PLAIN</SelectItem>
+                        <SelectItem value="CRAM-MD5">CRAM-MD5</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpUsername" className="text-sm font-medium text-slate-700">
+                      SMTP Username
+                    </Label>
+                    <Input
+                      id="smtpUsername"
+                      value={currentSettings?.smtpUsername || ""}
+                      onChange={(e) => handleInputChange("smtpUsername", e.target.value)}
+                      placeholder="your.email@gmail.com"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-smtp-username"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpPassword" className="text-sm font-medium text-slate-700">
+                      SMTP Password
+                    </Label>
+                    <Input
+                      id="smtpPassword"
+                      type="password"
+                      value={currentSettings?.smtpPassword || ""}
+                      onChange={(e) => handleInputChange("smtpPassword", e.target.value)}
+                      placeholder="App password or SMTP password"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-smtp-password"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpFromEmail" className="text-sm font-medium text-slate-700">
+                      From Email Address
+                    </Label>
+                    <Input
+                      id="smtpFromEmail"
+                      type="email"
+                      value={currentSettings?.smtpFromEmail || ""}
+                      onChange={(e) => handleInputChange("smtpFromEmail", e.target.value)}
+                      placeholder="noreply@yourcompany.com"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-smtp-from-email"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpFromName" className="text-sm font-medium text-slate-700">
+                      From Display Name
+                    </Label>
+                    <Input
+                      id="smtpFromName"
+                      value={currentSettings?.smtpFromName || ""}
+                      onChange={(e) => handleInputChange("smtpFromName", e.target.value)}
+                      placeholder="VisiGate Pro System"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-smtp-from-name"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpReplyTo" className="text-sm font-medium text-slate-700">
+                      Reply-To Email (Optional)
+                    </Label>
+                    <Input
+                      id="smtpReplyTo"
+                      type="email"
+                      value={currentSettings?.smtpReplyTo || ""}
+                      onChange={(e) => handleInputChange("smtpReplyTo", e.target.value)}
+                      placeholder="support@yourcompany.com"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-smtp-reply-to"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="smtpConnectionTimeout" className="text-sm font-medium text-slate-700">
+                      Connection Timeout (seconds)
+                    </Label>
+                    <Input
+                      id="smtpConnectionTimeout"
+                      type="number"
+                      value={currentSettings?.smtpConnectionTimeout || "30"}
+                      onChange={(e) => handleInputChange("smtpConnectionTimeout", e.target.value)}
+                      placeholder="30"
+                      min="5"
+                      max="120"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-smtp-timeout"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-slate-800 mb-1">Test Email Configuration</h4>
+                      <p className="text-sm text-slate-600">Send a test email to verify your SMTP settings</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (!testEmail.trim()) {
+                          toast({
+                            title: "Error",
+                            description: "Please enter an email address to test",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        if (!currentSettings?.smtpHost || !currentSettings?.smtpUsername) {
+                          toast({
+                            title: "Error", 
+                            description: "Please configure SMTP settings first",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        testEmailMutation.mutate(testEmail);
+                      }}
+                      disabled={testEmailMutation.isPending}
+                      className="ml-4"
+                      data-testid="button-test-email"
+                    >
+                      {testEmailMutation.isPending ? "Sending..." : "Send Test Email"}
+                    </Button>
+                  </div>
+                  
+                  <div className="mt-3">
+                    <Input
+                      type="email"
+                      value={testEmail}
+                      onChange={(e) => setTestEmail(e.target.value)}
+                      placeholder="test@example.com"
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-test-email"
+                    />
+                  </div>
+
+                  {currentSettings?.smtpLastTested && (
+                    <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <p className="text-sm text-green-800 dark:text-green-200">
+                        <strong>Last test:</strong> {new Date(currentSettings.smtpLastTested).toLocaleString()}
+                        {currentSettings.smtpTestEmailSent && " ✓ Successful"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Common SMTP Providers:</h5>
+                  <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <p><strong>Gmail:</strong> smtp.gmail.com:587 (STARTTLS) - Use app password</p>
+                    <p><strong>Outlook:</strong> smtp-mail.outlook.com:587 (STARTTLS)</p>
+                    <p><strong>SendGrid:</strong> smtp.sendgrid.net:587 (STARTTLS)</p>
+                    <p><strong>Mailgun:</strong> smtp.mailgun.org:587 (STARTTLS)</p>
+                  </div>
+                </div>
+              </div>
             </GlassCard>
           </div>
         </TabsContent>

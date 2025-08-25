@@ -728,10 +728,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Database status check failed:", dbError);
       }
 
-      // Check email service (check if SMTP settings exist)
+      // Check email service (check if complete SMTP settings exist)
       try {
         const settings = await storage.getCompanySettings();
-        status.email = !!(settings?.smtpHost && settings?.smtpUser);
+        status.email = !!(settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword && settings?.smtpFromEmail);
       } catch (emailError) {
         console.error("Email status check failed:", emailError);
       }
