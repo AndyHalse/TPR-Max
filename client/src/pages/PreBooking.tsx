@@ -248,6 +248,7 @@ export default function PreBooking() {
     visitDate: new Date(), // Default to today - allow same-day bookings
   });
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({});
 
   const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -315,6 +316,10 @@ export default function PreBooking() {
 
   const handleInputChange = (field: keyof InsertPreBooking, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear validation error when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({ ...prev, [field]: false }));
+    }
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -336,13 +341,41 @@ export default function PreBooking() {
     }
   };
 
+  const validateForm = () => {
+    const errors: {[key: string]: boolean} = {};
+    
+    if (!formData.visitorName?.trim()) errors.visitorName = true;
+    if (!formData.visitorEmail?.trim()) errors.visitorEmail = true;
+    if (!formData.company?.trim()) errors.company = true;
+    if (!formData.hostStaffId?.trim()) errors.hostStaffId = true;
+    if (!formData.visitDate) errors.visitDate = true;
+    
+    setValidationErrors(errors);
+    
+    // Focus on first error field
+    const errorFields = Object.keys(errors);
+    if (errorFields.length > 0) {
+      const firstErrorField = errorFields[0];
+      setTimeout(() => {
+        const element = document.querySelector(`[data-testid="input-${firstErrorField.replace('hostStaffId', 'host-staff')}"]`) as HTMLElement;
+        if (element) {
+          element.focus();
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.visitorFirstName || !formData.visitorLastName || !formData.visitorEmail || !formData.company || !formData.hostStaffId || !formData.visitDate) {
+    if (!validateForm()) {
       toast({
-        title: "Error",
-        description: "Please fill in all required fields (First Name, Last Name, Email, Company, Host, Visit Date)",
+        title: "Validation Error",
+        description: "Please fill in all required fields highlighted in red.",
         variant: "destructive",
       });
       return;
@@ -402,9 +435,13 @@ export default function PreBooking() {
                   type="text"
                   value={formData.visitorName || ""}
                   onChange={(e) => handleInputChange("visitorName", e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                    validationErrors.visitorName 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-white/30 focus:ring-blue-500'
+                  }`}
                   required
-                  data-testid="input-visitor-name"
+                  data-testid="input-visitorName"
                 />
               </div>
               
@@ -417,9 +454,13 @@ export default function PreBooking() {
                   type="email"
                   value={formData.visitorEmail || ""}
                   onChange={(e) => handleInputChange("visitorEmail", e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                    validationErrors.visitorEmail 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-white/30 focus:ring-blue-500'
+                  }`}
                   required
-                  data-testid="input-visitor-email"
+                  data-testid="input-visitorEmail"
                 />
               </div>
             </div>
@@ -433,7 +474,11 @@ export default function PreBooking() {
                 onValueChange={(value) => handleInputChange("company", value)}
                 companies={companies}
                 placeholder="Select or type company name..."
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                  validationErrors.company 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : 'border-white/30 focus:ring-blue-500'
+                }`}
                 testId="input-company"
               />
             </div>
@@ -446,7 +491,14 @@ export default function PreBooking() {
                 value={formData.hostStaffId || ""} 
                 onValueChange={(value) => handleInputChange("hostStaffId", value)}
               >
-                <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-host-staff">
+                <SelectTrigger 
+                  className={`w-full px-4 py-3 rounded-xl border bg-white/50 ${
+                    validationErrors.hostStaffId 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-white/30 focus:ring-blue-500'
+                  }`} 
+                  data-testid="input-host-staff"
+                >
                   <SelectValue placeholder="Select host staff member" />
                 </SelectTrigger>
                 <SelectContent>
@@ -466,8 +518,12 @@ export default function PreBooking() {
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 justify-start text-left font-normal"
-                      data-testid="button-visit-date"
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 justify-start text-left font-normal ${
+                        validationErrors.visitDate 
+                          ? 'border-red-500 focus:ring-red-500' 
+                          : 'border-white/30 focus:ring-blue-500'
+                      }`}
+                      data-testid="input-visitDate"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
