@@ -207,7 +207,7 @@ export default function KioskMode() {
             <img 
               src={`/objects${settings.bannerUrl}`} 
               alt={settings.companyName}
-              className="w-full h-auto object-contain max-h-36 sm:max-h-44"
+              className="w-full h-auto object-contain max-h-43 sm:max-h-53"
               onError={(e) => {
                 console.error("Kiosk banner failed to load:", settings.bannerUrl);
                 e.currentTarget.style.display = 'none';
@@ -308,7 +308,7 @@ export default function KioskMode() {
           <img 
             src={`/objects${settings.bannerUrl}`} 
             alt={settings.companyName}
-            className="w-full h-auto object-contain max-h-36 sm:max-h-44"
+            className="w-full h-auto object-contain max-h-43 sm:max-h-53"
             onError={(e) => {
               console.error("Main kiosk banner failed to load:", settings.bannerUrl);
               e.currentTarget.style.display = 'none';
@@ -321,8 +321,8 @@ export default function KioskMode() {
         </div>
       )}
       
-      <div className="max-w-6xl mx-auto space-y-2 sm:space-y-3 flex-1 flex flex-col justify-center">
-        <div className="text-center flex-shrink-0">
+      <div className="max-w-6xl mx-auto flex-1 flex flex-col justify-center">
+        <div className="text-center flex-shrink-0 mb-4 sm:mb-6 lg:mb-8">
           <h2 
             className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 select-none" 
             onClick={() => setLocation("/")}
@@ -375,6 +375,7 @@ export default function KioskMode() {
         </div>
 
         {/* Instructions - Responsive and compact */}
+        <div className="mt-6 sm:mt-8 lg:mt-10">
         <GlassCard className="p-4 sm:p-6 lg:p-8 flex-shrink-0">
           <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-slate-800 mb-3 sm:mb-4 lg:mb-6 text-center">Instructions</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 text-slate-700">
@@ -395,6 +396,7 @@ export default function KioskMode() {
             </div>
           </div>
         </GlassCard>
+        </div>
 
         {showPreview && currentVisitor && (
           <PassPreviewModal
