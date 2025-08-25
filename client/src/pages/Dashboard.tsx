@@ -394,7 +394,7 @@ export default function Dashboard() {
             </Button>
           </div>
           
-          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
             {departmentsLoading ? (
               <div className="text-center py-4 text-slate-600">Loading departments...</div>
             ) : !departmentAnalytics || departmentAnalytics.length === 0 ? (
