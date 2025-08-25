@@ -192,7 +192,7 @@ export default function KioskMode() {
 
   if (activeSection === "walkin") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-background">
         <WalkInVisitorForm onBack={() => setActiveSection("main")} />
       </div>
     );
@@ -200,7 +200,7 @@ export default function KioskMode() {
 
   if (activeSection === "scan") {
     return (
-      <div className="min-h-screen max-h-screen overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 p-2 sm:p-4 flex flex-col">
+      <div className="min-h-screen max-h-screen overflow-hidden bg-background p-2 sm:p-4 flex flex-col">
         {/* Company Banner - Reduced by 10% and responsive */}
         {settings?.bannerUrl && (
           <div className="w-full max-w-4xl mx-auto mb-4 sm:mb-6 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
@@ -301,7 +301,7 @@ export default function KioskMode() {
   }
 
   return (
-    <div className="min-h-screen max-h-screen overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 p-2 sm:p-4 flex flex-col">
+    <div className="min-h-screen max-h-screen overflow-hidden bg-background p-2 sm:p-4 flex flex-col">
       {/* Company Banner - Reduced by 10% and responsive */}
       {settings?.bannerUrl && (
         <div className="w-full max-w-4xl mx-auto mb-4 sm:mb-6 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
@@ -324,13 +324,13 @@ export default function KioskMode() {
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 flex-1 flex flex-col justify-center">
         <div className="text-center flex-shrink-0">
           <h2 
-            className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800 mb-2 sm:mb-4 select-none" 
+            className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2 sm:mb-4 select-none" 
             onClick={() => setLocation("/")}
             style={{ cursor: 'default' }}
           >
             Welcome to {settings?.companyName || 'TechCorp Ltd'}
           </h2>
-          <p className="text-slate-600 text-base sm:text-lg lg:text-xl">Please select your check-in option below</p>
+          <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">Please select your check-in option below</p>
         </div>
 
         {/* Kiosk Options - Responsive and screen-fitted */}
@@ -344,8 +344,8 @@ export default function KioskMode() {
               <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white" size={32} />
               </div>
-              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-800 mb-2 sm:mb-3">QR Scanner</h3>
-              <p className="text-slate-600 text-sm sm:text-base lg:text-lg">Scan to check in or check out</p>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">QR Scanner</h3>
+              <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">Scan to check in or check out</p>
             </GlassCard>
           </div>
 
@@ -358,8 +358,8 @@ export default function KioskMode() {
               <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 gradient-blue rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white" size={32} />
               </div>
-              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-800 mb-2 sm:mb-3">Manual Check-In</h3>
-              <p className="text-slate-600 text-sm sm:text-base lg:text-lg">Walk-in visitor entry</p>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">Manual Check-In</h3>
+              <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">Walk-in visitor entry</p>
             </GlassCard>
           </div>
 
@@ -367,8 +367,8 @@ export default function KioskMode() {
             <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform">
               <BadgeInfo className="text-white" size={32} />
             </div>
-            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-800 mb-2 sm:mb-3">Staff Check-In</h3>
-            <p className="text-slate-600 text-sm sm:text-base lg:text-lg">Scan your employee ID</p>
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">Staff Check-In</h3>
+            <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">Scan your employee ID</p>
           </GlassCard>
         </div>
 
