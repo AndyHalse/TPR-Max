@@ -2422,6 +2422,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return holidays.some(holiday => holiday.month === month && holiday.day === day);
   }
 
+  // Setup overnight check-out notifications
+  async function setupOvernightNotifications() {
+    try {
+      const settings = await storage.getCompanySettings();
+      
+      if (settings?.emailReportsEnabled) {
+        console.log("📧 Setting up overnight check-out notifications (daily at 6:00 AM)");
+        
+        // Schedule overnight notification check at 6:00 AM every day
+        cron.schedule('0 6 * * *', async () => {
+          try {
+            console.log(`📧 Checking for overnight check-outs at ${new Date().toLocaleString()}`);
+            await sendOvernightReport();
+          } catch (error) {
+            console.error("❌ Error in overnight notification check:", error);
+          }
+        }, {
+          timezone: settings?.dailyResetTimezone || "Europe/London"
+        });
+        
+        console.log("✅ Overnight check-out notifications scheduled successfully");
+      } else {
+        console.log("📧 Overnight notifications disabled - email reports not enabled");
+      }
+    } catch (error) {
+      console.error("❌ Error setting up overnight notifications:", error);
+    }
+  }
+
+  // Helper function to send overnight report
+  async function sendOvernightReport() {
+    try {
+      const settings = await storage.getCompanySettings();
+      if (!settings?.emailReportsEnabled || !settings?.reportRecipients?.length) {
+        return;
+      }
+      
+      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+        storage.getCurrentVisitors(),
+        storage.getCheckedInStaff(),
+        storage.getCheckedInContractors()
+      ]);
+      
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      // Filter for people who checked in yesterday and are still checked in
+      const overnightVisitors = currentVisitors.filter(visitor => 
+        visitor.checkedInAt && new Date(visitor.checkedInAt) < yesterday
+      );
+      
+      const overnightStaff = checkedInStaff.filter(staff => 
+        staff.checkedInAt && new Date(staff.checkedInAt) < yesterday
+      );
+      
+      const overnightContractors = checkedInContractors.filter(contractor => 
+        contractor.checkedInAt && new Date(contractor.checkedInAt) < yesterday
+      );
+      
+      const totalOvernight = overnightVisitors.length + overnightStaff.length + overnightContractors.length;
+      
+      if (totalOvernight === 0) {
+        console.log("📧 No overnight check-outs detected - no email sent");
+        return;
+      }
+      
+      const { EmailService } = await import("./emailService");
+      const emailService = new EmailService();
+      
+      const subject = `Overnight Check-Out Alert - ${totalOvernight} Personnel Still On-Site`;
+      
+      let message = `
+        OVERNIGHT CHECK-OUT ALERT
+        
+        The following personnel did not check out yesterday and are still showing as on-site:
+        
+      `;
+      
+      if (overnightVisitors.length > 0) {
+        message += `VISITORS (${overnightVisitors.length}):\n`;
+        overnightVisitors.forEach(visitor => {
+          const checkedInTime = visitor.checkedInAt ? new Date(visitor.checkedInAt).toLocaleString() : 'Unknown';
+          message += `• ${visitor.firstName} ${visitor.lastName} (${visitor.company || 'No company'}) - Checked in: ${checkedInTime}\n`;
+        });
+        message += '\n';
+      }
+      
+      if (overnightStaff.length > 0) {
+        message += `STAFF (${overnightStaff.length}):\n`;
+        overnightStaff.forEach(staff => {
+          const checkedInTime = staff.checkedInAt ? new Date(staff.checkedInAt).toLocaleString() : 'Unknown';
+          message += `• ${staff.firstName} ${staff.lastName} (${staff.department || 'No department'}) - Checked in: ${checkedInTime}\n`;
+        });
+        message += '\n';
+      }
+      
+      if (overnightContractors.length > 0) {
+        message += `CONTRACTORS (${overnightContractors.length}):\n`;
+        overnightContractors.forEach(contractor => {
+          const checkedInTime = contractor.checkedInAt ? new Date(contractor.checkedInAt).toLocaleString() : 'Unknown';
+          message += `• ${contractor.firstName} ${contractor.lastName} (${contractor.company || 'No company'}) - Checked in: ${checkedInTime}\n`;
+        });
+        message += '\n';
+      }
+      
+      message += `
+        RECOMMENDED ACTIONS:
+        • Contact personnel to verify their status
+        • Check out manually if they have left the premises
+        • Update security logs as needed
+        • Consider running a manual daily reset if appropriate
+        
+        Report generated: ${new Date().toLocaleString()}
+        
+        This is an automated notification from VisiGate Pro.
+      `;
+      
+      // Send to all report recipients
+      let sentCount = 0;
+      for (const email of settings.reportRecipients) {
+        try {
+          await emailService.sendPlainEmail(email, subject, message);
+          sentCount++;
+        } catch (error) {
+          console.error(`Failed to send overnight report to ${email}:`, error);
+        }
+      }
+      
+      console.log(`📧 Overnight report sent to ${sentCount} recipients - ${totalOvernight} personnel still on-site`);
+    } catch (error) {
+      console.error("Failed to send overnight report:", error);
+    }
+  }
+
   // Helper function to send grace period notification
   async function sendGracePeriodNotification(gracePeriodMinutes: number) {
     try {
@@ -2505,6 +2640,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize automatic daily reset
   setupAutomaticDailyReset();
+
+  // Initialize overnight check-out notifications
+  setupOvernightNotifications();
 
   const httpServer = createServer(app);
   return httpServer;
