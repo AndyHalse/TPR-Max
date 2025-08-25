@@ -489,34 +489,34 @@ export default function Dashboard() {
             </button>
           </div>
           
-          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 scrollbar-thin">
+          <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1 scrollbar-thin">
             {visitorsLoading ? (
               <div className="text-center py-4 text-slate-600">Loading visitors...</div>
             ) : !currentVisitors || currentVisitors.length === 0 ? (
               <div className="text-center py-4 text-slate-600">No current visitors</div>
             ) : (
               currentVisitors.map((visitor) => (
-                <div key={visitor.id} className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-xl hover:bg-white/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer" data-testid={`visitor-${visitor.id}`}>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center">
+                <div key={visitor.id} className="flex items-center justify-between p-2.5 bg-white/50 dark:bg-slate-800/50 rounded-lg hover:bg-white/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer" data-testid={`visitor-${visitor.id}`}>
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
                       <span className="text-white font-medium text-sm">{getInitials(`${visitor.firstName} ${visitor.lastName}`)}</span>
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200" data-testid={`visitor-name-${visitor.id}`}>
+                      <p className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`visitor-name-${visitor.id}`}>
                         {visitor.firstName} {visitor.lastName}
                       </p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{visitor.company || "No company"}</p>
-                      <div className="flex items-center gap-3 mt-1">
+                      <p className="text-xs text-slate-600 dark:text-slate-400">{visitor.company || "No company"}</p>
+                      <div className="flex items-center gap-2.5 mt-0.5">
                         <p className="text-xs text-slate-500 dark:text-slate-400">👤 {getStaffName(visitor.hostStaffId || undefined)}</p>
                         <p className="text-xs text-slate-400 dark:text-slate-500">🕐 {formatTime(visitor.checkedInAt)}</p>
                       </div>
                       {visitor.phoneNumber && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">📞 {visitor.phoneNumber}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">📞 {visitor.phoneNumber}</p>
                       )}
                     </div>
                   </div>
                   <div className="text-right">
-                    <Badge variant="default" className="text-xs mb-1">
+                    <Badge variant="default" className="text-xs mb-0.5">
                       On-site
                     </Badge>
                     <p className="text-xs text-slate-400 dark:text-slate-500">
