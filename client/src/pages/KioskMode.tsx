@@ -340,8 +340,8 @@ export default function KioskMode() {
             onClick={() => setActiveSection("scan")}
             data-testid="button-qr-scanner"
           >
-            <GlassCard hover className="text-center p-2.5 sm:p-4 lg:p-6 group h-full flex flex-col justify-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-2.5 lg:mb-4 group-hover:scale-110 transition-transform">
+            <GlassCard hover className="text-center p-2 sm:p-3 lg:p-4 group h-full flex flex-col justify-center">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2 lg:mb-3 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white" size={32} />
               </div>
               <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">QR Scanner</h3>
@@ -354,8 +354,8 @@ export default function KioskMode() {
             onClick={() => setActiveSection("walkin")}
             data-testid="button-manual-checkin"
           >
-            <GlassCard hover className="text-center p-2.5 sm:p-4 lg:p-6 group h-full flex flex-col justify-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 gradient-blue rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-2.5 lg:mb-4 group-hover:scale-110 transition-transform">
+            <GlassCard hover className="text-center p-2 sm:p-3 lg:p-4 group h-full flex flex-col justify-center">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 gradient-blue rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2 lg:mb-3 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white" size={32} />
               </div>
               <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">Manual Check-In</h3>
@@ -364,7 +364,7 @@ export default function KioskMode() {
           </div>
 
           <GlassCard hover className="text-center p-4 sm:p-6 lg:p-8 group h-full flex flex-col justify-center" data-testid="button-staff-checkin">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-2.5 lg:mb-4 group-hover:scale-110 transition-transform">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-1 sm:mb-2 lg:mb-3 group-hover:scale-110 transition-transform">
               <BadgeInfo className="text-white" size={32} />
             </div>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground mb-2 sm:mb-3">Staff Check-In</h3>
