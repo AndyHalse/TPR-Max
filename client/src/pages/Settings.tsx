@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -28,6 +28,7 @@ export default function Settings() {
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [newEmailRecipient, setNewEmailRecipient] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "user" });
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -179,6 +180,31 @@ export default function Settings() {
       console.log('Updated form data:', newData);
       return newData;
     });
+
+    // Auto-save for SMTP email configuration fields
+    const smtpFields = ['smtpHost', 'smtpPort', 'smtpSecurity', 'smtpUsername', 'smtpPassword', 'smtpFromEmail', 'smtpFromName', 'smtpReplyTo', 'smtpAuthMethod', 'smtpConnectionTimeout'];
+    if (smtpFields.includes(field)) {
+      // Debounce auto-save to avoid excessive API calls
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        console.log('Auto-saving SMTP setting:', field, '=', value);
+        updateSettingsMutation.mutate({ [field]: value }, {
+          onSuccess: () => {
+            toast({
+              title: "Auto-saved",
+              description: `${field.replace('smtp', 'SMTP ')} updated automatically`,
+            });
+          },
+          onError: () => {
+            toast({
+              title: "Auto-save failed",
+              description: "Please try saving manually",
+              variant: "destructive",
+            });
+          }
+        });
+      }, 1500); // Auto-save after 1.5 seconds of no changes
+    }
   };
 
   const handleSave = () => {
