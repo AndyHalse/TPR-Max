@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
 
 export default function Settings() {
@@ -30,6 +30,11 @@ export default function Settings() {
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
+  });
+
+  const { data: systemStatus } = useQuery({
+    queryKey: ["/api/system/status"],
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const updateSettingsMutation = useMutation({
@@ -430,21 +435,91 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold text-slate-800">Configuration Status</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div className="text-center">
                   <Badge variant={currentSettings?.logoUrl ? "default" : "secondary"} className="mb-2">
                     {currentSettings?.logoUrl ? "✓ Logo Set" : "○ No Logo"}
                   </Badge>
-                  <p className="text-sm text-slate-600">Company Branding</p>
+                  <p className="text-xs text-slate-600">Company Branding</p>
                 </div>
                 
                 <div className="text-center">
-                  <Badge variant="default" className="mb-2">
-                    ✓ SMTP Configured
+                  <Badge variant={systemStatus?.services?.database ? "default" : "destructive"} className="mb-2">
+                    {systemStatus?.services?.database ? (
+                      <>
+                        <CheckCircle className="mr-1" size={12} />
+                        SQL Online
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="mr-1" size={12} />
+                        SQL Error
+                      </>
+                    )}
                   </Badge>
-                  <p className="text-sm text-slate-600">Email Service</p>
+                  <p className="text-xs text-slate-600">Database</p>
+                </div>
+
+                <div className="text-center">
+                  <Badge variant={systemStatus?.services?.email ? "default" : "secondary"} className="mb-2">
+                    {systemStatus?.services?.email ? (
+                      <>
+                        <CheckCircle className="mr-1" size={12} />
+                        SMTP Ready
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="mr-1" size={12} />
+                        No SMTP
+                      </>
+                    )}
+                  </Badge>
+                  <p className="text-xs text-slate-600">Email Service</p>
+                </div>
+
+                <div className="text-center">
+                  <Badge variant={systemStatus?.services?.storage ? "default" : "destructive"} className="mb-2">
+                    {systemStatus?.services?.storage ? (
+                      <>
+                        <CheckCircle className="mr-1" size={12} />
+                        Storage OK
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="mr-1" size={12} />
+                        Storage Error
+                      </>
+                    )}
+                  </Badge>
+                  <p className="text-xs text-slate-600">File Storage</p>
+                </div>
+
+                <div className="text-center">
+                  <Badge variant={systemStatus?.services?.workflow ? "default" : "destructive"} className="mb-2">
+                    {systemStatus?.services?.workflow ? (
+                      <>
+                        <CheckCircle className="mr-1" size={12} />
+                        Server Online
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="mr-1" size={12} />
+                        Server Error
+                      </>
+                    )}
+                  </Badge>
+                  <p className="text-xs text-slate-600">Workflow</p>
                 </div>
               </div>
+
+              {systemStatus?.uptime && (
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-center space-x-4 text-sm text-slate-600">
+                    <span>Server Uptime: {Math.floor(systemStatus.uptime / 3600)}h {Math.floor((systemStatus.uptime % 3600) / 60)}m</span>
+                    <span>Last Check: {new Date(systemStatus.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              )}
             </GlassCard>
           </div>
         </TabsContent>

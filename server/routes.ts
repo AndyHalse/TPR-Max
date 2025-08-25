@@ -709,6 +709,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // System status check endpoint
+  app.get("/api/system/status", async (req, res) => {
+    try {
+      const status = {
+        database: false,
+        email: false,
+        storage: false,
+        authentication: false,
+        workflow: false,
+      };
+
+      // Check database connection
+      try {
+        await storage.getStats();
+        status.database = true;
+      } catch (dbError) {
+        console.error("Database status check failed:", dbError);
+      }
+
+      // Check email service (check if SMTP settings exist)
+      try {
+        const settings = await storage.getCompanySettings();
+        status.email = !!(settings?.smtpHost && settings?.smtpUser);
+      } catch (emailError) {
+        console.error("Email status check failed:", emailError);
+      }
+
+      // Check authentication (basic check - if we can access this endpoint, auth is working)
+      status.authentication = true;
+
+      // Check workflow (server is running since we're responding)
+      status.workflow = true;
+
+      // Check storage (test if we can access storage methods)
+      try {
+        await storage.getCompanySettings();
+        status.storage = true;
+      } catch (storageError) {
+        console.error("Storage status check failed:", storageError);
+      }
+
+      res.json({
+        success: true,
+        services: status,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+      });
+    } catch (error) {
+      console.error("System status check failed:", error);
+      res.status(500).json({ 
+        error: "Failed to check system status",
+        services: {
+          database: false,
+          email: false,
+          storage: false,
+          authentication: false,
+          workflow: false,
+        }
+      });
+    }
+  });
+
   app.put("/api/settings", async (req, res) => {
     try {
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
