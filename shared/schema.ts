@@ -11,7 +11,7 @@ export const staff = pgTable("staff", {
   department: text("department").notNull(),
   employeeId: text("employee_id").notNull().unique(),
   photoUrl: text("photo_url"),
-  accessLevel: text("access_level").notNull().default("staff"), // admin, supervisor, manager, staff, security, visitor
+  accessLevel: text("access_level").notNull().default("staff"), // admin, supervisor, manager, staff, security, visitor, fire_marshal
   password: text("password"), // Only for admin and supervisor levels
   lastLoginAt: timestamp("last_login_at"),
   // Check-in/out tracking
@@ -22,6 +22,10 @@ export const staff = pgTable("staff", {
   manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  // Fire Marshal emergency access
+  isFireMarshal: boolean("is_fire_marshal").default(false).notNull(),
+  emergencyToken: text("emergency_token"), // Secure token for emergency access without login
+  emergencyTokenExpires: timestamp("emergency_token_expires"), // Token expiration
   userId: varchar("user_id").references(() => users.id), // Link to user account
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

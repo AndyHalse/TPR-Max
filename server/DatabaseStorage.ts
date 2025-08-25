@@ -12,7 +12,7 @@ import type {
   WorkerCompetency, InsertWorkerCompetency, DocumentApproval, InsertDocumentApproval
 } from "@shared/schema";
 import type { IStorage } from "./storage";
-import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, count } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -1315,6 +1315,95 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error in DatabaseStorage.getUniqueCompanies:", error);
       return [];
+    }
+  }
+
+  // Fire Marshal emergency methods
+  async getFireMarshals(): Promise<Staff[]> {
+    try {
+      const fireMarshals = await db
+        .select()
+        .from(staff)
+        .where(and(
+          eq(staff.isFireMarshal, true),
+          eq(staff.isActive, true)
+        ))
+        .orderBy(asc(staff.firstName));
+      
+      return fireMarshals;
+    } catch (error) {
+      console.error("Error fetching Fire Marshals:", error);
+      return [];
+    }
+  }
+
+  async updateStaffEmergencyToken(staffId: string, token: string, expires: Date): Promise<boolean> {
+    try {
+      const [updatedStaff] = await db
+        .update(staff)
+        .set({
+          emergencyToken: token,
+          emergencyTokenExpires: expires
+        })
+        .where(eq(staff.id, staffId))
+        .returning();
+
+      return !!updatedStaff;
+    } catch (error) {
+      console.error("Error updating emergency token:", error);
+      return false;
+    }
+  }
+
+  async validateEmergencyToken(token: string): Promise<Staff | null> {
+    try {
+      const [staffMember] = await db
+        .select()
+        .from(staff)
+        .where(and(
+          eq(staff.emergencyToken, token),
+          gt(staff.emergencyTokenExpires, new Date()),
+          eq(staff.isFireMarshal, true),
+          eq(staff.isActive, true)
+        ));
+
+      return staffMember || null;
+    } catch (error) {
+      console.error("Error validating emergency token:", error);
+      return null;
+    }
+  }
+
+  async getTotalOnSitePersonnel(): Promise<number> {
+    try {
+      // Count staff currently on site
+      const [staffCount] = await db
+        .select({ count: count() })
+        .from(staff)
+        .where(and(
+          eq(staff.isCheckedIn, true),
+          eq(staff.isActive, true)
+        ));
+
+      // Count visitors currently on site
+      const [visitorCount] = await db
+        .select({ count: count() })
+        .from(visitors)
+        .where(eq(visitors.isCheckedIn, true));
+
+      // Count contractors currently on site
+      const [contractorCount] = await db
+        .select({ count: count() })
+        .from(contractorWorkers)
+        .where(and(
+          eq(contractorWorkers.isCheckedIn, true),
+          eq(contractorWorkers.isActive, true)
+        ));
+
+      return (staffCount.count || 0) + (visitorCount.count || 0) + (contractorCount.count || 0);
+    } catch (error) {
+      console.error("Error getting total personnel count:", error);
+      return 0;
     }
   }
 }

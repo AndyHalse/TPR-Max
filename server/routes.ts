@@ -23,6 +23,7 @@ const staffAuthSchema = z.object({
 });
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { EmailService } from "./emailService";
+import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
@@ -172,6 +173,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to fetch muster list:", error);
       res.status(500).json({ error: "Failed to fetch muster list" });
+    }
+  });
+
+  // Fire Marshal Emergency System Endpoints
+  
+  // Emergency activation - Notify all Fire Marshals
+  app.post("/api/emergency/activate", requireAuth, async (req, res) => {
+    try {
+      const activatedBy = req.user?.username || 'System Administrator';
+      
+      const result = await EmergencyEmailService.notifyAllFireMarshals(activatedBy);
+      
+      if (result.total === 0) {
+        return res.status(400).json({
+          error: "No Fire Marshals found",
+          message: "Please assign Fire Marshal status to staff members before activating emergency."
+        });
+      }
+      
+      if (result.sent === 0) {
+        return res.status(500).json({
+          error: "Emergency notification failed",
+          message: "Unable to send notifications to any Fire Marshals",
+          details: result.errors
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: `Emergency activated successfully. Notified ${result.sent} of ${result.total} Fire Marshals.`,
+        sent: result.sent,
+        total: result.total,
+        errors: result.errors.length > 0 ? result.errors : undefined
+      });
+    } catch (error) {
+      console.error("Error activating emergency:", error);
+      res.status(500).json({ 
+        error: "Failed to activate emergency",
+        message: "An unexpected error occurred while activating the emergency system." 
+      });
+    }
+  });
+  
+  // Validate Fire Marshal emergency token
+  app.get("/api/emergency/validate-token/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const marshal = await storage.validateEmergencyToken(token);
+      
+      if (!marshal) {
+        return res.status(401).json({
+          error: "Invalid or expired token",
+          message: "The emergency access token is invalid or has expired."
+        });
+      }
+      
+      res.json({
+        valid: true,
+        marshal: {
+          name: `${marshal.firstName} ${marshal.lastName}`,
+          department: marshal.department,
+          email: marshal.email
+        }
+      });
+    } catch (error) {
+      console.error("Error validating token:", error);
+      res.status(500).json({ 
+        error: "Token validation failed",
+        message: "Unable to validate emergency access token." 
+      });
+    }
+  });
+  
+  // Emergency muster list for Fire Marshals (token-based access)
+  app.get("/api/emergency/muster/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      // Validate Fire Marshal token
+      const marshal = await storage.validateEmergencyToken(token);
+      if (!marshal) {
+        return res.status(401).json({ error: "Invalid or expired emergency token" });
+      }
+      
+      const [currentVisitors, checkedInStaff, contractorCompanies] = await Promise.all([
+        storage.getCurrentVisitors(),
+        storage.getCheckedInStaff(),
+        storage.getAllContractorCompanies(),
+      ]);
+      
+      // Get all checked-in contractors
+      let checkedInContractors: any[] = [];
+      for (const company of contractorCompanies) {
+        const workers = await storage.getWorkersByCompanyId(company.id);
+        checkedInContractors.push(
+          ...workers
+            .filter(worker => worker.isCheckedIn)
+            .map(worker => ({
+              id: worker.id,
+              name: `${worker.firstName} ${worker.lastName}`,
+              type: 'contractor' as const,
+              company: company.name,
+              checkedInAt: worker.checkedInAt || worker.createdAt,
+              location: 'Building A',
+              accounted: worker.isAccountedFor || false
+            }))
+        );
+      }
+      
+      const musterList = [
+        ...checkedInStaff.map(staff => ({
+          id: staff.id,
+          name: `${staff.firstName} ${staff.lastName}`,
+          type: 'staff' as const,
+          department: staff.department,
+          checkedInAt: staff.checkedInAt || staff.createdAt,
+          location: 'Building A',
+          accounted: staff.isAccountedFor || false
+        })),
+        ...currentVisitors.map(visitor => ({
+          id: visitor.id,
+          name: `${visitor.firstName} ${visitor.lastName}`,
+          type: 'visitor' as const,
+          company: visitor.company,
+          checkedInAt: visitor.checkedInAt,
+          location: 'Building A', 
+          accounted: visitor.isAccountedFor || false
+        })),
+        ...checkedInContractors
+      ];
+      
+      res.json(musterList);
+    } catch (error) {
+      console.error("Failed to fetch emergency muster list:", error);
+      res.status(500).json({ error: "Failed to fetch emergency muster list" });
+    }
+  });
+  
+  // Toggle accounted status for Fire Marshals (token-based access)
+  app.post("/api/emergency/toggle-accounted/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { personId, type } = req.body;
+      
+      // Validate Fire Marshal token
+      const marshal = await storage.validateEmergencyToken(token);
+      if (!marshal) {
+        return res.status(401).json({ error: "Invalid or expired emergency token" });
+      }
+      
+      let success = false;
+      let personName = "Unknown";
+      let accounted = false;
+      
+      if (type === 'staff') {
+        success = await storage.toggleStaffAccountedStatus(personId);
+        const staff = await storage.getStaffById(personId);
+        if (staff) {
+          personName = `${staff.firstName} ${staff.lastName}`;
+          accounted = staff.isAccountedFor || false;
+        }
+      } else if (type === 'visitor') {
+        success = await storage.toggleVisitorAccountedStatus(personId);
+        const visitor = await storage.getVisitorById(personId);
+        if (visitor) {
+          personName = `${visitor.firstName} ${visitor.lastName}`;
+          accounted = visitor.isAccountedFor || false;
+        }
+      } else if (type === 'contractor') {
+        success = await storage.toggleContractorAccountedStatus(personId);
+        // Get contractor name when contractor system is fully implemented
+      } else {
+        return res.status(400).json({ error: "Invalid person type" });
+      }
+      
+      if (!success) {
+        return res.status(404).json({ error: "Person not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        name: personName,
+        accounted: !accounted // Status after toggle
+      });
+    } catch (error) {
+      console.error("Failed to toggle accounted status:", error);
+      res.status(500).json({ error: "Failed to toggle accounted status" });
     }
   });
 

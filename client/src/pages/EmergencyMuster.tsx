@@ -112,6 +112,27 @@ export default function EmergencyMuster() {
     },
   });
 
+  // Mutation to activate Fire Marshal emergency system
+  const activateFireMarshalMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/emergency/activate", {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Fire Marshal Emergency Activated",
+        description: data.message || `Successfully notified ${data.sent} Fire Marshals via email.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Emergency Activation Failed",
+        description: error.message || "Failed to activate Fire Marshal emergency system",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Function to export muster list
   const exportMusterList = async () => {
     try {
@@ -211,11 +232,46 @@ export default function EmergencyMuster() {
 
       {emergencyActive && (
         <GlassCard className="border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
-          <div className="flex items-center justify-center p-4">
-            <AlertTriangle className="text-red-600 mr-3" size={32} />
-            <div className="text-center">
-              <h3 className="text-lg font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
-              <p className="text-red-700 dark:text-red-300">All personnel must proceed to designated muster points</p>
+          <div className="p-6">
+            <div className="flex items-center justify-center mb-6">
+              <AlertTriangle className="text-red-600 mr-3" size={32} />
+              <div className="text-center">
+                <h3 className="text-lg font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
+                <p className="text-red-700 dark:text-red-300">All personnel must proceed to designated muster points</p>
+              </div>
+            </div>
+            
+            {/* Fire Marshal Emergency System */}
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Shield className="text-blue-600 mr-3" size={24} />
+                  <div>
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200">Fire Marshal Emergency System</h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Notify Fire Marshals via secure email links for mobile emergency response
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => activateFireMarshalMutation.mutate()}
+                  disabled={activateFireMarshalMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                  data-testid="button-activate-fire-marshal"
+                >
+                  {activateFireMarshalMutation.isPending ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Notifying...
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <Mail className="mr-2" size={16} />
+                      NOTIFY FIRE MARSHALS
+                    </div>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </GlassCard>

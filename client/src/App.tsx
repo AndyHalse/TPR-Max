@@ -18,10 +18,19 @@ import Visitors from "@/pages/Visitors";
 import AIDemo from "@/pages/AIDemo";
 import Contractors from "@/pages/Contractors";
 import ContractorKiosk from "@/pages/ContractorKiosk";
+import FireMarshalMuster from "@/pages/FireMarshalMuster";
 import Login from "@/pages/Login";
 
 function Router() {
-  // Check authentication status
+  const urlParams = new URLSearchParams(window.location.search);
+  const emergencyToken = urlParams.get('token');
+  
+  // Special case: Fire Marshal emergency access with token
+  if (window.location.pathname === '/fire-marshal' && emergencyToken) {
+    return <FireMarshalMuster token={emergencyToken} />;
+  }
+  
+  // Check authentication status for normal app routes
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/auth/me"],
     retry: false,
