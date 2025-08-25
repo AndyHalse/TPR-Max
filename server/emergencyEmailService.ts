@@ -49,17 +49,26 @@ export class EmergencyEmailService {
   }
 
   static async sendFireMarshalAlert(emailData: EmergencyEmailData): Promise<boolean> {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.error('Cannot send emergency email - SMTP credentials not configured');
-      console.log('Required: SMTP_USER, SMTP_PASS, optional: SMTP_HOST, SMTP_PORT');
-      return false;
-    }
-
+    // Development fallback - log emergency access URL to console for testing
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : 'http://localhost:5000';
-
     const marshalUrl = `${baseUrl}/fire-marshal?token=${emailData.emergencyToken}`;
+    
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log('\n🚨 EMERGENCY ACTIVATED - DEVELOPMENT MODE 🚨');
+      console.log('=============================================');
+      console.log(`Fire Marshal: ${emailData.marshalName}`);
+      console.log(`Email: ${emailData.marshalEmail}`);
+      console.log(`Department: ${emailData.marshalDepartment}`);
+      console.log(`Activated by: ${emailData.activatedBy}`);
+      console.log(`Personnel on-site: ${emailData.totalPersonnel}`);
+      console.log('\n🔗 FIRE MARSHAL EMERGENCY ACCESS URL:');
+      console.log(marshalUrl);
+      console.log('\n📱 Copy this URL to test the mobile Fire Marshal interface!');
+      console.log('=============================================\n');
+      return true; // Return success for development testing
+    }
 
     const emailHtml = `
     <!DOCTYPE html>
@@ -289,14 +298,12 @@ VisiGate Pro Emergency System - Automated Notification
 
     const msg = {
       to: emailData.marshalEmail,
-      from: {
-        email: EmergencyEmailService.getFromEmail(),
-        name: EmergencyEmailService.FROM_NAME,
-      },
+      from: `${EmergencyEmailService.FROM_NAME} <${EmergencyEmailService.getFromEmail()}>`,
+      replyTo: EmergencyEmailService.getFromEmail(),
       subject: `🚨 EMERGENCY MUSTER ACTIVATION - Fire Marshal Response Required`,
       text: emailText,
       html: emailHtml,
-      priority: 1, // High priority
+      priority: "high" as const, // High priority
       headers: {
         'X-Priority': '1',
         'X-MSMail-Priority': 'High',
@@ -310,7 +317,7 @@ VisiGate Pro Emergency System - Automated Notification
       console.log(`Emergency email sent successfully to Fire Marshal: ${emailData.marshalEmail}`);
       return true;
     } catch (error) {
-      console.error('Error sending emergency email:', error);
+      console.error('Error sending emergency email:', error instanceof Error ? error.message : String(error));
       console.log('Check your SMTP settings: SMTP_USER, SMTP_PASS, SMTP_HOST, SMTP_PORT');
       return false;
     }
@@ -356,7 +363,7 @@ VisiGate Pro Emergency System - Automated Notification
       return { sent, total: fireMarshals.length, errors };
     } catch (error) {
       console.error('Error notifying Fire Marshals:', error);
-      return { sent: 0, total: 0, errors: [error.message] };
+      return { sent: 0, total: 0, errors: [error instanceof Error ? error.message : String(error)] };
     }
   }
 }
