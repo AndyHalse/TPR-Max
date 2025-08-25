@@ -28,6 +28,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     photoUrl: "",
     accessLevel: "staff",
     password: "",
+    isFireMarshal: false,
   });
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -47,6 +48,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         photoUrl: staffToEdit.photoUrl || "",
         accessLevel: staffToEdit.accessLevel || "staff",
         password: "", // Never pre-fill password
+        isFireMarshal: staffToEdit.isFireMarshal || false,
       });
       setUploadedPhoto(staffToEdit.photoUrl || null);
     } else {
@@ -59,6 +61,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         photoUrl: "",
         accessLevel: "staff",
         password: "",
+        isFireMarshal: false,
       });
       setUploadedPhoto(null);
     }
@@ -127,7 +130,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
   });
 
   const handleClose = () => {
-    setFormData({ firstName: "", lastName: "", email: "", department: "", employeeId: "", photoUrl: "", accessLevel: "staff", password: "" });
+    setFormData({ firstName: "", lastName: "", email: "", department: "", employeeId: "", photoUrl: "", accessLevel: "staff", password: "", isFireMarshal: false });
     setUploadedPhoto(null);
     onClose();
   };
@@ -360,6 +363,27 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 <SelectItem value="visitor">👥 Visitor - Guest access</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          
+          {/* Fire Marshal Assignment */}
+          <div className="flex items-center space-x-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
+            <input
+              type="checkbox"
+              id="isFireMarshal"
+              checked={formData.isFireMarshal}
+              onChange={(e) => setFormData(prev => ({ ...prev, isFireMarshal: e.target.checked }))}
+              className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+              data-testid="checkbox-fire-marshal"
+            />
+            <div className="flex-1">
+              <label htmlFor="isFireMarshal" className="flex items-center text-sm font-medium text-orange-800 dark:text-orange-200">
+                <Shield className="mr-2" size={16} />
+                Designate as Fire Marshal
+              </label>
+              <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
+                Fire Marshals receive emergency notifications and can manage muster points during emergencies
+              </p>
+            </div>
           </div>
           
           {(formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && (

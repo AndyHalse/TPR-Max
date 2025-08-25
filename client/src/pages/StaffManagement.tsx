@@ -212,6 +212,11 @@ export default function StaffManagement() {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getAccessLevelBadgeColor(member.accessLevel || 'staff')}`}>
                       {getAccessLevelIcon(member.accessLevel || 'staff')} {getAccessLevelLabel(member.accessLevel || 'staff')}
                     </span>
+                    {member.isFireMarshal && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800" data-testid={`fire-marshal-badge-${member.id}`}>
+                        🚨 Fire Marshal
+                      </span>
+                    )}
                     {(member.accessLevel === 'admin' || member.accessLevel === 'supervisor') && member.lastLoginAt && (
                       <span className="text-xs text-green-600">Last login: {new Date(member.lastLoginAt).toLocaleDateString()}</span>
                     )}
