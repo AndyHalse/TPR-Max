@@ -43,21 +43,25 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onValueChange(newValue);
-    // Show suggestions with longer delay to allow continuous typing
+    
+    // Clear any existing timeout
+    if (window.companyTimeout) {
+      clearTimeout(window.companyTimeout);
+    }
+    
     if (newValue.length >= 2) {
-      // Clear any existing timeout
-      if (window.companyTimeout) {
-        clearTimeout(window.companyTimeout);
-      }
-      // Set new timeout with longer delay for smooth typing
+      // Quick response for short inputs, longer delay for longer inputs
+      const delay = newValue.length <= 4 ? 300 : 600;
+      
       window.companyTimeout = setTimeout(() => {
-        setOpen(true);
-      }, 800); // 800ms delay to allow user to type full company names
+        // Only open if input hasn't changed (user stopped typing)
+        const currentInput = document.activeElement as HTMLInputElement;
+        if (currentInput && currentInput.value === newValue) {
+          setOpen(true);
+        }
+      }, delay);
     } else {
       setOpen(false);
-      if (window.companyTimeout) {
-        clearTimeout(window.companyTimeout);
-      }
     }
   };
 
@@ -108,7 +112,13 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
             handleBlur();
           }
         }}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(e) => {
+          handleKeyDown(e);
+          // Close dropdown when user continues typing to avoid interference
+          if (e.key.length === 1 && open) {
+            setOpen(false);
+          }
+        }}
         autoComplete="off"
       />
       <Button
