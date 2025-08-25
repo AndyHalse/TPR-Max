@@ -48,7 +48,13 @@ export default function Visitors() {
   
   // Walk-in visitor form state
   const [walkInData, setWalkInData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    mobileNumber: "",
+    jobTitle: "",
+    address: "",
     company: "",
     hostStaffId: "",
     purpose: "",
@@ -310,10 +316,19 @@ export default function Visitors() {
   const handleWalkInSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!walkInData.name.trim()) {
+    if (!walkInData.firstName.trim()) {
       toast({
         title: "Error",
-        description: "Name is required",
+        description: "First name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!walkInData.lastName.trim()) {
+      toast({
+        title: "Error",
+        description: "Last name is required",
         variant: "destructive",
       });
       return;
@@ -327,15 +342,15 @@ export default function Visitors() {
       });
       return;
     }
-
-    // Split name into firstName and lastName
-    const nameParts = walkInData.name.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
     
     checkInWalkInMutation.mutate({
-      firstName,
-      lastName,
+      firstName: walkInData.firstName.trim(),
+      lastName: walkInData.lastName.trim(),
+      email: walkInData.email.trim() || null,
+      phoneNumber: walkInData.phoneNumber.trim() || null,
+      mobileNumber: walkInData.mobileNumber.trim() || null,
+      jobTitle: walkInData.jobTitle.trim() || null,
+      address: walkInData.address.trim() || null,
       company: walkInData.company.trim() || null,
       hostStaffId: walkInData.hostStaffId,
       purpose: walkInData.purpose.trim() || null,
@@ -643,57 +658,156 @@ export default function Visitors() {
               </div>
             </div>
 
-            <form onSubmit={handleWalkInSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium text-slate-700">
-                    Visitor Name *
-                  </Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    value={walkInData.name}
-                    onChange={(e) => setWalkInData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
-                    required
-                    data-testid="input-walkin-name"
-                  />
+            <form onSubmit={handleWalkInSubmit} className="space-y-6">
+              {/* Required Fields */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">Required Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">
+                      Visitor First Name *
+                    </Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={walkInData.firstName}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      required
+                      data-testid="input-walkin-firstname"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">
+                      Visitor Last Name *
+                    </Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={walkInData.lastName}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      required
+                      data-testid="input-walkin-lastname"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Optional Visitor Profile */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">Additional Information (Optional)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+                      Email Address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={walkInData.email}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      data-testid="input-walkin-email"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-700">
+                      Phone Number
+                    </Label>
+                    <Input
+                      id="phoneNumber"
+                      type="tel"
+                      value={walkInData.phoneNumber}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      data-testid="input-walkin-phone"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="mobileNumber" className="text-sm font-medium text-slate-700">
+                      Mobile Number
+                    </Label>
+                    <Input
+                      id="mobileNumber"
+                      type="tel"
+                      value={walkInData.mobileNumber}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, mobileNumber: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      data-testid="input-walkin-mobile"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="jobTitle" className="text-sm font-medium text-slate-700">
+                      Job Title
+                    </Label>
+                    <Input
+                      id="jobTitle"
+                      type="text"
+                      value={walkInData.jobTitle}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, jobTitle: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      data-testid="input-walkin-jobtitle"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="company" className="text-sm font-medium text-slate-700">
+                      Company
+                    </Label>
+                    <Input
+                      id="company"
+                      type="text"
+                      value={walkInData.company}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, company: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      data-testid="input-walkin-company"
+                    />
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="company" className="text-sm font-medium text-slate-700">
-                    Company
+                  <Label htmlFor="address" className="text-sm font-medium text-slate-700">
+                    Address
                   </Label>
-                  <Input
-                    id="company"
-                    type="text"
-                    value={walkInData.company}
-                    onChange={(e) => setWalkInData(prev => ({ ...prev, company: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
-                    data-testid="input-walkin-company"
+                  <Textarea
+                    id="address"
+                    value={walkInData.address}
+                    onChange={(e) => setWalkInData(prev => ({ ...prev, address: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 min-h-[80px]"
+                    placeholder="Enter full address (street, city, postcode)"
+                    data-testid="input-walkin-address"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="hostStaffId" className="text-sm font-medium text-slate-700">
-                  Host Staff Member *
-                </Label>
-                <Select 
-                  value={walkInData.hostStaffId} 
-                  onValueChange={(value) => setWalkInData(prev => ({ ...prev, hostStaffId: value }))}
-                >
-                  <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50">
-                    <SelectValue placeholder="Select host staff member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staff?.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.firstName} {member.lastName} - {member.department}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Host Selection */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">Visit Details</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="hostStaffId" className="text-sm font-medium text-slate-700">
+                    Host Staff Member *
+                  </Label>
+                  <Select 
+                    value={walkInData.hostStaffId} 
+                    onValueChange={(value) => setWalkInData(prev => ({ ...prev, hostStaffId: value }))}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50">
+                      <SelectValue placeholder="Select host staff member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staff?.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.firstName} {member.lastName} - {member.department}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
