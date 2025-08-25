@@ -69,9 +69,9 @@ export class AuthService {
       const hashedPassword = await this.hashPassword('Kubo1966&&');
       
       if (existingUser) {
-        // Update existing user password to ensure it's current
+        // Update existing user password to ensure it's current (pass raw password, storage will hash it)
         console.log('Developer user "Andy" already exists - updating password');
-        await storage.updateUser(existingUser.id, { password: hashedPassword });
+        await storage.updateUser(existingUser.id, { password: 'Kubo1966&&' });
         console.log('Developer user password updated successfully');
         return;
       }
