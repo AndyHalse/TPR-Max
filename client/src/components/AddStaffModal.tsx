@@ -216,8 +216,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       return;
     }
 
-    // Check if password is required for admin/supervisor levels
-    if ((formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && !formData.password.trim()) {
+    // Check if password is required for admin/supervisor levels (only for new users or when changing access level)
+    if ((formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && !formData.password.trim() && !isEditMode) {
       toast({
         title: "Error",
         description: "Password is required for admin and supervisor access levels",
@@ -238,6 +238,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       employeeId,
       photoUrl: uploadedPhoto || undefined,
       accessLevel: formData.accessLevel,
+      isFireMarshal: formData.isFireMarshal,
     };
 
     // Only include password if it's provided and user has admin/supervisor access
