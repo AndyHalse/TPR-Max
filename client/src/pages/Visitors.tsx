@@ -65,9 +65,8 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
-    if (newValue.length > 0) {
-      setOpen(true);
-    }
+    // Auto-open dropdown when typing, close when empty
+    setOpen(newValue.trim().length > 0);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -83,9 +82,28 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
     setTimeout(() => setOpen(false), 150);
   };
 
-  const filteredCompanies = companies.filter(company =>
-    company.toLowerCase().includes(inputValue.toLowerCase())
-  );
+  // Smart filtering: prioritize matches at the beginning, then anywhere
+  const filteredCompanies = companies
+    .filter(company => company.toLowerCase().includes(inputValue.toLowerCase()))
+    .sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      const searchLower = inputValue.toLowerCase();
+      
+      // Exact matches first
+      if (aLower === searchLower) return -1;
+      if (bLower === searchLower) return 1;
+      
+      // Starts with search term
+      const aStarts = aLower.startsWith(searchLower);
+      const bStarts = bLower.startsWith(searchLower);
+      if (aStarts && !bStarts) return -1;
+      if (bStarts && !aStarts) return 1;
+      
+      // Alphabetical for same type of match
+      return a.localeCompare(b);
+    })
+    .slice(0, 6); // Show top 6 matches
 
   return (
     <div className="relative">
@@ -95,7 +113,12 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
         placeholder={placeholder}
         className={cn("w-full pr-8", className)}
         data-testid={testId}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          // Only auto-open if there's content to show
+          if (inputValue.trim() || companies.length > 0) {
+            setOpen(true);
+          }
+        }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         autoComplete="off"
@@ -113,45 +136,69 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
         <PopoverTrigger asChild>
           <div className="absolute inset-0 pointer-events-none" />
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+        <PopoverContent 
+          className="w-full p-2 shadow-lg border border-slate-200" 
+          align="start" 
+          style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '320px' }}
+        >
         <Command>
-          <CommandInput
-            placeholder="Search companies..."
-            value={inputValue}
-            onValueChange={handleInputChange}
-          />
-          <CommandList>
-            {filteredCompanies.length === 0 && inputValue.trim() ? (
-              <CommandEmpty>
-                No existing companies found. Press Enter to add "{inputValue}" as new company.
-              </CommandEmpty>
-            ) : (
+          <CommandList className="max-h-64 overflow-auto">
+            {/* Show existing companies */}
+            {filteredCompanies.length > 0 && (
               <CommandGroup>
+                <div className="px-2 py-1.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  Existing Companies
+                </div>
                 {filteredCompanies.map((company) => (
                   <CommandItem
                     key={company}
                     value={company}
                     onSelect={() => handleSelect(company)}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer rounded-md mx-2"
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === company ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {company}
+                    <div className="flex-shrink-0">
+                      <Check
+                        className={cn(
+                          "h-4 w-4 text-blue-600",
+                          value === company ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </div>
+                    <span className="text-slate-700 truncate">{company}</span>
                   </CommandItem>
                 ))}
-                {inputValue.trim() && !companies.includes(inputValue.trim()) && (
-                  <CommandItem
-                    value={inputValue}
-                    onSelect={() => handleSelect(inputValue.trim())}
-                  >
-                    <Check className="mr-2 h-4 w-4 opacity-0" />
-                    Add "{inputValue.trim()}" as new company
-                  </CommandItem>
-                )}
               </CommandGroup>
+            )}
+            
+            {/* Add new company option */}
+            {inputValue.trim() && !companies.find(c => c.toLowerCase() === inputValue.trim().toLowerCase()) && (
+              <CommandGroup>
+                {filteredCompanies.length > 0 && <div className="border-t border-slate-200 my-1" />}
+                <div className="px-2 py-1.5 text-xs font-medium text-green-600 uppercase tracking-wide">
+                  Add New
+                </div>
+                <CommandItem
+                  value={inputValue}
+                  onSelect={() => handleSelect(inputValue.trim())}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer rounded-md mx-2 bg-green-25"
+                >
+                  <div className="flex-shrink-0 w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                    <span className="text-green-600 text-sm font-bold">+</span>
+                  </div>
+                  <span className="text-green-700 font-medium truncate">
+                    Create "{inputValue.trim()}"
+                  </span>
+                </CommandItem>
+              </CommandGroup>
+            )}
+            
+            {/* Empty state */}
+            {filteredCompanies.length === 0 && !inputValue.trim() && (
+              <div className="px-4 py-8 text-center text-slate-500">
+                <div className="text-lg mb-2">🏢</div>
+                <div className="text-sm">Start typing to search companies</div>
+                <div className="text-xs mt-1 text-slate-400">or add a new one</div>
+              </div>
             )}
           </CommandList>
         </Command>
