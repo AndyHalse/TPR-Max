@@ -65,16 +65,21 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
-    // Show suggestions after 2+ characters with a small delay to avoid interference
+    // Show suggestions immediately after 2+ characters - but use debouncing to avoid interference
     if (newValue.length >= 2) {
-      setTimeout(() => {
-        // Only open if the input value hasn't changed (user stopped typing)
-        if (inputValue === newValue) {
-          setOpen(true);
-        }
-      }, 300); // 300ms delay to avoid interference while typing
+      // Clear any existing timeout
+      if (window.companyTimeout) {
+        clearTimeout(window.companyTimeout);
+      }
+      // Set new timeout
+      window.companyTimeout = setTimeout(() => {
+        setOpen(true);
+      }, 500); // 500ms delay to let user finish typing
     } else {
       setOpen(false);
+      if (window.companyTimeout) {
+        clearTimeout(window.companyTimeout);
+      }
     }
   };
 
