@@ -415,6 +415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const visitorData = insertVisitorSchema.parse(req.body);
       
+      console.log(`🔍 Checking for duplicate: ${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'no company'}`);
+      
       // Check if visitor with same name and company is already checked in
       const existingVisitor = await storage.findCheckedInVisitor(
         visitorData.firstName, 
@@ -423,12 +425,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       if (existingVisitor) {
+        console.log(`❌ DUPLICATE FOUND: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id}) is already checked in`);
         return res.status(400).json({ 
           error: "Visitor already checked in", 
           details: `${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'this company'} is already on-site.`
         });
       }
       
+      console.log(`✅ No duplicate found, creating new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
       const visitor = await storage.createVisitor(visitorData);
       res.json(visitor);
     } catch (error) {

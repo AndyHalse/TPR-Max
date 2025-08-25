@@ -320,6 +320,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
+    console.log(`🔍 Database search for: ${firstName} ${lastName}, company: ${company || 'null'}, isCheckedIn: true`);
+    
     // First try exact match including company
     const exactConditions = [
       eq(visitors.firstName, firstName),
@@ -340,8 +342,11 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (exactMatch) {
+      console.log(`✅ Exact match found: ${exactMatch.firstName} ${exactMatch.lastName} (ID: ${exactMatch.id})`);
       return exactMatch;
     }
+    
+    console.log(`❌ No exact match, trying name-only search...`);
     
     // If no exact match, check for name-only match (ignore company)
     // This prevents duplicates when company info varies slightly
@@ -354,6 +359,12 @@ export class DatabaseStorage implements IStorage {
         eq(visitors.isCheckedIn, true)
       ))
       .limit(1);
+    
+    if (nameMatch) {
+      console.log(`✅ Name-only match found: ${nameMatch.firstName} ${nameMatch.lastName} (ID: ${nameMatch.id})`);
+    } else {
+      console.log(`❌ No name-only match found either`);
+    }
     
     return nameMatch;
   }
