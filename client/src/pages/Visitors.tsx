@@ -181,19 +181,32 @@ export default function Visitors() {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (visitor: Visitor) => {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({
-        title: "Success",
-        description: "Visitor checked in successfully!",
-      });
+      
+      // Show visitor pass preview (same as previous visitors)
+      setCheckedInVisitor(visitor);
+      setShowPassPreview(true);
+      
+      // Clear the form after successful check-in
       setWalkInData({
-        name: "",
+        firstName: "",
+        lastName: "",
+        email: "",
+        phoneNumber: "",
+        mobileNumber: "",
+        jobTitle: "",
+        address: "",
         company: "",
         hostStaffId: "",
         purpose: "",
         carRegistration: "",
+      });
+      
+      toast({
+        title: "Success",
+        description: "Visitor checked in successfully!",
       });
     },
     onError: (error: any) => {
