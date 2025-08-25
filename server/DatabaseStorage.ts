@@ -320,53 +320,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
-    console.log(`🔍 Database search for: ${firstName} ${lastName}, company: ${company || 'null'}, isCheckedIn: true`);
+    console.log(`🔍 Database search for: ${firstName} ${lastName}, company: ${company || 'null'}`);
     
-    // First try exact match including company
-    const exactConditions = [
+    // First check if someone with same name is currently checked in (prevent double check-ins)
+    const checkedInConditions = [
       eq(visitors.firstName, firstName),
       eq(visitors.lastName, lastName),
       eq(visitors.isCheckedIn, true)
     ];
     
     if (company) {
-      exactConditions.push(eq(visitors.company, company));
-    } else {
-      exactConditions.push(isNull(visitors.company));
+      checkedInConditions.push(eq(visitors.company, company));
     }
     
-    const [exactMatch] = await db
+    const [currentlyCheckedIn] = await db
       .select()
       .from(visitors)
-      .where(and(...exactConditions))
+      .where(and(...checkedInConditions))
       .limit(1);
     
-    if (exactMatch) {
-      console.log(`✅ Exact match found: ${exactMatch.firstName} ${exactMatch.lastName} (ID: ${exactMatch.id})`);
-      return exactMatch;
+    if (currentlyCheckedIn) {
+      console.log(`❌ ALREADY CHECKED IN: ${currentlyCheckedIn.firstName} ${currentlyCheckedIn.lastName} (ID: ${currentlyCheckedIn.id})`);
+      return currentlyCheckedIn;
     }
     
-    console.log(`❌ No exact match, trying name-only search...`);
-    
-    // If no exact match, check for name-only match (ignore company)
-    // This prevents duplicates when company info varies slightly
-    const [nameMatch] = await db
-      .select()
-      .from(visitors)
-      .where(and(
-        eq(visitors.firstName, firstName),
-        eq(visitors.lastName, lastName),
-        eq(visitors.isCheckedIn, true)
-      ))
-      .limit(1);
-    
-    if (nameMatch) {
-      console.log(`✅ Name-only match found: ${nameMatch.firstName} ${nameMatch.lastName} (ID: ${nameMatch.id})`);
-    } else {
-      console.log(`❌ No name-only match found either`);
-    }
-    
-    return nameMatch;
+    console.log(`✅ No one with that name currently checked in`);
+    return undefined;
   }
 
   async updateVisitor(id: string, updates: Partial<Visitor>): Promise<Visitor | undefined> {
@@ -380,6 +359,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVisitor(insertVisitor: InsertVisitor): Promise<Visitor> {
+    // First check if there's an existing visitor with same name (checked out)
+    // If so, check them in instead of creating a duplicate
+    const existingVisitor = await this.findExistingVisitorToReuse(
+      insertVisitor.firstName,
+      insertVisitor.lastName,
+      insertVisitor.company
+    );
+    
+    if (existingVisitor) {
+      console.log(`♻️ REUSING existing visitor: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id})`);
+      
+      // Update their details and check them in
+      const [updatedVisitor] = await db
+        .update(visitors)
+        .set({
+          company: insertVisitor.company,
+          purpose: insertVisitor.purpose,
+          carRegistration: insertVisitor.carRegistration,
+          hostStaffId: insertVisitor.hostStaffId,
+          checkedInAt: new Date(),
+          checkedOutAt: null,
+          checkoutType: null,
+          isCheckedIn: true,
+        })
+        .where(eq(visitors.id, existingVisitor.id))
+        .returning();
+      
+      return updatedVisitor;
+    }
+    
+    console.log(`🆕 Creating new visitor: ${insertVisitor.firstName} ${insertVisitor.lastName}`);
     const id = randomUUID();
     const qrCode = `VIS_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
     
@@ -393,6 +403,54 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return newVisitor;
+  }
+  
+  // Find existing checked-out visitor to reuse instead of creating duplicate
+  async findExistingVisitorToReuse(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
+    console.log(`🔍 Looking for existing visitor to reuse: ${firstName} ${lastName}`);
+    
+    // Look for exact match (name + company) that's checked out
+    const exactConditions = [
+      eq(visitors.firstName, firstName),
+      eq(visitors.lastName, lastName),
+      eq(visitors.isCheckedIn, false)
+    ];
+    
+    if (company) {
+      exactConditions.push(eq(visitors.company, company));
+    }
+    
+    const [exactMatch] = await db
+      .select()
+      .from(visitors)
+      .where(and(...exactConditions))
+      .orderBy(desc(visitors.checkedInAt))  // Get most recent visit
+      .limit(1);
+    
+    if (exactMatch) {
+      console.log(`✅ Found exact match to reuse: ${exactMatch.firstName} ${exactMatch.lastName} (ID: ${exactMatch.id})`);
+      return exactMatch;
+    }
+    
+    // If no exact match, look for name-only match (ignore company)
+    const [nameMatch] = await db
+      .select()
+      .from(visitors)
+      .where(and(
+        eq(visitors.firstName, firstName),
+        eq(visitors.lastName, lastName),
+        eq(visitors.isCheckedIn, false)
+      ))
+      .orderBy(desc(visitors.checkedInAt))  // Get most recent visit
+      .limit(1);
+    
+    if (nameMatch) {
+      console.log(`✅ Found name match to reuse: ${nameMatch.firstName} ${nameMatch.lastName} (ID: ${nameMatch.id})`);
+    } else {
+      console.log(`❌ No existing visitor found to reuse`);
+    }
+    
+    return nameMatch;
   }
 
   async createVisitorWithTimestamps(visitorData: InsertVisitor & {
