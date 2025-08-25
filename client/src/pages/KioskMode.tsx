@@ -207,7 +207,7 @@ export default function KioskMode() {
             <img 
               src={`/objects${settings.bannerUrl}`} 
               alt={settings.companyName}
-              className="w-full h-auto object-contain max-h-32 sm:max-h-40"
+              className="w-full h-auto object-contain max-h-36 sm:max-h-44"
               onError={(e) => {
                 console.error("Kiosk banner failed to load:", settings.bannerUrl);
                 e.currentTarget.style.display = 'none';
@@ -308,7 +308,7 @@ export default function KioskMode() {
           <img 
             src={`/objects${settings.bannerUrl}`} 
             alt={settings.companyName}
-            className="w-full h-auto object-contain max-h-32 sm:max-h-40"
+            className="w-full h-auto object-contain max-h-36 sm:max-h-44"
             onError={(e) => {
               console.error("Main kiosk banner failed to load:", settings.bannerUrl);
               e.currentTarget.style.display = 'none';
@@ -321,10 +321,10 @@ export default function KioskMode() {
         </div>
       )}
       
-      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 flex-1 flex flex-col justify-center">
+      <div className="max-w-6xl mx-auto space-y-2 sm:space-y-3 flex-1 flex flex-col justify-center">
         <div className="text-center flex-shrink-0">
           <h2 
-            className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2 sm:mb-4 select-none" 
+            className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2 select-none" 
             onClick={() => setLocation("/")}
             style={{ cursor: 'default' }}
           >
