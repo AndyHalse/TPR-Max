@@ -65,8 +65,17 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
-    // Don't auto-open dropdown while typing - let user click arrow to see suggestions
-    // This prevents any interference with typing
+    // Show suggestions after 2+ characters with a small delay to avoid interference
+    if (newValue.length >= 2) {
+      setTimeout(() => {
+        // Only open if the input value hasn't changed (user stopped typing)
+        if (inputValue === newValue) {
+          setOpen(true);
+        }
+      }, 300); // 300ms delay to avoid interference while typing
+    } else {
+      setOpen(false);
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -117,7 +126,13 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
           // Don't auto-open dropdown on focus - let user type first
           // This prevents the annoying flash of all companies
         }}
-        onBlur={handleBlur}
+        onBlur={(e) => {
+          // Don't close if user is clicking on a dropdown item
+          const relatedTarget = e.relatedTarget as HTMLElement;
+          if (!relatedTarget || !relatedTarget.closest('[data-radix-popper-content-wrapper]')) {
+            handleBlur();
+          }
+        }}
         onKeyDown={handleKeyDown}
         autoComplete="off"
       />
