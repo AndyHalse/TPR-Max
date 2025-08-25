@@ -710,7 +710,7 @@ export default function Dashboard() {
                       <User className="text-green-600" size={20} />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{visitor.name}</p>
+                      <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
                       <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
                       <p className="text-xs text-slate-500">Checked in: {formatTime(visitor.checkedInAt)}</p>
                       <div className="flex items-center gap-2 mt-1">
@@ -898,7 +898,7 @@ export default function Dashboard() {
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800">{visitor.name}</p>
+                              <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
                               <p className="text-sm text-slate-600">{visitor.company || 'No company'}</p>
                               <p className="text-xs text-slate-500">Host: {visitor.hostName}</p>
                             </div>
