@@ -1318,10 +1318,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Cannot check in for past visits" });
       }
 
-      // Split visitor name into firstName and lastName for duplicate checking
-      const nameParts = preBooking.visitorName.split(' ');
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(' ') || firstName;
+      // Get visitor name parts from pre-booking schema fields
+      const firstName = preBooking.visitorFirstName;
+      const lastName = preBooking.visitorLastName;
       
       console.log(`🔍 Pre-booking manual check-in: ${firstName} ${lastName} from ${preBooking.company || 'no company'}`);
       
@@ -1346,6 +1345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const visitor = await storage.createVisitor({
         firstName,
         lastName,
+        email: preBooking.visitorEmail,
         company: preBooking.company,
         purpose: preBooking.purpose,
         carRegistration: null,
