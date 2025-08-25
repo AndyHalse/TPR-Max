@@ -56,6 +56,7 @@ export default function Login() {
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
+    alert("Form submitted!"); // Simple debug alert
     e.preventDefault();
     setError("");
     
@@ -65,9 +66,11 @@ export default function Login() {
     const password = formData.get('password') as string || credentials.password;
     
     console.log("Form submitted with credentials:", { username, password });
+    alert(`Trying to login with: ${username} / ${password}`); // Debug the values
     
     if (!username || !password) {
       setError("Please enter both username and password");
+      alert("Missing credentials!");
       return;
     }
     
