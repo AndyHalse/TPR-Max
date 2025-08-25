@@ -50,16 +50,23 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
     }
     
     if (newValue.length >= 2) {
-      // Quick response for short inputs, longer delay for longer inputs
-      const delay = newValue.length <= 4 ? 300 : 600;
+      // Check if input matches start of any existing company
+      const hasMatches = companies.some(company => 
+        company.toLowerCase().startsWith(newValue.toLowerCase())
+      );
       
-      window.companyTimeout = setTimeout(() => {
-        // Only open if input hasn't changed (user stopped typing)
-        const currentInput = document.activeElement as HTMLInputElement;
-        if (currentInput && currentInput.value === newValue) {
-          setOpen(true);
-        }
-      }, delay);
+      if (hasMatches) {
+        // Show suggestions only if there are potential matches
+        window.companyTimeout = setTimeout(() => {
+          const currentInput = document.activeElement as HTMLInputElement;
+          if (currentInput && currentInput.value === newValue) {
+            setOpen(true);
+          }
+        }, 300);
+      } else {
+        // No matches - close dropdown and let user type freely
+        setOpen(false);
+      }
     } else {
       setOpen(false);
     }
@@ -112,13 +119,7 @@ function CompanyCombobox({ value, onValueChange, placeholder = "Select or type c
             handleBlur();
           }
         }}
-        onKeyDown={(e) => {
-          handleKeyDown(e);
-          // Close dropdown when user continues typing to avoid interference
-          if (e.key.length === 1 && open) {
-            setOpen(false);
-          }
-        }}
+        onKeyDown={handleKeyDown}
         autoComplete="off"
       />
       <Button
