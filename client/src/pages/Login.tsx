@@ -20,10 +20,14 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
+      console.log("Making API request with data:", data);
       const response = await apiRequest("POST", "/api/auth/login", data);
-      return response.json();
+      const result = await response.json();
+      console.log("API response:", result);
+      return result;
     },
     onSuccess: (data) => {
+      console.log("Login success:", data);
       if (data.success) {
         toast({
           title: "Login Successful",
@@ -34,6 +38,7 @@ export default function Login() {
       }
     },
     onError: (error: Error) => {
+      console.error("Login error:", error);
       setError(error.message);
       toast({
         title: "Login Failed",
@@ -54,11 +59,14 @@ export default function Login() {
     e.preventDefault();
     setError("");
     
+    console.log("Form submitted with credentials:", credentials);
+    
     if (!credentials.username || !credentials.password) {
       setError("Please enter both username and password");
       return;
     }
     
+    console.log("Attempting login...");
     loginMutation.mutate(credentials);
   };
 
