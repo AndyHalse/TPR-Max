@@ -797,7 +797,8 @@ export class MemStorage implements IStorage {
     
     const visitor: Visitor = {
       id,
-      name: insertVisitor.name,
+      firstName: insertVisitor.firstName,
+      lastName: insertVisitor.lastName,
       company: insertVisitor.company ?? null,
       purpose: insertVisitor.purpose ?? null,
       carRegistration: insertVisitor.carRegistration ?? null,
@@ -823,7 +824,8 @@ export class MemStorage implements IStorage {
     
     const visitor: Visitor = {
       id,
-      name: visitorData.name,
+      firstName: visitorData.firstName,
+      lastName: visitorData.lastName,
       company: visitorData.company ?? null,
       purpose: visitorData.purpose ?? null,
       carRegistration: visitorData.carRegistration ?? null,
@@ -1044,7 +1046,7 @@ export class MemStorage implements IStorage {
       activities.push({
         id: `checkin-${visitor.id}`,
         type: 'checkin' as const,
-        name: visitor.name,
+        name: `${visitor.firstName} ${visitor.lastName}`,
         timestamp: visitor.checkedInAt,
         details: visitor.company ? `from ${visitor.company}` : undefined
       });
@@ -1053,7 +1055,7 @@ export class MemStorage implements IStorage {
         activities.push({
           id: `checkout-${visitor.id}`,
           type: 'checkout' as const,
-          name: visitor.name,
+          name: `${visitor.firstName} ${visitor.lastName}`,
           timestamp: visitor.checkedOutAt,
           details: visitor.company ? `from ${visitor.company}` : undefined
         });
@@ -1177,7 +1179,7 @@ export class MemStorage implements IStorage {
       })),
       ...allVisitors.map(visitor => ({
         id: visitor.id,
-        name: visitor.name,
+        name: `${visitor.firstName} ${visitor.lastName}`,
         type: 'visitor' as const,
         company: visitor.company || undefined,
         checkedInAt: visitor.checkedInAt.toISOString(),

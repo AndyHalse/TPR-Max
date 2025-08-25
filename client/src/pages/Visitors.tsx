@@ -51,6 +51,11 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
 
+  // Update inputValue when value prop changes
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
   const handleSelect = (selectedValue: string) => {
     onChange(selectedValue);
     setInputValue(selectedValue);
@@ -60,6 +65,9 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
     onChange(newValue);
+    if (newValue.length > 0) {
+      setOpen(true);
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -70,10 +78,10 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
     }
   };
 
-  // Update inputValue when value prop changes
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
+  const handleBlur = () => {
+    // Small delay to allow for item selection
+    setTimeout(() => setOpen(false), 150);
+  };
 
   const filteredCompanies = companies.filter(company =>
     company.toLowerCase().includes(inputValue.toLowerCase())
@@ -90,7 +98,9 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
             className={cn("w-full pr-8", className)}
             data-testid={testId}
             onFocus={() => setOpen(true)}
+            onBlur={handleBlur}
             onKeyDown={handleKeyDown}
+            autoComplete="off"
           />
           <Button
             variant="ghost"

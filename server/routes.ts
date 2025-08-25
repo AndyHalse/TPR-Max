@@ -388,6 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companies = await storage.getUniqueCompanies();
       res.json(companies);
     } catch (error) {
+      console.error("Error fetching companies:", error);
       res.status(500).json({ error: "Failed to fetch companies" });
     }
   });
