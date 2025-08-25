@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -12,11 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [credentials, setCredentials] = useState({ username: "Andy", password: "Kubo1966&&" });
   const [error, setError] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const usernameInputRef = useRef<HTMLInputElement>(null);
 
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
@@ -43,29 +42,16 @@ export default function Login() {
     },
   });
 
-  // Auto-focus the username field when component mounts
-  useEffect(() => {
-    if (usernameInputRef.current) {
-      usernameInputRef.current.focus();
-    }
-  }, []);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
-    // Get values from both state and form (handles autofill properly)
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-    const username = formData.get('username') as string || credentials.username;
-    const password = formData.get('password') as string || credentials.password;
-    
-    if (!username || !password) {
+    if (!credentials.username || !credentials.password) {
       setError("Please enter both username and password");
       return;
     }
     
-    loginMutation.mutate({ username, password });
+    loginMutation.mutate(credentials);
   };
 
   return (
@@ -100,9 +86,7 @@ export default function Login() {
               <div className="relative">
                 <User className="absolute left-3 top-3 text-slate-400" size={18} />
                 <Input
-                  ref={usernameInputRef}
                   id="username"
-                  name="username"
                   type="text"
                   placeholder="Enter your username"
                   className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
@@ -110,7 +94,6 @@ export default function Login() {
                   onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
                   data-testid="input-username"
                   disabled={loginMutation.isPending}
-                  autoComplete="username"
                   autoFocus
                 />
               </div>
@@ -124,7 +107,6 @@ export default function Login() {
                 <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
                 <Input
                   id="password"
-                  name="password"
                   type="password"
                   placeholder="Enter your password"
                   className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
@@ -132,7 +114,6 @@ export default function Login() {
                   onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
                   data-testid="input-password"
                   disabled={loginMutation.isPending}
-                  autoComplete="current-password"
                 />
               </div>
             </div>
