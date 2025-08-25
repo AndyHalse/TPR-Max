@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -62,6 +62,19 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
     onChange(newValue);
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && inputValue.trim()) {
+      event.preventDefault();
+      onChange(inputValue.trim());
+      setOpen(false);
+    }
+  };
+
+  // Update inputValue when value prop changes
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
   const filteredCompanies = companies.filter(company =>
     company.toLowerCase().includes(inputValue.toLowerCase())
   );
@@ -77,6 +90,7 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
             className={cn("w-full pr-8", className)}
             data-testid={testId}
             onFocus={() => setOpen(true)}
+            onKeyDown={handleKeyDown}
           />
           <Button
             variant="ghost"
@@ -819,26 +833,43 @@ export default function Visitors() {
                     />
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company-required" className="text-sm font-medium text-slate-700">
+                      Company *
+                    </Label>
+                    <CompanyCombobox
+                      value={walkInData.company}
+                      onChange={(value) => setWalkInData(prev => ({ ...prev, company: value }))}
+                      companies={companies}
+                      placeholder="Select or type company name..."
+                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      testId="input-walkin-company"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email-required" className="text-sm font-medium text-slate-700">
+                      Email Address *
+                    </Label>
+                    <Input
+                      id="email-required"
+                      type="email"
+                      value={walkInData.email}
+                      onChange={(e) => setWalkInData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      required
+                      data-testid="input-walkin-email"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Optional Visitor Profile */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">Additional Information (Optional)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">
-                      Email Address
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={walkInData.email}
-                      onChange={(e) => setWalkInData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
-                      data-testid="input-walkin-email"
-                    />
-                  </div>
-                  
                   <div className="space-y-2">
                     <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-700">
                       Phone Number
@@ -881,19 +912,6 @@ export default function Visitors() {
                     />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="company" className="text-sm font-medium text-slate-700">
-                      Company
-                    </Label>
-                    <CompanyCombobox
-                      value={walkInData.company}
-                      onChange={(value) => setWalkInData(prev => ({ ...prev, company: value }))}
-                      companies={companies}
-                      placeholder="Select or type company name..."
-                      className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
-                      testId="input-walkin-company"
-                    />
-                  </div>
                 </div>
                 
                 <div className="space-y-2">
@@ -1044,7 +1062,7 @@ export default function Visitors() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="company" className="text-sm font-medium text-slate-700">
-                    Company
+                    Company *
                   </Label>
                   <CompanyCombobox
                     value={preBookingData.company || ""}
