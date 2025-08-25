@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,6 +16,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const usernameInputRef = useRef<HTMLInputElement>(null);
 
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
@@ -41,6 +42,13 @@ export default function Login() {
       });
     },
   });
+
+  // Auto-focus the username field when component mounts
+  useEffect(() => {
+    if (usernameInputRef.current) {
+      usernameInputRef.current.focus();
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,6 +94,7 @@ export default function Login() {
               <div className="relative">
                 <User className="absolute left-3 top-3 text-slate-400" size={18} />
                 <Input
+                  ref={usernameInputRef}
                   id="username"
                   type="text"
                   placeholder="Enter your username"
@@ -94,6 +103,8 @@ export default function Login() {
                   onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
                   data-testid="input-username"
                   disabled={loginMutation.isPending}
+                  autoComplete="username"
+                  autoFocus
                 />
               </div>
             </div>
