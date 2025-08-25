@@ -215,7 +215,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
