@@ -34,7 +34,18 @@ export default function Settings() {
     queryKey: ["/api/settings"],
   });
 
-  const { data: systemStatus } = useQuery({
+  const { data: systemStatus } = useQuery<{
+    success: boolean;
+    services: {
+      database: boolean;
+      email: boolean;
+      workflow: boolean;
+      storage?: boolean;
+      authentication?: boolean;
+    };
+    uptime?: number;
+    timestamp: string;
+  }>({
     queryKey: ["/api/system/status"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -185,7 +196,9 @@ export default function Settings() {
     const smtpFields = ['smtpHost', 'smtpPort', 'smtpSecurity', 'smtpUsername', 'smtpPassword', 'smtpFromEmail', 'smtpFromName', 'smtpReplyTo', 'smtpAuthMethod', 'smtpConnectionTimeout'];
     if (smtpFields.includes(field)) {
       // Debounce auto-save to avoid excessive API calls
-      clearTimeout(autoSaveTimeoutRef.current);
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
       autoSaveTimeoutRef.current = setTimeout(() => {
         console.log('Auto-saving SMTP setting:', field, '=', value);
         updateSettingsMutation.mutate({ [field]: value }, {

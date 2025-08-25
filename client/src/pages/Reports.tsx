@@ -41,7 +41,7 @@ export default function Reports() {
     queryKey: ["/api/reports"],
   });
 
-  const { data: settings } = useQuery({
+  const { data: settings } = useQuery<{ email?: string; reportRecipients?: string }>({
     queryKey: ["/api/settings"],
   });
 

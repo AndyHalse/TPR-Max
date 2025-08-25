@@ -22,7 +22,7 @@ const staffAuthSchema = z.object({
   password: z.string().min(1),
 });
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { emailService } from "./emailService";
+import { EmailService } from "./emailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
@@ -983,8 +983,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedOutVisitors: visitorsInRange.filter(v => v.checkedOutAt)
       };
       
-      // Send email
-      const emailSent = await emailService.sendReport(report, settings, recipients, reportData);
+      // Send email using dynamic service
+      const dynamicEmailService = new EmailService(settings);
+      const emailSent = await dynamicEmailService.sendReport(report, settings, recipients, reportData);
       
       if (emailSent) {
         await storage.updateReport(id, {
@@ -1008,7 +1009,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email address is required" });
       }
       
-      const success = await emailService.sendTestEmail(email);
+      // Get current SMTP settings and create dynamic email service
+      const settings = await storage.getCompanySettings();
+      const dynamicEmailService = new EmailService(settings);
+      
+      const success = await dynamicEmailService.sendTestEmail(email);
+      
+      if (success) {
+        // Update last tested timestamp in settings
+        await storage.updateCompanySettings({
+          smtpLastTested: new Date(),
+          smtpTestEmailSent: true
+        });
+      }
+      
       res.json({ success });
     } catch (error) {
       console.error("Error sending test email:", error);

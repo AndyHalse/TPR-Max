@@ -1,35 +1,59 @@
 import nodemailer from 'nodemailer';
 import type { Report, CompanySettings, PreBooking, Staff, User } from '@shared/schema';
 
-// SMTP configuration for IONOS
-const SMTP_CONFIG = {
-  host: 'smtp.ionos.co.uk',
-  port: 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: 'update@acsltd.eu',
-    pass: 'OliveTree2025&&'
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-};
-
 export class EmailService {
-  private transporter;
+  private transporter: nodemailer.Transporter | null = null;
+  private settings: CompanySettings | null = null;
 
-  constructor() {
-    this.transporter = nodemailer.createTransport(SMTP_CONFIG);
+  constructor(companySettings?: CompanySettings) {
+    if (companySettings) {
+      this.updateSettings(companySettings);
+    }
+  }
+
+  updateSettings(companySettings: CompanySettings) {
+    this.settings = companySettings;
+    
+    // Only create transporter if we have complete SMTP configuration
+    if (companySettings.smtpHost && companySettings.smtpUsername && companySettings.smtpPassword && companySettings.smtpFromEmail) {
+      const smtpConfig = {
+        host: companySettings.smtpHost,
+        port: parseInt(companySettings.smtpPort || '587'),
+        secure: companySettings.smtpSecurity === 'SSL/TLS',
+        auth: {
+          user: companySettings.smtpUsername,
+          pass: companySettings.smtpPassword
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
+      };
+
+      this.transporter = nodemailer.createTransporter(smtpConfig);
+    } else {
+      this.transporter = null;
+    }
   }
 
   async verifyConnection(): Promise<boolean> {
     try {
+      if (!this.transporter) {
+        return false;
+      }
       await this.transporter.verify();
       return true;
     } catch (error) {
       console.error('Email service connection failed:', error);
       return false;
     }
+  }
+
+  private getFromAddress(): string {
+    if (!this.settings?.smtpFromEmail) {
+      throw new Error('SMTP configuration not available');
+    }
+    const fromName = this.settings.smtpFromName || this.settings.companyName || 'VisiGate Pro';
+    return `"${fromName}" <${this.settings.smtpFromEmail}>`;
   }
 
   async sendReport(
@@ -39,13 +63,19 @@ export class EmailService {
     reportData: any
   ): Promise<boolean> {
     try {
+      if (!this.transporter) {
+        console.error('Email service not configured');
+        return false;
+      }
+
       const subject = `${companySettings.companyName} - ${report.reportType.toUpperCase()} Visitor Report`;
       
       const html = this.generateReportHTML(report, companySettings, reportData);
 
       const mailOptions = {
-        from: `"${companySettings.companyName} VisiGate Pro" <update@acsltd.eu>`,
+        from: this.getFromAddress(),
         to: recipients.join(', '),
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
         subject,
         html,
         attachments: []
@@ -179,16 +209,22 @@ export class EmailService {
 
   async sendTestEmail(recipient: string): Promise<boolean> {
     try {
+      if (!this.transporter) {
+        console.error('Email service not configured');
+        return false;
+      }
+
       const mailOptions = {
-        from: '"VisiGate Pro Test" <update@acsltd.eu>',
+        from: this.getFromAddress(),
         to: recipient,
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
         subject: 'VisiGate Pro - Test Email Configuration',
         html: `
           <h2>Email Configuration Test</h2>
           <p>This is a test email to verify your VisiGate Pro email configuration is working correctly.</p>
           <p>If you received this email, your email settings are configured properly!</p>
           <hr>
-          <p><small>Sent from VisiGate Pro Visitor Management System</small></p>
+          <p><small>Sent from ${this.settings?.companyName || 'VisiGate Pro'} Visitor Management System</small></p>
         `
       };
 
@@ -208,6 +244,11 @@ export class EmailService {
     qrCodeUrl: string
   ): Promise<boolean> {
     try {
+      if (!this.transporter) {
+        console.error('Email service not configured');
+        return false;
+      }
+
       const visitDate = new Date(preBooking.visitDate).toLocaleDateString('en-GB', {
         weekday: 'long',
         year: 'numeric',
@@ -222,16 +263,18 @@ export class EmailService {
 
       // Send to visitor
       const visitorMailOptions = {
-        from: `"${companySettings.companyName} VisiGate Pro" <update@acsltd.eu>`,
+        from: this.getFromAddress(),
         to: preBooking.visitorEmail,
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
         subject: `${companySettings.companyName} - Visit Confirmation for ${visitDate.split(',')[0]}`,
         html: visitorHtml,
       };
 
-      // Send to host
+      // Send to host using their actual email from staff table
       const hostMailOptions = {
-        from: `"${companySettings.companyName} VisiGate Pro" <update@acsltd.eu>`,
-        to: `${hostStaff.employeeId}@${companySettings.companyName.toLowerCase().replace(/\s+/g, '')}.com`, // Placeholder email
+        from: this.getFromAddress(),
+        to: hostStaff.email, // Use actual staff email instead of placeholder
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
         subject: `${companySettings.companyName} - Visitor Pre-booking Notification`,
         html: hostHtml,
       };
@@ -295,7 +338,7 @@ export class EmailService {
             <p><strong>Visitor:</strong> ${preBooking.visitorName}</p>
             <p><strong>Company:</strong> ${preBooking.company || 'N/A'}</p>
             <p><strong>Date & Time:</strong> ${visitDate}</p>
-            <p><strong>Host:</strong> ${hostStaff.name} (${hostStaff.department})</p>
+            <p><strong>Host:</strong> ${hostStaff.firstName} ${hostStaff.lastName} (${hostStaff.department})</p>
             <p><strong>Purpose:</strong> ${preBooking.purpose || 'General visit'}</p>
           </div>
           
@@ -396,7 +439,7 @@ export class EmailService {
         </div>
         
         <div class="content">
-          <h2>Dear ${hostStaff.name},</h2>
+          <h2>Dear ${hostStaff.firstName} ${hostStaff.lastName},</h2>
           <p>A visitor has been pre-booked and you have been assigned as their host. Please find the details below:</p>
           
           <div class="visit-details">
@@ -438,13 +481,19 @@ export class EmailService {
     companySettings: CompanySettings
   ): Promise<boolean> {
     try {
+      if (!this.transporter) {
+        console.error('Email service not configured');
+        return false;
+      }
+
       const inviteUrl = `${process.env.BASE_URL || 'https://localhost:5000'}/invite/accept?token=${token}`;
       
       const html = this.generateInvitationHTML(email, role, inviteUrl, invitedBy, companySettings);
       
       const mailOptions = {
-        from: `"${companySettings.companyName} VisiGate Pro" <update@acsltd.eu>`,
+        from: this.getFromAddress(),
         to: email,
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
         subject: `${companySettings.companyName} - You're Invited to Join VisiGate Pro`,
         html,
       };
@@ -549,47 +598,73 @@ export class EmailService {
   // Send emergency alert to all on-site personnel
   async sendEmergencyAlert(to: string, subject: string, message: string): Promise<boolean> {
     try {
-      const alertSubject = `🚨 EMERGENCY ALERT - ${subject}`;
-      const html = `
-        <div style="background-color: #dc2626; color: white; text-align: center; padding: 20px; margin-bottom: 20px;">
-          <h1 style="margin: 0; font-size: 24px;">🚨 EMERGENCY ALERT 🚨</h1>
-        </div>
-        <div style="background-color: #fee2e2; border: 2px solid #dc2626; border-radius: 8px; padding: 20px; margin: 20px 0;">
-          <h2 style="color: #dc2626; margin-top: 0;">${subject}</h2>
-          <div style="font-size: 16px; line-height: 1.6; margin: 15px 0;">
-            ${message.replace(/\n/g, '<br>')}
-          </div>
-          <hr style="border: 1px solid #dc2626; margin: 20px 0;">
-          <p style="color: #7f1d1d; font-weight: bold;">
-            <strong>Time:</strong> ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}
-          </p>
-          <p style="color: #7f1d1d; font-size: 14px;">
-            This is an automated emergency alert from VisiGate Pro. Please follow your company's emergency procedures immediately.
-          </p>
-        </div>
-      `;
-
-      // Use the existing email sending method that should be somewhere in this class
       if (!this.transporter) {
-        console.log('No email transporter configured, skipping emergency alert send');
+        console.error('Email service not configured');
         return false;
       }
 
+      const alertSubject = `🚨 EMERGENCY ALERT - ${subject}`;
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Emergency Alert</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fee2e2; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: 3px solid #dc2626; }
+            .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 30px; }
+            .alert-box { background: #fef2f2; border: 2px solid #fca5a5; border-radius: 8px; padding: 20px; margin: 20px 0; }
+            .timestamp { background: #f3f4f6; padding: 10px; border-radius: 6px; font-size: 14px; color: #6b7280; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🚨 EMERGENCY ALERT</h1>
+              <p>${subject}</p>
+            </div>
+            
+            <div class="content">
+              <div class="alert-box">
+                <h2 style="color: #dc2626; margin-top: 0;">Emergency Message:</h2>
+                <p style="font-size: 16px; line-height: 1.6;">${message}</p>
+              </div>
+              
+              <p><strong>⚠️ Immediate Action Required:</strong></p>
+              <ul>
+                <li>Follow all emergency procedures immediately</li>
+                <li>Proceed to designated assembly points</li>
+                <li>Await further instructions from emergency personnel</li>
+                <li>Do not use elevators unless instructed</li>
+              </ul>
+              
+              <div class="timestamp">
+                <strong>Alert Sent:</strong> ${new Date().toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
       const mailOptions = {
-        from: `"VisiGate Pro Emergency" <update@acsltd.eu>`,
+        from: this.getFromAddress(),
         to: to,
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
         subject: alertSubject,
-        html: html
+        html: html,
+        priority: 'high'
       };
 
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log('Emergency alert sent successfully:', result.messageId);
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Emergency alert sent:', info.messageId);
       return true;
     } catch (error) {
-      console.error("Failed to send emergency alert:", error);
+      console.error('Failed to send emergency alert:', error);
       return false;
     }
   }
 }
-
-export const emailService = new EmailService();
