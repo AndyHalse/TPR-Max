@@ -68,6 +68,7 @@ export default function Dashboard() {
     color: string;
   }>>({
     queryKey: ["/api/analytics/departments"],
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
   });
 
   const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
@@ -125,7 +126,16 @@ export default function Dashboard() {
 
   // Action handlers for dashboard buttons
   const handleViewDepartmentAnalytics = () => {
-    setOpenModal('department-details');
+    if (departmentAnalytics && departmentAnalytics.length > 0) {
+      setSelectedDepartment(departmentAnalytics[0].department);
+      setOpenModal('department-details');
+    } else {
+      toast({
+        title: "No departments available",
+        description: "Add departments in Settings to view analytics",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEmergencyMuster = () => {
@@ -384,7 +394,7 @@ export default function Dashboard() {
             </Button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
             {departmentsLoading ? (
               <div className="text-center py-4 text-slate-600">Loading departments...</div>
             ) : !departmentAnalytics || departmentAnalytics.length === 0 ? (
