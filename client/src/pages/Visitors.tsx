@@ -322,8 +322,14 @@ export default function Visitors() {
       return;
     }
 
+    // Split name into firstName and lastName
+    const nameParts = walkInData.name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
     checkInWalkInMutation.mutate({
-      name: walkInData.name.trim(),
+      firstName,
+      lastName,
       company: walkInData.company.trim() || null,
       hostStaffId: walkInData.hostStaffId,
       purpose: walkInData.purpose.trim() || null,
