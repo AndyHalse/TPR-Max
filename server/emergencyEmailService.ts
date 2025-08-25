@@ -19,7 +19,7 @@ const createTransporter = () => {
     },
   };
   
-  return nodemailer.createTransporter(config);
+  return nodemailer.createTransport(config);
 };
 
 interface EmergencyEmailData {
