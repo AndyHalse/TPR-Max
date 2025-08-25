@@ -27,7 +27,11 @@ const app = express();
 
 // CORS middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  // Allow specific origin instead of wildcard when using credentials
+  const origin = req.headers.origin;
+  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('replit.dev'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
