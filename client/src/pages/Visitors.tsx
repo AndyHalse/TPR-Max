@@ -164,7 +164,15 @@ export default function Visitors() {
         title: "Success",
         description: "Pre-booking created and confirmation emails sent!",
       });
-      setPreBookingData({ visitDate: addDays(new Date(), 1) });
+      setPreBookingData({ 
+        visitDate: addDays(new Date(), 1),
+        visitorFirstName: "",
+        visitorLastName: "",
+        visitorEmail: "",
+        company: "",
+        hostStaffId: "",
+        purpose: ""
+      });
       setSelectedDate(addDays(new Date(), 1));
     },
     onError: () => {
@@ -314,10 +322,10 @@ export default function Visitors() {
   const handlePreBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!preBookingData.visitorName || !preBookingData.visitorEmail || !preBookingData.hostStaffId || !preBookingData.visitDate) {
+    if (!preBookingData.visitorFirstName || !preBookingData.visitorLastName || !preBookingData.visitorEmail || !preBookingData.hostStaffId || !preBookingData.visitDate) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (First Name, Last Name, Email, Host, Visit Date)",
         variant: "destructive",
       });
       return;
@@ -884,17 +892,32 @@ export default function Visitors() {
               <form onSubmit={handlePreBookingSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="visitorName" className="text-sm font-medium text-slate-700">
-                      Visitor Name *
+                    <Label htmlFor="visitorFirstName" className="text-sm font-medium text-slate-700">
+                      Visitor First Name *
                     </Label>
                     <Input
-                      id="visitorName"
+                      id="visitorFirstName"
                       type="text"
-                      value={preBookingData.visitorName || ""}
-                      onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorName: e.target.value }))}
+                      value={preBookingData.visitorFirstName || ""}
+                      onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorFirstName: e.target.value }))}
                       className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                       required
-                      data-testid="input-prebook-name"
+                      data-testid="input-prebook-firstname"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="visitorLastName" className="text-sm font-medium text-slate-700">
+                      Visitor Last Name *
+                    </Label>
+                    <Input
+                      id="visitorLastName"
+                      type="text"
+                      value={preBookingData.visitorLastName || ""}
+                      onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorLastName: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      required
+                      data-testid="input-prebook-lastname"
                     />
                   </div>
                   
