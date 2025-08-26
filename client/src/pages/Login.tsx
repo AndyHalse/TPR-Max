@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,41 +16,9 @@ export default function Login() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: { username: string; password: string }) => {
-      console.log("🚀 Making login API request with:", data);
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      const result = await response.json();
-      console.log("📥 Login API response:", result);
-      return result;
-    },
-    onSuccess: (data) => {
-      console.log("✅ Login mutation successful:", data);
-      if (data.success) {
-        console.log("🎉 Login successful, redirecting...");
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${data.user.username}!`,
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-        setLocation("/");
-      } else {
-        console.log("❌ Login response indicates failure");
-        setError("Login failed");
-      }
-    },
-    onError: (error: Error) => {
-      console.log("💥 Login mutation error:", error);
-      setError(error.message);
-      toast({
-        title: "Login Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
@@ -63,8 +30,53 @@ export default function Login() {
       return;
     }
     
-    console.log("✅ Starting login mutation...");
-    loginMutation.mutate(credentials);
+    console.log("✅ Starting direct login...");
+    setIsLoading(true);
+    
+    // Direct fetch approach to bypass any mutation issues
+    try {
+      console.log("🚀 Making direct fetch request...");
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(credentials),
+        credentials: "include",
+      });
+      
+      console.log("📥 Response status:", response.status);
+      const data = await response.json();
+      console.log("📥 Response data:", data);
+      
+      if (response.ok && data.success) {
+        console.log("🎉 Login successful!");
+        toast({
+          title: "Login Successful",
+          description: `Welcome back, ${data.user.username}!`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        setLocation("/");
+      } else {
+        console.log("❌ Login failed:", data);
+        setError(data.error || "Login failed");
+        toast({
+          title: "Login Failed",
+          description: data.error || "Invalid credentials",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.log("💥 Network error:", error);
+      setError("Network error occurred");
+      toast({
+        title: "Login Failed",
+        description: "Network error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -109,7 +121,7 @@ export default function Login() {
                   value={credentials.username}
                   onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
                   data-testid="input-username"
-                  disabled={loginMutation.isPending}
+                  disabled={isLoading}
                   autoFocus
                 />
               </div>
@@ -129,7 +141,7 @@ export default function Login() {
                   value={credentials.password}
                   onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
                   data-testid="input-password"
-                  disabled={loginMutation.isPending}
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -137,14 +149,14 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
-              disabled={loginMutation.isPending}
+              disabled={isLoading}
               data-testid="button-login"
               onClick={(e) => {
                 console.log("🖱️ Button clicked!");
                 // Let the form handle submission normally
               }}
             >
-              {loginMutation.isPending ? (
+              {isLoading ? (
                 "Signing in..."
               ) : (
                 <>
