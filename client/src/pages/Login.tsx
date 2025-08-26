@@ -148,13 +148,37 @@ export default function Login() {
             </div>
             
             <Button
-              type="submit"
+              type="button"
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
               disabled={isLoading}
               data-testid="button-login"
-              onClick={(e) => {
-                console.log("🖱️ Button clicked!");
-                // Let the form handle submission normally
+              onClick={async () => {
+                console.log("🖱️ DIRECT BUTTON CLICK!");
+                alert("Button clicked! Check console for logs.");
+                
+                try {
+                  console.log("🚀 Making direct API call...");
+                  const response = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: "Andy", password: "Kubo1966&&" }),
+                    credentials: "include",
+                  });
+                  
+                  console.log("📥 Response:", response.status);
+                  const data = await response.json();
+                  console.log("📥 Data:", data);
+                  
+                  if (response.ok && data.success) {
+                    alert("Login successful! Redirecting...");
+                    window.location.href = "/";
+                  } else {
+                    alert("Login failed: " + (data.error || "Unknown error"));
+                  }
+                } catch (error) {
+                  console.error("💥 Error:", error);
+                  alert("Network error: " + error.message);
+                }
               }}
             >
               {isLoading ? (
@@ -162,9 +186,22 @@ export default function Login() {
               ) : (
                 <>
                   <LogIn className="mr-2" size={18} />
-                  Sign In
+                  DIRECT LOGIN TEST
                 </>
               )}
+            </Button>
+            
+            <Button
+              type="button"
+              className="w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2"
+              onClick={() => {
+                console.log("🧪 JavaScript test button clicked!");
+                alert("JavaScript is working! Check console for more details.");
+                console.log("🧪 Current credentials:", credentials);
+                console.log("🧪 Current location:", window.location.href);
+              }}
+            >
+              🧪 Test JavaScript
             </Button>
           </form>
           
