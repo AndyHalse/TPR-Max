@@ -3606,6 +3606,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Video Generation Routes
+  app.post('/api/induction/generate-video/:roleType', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const { videoGenerationService } = await import('./videoGenerationService');
+      
+      // Validate role type
+      if (!['visitor', 'staff', 'contractor'].includes(roleType)) {
+        return res.status(400).json({ error: 'Invalid role type' });
+      }
+
+      // Generate the video content
+      const generatedContent = await videoGenerationService.generateVideoPresentation(roleType);
+      
+      // Update the settings with generated content
+      await videoGenerationService.updateSettingsWithGeneratedContent(roleType, generatedContent);
+      
+      res.json({ 
+        success: true, 
+        message: 'AI-generated induction video created successfully',
+        preview: {
+          title: generatedContent.script.substring(0, 100) + '...',
+          duration: Math.round(generatedContent.totalDuration / 60),
+          scenes: generatedContent.scenes.length
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error generating AI video:', error);
+      res.status(500).json({ error: 'Failed to generate AI induction video' });
+    }
+  });
+
+  // Get AI-generated script for preview
+  app.get('/api/induction/script/:roleType', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const { videoGenerationService } = await import('./videoGenerationService');
+      
+      const content = await videoGenerationService.generateInductionScript(roleType);
+      
+      res.json({ 
+        success: true,
+        script: content.script,
+        scenes: content.scenes,
+        totalDuration: content.totalDuration
+      });
+      
+    } catch (error) {
+      console.error('Error generating script:', error);
+      res.status(500).json({ error: 'Failed to generate script' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

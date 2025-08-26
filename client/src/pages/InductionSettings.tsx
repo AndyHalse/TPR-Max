@@ -10,16 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Video, FileQuestion, Settings, Save } from "lucide-react";
+import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play } from "lucide-react";
 import type { InductionSettings } from "@shared/schema";
 
 interface RoleSettingsFormProps {
   roleType: string;
   settings: InductionSettings | null;
   onSave: (settingsId: string, data: any) => Promise<void>;
+  onGenerateVideo: (roleType: string) => Promise<void>;
 }
 
-const RoleSettingsForm = ({ roleType, settings, onSave }: RoleSettingsFormProps) => {
+const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo }: RoleSettingsFormProps) => {
   const [formData, setFormData] = useState({
     videoTitle: settings?.videoTitle || "",
     videoUrl: settings?.videoUrl || "",
@@ -107,12 +108,27 @@ const RoleSettingsForm = ({ roleType, settings, onSave }: RoleSettingsFormProps)
 
             <div className="space-y-2">
               <Label htmlFor={`${roleType}-url`}>Video URL</Label>
-              <Input
-                id={`${roleType}-url`}
-                value={formData.videoUrl}
-                onChange={(e) => setFormData(prev => ({ ...prev, videoUrl: e.target.value }))}
-                placeholder="https://www.youtube.com/embed/..."
-              />
+              <div className="flex gap-2">
+                <Input
+                  id={`${roleType}-url`}
+                  value={formData.videoUrl}
+                  onChange={(e) => setFormData(prev => ({ ...prev, videoUrl: e.target.value }))}
+                  placeholder="https://www.youtube.com/embed/..."
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onGenerateVideo(roleType)}
+                  className="shrink-0 flex items-center gap-2"
+                  disabled={isLoading}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate AI Video
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Use AI to generate a comprehensive induction video presentation for {getRoleDisplayName(roleType).toLowerCase()}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -250,6 +266,34 @@ export default function InductionSettings() {
     }
   };
 
+  const handleGenerateVideo = async (roleType: string) => {
+    try {
+      toast({
+        title: "Generating AI Video",
+        description: `Creating AI-powered induction video for ${roleType}s...`,
+      });
+
+      const response = await apiRequest(`/api/induction/generate-video/${roleType}`, {
+        method: 'POST',
+      });
+
+      toast({
+        title: "AI Video Generated!",
+        description: `Successfully created ${response.preview.duration}-minute video with ${response.preview.scenes} scenes`,
+      });
+
+      // Refresh settings to show the new video
+      await fetchSettings();
+    } catch (error) {
+      console.error('Error generating video:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate AI video. Please check your OpenAI API key.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -295,6 +339,7 @@ export default function InductionSettings() {
                 roleType={role.value}
                 settings={settings[role.value] || null}
                 onSave={handleSaveSetting}
+                onGenerateVideo={handleGenerateVideo}
               />
 
               {/* Questions Summary */}
