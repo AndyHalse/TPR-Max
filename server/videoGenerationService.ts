@@ -79,12 +79,15 @@ export class VideoGenerationService {
             - totalDuration: Total duration in seconds`
           }
         ],
-        // Only use JSON format for compatible models
-        ...(this.companySettings?.openaiModel && !this.companySettings.openaiModel.includes('gpt-3') 
+        // Only use JSON format for GPT-4 models, GPT-5+ handles JSON differently
+        ...(this.companySettings?.openaiModel?.includes('gpt-4') 
           ? { response_format: { type: "json_object" } } 
           : {}),
         temperature: parseFloat(this.companySettings?.openaiTemperature || "0.7"),
-        max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000"),
+        // GPT-5 and newer use max_completion_tokens instead of max_tokens
+        ...(this.companySettings?.openaiModel === 'gpt-5' || this.companySettings?.openaiModel?.includes('gpt-6') || this.companySettings?.openaiModel?.includes('gpt-7')
+          ? { max_completion_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }
+          : { max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }),
       });
 
       const content = JSON.parse(response.choices[0].message.content || '{}');
