@@ -1216,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(410).json({ error: 'This induction link has expired' });
       }
 
-      const worker = await storage.getContractor(tokenData.workerId);
+      const worker = await storage.getContractorWorkerById(tokenData.workerId);
       
       if (!worker) {
         return res.status(404).json({ error: 'Worker not found' });
@@ -1283,13 +1283,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/contractors/:id/send-induction', requireAuth, async (req, res) => {
     try {
       const contractorId = req.params.id;
-      const contractor = await storage.getContractor(contractorId);
+      const contractor = await storage.getContractorWorkerById(contractorId);
       
       if (!contractor) {
         return res.status(404).json({ error: 'Contractor not found' });
       }
 
-      const success = await inductionService.sendInductionEmail(contractor);
+      const success = await inductionService.sendInductionEmail(contractorId);
       
       if (success) {
         res.json({ message: 'Induction email sent successfully' });
