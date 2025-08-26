@@ -636,6 +636,8 @@ export const inductionSettings = pgTable("induction_settings", {
   videoUrl: text("video_url").notNull(),
   videoDescription: text("video_description"),
   videoDurationMinutes: integer("video_duration_minutes").default(15),
+  videoFormat: text("video_format").default("interactive_slides").notNull(), // 'interactive_slides', 'full_video', 'hybrid_enhanced'
+  modelType: text("model_type").default("gpt-5").notNull(), // 'gpt-4o', 'gpt-5', 'gpt-6', 'gpt-7'
   passPercentage: integer("pass_percentage").default(80), // Minimum percentage to pass
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

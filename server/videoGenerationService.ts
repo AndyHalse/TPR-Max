@@ -491,8 +491,285 @@ export class VideoGenerationService {
       htmlContent,
       script,
       scenes,
-      totalDuration
+      totalDuration,
+      format: 'interactive_slides'
     };
+  }
+
+  // Generate full video presentation using Sora
+  async createVideoPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
+    console.log('🎬 Full Video Generation with Sora is currently in development');
+    console.log('⚠️ Falling back to enhanced HTML presentation for now');
+    
+    // For now, return enhanced HTML until Sora API is available
+    return await this.createEnhancedHTMLPresentation(scenes, roleType, modelType);
+  }
+
+  // Generate hybrid enhanced presentation with AI images
+  async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
+    console.log('🎨 Generating enhanced presentation with AI images...');
+    
+    // Generate AI images for each scene (optional - can be resource intensive)
+    let sceneImages: string[] = [];
+    try {
+      sceneImages = await this.generateSceneImages(scenes);
+      console.log(`✨ Generated ${sceneImages.length} AI images`);
+    } catch (error) {
+      console.log('⚠️ AI image generation failed, using text-only enhanced presentation');
+    }
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Enhanced Safety Induction</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow: hidden;
+        }
+        .presentation-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+        .scene {
+            display: none;
+            padding: 40px;
+            max-width: 900px;
+            animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .scene.active {
+            display: block;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(50px) scale(0.95); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        .scene-image {
+            width: 100%;
+            max-width: 400px;
+            height: 250px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .scene-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+        }
+        .scene h1 {
+            font-size: 2.8rem;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .scene p {
+            font-size: 1.3rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+        }
+        .btn {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 25px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 0%;
+            height: 4px;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+        .scene-counter {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: rgba(0,0,0,0.4);
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-size: 1rem;
+            backdrop-filter: blur(10px);
+        }
+        .logo {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .enhanced-badge {
+            position: fixed;
+            top: 80px;
+            right: 30px;
+            background: rgba(16, 185, 129, 0.8);
+            padding: 8px 16px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">🛡️ VisiGate Pro</div>
+    <div class="scene-counter">
+        <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
+    </div>
+    <div class="enhanced-badge">✨ Enhanced with AI</div>
+    
+    <div class="presentation-container">
+        ${scenes.map((scene, index) => `
+            <div class="scene ${index === 0 ? 'active' : ''}" data-duration="${scene.duration}">
+                <h1>${scene.title}</h1>
+                ${sceneImages[index] ? `
+                    <div class="scene-image">
+                        <img src="${sceneImages[index]}" alt="${scene.title}" />
+                    </div>
+                ` : `
+                    <div class="scene-image">
+                        <div>🎨 AI Image: ${scene.imagePrompt}</div>
+                    </div>
+                `}
+                <div>${scene.content.split('\n').map((line: string) => `<p>${line}</p>`).join('')}</div>
+            </div>
+        `).join('')}
+    </div>
+    
+    <div class="controls">
+        <button class="btn" onclick="previousScene()">← Previous</button>
+        <button class="btn" id="play-pause-btn" onclick="togglePlayPause()">⏸️ Pause</button>
+        <button class="btn" onclick="nextScene()">Next →</button>
+    </div>
+    
+    <div class="progress-bar" id="progress-bar"></div>
+    
+    <script>
+        let currentScene = 0;
+        let isPlaying = true;
+        let sceneTimer = null;
+        const scenes = ${JSON.stringify(scenes)};
+        const totalScenes = ${scenes.length};
+        
+        document.getElementById('total-scenes').textContent = totalScenes;
+        
+        function showScene(index) {
+            document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.scene')[index].classList.add('active');
+            document.getElementById('current-scene').textContent = index + 1;
+            updateProgressBar();
+        }
+        
+        function nextScene() {
+            if (currentScene < totalScenes - 1) {
+                currentScene++;
+                showScene(currentScene);
+                if (isPlaying) startSceneTimer();
+            }
+        }
+        
+        function previousScene() {
+            if (currentScene > 0) {
+                currentScene--;
+                showScene(currentScene);
+                if (isPlaying) startSceneTimer();
+            }
+        }
+        
+        function togglePlayPause() {
+            isPlaying = !isPlaying;
+            const btn = document.getElementById('play-pause-btn');
+            if (isPlaying) {
+                btn.textContent = '⏸️ Pause';
+                startSceneTimer();
+            } else {
+                btn.textContent = '▶️ Play';
+                if (sceneTimer) clearTimeout(sceneTimer);
+            }
+        }
+        
+        function startSceneTimer() {
+            if (sceneTimer) clearTimeout(sceneTimer);
+            const duration = scenes[currentScene]?.duration || 5;
+            sceneTimer = setTimeout(() => {
+                if (isPlaying && currentScene < totalScenes - 1) {
+                    nextScene();
+                } else if (currentScene >= totalScenes - 1) {
+                    togglePlayPause();
+                }
+            }, duration * 1000);
+        }
+        
+        function updateProgressBar() {
+            const progress = ((currentScene + 1) / totalScenes) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft':
+                    previousScene();
+                    break;
+                case 'ArrowRight':
+                case ' ':
+                    e.preventDefault();
+                    nextScene();
+                    break;
+                case 'Escape':
+                    togglePlayPause();
+                    break;
+            }
+        });
+        
+        // Auto-start presentation
+        updateProgressBar();
+        if (isPlaying) startSceneTimer();
+    </script>
+</body>
+</html>`;
+
+    return htmlContent;
   }
 
   // Update induction settings with generated content

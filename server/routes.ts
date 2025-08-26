@@ -3618,12 +3618,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid role type' });
       }
 
+      // Get induction settings for this role to determine video format and model
+      const inductionSettings = await storage.getInductionSettings();
+      const roleSetting = inductionSettings.find(s => s.roleType === roleType);
+      
+      const videoFormat = roleSetting?.videoFormat || 'interactive_slides';
+      const modelType = roleSetting?.modelType || 'gpt-5';
+      
+      console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
+
       // Get company settings for AI configuration
       const settings = await storage.getCompanySettings();
       const videoService = new VideoGenerationService(settings);
 
-      // Generate the video content
-      const generatedContent = await videoService.generateVideoPresentation(roleType);
+      // Generate the video content with format and model selection
+      const generatedContent = await videoService.generateVideoPresentation(roleType, videoFormat, modelType);
       
       // Update the settings with generated content
       await videoService.updateSettingsWithGeneratedContent(roleType, generatedContent);

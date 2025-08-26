@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play, Eye, Monitor, Clock } from "lucide-react";
+import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play, Eye, Monitor, Clock, Film, Presentation, ImageIcon } from "lucide-react";
 import type { InductionSettings } from "@shared/schema";
 
 interface RoleSettingsFormProps {
@@ -34,6 +34,8 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGener
     videoUrl: settings?.videoUrl || "",
     videoDescription: settings?.videoDescription || "",
     videoDurationMinutes: settings?.videoDurationMinutes || 15,
+    videoFormat: settings?.videoFormat || "interactive_slides",
+    modelType: settings?.modelType || "gpt-5",
     passPercentage: settings?.passPercentage || 80,
     isActive: settings?.isActive || true,
   });
@@ -111,6 +113,129 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGener
                   value={formData.videoDurationMinutes}
                   onChange={(e) => setFormData(prev => ({ ...prev, videoDurationMinutes: parseInt(e.target.value) }))}
                 />
+              </div>
+            </div>
+
+            {/* Video Format Selection */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Video Format</Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Choose the type of video experience for your {getRoleDisplayName(roleType).toLowerCase()}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div 
+                    className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      formData.videoFormat === 'interactive_slides' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, videoFormat: 'interactive_slides' }))}
+                  >
+                    <input 
+                      type="radio" 
+                      name="videoFormat" 
+                      value="interactive_slides" 
+                      checked={formData.videoFormat === 'interactive_slides'}
+                      onChange={() => setFormData(prev => ({ ...prev, videoFormat: 'interactive_slides' }))}
+                      className="sr-only"
+                    />
+                    <div className="flex items-start gap-3">
+                      <Presentation className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-sm">Interactive Slides</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Fast generation • Navigation controls • Lower cost
+                        </p>
+                        <div className="mt-2">
+                          <Badge variant="secondary" className="text-xs">Current System</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div 
+                    className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      formData.videoFormat === 'full_video' 
+                        ? 'border-purple-500 bg-purple-50' 
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, videoFormat: 'full_video' }))}
+                  >
+                    <input 
+                      type="radio" 
+                      name="videoFormat" 
+                      value="full_video" 
+                      checked={formData.videoFormat === 'full_video'}
+                      onChange={() => setFormData(prev => ({ ...prev, videoFormat: 'full_video' }))}
+                      className="sr-only"
+                    />
+                    <div className="flex items-start gap-3">
+                      <Film className="h-5 w-5 text-purple-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-sm">Full Video (Sora)</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Professional MP4 • AI narration • Higher cost
+                        </p>
+                        <div className="mt-2">
+                          <Badge variant="outline" className="text-xs border-purple-300 text-purple-600">Premium</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div 
+                    className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      formData.videoFormat === 'hybrid_enhanced' 
+                        ? 'border-green-500 bg-green-50' 
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, videoFormat: 'hybrid_enhanced' }))}
+                  >
+                    <input 
+                      type="radio" 
+                      name="videoFormat" 
+                      value="hybrid_enhanced" 
+                      checked={formData.videoFormat === 'hybrid_enhanced'}
+                      onChange={() => setFormData(prev => ({ ...prev, videoFormat: 'hybrid_enhanced' }))}
+                      className="sr-only"
+                    />
+                    <div className="flex items-start gap-3">
+                      <ImageIcon className="h-5 w-5 text-green-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-sm">Hybrid Enhanced</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          AI images • Interactive slides • Moderate cost
+                        </p>
+                        <div className="mt-2">
+                          <Badge variant="outline" className="text-xs border-green-300 text-green-600">Recommended</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* AI Model Selection */}
+              <div className="space-y-2">
+                <Label htmlFor={`${roleType}-model`}>AI Model</Label>
+                <Select 
+                  value={formData.modelType} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, modelType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select AI model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gpt-4o">GPT-4o (Fast & Efficient)</SelectItem>
+                    <SelectItem value="gpt-5">GPT-5 (Latest & Most Advanced)</SelectItem>
+                    <SelectItem value="gpt-6">GPT-6 (Future Ready)</SelectItem>
+                    <SelectItem value="gpt-7">GPT-7 (Ultra Advanced)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Higher models provide more sophisticated safety content generation
+                </p>
               </div>
             </div>
 
