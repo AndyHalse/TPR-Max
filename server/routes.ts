@@ -2531,50 +2531,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "Foreman", "Rigger", "Crane Operator", "Safety Officer", "Quality Control"
       ];
 
-      const safetyRatings = ["A+", "A", "B+", "B", "C+", "C", "D+", "D", "F"];
-      
       let workersCreated = 0;
       
       for (const company of companies) {
-        // Generate 2-5 workers per company
-        const workerCount = Math.floor(Math.random() * 4) + 2;
+        // Skip if company already has workers
+        const existingWorkers = await storage.getWorkersByCompanyId(company.id);
+        if (existingWorkers.length > 0) {
+          console.log(`Skipping ${company.name} - already has ${existingWorkers.length} workers`);
+          continue;
+        }
+        
+        // Generate 2-4 workers per company
+        const workerCount = Math.floor(Math.random() * 3) + 2;
         
         for (let i = 0; i < workerCount; i++) {
           const randomName = workerNames[Math.floor(Math.random() * workerNames.length)];
           const randomTrade = trades[Math.floor(Math.random() * trades.length)];
-          const randomRating = safetyRatings[Math.floor(Math.random() * safetyRatings.length)];
           
-          // Random card assignments based on safety rating
-          let hasRedCard = false;
-          let hasYellowCard = false;
+          const nameParts = randomName.split(' ');
+          const firstName = nameParts[0];
+          const lastName = nameParts[1];
           
-          if (randomRating === "F" || randomRating === "D") {
-            hasRedCard = Math.random() < 0.6; // 60% chance for low ratings
-          }
-          if (!hasRedCard && (randomRating === "D+" || randomRating === "C" || randomRating === "C+")) {
-            hasYellowCard = Math.random() < 0.4; // 40% chance for medium-low ratings
-          }
-
+          console.log(`Creating worker: ${firstName} ${lastName} (${randomTrade}) for ${company.name}`);
+          
           const worker = {
-            id: `worker-${company.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}-${i}`,
             companyId: company.id,
-            companyName: company.name,
-            name: `${randomName} (${randomTrade})`,
+            firstName: firstName,
+            lastName: `${lastName} (${randomTrade})`,
             email: `${randomName.toLowerCase().replace(/\s+/g, '.')}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
             phone: `+44 ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 900000) + 100000}`,
-            emergencyContact: `Emergency: +44 ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 900000) + 100000}`,
-            rightToWork: Math.random() < 0.9 ? "valid" : "expired",
-            safetyTraining: Math.random() < 0.85 ? "completed" : "pending",
-            inductionCompleted: Math.random() < 0.8,
-            safetyRating: randomRating,
-            hasRedCard,
-            hasYellowCard,
-            isCheckedIn: Math.random() < 0.3, // 30% chance of being checked in
-            checkedInAt: Math.random() < 0.3 ? new Date() : null,
-            profileImageUrl: null,
-            qrCodeUrl: null,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            rightToWork: Math.random() < 0.9 ? "valid" : "expired"
           };
 
           await storage.createContractorWorker(worker);
