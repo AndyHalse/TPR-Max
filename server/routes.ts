@@ -2309,7 +2309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/card-issues", async (req, res) => {
+  app.post("/api/card-issues", requireAuth, async (req, res) => {
     try {
       const issue = await storage.createCardIssue(req.body);
       res.status(201).json(issue);
