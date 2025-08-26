@@ -700,29 +700,31 @@ export class VideoGenerationService {
             overflow: hidden;
         }
         .presentation-container {
-            width: 100vw;
+            width: 100%;
             height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             text-align: center;
             position: relative;
             padding: 0;
+            overflow: hidden;
         }
         .scene {
             display: none;
-            padding: 30px;
-            width: 95vw;
-            height: 90vh;
+            padding: 20px;
+            width: 100%;
+            height: 100%;
             animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             background: rgba(255,255,255,0.18);
             backdrop-filter: blur(25px);
-            border-radius: 20px;
+            border-radius: 0;
             box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.25);
             position: relative;
             overflow-y: auto;
+            box-sizing: border-box;
         }
         .scene.active {
             display: block;
@@ -733,10 +735,10 @@ export class VideoGenerationService {
         }
         .scene-image {
             width: 100%;
-            height: 50vh;
+            height: 60vh;
             background: rgba(255,255,255,0.1);
             border-radius: 15px;
-            margin: 20px auto;
+            margin: 15px auto;
             display: flex;
             align-items: center;
             justify-content: center;
