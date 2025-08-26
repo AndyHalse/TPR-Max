@@ -648,3 +648,59 @@ export type LocalLabourRecord = typeof localLabourRecords.$inferSelect;
 export type InsertLocalLabourRecord = z.infer<typeof insertLocalLabourRecordSchema>;
 export type EnhancedCompanyDetails = typeof enhancedCompanyDetails.$inferSelect;
 export type InsertEnhancedCompanyDetails = z.infer<typeof insertEnhancedCompanyDetailsSchema>;
+
+
+// Contractor Visits Tracking - Similar to Visitor system
+export const contractorVisits = pgTable("contractor_visits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").references(() => contractorWorkers.id).notNull(),
+  companyId: varchar("company_id").references(() => contractorCompanies.id).notNull(),
+  purpose: text("purpose"),
+  checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
+  checkedOutAt: timestamp("checked_out_at"),
+  duration: text("duration"), // calculated field
+  qrCode: text("qr_code").unique(),
+  passUrl: text("pass_url"), // URL to generated pass
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Contractor Pre-bookings - Similar to Visitor pre-booking
+export const contractorPreBookings = pgTable("contractor_prebookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  contactPhone: text("contact_phone"),
+  workerName: text("worker_name").notNull(),
+  workerEmail: text("worker_email"),
+  purpose: text("purpose").notNull(),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  scheduledTime: text("scheduled_time").notNull(), // HH:MM format
+  duration: text("duration").default("4"), // hours
+  status: text("status").default("pending"), // pending, confirmed, cancelled, completed
+  qrCode: text("qr_code").unique().notNull(),
+  notes: text("notes"),
+  documentsRequired: text("documents_required").array().default([]),
+  documentsUploaded: text("documents_uploaded").array().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schemas for new tables
+export const insertContractorVisitSchema = createInsertSchema(contractorVisits).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContractorPreBookingSchema = createInsertSchema(contractorPreBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  qrCode: true,
+});
+
+// Types for new tables
+export type ContractorVisit = typeof contractorVisits.$inferSelect;
+export type InsertContractorVisit = z.infer<typeof insertContractorVisitSchema>;
+export type ContractorPreBooking = typeof contractorPreBookings.$inferSelect;
+export type InsertContractorPreBooking = z.infer<typeof insertContractorPreBookingSchema>;
