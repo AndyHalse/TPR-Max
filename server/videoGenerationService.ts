@@ -697,18 +697,19 @@ export class VideoGenerationService {
             padding: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
         .presentation-container {
             width: 100vw;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             text-align: center;
             position: relative;
-            padding: 40px 40px 140px 40px;
+            padding: 140px 20px 120px 20px;
         }
         .scene {
             display: none;
@@ -815,22 +816,43 @@ export class VideoGenerationService {
             font-size: 1rem;
             backdrop-filter: blur(10px);
         }
-        .logo {
+        .header-section {
             position: fixed;
             top: 20px;
-            left: 20px;
-            font-size: 1.6rem;
-            font-weight: bold;
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(20px);
-            padding: 15px 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            z-index: 999;
+            background: rgba(0,0,0,0.6);
+            padding: 20px 40px;
             border-radius: 20px;
+            backdrop-filter: blur(15px);
             border: 2px solid rgba(255,255,255,0.2);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .company-logo {
+            width: 80px;
+            height: 80px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
             display: flex;
             align-items: center;
-            z-index: 1000;
-            max-width: 400px;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #4338ca;
+            border: 3px solid rgba(255,255,255,0.3);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .company-name {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin: 0;
         }
         .enhanced-badge {
             position: fixed;
