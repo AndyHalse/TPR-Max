@@ -21,7 +21,9 @@ import type {
   WorkerCompetency,
   InsertWorkerCompetency,
   Department,
-  InsertDepartment
+  InsertDepartment,
+  InductionSettings,
+  InsertInductionSettings
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -88,6 +90,11 @@ export interface IStorage {
   // Company settings methods
   getCompanySettings(): Promise<CompanySettings | undefined>;
   updateCompanySettings(updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined>;
+  
+  // Induction settings methods
+  getInductionSettings(): Promise<InductionSettings[]>;
+  getInductionSettingsByRole(roleType: string): Promise<InductionSettings | undefined>;
+  updateInductionSettings(roleType: string, updates: Partial<InsertInductionSettings>): Promise<InductionSettings>;
 
   // Report methods  
   getAllReports(): Promise<Report[]>;
@@ -229,6 +236,7 @@ export class MemStorage implements IStorage {
   private staffMembers: Map<string, Staff>;
   private visitors: Map<string, Visitor>;
   private companySettings: CompanySettings | undefined;
+  private inductionSettings: InductionSettings[];
   private reports: Map<string, Report>;
   private preBookings: Map<string, PreBooking>;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
@@ -242,6 +250,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.staffMembers = new Map();
     this.visitors = new Map();
+    this.inductionSettings = [];
     this.reports = new Map();
     this.preBookings = new Map();
     
@@ -938,6 +947,41 @@ export class MemStorage implements IStorage {
   }
 
   async updateCompanySettings(updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined> {
+    // Implementation here - update the settings
+    if (this.companySettings) {
+      Object.assign(this.companySettings, updates);
+    }
+    return this.companySettings;
+  }
+  
+  // Induction settings methods
+  async getInductionSettings(): Promise<InductionSettings[]> {
+    return this.inductionSettings;
+  }
+
+  async getInductionSettingsByRole(roleType: string): Promise<InductionSettings | undefined> {
+    return this.inductionSettings.find(s => s.roleType === roleType);
+  }
+
+  async updateInductionSettings(roleType: string, updates: Partial<InsertInductionSettings>): Promise<InductionSettings> {
+    const existingIndex = this.inductionSettings.findIndex(s => s.roleType === roleType);
+    if (existingIndex !== -1) {
+      Object.assign(this.inductionSettings[existingIndex], updates);
+      return this.inductionSettings[existingIndex];
+    } else {
+      const newSetting: InductionSettings = {
+        id: randomUUID(),
+        roleType,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...updates
+      } as InductionSettings;
+      this.inductionSettings.push(newSetting);
+      return newSetting;
+    }
+  }
+
+  async updateCompanySettingsOld(updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined> {
     if (!this.companySettings) return undefined;
 
     this.companySettings = { ...this.companySettings, ...updates, updatedAt: new Date() };
