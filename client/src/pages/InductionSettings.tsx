@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play } from "lucide-react";
+import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play, Eye, Monitor, Clock } from "lucide-react";
 import type { InductionSettings } from "@shared/schema";
 
 interface RoleSettingsFormProps {
@@ -18,9 +18,16 @@ interface RoleSettingsFormProps {
   settings: InductionSettings | null;
   onSave: (settingsId: string, data: any) => Promise<void>;
   onGenerateVideo: (roleType: string) => Promise<void>;
+  generatedVideo?: {
+    title: string;
+    duration: number;
+    scenes: number;
+    timestamp: string;
+    url: string;
+  } | null;
 }
 
-const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo }: RoleSettingsFormProps) => {
+const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, generatedVideo }: RoleSettingsFormProps) => {
   const [formData, setFormData] = useState({
     videoTitle: settings?.videoTitle || "",
     videoUrl: settings?.videoUrl || "",
@@ -131,6 +138,65 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo }: RoleS
               </p>
             </div>
 
+            {/* AI Generated Video Preview */}
+            {generatedVideo && (
+              <div className="space-y-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <Eye className="h-4 w-4" />
+                  <h4 className="font-medium">Generated AI Video Preview</h4>
+                  <Badge variant="secondary" className="text-xs">
+                    Generated {generatedVideo.timestamp}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <Play className="h-3 w-3" />
+                    <span className="font-medium">{generatedVideo.title}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <Clock className="h-3 w-3" />
+                    <span>{generatedVideo.duration} minute presentation</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <Monitor className="h-3 w-3" />
+                    <span>{generatedVideo.scenes} scenes created</span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                    onClick={() => window.open(generatedVideo.url, '_blank')}
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    View Full Video
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-green-600 border-green-300 hover:bg-green-50"
+                    onClick={() => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        videoUrl: generatedVideo.url,
+                        videoTitle: generatedVideo.title
+                      }));
+                    }}
+                  >
+                    <Save className="h-3 w-3 mr-1" />
+                    Use This Video
+                  </Button>
+                </div>
+                
+                <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                  💡 <strong>Tip:</strong> Click "Use This Video" to automatically set the video URL, or "View Full Video" to preview the complete presentation.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor={`${roleType}-description`}>Video Description</Label>
               <Textarea
@@ -197,6 +263,13 @@ export default function InductionSettings() {
   const [settings, setSettings] = useState<Record<string, InductionSettings>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [questions, setQuestions] = useState<Record<string, any[]>>({});
+  const [generatedVideos, setGeneratedVideos] = useState<Record<string, {
+    title: string;
+    duration: number;
+    scenes: number;
+    timestamp: string;
+    url: string;
+  }>>({});
   const { toast } = useToast();
 
   const roleTypes = [
@@ -275,9 +348,23 @@ export default function InductionSettings() {
       const response = await apiRequest('POST', `/api/induction/generate-video/${roleType}`);
       const data = await response.json();
 
+      // Store the generated video data
+      const generatedVideoData = {
+        title: data.preview?.title || `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
+        duration: data.preview?.duration || 15,
+        scenes: data.preview?.scenes || 8,
+        timestamp: new Date().toLocaleString(),
+        url: `/api/induction/preview/${roleType}`
+      };
+
+      setGeneratedVideos(prev => ({
+        ...prev,
+        [roleType]: generatedVideoData
+      }));
+
       toast({
         title: "AI Video Generated!",
-        description: `Successfully created ${data.preview.duration}-minute video with ${data.preview.scenes} scenes`,
+        description: `Successfully created ${generatedVideoData.duration}-minute video with ${generatedVideoData.scenes} scenes`,
       });
 
       // Refresh settings to show the new video
@@ -338,6 +425,7 @@ export default function InductionSettings() {
                 settings={settings[role.value] || null}
                 onSave={handleSaveSetting}
                 onGenerateVideo={handleGenerateVideo}
+                generatedVideo={generatedVideos[role.value] || null}
               />
 
               {/* Questions Summary */}

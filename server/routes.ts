@@ -3669,6 +3669,227 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Preview generated video content in HTML format
+  app.get('/api/induction/preview/:roleType', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      
+      // Try to get existing settings first
+      let existingSettings = await db
+        .select()
+        .from(inductionSettings)
+        .where(eq(inductionSettings.roleType, roleType))
+        .limit(1);
+
+      if (existingSettings.length === 0 || !existingSettings[0].videoUrl) {
+        // Generate new content if none exists
+        const { VideoGenerationService } = await import('./videoGenerationService');
+        const settings = await storage.getCompanySettings();
+        const videoService = new VideoGenerationService(settings);
+        
+        const content = await videoService.generateVideoPresentation(roleType);
+        await videoService.updateSettingsWithGeneratedContent(roleType, content);
+        
+        // Get the updated settings
+        existingSettings = await db
+          .select()
+          .from(inductionSettings)
+          .where(eq(inductionSettings.roleType, roleType))
+          .limit(1);
+      }
+
+      const setting = existingSettings[0];
+      const roleDisplayName = roleType.charAt(0).toUpperCase() + roleType.slice(1);
+      
+      // Return formatted HTML preview
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${setting.videoTitle} - VisiGate Pro</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              line-height: 1.6;
+              margin: 0;
+              padding: 20px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: #333;
+            }
+            .container {
+              max-width: 800px;
+              margin: 0 auto;
+              background: white;
+              border-radius: 12px;
+              box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+              overflow: hidden;
+            }
+            .header {
+              background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+              color: white;
+              padding: 30px;
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 2em;
+              font-weight: 700;
+            }
+            .header p {
+              margin: 10px 0 0 0;
+              opacity: 0.9;
+              font-size: 1.1em;
+            }
+            .content {
+              padding: 40px;
+            }
+            .video-info {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 20px;
+              margin-bottom: 30px;
+              padding: 20px;
+              background: #f8fafc;
+              border-radius: 8px;
+            }
+            .info-item {
+              text-align: center;
+            }
+            .info-label {
+              font-size: 0.9em;
+              color: #64748b;
+              margin-bottom: 5px;
+            }
+            .info-value {
+              font-size: 1.3em;
+              font-weight: 600;
+              color: #1e293b;
+            }
+            .description {
+              background: #fafafa;
+              padding: 20px;
+              border-radius: 8px;
+              border-left: 4px solid #4f46e5;
+              margin: 20px 0;
+            }
+            .powered-by {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #e2e8f0;
+              color: #64748b;
+              font-size: 0.9em;
+            }
+            .ai-badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 5px;
+              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+              color: white;
+              padding: 8px 16px;
+              border-radius: 20px;
+              font-weight: 600;
+              font-size: 0.9em;
+              margin: 10px 0;
+            }
+            .close-btn {
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: rgba(255,255,255,0.9);
+              border: none;
+              padding: 10px;
+              border-radius: 50%;
+              cursor: pointer;
+              font-size: 20px;
+              width: 40px;
+              height: 40px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+          </style>
+        </head>
+        <body>
+          <button class="close-btn" onclick="window.close()" title="Close Preview">×</button>
+          
+          <div class="container">
+            <div class="header">
+              <h1>${setting.videoTitle}</h1>
+              <p>AI-Generated Safety Induction for ${roleDisplayName}s</p>
+              <div class="ai-badge">
+                ✨ Generated with AI
+              </div>
+            </div>
+            
+            <div class="content">
+              <div class="video-info">
+                <div class="info-item">
+                  <div class="info-label">Duration</div>
+                  <div class="info-value">${setting.videoDurationMinutes} minutes</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Target Audience</div>
+                  <div class="info-value">${roleDisplayName}s</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Generated</div>
+                  <div class="info-value">Just Now</div>
+                </div>
+              </div>
+              
+              <div class="description">
+                <h3 style="margin-top: 0; color: #4f46e5;">Video Description</h3>
+                <p>${setting.videoDescription}</p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <p style="color: #64748b; margin-bottom: 20px;">
+                  This AI-generated induction video provides comprehensive safety training 
+                  tailored specifically for ${roleDisplayName.toLowerCase()}s in your organization.
+                </p>
+                <p style="color: #059669; font-weight: 600;">
+                  ✅ Video content generated successfully and ready for use!
+                </p>
+              </div>
+              
+              <div class="powered-by">
+                <p>🤖 Powered by OpenAI GPT-5 | 🏢 VisiGate Pro Safety Management</p>
+              </div>
+            </div>
+          </div>
+          
+          <script>
+            // Auto-close after 30 seconds if opened in popup
+            if (window.opener) {
+              setTimeout(() => {
+                if (confirm('Close preview window?')) {
+                  window.close();
+                }
+              }, 30000);
+            }
+          </script>
+        </body>
+        </html>
+      `;
+      
+      res.setHeader('Content-Type', 'text/html');
+      res.send(htmlContent);
+      
+    } catch (error) {
+      console.error('Error generating video preview:', error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: system-ui; padding: 40px; text-align: center;">
+            <h1 style="color: #dc2626;">Preview Error</h1>
+            <p>Unable to generate video preview. Please check your AI configuration.</p>
+            <button onclick="window.close()" style="padding: 10px 20px; margin-top: 20px;">Close</button>
+          </body>
+        </html>
+      `);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
