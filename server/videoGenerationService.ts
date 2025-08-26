@@ -697,31 +697,32 @@ export class VideoGenerationService {
             padding: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            overflow-x: hidden;
-            overflow-y: auto;
+            overflow: hidden;
         }
         .presentation-container {
             width: 100vw;
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: center;
             align-items: center;
             text-align: center;
             position: relative;
-            padding: 140px 20px 120px 20px;
+            padding: 0;
         }
         .scene {
             display: none;
-            padding: 60px 50px;
-            max-width: 1000px;
+            padding: 30px;
+            width: 95vw;
+            height: 90vh;
             animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             background: rgba(255,255,255,0.18);
             backdrop-filter: blur(25px);
-            border-radius: 25px;
-            margin: 20px;
+            border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.25);
+            position: relative;
+            overflow-y: auto;
         }
         .scene.active {
             display: block;
@@ -732,17 +733,17 @@ export class VideoGenerationService {
         }
         .scene-image {
             width: 100%;
-            max-width: 400px;
-            height: 250px;
+            height: 50vh;
             background: rgba(255,255,255,0.1);
-            border-radius: 12px;
+            border-radius: 15px;
             margin: 20px auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.9rem;
+            font-size: 1rem;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.2);
+            overflow: hidden;
         }
         .scene-image img {
             width: 100%;
@@ -867,16 +868,6 @@ export class VideoGenerationService {
     </style>
 </head>
 <body>
-    <div class="header-section">
-        <div class="company-logo">
-            ${this.companySettings?.bannerUrl ? 
-                `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" onerror="this.innerHTML='🏢';" />` : 
-                '🏢'
-            }
-        </div>
-        <div class="company-name">${companyName}</div>
-    </div>
-    <div class="enhanced-badge">✨ Enhanced with AI</div>
     
     <div class="presentation-container">
         ${scenes.map((scene, index) => `
