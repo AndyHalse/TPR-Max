@@ -92,8 +92,12 @@ export class VideoGenerationService {
     const prompt = roleSpecificPrompts[roleType as keyof typeof roleSpecificPrompts] || roleSpecificPrompts.contractor;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: modelType || this.companySettings?.openaiModel || "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
+      
+      let response;
+      try {
+        response = await openai.chat.completions.create({
+          model: selectedModel,
         messages: [
           {
             role: "system",
@@ -128,10 +132,53 @@ export class VideoGenerationService {
           ? {} // Use default temperature (1.0) for GPT-5+
           : { temperature: parseFloat(this.companySettings?.openaiTemperature || "0.7") }),
         // GPT-5 and newer use max_completion_tokens instead of max_tokens
-        ...(this.companySettings?.openaiModel === 'gpt-5' || this.companySettings?.openaiModel?.includes('gpt-6') || this.companySettings?.openaiModel?.includes('gpt-7')
+        ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
           ? { max_completion_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }
           : { max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }),
-      });
+        });
+      } catch (error: any) {
+        if (error.code === 'model_not_found' && selectedModel === 'gpt-5') {
+          console.log('⚠️ GPT-5 access temporarily unavailable, using GPT-4o as fallback');
+          selectedModel = 'gpt-4o';
+          
+          response = await openai.chat.completions.create({
+            model: selectedModel,
+            messages: [
+              {
+                role: "system",
+                content: `You are a UK Health & Safety expert creating professional induction content. You MUST respond with valid JSON format. Create a detailed, engaging script that covers all essential safety points for ${roleType}s.`
+              },
+              {
+                role: "user", 
+                content: `${prompt}
+
+                Create an induction script with 6-8 scenes, each 2-3 minutes long.
+
+                IMPORTANT: Respond ONLY with a valid JSON object in this exact format:
+                {
+                  "script": "Full narration text here",
+                  "scenes": [
+                    {
+                      "title": "Scene title",
+                      "content": "Scene content/narration",
+                      "duration": 180,
+                      "imagePrompt": "Description for safety illustration"
+                    }
+                  ],
+                  "totalDuration": 1200
+                }
+
+                Include exactly 6-8 scenes covering: Introduction, PPE requirements, Emergency procedures, Hazard identification, Safe work practices, Environmental responsibilities, Health requirements, and Summary.`
+              }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.7,
+            max_tokens: 4000
+          });
+        } else {
+          throw error;
+        }
+      }
 
       let content;
       try {
