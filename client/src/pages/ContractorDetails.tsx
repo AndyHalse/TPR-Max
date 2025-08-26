@@ -81,7 +81,7 @@ export default function ContractorDetails() {
 
   // Issue card mutation
   const issueCardMutation = useMutation({
-    mutationFn: (data: any) => apiRequest(`/api/card-issues`, 'POST', data),
+    mutationFn: (data: any) => apiRequest('POST', `/api/card-issues`, data),
     onSuccess: () => {
       toast({ title: "Card issued successfully" });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
@@ -99,7 +99,7 @@ export default function ContractorDetails() {
 
   // Add certification mutation
   const addCertificationMutation = useMutation({
-    mutationFn: (data: any) => apiRequest(`/api/workers/${data.workerId}/certifications`, 'POST', data),
+    mutationFn: (data: any) => apiRequest('POST', `/api/workers/${data.workerId}/certifications`, data),
     onSuccess: () => {
       toast({ title: "Certification added successfully" });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
