@@ -256,6 +256,121 @@ export class VideoGenerationService {
     return imageUrls;
   }
 
+  // Generate comprehensive UK H&S compliant scenes
+  private generateComprehensiveUKHSScenes(roleType: string): any[] {
+    const baseScenes = [
+      {
+        title: "Welcome & Legal Framework",
+        content: `Welcome to our comprehensive Health & Safety induction. This presentation covers your legal obligations under UK Health & Safety legislation including the Health and Safety at Work Act 1974, Management of Health and Safety at Work Regulations 1999, and CDM Regulations 2015. As a ${roleType}, you have both rights and responsibilities to maintain a safe working environment. This induction is mandatory and must be completed before commencing work on site.`,
+        duration: 180,
+        imagePrompt: "Professional corporate reception with UK health and safety legislation certificates and legal compliance documentation displayed"
+      },
+      {
+        title: "Personal Protective Equipment (PPE) - Legal Requirements",
+        content: "Under the Personal Protective Equipment at Work Regulations 2022, you must wear appropriate PPE at all times. This includes safety helmets to BS EN 397 standards, high-visibility clothing to EN ISO 20471 Class 2/3, safety footwear to EN ISO 20345 standards, and eye protection to EN 166 where required. PPE must be properly maintained, stored correctly, and replaced when damaged. Failure to wear PPE is a disciplinary offense and may result in immediate removal from site.",
+        duration: 200,
+        imagePrompt: "High-quality PPE equipment display showing hard hats, hi-vis vests, safety boots, safety glasses, and gloves arranged professionally with British Standard certification labels visible"
+      },
+      {
+        title: "Risk Assessment & Method Statements (RAMS)",
+        content: "Every work activity requires a documented Risk Assessment and Method Statement. You must read, understand, and sign the RAMS before starting work. Dynamic risk assessments must be conducted continuously as work progresses. If conditions change, stop work immediately and reassess. The hierarchy of control must be followed: Elimination, Reduction, Engineering Controls, Administrative Controls, and PPE as the final measure. Report all hazards immediately to your supervisor.",
+        duration: 220,
+        imagePrompt: "Professional workplace showing workers reviewing detailed RAMS documentation with clipboards, risk assessment forms, and method statements in a modern office environment"
+      },
+      {
+        title: "Emergency Procedures & Evacuation",
+        content: "In case of emergency, follow the Emergency Action Plan immediately. Know your nearest fire exit, alternative escape routes, and designated assembly points. Fire alarm signals: Continuous alarm = Evacuate immediately, Intermittent alarm = Standby. Emergency contact numbers are displayed throughout the site. In case of injury, call First Aid immediately on extension 999 or use emergency phones. Never re-enter a building until authorized by the Emergency Coordinator or Fire Service.",
+        duration: 200,
+        imagePrompt: "Clear emergency signage showing fire exits, assembly points, emergency phone locations, and evacuation route maps in a professional building environment"
+      },
+      {
+        title: "Workplace Hazards & Control Measures",
+        content: "Common workplace hazards include: Moving machinery and vehicles, Electrical installations and equipment, Slip, trip and fall hazards, Manual handling risks, Hazardous substances (COSHH), Noise exposure, Vibration, Working at height, Confined spaces, and Lone working. Each hazard requires specific control measures. Always use designated walkways, observe speed limits, maintain three points of contact on stairs, and report damaged flooring, lighting, or equipment immediately.",
+        duration: 240,
+        imagePrompt: "Comprehensive workplace safety display showing various hazard warning signs, safety barriers, machine guards, and control equipment in an industrial setting"
+      },
+      {
+        title: "Manual Handling & Ergonomics",
+        content: "Manual Handling Operations Regulations 1992 require proper lifting techniques to prevent musculoskeletal injuries. Assess loads before lifting: Can it be eliminated? Can mechanical aids be used? Maximum recommended weights: 25kg for men, 16kg for women. Use team lifting for heavy items. Maintain natural spinal curves, get a firm grip, lift with legs not back, avoid twisting, and keep loads close to body. Take regular breaks and report any discomfort immediately.",
+        duration: 200,
+        imagePrompt: "Professional workplace ergonomics demonstration showing proper lifting techniques, mechanical lifting aids, and ergonomic workstation setup"
+      },
+      {
+        title: "Working at Height Safety",
+        content: "Work at Height Regulations 2005 apply to any work where a person could fall and be injured. Heights above 2 meters require additional precautions. Hierarchy: Avoid working at height where possible, Use existing safe places of work, Use equipment to prevent falls, Use equipment to minimize distance of falls. All ladders, scaffolding, and access equipment must be inspected before use. Safety harnesses and lanyards must be worn when required. Never work at height in adverse weather conditions.",
+        duration: 220,
+        imagePrompt: "Professional height safety equipment display showing scaffolding, safety harnesses, hard hats, and fall prevention systems with workers demonstrating proper usage"
+      },
+      {
+        title: "Electrical Safety & COSHH",
+        content: "Electricity at Work Regulations 1989 require all electrical work to be performed by competent persons. Never attempt electrical repairs. Report damaged cables, equipment, or plugs immediately. Use RCD-protected equipment outdoors. Control of Substances Hazardous to Health (COSHH) Regulations 2002 cover chemicals, fumes, dusts, vapors, and biological agents. Safety Data Sheets must be available for all hazardous substances. Use appropriate storage, handling, and disposal methods.",
+        duration: 210,
+        imagePrompt: "Professional laboratory and electrical safety setup showing COSHH safety cabinet, electrical testing equipment, safety data sheets, and properly labeled chemical storage"
+      },
+      {
+        title: "Incident Reporting & Investigation",
+        content: "All incidents, accidents, near misses, and dangerous occurrences must be reported immediately. Under RIDDOR (Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013), serious incidents must be reported to HSE within 24 hours. Complete accident report forms accurately and provide witness statements. Do not disturb accident scenes unless making them safe. Participate fully in incident investigations to prevent recurrence.",
+        duration: 180,
+        imagePrompt: "Professional incident reporting setup showing accident report forms, investigation documentation, and safety management systems on computer screens"
+      },
+      {
+        title: "Health & Wellbeing - Occupational Health",
+        content: "Your health and wellbeing are protected under Management of Health and Safety at Work Regulations 1999. Regular health surveillance may be required for certain roles. Report work-related health concerns immediately. Take regular breaks, stay hydrated, use proper workstation setup to prevent RSI. Mental health support is available through our Employee Assistance Programme. Smoking is prohibited in all buildings and designated areas only outdoors.",
+        duration: 190,
+        imagePrompt: "Modern workplace wellbeing center showing ergonomic workstations, health monitoring equipment, hydration stations, and wellness information displays"
+      },
+      {
+        title: "Environmental & Waste Management",
+        content: "Environmental Protection Act 1990 and Waste Management Regulations require proper waste segregation and disposal. Use designated waste streams: General waste, Recycling, Hazardous waste, and Confidential waste. Prevent pollution incidents by proper storage of materials and immediate cleanup of spills. Report environmental concerns to the Environmental Manager. Minimize energy consumption and water usage as part of our sustainability commitments.",
+        duration: 170,
+        imagePrompt: "Professional waste management and environmental compliance area showing proper waste segregation bins, spill kits, and environmental monitoring equipment"
+      },
+      {
+        title: "Security & Site Access Control",
+        content: "Site security is essential for health and safety. Your ID badge must be worn visibly at all times and not shared with others. Report lost cards immediately. Visitors must be escorted at all times. Do not allow tailgating or unauthorized access. Lock valuable equipment and secure work areas when unattended. Report suspicious activity to Security immediately. Emergency procedures override normal access controls.",
+        duration: 160,
+        imagePrompt: "Modern security access control system showing ID card readers, CCTV monitoring, and professional security checkpoint with clear signage"
+      }
+    ];
+
+    // Add role-specific scenes
+    if (roleType === 'contractor') {
+      baseScenes.push(
+        {
+          title: "CDM Regulations & Principal Contractor Duties",
+          content: "Construction (Design and Management) Regulations 2015 place specific duties on contractors. You must coordinate with the Principal Contractor, comply with site rules, and maintain high standards of welfare facilities. Toolbox talks are mandatory before starting new activities. All plant and equipment must have current test certificates. Method statements must be signed by all operatives before work commences.",
+          duration: 200,
+          imagePrompt: "Construction site showing CDM compliance documentation, toolbox talk areas, and contractors reviewing method statements with hard hats and hi-vis clothing"
+        },
+        {
+          title: "Permit to Work Systems",
+          content: "High-risk activities require Permits to Work including Hot Work, Confined Space Entry, Electrical Work, Working at Height, and Excavation. Permits must be obtained before starting work and displayed at the work location. All safety precautions must be implemented before permit authorization. Work must stop if conditions change. Permits must be closed out on completion and returned to the issuing authority.",
+          duration: 190,
+          imagePrompt: "Professional permit to work system showing permit documentation, safety checklists, and contractors following formal authorization procedures"
+        }
+      );
+    }
+
+    if (roleType === 'staff') {
+      baseScenes.push(
+        {
+          title: "DSE Regulations & Workstation Assessment",
+          content: "Display Screen Equipment Regulations 1992 require proper workstation setup to prevent health issues. Your workstation must be assessed annually. Adjust chair height so feet are flat on floor, monitor top at eye level, keyboard and mouse at elbow height. Take regular breaks every hour, use proper lighting to avoid glare, and report any discomfort immediately. Eye tests are provided for DSE users.",
+          duration: 180,
+          imagePrompt: "Modern ergonomic office workspace showing properly adjusted desk setup, ergonomic chair, monitor positioning, and lighting for optimal DSE compliance"
+        },
+        {
+          title: "Stress Management & Mental Health",
+          content: "Management of Health and Safety at Work Regulations include stress-related risks. Work-related stress can be caused by workload, lack of control, poor support, role clarity, and relationships. Early recognition is key: mood changes, sleep problems, concentration difficulties. Speak to your manager or HR if experiencing work-related stress. Confidential counselling services are available through our Employee Assistance Programme.",
+          duration: 190,
+          imagePrompt: "Professional wellness room showing comfortable seating, stress management resources, mental health awareness materials, and peaceful environment"
+        }
+      );
+    }
+
+    return baseScenes;
+  }
+
   // Generate HTML5 video-like presentation
   async generateVideoPresentation(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
     htmlContent: string;
@@ -274,44 +389,8 @@ export class VideoGenerationService {
     // CRITICAL FIX: Ensure we always have scenes, force fallback if empty
     if (!scenes || scenes.length === 0) {
       console.log('🚨 CRITICAL: No scenes generated, forcing fallback scenes');
-      const fallbackScenes = [
-        {
-          title: "Welcome & Introduction",
-          content: `Welcome to VisiGate Pro's comprehensive safety induction for ${roleType}s. This presentation will cover all essential health and safety requirements you need to know before starting work on our premises.`,
-          duration: 120,
-          imagePrompt: "Professional office reception area with safety notices"
-        },
-        {
-          title: "Personal Protective Equipment (PPE)",
-          content: "Personal Protective Equipment is essential for your safety. You must wear appropriate PPE at all times including safety helmets, high-visibility vests, safety footwear, and eye protection where required.",
-          duration: 150,
-          imagePrompt: "Various types of PPE equipment laid out professionally"
-        },
-        {
-          title: "Emergency Procedures",
-          content: "In case of emergency, remain calm and follow the evacuation procedures. Know your nearest fire exit, assembly point locations, and emergency contact numbers. Report all incidents immediately.",
-          duration: 180,
-          imagePrompt: "Clear emergency exit sign and assembly point"
-        },
-        {
-          title: "Hazard Identification",
-          content: "Be aware of potential hazards including moving machinery, electrical equipment, slip and trip hazards, and chemical substances. Always assess your work area before starting.",
-          duration: 160,
-          imagePrompt: "Workplace hazard warning signs and safety barriers"
-        },
-        {
-          title: "Safe Work Practices",
-          content: "Follow all safety procedures, use equipment properly, maintain good housekeeping, and never take shortcuts. If you're unsure about any procedure, ask for guidance.",
-          duration: 140,
-          imagePrompt: "Workers following proper safety procedures"
-        },
-        {
-          title: "Health & Wellbeing",
-          content: "Your health and wellbeing are important. Take regular breaks, stay hydrated, report any health concerns, and use proper lifting techniques to avoid injury.",
-          duration: 130,
-          imagePrompt: "Ergonomic workplace setup and health safety poster"
-        }
-      ];
+      // UK H&S Compliant Professional Scenes based on role type
+      const fallbackScenes = this.generateComprehensiveUKHSScenes(roleType);
       
       // Override empty scenes with fallback
       scenes.splice(0, scenes.length, ...fallbackScenes);
@@ -445,10 +524,10 @@ export class VideoGenerationService {
 <body>
     <div class="logo">
         ${this.companySettings?.bannerUrl ? 
-            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
+            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 50px; max-width: 200px; margin-right: 15px; vertical-align: middle; border-radius: 8px; object-fit: contain;" onerror="this.style.display='none';" />` : 
             '🛡️'
         }
-        ${companyName}
+        <span style="font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${companyName}</span>
     </div>
     <div class="scene-counter">
         <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
@@ -719,10 +798,20 @@ export class VideoGenerationService {
         }
         .logo {
             position: fixed;
-            top: 30px;
-            left: 30px;
-            font-size: 1.8rem;
+            top: 20px;
+            left: 20px;
+            font-size: 1.6rem;
             font-weight: bold;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(20px);
+            padding: 15px 25px;
+            border-radius: 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            z-index: 1000;
+            max-width: 400px;
         }
         .enhanced-badge {
             position: fixed;
@@ -739,10 +828,10 @@ export class VideoGenerationService {
 <body>
     <div class="logo">
         ${this.companySettings?.bannerUrl ? 
-            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
+            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 50px; max-width: 200px; margin-right: 15px; vertical-align: middle; border-radius: 8px; object-fit: contain;" onerror="this.style.display='none';" />` : 
             '🛡️'
         }
-        ${companyName}
+        <span style="font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${companyName}</span>
     </div>
     <div class="scene-counter">
         <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
