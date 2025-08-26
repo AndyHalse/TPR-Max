@@ -33,6 +33,18 @@ function Router() {
   // Check authentication status for normal app routes
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+      if (res.status === 401) {
+        return null; // Return null for unauthenticated users
+      }
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      return await res.json();
+    },
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
