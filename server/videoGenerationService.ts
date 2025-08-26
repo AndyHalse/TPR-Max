@@ -13,7 +13,7 @@ export class VideoGenerationService {
   }
   
   // Generate comprehensive induction script for a specific role
-  async generateInductionScript(roleType: string, companyName: string = "ACS Safety & Security Ltd"): Promise<{
+  async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
     script: string;
     scenes: Array<{
       title: string;
@@ -24,8 +24,28 @@ export class VideoGenerationService {
     totalDuration: number;
   }> {
     
+    // Get company details for professional branding
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyLogo = this.companySettings?.bannerUrl ? `Company Logo: ${this.companySettings.bannerUrl}` : "Professional company branding";
+    const aiInstructions = this.companySettings?.aiInstructionsPrompt || "Create comprehensive, engaging safety induction content";
+    
+    // Enhanced prompts based on video format
+    const formatSpecificInstructions = {
+      'interactive_slides': 'Create clear, concise content perfect for slide-by-slide navigation with strong visual cues.',
+      'full_video': 'Create cinematic, flowing content with smooth transitions and professional narration style.',
+      'hybrid_enhanced': 'Create vivid, detailed content with rich visual descriptions for AI image generation. Include specific details about workplace scenes, safety equipment, and professional environments.'
+    };
+    
+    const formatInstruction = formatSpecificInstructions[videoFormat as keyof typeof formatSpecificInstructions] || formatSpecificInstructions['interactive_slides'];
+    
     const roleSpecificPrompts = {
-      visitor: `Generate a comprehensive safety induction script for VISITORS to ${companyName}. Include:
+      visitor: `Generate a comprehensive safety induction script for VISITORS to ${companyName}. ${formatInstruction}
+      
+      Company Details: ${companyName}
+      ${companyLogo}
+      AI Instructions: ${aiInstructions}
+      
+      Include:
         - Welcome and introduction
         - Site access protocols and escort requirements
         - Basic PPE requirements in designated areas
@@ -34,7 +54,13 @@ export class VideoGenerationService {
         - Key contact information
         - Sign-in/sign-out procedures`,
       
-      staff: `Generate a comprehensive safety induction script for new STAFF MEMBERS at ${companyName}. Include:
+      staff: `Generate a comprehensive safety induction script for new STAFF MEMBERS at ${companyName}. ${formatInstruction}
+      
+      Company Details: ${companyName}
+      ${companyLogo}
+      AI Instructions: ${aiInstructions}
+      
+      Include:
         - Company safety culture and policies
         - Workplace hazards and risk assessments
         - PPE requirements and usage
@@ -44,7 +70,13 @@ export class VideoGenerationService {
         - Equipment safety protocols
         - Training requirements and refresher schedules`,
       
-      contractor: `Generate a comprehensive safety induction script for CONTRACTORS working at ${companyName}. Include:
+      contractor: `Generate a comprehensive safety induction script for CONTRACTORS working at ${companyName}. ${formatInstruction}
+      
+      Company Details: ${companyName}
+      ${companyLogo}
+      AI Instructions: ${aiInstructions}
+      
+      Include:
         - Site-specific safety requirements
         - Permit to work procedures
         - Risk assessment requirements
@@ -61,7 +93,7 @@ export class VideoGenerationService {
 
     try {
       const response = await openai.chat.completions.create({
-        model: this.companySettings?.openaiModel || "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        model: modelType || this.companySettings?.openaiModel || "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         messages: [
           {
             role: "system",
@@ -174,27 +206,50 @@ export class VideoGenerationService {
   // Generate scene images for the induction
   async generateSceneImages(scenes: Array<{imagePrompt: string}>): Promise<string[]> {
     const imageUrls: string[] = [];
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
     
     try {
-      for (const scene of scenes) {
+      console.log(`🎨 Generating ${scenes.length} AI images for ${companyName} induction...`);
+      
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        console.log(`🖼️ Generating image ${i + 1}/${scenes.length}: ${scene.imagePrompt}`);
+        
+        // Enhanced prompt with company branding and professional styling
+        const enhancedPrompt = `Professional workplace safety illustration for ${companyName}: ${scene.imagePrompt}. 
+        Style: Clean, modern corporate safety design with professional photography quality. 
+        Colors: Professional blue (#3b82f6) and safety orange (#f97316) corporate theme. 
+        Setting: Modern office/industrial environment with ${companyName} branding. 
+        Quality: High-resolution, crystal clear, informative, realistic photography style.
+        Details: Include safety equipment, professional uniforms, clear signage, modern facilities.
+        Avoid: Cartoons, sketches, amateur photography, cluttered backgrounds.`;
+        
         const imageResponse = await openai.images.generate({
           model: "dall-e-3",
-          prompt: `Professional workplace safety illustration: ${scene.imagePrompt}. Style: Clean, modern, professional safety diagram. Colors: Corporate blue and orange safety theme. High quality, clear, informative.`,
+          prompt: enhancedPrompt,
           n: 1,
           size: "1024x1024",
-          quality: "standard",
+          quality: "hd", // Upgraded to HD quality
         });
         
         const imageUrl = imageResponse.data?.[0]?.url;
         if (imageUrl) {
           imageUrls.push(imageUrl);
+          console.log(`✅ Image ${i + 1} generated successfully`);
+        } else {
+          console.log(`⚠️ Image ${i + 1} generation returned no URL`);
         }
         
         // Add delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Increased delay for stability
       }
-    } catch (error) {
-      console.error('Error generating scene images:', error);
+      
+      console.log(`🎉 Successfully generated ${imageUrls.length}/${scenes.length} AI images`);
+    } catch (error: any) {
+      console.error('❌ Error generating scene images:', error);
+      if (error?.response) {
+        console.error('API Response:', error.response.data);
+      }
       // Continue with empty images rather than failing completely
     }
     
@@ -369,7 +424,13 @@ export class VideoGenerationService {
     </style>
 </head>
 <body>
-    <div class="logo">🛡️ VisiGate Pro</div>
+    <div class="logo">
+        ${this.companySettings?.bannerUrl ? 
+            `<img src="${this.companySettings.bannerUrl}" alt="${this.companySettings?.companyName || 'VisiGate Pro'}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
+            '🛡️'
+        }
+        ${this.companySettings?.companyName || 'VisiGate Pro'}
+    </div>
     <div class="scene-counter">
         <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
     </div>
@@ -491,8 +552,7 @@ export class VideoGenerationService {
       htmlContent,
       script,
       scenes,
-      totalDuration,
-      format: 'interactive_slides'
+      totalDuration
     };
   }
 
@@ -509,13 +569,15 @@ export class VideoGenerationService {
   async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
     console.log('🎨 Generating enhanced presentation with AI images...');
     
-    // Generate AI images for each scene (optional - can be resource intensive)
+    // Generate AI images for each scene (enabled for hybrid enhanced mode)
     let sceneImages: string[] = [];
     try {
+      console.log('🖼️ Starting AI image generation for enhanced mode...');
       sceneImages = await this.generateSceneImages(scenes);
-      console.log(`✨ Generated ${sceneImages.length} AI images`);
+      console.log(`✨ Successfully generated ${sceneImages.length} AI images`);
     } catch (error) {
-      console.log('⚠️ AI image generation failed, using text-only enhanced presentation');
+      console.error('❌ AI image generation failed:', error);
+      console.log('⚠️ Continuing with enhanced styling but no AI images');
     }
 
     const htmlContent = `
@@ -652,7 +714,13 @@ export class VideoGenerationService {
     </style>
 </head>
 <body>
-    <div class="logo">🛡️ VisiGate Pro</div>
+    <div class="logo">
+        ${this.companySettings?.bannerUrl ? 
+            `<img src="${this.companySettings.bannerUrl}" alt="${this.companySettings?.companyName || 'VisiGate Pro'}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
+            '🛡️'
+        }
+        ${this.companySettings?.companyName || 'VisiGate Pro'}
+    </div>
     <div class="scene-counter">
         <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
     </div>
