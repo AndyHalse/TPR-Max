@@ -216,6 +216,53 @@ export class VideoGenerationService {
     console.log(`🎬 Generated ${scenes.length} scenes for ${roleType} induction`);
     console.log(`🎬 Scene titles:`, scenes.map(s => s.title));
     
+    // CRITICAL FIX: Ensure we always have scenes, force fallback if empty
+    if (!scenes || scenes.length === 0) {
+      console.log('🚨 CRITICAL: No scenes generated, forcing fallback scenes');
+      const fallbackScenes = [
+        {
+          title: "Welcome & Introduction",
+          content: `Welcome to VisiGate Pro's comprehensive safety induction for ${roleType}s. This presentation will cover all essential health and safety requirements you need to know before starting work on our premises.`,
+          duration: 120,
+          imagePrompt: "Professional office reception area with safety notices"
+        },
+        {
+          title: "Personal Protective Equipment (PPE)",
+          content: "Personal Protective Equipment is essential for your safety. You must wear appropriate PPE at all times including safety helmets, high-visibility vests, safety footwear, and eye protection where required.",
+          duration: 150,
+          imagePrompt: "Various types of PPE equipment laid out professionally"
+        },
+        {
+          title: "Emergency Procedures",
+          content: "In case of emergency, remain calm and follow the evacuation procedures. Know your nearest fire exit, assembly point locations, and emergency contact numbers. Report all incidents immediately.",
+          duration: 180,
+          imagePrompt: "Clear emergency exit sign and assembly point"
+        },
+        {
+          title: "Hazard Identification",
+          content: "Be aware of potential hazards including moving machinery, electrical equipment, slip and trip hazards, and chemical substances. Always assess your work area before starting.",
+          duration: 160,
+          imagePrompt: "Workplace hazard warning signs and safety barriers"
+        },
+        {
+          title: "Safe Work Practices",
+          content: "Follow all safety procedures, use equipment properly, maintain good housekeeping, and never take shortcuts. If you're unsure about any procedure, ask for guidance.",
+          duration: 140,
+          imagePrompt: "Workers following proper safety procedures"
+        },
+        {
+          title: "Health & Wellbeing",
+          content: "Your health and wellbeing are important. Take regular breaks, stay hydrated, report any health concerns, and use proper lifting techniques to avoid injury.",
+          duration: 130,
+          imagePrompt: "Ergonomic workplace setup and health safety poster"
+        }
+      ];
+      
+      // Override empty scenes with fallback
+      scenes.splice(0, scenes.length, ...fallbackScenes);
+      console.log(`🔧 Applied ${scenes.length} fallback scenes`);
+    }
+    
     // Generate images for scenes (optional - can be skipped for faster generation)
     // const sceneImages = await this.generateSceneImages(scenes);
     
