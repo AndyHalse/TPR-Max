@@ -867,21 +867,23 @@ export class VideoGenerationService {
     </style>
 </head>
 <body>
-    <div class="logo">
-        ${this.companySettings?.bannerUrl ? 
-            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 50px; max-width: 200px; margin-right: 15px; vertical-align: middle; border-radius: 8px; object-fit: contain;" onerror="this.style.display='none';" />` : 
-            '🛡️'
-        }
-        <span style="font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${companyName}</span>
-    </div>
-    <div class="scene-counter">
-        <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
+    <div class="header-section">
+        <div class="company-logo">
+            ${this.companySettings?.bannerUrl ? 
+                `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" onerror="this.innerHTML='🏢';" />` : 
+                '🏢'
+            }
+        </div>
+        <div class="company-name">${companyName}</div>
     </div>
     <div class="enhanced-badge">✨ Enhanced with AI</div>
     
     <div class="presentation-container">
         ${scenes.map((scene, index) => `
             <div class="scene ${index === 0 ? 'active' : ''}" data-duration="${scene.duration}">
+                <div class="scene-counter">
+                    <span id="current-scene">${index + 1}</span> / <span id="total-scenes">${scenes.length}</span>
+                </div>
                 <h1>${scene.title}</h1>
                 ${sceneImages[index] ? `
                     <div class="scene-image">
@@ -917,7 +919,10 @@ export class VideoGenerationService {
         function showScene(index) {
             document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.scene')[index].classList.add('active');
-            document.getElementById('current-scene').textContent = index + 1;
+            // Update all scene counters since each scene now has its own counter
+            document.querySelectorAll('.scene-counter span[id="current-scene"]').forEach(el => {
+                el.textContent = index + 1;
+            });
             updateProgressBar();
         }
         
