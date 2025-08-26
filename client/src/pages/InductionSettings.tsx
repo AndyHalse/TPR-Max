@@ -208,8 +208,9 @@ export default function InductionSettings() {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const response = await apiRequest('/api/induction/settings');
-      const settingsData = response.settings || [];
+      const response = await apiRequest('GET', '/api/induction/settings');
+      const data = await response.json();
+      const settingsData = data.settings || [];
       
       const settingsMap: Record<string, InductionSettings> = {};
       settingsData.forEach((setting: InductionSettings) => {
@@ -221,8 +222,9 @@ export default function InductionSettings() {
       const questionsMap: Record<string, any[]> = {};
       for (const roleType of ['visitor', 'staff', 'contractor']) {
         try {
-          const questionsResponse = await apiRequest(`/api/induction/questions/${roleType}`);
-          questionsMap[roleType] = questionsResponse.questions || [];
+          const questionsResponse = await apiRequest('GET', `/api/induction/questions/${roleType}`);
+          const questionsData = await questionsResponse.json();
+          questionsMap[roleType] = questionsData.questions || [];
         } catch (error) {
           console.error(`Error fetching questions for ${roleType}:`, error);
           questionsMap[roleType] = [];
@@ -244,10 +246,7 @@ export default function InductionSettings() {
 
   const handleSaveSetting = async (settingId: string, data: any) => {
     try {
-      await apiRequest(`/api/induction/settings/${settingId}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
+      await apiRequest('PUT', `/api/induction/settings/${settingId}`, data);
 
       toast({
         title: "Success",
@@ -273,13 +272,12 @@ export default function InductionSettings() {
         description: `Creating AI-powered induction video for ${roleType}s...`,
       });
 
-      const response = await apiRequest(`/api/induction/generate-video/${roleType}`, {
-        method: 'POST',
-      });
+      const response = await apiRequest('POST', `/api/induction/generate-video/${roleType}`);
+      const data = await response.json();
 
       toast({
         title: "AI Video Generated!",
-        description: `Successfully created ${response.preview.duration}-minute video with ${response.preview.scenes} scenes`,
+        description: `Successfully created ${data.preview.duration}-minute video with ${data.preview.scenes} scenes`,
       });
 
       // Refresh settings to show the new video
