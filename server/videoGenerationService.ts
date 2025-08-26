@@ -13,7 +13,7 @@ export class VideoGenerationService {
   }
   
   // Generate comprehensive induction script for a specific role
-  async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-4o'): Promise<{
+  async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
     script: string;
     scenes: Array<{
       title: string;
@@ -93,7 +93,7 @@ export class VideoGenerationService {
 
     try {
       const response = await openai.chat.completions.create({
-        model: modelType || this.companySettings?.openaiModel || "gpt-4o", // Using gpt-4o as it's available and reliable
+        model: modelType || this.companySettings?.openaiModel || "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         messages: [
           {
             role: "system",
@@ -372,7 +372,7 @@ export class VideoGenerationService {
   }
 
   // Generate HTML5 video-like presentation
-  async generateVideoPresentation(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-4o'): Promise<{
+  async generateVideoPresentation(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
     htmlContent: string;
     script: string;
     scenes: any[];
