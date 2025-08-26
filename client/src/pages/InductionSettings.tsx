@@ -164,6 +164,18 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, generat
                   </div>
                 </div>
                 
+                {/* Embedded Video Preview */}
+                <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
+                  <iframe 
+                    src={generatedVideo.url}
+                    title={`${generatedVideo.title} Preview`}
+                    className="w-full h-96"
+                    frameBorder="0"
+                    allow="autoplay; encrypted-media"
+                    sandbox="allow-scripts allow-same-origin"
+                  />
+                </div>
+                
                 <div className="flex gap-2">
                   <Button 
                     size="sm" 
@@ -172,7 +184,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, generat
                     onClick={() => window.open(generatedVideo.url, '_blank')}
                   >
                     <Eye className="h-3 w-3 mr-1" />
-                    View Full Video
+                    View Full Screen
                   </Button>
                   <Button 
                     size="sm" 
