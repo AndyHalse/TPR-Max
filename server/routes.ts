@@ -290,6 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Send the emergency notification
+      const emailService = new EmailService(companySettings);
       const emailSent = await emailService.sendVisitorEmergencyNotification(
         visitor,
         hostStaff,
