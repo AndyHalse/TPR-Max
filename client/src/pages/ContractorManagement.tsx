@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
+import EditContractorWorkerModal from "@/components/EditContractorWorkerModal";
 import { 
   HardHat, 
   Clock, 
@@ -39,6 +40,8 @@ export default function ContractorManagement() {
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
+  const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
+  const [workerToEdit, setWorkerToEdit] = useState<ContractorWorker | null>(null);
 
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors"],
@@ -145,6 +148,16 @@ export default function ContractorManagement() {
     if (window.confirm(`Are you sure you want to delete "${workerName}"? This action cannot be undone.`)) {
       deleteWorkerMutation.mutate(workerId);
     }
+  };
+
+  const handleEditWorker = (worker: ContractorWorker) => {
+    setWorkerToEdit(worker);
+    setShowEditWorkerModal(true);
+  };
+
+  const handleEditWorkerModalClose = () => {
+    setShowEditWorkerModal(false);
+    setWorkerToEdit(null);
   };
 
   const checkInMutation = useMutation({
@@ -511,7 +524,7 @@ export default function ContractorManagement() {
                         size="sm" 
                         variant="outline" 
                         className="text-blue-600 hover:bg-blue-50"
-                        onClick={() => handleViewContractorDetails(contractor.companyId)}
+                        onClick={() => handleEditWorker(contractor)}
                         data-testid={`button-edit-worker-${contractor.id}`}
                       >
                         <Edit className="h-3 w-3" />
@@ -741,6 +754,20 @@ export default function ContractorManagement() {
           }}
           worker={selectedWorker}
           companyName={selectedCompanyName}
+        />
+      )}
+
+      {/* Edit Contractor Worker Modal */}
+      {workerToEdit && (
+        <EditContractorWorkerModal
+          isOpen={showEditWorkerModal}
+          onClose={handleEditWorkerModalClose}
+          worker={workerToEdit}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+            handleEditWorkerModalClose();
+          }}
         />
       )}
     </div>
