@@ -65,24 +65,32 @@ export class VideoGenerationService {
         messages: [
           {
             role: "system",
-            content: `You are a UK Health & Safety expert creating professional induction content. Create a detailed, engaging script that covers all essential safety points for ${roleType}s. The script should be clear, authoritative, and compliant with UK H&S regulations. Structure the response as a JSON object with 'script' (full narration) and 'scenes' (array of scene objects with title, content, duration in seconds, and imagePrompt for visual generation).`
+            content: `You are a UK Health & Safety expert creating professional induction content. You MUST respond with valid JSON format. Create a detailed, engaging script that covers all essential safety points for ${roleType}s.`
           },
           {
             role: "user", 
             content: `${prompt}
 
-            The script should be professional, engaging, and approximately 15-25 minutes long. Break it into logical scenes/sections. For each scene, provide a detailed image prompt that could be used to generate relevant safety illustrations or workplace scenes.
+            Create an induction script with 6-8 scenes, each 2-3 minutes long.
 
-            Respond with a JSON object containing:
-            - script: The complete narration text
-            - scenes: Array of scene objects with title, content, duration (seconds), and imagePrompt
-            - totalDuration: Total duration in seconds`
+            IMPORTANT: Respond ONLY with a valid JSON object in this exact format:
+            {
+              "script": "Full narration text here",
+              "scenes": [
+                {
+                  "title": "Scene title",
+                  "content": "Scene content/narration",
+                  "duration": 180,
+                  "imagePrompt": "Description for safety illustration"
+                }
+              ],
+              "totalDuration": 1200
+            }
+
+            Include exactly 6-8 scenes covering: Introduction, PPE requirements, Emergency procedures, Hazard identification, Safe work practices, Environmental responsibilities, Health requirements, and Summary.`
           }
         ],
-        // Only use JSON format for GPT-4 models, GPT-5+ handles JSON differently
-        ...(this.companySettings?.openaiModel?.includes('gpt-4') 
-          ? { response_format: { type: "json_object" } } 
-          : {}),
+        response_format: { type: "json_object" },
         // GPT-5 only supports temperature 1.0, older models support custom values
         ...(this.companySettings?.openaiModel === 'gpt-5' || this.companySettings?.openaiModel?.includes('gpt-6') || this.companySettings?.openaiModel?.includes('gpt-7')
           ? {} // Use default temperature (1.0) for GPT-5+
@@ -93,7 +101,56 @@ export class VideoGenerationService {
           : { max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }),
       });
 
-      const content = JSON.parse(response.choices[0].message.content || '{}');
+      let content;
+      try {
+        content = JSON.parse(response.choices[0].message.content || '{}');
+      } catch (parseError) {
+        console.error('JSON parsing failed:', parseError);
+        console.error('Raw response:', response.choices[0].message.content);
+        // Fallback: create default scenes if parsing fails
+        content = {
+          script: `Welcome to the ${roleType} safety induction. This presentation covers essential health and safety requirements.`,
+          scenes: [
+            {
+              title: "Welcome & Introduction",
+              content: `Welcome to VisiGate Pro's comprehensive safety induction for ${roleType}s. This presentation will cover all essential health and safety requirements you need to know before starting work on our premises.`,
+              duration: 120,
+              imagePrompt: "Professional office reception area with safety notices"
+            },
+            {
+              title: "Personal Protective Equipment (PPE)",
+              content: "Personal Protective Equipment is essential for your safety. You must wear appropriate PPE at all times including safety helmets, high-visibility vests, safety footwear, and eye protection where required.",
+              duration: 150,
+              imagePrompt: "Various types of PPE equipment laid out professionally"
+            },
+            {
+              title: "Emergency Procedures",
+              content: "In case of emergency, remain calm and follow the evacuation procedures. Know your nearest fire exit, assembly point locations, and emergency contact numbers. Report all incidents immediately.",
+              duration: 180,
+              imagePrompt: "Clear emergency exit sign and assembly point"
+            },
+            {
+              title: "Hazard Identification",
+              content: "Be aware of potential hazards including moving machinery, electrical equipment, slip and trip hazards, and chemical substances. Always assess your work area before starting.",
+              duration: 160,
+              imagePrompt: "Workplace hazard warning signs and safety barriers"
+            },
+            {
+              title: "Safe Work Practices",
+              content: "Follow all safety procedures, use equipment properly, maintain good housekeeping, and never take shortcuts. If you're unsure about any procedure, ask for guidance.",
+              duration: 140,
+              imagePrompt: "Workers following proper safety procedures"
+            },
+            {
+              title: "Health & Wellbeing",
+              content: "Your health and wellbeing are important. Take regular breaks, stay hydrated, report any health concerns, and use proper lifting techniques to avoid injury.",
+              duration: 130,
+              imagePrompt: "Ergonomic workplace setup and health safety poster"
+            }
+          ],
+          totalDuration: 880
+        };
+      }
       
       return {
         script: content.script || '',
