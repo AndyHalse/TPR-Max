@@ -2281,7 +2281,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contractors", async (req, res) => {
     try {
       const contractors = await storage.getAllContractorCompanies();
-      res.json(contractors);
+      
+      // Add worker counts, document status, and dynamic safety ratings for each contractor
+      const contractorsWithStats = await Promise.all(contractors.map(async (contractor) => {
+        const workers = await storage.getWorkersByCompanyId(contractor.id);
+        const documents = await storage.getDocumentsByCompanyId(contractor.id);
+        
+        // Create document status summary
+        const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'];
+        const documentsStatus = docTypes.reduce((acc, type) => {
+          const doc = documents.find(d => d.documentType === type);
+          if (!doc) {
+            acc[type] = 'missing';
+          } else if (doc.expiryDate && new Date(doc.expiryDate) < new Date()) {
+            acc[type] = 'expired';
+          } else {
+            acc[type] = 'valid';
+          }
+          return acc;
+        }, {} as Record<string, string>);
+        
+        // Calculate dynamic safety rating using AI
+        let safetyRating = contractor.complianceScore || "A+";
+        try {
+          const ratingResult = await aiService.calculateSafetyRating(workers);
+          safetyRating = ratingResult.rating;
+          
+          // Update contractor with new safety rating
+          await storage.updateContractorCompany(contractor.id, {
+            complianceScore: ratingResult.rating
+          });
+          
+          console.log(`🔄 Dynamic safety rating for ${contractor.name}: ${ratingResult.rating} (${ratingResult.score}/100) - ${ratingResult.reasoning}`);
+        } catch (ratingError) {
+          console.error(`Error calculating safety rating for ${contractor.name}:`, ratingError);
+        }
+        
+        return {
+          ...contractor,
+          workersCount: workers.length,
+          documentsStatus,
+          complianceScore: safetyRating
+        };
+      }));
+      
+      res.json(contractorsWithStats);
     } catch (error) {
       console.error("Error fetching contractors:", error);
       res.status(500).json({ error: "Failed to fetch contractors" });
@@ -2400,7 +2444,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const workers = await storage.getWorkersByCompanyId(id);
       const documents = await storage.getDocumentsByCompanyId(id);
       
-      res.json({ ...contractor, workers, documents });
+      // Calculate dynamic safety rating using AI
+      let safetyRating = contractor.complianceScore || "A+";
+      try {
+        const ratingResult = await aiService.calculateSafetyRating(workers);
+        safetyRating = ratingResult.rating;
+        
+        // Update contractor with new safety rating
+        await storage.updateContractorCompany(id, {
+          complianceScore: ratingResult.rating
+        });
+        
+        console.log(`🔄 Dynamic safety rating for ${contractor.name}: ${ratingResult.rating} (${ratingResult.score}/100) - ${ratingResult.reasoning}`);
+      } catch (ratingError) {
+        console.error("Error calculating dynamic safety rating:", ratingError);
+      }
+      
+      res.json({ ...contractor, workers, documents, complianceScore: safetyRating });
     } catch (error) {
       console.error("Error fetching contractor:", error);
       res.status(500).json({ error: "Failed to fetch contractor" });

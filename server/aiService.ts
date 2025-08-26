@@ -943,6 +943,124 @@ export class AIService {
       };
     }
   }
+
+  /**
+   * Calculate dynamic safety rating based on worker card issues using AI analysis
+   */
+  async calculateSafetyRating(workersData: any[]): Promise<{
+    rating: string;
+    score: number;
+    reasoning: string;
+  }> {
+    try {
+      const totalWorkers = workersData.length;
+      if (totalWorkers === 0) {
+        return {
+          rating: "N/A",
+          score: 0,
+          reasoning: "No workers to evaluate"
+        };
+      }
+
+      // Count workers with card issues
+      const workersWithRedCards = workersData.filter(w => w.currentCardStatus === 'red').length;
+      const workersWithYellowCards = workersData.filter(w => w.currentCardStatus === 'yellow').length;
+      const workersWithClearStatus = workersData.filter(w => w.currentCardStatus === 'clear').length;
+      
+      // Calculate proportions
+      const redCardProportion = workersWithRedCards / totalWorkers;
+      const yellowCardProportion = workersWithYellowCards / totalWorkers;
+      const clearProportion = workersWithClearStatus / totalWorkers;
+
+      const analysisPrompt = `
+You are a safety compliance expert analyzing contractor safety performance. Calculate an appropriate safety rating based on these worker statistics:
+
+Total Workers: ${totalWorkers}
+Workers with RED cards (banned/severe violations): ${workersWithRedCards} (${(redCardProportion * 100).toFixed(1)}%)
+Workers with YELLOW cards (warnings): ${workersWithYellowCards} (${(yellowCardProportion * 100).toFixed(1)}%)
+Workers with CLEAR status (compliant): ${workersWithClearStatus} (${(clearProportion * 100).toFixed(1)}%)
+
+RED CARDS = 3-year site bans for serious safety violations (drugs, abuse, flagrant safety disregard)
+YELLOW CARDS = Warnings for minor safety infractions (PPE violations, tool misuse)
+
+Rating Scale Guidelines:
+- A+ (90-100): Excellent safety record, minimal issues
+- A (80-89): Good safety performance, few minor issues
+- B+ (70-79): Acceptable with some concerns
+- B (60-69): Below average, needs improvement
+- C+ (50-59): Poor performance, significant issues
+- C (40-49): Very poor, major safety concerns
+- D+ (30-39): Critical safety failures
+- D (20-29): Extremely dangerous, immediate action required
+- F (0-19): Unacceptable, should be suspended
+
+Consider:
+1. Red cards are much more serious than yellow cards (weight red cards 5x more heavily)
+2. Proportion matters more than absolute numbers (2/3 workers with issues vs 1/200)
+3. Small teams with high issue rates are more concerning than large teams with few issues
+4. Zero tolerance for high red card proportions
+
+Respond with JSON only: {"rating": "A+", "score": 95, "reasoning": "Brief explanation of rating rationale"}
+`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system", 
+            content: "You are a safety compliance expert. Analyze contractor safety data and provide ratings. Always respond with valid JSON only."
+          },
+          {
+            role: "user",
+            content: analysisPrompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+      
+      return {
+        rating: result.rating || "C",
+        score: result.score || 50,
+        reasoning: result.reasoning || "Unable to calculate rating"
+      };
+
+    } catch (error) {
+      console.error("Error calculating safety rating:", error);
+      
+      // Fallback calculation if AI fails
+      const totalWorkers = workersData.length;
+      const workersWithRedCards = workersData.filter(w => w.currentCardStatus === 'red').length;
+      const workersWithYellowCards = workersData.filter(w => w.currentCardStatus === 'yellow').length;
+      
+      const redCardProportion = workersWithRedCards / totalWorkers;
+      const yellowCardProportion = workersWithYellowCards / totalWorkers;
+      
+      // Simple fallback scoring
+      let score = 100;
+      score -= (redCardProportion * 60); // Red cards heavily penalized
+      score -= (yellowCardProportion * 20); // Yellow cards moderately penalized
+      score = Math.max(0, Math.min(100, score));
+      
+      let rating = "F";
+      if (score >= 90) rating = "A+";
+      else if (score >= 80) rating = "A";
+      else if (score >= 70) rating = "B+";
+      else if (score >= 60) rating = "B";
+      else if (score >= 50) rating = "C+";
+      else if (score >= 40) rating = "C";
+      else if (score >= 30) rating = "D+";
+      else if (score >= 20) rating = "D";
+      
+      return {
+        rating,
+        score: Math.round(score),
+        reasoning: "Fallback calculation based on card issue proportions"
+      };
+    }
+  }
 }
 
 export const aiService = new AIService();
