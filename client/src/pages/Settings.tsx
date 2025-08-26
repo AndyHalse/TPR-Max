@@ -2284,24 +2284,34 @@ export default function Settings() {
 
                 <div className="space-y-2">
                   <Label htmlFor="openaiTemperature" className="text-sm font-medium text-slate-700">
-                    Creativity Level (Temperature: {currentSettings?.openaiTemperature || "0.7"})
+                    Creativity Level (Temperature: {currentSettings?.openaiModel === 'gpt-5' || currentSettings?.openaiModel?.includes('gpt-6') || currentSettings?.openaiModel?.includes('gpt-7') ? "1.0 - Fixed" : currentSettings?.openaiTemperature || "0.7"})
                   </Label>
-                  <input
-                    id="openaiTemperature"
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={currentSettings?.openaiTemperature || "0.7"}
-                    onChange={(e) => handleInputChange("openaiTemperature", e.target.value)}
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
-                    data-testid="slider-temperature"
-                  />
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>Conservative (0.0)</span>
-                    <span>Balanced (1.0)</span>
-                    <span>Creative (2.0)</span>
-                  </div>
+                  {currentSettings?.openaiModel === 'gpt-5' || currentSettings?.openaiModel?.includes('gpt-6') || currentSettings?.openaiModel?.includes('gpt-7') ? (
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-700">
+                        🔒 GPT-5 and newer models use a fixed temperature of 1.0 for optimal performance. Temperature customization is not available for these models.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        id="openaiTemperature"
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={currentSettings?.openaiTemperature || "0.7"}
+                        onChange={(e) => handleInputChange("openaiTemperature", e.target.value)}
+                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
+                        data-testid="slider-temperature"
+                      />
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>Conservative (0.0)</span>
+                        <span>Balanced (1.0)</span>
+                        <span>Creative (2.0)</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2">

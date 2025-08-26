@@ -83,7 +83,10 @@ export class VideoGenerationService {
         ...(this.companySettings?.openaiModel?.includes('gpt-4') 
           ? { response_format: { type: "json_object" } } 
           : {}),
-        temperature: parseFloat(this.companySettings?.openaiTemperature || "0.7"),
+        // GPT-5 only supports temperature 1.0, older models support custom values
+        ...(this.companySettings?.openaiModel === 'gpt-5' || this.companySettings?.openaiModel?.includes('gpt-6') || this.companySettings?.openaiModel?.includes('gpt-7')
+          ? {} // Use default temperature (1.0) for GPT-5+
+          : { temperature: parseFloat(this.companySettings?.openaiTemperature || "0.7") }),
         // GPT-5 and newer use max_completion_tokens instead of max_tokens
         ...(this.companySettings?.openaiModel === 'gpt-5' || this.companySettings?.openaiModel?.includes('gpt-6') || this.companySettings?.openaiModel?.includes('gpt-7')
           ? { max_completion_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }
