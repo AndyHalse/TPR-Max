@@ -2288,6 +2288,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Red and Yellow Card System Routes
+  app.get("/api/card-offences", async (req, res) => {
+    try {
+      const offences = await storage.getAllCardOffences();
+      res.json(offences);
+    } catch (error) {
+      console.error("Error fetching card offences:", error);
+      res.status(500).json({ error: "Failed to fetch offences" });
+    }
+  });
+
+  app.post("/api/card-offences", async (req, res) => {
+    try {
+      const offence = await storage.createCardOffence(req.body);
+      res.status(201).json(offence);
+    } catch (error) {
+      console.error("Error creating card offence:", error);
+      res.status(500).json({ error: "Failed to create offence" });
+    }
+  });
+
+  app.post("/api/card-issues", async (req, res) => {
+    try {
+      const issue = await storage.createCardIssue(req.body);
+      res.status(201).json(issue);
+    } catch (error) {
+      console.error("Error creating card issue:", error);
+      res.status(500).json({ error: "Failed to create card issue" });
+    }
+  });
+
+  app.get("/api/workers/:workerId/card-issues", async (req, res) => {
+    try {
+      const issues = await storage.getWorkerCardIssues(req.params.workerId);
+      res.json(issues);
+    } catch (error) {
+      console.error("Error fetching worker card issues:", error);
+      res.status(500).json({ error: "Failed to fetch card issues" });
+    }
+  });
+
+  // Enhanced Worker Certifications Routes
+  app.get("/api/workers/:workerId/certifications", async (req, res) => {
+    try {
+      const certifications = await storage.getWorkerCertifications(req.params.workerId);
+      res.json(certifications);
+    } catch (error) {
+      console.error("Error fetching worker certifications:", error);
+      res.status(500).json({ error: "Failed to fetch certifications" });
+    }
+  });
+
+  app.post("/api/workers/:workerId/certifications", async (req, res) => {
+    try {
+      const certificationData = { ...req.body, workerId: req.params.workerId };
+      const certification = await storage.createWorkerCertification(certificationData);
+      res.status(201).json(certification);
+    } catch (error) {
+      console.error("Error creating worker certification:", error);
+      res.status(500).json({ error: "Failed to create certification" });
+    }
+  });
+
   app.get("/api/contractors/:id", async (req, res) => {
     try {
       const { id } = req.params;

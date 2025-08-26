@@ -2,7 +2,8 @@ import { db } from "./db";
 import { 
   staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
   contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies,
-  documentApprovals, departments
+  documentApprovals, departments, cardOffences, cardIssues, workerCertifications, ramsDocuments,
+  co2Records, localLabourRecords, enhancedCompanyDetails
 } from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
@@ -10,7 +11,10 @@ import type {
   ContractorCompany, InsertContractorCompany, ContractorWorker, InsertContractorWorker,
   ComplianceDocument, InsertComplianceDocument, DocumentType, InsertDocumentType,
   WorkerCompetency, InsertWorkerCompetency, DocumentApproval, InsertDocumentApproval,
-  Department, InsertDepartment
+  Department, InsertDepartment, CardOffence, InsertCardOffence, CardIssue, InsertCardIssue,
+  WorkerCertification, InsertWorkerCertification, RamsDocument, InsertRamsDocument,
+  Co2Record, InsertCo2Record, LocalLabourRecord, InsertLocalLabourRecord,
+  EnhancedCompanyDetails, InsertEnhancedCompanyDetails
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, count } from "drizzle-orm";
@@ -19,7 +23,73 @@ import bcrypt from "bcryptjs";
 
 export class DatabaseStorage implements IStorage {
   constructor() {
-    // Sample data initialization removed to prevent overwriting user data
+    // Initialize default offences data
+    this.initializeDefaultOffences();
+  }
+
+  private async initializeDefaultOffences() {
+    try {
+      // Check if offences already exist
+      const existingOffences = await db.select().from(cardOffences);
+      if (existingOffences.length > 0) {
+        return; // Already initialized
+      }
+
+      // Red Card Offences from Siemens Energy requirements
+      const redCardOffences = [
+        { offenceName: "Unsafe work at height", offenceDescription: "Working at height without proper safety measures" },
+        { offenceName: "Abuse of and putting the public at risk", offenceDescription: "Behavior that endangers public safety" },
+        { offenceName: "Flagrant disregard for the safety method statement", offenceDescription: "Intentional violation of established safety procedures" },
+        { offenceName: "Urinating and defecating in unauthorised locations", offenceDescription: "Using inappropriate areas for bodily functions" },
+        { offenceName: "Drugs and alcohol abuse", offenceDescription: "Being under the influence of substances on site" },
+        { offenceName: "Working within unsafe excavations and confined spaces", offenceDescription: "Entering hazardous work areas without authorization" },
+        { offenceName: "Misuse of scaffolding or access equipment", offenceDescription: "Improper use of safety equipment" },
+        { offenceName: "Unauthorised use of plant", offenceDescription: "Operating machinery without permission or qualification" },
+        { offenceName: "Illegal discharges into drainage or water courses", offenceDescription: "Environmental contamination violations" },
+        { offenceName: "Misuse of fire prevention equipment", offenceDescription: "Tampering with or misusing fire safety systems" },
+        { offenceName: "Unauthorised work on asbestos-containing materials", offenceDescription: "Working with hazardous materials without proper training" },
+        { offenceName: "Smoking in restricted areas", offenceDescription: "Smoking in prohibited zones" },
+        { offenceName: "Operating plant while using a mobile phone", offenceDescription: "Distracted operation of machinery" }
+      ];
+
+      // Yellow Card Offences
+      const yellowCardOffences = [
+        { offenceName: "Not wearing hard hats", offenceDescription: "Failure to wear required head protection" },
+        { offenceName: "Not wearing safety footwear", offenceDescription: "Improper or missing safety footwear" },
+        { offenceName: "Incorrect use of PPE", offenceDescription: "Misuse of personal protective equipment" },
+        { offenceName: "Misuse of lifting appliances and equipment", offenceDescription: "Improper use of lifting equipment" },
+        { offenceName: "Misuse of tools and equipment", offenceDescription: "Incorrect handling of work tools" },
+        { offenceName: "Use of mobile phones in unsafe areas", offenceDescription: "Mobile phone use in restricted zones" }
+      ];
+
+      // Insert Red Card offences
+      for (const offence of redCardOffences) {
+        await db.insert(cardOffences).values({
+          id: randomUUID(),
+          offenceName: offence.offenceName,
+          offenceDescription: offence.offenceDescription,
+          cardType: "red",
+          isActive: true,
+          siteConfigurable: true
+        });
+      }
+
+      // Insert Yellow Card offences
+      for (const offence of yellowCardOffences) {
+        await db.insert(cardOffences).values({
+          id: randomUUID(),
+          offenceName: offence.offenceName,
+          offenceDescription: offence.offenceDescription,
+          cardType: "yellow",
+          isActive: true,
+          siteConfigurable: true
+        });
+      }
+
+      console.log('✅ Default Red and Yellow Card offences initialized successfully');
+    } catch (error) {
+      console.error('Error initializing default offences:', error);
+    }
   }
 
 
@@ -1673,6 +1743,253 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error getting department names:', error);
       return [];
+    }
+  }
+
+  // Red and Yellow Card System Methods
+  async getAllCardOffences(): Promise<CardOffence[]> {
+    return await db.select().from(cardOffences).where(eq(cardOffences.isActive, true)).orderBy(asc(cardOffences.cardType), asc(cardOffences.offenceName));
+  }
+
+  async createCardOffence(data: InsertCardOffence): Promise<CardOffence> {
+    const id = randomUUID();
+    const [offence] = await db.insert(cardOffences).values({ ...data, id }).returning();
+    return offence;
+  }
+
+  async updateCardOffence(id: string, updates: Partial<InsertCardOffence>): Promise<CardOffence | undefined> {
+    const [updated] = await db
+      .update(cardOffences)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(cardOffences.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCardOffence(id: string): Promise<boolean> {
+    const [updated] = await db
+      .update(cardOffences)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(cardOffences.id, id))
+      .returning();
+    return !!updated;
+  }
+
+  async createCardIssue(data: InsertCardIssue): Promise<CardIssue> {
+    const id = randomUUID();
+    const [issue] = await db.insert(cardIssues).values({ ...data, id }).returning();
+    return issue;
+  }
+
+  async getWorkerCardIssues(workerId: string): Promise<CardIssue[]> {
+    return await db.select().from(cardIssues).where(eq(cardIssues.workerId, workerId)).orderBy(desc(cardIssues.issuedAt));
+  }
+
+  async getActiveYellowCards(workerId: string, monthsBack: number = 6): Promise<CardIssue[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthsBack);
+    
+    return await db
+      .select()
+      .from(cardIssues)
+      .where(
+        and(
+          eq(cardIssues.workerId, workerId),
+          eq(cardIssues.cardType, "yellow"),
+          eq(cardIssues.status, "active"),
+          gte(cardIssues.issuedAt, cutoffDate)
+        )
+      )
+      .orderBy(desc(cardIssues.issuedAt));
+  }
+
+  // Enhanced Worker Certifications
+  async getWorkerCertifications(workerId: string): Promise<WorkerCertification[]> {
+    return await db.select().from(workerCertifications).where(eq(workerCertifications.workerId, workerId)).orderBy(asc(workerCertifications.certificationType));
+  }
+
+  async createWorkerCertification(data: InsertWorkerCertification): Promise<WorkerCertification> {
+    const id = randomUUID();
+    const [certification] = await db.insert(workerCertifications).values({ ...data, id }).returning();
+    return certification;
+  }
+
+  async updateWorkerCertification(id: string, updates: Partial<InsertWorkerCertification>): Promise<WorkerCertification | undefined> {
+    const [updated] = await db
+      .update(workerCertifications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(workerCertifications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteWorkerCertification(id: string): Promise<boolean> {
+    const result = await db.delete(workerCertifications).where(eq(workerCertifications.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getExpiringCertifications(daysBefore: number = 30): Promise<WorkerCertification[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() + daysBefore);
+    
+    return await db
+      .select()
+      .from(workerCertifications)
+      .where(
+        and(
+          eq(workerCertifications.status, "valid"),
+          lte(workerCertifications.expiryDate, cutoffDate)
+        )
+      )
+      .orderBy(asc(workerCertifications.expiryDate));
+  }
+
+  // RAMs Document Management
+  async getAllRamsDocuments(): Promise<RamsDocument[]> {
+    return await db.select().from(ramsDocuments).where(eq(ramsDocuments.isActive, true)).orderBy(desc(ramsDocuments.uploadedAt));
+  }
+
+  async getRamsDocumentsByCompany(companyId: string): Promise<RamsDocument[]> {
+    return await db.select().from(ramsDocuments).where(and(eq(ramsDocuments.companyId, companyId), eq(ramsDocuments.isActive, true))).orderBy(desc(ramsDocuments.uploadedAt));
+  }
+
+  async createRamsDocument(data: InsertRamsDocument): Promise<RamsDocument> {
+    const id = randomUUID();
+    const [document] = await db.insert(ramsDocuments).values({ ...data, id }).returning();
+    return document;
+  }
+
+  async updateRamsDocument(id: string, updates: Partial<InsertRamsDocument>): Promise<RamsDocument | undefined> {
+    const [updated] = await db
+      .update(ramsDocuments)
+      .set(updates)
+      .where(eq(ramsDocuments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getExpiringRamsDocuments(daysBefore: number = 14): Promise<RamsDocument[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() + daysBefore);
+    
+    return await db
+      .select()
+      .from(ramsDocuments)
+      .where(
+        and(
+          eq(ramsDocuments.isActive, true),
+          eq(ramsDocuments.status, "valid"),
+          lte(ramsDocuments.expiryDate, cutoffDate)
+        )
+      )
+      .orderBy(asc(ramsDocuments.expiryDate));
+  }
+
+  // CO2 Reporting
+  async getAllCo2Records(): Promise<Co2Record[]> {
+    return await db.select().from(co2Records).orderBy(desc(co2Records.recordDate));
+  }
+
+  async getCo2RecordsByCompany(companyId: string): Promise<Co2Record[]> {
+    return await db.select().from(co2Records).where(eq(co2Records.companyId, companyId)).orderBy(desc(co2Records.recordDate));
+  }
+
+  async createCo2Record(data: InsertCo2Record): Promise<Co2Record> {
+    const id = randomUUID();
+    const [record] = await db.insert(co2Records).values({ ...data, id }).returning();
+    return record;
+  }
+
+  async updateCo2Record(id: string, updates: Partial<InsertCo2Record>): Promise<Co2Record | undefined> {
+    const [updated] = await db
+      .update(co2Records)
+      .set(updates)
+      .where(eq(co2Records.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getCo2RecordsByPeriod(reportingPeriod: string): Promise<Co2Record[]> {
+    return await db.select().from(co2Records).where(eq(co2Records.reportingPeriod, reportingPeriod)).orderBy(desc(co2Records.recordDate));
+  }
+
+  // Local Labour Reporting
+  async getAllLocalLabourRecords(): Promise<LocalLabourRecord[]> {
+    return await db.select().from(localLabourRecords).orderBy(desc(localLabourRecords.recordedAt));
+  }
+
+  async getLocalLabourRecordsByCompany(companyId: string): Promise<LocalLabourRecord[]> {
+    return await db.select().from(localLabourRecords).where(eq(localLabourRecords.companyId, companyId)).orderBy(desc(localLabourRecords.recordedAt));
+  }
+
+  async createLocalLabourRecord(data: InsertLocalLabourRecord): Promise<LocalLabourRecord> {
+    const id = randomUUID();
+    const [record] = await db.insert(localLabourRecords).values({ ...data, id }).returning();
+    return record;
+  }
+
+  async updateLocalLabourRecord(id: string, updates: Partial<InsertLocalLabourRecord>): Promise<LocalLabourRecord | undefined> {
+    const [updated] = await db
+      .update(localLabourRecords)
+      .set(updates)
+      .where(eq(localLabourRecords.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getLocalLabourStatistics(): Promise<{
+    totalWorkers: number;
+    localWorkers: number;
+    localPercentage: number;
+    apprentices: number;
+  }> {
+    const totalResult = await db.select({ count: count() }).from(localLabourRecords);
+    const localResult = await db.select({ count: count() }).from(localLabourRecords).where(eq(localLabourRecords.isLocal, true));
+    const apprenticeResult = await db.select({ count: count() }).from(localLabourRecords).where(eq(localLabourRecords.isApprentice, true));
+    
+    const total = totalResult[0]?.count || 0;
+    const local = localResult[0]?.count || 0;
+    const apprentices = apprenticeResult[0]?.count || 0;
+    
+    return {
+      totalWorkers: total,
+      localWorkers: local,
+      localPercentage: total > 0 ? Math.round((local / total) * 100) : 0,
+      apprentices
+    };
+  }
+
+  // Enhanced Company Details
+  async getEnhancedCompanyDetails(companyId?: string, departmentId?: string): Promise<EnhancedCompanyDetails | undefined> {
+    const conditions = [];
+    if (companyId) conditions.push(eq(enhancedCompanyDetails.companyId, companyId));
+    if (departmentId) conditions.push(eq(enhancedCompanyDetails.departmentId, departmentId));
+    
+    const [details] = await db
+      .select()
+      .from(enhancedCompanyDetails)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    
+    return details;
+  }
+
+  async upsertEnhancedCompanyDetails(data: InsertEnhancedCompanyDetails): Promise<EnhancedCompanyDetails> {
+    const existing = await this.getEnhancedCompanyDetails(data.companyId || undefined, data.departmentId || undefined);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(enhancedCompanyDetails)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(enhancedCompanyDetails.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const id = randomUUID();
+      const [created] = await db
+        .insert(enhancedCompanyDetails)
+        .values({ ...data, id })
+        .returning();
+      return created;
     }
   }
 }

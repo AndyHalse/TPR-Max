@@ -456,3 +456,177 @@ export type DocumentType = typeof documentTypes.$inferSelect;
 export type InsertDocumentType = z.infer<typeof insertDocumentTypeSchema>;
 export type WorkerCompetency = typeof workerCompetencies.$inferSelect;
 export type InsertWorkerCompetency = z.infer<typeof insertWorkerCompetencySchema>;
+
+// Red and Yellow Card System
+export const cardOffences = pgTable("card_offences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  offenceName: text("offence_name").notNull(),
+  offenceDescription: text("offence_description"),
+  cardType: text("card_type").notNull(), // red, yellow
+  isActive: boolean("is_active").default(true).notNull(),
+  siteConfigurable: boolean("site_configurable").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const cardIssues = pgTable("card_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  offenceId: varchar("offence_id").notNull().references(() => cardOffences.id),
+  cardType: text("card_type").notNull(), // red, yellow
+  issuedBy: varchar("issued_by").notNull().references(() => users.id),
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  description: text("description").notNull(),
+  witness: text("witness"),
+  location: text("location"),
+  photos: text("photos").array().default([]),
+  status: text("status").default("active").notNull(), // active, appealed, resolved
+  banEndDate: timestamp("ban_end_date"), // For red cards (3 year ban)
+  appealNotes: text("appeal_notes"),
+  appealedAt: timestamp("appealed_at"),
+  appealsCount: integer("appeals_count").default(0),
+});
+
+// Enhanced Worker Certifications (CIBT, CPCS, NVQ)
+export const workerCertifications = pgTable("worker_certifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  certificationType: text("certification_type").notNull(), // CIBT, CPCS, NVQ, Other1, Other2
+  certificationNumber: text("certification_number"),
+  issuer: text("issuer"),
+  issuedDate: timestamp("issued_date"),
+  expiryDate: timestamp("expiry_date"),
+  status: text("status").notNull().default("valid"), // valid, expired, expiring, suspended
+  documentUrl: text("document_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// RAMs Certification System
+export const ramsDocuments = pgTable("rams_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => contractorCompanies.id),
+  departmentId: varchar("department_id").references(() => departments.id),
+  ramsIdRef: text("rams_id_ref").notNull(),
+  documentName: text("document_name").notNull(),
+  documentUrl: text("document_url").notNull(),
+  expiryDate: timestamp("expiry_date").notNull(),
+  status: text("status").notNull().default("valid"), // valid, expired, expiring, pending_review
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  alertDaysBefore: integer("alert_days_before").default(14),
+  lastAlertSent: timestamp("last_alert_sent"),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// CO2 Reporting System
+export const co2Records = pgTable("co2_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => contractorCompanies.id),
+  workerId: varchar("worker_id").references(() => contractorWorkers.id),
+  recordType: text("record_type").notNull(), // transport, equipment, energy, materials
+  recordDate: timestamp("record_date").notNull(),
+  co2Amount: text("co2_amount").notNull(), // Stored as text for precision
+  unit: text("unit").default("kg").notNull(), // kg, tonnes
+  source: text("source"), // vehicle_type, equipment_type, etc.
+  distance: text("distance"), // For transport records
+  fuelType: text("fuel_type"), // diesel, petrol, electric, etc.
+  description: text("description"),
+  calculationMethod: text("calculation_method"),
+  verified: boolean("verified").default(false),
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  reportingPeriod: text("reporting_period"), // month-year, e.g. "2024-01"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Local Labour Reporting
+export const localLabourRecords = pgTable("local_labour_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  postcode: text("postcode").notNull(),
+  localRadius: integer("local_radius").default(20).notNull(), // Miles from site
+  isLocal: boolean("is_local").default(false).notNull(),
+  address: text("address"),
+  travelDistance: text("travel_distance"),
+  transportMethod: text("transport_method"), // car, public_transport, walking, cycling
+  localHireDate: timestamp("local_hire_date"),
+  skills: text("skills").array().default([]),
+  apprenticeshipLevel: text("apprenticeship_level"), // level1, level2, level3, level4, graduate
+  isApprentice: boolean("is_apprentice").default(false),
+  trainingProvider: text("training_provider"),
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+  recordedBy: varchar("recorded_by").references(() => users.id),
+});
+
+// Enhanced Company/Department Details with RAMs
+export const enhancedCompanyDetails = pgTable("enhanced_company_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => contractorCompanies.id),
+  departmentId: varchar("department_id").references(() => departments.id),
+  ramsIdRef: text("rams_id_ref"),
+  ramsExpiryDate: timestamp("rams_expiry_date"),
+  ramsDocumentUrl: text("rams_document_url"),
+  ramsUploadedAt: timestamp("rams_uploaded_at"),
+  ramsLastAlertSent: timestamp("rams_last_alert_sent"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Create insert schemas for new tables
+export const insertCardOffenceSchema = createInsertSchema(cardOffences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCardIssueSchema = createInsertSchema(cardIssues).omit({
+  id: true,
+  issuedAt: true,
+});
+
+export const insertWorkerCertificationSchema = createInsertSchema(workerCertifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRamsDocumentSchema = createInsertSchema(ramsDocuments).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export const insertCo2RecordSchema = createInsertSchema(co2Records).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLocalLabourRecordSchema = createInsertSchema(localLabourRecords).omit({
+  id: true,
+  recordedAt: true,
+});
+
+export const insertEnhancedCompanyDetailsSchema = createInsertSchema(enhancedCompanyDetails).omit({
+  id: true,
+  updatedAt: true,
+});
+
+// Types for new tables
+export type CardOffence = typeof cardOffences.$inferSelect;
+export type InsertCardOffence = z.infer<typeof insertCardOffenceSchema>;
+export type CardIssue = typeof cardIssues.$inferSelect;
+export type InsertCardIssue = z.infer<typeof insertCardIssueSchema>;
+export type WorkerCertification = typeof workerCertifications.$inferSelect;
+export type InsertWorkerCertification = z.infer<typeof insertWorkerCertificationSchema>;
+export type RamsDocument = typeof ramsDocuments.$inferSelect;
+export type InsertRamsDocument = z.infer<typeof insertRamsDocumentSchema>;
+export type Co2Record = typeof co2Records.$inferSelect;
+export type InsertCo2Record = z.infer<typeof insertCo2RecordSchema>;
+export type LocalLabourRecord = typeof localLabourRecords.$inferSelect;
+export type InsertLocalLabourRecord = z.infer<typeof insertLocalLabourRecordSchema>;
+export type EnhancedCompanyDetails = typeof enhancedCompanyDetails.$inferSelect;
+export type InsertEnhancedCompanyDetails = z.infer<typeof insertEnhancedCompanyDetailsSchema>;

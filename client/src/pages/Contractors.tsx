@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -57,6 +58,7 @@ interface ContractorCompany {
 
 export default function Contractors() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -456,10 +458,7 @@ export default function Contractors() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setSelectedContractor(contractor);
-                    setShowDetailsModal(true);
-                  }}
+                  onClick={() => setLocation(`/contractors/${contractor.id}`)}
                   className="w-full"
                   data-testid={`button-view-contractor-${contractor.id}`}
                 >
