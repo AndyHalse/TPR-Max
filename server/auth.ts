@@ -62,27 +62,24 @@ export class AuthService {
    */
   static async initializeDeveloperUser(): Promise<void> {
     try {
-      // Check if Andy user already exists
-      const existingUser = await storage.getUserByUsername('Andy');
-      
-      // Hash the password
-      const hashedPassword = await this.hashPassword('Kubo1966&&');
+      // Check if admin user already exists
+      const existingUser = await storage.getUserByUsername('admin');
       
       if (existingUser) {
         // Update existing user password to ensure it's current (pass raw password, storage will hash it)
-        console.log('Developer user "Andy" already exists - updating password');
-        await storage.updateUser(existingUser.id, { password: 'Kubo1966&&' });
+        console.log('Developer user "admin" already exists - updating password');
+        await storage.updateUser(existingUser.id, { password: 'admin123' });
         console.log('Developer user password updated successfully');
         return;
       }
 
       // Create the developer user with raw password (storage will hash it)
       await storage.createUser({
-        username: 'Andy',
-        password: 'Kubo1966&&'
+        username: 'admin',
+        password: 'admin123'
       });
 
-      console.log('Developer user "Andy" created successfully with password: Kubo1966&&');
+      console.log('Developer user "admin" created successfully with password: admin123');
     } catch (error) {
       console.error('Failed to initialize developer user:', error);
     }
