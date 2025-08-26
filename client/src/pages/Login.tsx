@@ -55,8 +55,9 @@ export default function Login() {
           title: "Login Successful",
           description: `Welcome back, ${data.user.username}!`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-        setLocation("/");
+        // Force a complete page refresh to reload authentication state
+        console.log("🔄 Forcing page refresh...");
+        window.location.href = "/";
       } else {
         console.log("❌ Login failed:", data);
         setError(data.error || "Login failed");
