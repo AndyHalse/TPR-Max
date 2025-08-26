@@ -27,7 +27,7 @@ import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 
 export default function ContractorManagement() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook">("previous");
+  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors">("previous");
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
 
@@ -128,6 +128,13 @@ export default function ContractorManagement() {
             Show All Current Workers
           </Button>
           <Button
+            onClick={() => setActiveTab("contractors")}
+            variant="outline"
+            className="text-purple-600 border-purple-600 hover:bg-purple-50"
+          >
+            Contractors
+          </Button>
+          <Button
             onClick={() => {/* Generate test contractors */}}
             variant="outline"
             className="text-orange-600 border-orange-600 hover:bg-orange-50"
@@ -147,6 +154,15 @@ export default function ContractorManagement() {
         >
           <History className="h-4 w-4" />
           Previous Contractors
+        </Button>
+        <Button
+          variant={activeTab === "contractors" ? "default" : "outline"}
+          onClick={() => setActiveTab("contractors")}
+          className="flex items-center gap-2"
+          data-testid="tab-contractors"
+        >
+          <Building2 className="h-4 w-4" />
+          Contractors
         </Button>
         <Button
           variant={activeTab === "walkin" ? "default" : "outline"}
@@ -365,6 +381,116 @@ export default function ContractorManagement() {
                 Start Walk-in Registration
               </Button>
             </div>
+          </div>
+        </GlassCard>
+      )}
+
+      {activeTab === "contractors" && (
+        <GlassCard className="p-6">
+          <div className="space-y-4">
+            {/* Section Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-purple-600" />
+                <h2 className="text-xl font-semibold text-slate-800">Contractor Companies</h2>
+                <span className="text-sm text-slate-500">
+                  Manage all contractor companies and their details
+                </span>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by company name..."
+                className="pl-10"
+                data-testid="input-search-companies"
+              />
+            </div>
+
+            {/* Show All Button */}
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-slate-600">
+                Showing {Math.min(6, companies.length)} of {companies.length} contractor companies
+                {searchTerm && ` matching "${searchTerm}"`}
+              </div>
+              <Button variant="outline" className="text-purple-600 border-purple-600 hover:bg-purple-50">
+                Show All {companies.length} Contractor Companies
+              </Button>
+            </div>
+
+            {/* Companies Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {companies.filter(company => 
+                company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+              ).slice(0, 6).map((company) => (
+                <GlassCard key={company.id} className="p-4 hover:shadow-md transition-shadow">
+                  <div className="space-y-3">
+                    {/* Company Info */}
+                    <div>
+                      <h3 className="font-semibold text-slate-800">
+                        {company.name}
+                      </h3>
+                      <p className="text-sm text-slate-600">{company.contactEmail}</p>
+                      <p className="text-sm text-slate-600">{company.contactPhone}</p>
+                      <p className="text-xs text-slate-500">
+                        Workers: {company.workersCount || 0}
+                      </p>
+                    </div>
+
+                    {/* Status Badges */}
+                    <div className="flex flex-wrap gap-1">
+                      <Badge 
+                        className={company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                      >
+                        {company.status || 'pending'}
+                      </Badge>
+                      
+                      <Badge className={getSafetyRatingColor(company.complianceScore || 'N/A')}>
+                        {company.complianceScore || 'N/A'}
+                      </Badge>
+                      
+                      <Badge className="bg-blue-100 text-blue-800">
+                        {company.serviceType || 'General'}
+                      </Badge>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {/* View company details */}}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                        data-testid={`button-view-company-${company.id}`}
+                      >
+                        View Details
+                      </Button>
+                      
+                      <Button size="sm" variant="outline" className="text-blue-600">
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      
+                      <Button size="sm" variant="outline" className="text-red-600">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+
+            {companies.filter(company => 
+              company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+            ).length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                {searchTerm ? `No contractor companies found matching "${searchTerm}"` : "No contractor companies found"}
+              </div>
+            )}
           </div>
         </GlassCard>
       )}
