@@ -19,6 +19,21 @@ export class InductionService {
     return crypto.randomBytes(32).toString('hex');
   }
 
+  // Get token by value
+  async getTokenByValue(token: string): Promise<InductionToken | null> {
+    try {
+      const [tokenData] = await db
+        .select()
+        .from(inductionTokens)
+        .where(eq(inductionTokens.token, token));
+      
+      return tokenData || null;
+    } catch (error) {
+      console.error('Error getting token by value:', error);
+      return null;
+    }
+  }
+
   // Create induction token for worker
   async createInductionToken(workerId: string): Promise<string> {
     const token = this.generateToken();
