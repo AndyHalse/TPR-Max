@@ -254,9 +254,9 @@ export default function ContractorPassPreviewModal({
               </div>
               
               {/* Main Content */}
-              <div className="flex p-3 h-[calc(100%-120px)]">
-                <div className="flex-1 pr-3">
-                  <h4 className="text-lg font-bold text-gray-800 mb-2">
+              <div className="flex p-3" style={{ height: 'calc(100% - 100px)' }}>
+                <div className="flex-1 pr-3 overflow-hidden">
+                  <h4 className="text-lg font-bold text-gray-800 mb-1">
                     {worker.firstName} {worker.lastName}
                   </h4>
                   <div className="space-y-1 text-xs text-gray-600 mb-2">
@@ -267,15 +267,15 @@ export default function ContractorPassPreviewModal({
                   </div>
                   
                   {/* Status Badges */}
-                  <div className="grid grid-cols-1 gap-1 mb-2">
-                    <span className={`px-2 py-1 text-xs font-bold rounded text-center ${
+                  <div className="space-y-1">
+                    <span className={`block px-2 py-1 text-xs font-bold rounded text-center ${
                       worker.rightToWork === 'valid' 
                         ? 'bg-green-100 text-green-800 border border-green-300' 
                         : 'bg-red-100 text-red-800 border border-red-300'
                     }`}>
                       Right to Work: {worker.rightToWork || 'Missing'}
                     </span>
-                    <span className={`px-2 py-1 text-xs font-bold rounded text-center ${
+                    <span className={`block px-2 py-1 text-xs font-bold rounded text-center ${
                       worker.inductionCompleted 
                         ? 'bg-green-100 text-green-800 border border-green-300' 
                         : 'bg-red-100 text-red-800 border border-red-300'
@@ -283,7 +283,7 @@ export default function ContractorPassPreviewModal({
                       Induction: {worker.inductionCompleted ? 'Complete' : 'Required'}
                     </span>
                     {worker.cscsStatus && (
-                      <span className={`px-2 py-1 text-xs font-bold rounded text-center ${
+                      <span className={`block px-2 py-1 text-xs font-bold rounded text-center ${
                         worker.cscsStatus === 'valid' 
                           ? 'bg-green-100 text-green-800 border border-green-300' 
                           : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
@@ -291,22 +291,21 @@ export default function ContractorPassPreviewModal({
                         CSCS: {worker.cscsStatus}
                       </span>
                     )}
-                  </div>
-                  
-                  {/* Safety Status */}
-                  <div className={`px-2 py-1 text-xs font-bold text-center rounded ${
-                    worker.currentCardStatus === 'clear' 
-                      ? 'bg-green-100 text-green-800 border border-green-300' 
-                      : worker.currentCardStatus === 'yellow'
-                      ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-                      : 'bg-red-100 text-red-800 border border-red-300'
-                  }`}>
-                    Safety Status: {worker.currentCardStatus?.toUpperCase() || 'CLEAR'}
+                    {/* Safety Status */}
+                    <span className={`block px-2 py-1 text-xs font-bold text-center rounded ${
+                      worker.currentCardStatus === 'clear' 
+                        ? 'bg-green-100 text-green-800 border border-green-300' 
+                        : worker.currentCardStatus === 'yellow'
+                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                    }`}>
+                      Safety Status: {worker.currentCardStatus?.toUpperCase() || 'CLEAR'}
+                    </span>
                   </div>
                 </div>
                 
                 {/* QR Code Area */}
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center justify-center">
                   <div className="w-16 h-16 border-2 border-gray-400 bg-white flex items-center justify-center text-xs text-center">
                     QR CODE<br/>
                     {worker.qrCode ? worker.qrCode.substring(0, 8) + '...' : 'TEMP'}
@@ -314,10 +313,10 @@ export default function ContractorPassPreviewModal({
                 </div>
               </div>
               
-              {/* Footer */}
-              <div className="absolute bottom-0 left-0 right-0 bg-white/70 text-center text-xs text-gray-600 border-t border-orange-200 p-2">
-                <p className="font-semibold">VisiGate Pro - Contractor Management</p>
-                <p>Pass valid for authorized areas only</p>
+              {/* Footer - Fixed at bottom */}
+              <div className="absolute bottom-0 left-0 right-0 h-10 bg-white/90 text-center text-xs text-gray-600 border-t border-orange-200 flex flex-col justify-center">
+                <p className="font-semibold leading-tight">VisiGate Pro - Contractor Management</p>
+                <p className="leading-tight">Pass valid for authorized areas only</p>
               </div>
             </div>
           </div>
