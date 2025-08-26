@@ -3669,6 +3669,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve actual generated video content
+  app.get('/api/induction/video/:roleType', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      
+      // Get existing settings with generated content
+      const existingSettings = await db
+        .select()
+        .from(inductionSettings)
+        .where(eq(inductionSettings.roleType, roleType))
+        .limit(1);
+
+      if (existingSettings.length > 0 && existingSettings[0].videoUrl) {
+        const setting = existingSettings[0];
+        
+        // If it's a data URL, serve it directly
+        if (setting.videoUrl.startsWith('data:text/html;base64,')) {
+          const base64Content = setting.videoUrl.replace('data:text/html;base64,', '');
+          const htmlContent = Buffer.from(base64Content, 'base64').toString('utf-8');
+          
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.send(htmlContent);
+          return;
+        }
+      }
+      
+      // If no existing content, generate new content
+      const { VideoGenerationService } = await import('./videoGenerationService');
+      const settings = await storage.getCompanySettings();
+      const videoService = new VideoGenerationService(settings);
+      
+      const content = await videoService.generateVideoPresentation(roleType);
+      await videoService.updateSettingsWithGeneratedContent(roleType, content);
+      
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(content.htmlContent);
+      
+    } catch (error) {
+      console.error('Error serving video content:', error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: system-ui; padding: 40px; text-align: center; background: #f3f4f6;">
+            <h1 style="color: #dc2626;">Video Error</h1>
+            <p>Unable to generate video content. Please check your AI configuration.</p>
+            <button onclick="window.location.reload()" style="padding: 10px 20px; margin-top: 20px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry</button>
+          </body>
+        </html>
+      `);
+    }
+  });
+
   // Preview generated video content in HTML format
   app.get('/api/induction/preview/:roleType', requireAuth, async (req, res) => {
     try {

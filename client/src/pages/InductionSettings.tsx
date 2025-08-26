@@ -366,7 +366,7 @@ export default function InductionSettings() {
         duration: data.preview?.duration || 15,
         scenes: data.preview?.scenes || 8,
         timestamp: new Date().toLocaleString(),
-        url: `/api/induction/preview/${roleType}`
+        url: `/api/induction/video/${roleType}`
       };
 
       setGeneratedVideos(prev => ({
