@@ -52,6 +52,18 @@ export class InductionService {
       // Create induction token
       const token = await this.createInductionToken(workerId);
       
+      // Get token details including expiration date
+      const [tokenRecord] = await db
+        .select()
+        .from(inductionTokens)
+        .where(eq(inductionTokens.token, token));
+      
+      if (!tokenRecord) {
+        throw new Error('Token not found after creation');
+      }
+      
+      const expiresAt = new Date(tokenRecord.expiresAt);
+      
       // Update token record to mark email as sent
       await db
         .update(inductionTokens)
