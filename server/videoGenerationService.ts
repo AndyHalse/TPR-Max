@@ -445,6 +445,7 @@ export class VideoGenerationService {
             align-items: center;
             text-align: center;
             position: relative;
+            padding: 40px 40px 140px 40px;
         }
         .scene {
             display: none;
@@ -707,12 +708,19 @@ export class VideoGenerationService {
             align-items: center;
             text-align: center;
             position: relative;
+            padding: 40px 40px 140px 40px;
         }
         .scene {
             display: none;
-            padding: 40px;
-            max-width: 900px;
+            padding: 60px 50px;
+            max-width: 1000px;
             animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            background: rgba(255,255,255,0.18);
+            backdrop-filter: blur(25px);
+            border-radius: 25px;
+            margin: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.25);
         }
         .scene.active {
             display: block;
@@ -759,23 +767,34 @@ export class VideoGenerationService {
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 20px;
+            gap: 25px;
+            background: rgba(0,0,0,0.7);
+            padding: 20px 30px;
+            border-radius: 25px;
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            z-index: 1000;
         }
         .btn {
-            padding: 12px 24px;
-            background: rgba(255,255,255,0.2);
+            padding: 15px 30px;
+            background: rgba(255,255,255,0.25);
             border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 25px;
+            border-radius: 30px;
             color: white;
-            font-size: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(15px);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            min-width: 120px;
         }
         .btn:hover {
-            background: rgba(255,255,255,0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            border-color: rgba(255,255,255,0.5);
         }
         .progress-bar {
             position: fixed;
