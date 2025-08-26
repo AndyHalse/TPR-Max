@@ -1096,17 +1096,35 @@ export default function Dashboard() {
                     📞 Call Visitor
                   </Button>
                   <Button 
-                    onClick={() => {
-                      if (selectedVisitor.email) {
-                        window.open(`mailto:${selectedVisitor.email}`, '_self');
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/visitors/${selectedVisitor.id}/emergency-notify`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            urgencyReason: "Urgent Contact Required - Emergency Support"
+                          })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (response.ok) {
+                          alert(`✅ Emergency notification sent to Reception!\n\nRecipient: ${result.recipient}\nVisitor: ${result.visitorName}\n\nReception will contact the visitor immediately.`);
+                        } else {
+                          alert(`❌ Failed to send notification: ${result.message || result.error}`);
+                        }
+                      } catch (error) {
+                        console.error('Failed to send emergency notification:', error);
+                        alert('❌ Failed to send emergency notification. Please contact Reception directly.');
                       }
                     }}
-                    disabled={!selectedVisitor.email}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 bg-orange-50 hover:bg-orange-100 border-orange-300"
                     data-testid="button-email-visitor"
                   >
-                    ✉️ Email Visitor
+                    📧 Alert Reception
                   </Button>
                   <Button 
                     onClick={() => {

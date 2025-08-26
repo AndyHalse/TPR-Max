@@ -258,6 +258,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Visitor Emergency Notification - Send urgent alert to Reception
+  app.post("/api/visitors/:id/emergency-notify", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { urgencyReason } = req.body;
+      
+      // Get visitor details
+      const visitor = await storage.getVisitorById(id);
+      if (!visitor) {
+        return res.status(404).json({ error: "Visitor not found" });
+      }
+      
+      // Get host staff details
+      let hostStaff = null;
+      if (visitor.hostStaffId) {
+        hostStaff = await storage.getStaffById(visitor.hostStaffId);
+      }
+      
+      // Get company settings for reception email and company details
+      const companySettings = await storage.getCompanySettings();
+      
+      // Use company email as reception email (could be enhanced to have separate reception email in settings)
+      const receptionEmail = companySettings.email;
+      
+      if (!receptionEmail) {
+        return res.status(400).json({ 
+          error: "Reception email not configured", 
+          message: "Please configure company email in settings first" 
+        });
+      }
+      
+      // Send the emergency notification
+      const emailSent = await emailService.sendVisitorEmergencyNotification(
+        visitor,
+        hostStaff,
+        companySettings,
+        receptionEmail,
+        urgencyReason || "Emergency Contact Required"
+      );
+      
+      if (emailSent) {
+        res.json({ 
+          success: true, 
+          message: "Emergency notification sent to Reception",
+          recipient: receptionEmail,
+          visitorName: `${visitor.firstName} ${visitor.lastName}`
+        });
+      } else {
+        res.status(500).json({ 
+          error: "Failed to send emergency notification", 
+          message: "Email service may not be configured properly" 
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send visitor emergency notification:", error);
+      res.status(500).json({ error: "Failed to send emergency notification" });
+    }
+  });
+
   // Fire Marshal Emergency System Endpoints
   
   // Emergency activation - Notify all Fire Marshals

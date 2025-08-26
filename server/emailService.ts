@@ -595,6 +595,175 @@ export class EmailService {
     `;
   }
 
+  // Send urgent visitor notification to Reception
+  async sendVisitorEmergencyNotification(
+    visitor: any,
+    hostStaff: any,
+    companySettings: any,
+    receptionEmail: string,
+    urgencyReason: string = "Emergency Contact Required"
+  ): Promise<boolean> {
+    try {
+      if (!this.transporter) {
+        console.error('Email service not configured');
+        return false;
+      }
+
+      const subject = `🚨 URGENT: ${urgencyReason} - Visitor ${visitor.firstName} ${visitor.lastName}`;
+      
+      const visitDuration = Math.floor((Date.now() - new Date(visitor.checkedInAt).getTime()) / (1000 * 60));
+      const durationText = visitDuration >= 60 
+        ? `${Math.floor(visitDuration / 60)}h ${visitDuration % 60}m`
+        : `${visitDuration}m`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Urgent Visitor Notification</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fef2f2; }
+            .container { max-width: 700px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: 3px solid #dc2626; }
+            .header { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; padding: 25px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 30px; }
+            .urgent-box { background: #fef2f2; border: 2px solid #fca5a5; border-radius: 8px; padding: 25px; margin: 20px 0; }
+            .visitor-details { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+            .contact-section { background: #ddd6fe; border: 1px solid #c4b5fd; border-radius: 8px; padding: 20px; margin: 20px 0; }
+            .company-footer { background: #f3f4f6; border-top: 1px solid #d1d5db; padding: 20px; margin-top: 30px; text-align: center; color: #6b7280; font-size: 14px; }
+            .detail-row { display: flex; justify-content: space-between; margin: 8px 0; }
+            .detail-label { font-weight: bold; color: #374151; }
+            .detail-value { color: #6b7280; }
+            .timestamp { background: #f3f4f6; padding: 15px; border-radius: 6px; font-size: 14px; color: #6b7280; margin-top: 25px; text-align: center; }
+            .contact-urgent { color: #dc2626; font-weight: bold; font-size: 16px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🚨 URGENT VISITOR NOTIFICATION</h1>
+              <p style="margin: 5px 0 0 0; font-size: 18px;">${urgencyReason}</p>
+            </div>
+            
+            <div class="content">
+              <div class="urgent-box">
+                <h2 style="color: #dc2626; margin-top: 0;">Reception - Immediate Attention Required</h2>
+                <p style="font-size: 16px; line-height: 1.6; color: #374151;">
+                  This is an <strong>urgent notification</strong> regarding a visitor currently on our premises. 
+                  Please contact this visitor immediately or provide assistance as required.
+                </p>
+              </div>
+
+              <div class="visitor-details">
+                <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">👤 Visitor Information</h3>
+                <div class="detail-row">
+                  <span class="detail-label">Full Name:</span>
+                  <span class="detail-value">${visitor.firstName} ${visitor.lastName}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Company:</span>
+                  <span class="detail-value">${visitor.company || 'Not specified'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Visit Purpose:</span>
+                  <span class="detail-value">${visitor.purpose || 'Not specified'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Checked In:</span>
+                  <span class="detail-value">${new Date(visitor.checkedInAt).toLocaleString('en-GB')}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Duration on Site:</span>
+                  <span class="detail-value">${durationText}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Host Staff:</span>
+                  <span class="detail-value">${hostStaff?.firstName} ${hostStaff?.lastName} (${hostStaff?.department})</span>
+                </div>
+              </div>
+
+              <div class="contact-section">
+                <h3 style="color: #5b21b6; margin-top: 0; border-bottom: 2px solid #c4b5fd; padding-bottom: 10px;">📞 Emergency Contact Details</h3>
+                ${visitor.mobileNumber || visitor.phoneNumber ? `
+                  <div class="detail-row">
+                    <span class="detail-label">${visitor.mobileNumber ? 'Mobile Number:' : 'Phone Number:'}</span>
+                    <span class="contact-urgent">${visitor.mobileNumber || visitor.phoneNumber}</span>
+                  </div>
+                  ${visitor.mobileNumber && visitor.phoneNumber ? `
+                    <div class="detail-row">
+                      <span class="detail-label">Alternative Phone:</span>
+                      <span class="detail-value">${visitor.phoneNumber}</span>
+                    </div>
+                  ` : ''}
+                ` : `
+                  <div class="detail-row">
+                    <span class="detail-label">Phone Number:</span>
+                    <span class="detail-value" style="color: #dc2626;">⚠️ Not provided</span>
+                  </div>
+                `}
+                ${visitor.email ? `
+                  <div class="detail-row">
+                    <span class="detail-label">Email Address:</span>
+                    <span class="contact-urgent">${visitor.email}</span>
+                  </div>
+                ` : `
+                  <div class="detail-row">
+                    <span class="detail-label">Email Address:</span>
+                    <span class="detail-value" style="color: #dc2626;">⚠️ Not provided</span>
+                  </div>
+                `}
+              </div>
+
+              <div style="background: #e0f2fe; border: 1px solid #0284c7; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                <h3 style="color: #0369a1; margin: 0 0 15px 0;">📍 Immediate Actions Required:</h3>
+                <ul style="color: #075985; margin: 0; padding-left: 20px; line-height: 1.6;">
+                  <li><strong>Contact the visitor immediately</strong> using the phone numbers above</li>
+                  <li>If unable to reach visitor, locate them on premises via their host: ${hostStaff?.firstName} ${hostStaff?.lastName}</li>
+                  <li>Provide immediate assistance or emergency support as required</li>
+                  <li>Follow all company emergency procedures if this is a safety-related incident</li>
+                  <li>Document any actions taken and report back to the requesting party</li>
+                </ul>
+              </div>
+
+              <div class="timestamp">
+                <strong>🕒 Notification Sent:</strong> ${new Date().toLocaleString('en-GB')}<br>
+                <strong>📍 Visitor Location:</strong> ${hostStaff?.department} Department with ${hostStaff?.firstName} ${hostStaff?.lastName}
+              </div>
+            </div>
+
+            <div class="company-footer">
+              <strong>${companySettings.companyName}</strong><br>
+              ${companySettings.address}<br>
+              📞 ${companySettings.phone} | ✉️ ${companySettings.email}<br>
+              🌐 ${companySettings.website || ''}<br><br>
+              <em>VisiGate Pro Visitor Management System - Automated Emergency Notification</em>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const mailOptions = {
+        from: this.getFromAddress(),
+        to: receptionEmail,
+        cc: companySettings.email !== receptionEmail ? companySettings.email : undefined,
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
+        subject: subject,
+        html: html,
+        priority: 'high',
+        importance: 'high'
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Visitor emergency notification sent:', info.messageId);
+      return true;
+    } catch (error) {
+      console.error('Failed to send visitor emergency notification:', error);
+      return false;
+    }
+  }
+
   // Send emergency alert to all on-site personnel
   async sendEmergencyAlert(to: string, subject: string, message: string): Promise<boolean> {
     try {
