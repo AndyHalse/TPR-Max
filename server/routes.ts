@@ -3683,24 +3683,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (existingSettings.length > 0 && existingSettings[0].videoUrl) {
         const setting = existingSettings[0];
+        console.log('✅ Found existing video for', roleType, 'with URL length:', setting.videoUrl.length);
         
         // If it's a data URL, serve it directly
         if (setting.videoUrl.startsWith('data:text/html;base64,')) {
           const base64Content = setting.videoUrl.replace('data:text/html;base64,', '');
           const htmlContent = Buffer.from(base64Content, 'base64').toString('utf-8');
           
+          console.log('📄 Serving existing HTML content, length:', htmlContent.length);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           res.send(htmlContent);
           return;
         }
+      } else {
+        console.log('❌ No existing video found for', roleType, 'in database');
       }
       
       // If no existing content, generate new content
+      console.log('🚨 No existing video found for', roleType, '- generating new content');
       const { VideoGenerationService } = await import('./videoGenerationService');
       const settings = await storage.getCompanySettings();
       const videoService = new VideoGenerationService(settings);
       
       const content = await videoService.generateVideoPresentation(roleType);
+      console.log('🎬 Generated on-demand content with', content.scenes.length, 'scenes');
       await videoService.updateSettingsWithGeneratedContent(roleType, content);
       
       res.setHeader('Content-Type', 'text/html; charset=utf-8');

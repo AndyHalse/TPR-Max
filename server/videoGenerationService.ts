@@ -213,7 +213,8 @@ export class VideoGenerationService {
     const { script, scenes, totalDuration } = await this.generateInductionScript(roleType);
     
     // Log for debugging
-    console.log(`Generated ${scenes.length} scenes for ${roleType} induction`);
+    console.log(`🎬 Generated ${scenes.length} scenes for ${roleType} induction`);
+    console.log(`🎬 Scene titles:`, scenes.map(s => s.title));
     
     // Generate images for scenes (optional - can be skipped for faster generation)
     // const sceneImages = await this.generateSceneImages(scenes);
