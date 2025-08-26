@@ -2560,7 +2560,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastName: `${lastName} (${randomTrade})`,
             email: `${randomName.toLowerCase().replace(/\s+/g, '.')}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
             phone: `+44 ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 900000) + 100000}`,
-            rightToWork: Math.random() < 0.9 ? "valid" : "expired"
+            rightToWork: Math.random() < 0.9 ? "valid" : "expired",
+            // Required for check-in authorization
+            isActive: true,
+            inductionCompleted: Math.random() < 0.85, // 85% have completed induction
+            inductionCompletedAt: Math.random() < 0.85 ? new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000) : null
           };
 
           await storage.createContractorWorker(worker);
@@ -2775,10 +2779,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if worker can check in (induction completed, valid status, etc.)
-      if (!worker.isActive || !worker.inductionCompleted || worker.rightToWork !== 'valid') {
+      const issues = [];
+      if (!worker.isActive) {
+        issues.push("Worker account is inactive");
+      }
+      if (!worker.inductionCompleted) {
+        issues.push("Induction not completed");
+      }
+      if (worker.rightToWork !== 'valid') {
+        issues.push(`Right to work status: ${worker.rightToWork || 'missing'}`);
+      }
+      if (worker.hasRedCard) {
+        issues.push("Worker has active Red Card (site ban)");
+      }
+      
+      if (issues.length > 0) {
         return res.status(400).json({ 
           error: "Worker not cleared for check-in",
-          details: "Worker must complete induction and have valid right to work status"
+          details: `Cannot check in: ${issues.join(', ')}`,
+          issues: issues
         });
       }
 

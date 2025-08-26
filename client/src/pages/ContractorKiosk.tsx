@@ -63,10 +63,26 @@ export default function ContractorKiosk() {
         description: "Worker checked in successfully!",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      let errorMessage = "Failed to check in worker";
+      let errorDetails = "";
+      
+      try {
+        // Try to parse the error response for detailed information
+        const errorText = error.message;
+        if (errorText.includes("details")) {
+          const match = errorText.match(/details":"([^"]+)"/);
+          if (match) {
+            errorDetails = match[1];
+          }
+        }
+      } catch (e) {
+        // If parsing fails, use default message
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to check in worker",
+        title: "Cannot Check In",
+        description: errorDetails || errorMessage,
         variant: "destructive",
       });
     },
