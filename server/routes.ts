@@ -1302,6 +1302,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update contractor worker endpoint
+  app.put('/api/contractors/workers/:id', requireAuth, async (req, res) => {
+    try {
+      const workerId = req.params.id;
+      const updateData = insertContractorWorkerSchema.partial().parse(req.body);
+      
+      const updatedWorker = await storage.updateContractorWorker(workerId, updateData);
+      
+      if (!updatedWorker) {
+        return res.status(404).json({ error: 'Contractor worker not found' });
+      }
+
+      res.json({ success: true, worker: updatedWorker });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Invalid data', 
+          details: error.errors 
+        });
+      }
+      console.error('Error updating contractor worker:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Reports endpoints
   // Generate test data for load testing
   // Clear duplicate visitors endpoint

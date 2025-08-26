@@ -29,6 +29,7 @@ export const staff = pgTable("staff", {
   userId: varchar("user_id").references(() => users.id), // Link to user account
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Staff sessions table for historical tracking of all check-ins/outs
@@ -61,7 +62,11 @@ export const visitors = pgTable("visitors", {
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
   isCheckedIn: boolean("is_checked_in").default(true).notNull(),
+  // Emergency muster tracking
+  isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   qrCode: text("qr_code").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Pre-bookings table for visitor appointments
@@ -366,8 +371,13 @@ export const contractorWorkers = pgTable("contractor_workers", {
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
+  // Emergency muster tracking
+  isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  // Convenience field for displaying company name
+  companyName: text("company_name"),
   qrCode: text("qr_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Compliance Documents table
