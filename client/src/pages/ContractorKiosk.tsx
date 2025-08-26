@@ -59,6 +59,7 @@ export default function ContractorKiosk() {
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
   const [showPassModal, setShowPassModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<string>("");
+  const [companySearchTerm, setCompanySearchTerm] = useState("");
 
   // Fetch contractor companies
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
@@ -128,7 +129,10 @@ export default function ContractorKiosk() {
     return totalDocs > 0 ? Math.round((validDocs / totalDocs) * 100) : 0;
   };
 
-  const approvedCompanies = companies.filter(company => company.status === 'approved');
+  // Show ALL contractors, not just approved ones
+  const filteredCompanies = companies.filter(company => 
+    company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+  );
   const filteredWorkers = workers.filter(worker =>
     worker.isActive &&
     worker.inductionCompleted &&
@@ -163,28 +167,60 @@ export default function ContractorKiosk() {
           <p className="text-slate-600">Check in and out contractor workers</p>
         </GlassCard>
 
-        {/* Company Selection */}
+        {/* Company Selection with Search */}
         <GlassCard>
           <div className="space-y-4">
             <Label htmlFor="company-select" className="text-lg font-semibold text-slate-700">
-              Select Contractor Company
+              Select Contractor Company ({companies.length} total)
             </Label>
+            
+            {/* Company Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <Input
+                value={companySearchTerm}
+                onChange={(e) => setCompanySearchTerm(e.target.value)}
+                placeholder="Search contractors by name..."
+                className="pl-10"
+                data-testid="input-company-search"
+              />
+            </div>
+            
             <Select value={selectedCompany} onValueChange={setSelectedCompany}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a contractor company..." />
               </SelectTrigger>
-              <SelectContent>
-                {approvedCompanies.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      {company.name}
-                      <Badge className="bg-green-100 text-green-800">
-                        {calculateComplianceScore((company as any).documentsStatus)}% Compliant
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
+              <SelectContent className="max-h-[300px] overflow-y-auto">
+                {filteredCompanies.map((company) => {
+                  const getSafetyRatingColor = (rating: string) => {
+                    if (rating.startsWith('A')) return 'bg-green-100 text-green-800';
+                    if (rating.startsWith('B')) return 'bg-yellow-100 text-yellow-800';
+                    if (rating.startsWith('C')) return 'bg-orange-100 text-orange-800';
+                    if (rating.startsWith('D')) return 'bg-red-100 text-red-800';
+                    if (rating === 'F') return 'bg-red-200 text-red-900';
+                    return 'bg-gray-100 text-gray-800';
+                  };
+                  
+                  return (
+                    <SelectItem key={company.id} value={company.id}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Building2 className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{company.name}</span>
+                        <Badge className={getSafetyRatingColor(company.complianceScore)}>
+                          {company.complianceScore || 'N/A'}
+                        </Badge>
+                        <Badge variant={company.status === 'approved' ? 'default' : 'secondary'} className="text-xs">
+                          {company.status}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+                {filteredCompanies.length === 0 && companySearchTerm && (
+                  <div className="p-2 text-center text-gray-500">
+                    No contractors found matching "{companySearchTerm}"
+                  </div>
+                )}
               </SelectContent>
             </Select>
           </div>
