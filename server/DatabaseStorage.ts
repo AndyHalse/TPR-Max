@@ -1790,7 +1790,51 @@ export class DatabaseStorage implements IStorage {
     console.log("🔴 Final card issue data:", cardIssueData);
     
     const [issue] = await db.insert(cardIssues).values(cardIssueData).returning();
+    
+    // Update worker's card status
+    await this.updateWorkerCardStatus(data.workerId, data.cardType as "red" | "yellow", data.issuedBy);
+    
     return issue;
+  }
+
+  // Update worker's current card status
+  async updateWorkerCardStatus(workerId: string, cardType: "red" | "yellow", updatedBy: string): Promise<void> {
+    const updateData: any = {
+      currentCardStatus: cardType,
+      cardStatusUpdatedAt: new Date(),
+      cardStatusUpdatedBy: updatedBy,
+    };
+
+    // If red card, set 3-year ban
+    if (cardType === "red") {
+      const banEndDate = new Date();
+      banEndDate.setFullYear(banEndDate.getFullYear() + 3);
+      updateData.redCardBanUntil = banEndDate;
+    }
+
+    await db
+      .update(contractorWorkers)
+      .set(updateData)
+      .where(eq(contractorWorkers.id, workerId));
+  }
+
+  // Reset worker card status (for authorized users)
+  async resetWorkerCardStatus(workerId: string, newStatus: "clear" | "yellow", updatedBy: string): Promise<void> {
+    const updateData: any = {
+      currentCardStatus: newStatus,
+      cardStatusUpdatedAt: new Date(),
+      cardStatusUpdatedBy: updatedBy,
+    };
+
+    // Clear red card ban if resetting to yellow or clear
+    if (newStatus !== "red") {
+      updateData.redCardBanUntil = null;
+    }
+
+    await db
+      .update(contractorWorkers)
+      .set(updateData)
+      .where(eq(contractorWorkers.id, workerId));
   }
 
   async getWorkerCardIssues(workerId: string): Promise<CardIssue[]> {

@@ -338,6 +338,24 @@ export const contractorWorkers = pgTable("contractor_workers", {
   asbestosExpiry: timestamp("asbestos_expiry"),
   manualHandling: boolean("manual_handling").default(false),
   manualHandlingExpiry: timestamp("manual_handling_expiry"),
+  
+  // Enhanced certifications for contractor safety compliance
+  cibtCard: varchar("cibt_card"),
+  cibtExpiry: timestamp("cibt_expiry"),
+  cibtStatus: text("cibt_status").default("missing").notNull(), // valid, expired, missing
+  cpcsCard: varchar("cpcs_card"),
+  cpcsExpiry: timestamp("cpcs_expiry"),
+  cpcsStatus: text("cpcs_status").default("missing").notNull(), // valid, expired, missing
+  nvqLevel: integer("nvq_level"), // NVQ Level 1-5
+  nvqSubject: varchar("nvq_subject"),
+  nvqExpiry: timestamp("nvq_expiry"),
+  nvqStatus: text("nvq_status").default("missing").notNull(), // valid, expired, missing
+  
+  // Worker safety card status (individual worker level)
+  currentCardStatus: text("current_card_status").default("clear").notNull(), // clear, yellow, red
+  cardStatusUpdatedAt: timestamp("card_status_updated_at"),
+  cardStatusUpdatedBy: varchar("card_status_updated_by").references(() => users.id),
+  redCardBanUntil: timestamp("red_card_ban_until"), // When red card ban expires
   // Site-specific status
   isPreRegistered: boolean("is_pre_registered").default(false),
   inductionCompleted: boolean("induction_completed").default(false),

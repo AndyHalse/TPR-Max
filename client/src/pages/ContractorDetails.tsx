@@ -22,6 +22,7 @@ import {
   XCircle, Clock, AlertCircle
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { WorkerCard } from "@/components/WorkerCard";
 
 export default function ContractorDetails() {
   const { id } = useParams();
@@ -138,21 +139,6 @@ export default function ContractorDetails() {
     addCertificationMutation.mutate(certData);
   };
 
-  const getCardStatusBadge = (cardType: string, count: number) => {
-    if (count === 0) return <Badge variant="outline" className="text-green-600">No Cards</Badge>;
-    
-    if (cardType === "red" && count > 0) {
-      return <Badge variant="destructive">Red Card Issued</Badge>;
-    }
-    
-    if (cardType === "yellow") {
-      if (count >= 3) return <Badge variant="destructive">3+ Yellow Cards</Badge>;
-      if (count >= 2) return <Badge className="bg-orange-500 hover:bg-orange-600">2 Yellow Cards</Badge>;
-      if (count >= 1) return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black">1 Yellow Card</Badge>;
-    }
-    
-    return <Badge variant="outline">No Issues</Badge>;
-  };
 
   const getCertificationStatusBadge = (status: string, expiryDate?: string | null) => {
     if (status === "expired") return <Badge variant="destructive">Expired</Badge>;
@@ -528,60 +514,29 @@ export default function ContractorDetails() {
         </TabsList>
 
         <TabsContent value="workers" className="space-y-4" data-testid="workers-tab-content">
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {contractorData.workers?.length > 0 ? (
               contractorData.workers.map((worker: ContractorWorker) => (
-                <Card key={worker.id} data-testid={`card-worker-${worker.id}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-lg" data-testid={`text-worker-name-${worker.id}`}>
-                          {worker.firstName} {worker.lastName}
-                        </CardTitle>
-                        <CardDescription data-testid={`text-worker-role-${worker.id}`}>
-                          Contractor Worker
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        {getCardStatusBadge("red", 0)} {/* This would be fetched from card issues */}
-                        {getCardStatusBadge("yellow", 1)} {/* This would be calculated */}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2" data-testid={`text-worker-email-${worker.id}`}>
-                          <Mail className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">{worker.email}</span>
-                        </div>
-                        <div className="flex items-center gap-2" data-testid={`text-worker-phone-${worker.id}`}>
-                          <Phone className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">{worker.phone || worker.phoneNumber}</span>
-                        </div>
-                        <div className="flex items-center gap-2" data-testid={`text-worker-status-${worker.id}`}>
-                          <User className="w-4 h-4 text-muted-foreground" />
-                          <Badge variant={worker.isCheckedIn ? "default" : "secondary"}>
-                            {worker.isCheckedIn ? "Checked In" : "Checked Out"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="text-sm text-muted-foreground">Safety Certifications</div>
-                        <div className="flex flex-wrap gap-1">
-                          {/* This would show actual certifications */}
-                          <Badge variant="outline" className="text-xs">CSCS</Badge>
-                          <Badge variant="outline" className="text-xs">CIBT</Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <WorkerCard
+                  key={worker.id}
+                  worker={worker}
+                  onIssueCard={(workerId) => {
+                    cardIssueForm.setValue('workerId', workerId);
+                    setIssuingCard(true);
+                  }}
+                  onResetCard={(workerId) => {
+                    // TODO: Implement card reset functionality
+                    toast({ title: "Card reset functionality coming soon!" });
+                  }}
+                  canManageCards={true}
+                />
               ))
             ) : (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">No workers registered for this contractor.</p>
+              <Card className="p-8 text-center col-span-full" data-testid="no-workers-message">
+                <CardContent>
+                  <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Workers Found</h3>
+                  <p className="text-muted-foreground">This contractor has no workers registered yet.</p>
                 </CardContent>
               </Card>
             )}

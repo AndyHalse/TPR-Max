@@ -3107,6 +3107,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize automatic reports
   setupAutomaticReports();
 
+  // Reset worker card status (admin only)
+  app.put('/api/workers/:workerId/reset-card', requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const { newStatus = 'yellow' } = req.body;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      // TODO: Add admin role check here
+      // For now, allowing any authenticated user to reset cards
+
+      await storage.resetWorkerCardStatus(workerId, newStatus, userId);
+      
+      res.json({ success: true, message: 'Card status reset successfully' });
+    } catch (error) {
+      console.error('Error resetting card status:', error);
+      res.status(500).json({ error: 'Failed to reset card status' });
+    }
+  });
+
   // Initialize automatic daily reset
   setupAutomaticDailyReset();
 
