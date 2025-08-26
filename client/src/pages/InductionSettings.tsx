@@ -165,15 +165,25 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, generat
                 </div>
                 
                 {/* Embedded Video Preview */}
-                <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
+                <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden relative">
                   <iframe 
-                    src={generatedVideo.url}
+                    src={settings[roleType]?.videoUrl || generatedVideo.url}
                     title={`${generatedVideo.title} Preview`}
                     className="w-full h-96"
                     frameBorder="0"
-                    allow="autoplay; encrypted-media"
-                    sandbox="allow-scripts allow-same-origin"
+                    allow="autoplay; encrypted-media; fullscreen"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
                   />
+                  {!settings[roleType]?.videoUrl && (
+                    <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        <Monitor className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Loading video presentation...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex gap-2">

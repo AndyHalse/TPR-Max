@@ -3669,8 +3669,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve actual generated video content
-  app.get('/api/induction/video/:roleType', requireAuth, async (req, res) => {
+  // Serve actual generated video content (no auth required for iframe access)
+  app.get('/api/induction/video/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
       
