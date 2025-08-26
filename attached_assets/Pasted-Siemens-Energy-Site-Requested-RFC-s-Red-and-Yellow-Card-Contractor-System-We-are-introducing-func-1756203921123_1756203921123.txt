@@ -1,0 +1,85 @@
+Siemens-Energy - Site Requested RFC’s
+Red and Yellow Card Contractor System.
+We are introducing functionality to our TPR software to manage the issuing of red and yellow cards to target certain
+high-risk breaches of health and safety systems.
+There will be two levels of breaches. A breach is from now on referred to as an “offence”. A Red Card will be issued for
+the most serious offences and will result in immediate removal from the site. A Yellow Card will be issued for the less
+serious offences. For directly employed staff the disciplinary procedure will be followed for all Red Card breaches.
+A “Red Card” and a “Yellow Card” each consist of a written notice from the site manager to the offender and their
+employer (which will include the Sub-Contractor where the offender is on-site on behalf of the Sub-Contractor)
+identifying the offence committed and identifying it as either a Red Card offence or a Yellow Card offence.
+Red Card Offences:
+The following actions will result in removing the offender from the workplace for 3 years. Offences committed by
+anyone on-site include:
+• Unsafe work at height.
+• Unsafe work at height.
+• Abuse of and putting the public at risk.
+• Abuse of and putting the public at risk.
+• Flagrant disregard for the safety method statement.
+• Flagrant disregard for the safety method statement.
+• Urinating and defecating in unauthorised locations.
+• Urinating and defecating in unauthorised locations.
+• Drugs and alcohol abuse.
+• Drugs and alcohol abuse.
+• Working within unsafe excavations and confined spaces.
+• Working within unsafe excavations and confined spaces.
+• Misuse of scaffolding or access equipment.
+• Misuse of scaffolding or access equipment.
+• Unauthorised use of plant.
+• Unauthorised use of plant.
+• Illegal discharges into drainage or water courses.
+• Illegal discharges into drainage or water courses.
+• Misuse of fire prevention equipment.
+• Misuse of fire prevention equipment.
+• Unauthorised work on asbestos-containing materials.
+• Unauthorised work on asbestos-containing materials.
+• Smoking in restricted areas
+• Smoking in restricted areas
+• Operating plant while using a mobile phone
+• Operating plant while using a mobile phone
+The receipt of more than one Yellow Card issued within 6 months will trigger a Red Card offence and may result in
+termination of the employment of the Sub-Contractor who or whose person has committed the offence.
+Yellow Card Offences:
+• Not wearing hard hats.
+• Not wearing safety footwear.
+• Incorrect use of PPE.
+• Misuse of lifting appliances and equipment.
+• Misuse of tools and equipment.
+• Use of mobile phones in unsafe areas.
+NB: The above will be site configurable.
+Recording of required contractor cards:
+We are currently adding the following to the existing contractor info areas:
+Staff Info
+1) CIBT
+2) CPCS
+3) NVQ
+4) Other
+5) Other
+Visitor/Contractor Details
+1) CIBT
+2) CPCS
+3) NVQ
+4) Other
+5) Other
+Reports:
+1) Staff reports showing the certificates with expiry dates
+2) Visitor/Contractor reports showing the certificates with expiry dates
+RAMs Certification upload with expiry popup and reporting:
+TPR Pro - add RAMs Certificate reference number to both Customer Details and
+Department Details:
+Company/ Department details:
+1) Phone No
+2) Website
+3) Notes
+4) RAMs ID Ref:
+5) Expiry Date
+6) File Upload
+7) Expiry Date popup message
+Reports:
+1) Company reports showing the certificates with expiry dates
+2) Department reports showing the certificates with expiry dates
+CO2 Reporting functionality within TPR
+We will be adding functionality for basic Co2 compliance and reporting requirements.
+Local Labour Good Practice
+We are currently scoping out a requirement to incorporate the ability to produce reports on
+employing local labourers.
