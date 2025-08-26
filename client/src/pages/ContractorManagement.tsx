@@ -119,13 +119,22 @@ export default function ContractorManagement() {
           <HardHat className="h-8 w-8 text-orange-600" />
           <h1 className="text-3xl font-bold text-slate-800">Contractor Management</h1>
         </div>
-        <Button
-          onClick={() => {/* Generate test contractors */}}
-          variant="outline"
-          className="text-orange-600 border-orange-600 hover:bg-orange-50"
-        >
-          Generate 30 Test Contractors
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setActiveTab("previous")}
+            variant="outline"
+            className="text-blue-600 border-blue-600 hover:bg-blue-50"
+          >
+            Show All Current Workers
+          </Button>
+          <Button
+            onClick={() => {/* Generate test contractors */}}
+            variant="outline"
+            className="text-orange-600 border-orange-600 hover:bg-orange-50"
+          >
+            Generate 30 Test Contractors
+          </Button>
+        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -194,9 +203,13 @@ export default function ContractorManagement() {
             </div>
 
             {/* Show All Button */}
-            <div className="text-center">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-slate-600">
+                Showing {Math.min(6, previousContractors.length)} of {previousContractors.length} contractors
+                {searchTerm && ` matching "${searchTerm}"`}
+              </div>
               <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50">
-                Show All {allWorkers.length} Previous Contractors
+                Show All {allWorkers.length} Current Workers
               </Button>
             </div>
 
@@ -249,6 +262,23 @@ export default function ContractorManagement() {
                       <Badge className={getSafetyRatingColor(contractor.safetyRating)}>
                         {contractor.safetyRating}
                       </Badge>
+                      
+                      {/* Card Status Badges */}
+                      {contractor.hasRedCard && (
+                        <Badge className="bg-red-200 text-red-900">
+                          Red Card
+                        </Badge>
+                      )}
+                      {contractor.hasYellowCard && (
+                        <Badge className="bg-yellow-200 text-yellow-900">
+                          Yellow Card
+                        </Badge>
+                      )}
+                      {(!contractor.hasRedCard && !contractor.hasYellowCard) && (
+                        <Badge className="bg-green-200 text-green-900">
+                          Clear
+                        </Badge>
+                      )}
                     </div>
 
                     {/* Check-in Time */}
