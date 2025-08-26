@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
+import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import { 
   HardHat, 
   Clock, 
@@ -34,6 +35,9 @@ export default function ContractorManagement() {
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [showAllWorkers, setShowAllWorkers] = useState(false);
   const [showAllCompanies, setShowAllCompanies] = useState(false);
+  const [showPassPreview, setShowPassPreview] = useState(false);
+  const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
+  const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
 
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors"],
@@ -147,11 +151,21 @@ export default function ContractorManagement() {
       const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      
+      // Find the company name for the worker
+      const worker = data.worker;
+      const company = companies.find(c => c.id === worker.companyId);
+      
+      // Set up for pass preview and printing
+      setSelectedWorker(worker);
+      setSelectedCompanyName(company?.name || "Unknown Company");
+      setShowPassPreview(true);
+      
       toast({
         title: "Success",
-        description: "Contractor checked in successfully!",
+        description: "Contractor checked in successfully! Pass preview will open for printing.",
       });
     },
     onError: (error) => {
@@ -680,6 +694,20 @@ export default function ContractorManagement() {
             </div>
           </div>
         </GlassCard>
+      )}
+
+      {/* Contractor Pass Preview Modal */}
+      {selectedWorker && (
+        <ContractorPassPreviewModal
+          isOpen={showPassPreview}
+          onClose={() => {
+            setShowPassPreview(false);
+            setSelectedWorker(null);
+            setSelectedCompanyName("");
+          }}
+          worker={selectedWorker}
+          companyName={selectedCompanyName}
+        />
       )}
     </div>
   );
