@@ -257,15 +257,15 @@ export class VideoGenerationService {
   }
 
   // Generate HTML5 video-like presentation
-  async generateVideoPresentation(roleType: string): Promise<{
+  async generateVideoPresentation(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
     htmlContent: string;
     script: string;
     scenes: any[];
     totalDuration: number;
   }> {
     
-    // Generate the script and scenes
-    const { script, scenes, totalDuration } = await this.generateInductionScript(roleType);
+    // Generate the script and scenes with format and model
+    const { script, scenes, totalDuration } = await this.generateInductionScript(roleType, videoFormat, modelType);
     
     // Log for debugging
     console.log(`🎬 Generated ${scenes.length} scenes for ${roleType} induction`);
@@ -318,11 +318,30 @@ export class VideoGenerationService {
       console.log(`🔧 Applied ${scenes.length} fallback scenes`);
     }
     
-    // Generate images for scenes (optional - can be skipped for faster generation)
-    // const sceneImages = await this.generateSceneImages(scenes);
+    // Generate images for hybrid enhanced mode
+    let sceneImages: string[] = [];
+    if (videoFormat === 'hybrid_enhanced') {
+      try {
+        console.log('🎨 Generating AI images for hybrid enhanced mode...');
+        sceneImages = await this.generateSceneImages(scenes);
+        console.log(`✨ Generated ${sceneImages.length} AI images for enhanced presentation`);
+      } catch (error) {
+        console.error('❌ AI image generation failed:', error);
+      }
+    }
     
-    // Create HTML5 presentation
-    const htmlContent = `
+    // Get company name for branding
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    
+    // Create content based on format
+    let htmlContent: string;
+    
+    if (videoFormat === 'hybrid_enhanced') {
+      console.log('🎨 Creating hybrid enhanced presentation...');
+      htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType);
+    } else {
+      console.log('📄 Creating standard slide presentation...');
+      htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -426,10 +445,10 @@ export class VideoGenerationService {
 <body>
     <div class="logo">
         ${this.companySettings?.bannerUrl ? 
-            `<img src="${this.companySettings.bannerUrl}" alt="${this.companySettings?.companyName || 'VisiGate Pro'}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
+            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
             '🛡️'
         }
-        ${this.companySettings?.companyName || 'VisiGate Pro'}
+        ${companyName}
     </div>
     <div class="scene-counter">
         <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
@@ -547,7 +566,8 @@ export class VideoGenerationService {
     </script>
 </body>
 </html>`;
-
+    }
+    
     return {
       htmlContent,
       script,
@@ -716,10 +736,10 @@ export class VideoGenerationService {
 <body>
     <div class="logo">
         ${this.companySettings?.bannerUrl ? 
-            `<img src="${this.companySettings.bannerUrl}" alt="${this.companySettings?.companyName || 'VisiGate Pro'}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
+            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 40px; margin-right: 10px; vertical-align: middle;" />` : 
             '🛡️'
         }
-        ${this.companySettings?.companyName || 'VisiGate Pro'}
+        ${companyName}
     </div>
     <div class="scene-counter">
         <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
