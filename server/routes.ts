@@ -3611,18 +3611,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/induction/generate-video/:roleType', requireAuth, async (req, res) => {
     try {
       const { roleType } = req.params;
-      const { videoGenerationService } = await import('./videoGenerationService');
+      const { VideoGenerationService } = await import('./videoGenerationService');
       
       // Validate role type
       if (!['visitor', 'staff', 'contractor'].includes(roleType)) {
         return res.status(400).json({ error: 'Invalid role type' });
       }
 
+      // Get company settings for AI configuration
+      const settings = await storage.getCompanySettings();
+      const videoService = new VideoGenerationService(settings);
+
       // Generate the video content
-      const generatedContent = await videoGenerationService.generateVideoPresentation(roleType);
+      const generatedContent = await videoService.generateVideoPresentation(roleType);
       
       // Update the settings with generated content
-      await videoGenerationService.updateSettingsWithGeneratedContent(roleType, generatedContent);
+      await videoService.updateSettingsWithGeneratedContent(roleType, generatedContent);
       
       res.json({ 
         success: true, 
@@ -3644,9 +3648,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/induction/script/:roleType', requireAuth, async (req, res) => {
     try {
       const { roleType } = req.params;
-      const { videoGenerationService } = await import('./videoGenerationService');
+      const { VideoGenerationService } = await import('./videoGenerationService');
       
-      const content = await videoGenerationService.generateInductionScript(roleType);
+      // Get company settings for AI configuration
+      const settings = await storage.getCompanySettings();
+      const videoService = new VideoGenerationService(settings);
+      
+      const content = await videoService.generateInductionScript(roleType);
       
       res.json({ 
         success: true,

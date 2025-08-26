@@ -200,6 +200,14 @@ export const companySettings = pgTable("company_settings", {
   // Biometric reader device settings
   biometricDevices: text("biometric_devices").array().default([]), // Array of configured device IDs
   readerSettings: text("reader_settings").default("{}"), // JSON string for device-specific settings
+  // AI and Video Generation Settings
+  openaiModel: text("openai_model").default("gpt-5"), // gpt-4, gpt-5, gpt-6, gpt-7
+  openaiTemperature: text("openai_temperature").default("0.7"), // 0.0-2.0 for creativity control
+  openaiMaxTokens: text("openai_max_tokens").default("4000"), // Token limit per request
+  videoQualityPreference: text("video_quality_preference").default("high"), // low, medium, high, ultra
+  enableAdvancedVideoFeatures: boolean("enable_advanced_video_features").default(true),
+  defaultVideoLength: text("default_video_length").default("15"), // minutes
+  aiInstructionsPrompt: text("ai_instructions_prompt").default("Create comprehensive, engaging safety induction content"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

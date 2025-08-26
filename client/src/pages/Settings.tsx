@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 
 export default function Settings() {
@@ -486,7 +486,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-10">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -518,6 +518,10 @@ export default function Settings() {
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <Mail size={16} />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="flex items-center gap-2">
+            <Brain size={16} />
+            AI
           </TabsTrigger>
           <TabsTrigger value="system" className="flex items-center gap-2">
             <SettingsIcon size={16} />
@@ -2241,6 +2245,202 @@ export default function Settings() {
                   </Button>
                 </div>
               )}
+            </div>
+          </GlassCard>
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Brain className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">OpenAI Configuration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="openaiModel" className="text-sm font-medium text-slate-700">
+                    OpenAI Model
+                  </Label>
+                  <Select
+                    value={currentSettings?.openaiModel || "gpt-5"}
+                    onValueChange={(value) => handleInputChange("openaiModel", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-openai-model">
+                      <SelectValue placeholder="Select OpenAI model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4">GPT-4 (Standard)</SelectItem>
+                      <SelectItem value="gpt-4o">GPT-4o (Optimized)</SelectItem>
+                      <SelectItem value="gpt-5">GPT-5 (Latest) 🚀</SelectItem>
+                      <SelectItem value="gpt-6">GPT-6 (Future)</SelectItem>
+                      <SelectItem value="gpt-7">GPT-7 (Future)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    GPT-5 is recommended for better video generation quality
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="openaiTemperature" className="text-sm font-medium text-slate-700">
+                    Creativity Level (Temperature: {currentSettings?.openaiTemperature || "0.7"})
+                  </Label>
+                  <input
+                    id="openaiTemperature"
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={currentSettings?.openaiTemperature || "0.7"}
+                    onChange={(e) => handleInputChange("openaiTemperature", e.target.value)}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider"
+                    data-testid="slider-temperature"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>Conservative (0.0)</span>
+                    <span>Balanced (1.0)</span>
+                    <span>Creative (2.0)</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="openaiMaxTokens" className="text-sm font-medium text-slate-700">
+                    Max Response Length (Tokens)
+                  </Label>
+                  <Select
+                    value={currentSettings?.openaiMaxTokens || "4000"}
+                    onValueChange={(value) => handleInputChange("openaiMaxTokens", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-max-tokens">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">1,000 - Short responses</SelectItem>
+                      <SelectItem value="2000">2,000 - Medium responses</SelectItem>
+                      <SelectItem value="4000">4,000 - Detailed responses</SelectItem>
+                      <SelectItem value="8000">8,000 - Comprehensive responses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Monitor className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Video Generation Settings</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="videoQualityPreference" className="text-sm font-medium text-slate-700">
+                    Video Quality Preference
+                  </Label>
+                  <Select
+                    value={currentSettings?.videoQualityPreference || "high"}
+                    onValueChange={(value) => handleInputChange("videoQualityPreference", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-video-quality">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low - Fast generation</SelectItem>
+                      <SelectItem value="medium">Medium - Balanced</SelectItem>
+                      <SelectItem value="high">High - Best quality</SelectItem>
+                      <SelectItem value="ultra">Ultra - Premium quality</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="defaultVideoLength" className="text-sm font-medium text-slate-700">
+                    Default Video Length (minutes)
+                  </Label>
+                  <Input
+                    id="defaultVideoLength"
+                    type="number"
+                    min="5"
+                    max="60"
+                    value={currentSettings?.defaultVideoLength || "15"}
+                    onChange={(e) => handleInputChange("defaultVideoLength", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    placeholder="15"
+                    data-testid="input-video-length"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Recommended: 10-20 minutes for comprehensive safety training
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700">
+                      Enable Advanced Video Features
+                    </Label>
+                    <p className="text-xs text-slate-500">Enhanced visuals, animations, and interactive elements</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.enableAdvancedVideoFeatures !== false}
+                    onCheckedChange={(checked) => handleInputChange("enableAdvancedVideoFeatures", checked)}
+                    data-testid="switch-advanced-features"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="aiInstructionsPrompt" className="text-sm font-medium text-slate-700">
+                    Custom AI Instructions
+                  </Label>
+                  <textarea
+                    id="aiInstructionsPrompt"
+                    value={currentSettings?.aiInstructionsPrompt || "Create comprehensive, engaging safety induction content"}
+                    onChange={(e) => handleInputChange("aiInstructionsPrompt", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 resize-none"
+                    rows={3}
+                    placeholder="Provide custom instructions for AI content generation..."
+                    data-testid="textarea-ai-instructions"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Guide the AI on tone, style, and content focus for your induction videos
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <TestTube className="mr-3 text-blue-600" size={24} />
+              <h3 className="text-lg font-semibold text-slate-800">AI Model Performance</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-4 bg-green-50 rounded-xl border border-green-200">
+                <div className="text-2xl font-bold text-green-600 mb-2">GPT-5</div>
+                <div className="text-sm text-green-700">Current Model</div>
+                <div className="text-xs text-green-600 mt-1">Released: Aug 7, 2025</div>
+              </div>
+              
+              <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="text-2xl font-bold text-blue-600 mb-2">🎥</div>
+                <div className="text-sm text-blue-700">Video Generation</div>
+                <div className="text-xs text-blue-600 mt-1">Enhanced for safety content</div>
+              </div>
+              
+              <div className="text-center p-4 bg-purple-50 rounded-xl border border-purple-200">
+                <div className="text-2xl font-bold text-purple-600 mb-2">⚡</div>
+                <div className="text-sm text-purple-700">Performance</div>
+                <div className="text-xs text-purple-600 mt-1">2x faster than GPT-4</div>
+              </div>
+            </div>
+            
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-medium text-blue-800 mb-2">Model Comparison:</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• <strong>GPT-4:</strong> Solid performance, slower generation</li>
+                <li>• <strong>GPT-5:</strong> Best for video content, faster, more accurate</li>
+                <li>• <strong>GPT-6/7:</strong> Future models for enhanced capabilities</li>
+              </ul>
             </div>
           </GlassCard>
         </TabsContent>

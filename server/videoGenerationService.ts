@@ -1,11 +1,16 @@
 import OpenAI from "openai";
 import { db } from "./db";
-import { inductionSettings } from "@shared/schema";
+import { inductionSettings, type CompanySettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export class VideoGenerationService {
+  private companySettings: CompanySettings | null = null;
+
+  constructor(settings?: CompanySettings) {
+    this.companySettings = settings || null;
+  }
   
   // Generate comprehensive induction script for a specific role
   async generateInductionScript(roleType: string, companyName: string = "ACS Safety & Security Ltd"): Promise<{
@@ -56,7 +61,7 @@ export class VideoGenerationService {
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4", // the newest OpenAI model is "gpt-4" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        model: this.companySettings?.openaiModel || "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         messages: [
           {
             role: "system",
@@ -74,7 +79,12 @@ export class VideoGenerationService {
             - totalDuration: Total duration in seconds`
           }
         ],
-        response_format: { type: "json_object" },
+        // Only use JSON format for compatible models
+        ...(this.companySettings?.openaiModel && !this.companySettings.openaiModel.includes('gpt-3') 
+          ? { response_format: { type: "json_object" } } 
+          : {}),
+        temperature: parseFloat(this.companySettings?.openaiTemperature || "0.7"),
+        max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000"),
       });
 
       const content = JSON.parse(response.choices[0].message.content || '{}');
@@ -105,7 +115,10 @@ export class VideoGenerationService {
           quality: "standard",
         });
         
-        imageUrls.push(imageResponse.data[0].url || '');
+        const imageUrl = imageResponse.data?.[0]?.url;
+        if (imageUrl) {
+          imageUrls.push(imageUrl);
+        }
         
         // Add delay to respect rate limits
         await new Promise(resolve => setTimeout(resolve, 1000));
