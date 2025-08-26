@@ -18,6 +18,7 @@ interface RoleSettingsFormProps {
   settings: InductionSettings | null;
   onSave: (settingsId: string, data: any) => Promise<void>;
   onGenerateVideo: (roleType: string) => Promise<void>;
+  isGenerating?: boolean;
   generatedVideo?: {
     title: string;
     duration: number;
@@ -27,7 +28,7 @@ interface RoleSettingsFormProps {
   } | null;
 }
 
-const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, generatedVideo }: RoleSettingsFormProps) => {
+const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGenerating, generatedVideo }: RoleSettingsFormProps) => {
   const [formData, setFormData] = useState({
     videoTitle: settings?.videoTitle || "",
     videoUrl: settings?.videoUrl || "",
@@ -127,10 +128,19 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, generat
                   variant="outline"
                   onClick={() => onGenerateVideo(roleType)}
                   className="shrink-0 flex items-center gap-2"
-                  disabled={isLoading}
+                  disabled={isLoading || isGenerating}
                 >
-                  <Sparkles className="h-4 w-4" />
-                  Generate AI Video
+                  {isGenerating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generate AI Video
+                    </>
+                  )}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -165,25 +175,15 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, generat
                 </div>
                 
                 {/* Embedded Video Preview */}
-                <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden relative">
+                <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
                   <iframe 
-                    src={settings[roleType]?.videoUrl || generatedVideo.url}
+                    src={generatedVideo.url}
                     title={`${generatedVideo.title} Preview`}
                     className="w-full h-96"
                     frameBorder="0"
-                    allow="autoplay; encrypted-media; fullscreen"
+                    allow="autoplay; fullscreen"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
                   />
-                  {!settings[roleType]?.videoUrl && (
-                    <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <Monitor className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Loading video presentation...</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
                 
                 <div className="flex gap-2">
@@ -285,6 +285,7 @@ export default function InductionSettings() {
   const [settings, setSettings] = useState<Record<string, InductionSettings>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [questions, setQuestions] = useState<Record<string, any[]>>({});
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [generatedVideos, setGeneratedVideos] = useState<Record<string, {
     title: string;
     duration: number;
@@ -361,22 +362,30 @@ export default function InductionSettings() {
   };
 
   const handleGenerateVideo = async (roleType: string) => {
+    setGeneratingFor(roleType);
     try {
       toast({
         title: "Generating AI Video",
-        description: `Creating AI-powered induction video for ${roleType}s...`,
+        description: `Creating AI-powered induction video for ${roleType}s... This may take 30-60 seconds.`,
       });
 
       const response = await apiRequest('POST', `/api/induction/generate-video/${roleType}`);
       const data = await response.json();
 
-      // Store the generated video data
+      // Refresh settings to get the updated video URL
+      await fetchSettings();
+
+      // Store the generated video data with the actual video URL from database
+      const updatedSettings = await apiRequest('GET', '/api/induction/settings');
+      const settingsData = await updatedSettings.json();
+      const roleSetting = settingsData.settings.find((s: any) => s.roleType === roleType);
+      
       const generatedVideoData = {
         title: data.preview?.title || `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
         duration: data.preview?.duration || 15,
         scenes: data.preview?.scenes || 8,
         timestamp: new Date().toLocaleString(),
-        url: `/api/induction/video/${roleType}`
+        url: roleSetting?.videoUrl || `/api/induction/video/${roleType}`
       };
 
       setGeneratedVideos(prev => ({
@@ -388,9 +397,6 @@ export default function InductionSettings() {
         title: "AI Video Generated!",
         description: `Successfully created ${generatedVideoData.duration}-minute video with ${generatedVideoData.scenes} scenes`,
       });
-
-      // Refresh settings to show the new video
-      await fetchSettings();
     } catch (error) {
       console.error('Error generating video:', error);
       toast({
@@ -398,6 +404,8 @@ export default function InductionSettings() {
         description: "Failed to generate AI video. Please check your OpenAI API key.",
         variant: "destructive",
       });
+    } finally {
+      setGeneratingFor(null);
     }
   };
 
@@ -447,6 +455,7 @@ export default function InductionSettings() {
                 settings={settings[role.value] || null}
                 onSave={handleSaveSetting}
                 onGenerateVideo={handleGenerateVideo}
+                isGenerating={generatingFor === role.value}
                 generatedVideo={generatedVideos[role.value] || null}
               />
 
