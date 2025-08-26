@@ -1776,8 +1776,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCardIssue(data: InsertCardIssue): Promise<CardIssue> {
-    const id = randomUUID();
-    const [issue] = await db.insert(cardIssues).values({ ...data, id }).returning();
+    console.log("🔴 Creating card issue with data:", data);
+    
+    // Ensure required fields are present
+    const cardIssueData = {
+      ...data,
+      id: randomUUID(),
+      issuedAt: data.issuedAt || new Date(),
+      photos: data.photos || [],
+      status: data.status || "active"
+    };
+    
+    console.log("🔴 Final card issue data:", cardIssueData);
+    
+    const [issue] = await db.insert(cardIssues).values(cardIssueData).returning();
     return issue;
   }
 

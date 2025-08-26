@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertCardIssueSchema, insertWorkerCertificationSchema } from "@shared/schema";
 import type { ContractorWorker, CardOffence, CardIssue, WorkerCertification } from "@shared/schema";
 import { z } from "zod";
 import { toast } from "@/hooks/use-toast";
@@ -43,46 +42,45 @@ export default function ContractorDetails() {
 
   // Form for issuing card violations
   const cardIssueForm = useForm({
-    resolver: zodResolver(insertCardIssueSchema.extend({
+    resolver: zodResolver(z.object({
       workerId: z.string().min(1, "Worker is required"),
       offenceId: z.string().min(1, "Offence is required"),
+      cardType: z.enum(["red", "yellow"]),
       description: z.string().min(1, "Description is required"),
+      witness: z.string().optional(),
+      location: z.string().optional(),
     })),
     defaultValues: {
       workerId: "",
       offenceId: "",
       cardType: "yellow" as const,
-      issuedBy: "current-user", // This should be from auth context
       description: "",
       witness: "",
       location: "",
-      photos: [],
-      status: "active" as const,
     }
   });
 
   // Form for adding certifications
   const certificationForm = useForm({
-    resolver: zodResolver(insertWorkerCertificationSchema.extend({
+    resolver: zodResolver(z.object({
       workerId: z.string().min(1, "Worker is required"),
       certificationType: z.string().min(1, "Certification type is required"),
+      certificationNumber: z.string().optional(),
+      issuer: z.string().optional(),
+      notes: z.string().optional(),
     })),
     defaultValues: {
       workerId: "",
       certificationType: "",
       certificationNumber: "",
       issuer: "",
-      status: "valid" as const,
       notes: "",
     }
   });
 
   // Issue card mutation
   const issueCardMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/card-issues', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: any) => apiRequest(`/api/card-issues`, 'POST', data),
     onSuccess: () => {
       toast({ title: "Card issued successfully" });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
@@ -100,10 +98,7 @@ export default function ContractorDetails() {
 
   // Add certification mutation
   const addCertificationMutation = useMutation({
-    mutationFn: (data: any) => apiRequest(`/api/workers/${data.workerId}/certifications`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: any) => apiRequest(`/api/workers/${data.workerId}/certifications`, 'POST', data),
     onSuccess: () => {
       toast({ title: "Certification added successfully" });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
@@ -120,11 +115,27 @@ export default function ContractorDetails() {
   });
 
   const handleIssueCard = (data: any) => {
-    issueCardMutation.mutate(data);
+    // Prepare the data with required fields for the API
+    const cardData = {
+      ...data,
+      issuedBy: "b7b74fa2-1a48-43d1-b71c-39fd9697b2ea",  // Use actual developer user ID
+      status: "active",
+      photos: [],
+      contractorId: id
+    };
+    console.log("🔴 Issuing card with data:", cardData);
+    issueCardMutation.mutate(cardData);
   };
 
   const handleAddCertification = (data: any) => {
-    addCertificationMutation.mutate(data);
+    // Prepare certification data
+    const certData = {
+      ...data,
+      status: "valid",
+      contractorId: id
+    };
+    console.log("🎓 Adding certification with data:", certData);
+    addCertificationMutation.mutate(certData);
   };
 
   const getCardStatusBadge = (cardType: string, count: number) => {
@@ -178,6 +189,9 @@ export default function ContractorDetails() {
     );
   }
 
+  // Type safety for contractor data
+  const contractorData = contractor as any;
+
   return (
     <div className="p-6 space-y-6" data-testid="contractor-details-page">
       {/* Header */}
@@ -192,10 +206,10 @@ export default function ContractorDetails() {
             ← Back to Contractors
           </Button>
           <h1 className="text-3xl font-bold tracking-tight" data-testid="text-contractor-name">
-            {contractor.name}
+            {contractorData.name}
           </h1>
           <p className="text-muted-foreground" data-testid="text-contractor-description">
-            {contractor.description}
+            {contractorData.description || "No description available"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -225,7 +239,7 @@ export default function ContractorDetails() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {contractor.workers?.map((worker: ContractorWorker) => (
+                            {contractorData.workers?.map((worker: ContractorWorker) => (
                               <SelectItem key={worker.id} value={worker.id}>
                                 {worker.firstName} {worker.lastName}
                               </SelectItem>
@@ -352,7 +366,7 @@ export default function ContractorDetails() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {contractor.workers?.map((worker: ContractorWorker) => (
+                            {contractorData.workers?.map((worker: ContractorWorker) => (
                               <SelectItem key={worker.id} value={worker.id}>
                                 {worker.firstName} {worker.lastName}
                               </SelectItem>
@@ -461,7 +475,7 @@ export default function ContractorDetails() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-workers-count">
-              {contractor.workers?.length || 0}
+              {contractorData.workers?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -473,7 +487,7 @@ export default function ContractorDetails() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-documents-count">
-              {contractor.documents?.length || 0}
+              {contractorData.documents?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -515,8 +529,8 @@ export default function ContractorDetails() {
 
         <TabsContent value="workers" className="space-y-4" data-testid="workers-tab-content">
           <div className="grid gap-4">
-            {contractor.workers?.length > 0 ? (
-              contractor.workers.map((worker: ContractorWorker) => (
+            {contractorData.workers?.length > 0 ? (
+              contractorData.workers.map((worker: ContractorWorker) => (
                 <Card key={worker.id} data-testid={`card-worker-${worker.id}`}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -525,7 +539,7 @@ export default function ContractorDetails() {
                           {worker.firstName} {worker.lastName}
                         </CardTitle>
                         <CardDescription data-testid={`text-worker-role-${worker.id}`}>
-                          {worker.role || "Contractor Worker"}
+                          Contractor Worker
                         </CardDescription>
                       </div>
                       <div className="flex flex-col gap-2">
@@ -543,7 +557,7 @@ export default function ContractorDetails() {
                         </div>
                         <div className="flex items-center gap-2" data-testid={`text-worker-phone-${worker.id}`}>
                           <Phone className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">{worker.phoneNumber}</span>
+                          <span className="text-sm">{worker.phone || worker.phoneNumber}</span>
                         </div>
                         <div className="flex items-center gap-2" data-testid={`text-worker-status-${worker.id}`}>
                           <User className="w-4 h-4 text-muted-foreground" />
@@ -576,8 +590,8 @@ export default function ContractorDetails() {
 
         <TabsContent value="documents" className="space-y-4" data-testid="documents-tab-content">
           <div className="grid gap-4">
-            {contractor.documents?.length > 0 ? (
-              contractor.documents.map((doc: any) => (
+            {contractorData.documents?.length > 0 ? (
+              contractorData.documents.map((doc: any) => (
                 <Card key={doc.id} data-testid={`card-document-${doc.id}`}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
