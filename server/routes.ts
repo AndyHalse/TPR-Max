@@ -69,9 +69,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Emergency simple login page
-  app.get("/simple-login", (req, res) => {
-    res.sendFile(path.join(__dirname, "simple-login.html"));
+  // Emergency simple login page - bypass Vite
+  app.get("/emergency-login", (req, res) => {
+    const fs = require('fs');
+    const filePath = path.join(__dirname, "simple-login.html");
+    const html = fs.readFileSync(filePath, 'utf8');
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
   });
 
   app.get("/api/auth/me", async (req, res) => {
