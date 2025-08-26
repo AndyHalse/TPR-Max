@@ -12,10 +12,11 @@ interface WorkerCardProps {
   worker: ContractorWorker;
   onIssueCard?: (workerId: string) => void;
   onResetCard?: (workerId: string) => void;
+  onViewDetails?: (worker: ContractorWorker) => void;
   canManageCards?: boolean;
 }
 
-export function WorkerCard({ worker, onIssueCard, onResetCard, canManageCards = false }: WorkerCardProps) {
+export function WorkerCard({ worker, onIssueCard, onResetCard, onViewDetails, canManageCards = false }: WorkerCardProps) {
   const getCardStatusColor = (status: string) => {
     switch (status) {
       case 'red': return 'bg-red-500';
@@ -58,7 +59,11 @@ export function WorkerCard({ worker, onIssueCard, onResetCard, canManageCards = 
     new Date(worker.redCardBanUntil) > new Date();
 
   return (
-    <Card className="relative w-full max-w-sm mx-auto overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300" data-testid={`worker-card-${worker.id}`}>
+    <Card 
+      className="relative w-full max-w-sm mx-auto overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer" 
+      data-testid={`worker-card-${worker.id}`}
+      onClick={() => onViewDetails?.(worker)}
+    >
       {/* Card Status Header - Large visual indicator */}
       <div className={`${getCardStatusColor(worker.currentCardStatus)} p-4 text-center relative`}>
         <div className="flex items-center justify-center gap-2 mb-2">

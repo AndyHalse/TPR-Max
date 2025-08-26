@@ -30,6 +30,7 @@ export default function ContractorDetails() {
   const queryClient = useQueryClient();
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
+  const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
 
   // Fetch contractor details
   const { data: contractor, isLoading } = useQuery({
@@ -528,6 +529,9 @@ export default function ContractorDetails() {
                     // TODO: Implement card reset functionality
                     toast({ title: "Card reset functionality coming soon!" });
                   }}
+                  onViewDetails={(worker) => {
+                    setViewingWorker(worker);
+                  }}
                   canManageCards={true}
                 />
               ))
@@ -740,6 +744,146 @@ export default function ContractorDetails() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Worker Details Modal */}
+      <Dialog open={!!viewingWorker} onOpenChange={() => setViewingWorker(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Worker Details: {viewingWorker?.firstName} {viewingWorker?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewingWorker && (
+            <div className="space-y-6">
+              {/* Current Card Status - Prominent Display */}
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Current Safety Status
+                </h3>
+                <div className="flex items-center gap-3">
+                  {viewingWorker.currentCardStatus === 'red' && (
+                    <Badge variant="destructive" className="text-sm px-3 py-1">
+                      <XCircle className="w-4 h-4 mr-1" />
+                      RED CARD - BANNED
+                    </Badge>
+                  )}
+                  {viewingWorker.currentCardStatus === 'yellow' && (
+                    <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-1">
+                      <AlertTriangle className="w-4 h-4 mr-1" />
+                      YELLOW CARD - WARNING
+                    </Badge>
+                  )}
+                  {(!viewingWorker.currentCardStatus || viewingWorker.currentCardStatus === 'clear') && (
+                    <Badge className="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-1">
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      CLEAR - COMPLIANT
+                    </Badge>
+                  )}
+                  {viewingWorker.currentCardStatus === 'red' && viewingWorker.redCardBanUntil && (
+                    <span className="text-sm text-muted-foreground">
+                      Ban until: {new Date(viewingWorker.redCardBanUntil).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                {viewingWorker.cardStatusUpdatedAt && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Status updated: {new Date(viewingWorker.cardStatusUpdatedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Personal Information */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold">Personal Information</h3>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Full Name</label>
+                      <p className="text-sm">{viewingWorker.firstName} {viewingWorker.lastName}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Email</label>
+                      <p className="text-sm">{viewingWorker.email || 'Not provided'}</p>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                      <p className="text-sm">{viewingWorker.phone || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Work Status */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold">Work Status</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Right to Work</span>
+                      <Badge variant={viewingWorker.rightToWork ? "default" : "destructive"}>
+                        {viewingWorker.rightToWork ? 'Valid' : 'Invalid'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Active Status</span>
+                      <Badge variant={viewingWorker.isActive ? "default" : "secondary"}>
+                        {viewingWorker.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Induction</span>
+                      <Badge variant={viewingWorker.inductionCompleted ? "default" : "outline"}>
+                        {viewingWorker.inductionCompleted ? 'Completed' : 'Pending'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Certifications & Training */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Certifications & Training</h3>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Enhanced Certifications */}
+                  {viewingWorker.certifications && viewingWorker.certifications.length > 0 ? (
+                    viewingWorker.certifications.map((cert: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm">{cert.certificationType}</h4>
+                          <Badge 
+                            variant={cert.status === 'valid' ? 'default' : cert.status === 'expired' ? 'destructive' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {cert.status}
+                          </Badge>
+                        </div>
+                        {cert.certificationNumber && (
+                          <p className="text-xs text-muted-foreground">#{cert.certificationNumber}</p>
+                        )}
+                        {cert.expiryDate && (
+                          <p className="text-xs text-muted-foreground">
+                            Expires: {new Date(cert.expiryDate).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground col-span-2">No certifications recorded</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
