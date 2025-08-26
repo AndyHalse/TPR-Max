@@ -30,6 +30,8 @@ export default function ContractorManagement() {
   const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors">("previous");
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
+  const [showAllWorkers, setShowAllWorkers] = useState(false);
+  const [showAllCompanies, setShowAllCompanies] = useState(false);
 
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors"],
@@ -221,17 +223,21 @@ export default function ContractorManagement() {
             {/* Show All Button */}
             <div className="flex justify-between items-center">
               <div className="text-sm text-slate-600">
-                Showing {Math.min(6, previousContractors.length)} of {previousContractors.length} contractors
+                Showing {showAllWorkers ? previousContractors.length : Math.min(6, previousContractors.length)} of {previousContractors.length} contractors
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
-              <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50">
-                Show All {allWorkers.length} Current Workers
+              <Button 
+                variant="outline" 
+                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                onClick={() => setShowAllWorkers(!showAllWorkers)}
+              >
+                {showAllWorkers ? 'Show Less' : `Show All ${allWorkers.length} Current Workers`}
               </Button>
             </div>
 
             {/* Contractors Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {previousContractors.slice(0, 6).map((contractor) => (
+              {previousContractors.slice(0, showAllWorkers ? previousContractors.length : 6).map((contractor) => (
                 <GlassCard key={contractor.id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="space-y-3">
                     {/* Contractor Info */}
@@ -414,11 +420,24 @@ export default function ContractorManagement() {
             {/* Show All Button */}
             <div className="flex justify-between items-center">
               <div className="text-sm text-slate-600">
-                Showing {Math.min(6, companies.length)} of {companies.length} contractor companies
+                Showing {showAllCompanies ? companies.filter(company => 
+                  company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+                ).length : Math.min(6, companies.filter(company => 
+                  company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+                ).length)} of {companies.filter(company => 
+                  company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+                ).length} contractor companies
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
-              <Button variant="outline" className="text-purple-600 border-purple-600 hover:bg-purple-50">
-                Show All {companies.length} Contractor Companies
+              <Button 
+                variant="outline" 
+                className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                onClick={() => setShowAllCompanies(!showAllCompanies)}
+              >
+                {showAllCompanies ? 'Show Less' : `Show All ${companies.length} Contractor Companies`}
               </Button>
             </div>
 
@@ -427,7 +446,7 @@ export default function ContractorManagement() {
               {companies.filter(company => 
                 company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
-              ).slice(0, 6).map((company) => (
+              ).slice(0, showAllCompanies ? companies.length : 6).map((company) => (
                 <GlassCard key={company.id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="space-y-3">
                     {/* Company Info */}
