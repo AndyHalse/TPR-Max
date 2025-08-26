@@ -760,9 +760,9 @@ export class VideoGenerationService {
         }
         .scene {
             display: none;
-            padding: 20px;
+            padding: 20px 20px 120px 20px;
             width: 100%;
-            height: 100%;
+            height: calc(100vh - 120px);
             animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             background: rgba(255,255,255,0.18);
             backdrop-filter: blur(25px);
@@ -782,7 +782,7 @@ export class VideoGenerationService {
         }
         .scene-image {
             width: 100%;
-            height: 60vh;
+            height: 50vh;
             background: rgba(255,255,255,0.1);
             border-radius: 15px;
             margin: 15px auto;
@@ -814,32 +814,32 @@ export class VideoGenerationService {
         }
         .controls {
             position: fixed;
-            bottom: 30px;
+            bottom: 15px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 25px;
-            background: rgba(0,0,0,0.7);
-            padding: 20px 30px;
-            border-radius: 25px;
+            gap: 15px;
+            background: rgba(0,0,0,0.8);
+            padding: 12px 20px;
+            border-radius: 20px;
             backdrop-filter: blur(20px);
             border: 2px solid rgba(255,255,255,0.2);
             box-shadow: 0 10px 30px rgba(0,0,0,0.6);
             z-index: 1000;
         }
         .btn {
-            padding: 15px 30px;
+            padding: 8px 16px;
             background: rgba(255,255,255,0.25);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
             color: white;
-            font-size: 1.1rem;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             backdrop-filter: blur(15px);
             text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-            min-width: 120px;
+            min-width: 80px;
         }
         .btn:hover {
             background: rgba(255,255,255,0.4);
