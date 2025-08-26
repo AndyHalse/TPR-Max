@@ -199,8 +199,10 @@ export default function ContractorPassPreviewModal({
                 </div>
                 
                 <div class="qr-code">
-                  QR CODE<br/>
-                  ${worker.qrCode || 'TEMP-QR'}
+                  ${worker.qrCode ? 
+                    `<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(worker.qrCode)}" alt="QR Code" style="width: 18mm; height: 18mm;" />` :
+                    'QR CODE<br/>PENDING'
+                  }
                 </div>
               </div>
               
@@ -306,9 +308,19 @@ export default function ContractorPassPreviewModal({
                 
                 {/* QR Code Area */}
                 <div className="flex flex-col items-center justify-center">
-                  <div className="w-16 h-16 border-2 border-gray-400 bg-white flex items-center justify-center text-xs text-center">
-                    QR CODE<br/>
-                    {worker.qrCode ? worker.qrCode.substring(0, 8) + '...' : 'TEMP'}
+                  <div className="w-16 h-16 border-2 border-gray-400 bg-white flex items-center justify-center">
+                    {worker.qrCode ? (
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(worker.qrCode)}`}
+                        alt="QR Code"
+                        className="w-14 h-14"
+                      />
+                    ) : (
+                      <div className="text-xs text-center text-gray-500">
+                        QR CODE<br/>
+                        PENDING
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
