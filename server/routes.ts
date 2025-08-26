@@ -69,6 +69,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Emergency simple login page
+  app.get("/simple-login", (req, res) => {
+    res.sendFile(path.join(__dirname, "simple-login.html"));
+  });
+
   app.get("/api/auth/me", async (req, res) => {
     if (!req.session.userId) {
       return res.status(401).json({ error: "Not authenticated" });
