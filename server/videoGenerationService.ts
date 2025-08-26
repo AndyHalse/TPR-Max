@@ -104,10 +104,12 @@ export class VideoGenerationService {
       let content;
       try {
         content = JSON.parse(response.choices[0].message.content || '{}');
+        console.log('✅ JSON parsing successful, scenes found:', content.scenes?.length || 0);
       } catch (parseError) {
-        console.error('JSON parsing failed:', parseError);
+        console.error('❌ JSON parsing failed:', parseError);
         console.error('Raw response:', response.choices[0].message.content);
         // Fallback: create default scenes if parsing fails
+        console.log('🔄 Using fallback scenes');
         content = {
           script: `Welcome to the ${roleType} safety induction. This presentation covers essential health and safety requirements.`,
           scenes: [
@@ -152,11 +154,16 @@ export class VideoGenerationService {
         };
       }
       
-      return {
+      const result = {
         script: content.script || '',
         scenes: content.scenes || [],
         totalDuration: content.totalDuration || 900
       };
+      
+      console.log('🎬 Final result - scenes count:', result.scenes.length);
+      console.log('🎬 First scene title:', result.scenes[0]?.title || 'No scenes');
+      
+      return result;
       
     } catch (error) {
       console.error('Error generating induction script:', error);
