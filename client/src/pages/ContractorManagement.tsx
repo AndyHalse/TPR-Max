@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 
 export default function ContractorManagement() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors">("previous");
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
@@ -70,6 +72,74 @@ export default function ContractorManagement() {
 
   const handleGenerateTestWorkers = () => {
     generateTestWorkersMutation.mutate();
+  };
+
+  // Delete contractor mutation
+  const deleteContractorMutation = useMutation({
+    mutationFn: async (contractorId: string) => {
+      const response = await apiRequest("DELETE", `/api/contractors/${contractorId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      toast({
+        title: "Success",
+        description: "Contractor deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete worker mutation
+  const deleteWorkerMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const response = await apiRequest("DELETE", `/api/workers/${workerId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      toast({
+        title: "Success",
+        description: "Worker deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete worker",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Navigation handlers
+  const handleViewContractorDetails = (contractorId: string) => {
+    setLocation(`/contractors/${contractorId}`);
+  };
+
+  const handleEditContractor = (contractorId: string) => {
+    // For now, navigate to details page where editing can be done
+    setLocation(`/contractors/${contractorId}`);
+  };
+
+  const handleDeleteContractor = (contractorId: string, contractorName: string) => {
+    if (window.confirm(`Are you sure you want to delete "${contractorName}"? This action cannot be undone.`)) {
+      deleteContractorMutation.mutate(contractorId);
+    }
+  };
+
+  const handleDeleteWorker = (workerId: string, workerName: string) => {
+    if (window.confirm(`Are you sure you want to delete "${workerName}"? This action cannot be undone.`)) {
+      deleteWorkerMutation.mutate(workerId);
+    }
   };
 
   const checkInMutation = useMutation({
@@ -373,11 +443,24 @@ export default function ContractorManagement() {
                         )}
                       </Button>
                       
-                      <Button size="sm" variant="outline" className="text-blue-600">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-blue-600 hover:bg-blue-50"
+                        onClick={() => handleViewContractorDetails(contractor.companyId)}
+                        data-testid={`button-edit-worker-${contractor.id}`}
+                      >
                         <Edit className="h-3 w-3" />
                       </Button>
                       
-                      <Button size="sm" variant="outline" className="text-red-600">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteWorker(contractor.id, `${contractor.firstName} ${contractor.lastName}`)}
+                        disabled={deleteWorkerMutation.isPending}
+                        data-testid={`button-delete-worker-${contractor.id}`}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -512,18 +595,31 @@ export default function ContractorManagement() {
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => {/* View company details */}}
+                        onClick={() => handleViewContractorDetails(company.id)}
                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                         data-testid={`button-view-company-${company.id}`}
                       >
                         View Details
                       </Button>
                       
-                      <Button size="sm" variant="outline" className="text-blue-600">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-blue-600 hover:bg-blue-50"
+                        onClick={() => handleEditContractor(company.id)}
+                        data-testid={`button-edit-company-${company.id}`}
+                      >
                         <Edit className="h-3 w-3" />
                       </Button>
                       
-                      <Button size="sm" variant="outline" className="text-red-600">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteContractor(company.id, company.name)}
+                        disabled={deleteContractorMutation.isPending}
+                        data-testid={`button-delete-company-${company.id}`}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
