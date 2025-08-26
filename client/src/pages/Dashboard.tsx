@@ -32,8 +32,9 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'department-details' | null>(null);
+  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'department-details' | 'visitor-details' | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  const [selectedVisitor, setSelectedVisitor] = useState<any>(null);
   
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
     queryKey: ["/api/stats"],
@@ -496,7 +497,7 @@ export default function Dashboard() {
               <div className="text-center py-4 text-slate-600">No current visitors</div>
             ) : (
               currentVisitors.map((visitor) => (
-                <div key={visitor.id} className="flex items-center justify-between p-2.5 bg-white/50 dark:bg-slate-800/50 rounded-lg hover:bg-white/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer" data-testid={`visitor-${visitor.id}`}>
+                <div key={visitor.id} className="flex items-center justify-between p-2.5 bg-white/50 dark:bg-slate-800/50 rounded-lg hover:bg-white/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer" data-testid={`visitor-${visitor.id}`} onClick={() => { setSelectedVisitor(visitor); setOpenModal('visitor-details'); }}>
                   <div className="flex items-center space-x-2.5">
                     <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
                       <span className="text-white font-medium text-sm">{getInitials(`${visitor.firstName} ${visitor.lastName}`)}</span>
@@ -942,6 +943,178 @@ export default function Dashboard() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Visitor Details Modal */}
+      <Dialog open={openModal === 'visitor-details'} onOpenChange={() => setOpenModal(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-medium">{selectedVisitor && getInitials(`${selectedVisitor.firstName} ${selectedVisitor.lastName}`)}</span>
+                </div>
+                <div>
+                  <div className="text-xl">{selectedVisitor?.firstName} {selectedVisitor?.lastName}</div>
+                  <div className="text-sm text-slate-600 font-normal">{selectedVisitor?.company || "No company listed"}</div>
+                </div>
+              </DialogTitle>
+            </DialogHeader>
+            
+            {selectedVisitor && (
+              <div className="space-y-6">
+                {/* Status Banner */}
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-green-600">
+                        ✓ Currently On-Site
+                      </Badge>
+                      <span className="text-sm text-green-800 dark:text-green-300">
+                        {Math.floor((Date.now() - new Date(selectedVisitor.checkedInAt).getTime()) / (1000 * 60))} minutes on premises
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emergency Contact Information */}
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-3 flex items-center gap-2">
+                    🚨 Emergency Contact Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-red-700 dark:text-red-400">Phone Number</label>
+                      <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                        {selectedVisitor.phoneNumber || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-red-700 dark:text-red-400">Email Address</label>
+                      <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                        {selectedVisitor.email || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Host & Location Information */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
+                    📍 Host & Location Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Visiting</label>
+                      <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                        {getStaffName(selectedVisitor.hostStaffId)}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
+                      <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                        {staff?.find(s => s.id === selectedVisitor.hostStaffId)?.department || "Unknown"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visit Timeline */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                    ⏰ Visit Timeline
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Check-in Time</span>
+                      <span className="text-lg font-mono">{formatTime(selectedVisitor.checkedInAt)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Duration on Site</span>
+                      <span className="text-lg font-mono">
+                        {(() => {
+                          const minutes = Math.floor((Date.now() - new Date(selectedVisitor.checkedInAt).getTime()) / (1000 * 60));
+                          const hours = Math.floor(minutes / 60);
+                          const remainingMinutes = minutes % 60;
+                          return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
+                        })()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Expected Duration</span>
+                      <span className="text-lg">
+                        {selectedVisitor.expectedDuration ? `${selectedVisitor.expectedDuration} minutes` : "Not specified"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visit Details */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                    📋 Visit Details
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Purpose of Visit</label>
+                      <p className="text-base bg-white dark:bg-slate-800 p-2 rounded border">
+                        {selectedVisitor.purpose || "Not specified"}
+                      </p>
+                    </div>
+                    {selectedVisitor.notes && (
+                      <div>
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Additional Notes</label>
+                        <p className="text-base bg-white dark:bg-slate-800 p-2 rounded border">
+                          {selectedVisitor.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button 
+                    onClick={() => {
+                      if (selectedVisitor.phoneNumber) {
+                        window.open(`tel:${selectedVisitor.phoneNumber}`, '_self');
+                      }
+                    }}
+                    disabled={!selectedVisitor.phoneNumber}
+                    className="flex-1"
+                    data-testid="button-call-visitor"
+                  >
+                    📞 Call Visitor
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      if (selectedVisitor.email) {
+                        window.open(`mailto:${selectedVisitor.email}`, '_self');
+                      }
+                    }}
+                    disabled={!selectedVisitor.email}
+                    variant="outline"
+                    className="flex-1"
+                    data-testid="button-email-visitor"
+                  >
+                    ✉️ Email Visitor
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      const hostStaff = staff?.find(s => s.id === selectedVisitor.hostStaffId);
+                      if (hostStaff?.phoneNumber) {
+                        window.open(`tel:${hostStaff.phoneNumber}`, '_self');
+                      }
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                    data-testid="button-call-host"
+                  >
+                    📞 Call Host
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }
