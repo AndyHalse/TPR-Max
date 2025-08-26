@@ -91,7 +91,10 @@ export default function Login() {
             </Alert>
           )}
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => {
+            console.log("📋 Form onSubmit triggered");
+            handleSubmit(e);
+          }} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-slate-700 dark:text-slate-300">
                 Username
@@ -136,6 +139,10 @@ export default function Login() {
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
               disabled={loginMutation.isPending}
               data-testid="button-login"
+              onClick={(e) => {
+                console.log("🖱️ Button clicked!");
+                // Let the form handle submission normally
+              }}
             >
               {loginMutation.isPending ? (
                 "Signing in..."
