@@ -51,13 +51,19 @@ export default function Login() {
       
       if (response.ok && data.success) {
         console.log("🎉 Login successful!");
+        
+        // Store user in localStorage as fallback for browser restrictions
+        localStorage.setItem('visigate_user', JSON.stringify(data.user));
+        
         toast({
           title: "Login Successful",
           description: `Welcome back, ${data.user.username}!`,
         });
-        // Force a complete page refresh to reload authentication state
-        console.log("🔄 Forcing page refresh...");
-        window.location.href = "/";
+        
+        // Invalidate queries and redirect
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        console.log("🔄 Redirecting to dashboard...");
+        setLocation("/");
       } else {
         console.log("❌ Login failed:", data);
         setError(data.error || "Login failed");
@@ -148,60 +154,19 @@ export default function Login() {
             </div>
             
             <Button
-              type="button"
+              type="submit"
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
               disabled={isLoading}
               data-testid="button-login"
-              onClick={async () => {
-                console.log("🖱️ DIRECT BUTTON CLICK!");
-                alert("Button clicked! Check console for logs.");
-                
-                try {
-                  console.log("🚀 Making direct API call...");
-                  const response = await fetch("/api/auth/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username: "Andy", password: "Kubo1966&&" }),
-                    credentials: "include",
-                  });
-                  
-                  console.log("📥 Response:", response.status);
-                  const data = await response.json();
-                  console.log("📥 Data:", data);
-                  
-                  if (response.ok && data.success) {
-                    alert("Login successful! Redirecting...");
-                    window.location.href = "/";
-                  } else {
-                    alert("Login failed: " + (data.error || "Unknown error"));
-                  }
-                } catch (error) {
-                  console.error("💥 Error:", error);
-                  alert("Network error: " + error.message);
-                }
-              }}
             >
               {isLoading ? (
                 "Signing in..."
               ) : (
                 <>
                   <LogIn className="mr-2" size={18} />
-                  DIRECT LOGIN TEST
+                  Sign In
                 </>
               )}
-            </Button>
-            
-            <Button
-              type="button"
-              className="w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2"
-              onClick={() => {
-                console.log("🧪 JavaScript test button clicked!");
-                alert("JavaScript is working! Check console for more details.");
-                console.log("🧪 Current credentials:", credentials);
-                console.log("🧪 Current location:", window.location.href);
-              }}
-            >
-              🧪 Test JavaScript
             </Button>
           </form>
           

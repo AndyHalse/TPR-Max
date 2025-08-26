@@ -14,6 +14,9 @@ export default function LogoutButton() {
       return response.json();
     },
     onSuccess: () => {
+      // Clear localStorage fallback for browser restrictions
+      localStorage.removeItem('visigate_user');
+      
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out.",

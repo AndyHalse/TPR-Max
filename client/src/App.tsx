@@ -30,9 +30,49 @@ function Router() {
     return <FireMarshalMuster token={emergencyToken} />;
   }
   
-  // TEMPORARY AUTH BYPASS - Skip authentication completely
-  const user = { id: "temp-user", username: "Andy" }; // Fake user for testing
-  const isLoading = false;
+  // Robust authentication with fallback for browser restrictions
+  const { data: user, isLoading } = useQuery({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/auth/me", {
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          return null; // Return null for unauthenticated users
+        }
+        if (!res.ok) {
+          throw new Error(`${res.status}: ${res.statusText}`);
+        }
+        return await res.json();
+      } catch (error) {
+        // If auth fails due to browser restrictions, check localStorage fallback
+        const fallbackUser = localStorage.getItem('visigate_user');
+        if (fallbackUser) {
+          return JSON.parse(fallbackUser);
+        }
+        return null;
+      }
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show login page
+  if (!user) {
+    return <Login />;
+  }
 
   // If authenticated, show main app
   return (
