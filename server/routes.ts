@@ -2514,6 +2514,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate test workers for all contractor companies
+  app.post("/api/contractors/generate-test-workers", async (req, res) => {
+    try {
+      const companies = await storage.getAllContractorCompanies();
+      const workerNames = [
+        "James Wilson", "Sarah Connor", "Michael Brown", "Emma Thompson", "David Miller",
+        "Lisa Anderson", "Robert Taylor", "Jennifer Davis", "Christopher Moore", "Amanda Clark",
+        "Matthew Garcia", "Jessica Rodriguez", "Daniel Lewis", "Ashley Martinez", "John Walker",
+        "Maria Gonzalez", "William Hall", "Elizabeth Allen", "Joseph Young", "Helen King"
+      ];
+      
+      const trades = [
+        "Electrician", "Plumber", "Welder", "Carpenter", "HVAC Technician",
+        "Pipefitter", "Machinist", "Mechanic", "Inspector", "Supervisor",
+        "Foreman", "Rigger", "Crane Operator", "Safety Officer", "Quality Control"
+      ];
+
+      const safetyRatings = ["A+", "A", "B+", "B", "C+", "C", "D+", "D", "F"];
+      
+      let workersCreated = 0;
+      
+      for (const company of companies) {
+        // Generate 2-5 workers per company
+        const workerCount = Math.floor(Math.random() * 4) + 2;
+        
+        for (let i = 0; i < workerCount; i++) {
+          const randomName = workerNames[Math.floor(Math.random() * workerNames.length)];
+          const randomTrade = trades[Math.floor(Math.random() * trades.length)];
+          const randomRating = safetyRatings[Math.floor(Math.random() * safetyRatings.length)];
+          
+          // Random card assignments based on safety rating
+          let hasRedCard = false;
+          let hasYellowCard = false;
+          
+          if (randomRating === "F" || randomRating === "D") {
+            hasRedCard = Math.random() < 0.6; // 60% chance for low ratings
+          }
+          if (!hasRedCard && (randomRating === "D+" || randomRating === "C" || randomRating === "C+")) {
+            hasYellowCard = Math.random() < 0.4; // 40% chance for medium-low ratings
+          }
+
+          const worker = {
+            id: `worker-${company.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}-${i}`,
+            companyId: company.id,
+            companyName: company.name,
+            name: `${randomName} (${randomTrade})`,
+            email: `${randomName.toLowerCase().replace(/\s+/g, '.')}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
+            phone: `+44 ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 900000) + 100000}`,
+            emergencyContact: `Emergency: +44 ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 900000) + 100000}`,
+            rightToWork: Math.random() < 0.9 ? "valid" : "expired",
+            safetyTraining: Math.random() < 0.85 ? "completed" : "pending",
+            inductionCompleted: Math.random() < 0.8,
+            safetyRating: randomRating,
+            hasRedCard,
+            hasYellowCard,
+            isCheckedIn: Math.random() < 0.3, // 30% chance of being checked in
+            checkedInAt: Math.random() < 0.3 ? new Date() : null,
+            profileImageUrl: null,
+            qrCodeUrl: null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+
+          await storage.createContractorWorker(worker);
+          workersCreated++;
+        }
+      }
+
+      // Update worker counts for companies
+      for (const company of companies) {
+        const workers = await storage.getWorkersByCompanyId(company.id);
+        await storage.updateContractorCompany(company.id, {
+          workersCount: workers.length
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Generated ${workersCreated} test workers across ${companies.length} contractor companies` 
+      });
+    } catch (error) {
+      console.error("Error generating test workers:", error);
+      res.status(500).json({ error: "Failed to generate test workers" });
+    }
+  });
+
   app.delete("/api/contractors/:id", async (req, res) => {
     try {
       const { id } = req.params;

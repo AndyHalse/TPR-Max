@@ -37,10 +37,40 @@ export default function ContractorManagement() {
     queryKey: ["/api/contractors"],
   });
 
-  const { data: allWorkers = [] } = useQuery<ContractorWorker[]>({
+  const { data: allWorkers = [], refetch: refetchWorkers } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors/workers/all"],
     enabled: activeTab === "previous",
   });
+
+  const generateTestWorkersMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/contractors/generate-test-workers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to generate test workers");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test Workers Generated",
+        description: "Successfully created test workers for all contractor companies",
+      });
+      refetchWorkers();
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate test workers",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleGenerateTestWorkers = () => {
+    generateTestWorkersMutation.mutate();
+  };
 
   const checkInMutation = useMutation({
     mutationFn: async (workerId: string) => {
@@ -137,11 +167,11 @@ export default function ContractorManagement() {
             Contractors
           </Button>
           <Button
-            onClick={() => {/* Generate test contractors */}}
+            onClick={handleGenerateTestWorkers}
             variant="outline"
             className="text-orange-600 border-orange-600 hover:bg-orange-50"
           >
-            Generate 30 Test Contractors
+            Generate Test Workers
           </Button>
         </div>
       </div>
