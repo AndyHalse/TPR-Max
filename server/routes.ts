@@ -12,7 +12,8 @@ import {
   insertContractorWorkerSchema,
   insertComplianceDocumentSchema,
   inductionSettings,
-  insertInductionSettingsSchema
+  insertInductionSettingsSchema,
+  inductionQuestions
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -1205,8 +1206,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Induction system endpoints (public - no auth required)
-  app.get('/api/induction/:token', async (req, res) => {
+  // Induction system endpoints (public - no auth required)  
+  app.get('/api/induction/token/:token', async (req, res) => {
     try {
       const { token } = req.params;
       
