@@ -340,7 +340,7 @@ export class MemStorage implements IStorage {
       biometricDevices: [],
       readerSettings: "{}",
       // AI and Video Generation defaults
-      openaiModel: "gpt-5",
+      openaiModel: "gpt-4o",
       openaiTemperature: "0.7",
       openaiMaxTokens: "4000",
       videoQualityPreference: "high",
