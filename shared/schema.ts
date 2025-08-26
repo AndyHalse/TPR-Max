@@ -457,6 +457,7 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({
   updatedAt: true,
 });
 
+
 // Types
 export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
@@ -474,6 +475,12 @@ export type DocumentType = typeof documentTypes.$inferSelect;
 export type InsertDocumentType = z.infer<typeof insertDocumentTypeSchema>;
 export type WorkerCompetency = typeof workerCompetencies.$inferSelect;
 export type InsertWorkerCompetency = z.infer<typeof insertWorkerCompetencySchema>;
+export type InductionToken = typeof inductionTokens.$inferSelect;
+export type InsertInductionToken = z.infer<typeof insertInductionTokenSchema>;
+export type InductionQuestion = typeof inductionQuestions.$inferSelect;
+export type InsertInductionQuestion = z.infer<typeof insertInductionQuestionSchema>;
+export type InductionAnswer = typeof inductionAnswers.$inferSelect;
+export type InsertInductionAnswer = z.infer<typeof insertInductionAnswerSchema>;
 
 // Red and Yellow Card System
 export const cardOffences = pgTable("card_offences", {
@@ -562,6 +569,54 @@ export const co2Records = pgTable("co2_records", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Site Induction Video System
+export const inductionTokens = pgTable("induction_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  token: text("token").notNull().unique(),
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, expired
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  videoWatched: boolean("video_watched").default(false),
+  videoWatchedAt: timestamp("video_watched_at"),
+  quizAttempts: integer("quiz_attempts").default(0),
+  quizCompleted: boolean("quiz_completed").default(false),
+  quizCompletedAt: timestamp("quiz_completed_at"),
+  quizScore: integer("quiz_score").default(0),
+  passThreshold: integer("pass_threshold").default(80), // UK H&S requirement: 80% pass rate
+  expiresAt: timestamp("expires_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const inductionQuestions = pgTable("induction_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  questionText: text("question_text").notNull(),
+  questionType: text("question_type").notNull().default("multiple_choice"), // multiple_choice, true_false
+  correctAnswer: text("correct_answer").notNull(),
+  optionA: text("option_a"),
+  optionB: text("option_b"),
+  optionC: text("option_c"),
+  optionD: text("option_d"),
+  explanation: text("explanation"),
+  category: text("category").notNull(), // general_safety, ppe, emergency_procedures, hazard_identification, working_at_height, etc.
+  isActive: boolean("is_active").default(true).notNull(),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const inductionAnswers = pgTable("induction_answers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenId: varchar("token_id").notNull().references(() => inductionTokens.id),
+  questionId: varchar("question_id").notNull().references(() => inductionQuestions.id),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  selectedAnswer: text("selected_answer").notNull(),
+  isCorrect: boolean("is_correct").notNull(),
+  answeredAt: timestamp("answered_at").defaultNow().notNull(),
+});
+
 // Local Labour Reporting
 export const localLabourRecords = pgTable("local_labour_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -631,6 +686,21 @@ export const insertLocalLabourRecordSchema = createInsertSchema(localLabourRecor
 export const insertEnhancedCompanyDetailsSchema = createInsertSchema(enhancedCompanyDetails).omit({
   id: true,
   updatedAt: true,
+});
+
+export const insertInductionTokenSchema = createInsertSchema(inductionTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInductionQuestionSchema = createInsertSchema(inductionQuestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInductionAnswerSchema = createInsertSchema(inductionAnswers).omit({
+  id: true,
+  answeredAt: true,
 });
 
 // Types for new tables

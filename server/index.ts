@@ -102,6 +102,15 @@ app.use((req, res, next) => {
     console.log('🛣️ Registering routes...');
     const server = await registerRoutes(app);
 
+    // Seed induction questions on startup
+    try {
+      console.log('🌱 Seeding induction questions...');
+      const { seedInductionQuestions } = await import("./seedInductionQuestions");
+      await seedInductionQuestions();
+    } catch (error) {
+      console.error("Failed to seed induction questions:", error);
+    }
+
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     console.error('🔥 Express error handler caught:', {
       error: err.message,
@@ -144,7 +153,7 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
-      console.log('✅ VisiGate Pro server started successfully!');
+      console.log('✅ ViliGate Pro server started successfully!');
       log(`serving on port ${port}`);
     });
   } catch (error) {

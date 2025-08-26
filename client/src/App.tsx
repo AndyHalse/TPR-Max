@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import NotFound from "@/pages/not-found";
+import SiteInduction from "@/pages/SiteInduction";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import StaffManagement from "@/pages/StaffManagement";
@@ -30,6 +31,11 @@ function Router() {
   // Special case: Fire Marshal emergency access with token
   if (window.location.pathname === '/fire-marshal' && emergencyToken) {
     return <FireMarshalMuster token={emergencyToken} />;
+  }
+  
+  // Public induction system - no authentication required
+  if (window.location.pathname.startsWith('/induction/')) {
+    return <SiteInduction />;
   }
   
   // Robust authentication with fallback for browser restrictions

@@ -22,7 +22,8 @@ import {
   Trash2,
   History,
   UserPlus,
-  CalendarPlus
+  CalendarPlus,
+  Mail
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -209,6 +210,27 @@ export default function ContractorManagement() {
       toast({
         title: "Error",
         description: "Failed to check out contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendInductionMutation = useMutation({
+    mutationFn: async (contractorId: string) => {
+      const response = await apiRequest("POST", `/api/contractors/${contractorId}/send-induction`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Induction Email Sent ✅",
+        description: "The induction link has been emailed to the contractor. They must complete it before site access.",
+        duration: 5000,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Send Induction",
+        description: error.message || "Unable to send induction email. Please try again.",
         variant: "destructive",
       });
     },
@@ -471,6 +493,18 @@ export default function ContractorManagement() {
                             Check In
                           </>
                         )}
+                      </Button>
+                      
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-orange-600 hover:bg-orange-50"
+                        onClick={() => sendInductionMutation.mutate(contractor.id)}
+                        disabled={sendInductionMutation.isPending}
+                        title="Send Site Induction Email"
+                        data-testid={`button-send-induction-${contractor.id}`}
+                      >
+                        <Mail className="h-3 w-3" />
                       </Button>
                       
                       <Button 

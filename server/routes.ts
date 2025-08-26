@@ -26,6 +26,7 @@ import { EmailService } from "./emailService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
+import { inductionService } from "./inductionService";
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
 import cron from "node-cron";
 
@@ -1197,6 +1198,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error searching for public object:", error);
       return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Induction system endpoints (public - no auth required)
+  app.get('/api/induction/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const tokenData = await inductionService.getTokenByValue(token);
+      
+      if (!tokenData) {
+        return res.status(404).json({ error: 'Invalid or expired induction token' });
+      }
+
+      if (new Date() > new Date(tokenData.expiresAt)) {
+        return res.status(410).json({ error: 'This induction link has expired' });
+      }
+
+      const worker = await storage.getContractor(tokenData.workerId);
+      
+      if (!worker) {
+        return res.status(404).json({ error: 'Worker not found' });
+      }
+
+      res.json({
+        token: tokenData,
+        worker: {
+          firstName: worker.firstName,
+          lastName: worker.lastName,
+          email: worker.email,
+          companyName: worker.companyName
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error getting induction token:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get('/api/induction/questions', async (req, res) => {
+    try {
+      const questions = await inductionService.getInductionQuestions();
+      res.json({ questions });
+    } catch (error) {
+      console.error('Error getting induction questions:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post('/api/induction/:tokenId/video-watched', async (req, res) => {
+    try {
+      const { tokenId } = req.params;
+      
+      await inductionService.markVideoWatched(tokenId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking video watched:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post('/api/induction/:tokenId/submit-quiz', async (req, res) => {
+    try {
+      const { tokenId } = req.params;
+      const { answers } = req.body;
+      
+      if (!answers || !Array.isArray(answers)) {
+        return res.status(400).json({ error: 'Invalid answers format' });
+      }
+
+      const results = await inductionService.submitQuizAnswers(tokenId, answers);
+      
+      res.json({ results });
+    } catch (error) {
+      console.error('Error submitting quiz:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Send induction email endpoint (authenticated)
+  app.post('/api/contractors/:id/send-induction', requireAuth, async (req, res) => {
+    try {
+      const contractorId = req.params.id;
+      const contractor = await storage.getContractor(contractorId);
+      
+      if (!contractor) {
+        return res.status(404).json({ error: 'Contractor not found' });
+      }
+
+      const success = await inductionService.sendInductionEmail(contractor);
+      
+      if (success) {
+        res.json({ message: 'Induction email sent successfully' });
+      } else {
+        res.status(500).json({ error: 'Failed to send induction email' });
+      }
+    } catch (error) {
+      console.error('Error sending induction email:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -2407,6 +2509,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching worker card issues:", error);
       res.status(500).json({ error: "Failed to fetch card issues" });
+    }
+  });
+
+  // ============= INDUCTION SYSTEM ROUTES =============
+  
+  // Send induction email to worker
+  app.post("/api/contractors/workers/:workerId/send-induction", async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const success = await inductionService.sendInductionEmail(workerId);
+      
+      if (success) {
+        res.json({ success: true, message: "Induction email sent successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to send induction email" });
+      }
+    } catch (error) {
+      console.error("Error sending induction email:", error);
+      res.status(500).json({ error: "Failed to send induction email" });
+    }
+  });
+
+  // Send induction email to all workers from a company
+  app.post("/api/contractors/:companyId/send-induction-all", async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const workers = await storage.getContractorWorkers(companyId);
+      
+      const results = await Promise.all(
+        workers.map(async (worker) => {
+          if (worker.email && !worker.inductionCompleted) {
+            return await inductionService.sendInductionEmail(worker.id);
+          }
+          return false;
+        })
+      );
+
+      const successCount = results.filter(Boolean).length;
+      const totalWorkers = workers.filter(w => w.email && !w.inductionCompleted).length;
+
+      res.json({ 
+        success: true, 
+        message: `Sent induction emails to ${successCount}/${totalWorkers} eligible workers`,
+        sent: successCount,
+        total: totalWorkers
+      });
+    } catch (error) {
+      console.error("Error sending bulk induction emails:", error);
+      res.status(500).json({ error: "Failed to send induction emails" });
     }
   });
 
