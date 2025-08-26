@@ -3619,11 +3619,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get induction settings for this role to determine video format and model
-      const inductionSettings = await storage.getInductionSettings();
-      const roleSetting = inductionSettings.find(s => s.roleType === roleType);
+      let videoFormat = 'hybrid_enhanced'; // Default to enhanced mode
+      let modelType = 'gpt-5'; // Default to GPT-5
       
-      const videoFormat = roleSetting?.videoFormat || 'interactive_slides';
-      const modelType = roleSetting?.modelType || 'gpt-5';
+      try {
+        const inductionSettings = await storage.getInductionSettings();
+        const roleSetting = inductionSettings.find(s => s.roleType === roleType);
+        videoFormat = roleSetting?.videoFormat || 'hybrid_enhanced';
+        modelType = roleSetting?.modelType || 'gpt-5';
+      } catch (error) {
+        console.log('Using default video settings - storage method not available yet');
+      }
       
       console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
 
