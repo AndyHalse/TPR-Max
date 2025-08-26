@@ -205,6 +205,9 @@ export class VideoGenerationService {
     // Generate the script and scenes
     const { script, scenes, totalDuration } = await this.generateInductionScript(roleType);
     
+    // Log for debugging
+    console.log(`Generated ${scenes.length} scenes for ${roleType} induction`);
+    
     // Generate images for scenes (optional - can be skipped for faster generation)
     // const sceneImages = await this.generateSceneImages(scenes);
     
@@ -338,7 +341,10 @@ export class VideoGenerationService {
         let isPlaying = true;
         let sceneTimer = null;
         const scenes = ${JSON.stringify(scenes)};
-        const totalScenes = scenes.length;
+        const totalScenes = ${scenes.length};
+        
+        // Update total scenes display immediately
+        document.getElementById('total-scenes').textContent = totalScenes;
         
         function showScene(index) {
             document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
