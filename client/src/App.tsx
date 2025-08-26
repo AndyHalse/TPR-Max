@@ -19,6 +19,7 @@ import AIDemo from "@/pages/AIDemo";
 import Contractors from "@/pages/Contractors";
 import ContractorDetails from "@/pages/ContractorDetails";
 import ContractorKiosk from "@/pages/ContractorKiosk";
+import ContractorManagement from "@/pages/ContractorManagement";
 import FireMarshalMuster from "@/pages/FireMarshalMuster";
 import Login from "@/pages/Login";
 
@@ -85,7 +86,8 @@ function Router() {
             <Route path="/" component={Dashboard} />
             <Route path="/staff" component={StaffManagement} />
             <Route path="/visitors" component={Visitors} />
-            <Route path="/contractors" component={Contractors} />
+            <Route path="/contractors" component={ContractorManagement} />
+            <Route path="/contractors/legacy" component={Contractors} />
             <Route path="/contractors/:id" component={ContractorDetails} />
             <Route path="/contractor" component={ContractorKiosk} />
             <Route path="/checkin" component={VisitorCheckIn} />

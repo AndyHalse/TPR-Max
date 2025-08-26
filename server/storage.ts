@@ -133,6 +133,7 @@ export interface IStorage {
   deleteContractorCompany(id: string): Promise<boolean>;
   
   // Contractor Worker methods
+  getAllContractorWorkers(): Promise<ContractorWorker[]>;
   getWorkersByCompanyId(companyId: string): Promise<ContractorWorker[]>;
   getContractorWorkerById(id: string): Promise<ContractorWorker | undefined>;
   createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker>;

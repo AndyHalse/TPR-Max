@@ -1197,6 +1197,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Contractor Worker methods
+  async getAllContractorWorkers(): Promise<ContractorWorker[]> {
+    return await db.select().from(contractorWorkers).orderBy(desc(contractorWorkers.updatedAt));
+  }
+
   async getWorkersByCompanyId(companyId: string): Promise<ContractorWorker[]> {
     return await db.select().from(contractorWorkers).where(eq(contractorWorkers.companyId, companyId));
   }

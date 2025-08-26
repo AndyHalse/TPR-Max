@@ -2531,6 +2531,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contractor Worker endpoints
+  app.get("/api/contractors/workers/all", async (req, res) => {
+    try {
+      const workers = await storage.getAllContractorWorkers();
+      res.json(workers);
+    } catch (error) {
+      console.error("Error fetching all workers:", error);
+      res.status(500).json({ error: "Failed to fetch all workers" });
+    }
+  });
+
   app.get("/api/contractors/:companyId/workers", async (req, res) => {
     try {
       const { companyId } = req.params;
