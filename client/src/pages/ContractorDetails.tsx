@@ -873,7 +873,7 @@ export default function ContractorDetails() {
                 
                 <div className="grid md:grid-cols-2 gap-4">
                   {/* Enhanced Certifications */}
-                  {viewingWorker.certifications && viewingWorker.certifications.length > 0 ? (
+                  {viewingWorker.certifications && Array.isArray(viewingWorker.certifications) && viewingWorker.certifications.length > 0 ? (
                     viewingWorker.certifications.map((cert: any, index: number) => (
                       <div key={index} className="border rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">

@@ -29,7 +29,7 @@ export class EmailService {
         }
       };
 
-      this.transporter = nodemailer.createTransporter(smtpConfig);
+      this.transporter = nodemailer.createTransport(smtpConfig);
     } else {
       this.transporter = null;
     }
@@ -75,7 +75,7 @@ export class EmailService {
       const mailOptions = {
         from: this.getFromAddress(),
         to: recipients.join(', '),
-        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail || undefined,
         subject,
         html,
         attachments: []

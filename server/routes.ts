@@ -2327,11 +2327,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get company settings for email
           const companySettings = await storage.getCompanySettings();
           
-          if (contractor && contractor.contactEmail && offence && companySettings) {
+          if (contractor && contractor.email && offence && companySettings) {
             const emailService = new EmailService(companySettings);
             
             await emailService.sendCardIssueNotification(
-              contractor.contactEmail,
+              contractor.email,
               `${worker.firstName} ${worker.lastName}`,
               req.body.cardType,
               offence.name,
@@ -2340,7 +2340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               req.body.cardType === 'red' ? worker.redCardBanUntil : undefined
             );
             
-            console.log(`Card issue email sent to ${contractor.contactEmail} for ${worker.firstName} ${worker.lastName}`);
+            console.log(`Card issue email sent to ${contractor.email} for ${worker.firstName} ${worker.lastName}`);
           }
         }
       } catch (emailError) {
