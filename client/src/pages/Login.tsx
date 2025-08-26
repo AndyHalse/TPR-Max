@@ -19,20 +19,29 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
+      console.log("🚀 Making login API request with:", data);
       const response = await apiRequest("POST", "/api/auth/login", data);
-      return response.json();
+      const result = await response.json();
+      console.log("📥 Login API response:", result);
+      return result;
     },
     onSuccess: (data) => {
+      console.log("✅ Login mutation successful:", data);
       if (data.success) {
+        console.log("🎉 Login successful, redirecting...");
         toast({
           title: "Login Successful",
           description: `Welcome back, ${data.user.username}!`,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
         setLocation("/");
+      } else {
+        console.log("❌ Login response indicates failure");
+        setError("Login failed");
       }
     },
     onError: (error: Error) => {
+      console.log("💥 Login mutation error:", error);
       setError(error.message);
       toast({
         title: "Login Failed",
@@ -46,11 +55,15 @@ export default function Login() {
     e.preventDefault();
     setError("");
     
+    console.log("🔍 Login form submitted with:", credentials);
+    
     if (!credentials.username || !credentials.password) {
+      console.log("❌ Missing credentials");
       setError("Please enter both username and password");
       return;
     }
     
+    console.log("✅ Starting login mutation...");
     loginMutation.mutate(credentials);
   };
 
