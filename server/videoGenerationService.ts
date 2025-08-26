@@ -589,6 +589,9 @@ export class VideoGenerationService {
   async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
     console.log('🎨 Generating enhanced presentation with AI images...');
     
+    // Get company name for branding
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    
     // Generate AI images for each scene (enabled for hybrid enhanced mode)
     let sceneImages: string[] = [];
     try {
