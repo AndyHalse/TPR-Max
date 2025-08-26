@@ -825,15 +825,35 @@ export default function ContractorDetails() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Right to Work</span>
-                      <Badge variant={viewingWorker.rightToWork ? "default" : "destructive"}>
-                        {viewingWorker.rightToWork ? 'Valid' : 'Invalid'}
+                      <Badge variant={
+                        viewingWorker.currentCardStatus === 'red' && 
+                        viewingWorker.redCardBanUntil && 
+                        new Date(viewingWorker.redCardBanUntil) > new Date()
+                          ? "destructive" 
+                          : viewingWorker.rightToWork ? "default" : "destructive"
+                      }>
+                        {viewingWorker.currentCardStatus === 'red' && 
+                         viewingWorker.redCardBanUntil && 
+                         new Date(viewingWorker.redCardBanUntil) > new Date()
+                          ? 'Invalid (Banned)' 
+                          : viewingWorker.rightToWork ? 'Valid' : 'Invalid'}
                       </Badge>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Active Status</span>
-                      <Badge variant={viewingWorker.isActive ? "default" : "secondary"}>
-                        {viewingWorker.isActive ? 'Active' : 'Inactive'}
+                      <Badge variant={
+                        viewingWorker.currentCardStatus === 'red' && 
+                        viewingWorker.redCardBanUntil && 
+                        new Date(viewingWorker.redCardBanUntil) > new Date()
+                          ? "destructive" 
+                          : viewingWorker.isActive ? "default" : "secondary"
+                      }>
+                        {viewingWorker.currentCardStatus === 'red' && 
+                         viewingWorker.redCardBanUntil && 
+                         new Date(viewingWorker.redCardBanUntil) > new Date()
+                          ? 'Banned' 
+                          : viewingWorker.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </div>
                     

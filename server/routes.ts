@@ -2312,6 +2312,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/card-issues", requireAuth, async (req, res) => {
     try {
       const issue = await storage.createCardIssue(req.body);
+      
+      // Send email notification to contractor
+      try {
+        // Get worker details
+        const worker = await storage.getWorkerById(req.body.workerId);
+        if (worker) {
+          // Get contractor company details
+          const contractor = await storage.getContractorCompanyById(worker.companyId);
+          
+          // Get offence details
+          const offence = await storage.getCardOffenceById(req.body.offenceId);
+          
+          // Get company settings for email
+          const companySettings = await storage.getCompanySettings();
+          
+          if (contractor && contractor.contactEmail && offence && companySettings) {
+            const emailService = new EmailService(companySettings);
+            
+            await emailService.sendCardIssueNotification(
+              contractor.contactEmail,
+              `${worker.firstName} ${worker.lastName}`,
+              req.body.cardType,
+              offence.name,
+              req.body.description,
+              companySettings,
+              req.body.cardType === 'red' ? worker.redCardBanUntil : undefined
+            );
+            
+            console.log(`Card issue email sent to ${contractor.contactEmail} for ${worker.firstName} ${worker.lastName}`);
+          }
+        }
+      } catch (emailError) {
+        console.error("Failed to send card issue email:", emailError);
+        // Don't fail the card issue if email fails
+      }
+      
       res.status(201).json(issue);
     } catch (error) {
       console.error("Error creating card issue:", error);

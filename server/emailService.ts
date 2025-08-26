@@ -473,6 +473,49 @@ export class EmailService {
     `;
   }
 
+  async sendCardIssueNotification(
+    contractorEmail: string,
+    workerName: string,
+    cardType: 'red' | 'yellow',
+    offenceName: string,
+    description: string,
+    companySettings: CompanySettings,
+    banUntilDate?: string
+  ): Promise<boolean> {
+    try {
+      if (!this.transporter) {
+        console.error('Email service not configured');
+        return false;
+      }
+
+      const subject = `${companySettings.companyName} - ${cardType.toUpperCase()} CARD ISSUED - ${workerName}`;
+      
+      const html = this.generateCardIssueHTML(
+        workerName,
+        cardType,
+        offenceName,
+        description,
+        companySettings,
+        banUntilDate
+      );
+
+      const mailOptions = {
+        from: this.getFromAddress(),
+        to: contractorEmail,
+        replyTo: this.settings?.smtpReplyTo || this.settings?.smtpFromEmail,
+        subject,
+        html,
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Card issue notification email sent:', info.messageId);
+      return true;
+    } catch (error) {
+      console.error('Failed to send card issue notification email:', error);
+      return false;
+    }
+  }
+
   async sendUserInvitation(
     email: string,
     role: string,
@@ -505,6 +548,177 @@ export class EmailService {
       console.error('Failed to send user invitation email:', error);
       return false;
     }
+  }
+
+  private generateCardIssueHTML(
+    workerName: string,
+    cardType: 'red' | 'yellow',
+    offenceName: string,
+    description: string,
+    companySettings: CompanySettings,
+    banUntilDate?: string
+  ): string {
+    const isRedCard = cardType === 'red';
+    const cardColor = isRedCard ? '#dc2626' : '#eab308';
+    const cardBgColor = isRedCard ? '#fef2f2' : '#fefce8';
+    const urgencyLabel = isRedCard ? 'URGENT - IMMEDIATE ACTION REQUIRED' : 'WARNING - CORRECTIVE ACTION REQUIRED';
+    
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${companySettings.companyName} - ${cardType.toUpperCase()} Card Notification</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 700px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: ${cardColor}; color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; text-transform: uppercase; }
+        .header p { margin: 10px 0 0 0; opacity: 0.9; font-weight: bold; }
+        .urgency-banner { background: ${cardBgColor}; border-left: 6px solid ${cardColor}; padding: 20px; margin: 0; }
+        .urgency-text { color: ${cardColor}; font-weight: bold; font-size: 16px; margin: 0; }
+        .content { padding: 40px; }
+        .card-details { background: ${cardBgColor}; border: 2px solid ${cardColor}; border-radius: 8px; padding: 25px; margin: 25px 0; }
+        .card-title { color: ${cardColor}; font-size: 20px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
+        .detail-row { margin: 10px 0; }
+        .detail-label { font-weight: bold; color: #374151; }
+        .detail-value { color: #6b7280; }
+        .consequences-section { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 25px; margin: 25px 0; }
+        .consequences-title { color: #dc2626; font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+        .consequences-list { margin: 15px 0; padding-left: 20px; }
+        .consequences-list li { margin: 8px 0; color: #374151; }
+        .action-required { background: #fff3cd; border: 1px solid #ffd93d; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .action-title { color: #b45309; font-weight: bold; margin-bottom: 10px; }
+        .footer { background: #f8fafc; padding: 25px; text-align: center; color: #64748b; font-size: 14px; border-top: 1px solid #e2e8f0; }
+        .important-note { background: #e0e7ff; border: 1px solid #a5b4fc; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .contact-info { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>${cardType} Card Issued</h1>
+          <p>Safety Violation Notice</p>
+        </div>
+
+        <div class="urgency-banner">
+          <p class="urgency-text">⚠️ ${urgencyLabel}</p>
+        </div>
+        
+        <div class="content">
+          <h2>Safety Card Notification</h2>
+          <p>This notification is to inform you that a <strong>${cardType.toUpperCase()} CARD</strong> has been issued to one of your workers in accordance with Siemens Energy's contractor safety management system.</p>
+          
+          <div class="card-details">
+            <div class="card-title">🛡️ ${cardType} Card Details</div>
+            <div class="detail-row">
+              <span class="detail-label">Worker Name:</span>
+              <span class="detail-value">${workerName}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Violation Type:</span>
+              <span class="detail-value">${offenceName}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Description:</span>
+              <span class="detail-value">${description}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Date Issued:</span>
+              <span class="detail-value">${new Date().toLocaleDateString('en-GB', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</span>
+            </div>
+            ${banUntilDate ? `
+            <div class="detail-row">
+              <span class="detail-label">Ban Duration:</span>
+              <span class="detail-value" style="color: #dc2626; font-weight: bold;">Until ${new Date(banUntilDate).toLocaleDateString('en-GB', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}</span>
+            </div>
+            ` : ''}
+          </div>
+
+          <div class="consequences-section">
+            <div class="consequences-title">📋 ${isRedCard ? 'RED CARD' : 'YELLOW CARD'} - What This Means</div>
+            
+            ${isRedCard ? `
+            <p><strong>RED CARD = IMMEDIATE 3-YEAR SITE BAN</strong></p>
+            <ul class="consequences-list">
+              <li><strong>Immediate Action:</strong> The worker must leave site immediately and is banned from returning</li>
+              <li><strong>Ban Duration:</strong> 3 years from date of issue (until ${banUntilDate ? new Date(banUntilDate).toLocaleDateString('en-GB') : 'specified date'})</li>
+              <li><strong>No Access:</strong> Worker cannot be booked or scheduled for any work on site during ban period</li>
+              <li><strong>Serious Violation:</strong> Red cards are issued for major safety breaches that pose significant risk</li>
+              <li><strong>Review Process:</strong> Manual review required after ban period for potential reinstatement</li>
+            </ul>
+            ` : `
+            <p><strong>YELLOW CARD = FORMAL WARNING</strong></p>
+            <ul class="consequences-list">
+              <li><strong>Formal Warning:</strong> Worker receives official warning for safety violation</li>
+              <li><strong>Continued Access:</strong> Worker may continue working but must address violation immediately</li>
+              <li><strong>Progressive System:</strong> 3 yellow cards automatically result in a red card and 3-year ban</li>
+              <li><strong>Improvement Required:</strong> Worker must demonstrate corrective action and improved safety behavior</li>
+              <li><strong>Monitoring:</strong> Enhanced supervision and monitoring will be applied</li>
+            </ul>
+            `}
+          </div>
+
+          <div class="action-required">
+            <div class="action-title">🚨 IMMEDIATE ACTION REQUIRED</div>
+            <p><strong>As the contractor, you must:</strong></p>
+            <ul>
+              ${isRedCard ? `
+              <li>Remove the worker from site immediately</li>
+              <li>Do not schedule this worker for any site work during the ban period</li>
+              <li>Conduct internal investigation and disciplinary action</li>
+              <li>Review and strengthen your safety procedures</li>
+              <li>Provide additional safety training to remaining workers</li>
+              ` : `
+              <li>Discuss this violation with the worker immediately</li>
+              <li>Conduct additional safety training with the worker</li>
+              <li>Implement corrective measures to prevent recurrence</li>
+              <li>Provide enhanced supervision for this worker</li>
+              <li>Review and strengthen safety procedures if needed</li>
+              `}
+            </ul>
+          </div>
+
+          <div class="important-note">
+            <p><strong>📞 Contact Required:</strong> Please contact ${companySettings.companyName} safety management within 24 hours to discuss this incident and your corrective action plan.</p>
+          </div>
+
+          <div class="contact-info">
+            <h3>UK Health & Safety Regulations</h3>
+            <p>This action is taken in accordance with:</p>
+            <ul>
+              <li>Health and Safety at Work etc. Act 1974</li>
+              <li>Management of Health and Safety at Work Regulations 1999</li>
+              <li>Construction (Design and Management) Regulations 2015</li>
+              <li>Siemens Energy contractor safety management procedures</li>
+            </ul>
+            <p><strong>Legal Requirement:</strong> Contractors must ensure all workers comply with health and safety requirements and take immediate action when violations occur.</p>
+          </div>
+
+          <p><strong>This is a serious matter that requires your immediate attention and action.</strong></p>
+        </div>
+        
+        <div class="footer">
+          <p><strong>Generated by VisiGate Pro Contractor Safety Management System</strong></p>
+          <p>This is an automated safety notification. For urgent matters, contact site safety management immediately.</p>
+          <p>© ${new Date().getFullYear()} ${companySettings.companyName} - All rights reserved</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
   }
 
   private generateInvitationHTML(
