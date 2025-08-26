@@ -2321,7 +2321,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...contractor,
           workersCount: workers.length,
           documentsStatus,
-          complianceScore: safetyRating
+          complianceScore: safetyRating,
+          lastUpdated: new Date().toISOString() // Force cache refresh
         };
       }));
       
@@ -2446,9 +2447,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate dynamic safety rating using AI
       let safetyRating = contractor.complianceScore || "A+";
+      let safetyScore = 100;
+      let safetyReasoning = "No analysis available";
+      
       try {
         const ratingResult = await aiService.calculateSafetyRating(workers);
         safetyRating = ratingResult.rating;
+        safetyScore = ratingResult.score;
+        safetyReasoning = ratingResult.reasoning;
         
         // Update contractor with new safety rating
         await storage.updateContractorCompany(id, {
@@ -2460,7 +2466,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error calculating dynamic safety rating:", ratingError);
       }
       
-      res.json({ ...contractor, workers, documents, complianceScore: safetyRating });
+      res.json({ 
+        ...contractor, 
+        workers, 
+        documents, 
+        complianceScore: safetyRating,
+        safetyScore,
+        safetyReasoning,
+        lastUpdated: new Date().toISOString() // Force cache refresh
+      });
     } catch (error) {
       console.error("Error fetching contractor:", error);
       res.status(500).json({ error: "Failed to fetch contractor" });

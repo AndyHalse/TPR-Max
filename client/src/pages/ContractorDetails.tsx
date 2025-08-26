@@ -24,6 +24,16 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
 
+// Helper function to get safety rating colors
+const getSafetyRatingColor = (rating: string) => {
+  if (rating.startsWith('A')) return 'text-green-600';
+  if (rating.startsWith('B')) return 'text-yellow-600';
+  if (rating.startsWith('C')) return 'text-orange-600';
+  if (rating.startsWith('D')) return 'text-red-600';
+  if (rating === 'F') return 'text-red-800';
+  return 'text-blue-600';
+};
+
 export default function ContractorDetails() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
@@ -35,6 +45,8 @@ export default function ContractorDetails() {
   // Fetch contractor details
   const { data: contractor, isLoading } = useQuery({
     queryKey: [`/api/contractors/${id}`],
+    staleTime: 0, // Always fetch fresh data for dynamic ratings
+    cacheTime: 0, // Don't cache since ratings are dynamic
   });
 
   // Fetch card offences for card issue form
@@ -497,8 +509,8 @@ export default function ContractorDetails() {
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600" data-testid="text-safety-rating">
-              A+
+            <div className={`text-2xl font-bold ${getSafetyRatingColor(contractor?.complianceScore || 'A+')}`} data-testid="text-safety-rating">
+              {contractor?.complianceScore || 'A+'}
             </div>
           </CardContent>
         </Card>
