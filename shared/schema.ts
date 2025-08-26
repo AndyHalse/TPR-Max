@@ -491,6 +491,8 @@ export type InductionQuestion = typeof inductionQuestions.$inferSelect;
 export type InsertInductionQuestion = z.infer<typeof insertInductionQuestionSchema>;
 export type InductionAnswer = typeof inductionAnswers.$inferSelect;
 export type InsertInductionAnswer = z.infer<typeof insertInductionAnswerSchema>;
+export type InductionSettings = typeof inductionSettings.$inferSelect;
+export type InsertInductionSettings = z.infer<typeof insertInductionSettingsSchema>;
 
 // Red and Yellow Card System
 export const cardOffences = pgTable("card_offences", {
@@ -612,9 +614,24 @@ export const inductionQuestions = pgTable("induction_questions", {
   optionD: text("option_d"),
   explanation: text("explanation"),
   category: text("category").notNull(), // general_safety, ppe, emergency_procedures, hazard_identification, working_at_height, etc.
+  roleType: text("role_type").notNull().default("contractor"), // visitor, staff, contractor
   isActive: boolean("is_active").default(true).notNull(),
   orderIndex: integer("order_index").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Induction Settings table for managing videos and configurations per role
+export const inductionSettings = pgTable("induction_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roleType: text("role_type").notNull(), // visitor, staff, contractor
+  videoTitle: text("video_title").notNull(),
+  videoUrl: text("video_url").notNull(),
+  videoDescription: text("video_description"),
+  videoDurationMinutes: integer("video_duration_minutes").default(15),
+  passPercentage: integer("pass_percentage").default(80), // Minimum percentage to pass
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const inductionAnswers = pgTable("induction_answers", {
@@ -706,6 +723,12 @@ export const insertInductionTokenSchema = createInsertSchema(inductionTokens).om
 export const insertInductionQuestionSchema = createInsertSchema(inductionQuestions).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertInductionSettingsSchema = createInsertSchema(inductionSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertInductionAnswerSchema = createInsertSchema(inductionAnswers).omit({

@@ -107,8 +107,16 @@ app.use((req, res, next) => {
       console.log('🌱 Seeding induction questions...');
       const { seedInductionQuestions } = await import("./seedInductionQuestions");
       await seedInductionQuestions();
+      
+      // Seed induction settings for videos
+      const { seedInductionSettings } = await import("./seedInductionSettings");
+      await seedInductionSettings();
+      
+      // Seed role-specific questions
+      const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
+      await seedRoleSpecificQuestions();
     } catch (error) {
-      console.error("Failed to seed induction questions:", error);
+      console.error("Failed to seed induction data:", error);
     }
 
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {

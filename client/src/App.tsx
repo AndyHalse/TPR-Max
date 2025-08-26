@@ -22,6 +22,7 @@ import ContractorDetails from "@/pages/ContractorDetails";
 import ContractorKiosk from "@/pages/ContractorKiosk";
 import ContractorManagement from "@/pages/ContractorManagement";
 import FireMarshalMuster from "@/pages/FireMarshalMuster";
+import InductionSettings from "@/pages/InductionSettings";
 import Login from "@/pages/Login";
 
 function Router() {
@@ -101,6 +102,7 @@ function Router() {
             <Route path="/reports" component={Reports} />
             <Route path="/time-attendance" component={TimeAttendance} />
             <Route path="/settings" component={Settings} />
+            <Route path="/induction-settings" component={InductionSettings} />
             <Route path="/ai-demo" component={AIDemo} />
             <Route component={NotFound} />
           </Switch>

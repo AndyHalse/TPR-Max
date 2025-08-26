@@ -10,7 +10,9 @@ import {
   insertUserInvitationSchema,
   insertContractorCompanySchema,
   insertContractorWorkerSchema,
-  insertComplianceDocumentSchema
+  insertComplianceDocumentSchema,
+  inductionSettings,
+  insertInductionSettingsSchema
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -27,6 +29,8 @@ import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
 import { inductionService } from "./inductionService";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
 import cron from "node-cron";
 
@@ -3522,6 +3526,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize overnight check-out notifications
   setupOvernightNotifications();
+
+  // Induction Settings Management API Routes
+  app.get('/api/induction/settings', requireAuth, async (req, res) => {
+    try {
+      const settings = await db.select().from(inductionSettings).orderBy(inductionSettings.roleType);
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error fetching induction settings:', error);
+      res.status(500).json({ error: 'Failed to fetch induction settings' });
+    }
+  });
+
+  app.get('/api/induction/settings/:roleType', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const [setting] = await db.select().from(inductionSettings)
+        .where(eq(inductionSettings.roleType, roleType));
+      
+      if (!setting) {
+        return res.status(404).json({ error: 'Settings not found for this role type' });
+      }
+      
+      res.json({ setting });
+    } catch (error) {
+      console.error('Error fetching role-specific induction settings:', error);
+      res.status(500).json({ error: 'Failed to fetch induction settings' });
+    }
+  });
+
+  app.put('/api/induction/settings/:id', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = insertInductionSettingsSchema.partial().parse(req.body);
+      
+      const [updatedSetting] = await db
+        .update(inductionSettings)
+        .set({ 
+          ...updateData,
+          updatedAt: new Date()
+        })
+        .where(eq(inductionSettings.id, id))
+        .returning();
+      
+      if (!updatedSetting) {
+        return res.status(404).json({ error: 'Induction setting not found' });
+      }
+      
+      res.json({ success: true, setting: updatedSetting });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Invalid data', 
+          details: error.errors 
+        });
+      }
+      console.error('Error updating induction settings:', error);
+      res.status(500).json({ error: 'Failed to update induction settings' });
+    }
+  });
+
+  // Get role-specific questions
+  app.get('/api/induction/questions/:roleType', async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const questions = await db
+        .select()
+        .from(inductionQuestions)
+        .where(and(
+          eq(inductionQuestions.roleType, roleType),
+          eq(inductionQuestions.isActive, true)
+        ))
+        .orderBy(inductionQuestions.orderIndex);
+      
+      res.json({ questions });
+    } catch (error) {
+      console.error('Error fetching role-specific questions:', error);
+      res.status(500).json({ error: 'Failed to fetch questions' });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
