@@ -982,10 +982,20 @@ export default function Dashboard() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-red-700 dark:text-red-400">Phone Number</label>
+                      <label className="text-sm font-medium text-red-700 dark:text-red-400">
+                        {selectedVisitor.mobileNumber ? "Mobile Number" : "Phone Number"}
+                      </label>
                       <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
-                        {selectedVisitor.phoneNumber || "Not provided"}
+                        {selectedVisitor.mobileNumber || selectedVisitor.phoneNumber || "Not provided"}
                       </p>
+                      {selectedVisitor.mobileNumber && selectedVisitor.phoneNumber && (
+                        <div className="mt-2">
+                          <label className="text-xs font-medium text-red-600 dark:text-red-500">Alternative Phone</label>
+                          <p className="text-sm font-mono bg-red-100 dark:bg-red-900/30 p-1 rounded text-red-800 dark:text-red-300">
+                            {selectedVisitor.phoneNumber}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="text-sm font-medium text-red-700 dark:text-red-400">Email Address</label>
@@ -1074,11 +1084,12 @@ export default function Dashboard() {
                 <div className="flex gap-3 pt-4 border-t">
                   <Button 
                     onClick={() => {
-                      if (selectedVisitor.phoneNumber) {
-                        window.open(`tel:${selectedVisitor.phoneNumber}`, '_self');
+                      const phoneToCall = selectedVisitor.mobileNumber || selectedVisitor.phoneNumber;
+                      if (phoneToCall) {
+                        window.open(`tel:${phoneToCall}`, '_self');
                       }
                     }}
-                    disabled={!selectedVisitor.phoneNumber}
+                    disabled={!(selectedVisitor.mobileNumber || selectedVisitor.phoneNumber)}
                     className="flex-1"
                     data-testid="button-call-visitor"
                   >
@@ -1099,16 +1110,14 @@ export default function Dashboard() {
                   </Button>
                   <Button 
                     onClick={() => {
-                      const hostStaff = staff?.find(s => s.id === selectedVisitor.hostStaffId);
-                      if (hostStaff?.phoneNumber) {
-                        window.open(`tel:${hostStaff.phoneNumber}`, '_self');
-                      }
+                      // Staff phone numbers not available in current system
+                      alert('Staff phone numbers are not stored in the system. Contact them via email or through the office.');
                     }}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 opacity-50"
                     data-testid="button-call-host"
                   >
-                    📞 Call Host
+                    📞 Call Host (N/A)
                   </Button>
                 </div>
               </div>
