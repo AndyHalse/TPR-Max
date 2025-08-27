@@ -1341,7 +1341,7 @@ export class VideoGenerationService {
         .update(inductionSettings)
         .set({
           videoUrl: dataUrl,
-          videoTitle: `AI-Generated ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
+          videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Induction`,
           videoDescription: `Comprehensive AI-generated safety induction covering all essential requirements for ${roleType}s. Duration: ${Math.round(generatedContent.totalDuration / 60)} minutes.`,
           videoDurationMinutes: Math.round(generatedContent.totalDuration / 60),
           updatedAt: new Date()

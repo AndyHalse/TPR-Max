@@ -6,7 +6,7 @@ import { inductionSettings, type InsertInductionSettings } from "@shared/schema"
 const inductionSettingsData: InsertInductionSettings[] = [
   {
     roleType: "visitor",
-    videoTitle: "Visitor Site Safety Induction",
+    videoTitle: "Visitor Induction",
     videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Sample placeholder - replace with real visitor induction video
     videoDescription: "Essential safety information for site visitors including emergency procedures, visitor escort requirements, and prohibited areas.",
     videoDurationMinutes: 10,
@@ -15,7 +15,7 @@ const inductionSettingsData: InsertInductionSettings[] = [
   },
   {
     roleType: "staff",
-    videoTitle: "Staff H&S Induction & Company Policies",
+    videoTitle: "Staff Induction",
     videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Sample placeholder - replace with real staff induction video
     videoDescription: "Comprehensive health and safety training for permanent staff members including company policies, emergency procedures, and workplace hazards.",
     videoDurationMinutes: 20,
@@ -24,7 +24,7 @@ const inductionSettingsData: InsertInductionSettings[] = [
   },
   {
     roleType: "contractor",
-    videoTitle: "Contractor Safety Compliance & Site Rules",
+    videoTitle: "Contractor Induction",
     videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Sample placeholder - replace with real contractor induction video
     videoDescription: "Detailed safety requirements for contractors including PPE standards, permit requirements, risk assessments, and site-specific hazards.",
     videoDurationMinutes: 25,
