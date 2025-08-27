@@ -266,14 +266,24 @@ export class VideoGenerationService {
         const scene = selectedScenes[i];
         console.log(`🖼️ Generating image ${i + 1}/${selectedScenes.length}: ${scene.imagePrompt}`);
         
-        // Enhanced prompt with company branding and professional styling
+        // Enhanced prompt with company branding and CRITICAL spelling requirements
         const enhancedPrompt = `Professional workplace safety illustration for ${companyName}: ${scene.imagePrompt}. 
         Style: Clean, modern corporate safety design with professional photography quality. 
         Colors: Professional blue (#3b82f6) and safety orange (#f97316) corporate theme. 
         Setting: Modern office/industrial environment with ${companyName} branding. 
         Quality: High-resolution, crystal clear, informative, realistic photography style.
         Details: Include safety equipment, professional uniforms, clear signage, modern facilities.
-        Avoid: Cartoons, sketches, amateur photography, cluttered backgrounds.`;
+        
+        CRITICAL SPELLING AND TEXT REQUIREMENTS:
+        - All visible text MUST be spelled correctly with perfect accuracy
+        - Company names MUST be spelled exactly as provided: "${companyName}"
+        - Safety terms MUST be spelled perfectly: "EMERGENCY", "SAFETY", "PPE", "VISITOR", "RESTRICTED", "AUTHORIZED", "PERSONNEL", "CAUTION", "WARNING", "DANGER"
+        - Legal terms MUST be accurate: "CORPORATION", "LIMITED", "COMPLIANCE", "REGULATIONS", "CERTIFICATION"
+        - No misspellings, typos, or text errors are acceptable
+        - If unsure about spelling, use simple clear text or generic terms
+        - Focus on visual elements rather than complex text if spelling accuracy cannot be guaranteed
+        
+        Avoid: Cartoons, sketches, amateur photography, cluttered backgrounds, misspelled text, unclear signage.`;
         
         const imageResponse = await openai.images.generate({
           model: "dall-e-3",
@@ -468,7 +478,7 @@ export class VideoGenerationService {
     
     if (videoFormat === 'hybrid_enhanced') {
       console.log('🎨 Creating hybrid enhanced presentation...');
-      htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType);
+      htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages);
     } else if (videoFormat === 'full_video') {
       console.log('🎬 Creating full video with Sora API...');
       htmlContent = await this.createVideoPresentation(scenes, roleType, modelType);
@@ -988,21 +998,27 @@ export class VideoGenerationService {
   }
 
   // Generate hybrid enhanced presentation with AI images
-  async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
+  async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string, preGeneratedImages: string[] = []): Promise<string> {
     console.log('🎨 Generating enhanced presentation with AI images...');
     
     // Get company name for branding
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
     
-    // Generate AI images for each scene (enabled for hybrid enhanced mode)
-    let sceneImages: string[] = [];
-    try {
-      console.log('🖼️ Starting AI image generation for enhanced mode...');
-      sceneImages = await this.generateSceneImages(scenes);
-      console.log(`✨ Successfully generated ${sceneImages.length} AI images`);
-    } catch (error) {
-      console.error('❌ AI image generation failed:', error);
-      console.log('⚠️ Continuing with enhanced styling but no AI images');
+    // Use pre-generated AI images if available (passed from generateVideoPresentation)
+    // This prevents duplicate generation when called from hybrid enhanced mode
+    let sceneImages: string[] = preGeneratedImages;
+    
+    if (sceneImages.length === 0) {
+      try {
+        console.log('🖼️ No pre-generated images found, generating AI images for enhanced mode...');
+        sceneImages = await this.generateSceneImages(scenes);
+        console.log(`✨ Successfully generated ${sceneImages.length} AI images`);
+      } catch (error) {
+        console.error('❌ AI image generation failed:', error);
+        console.log('⚠️ Continuing with enhanced styling but no AI images');
+      }
+    } else {
+      console.log(`✅ Using ${sceneImages.length} pre-generated AI images (no duplication)`);
     }
 
     const htmlContent = `
@@ -1035,9 +1051,9 @@ export class VideoGenerationService {
         }
         .scene {
             display: none;
-            padding: 20px 20px 100px 20px;
+            padding: 15px 15px 60px 15px;
             width: 100%;
-            height: calc(100vh - 80px);
+            height: calc(100vh - 20px);
             animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             background: rgba(255,255,255,0.18);
             backdrop-filter: blur(25px);
@@ -1057,10 +1073,10 @@ export class VideoGenerationService {
         }
         .scene-image {
             width: 100%;
-            height: 40vh;
+            height: 45vh;
             background: rgba(255,255,255,0.1);
             border-radius: 15px;
-            margin: 15px auto;
+            margin: 10px auto;
             display: flex;
             align-items: center;
             justify-content: center;
