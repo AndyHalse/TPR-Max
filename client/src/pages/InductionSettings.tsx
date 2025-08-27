@@ -304,7 +304,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGener
                   <iframe 
                     src={generatedVideo.url}
                     title={`${generatedVideo.title} Preview`}
-                    className="w-full h-[70vh] min-h-[600px]"
+                    className="w-full h-[55vh] min-h-[450px] max-h-[700px]"
                     frameBorder="0"
                     allow="autoplay; fullscreen"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
@@ -552,18 +552,18 @@ export default function InductionSettings() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 space-y-4 min-h-screen">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Induction Settings</h1>
-          <p className="text-muted-foreground">
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold mb-1">Induction Settings</h1>
+          <p className="text-muted-foreground text-sm">
             Configure site induction videos and H&S questions for different roles
           </p>
         </div>
 
         {/* Role-based Settings Tabs */}
-        <Tabs defaultValue="visitor" className="space-y-6">
+        <Tabs defaultValue="visitor" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
             {roleTypes.map((role) => (
               <TabsTrigger key={role.value} value={role.value} className="flex items-center gap-2">
@@ -574,7 +574,7 @@ export default function InductionSettings() {
           </TabsList>
 
           {roleTypes.map((role) => (
-            <TabsContent key={role.value} value={role.value} className="space-y-6">
+            <TabsContent key={role.value} value={role.value} className="space-y-4">
               <RoleSettingsForm
                 roleType={role.value}
                 settings={settings[role.value] || null}
