@@ -2169,4 +2169,42 @@ export class DatabaseStorage implements IStorage {
       return created;
     }
   }
+
+  // Induction Settings Methods
+  async getInductionSettings(): Promise<InductionSettings[]> {
+    return await db.select().from(inductionSettings).orderBy(inductionSettings.roleType);
+  }
+
+  async getInductionSettingsByRole(roleType: string): Promise<InductionSettings | undefined> {
+    const [setting] = await db.select().from(inductionSettings).where(eq(inductionSettings.roleType, roleType));
+    return setting;
+  }
+
+  async updateInductionSettings(roleType: string, updates: Partial<InsertInductionSettings>): Promise<InductionSettings> {
+    const existing = await this.getInductionSettingsByRole(roleType);
+    
+    if (existing) {
+      // Update existing induction setting
+      const [updated] = await db
+        .update(inductionSettings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(inductionSettings.roleType, roleType))
+        .returning();
+      return updated;
+    } else {
+      // Create new induction setting
+      const id = randomUUID();
+      const [created] = await db
+        .insert(inductionSettings)
+        .values({
+          id,
+          roleType,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ...updates
+        } as InsertInductionSettings)
+        .returning();
+      return created;
+    }
+  }
 }
