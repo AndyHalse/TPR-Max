@@ -760,9 +760,9 @@ export class VideoGenerationService {
         }
         .scene {
             display: none;
-            padding: 15px 15px 100px 15px;
+            padding: 20px 20px 100px 20px;
             width: 100%;
-            height: calc(100vh - 100px);
+            height: calc(100vh - 80px);
             animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             background: rgba(255,255,255,0.18);
             backdrop-filter: blur(25px);
@@ -770,7 +770,7 @@ export class VideoGenerationService {
             box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.25);
             position: relative;
-            overflow-y: hidden;
+            overflow-y: auto;
             box-sizing: border-box;
         }
         .scene.active {
@@ -782,7 +782,7 @@ export class VideoGenerationService {
         }
         .scene-image {
             width: 100%;
-            height: 50vh;
+            height: 40vh;
             background: rgba(255,255,255,0.1);
             border-radius: 15px;
             margin: 15px auto;

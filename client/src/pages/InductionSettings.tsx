@@ -304,7 +304,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGener
                   <iframe 
                     src={generatedVideo.url}
                     title={`${generatedVideo.title} Preview`}
-                    className="w-full h-[55vh] min-h-[450px] max-h-[700px]"
+                    className="w-full h-[80vh] min-h-[700px]"
                     frameBorder="0"
                     allow="autoplay; fullscreen"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
