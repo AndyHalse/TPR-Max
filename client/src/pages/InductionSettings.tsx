@@ -524,9 +524,10 @@ export default function InductionSettings() {
       });
     } catch (error) {
       console.error('Error generating video:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast({
-        title: "Error",
-        description: "Failed to generate AI video. Please check your OpenAI API key.",
+        title: "Video Generation Error",
+        description: `Failed to generate AI video: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
