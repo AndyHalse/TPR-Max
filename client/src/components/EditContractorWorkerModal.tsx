@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, Save, X, User, Mail, Phone, Shield, Award, FileText, Clock } from "lucide-react";
+import { CalendarIcon, Save, X, User, Mail, Phone, Shield, Award, FileText, Clock, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -72,6 +72,7 @@ const editWorkerSchema = z.object({
   cpcsStatus: z.enum(["valid", "expired", "missing"]).default("missing"),
   
   // NVQ Qualifications
+  nvqQualificationId: z.string().optional().or(z.literal("")),
   nvqLevel: z.number().min(1).max(5).optional(),
   nvqSubject: z.string().optional().or(z.literal("")),
   nvqExpiry: z.date().optional(),
@@ -106,6 +107,46 @@ export default function EditContractorWorkerModal({
   companyName
 }: EditContractorWorkerModalProps) {
   const { toast } = useToast();
+  const [showAddQualificationDialog, setShowAddQualificationDialog] = useState(false);
+  const [newQualificationForm, setNewQualificationForm] = useState({
+    name: "",
+    level: 2,
+    industry: "",
+    description: ""
+  });
+
+  // Fetch NVQ qualifications
+  const { data: nvqQualifications = [], isLoading: loadingQualifications } = useQuery({
+    queryKey: ["/api/nvq-qualifications"],
+    refetchOnWindowFocus: false,
+  });
+
+  // Add new NVQ qualification
+  const addQualificationMutation = useMutation({
+    mutationFn: async (newQualification: { name: string; level: number; industry: string; description: string }) => {
+      return await apiRequest("/api/nvq-qualifications", {
+        method: "POST",
+        body: JSON.stringify(newQualification),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nvq-qualifications"] });
+      setShowAddQualificationDialog(false);
+      setNewQualificationForm({ name: "", level: 2, industry: "", description: "" });
+      toast({
+        title: "Success",
+        description: "New NVQ qualification added successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add qualification",
+        variant: "destructive",
+      });
+    },
+  });
   
   const form = useForm<EditWorkerForm>({
     resolver: zodResolver(editWorkerSchema),
@@ -119,6 +160,7 @@ export default function EditContractorWorkerModal({
       ipafStatus: "missing",
       cibtStatus: "missing", 
       cpcsStatus: "missing",
+      nvqQualificationId: "",
       nvqStatus: "missing",
       currentCardStatus: "clear",
       asbestosAwareness: false,
@@ -478,42 +520,46 @@ export default function EditContractorWorkerModal({
 
               {/* NVQ Qualifications */}
               <div className="p-4 border rounded-lg space-y-4">
-                <h4 className="font-medium text-gray-800">NVQ Qualifications</h4>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-800">NVQ Qualifications</h4>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddQualificationDialog(true)}
+                    className="flex items-center gap-2"
+                    data-testid="button-add-nvq-qualification"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add New
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="nvqLevel"
+                    name="nvqQualificationId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>NVQ Level</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormLabel>NVQ Qualification</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-nvqLevel">
-                              <SelectValue placeholder="Level" />
+                            <SelectTrigger data-testid="select-nvqQualification">
+                              <SelectValue placeholder="Select qualification" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="1">Level 1</SelectItem>
-                            <SelectItem value="2">Level 2</SelectItem>
-                            <SelectItem value="3">Level 3</SelectItem>
-                            <SelectItem value="4">Level 4</SelectItem>
-                            <SelectItem value="5">Level 5</SelectItem>
+                            {loadingQualifications ? (
+                              <SelectItem value="loading" disabled>Loading qualifications...</SelectItem>
+                            ) : (
+                              nvqQualifications.map((qualification: any) => (
+                                <SelectItem key={qualification.id} value={qualification.id}>
+                                  {qualification.name} (Level {qualification.level}) - {qualification.industry}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="nvqSubject"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Subject</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="e.g. Electrical" data-testid="input-nvqSubject" />
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -541,43 +587,43 @@ export default function EditContractorWorkerModal({
                       </FormItem>
                     )}
                   />
-                  
-                  <FormField
-                    control={form.control}
-                    name="nvqExpiry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Expiry Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                                data-testid="button-nvqExpiry"
-                              >
-                                {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
+                
+                <FormField
+                  control={form.control}
+                  name="nvqExpiry"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expiry Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                              data-testid="button-nvqExpiry"
+                            >
+                              {field.value ? format(field.value, "PPP") : "Pick a date"}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               {/* Training Certifications */}
@@ -854,6 +900,99 @@ export default function EditContractorWorkerModal({
           </form>
         </Form>
       </DialogContent>
+      
+      {/* Add New NVQ Qualification Dialog */}
+      <Dialog open={showAddQualificationDialog} onOpenChange={setShowAddQualificationDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New NVQ Qualification</DialogTitle>
+            <DialogDescription>
+              Add a new NVQ qualification that can be selected for contractors.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Qualification Name</label>
+              <Input
+                value={newQualificationForm.name}
+                onChange={(e) => setNewQualificationForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Electrical Installation"
+                data-testid="input-new-qualification-name"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Level</label>
+              <Select 
+                value={newQualificationForm.level.toString()} 
+                onValueChange={(value) => setNewQualificationForm(prev => ({ ...prev, level: parseInt(value) }))}
+              >
+                <SelectTrigger data-testid="select-new-qualification-level">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Level 1</SelectItem>
+                  <SelectItem value="2">Level 2</SelectItem>
+                  <SelectItem value="3">Level 3</SelectItem>
+                  <SelectItem value="4">Level 4</SelectItem>
+                  <SelectItem value="5">Level 5</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Industry</label>
+              <Input
+                value={newQualificationForm.industry}
+                onChange={(e) => setNewQualificationForm(prev => ({ ...prev, industry: e.target.value }))}
+                placeholder="e.g. Construction, Engineering"
+                data-testid="input-new-qualification-industry"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={newQualificationForm.description}
+                onChange={(e) => setNewQualificationForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of the qualification"
+                data-testid="textarea-new-qualification-description"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowAddQualificationDialog(false)}
+              disabled={addQualificationMutation.isPending}
+              data-testid="button-cancel-new-qualification"
+            >
+              Cancel
+            </Button>
+            
+            <Button
+              onClick={() => addQualificationMutation.mutate(newQualificationForm)}
+              disabled={addQualificationMutation.isPending || !newQualificationForm.name.trim()}
+              data-testid="button-save-new-qualification"
+            >
+              {addQualificationMutation.isPending ? (
+                <>
+                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Qualification
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

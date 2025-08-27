@@ -3,7 +3,7 @@ import {
   staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
   contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies,
   documentApprovals, departments, cardOffences, cardIssues, workerCertifications, ramsDocuments,
-  co2Records, localLabourRecords, enhancedCompanyDetails
+  co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications
 } from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
@@ -14,7 +14,7 @@ import type {
   Department, InsertDepartment, CardOffence, InsertCardOffence, CardIssue, InsertCardIssue,
   WorkerCertification, InsertWorkerCertification, RamsDocument, InsertRamsDocument,
   Co2Record, InsertCo2Record, LocalLabourRecord, InsertLocalLabourRecord,
-  EnhancedCompanyDetails, InsertEnhancedCompanyDetails
+  EnhancedCompanyDetails, InsertEnhancedCompanyDetails, NvqQualification, InsertNvqQualification
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, count } from "drizzle-orm";
@@ -25,6 +25,8 @@ export class DatabaseStorage implements IStorage {
   constructor() {
     // Initialize default offences data
     this.initializeDefaultOffences();
+    // Initialize default NVQ qualifications
+    this.initializeDefaultNvqQualifications();
   }
 
   private async initializeDefaultOffences() {
@@ -89,6 +91,71 @@ export class DatabaseStorage implements IStorage {
       console.log('✅ Default Red and Yellow Card offences initialized successfully');
     } catch (error) {
       console.error('Error initializing default offences:', error);
+    }
+  }
+
+  private async initializeDefaultNvqQualifications() {
+    try {
+      // Check if qualifications already exist
+      const existingQualifications = await db.select().from(nvqQualifications);
+      if (existingQualifications.length > 0) {
+        return; // Already initialized
+      }
+
+      // Common UK NVQ qualifications for contractors
+      const defaultQualifications = [
+        // Construction Industry
+        { name: "Construction and the Built Environment", level: 2, industry: "Construction", description: "General construction skills and knowledge" },
+        { name: "Construction and the Built Environment", level: 3, industry: "Construction", description: "Advanced construction skills and supervisory knowledge" },
+        { name: "Bricklaying", level: 2, industry: "Construction", description: "Bricklaying skills and techniques" },
+        { name: "Carpentry and Joinery", level: 2, industry: "Construction", description: "Carpentry and joinery skills" },
+        { name: "Carpentry and Joinery", level: 3, industry: "Construction", description: "Advanced carpentry and joinery techniques" },
+        { name: "Plumbing and Heating", level: 2, industry: "Construction", description: "Plumbing and heating installation and maintenance" },
+        { name: "Plumbing and Heating", level: 3, industry: "Construction", description: "Advanced plumbing and heating systems" },
+        { name: "Electrical Installation", level: 2, industry: "Electrical", description: "Electrical installation work" },
+        { name: "Electrical Installation", level: 3, industry: "Electrical", description: "Advanced electrical installation and testing" },
+        { name: "Painting and Decorating", level: 2, industry: "Construction", description: "Painting and decorating skills" },
+        { name: "Roofing Occupations", level: 2, industry: "Construction", description: "Roofing installation and repair" },
+        { name: "Wall and Floor Tiling", level: 2, industry: "Construction", description: "Tiling skills and techniques" },
+        
+        // Engineering and Manufacturing
+        { name: "Engineering", level: 2, industry: "Engineering", description: "General engineering skills" },
+        { name: "Engineering", level: 3, industry: "Engineering", description: "Advanced engineering and technical knowledge" },
+        { name: "Mechanical Engineering", level: 2, industry: "Engineering", description: "Mechanical engineering skills" },
+        { name: "Electrical and Electronic Engineering", level: 2, industry: "Engineering", description: "Electrical and electronic engineering" },
+        { name: "Welding", level: 2, industry: "Engineering", description: "Welding skills and techniques" },
+        { name: "Manufacturing Engineering", level: 2, industry: "Manufacturing", description: "Manufacturing processes and systems" },
+        
+        // Health and Safety
+        { name: "Occupational Health and Safety Practice", level: 3, industry: "Health & Safety", description: "Health and safety management and practice" },
+        { name: "Occupational Health and Safety Practice", level: 4, industry: "Health & Safety", description: "Advanced health and safety management" },
+        { name: "Occupational Health and Safety Practice", level: 5, industry: "Health & Safety", description: "Strategic health and safety management" },
+        
+        // Plant Operations
+        { name: "Plant Operations", level: 2, industry: "Construction", description: "Construction plant and machinery operations" },
+        { name: "Crane Operations", level: 2, industry: "Construction", description: "Crane operation and safety" },
+        
+        // Specialist Areas
+        { name: "Demolition", level: 2, industry: "Construction", description: "Demolition work and safety" },
+        { name: "Scaffolding", level: 2, industry: "Construction", description: "Scaffolding erection and dismantling" },
+        { name: "Steeplejack and Lightning Protection", level: 2, industry: "Construction", description: "Specialist height work" },
+        { name: "Highway Maintenance", level: 2, industry: "Infrastructure", description: "Road and highway maintenance" },
+      ];
+
+      // Insert default qualifications
+      for (const qualification of defaultQualifications) {
+        await db.insert(nvqQualifications).values({
+          id: randomUUID(),
+          ...qualification,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+
+      console.log(`✅ Seeded ${defaultQualifications.length} default NVQ qualifications`);
+    } catch (error) {
+      console.error("Failed to initialize NVQ qualifications:", error);
     }
   }
 
@@ -1363,6 +1430,56 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(workerCompetencies)
       .where(eq(workerCompetencies.id, id));
+    
+    return (result.rowCount || 0) > 0;
+  }
+
+  // NVQ Qualification methods
+  async getAllNvqQualifications(): Promise<NvqQualification[]> {
+    return await db.select().from(nvqQualifications).orderBy(asc(nvqQualifications.level), asc(nvqQualifications.name));
+  }
+
+  async getActiveNvqQualifications(): Promise<NvqQualification[]> {
+    return await db.select()
+      .from(nvqQualifications)
+      .where(eq(nvqQualifications.isActive, true))
+      .orderBy(asc(nvqQualifications.level), asc(nvqQualifications.name));
+  }
+
+  async getNvqQualificationById(id: string): Promise<NvqQualification | undefined> {
+    const result = await db.select()
+      .from(nvqQualifications)
+      .where(eq(nvqQualifications.id, id));
+    
+    return result[0];
+  }
+
+  async createNvqQualification(insertQualification: InsertNvqQualification): Promise<NvqQualification> {
+    const newQualification = {
+      id: randomUUID(),
+      ...insertQualification,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await db.insert(nvqQualifications).values(newQualification).returning();
+    return result[0];
+  }
+
+  async updateNvqQualification(id: string, updates: Partial<InsertNvqQualification>): Promise<NvqQualification | undefined> {
+    const result = await db
+      .update(nvqQualifications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(nvqQualifications.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteNvqQualification(id: string): Promise<boolean> {
+    const result = await db
+      .delete(nvqQualifications)
+      .where(eq(nvqQualifications.id, id));
     
     return (result.rowCount || 0) > 0;
   }

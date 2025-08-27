@@ -13,7 +13,8 @@ import {
   insertComplianceDocumentSchema,
   inductionSettings,
   insertInductionSettingsSchema,
-  inductionQuestions
+  inductionQuestions,
+  insertNvqQualificationSchema
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -2795,6 +2796,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching all workers:", error);
       res.status(500).json({ error: "Failed to fetch all workers" });
+    }
+  });
+
+  // NVQ Qualifications endpoints
+  app.get("/api/nvq-qualifications", async (req, res) => {
+    try {
+      const qualifications = await storage.getActiveNvqQualifications();
+      res.json(qualifications);
+    } catch (error) {
+      console.error("Error fetching NVQ qualifications:", error);
+      res.status(500).json({ error: "Failed to fetch NVQ qualifications" });
+    }
+  });
+
+  app.get("/api/nvq-qualifications/all", async (req, res) => {
+    try {
+      const qualifications = await storage.getAllNvqQualifications();
+      res.json(qualifications);
+    } catch (error) {
+      console.error("Error fetching all NVQ qualifications:", error);
+      res.status(500).json({ error: "Failed to fetch all NVQ qualifications" });
+    }
+  });
+
+  app.post("/api/nvq-qualifications", async (req, res) => {
+    try {
+      const qualificationData = insertNvqQualificationSchema.parse(req.body);
+      const qualification = await storage.createNvqQualification(qualificationData);
+      res.json(qualification);
+    } catch (error) {
+      console.error("Error creating NVQ qualification:", error);
+      res.status(500).json({ error: "Failed to create NVQ qualification" });
+    }
+  });
+
+  app.put("/api/nvq-qualifications/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = insertNvqQualificationSchema.partial().parse(req.body);
+      const qualification = await storage.updateNvqQualification(id, updates);
+      
+      if (!qualification) {
+        return res.status(404).json({ error: "NVQ qualification not found" });
+      }
+      
+      res.json(qualification);
+    } catch (error) {
+      console.error("Error updating NVQ qualification:", error);
+      res.status(500).json({ error: "Failed to update NVQ qualification" });
+    }
+  });
+
+  app.delete("/api/nvq-qualifications/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteNvqQualification(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "NVQ qualification not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting NVQ qualification:", error);
+      res.status(500).json({ error: "Failed to delete NVQ qualification" });
     }
   });
 

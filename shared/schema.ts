@@ -359,6 +359,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   cpcsCard: varchar("cpcs_card"),
   cpcsExpiry: timestamp("cpcs_expiry"),
   cpcsStatus: text("cpcs_status").default("missing").notNull(), // valid, expired, missing
+  nvqQualificationId: varchar("nvq_qualification_id").references(() => nvqQualifications.id),
   nvqLevel: integer("nvq_level"), // NVQ Level 1-5
   nvqSubject: varchar("nvq_subject"),
   nvqExpiry: timestamp("nvq_expiry"),
@@ -432,11 +433,29 @@ export const workerCompetencies = pgTable("worker_competencies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// NVQ Qualifications table for managing contractor qualifications
+export const nvqQualifications = pgTable("nvq_qualifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  level: integer("level").notNull(), // 1-5
+  description: text("description"),
+  industry: text("industry"), // Construction, Engineering, Manufacturing, etc.
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Create insert schemas
 export const insertContractorCompanySchema = createInsertSchema(contractorCompanies).omit({
   id: true,
   lastUpdated: true,
   createdAt: true,
+});
+
+export const insertNvqQualificationSchema = createInsertSchema(nvqQualifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertContractorWorkerSchema = createInsertSchema(contractorWorkers).omit({
@@ -493,6 +512,8 @@ export type DocumentType = typeof documentTypes.$inferSelect;
 export type InsertDocumentType = z.infer<typeof insertDocumentTypeSchema>;
 export type WorkerCompetency = typeof workerCompetencies.$inferSelect;
 export type InsertWorkerCompetency = z.infer<typeof insertWorkerCompetencySchema>;
+export type NvqQualification = typeof nvqQualifications.$inferSelect;
+export type InsertNvqQualification = z.infer<typeof insertNvqQualificationSchema>;
 export type InductionToken = typeof inductionTokens.$inferSelect;
 export type InsertInductionToken = z.infer<typeof insertInductionTokenSchema>;
 export type InductionQuestion = typeof inductionQuestions.$inferSelect;

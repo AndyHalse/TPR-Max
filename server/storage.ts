@@ -23,7 +23,9 @@ import type {
   Department,
   InsertDepartment,
   InductionSettings,
-  InsertInductionSettings
+  InsertInductionSettings,
+  NvqQualification,
+  InsertNvqQualification
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -162,6 +164,14 @@ export interface IStorage {
   createWorkerCompetency(insertCompetency: InsertWorkerCompetency): Promise<WorkerCompetency>;
   updateWorkerCompetency(id: string, updates: Partial<InsertWorkerCompetency>): Promise<WorkerCompetency | undefined>;
   deleteWorkerCompetency(id: string): Promise<boolean>;
+
+  // NVQ Qualification methods
+  getAllNvqQualifications(): Promise<NvqQualification[]>;
+  getActiveNvqQualifications(): Promise<NvqQualification[]>;
+  getNvqQualificationById(id: string): Promise<NvqQualification | undefined>;
+  createNvqQualification(insertQualification: InsertNvqQualification): Promise<NvqQualification>;
+  updateNvqQualification(id: string, updates: Partial<InsertNvqQualification>): Promise<NvqQualification | undefined>;
+  deleteNvqQualification(id: string): Promise<boolean>;
 
   // Emergency muster methods
   getMusterList(): Promise<Array<{
