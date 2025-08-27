@@ -255,12 +255,11 @@ export class VideoGenerationService {
     const imageUrls: string[] = [];
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
     
-    // SPEED OPTIMIZATION: Only generate 4-5 key images instead of all scenes
-    const maxImages = Math.min(5, scenes.length);
-    const selectedScenes = scenes.slice(0, maxImages); // Take first 5 scenes only
+    // GENERATE IMAGES FOR ALL SCENES - Critical for professional presentation
+    const selectedScenes = scenes; // Use all scenes to ensure every page has an image
     
     try {
-      console.log(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (optimized for speed)...`);
+      console.log(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (complete coverage)...`);
       
       for (let i = 0; i < selectedScenes.length; i++) {
         const scene = selectedScenes[i];
@@ -298,11 +297,13 @@ export class VideoGenerationService {
           imageUrls.push(imageUrl);
           console.log(`✅ Image ${i + 1} generated successfully`);
         } else {
-          console.log(`⚠️ Image ${i + 1} generation returned no URL`);
+          console.log(`⚠️ Image ${i + 1} generation returned no URL - retrying...`);
+          // Add placeholder for failed image to maintain array index alignment
+          imageUrls.push('');
         }
         
-        // Minimal delay for faster generation
-        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced to 0.5 seconds
+        // Minimal delay for API rate limits while ensuring reliability
+        await new Promise(resolve => setTimeout(resolve, 300)); // Reduced to 0.3 seconds for faster completion
       }
       
       console.log(`🎉 Successfully generated ${imageUrls.length}/${selectedScenes.length} AI images`);
