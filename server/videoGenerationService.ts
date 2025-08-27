@@ -466,6 +466,9 @@ export class VideoGenerationService {
     if (videoFormat === 'hybrid_enhanced') {
       console.log('🎨 Creating hybrid enhanced presentation...');
       htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType);
+    } else if (videoFormat === 'full_video') {
+      console.log('🎬 Creating full video with Sora API...');
+      htmlContent = await this.createVideoPresentation(scenes, roleType, modelType);
     } else {
       console.log('📄 Creating standard slide presentation...');
       htmlContent = `
@@ -704,13 +707,223 @@ export class VideoGenerationService {
     };
   }
 
-  // Generate full video presentation using Sora
+  // Generate full video presentation using Sora API
   async createVideoPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
-    console.log('🎬 Full Video Generation with Sora is currently in development');
-    console.log('⚠️ Falling back to enhanced HTML presentation for now');
+    console.log('🎬 Attempting Full Video Generation with Sora API...');
     
-    // For now, return enhanced HTML until Sora API is available
+    try {
+      // Try to generate actual video with Sora
+      const videoUrl = await this.generateSoraVideo(scenes, roleType);
+      
+      if (videoUrl) {
+        console.log('✅ Sora video generated successfully!');
+        return this.createVideoPlayerHTML(videoUrl, roleType, scenes);
+      }
+    } catch (error: any) {
+      console.log('⚠️ Sora API not available or failed:', error?.message || 'Unknown error');
+    }
+    
+    console.log('🔄 Falling back to enhanced HTML presentation');
     return await this.createEnhancedHTMLPresentation(scenes, roleType, modelType);
+  }
+
+  // Generate actual video using Sora API
+  async generateSoraVideo(scenes: any[], roleType: string): Promise<string | null> {
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    
+    try {
+      // Create comprehensive video prompt from all scenes
+      const videoPrompt = this.createVideoPromptFromScenes(scenes, roleType, companyName);
+      
+      console.log('🎥 Generating video with Sora API...');
+      console.log('📝 Video prompt:', videoPrompt.substring(0, 200) + '...');
+      
+      // Check if Sora API is available in OpenAI client
+      // Note: Sora API structure may vary - checking for availability
+      if (typeof (openai as any).videos?.generate === 'function') {
+        const videoResponse = await (openai as any).videos.generate({
+          model: "sora-1.0",
+          prompt: videoPrompt,
+          duration: 20, // Maximum 20 seconds for safety induction
+          resolution: "1080p",
+          aspect_ratio: "16:9"
+        });
+        
+        return videoResponse.data?.[0]?.url || null;
+      } else {
+        throw new Error('Sora API not available in current OpenAI client version');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Sora video generation failed:', error);
+      
+      // Check specific error types
+      if (error.code === 'model_not_found') {
+        throw new Error('Sora model not available - API access not enabled');
+      } else if (error.code === 'invalid_request_error') {
+        throw new Error('Invalid video generation request');
+      } else {
+        throw new Error('Sora API currently unavailable');
+      }
+    }
+  }
+
+  // Create comprehensive video prompt from scenes
+  createVideoPromptFromScenes(scenes: any[], roleType: string, companyName: string): string {
+    const sceneDescriptions = scenes.map((scene, index) => {
+      return `Scene ${index + 1}: ${scene.title} - ${scene.content.substring(0, 150)}...`;
+    }).join(' ');
+
+    return `Professional workplace safety induction video for ${companyName}. 
+    Create a cinematic, educational video showing: ${sceneDescriptions}
+    
+    Style: Professional corporate training video with smooth transitions, clear narration, and modern workplace settings.
+    Content: UK Health & Safety compliance training for ${roleType}s including PPE requirements, emergency procedures, and safety protocols.
+    Visual Elements: Modern office/industrial environments, safety equipment, professional staff, clear signage, emergency exits.
+    Quality: High-definition, professional corporate video style with clear audio narration.
+    Duration: Comprehensive coverage of all safety topics in sequence.
+    
+    CRITICAL SPELLING REQUIREMENT: All text, signs, labels, safety warnings, company names, and written words MUST be spelled correctly with perfect spelling. Pay special attention to safety terms like "EMERGENCY", "PPE", "SAFETY", "VISITOR", "RESTRICTED".`;
+  }
+
+  // Create video player HTML for actual Sora-generated video
+  createVideoPlayerHTML(videoUrl: string, roleType: string, scenes: any[]): string {
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction Video</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .video-container {
+            width: 90%;
+            max-width: 1200px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(25px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .video-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .video-header h1 {
+            font-size: 2.5rem;
+            margin: 0 0 10px 0;
+            background: linear-gradient(45deg, #ffd700, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .video-header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+        .video-player {
+            width: 100%;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .video-player video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .video-info {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            border-left: 4px solid #ffd700;
+        }
+        .video-info h3 {
+            margin: 0 0 10px 0;
+            color: #ffd700;
+        }
+        .video-info p {
+            margin: 0;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        .controls-info {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+        .ai-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <div class="video-header">
+            <h1>${companyName} Safety Induction</h1>
+            <p>AI-Generated Professional Training Video for ${roleType.charAt(0).toUpperCase() + roleType.slice(1)}s</p>
+        </div>
+        
+        <div class="video-player">
+            <video controls autoplay muted>
+                <source src="${videoUrl}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        
+        <div class="video-info">
+            <h3>🎯 Training Covers:</h3>
+            <p>${scenes.map(scene => scene.title).join(' • ')}</p>
+        </div>
+        
+        <div class="controls-info">
+            <p>💡 Use video controls to play, pause, seek, and adjust volume</p>
+        </div>
+    </div>
+    
+    <div class="ai-badge">
+        🤖 Generated with Sora AI
+    </div>
+    
+    <script>
+        // Ensure video plays automatically when ready
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.querySelector('video');
+            if (video) {
+                video.play().catch(e => {
+                    console.log('Autoplay prevented, user interaction required');
+                });
+            }
+        });
+    </script>
+</body>
+</html>`;
   }
 
   // Generate hybrid enhanced presentation with AI images
