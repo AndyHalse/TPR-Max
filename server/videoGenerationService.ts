@@ -250,17 +250,21 @@ export class VideoGenerationService {
     }
   }
 
-  // Generate scene images for the induction
+  // Generate scene images for the induction (optimized for speed)
   async generateSceneImages(scenes: Array<{imagePrompt: string}>): Promise<string[]> {
     const imageUrls: string[] = [];
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
     
+    // SPEED OPTIMIZATION: Only generate 4-5 key images instead of all scenes
+    const maxImages = Math.min(5, scenes.length);
+    const selectedScenes = scenes.slice(0, maxImages); // Take first 5 scenes only
+    
     try {
-      console.log(`🎨 Generating ${scenes.length} AI images for ${companyName} induction...`);
+      console.log(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (optimized for speed)...`);
       
-      for (let i = 0; i < scenes.length; i++) {
-        const scene = scenes[i];
-        console.log(`🖼️ Generating image ${i + 1}/${scenes.length}: ${scene.imagePrompt}`);
+      for (let i = 0; i < selectedScenes.length; i++) {
+        const scene = selectedScenes[i];
+        console.log(`🖼️ Generating image ${i + 1}/${selectedScenes.length}: ${scene.imagePrompt}`);
         
         // Enhanced prompt with company branding and professional styling
         const enhancedPrompt = `Professional workplace safety illustration for ${companyName}: ${scene.imagePrompt}. 
@@ -269,7 +273,6 @@ export class VideoGenerationService {
         Setting: Modern office/industrial environment with ${companyName} branding. 
         Quality: High-resolution, crystal clear, informative, realistic photography style.
         Details: Include safety equipment, professional uniforms, clear signage, modern facilities.
-        CRITICAL SPELLING REQUIREMENT: All text, signs, labels, safety warnings, company names, and written words MUST be spelled correctly with perfect spelling. Pay special attention to safety terms like "EMERGENCY", "PPE", "SAFETY", "VISITOR", "RESTRICTED". Ensure all visible text is crystal clear and error-free.
         Avoid: Cartoons, sketches, amateur photography, cluttered backgrounds.`;
         
         const imageResponse = await openai.images.generate({
@@ -277,7 +280,7 @@ export class VideoGenerationService {
           prompt: enhancedPrompt,
           n: 1,
           size: "1024x1024",
-          quality: "hd", // Upgraded to HD quality
+          quality: "standard", // Use standard quality for speed
         });
         
         const imageUrl = imageResponse.data?.[0]?.url;
@@ -288,11 +291,11 @@ export class VideoGenerationService {
           console.log(`⚠️ Image ${i + 1} generation returned no URL`);
         }
         
-        // Add delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Increased delay for stability
+        // Minimal delay for faster generation
+        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced to 0.5 seconds
       }
       
-      console.log(`🎉 Successfully generated ${imageUrls.length}/${scenes.length} AI images`);
+      console.log(`🎉 Successfully generated ${imageUrls.length}/${selectedScenes.length} AI images`);
     } catch (error: any) {
       console.error('❌ Error generating scene images:', error);
       if (error?.response) {
