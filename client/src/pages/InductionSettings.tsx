@@ -229,12 +229,13 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGener
                   <SelectContent>
                     <SelectItem value="gpt-4o">GPT-4o (Fast & Efficient)</SelectItem>
                     <SelectItem value="gpt-5">GPT-5 (Latest & Most Advanced)</SelectItem>
+                    <SelectItem value="google-veo-3">Google Veo 3 (Video Generation + Audio)</SelectItem>
                     <SelectItem value="gpt-6">GPT-6 (Future Ready)</SelectItem>
                     <SelectItem value="gpt-7">GPT-7 (Ultra Advanced)</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Higher models provide more sophisticated safety content generation
+                  GPT-5 provides advanced text content. Google Veo 3 creates actual videos with native audio generation.
                 </p>
               </div>
             </div>

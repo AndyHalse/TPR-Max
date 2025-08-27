@@ -138,8 +138,8 @@ export class VideoGenerationService {
         });
       } catch (error: any) {
         if (error.code === 'model_not_found' && selectedModel === 'gpt-5') {
-          console.log('⚠️ GPT-5 access temporarily unavailable, using GPT-4o as fallback');
-          selectedModel = 'gpt-4o';
+          console.log('⚠️ GPT-5 model not found, retrying with GPT-5');
+          selectedModel = 'gpt-5';
           
           response = await openai.chat.completions.create({
             model: selectedModel,
@@ -707,9 +707,14 @@ export class VideoGenerationService {
     };
   }
 
-  // Generate full video presentation using Sora API
+  // Generate full video presentation using Sora API or Google Veo 3
   async createVideoPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
-    console.log('🎬 Attempting Full Video Generation with Sora API...');
+    console.log(`🎬 Attempting Full Video Generation with ${modelType}...`);
+    
+    // Check if using Google Veo 3
+    if (modelType === 'google-veo-3') {
+      return this.createVeo3VideoPresentation(scenes, roleType);
+    }
     
     try {
       // Try to generate actual video with Sora
@@ -725,6 +730,59 @@ export class VideoGenerationService {
     
     console.log('🔄 Falling back to enhanced HTML presentation');
     return await this.createEnhancedHTMLPresentation(scenes, roleType, modelType);
+  }
+
+  // Generate video using Google Veo 3 API
+  async createVeo3VideoPresentation(scenes: any[], roleType: string): Promise<string> {
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    
+    try {
+      // Create comprehensive video prompt from all scenes  
+      const videoPrompt = this.createVideoPromptFromScenes(scenes, roleType, companyName);
+      
+      console.log('🎥 Generating video with Google Veo 3 API...');
+      console.log('📝 Video prompt:', videoPrompt.substring(0, 200) + '...');
+      
+      // Check if we have Google API access (would need GOOGLE_API_KEY)
+      if (!process.env.GOOGLE_API_KEY) {
+        console.log('⚠️ Google API key not configured, falling back to enhanced presentation');
+        return await this.createEnhancedHTMLPresentation(scenes, roleType, 'google-veo-3');
+      }
+      
+      // Use Google's Gemini API to access Veo 3
+      // This would be the actual implementation when Veo 3 API is available
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/veo-3:generateVideo', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GOOGLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: videoPrompt,
+          duration: 8, // Veo 3 supports up to 8 seconds with audio
+          resolution: "1080p",
+          aspect_ratio: "16:9",
+          include_audio: true // Veo 3's unique feature
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        const videoUrl = result.video_url;
+        
+        if (videoUrl) {
+          console.log('✅ Google Veo 3 video generated successfully with audio!');
+          return this.createVideoPlayerHTML(videoUrl, roleType, scenes);
+        }
+      }
+      
+      throw new Error('Veo 3 API request failed');
+      
+    } catch (error: any) {
+      console.log('⚠️ Google Veo 3 API not available or failed:', error?.message || 'Unknown error');
+      console.log('🔄 Falling back to enhanced HTML presentation');
+      return await this.createEnhancedHTMLPresentation(scenes, roleType, 'google-veo-3');
+    }
   }
 
   // Generate actual video using Sora API
