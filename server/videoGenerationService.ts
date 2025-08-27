@@ -269,6 +269,7 @@ export class VideoGenerationService {
         Setting: Modern office/industrial environment with ${companyName} branding. 
         Quality: High-resolution, crystal clear, informative, realistic photography style.
         Details: Include safety equipment, professional uniforms, clear signage, modern facilities.
+        CRITICAL SPELLING REQUIREMENT: All text, signs, labels, safety warnings, company names, and written words MUST be spelled correctly with perfect spelling. Pay special attention to safety terms like "EMERGENCY", "PPE", "SAFETY", "VISITOR", "RESTRICTED". Ensure all visible text is crystal clear and error-free.
         Avoid: Cartoons, sketches, amateur photography, cluttered backgrounds.`;
         
         const imageResponse = await openai.images.generate({
