@@ -860,17 +860,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Here you would integrate with actual printer hardware
       // For now, we'll simulate the printing process
-      console.log(`Printing ID card for staff: ${staff.firstName} ${staff.lastName}`);
-      console.log(`Design elements:`, design);
+      console.log(`🖨️ Printing ID card for staff: ${staff.firstName} ${staff.lastName}`);
+      console.log(`📐 Design elements:`, design);
       
-      // Simulate print job
+      // Simulate print job with thermal printer optimization
       const printJob = {
         id: `print-${Date.now()}`,
         staffId: id,
         status: "completed",
         timestamp: new Date().toISOString(),
-        printer: "B-FV4 Desktop Printer", // This would come from settings
-        design: design
+        printer: "TEC B-EV4 Direct Thermal Printer", // Updated to match thermal printer specs
+        design: design,
+        cardSize: "CR80", // Industry standard
+        printQuality: "300 DPI", // Thermal printer quality
+        printTime: "15 seconds" // Estimated print time
       };
 
       res.json({
@@ -881,6 +884,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error printing ID card:", error);
       res.status(500).json({ error: "Failed to print ID card" });
+    }
+  });
+
+  // ID Card template management endpoints
+  app.get("/api/idcard/templates", async (req, res) => {
+    try {
+      // Return predefined industry templates
+      const templates = [
+        {
+          id: 'staff-standard',
+          name: 'Staff Standard',
+          description: 'General employee with QR code',
+          cardSize: 'CR80',
+          background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+          elements: [
+            { id: 'photo', type: 'photo', x: 20, y: 20, width: 80, height: 80, visible: true },
+            { id: 'name', type: 'name', x: 120, y: 30, width: 180, height: 24, fontSize: 16, fontWeight: 'bold', color: '#1e293b', visible: true },
+            { id: 'department', type: 'department', x: 120, y: 55, width: 180, height: 18, fontSize: 12, color: '#64748b', visible: true },
+            { id: 'employeeId', type: 'employeeId', x: 120, y: 75, width: 180, height: 16, fontSize: 11, color: '#64748b', visible: true },
+            { id: 'company', type: 'company', x: 20, y: 115, width: 200, height: 16, fontSize: 10, color: '#64748b', visible: true },
+            { id: 'accessLevel', type: 'accessLevel', x: 20, y: 135, width: 200, height: 16, fontSize: 10, fontWeight: 'bold', color: '#3b82f6', visible: true },
+            { id: 'qrcode', type: 'qrcode', x: 260, y: 110, width: 50, height: 50, visible: true }
+          ]
+        }
+      ];
+
+      res.json({
+        success: true,
+        templates
+      });
+    } catch (error) {
+      console.error("Error fetching ID card templates:", error);
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  // Test print endpoint with staff selection
+  app.post("/api/idcard/test-print", async (req, res) => {
+    try {
+      const { staffId, design } = req.body;
+      
+      if (!staffId) {
+        return res.status(400).json({ error: "Staff ID is required for test printing" });
+      }
+      
+      const staff = await storage.getStaffById(staffId);
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+
+      console.log(`🧪 Test printing ID card for: ${staff.firstName} ${staff.lastName}`);
+      console.log(`🎨 Using design with ${design?.length || 0} elements`);
+      
+      // Simulate test print job
+      const testPrintJob = {
+        id: `test-print-${Date.now()}`,
+        type: "test_print",
+        staffId,
+        staffName: `${staff.firstName} ${staff.lastName}`,
+        department: staff.department,
+        status: "completed",
+        timestamp: new Date().toISOString(),
+        printer: "TEC B-EV4 Direct Thermal Printer",
+        design: design,
+        cardSize: "CR80",
+        printQuality: "300 DPI",
+        testMode: true
+      };
+
+      res.json({
+        success: true,
+        message: `Test ID card printed for ${staff.firstName} ${staff.lastName}`,
+        printJob: testPrintJob
+      });
+    } catch (error) {
+      console.error("Error test printing ID card:", error);
+      res.status(500).json({ error: "Failed to test print ID card" });
     }
   });
 
