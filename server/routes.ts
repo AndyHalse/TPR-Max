@@ -1335,6 +1335,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Windows printer detection endpoint
+  app.get("/api/printers/detect", async (req, res) => {
+    try {
+      // Import child_process at function level to avoid issues on non-Windows systems
+      const { execSync } = require("child_process");
+      
+      // Detect platform
+      const platform = process.platform;
+      
+      if (platform === 'win32') {
+        try {
+          // Use PowerShell to get installed printers on Windows
+          const command = 'powershell.exe -Command "Get-Printer | Select-Object Name, DriverName, PortName, PrinterStatus | ConvertTo-Json"';
+          const stdout = execSync(command, { encoding: 'utf8', timeout: 10000 });
+          
+          let printers = [];
+          try {
+            const parsedOutput = JSON.parse(stdout);
+            // Handle both single printer (object) and multiple printers (array)
+            printers = Array.isArray(parsedOutput) ? parsedOutput : [parsedOutput];
+          } catch (parseError) {
+            console.warn('Failed to parse printer JSON, falling back to basic list');
+            printers = [];
+          }
+          
+          // Format printer list for frontend
+          const formattedPrinters = printers.map(printer => ({
+            name: printer.Name || 'Unknown Printer',
+            driver: printer.DriverName || 'Unknown Driver',
+            port: printer.PortName || 'Unknown Port',
+            status: printer.PrinterStatus || 'Unknown',
+            isOnline: printer.PrinterStatus === 'Normal' || printer.PrinterStatus === 'Idle'
+          }));
+          
+          // Add common default printers
+          const defaultPrinters = [
+            { name: 'PDF Printer (Testing)', driver: 'PDF Printer', port: 'FILE:', status: 'Ready', isOnline: true },
+            { name: 'Microsoft Print to PDF', driver: 'PDF Driver', port: 'PORTPROMPT:', status: 'Ready', isOnline: true }
+          ];
+          
+          res.json({
+            success: true,
+            platform: 'Windows',
+            printers: [...defaultPrinters, ...formattedPrinters],
+            detectedAt: new Date().toISOString()
+          });
+          
+        } catch (windowsError) {
+          console.error('Windows printer detection failed:', windowsError);
+          // Fallback to basic printer list if Windows detection fails
+          res.json({
+            success: true,
+            platform: 'Windows (Fallback)',
+            printers: [
+              { name: 'PDF Printer (Testing)', driver: 'PDF Printer', port: 'FILE:', status: 'Ready', isOnline: true },
+              { name: 'Microsoft Print to PDF', driver: 'PDF Driver', port: 'PORTPROMPT:', status: 'Ready', isOnline: true },
+              { name: 'Default Printer', driver: 'System Default', port: 'AUTO:', status: 'Unknown', isOnline: true }
+            ],
+            detectedAt: new Date().toISOString(),
+            error: 'Detection failed, showing fallback printers'
+          });
+        }
+      } else {
+        // Non-Windows systems - provide generic options
+        res.json({
+          success: true,
+          platform: platform,
+          printers: [
+            { name: 'PDF Printer (Testing)', driver: 'PDF Printer', port: 'FILE:', status: 'Ready', isOnline: true },
+            { name: 'System Default Printer', driver: 'System Default', port: 'AUTO:', status: 'Unknown', isOnline: true },
+            { name: 'B-FV4 Thermal Printer', driver: 'Generic Thermal', port: 'USB:', status: 'Unknown', isOnline: false },
+            { name: 'Network Printer', driver: 'Generic Network', port: 'TCP/IP:', status: 'Unknown', isOnline: false }
+          ],
+          detectedAt: new Date().toISOString(),
+          message: `Printer auto-detection not available on ${platform}. Showing common options.`
+        });
+      }
+      
+    } catch (error) {
+      console.error('Printer detection error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to detect printers',
+        details: error.message
+      });
+    }
+  });
+
   // Object Storage endpoints for logo upload
   app.post("/api/objects/upload", async (req, res) => {
     try {

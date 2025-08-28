@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 
 export default function Settings() {
@@ -61,6 +61,23 @@ export default function Settings() {
 
   const { data: departments } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
+  });
+
+  const { data: detectedPrinters, refetch: refetchPrinters, isFetching: isDetectingPrinters } = useQuery<{
+    success: boolean;
+    platform: string;
+    printers: Array<{
+      name: string;
+      driver: string;
+      port: string;
+      status: string;
+      isOnline: boolean;
+    }>;
+    detectedAt: string;
+    message?: string;
+  }>({
+    queryKey: ["/api/printers/detect"],
+    staleTime: 60000, // Consider data fresh for 1 minute
   });
 
   const updateSettingsMutation = useMutation({
@@ -1217,30 +1234,77 @@ export default function Settings() {
         <TabsContent value="printer" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
-              <div className="flex items-center mb-6">
-                <Printer className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Printer Configuration</h3>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                  <Printer className="mr-3 text-blue-600" size={24} />
+                  <h3 className="text-lg font-semibold text-slate-800">Printer Configuration</h3>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchPrinters()}
+                  disabled={isDetectingPrinters}
+                  className="flex items-center gap-2"
+                  data-testid="button-refresh-printers"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isDetectingPrinters ? 'animate-spin' : ''}`} />
+                  {isDetectingPrinters ? 'Detecting...' : 'Refresh Printers'}
+                </Button>
               </div>
+
+              {detectedPrinters && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Monitor className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                      Platform: {detectedPrinters.platform} • {detectedPrinters.printers.length} printers found
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-600">
+                    Last detected: {new Date(detectedPrinters.detectedAt).toLocaleString()}
+                  </p>
+                  {detectedPrinters.message && (
+                    <p className="text-xs text-blue-600 mt-1">{detectedPrinters.message}</p>
+                  )}
+                </div>
+              )}
               
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="selectedPrinter" className="text-sm font-medium text-slate-700">
-                    Default Printer
+                    Default Printer (Visitor Passes)
                   </Label>
                   <Select
-                    value={currentSettings?.selectedPrinter || "PDF Printer"}
+                    value={currentSettings?.selectedPrinter || "PDF Printer (Testing)"}
                     onValueChange={(value) => handleInputChange("selectedPrinter", value)}
                   >
                     <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-printer">
                       <SelectValue placeholder="Select a printer" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PDF Printer">PDF Printer (Testing)</SelectItem>
-                      <SelectItem value="B-FV4 Thermal Printer">B-FV4 Thermal Printer</SelectItem>
-                      <SelectItem value="Brother QL-800">Brother QL-800</SelectItem>
-                      <SelectItem value="DYMO LabelWriter 450">DYMO LabelWriter 450</SelectItem>
-                      <SelectItem value="Zebra ZD410">Zebra ZD410</SelectItem>
-                      <SelectItem value="System Default">System Default Printer</SelectItem>
+                      {detectedPrinters?.printers.map((printer) => (
+                        <SelectItem key={printer.name} value={printer.name}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{printer.name}</span>
+                            <div className="flex items-center gap-2 ml-2">
+                              {printer.isOnline ? (
+                                <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                                  {printer.status}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
+                                  Offline
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </SelectItem>
+                      )) || (
+                        <>
+                          <SelectItem value="PDF Printer (Testing)">PDF Printer (Testing)</SelectItem>
+                          <SelectItem value="System Default Printer">System Default Printer</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-slate-500">Select your installed printer or use PDF for testing</p>
@@ -1248,26 +1312,88 @@ export default function Settings() {
 
                 <div className="space-y-2">
                   <Label htmlFor="idCardPrinter" className="text-sm font-medium text-slate-700">
-                    ID Card Staff Printer
+                    ID Card Staff Printer (CR80 Format)
                   </Label>
                   <Select
-                    value={currentSettings?.idCardPrinter || "PDF Printer"}
+                    value={currentSettings?.idCardPrinter || "PDF Printer (Testing)"}
                     onValueChange={(value) => handleInputChange("idCardPrinter", value)}
                   >
                     <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-id-card-printer">
                       <SelectValue placeholder="Select ID card printer" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PDF Printer">PDF Printer (Testing)</SelectItem>
-                      <SelectItem value="B-FV4 Desktop Printer">B-FV4 Desktop Printer (95mm x 66mm)</SelectItem>
-                      <SelectItem value="Brother QL-800">Brother QL-800 (ID Card Mode)</SelectItem>
-                      <SelectItem value="DYMO LabelWriter 450">DYMO LabelWriter 450 (Card Stock)</SelectItem>
-                      <SelectItem value="Zebra ZD410">Zebra ZD410 (Card Mode)</SelectItem>
-                      <SelectItem value="Evolis Primacy">Evolis Primacy (Professional ID Cards)</SelectItem>
-                      <SelectItem value="Fargo DTC1250e">Fargo DTC1250e (Plastic Cards)</SelectItem>
+                      {/* Always show specialized ID card printers first */}
+                      <SelectItem value="PDF Printer (Testing)">PDF Printer (Testing)</SelectItem>
+                      <SelectItem value="B-FV4 Desktop Printer (95mm x 66mm)">B-FV4 Desktop Printer (95mm x 66mm)</SelectItem>
+                      <SelectItem value="Evolis Primacy (Professional ID Cards)">Evolis Primacy (Professional ID Cards)</SelectItem>
+                      <SelectItem value="Fargo DTC1250e (Plastic Cards)">Fargo DTC1250e (Plastic Cards)</SelectItem>
+                      <SelectItem value="HID FARGO DTC1250e">HID FARGO DTC1250e</SelectItem>
+                      <SelectItem value="Magicard 600">Magicard 600</SelectItem>
+                      
+                      {/* Then show detected printers that might work for ID cards */}
+                      {detectedPrinters?.printers
+                        .filter(printer => 
+                          printer.name.toLowerCase().includes('card') || 
+                          printer.name.toLowerCase().includes('badge') ||
+                          printer.name.toLowerCase().includes('fargo') ||
+                          printer.name.toLowerCase().includes('evolis') ||
+                          printer.name.toLowerCase().includes('magicard') ||
+                          printer.driver.toLowerCase().includes('card')
+                        )
+                        .map((printer) => (
+                          <SelectItem key={`card-${printer.name}`} value={`${printer.name} (ID Card Mode)`}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{printer.name} (ID Card Mode)</span>
+                              <div className="flex items-center gap-2 ml-2">
+                                {printer.isOnline ? (
+                                  <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                                    {printer.status}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
+                                    Offline
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        )) || []
+                      }
+                      
+                      {/* Finally, show all other detected printers */}
+                      {detectedPrinters?.printers
+                        .filter(printer => 
+                          !printer.name.toLowerCase().includes('card') && 
+                          !printer.name.toLowerCase().includes('badge') &&
+                          !printer.name.toLowerCase().includes('fargo') &&
+                          !printer.name.toLowerCase().includes('evolis') &&
+                          !printer.name.toLowerCase().includes('magicard') &&
+                          !printer.driver.toLowerCase().includes('card') &&
+                          printer.name !== 'PDF Printer (Testing)' &&
+                          printer.name !== 'Microsoft Print to PDF'
+                        )
+                        .map((printer) => (
+                          <SelectItem key={`other-${printer.name}`} value={`${printer.name} (Generic)`}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{printer.name} (Generic)</span>
+                              <div className="flex items-center gap-2 ml-2">
+                                {printer.isOnline ? (
+                                  <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                                    {printer.status}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
+                                    Offline
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        )) || []
+                      }
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-500">Dedicated printer for staff ID cards (95mm x 66mm format)</p>
+                  <p className="text-xs text-slate-500">Dedicated printer for staff ID cards - CR80 format (85.6mm x 53.98mm)</p>
                 </div>
 
                 <div className="space-y-2">
