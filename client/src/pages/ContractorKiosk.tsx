@@ -28,7 +28,8 @@ import {
   CalendarPlus,
   Scan,
   History,
-  ArrowLeft
+  ArrowLeft,
+  Video
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -387,34 +388,47 @@ export default function ContractorKiosk() {
                         )}
                       </div>
                       
-                      <Button
-                        onClick={() => {
-                          if (worker.isCheckedIn) {
-                            checkOutMutation.mutate(worker.id);
-                          } else {
-                            checkInMutation.mutate(worker.id);
-                          }
-                        }}
-                        disabled={checkInMutation.isPending || checkOutMutation.isPending}
-                        className={`${
-                          worker.isCheckedIn
-                            ? "bg-red-600 hover:bg-red-700"
-                            : "bg-green-600 hover:bg-green-700"
-                        } text-white`}
-                        data-testid={`button-${worker.isCheckedIn ? 'checkout' : 'checkin'}-${worker.id}`}
-                      >
-                        {worker.isCheckedIn ? (
-                          <>
-                            <LogOut className="mr-2 h-4 w-4" />
-                            Check Out
-                          </>
-                        ) : (
-                          <>
-                            <LogIn className="mr-2 h-4 w-4" />
-                            Check In
-                          </>
-                        )}
-                      </Button>
+                      {/* Check-In/Out or Induction Button */}
+                      {worker.isCheckedIn ? (
+                        <Button
+                          onClick={() => checkOutMutation.mutate(worker.id)}
+                          disabled={checkOutMutation.isPending}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                          data-testid={`button-checkout-${worker.id}`}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Check Out
+                        </Button>
+                      ) : !worker.inductionCompleted ? (
+                        <div className="flex flex-col gap-2">
+                          <div className="text-center p-2 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-red-700 text-sm font-medium">Cannot Check In</p>
+                            <p className="text-red-600 text-xs">Induction not completed</p>
+                          </div>
+                          <Button
+                            onClick={() => {
+                              const previewUrl = `/induction/preview?role=contractor&workerId=${worker.id}`;
+                              window.open(previewUrl, '_blank', 'width=1200,height=800');
+                            }}
+                            variant="outline"
+                            className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                            data-testid={`button-start-induction-${worker.id}`}
+                          >
+                            <Video className="mr-2 h-4 w-4" />
+                            Start Induction
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={() => checkInMutation.mutate(worker.id)}
+                          disabled={checkInMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          data-testid={`button-checkin-${worker.id}`}
+                        >
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Check In
+                        </Button>
+                      )}
                     </div>
                   </div>
 
