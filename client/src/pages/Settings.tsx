@@ -325,19 +325,10 @@ export default function Settings() {
       return newData;
     });
 
-    // Auto-save for commonly changed settings
-    const autoSaveFields = [
-      // SMTP email configuration fields
-      'smtpHost', 'smtpPort', 'smtpSecurity', 'smtpUsername', 'smtpPassword', 'smtpFromEmail', 'smtpFromName', 'smtpReplyTo', 'smtpAuthMethod', 'smtpConnectionTimeout',
-      // Printer configuration fields
-      'selectedPrinter', 'idCardPrinter', 'printQuality', 'barcodeFormat', 'enableQrCodes', 'enable2dBarcodes',
-      // System toggles and switches
-      'notifyForgottenCheckouts', 'enableWeekendReset', 'enableHolidayReset', 'enable24x7Operations',
-      // Basic company info that might change frequently
-      'phone', 'email', 'timezone'
-    ];
-
-    if (autoSaveFields.includes(field)) {
+    // Auto-save ALL settings fields (except uploads which are handled separately)
+    const uploadFields = ['logoUrl', 'bannerUrl']; // These are handled by upload handlers
+    
+    if (!uploadFields.includes(field)) {
       // Debounce auto-save to avoid excessive API calls
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
@@ -346,8 +337,16 @@ export default function Settings() {
         console.log('Auto-saving setting:', field, '=', value);
         updateSettingsMutation.mutate({ [field]: value }, {
           onSuccess: () => {
+            // Clear the field from form data since it's been saved
+            setFormData(prev => {
+              const newData = { ...prev };
+              delete newData[field];
+              return newData;
+            });
+            
             // Show friendly messages for different field types
             let description = `${field} updated automatically`;
+            
             if (field.startsWith('smtp')) {
               description = `${field.replace('smtp', 'SMTP ')} updated automatically`;
             } else if (field.includes('Printer')) {
@@ -358,6 +357,22 @@ export default function Settings() {
               description = 'Print quality updated automatically';
             } else if (field === 'barcodeFormat') {
               description = 'Barcode format updated automatically';
+            } else if (field === 'companyName') {
+              description = 'Company name updated automatically';
+            } else if (field === 'address') {
+              description = 'Company address updated automatically';
+            } else if (field === 'phone') {
+              description = 'Phone number updated automatically';
+            } else if (field === 'email') {
+              description = 'Company email updated automatically';
+            } else if (field === 'timezone') {
+              description = 'Timezone updated automatically';
+            } else if (field.includes('Color') || field.includes('color')) {
+              description = 'Color setting updated automatically';
+            } else if (field.includes('reportRecipients')) {
+              description = 'Report recipients updated automatically';
+            } else if (field.includes('resetTime')) {
+              description = 'Reset time updated automatically';
             }
 
             toast({
@@ -519,12 +534,21 @@ export default function Settings() {
         <Button
           onClick={handleSave}
           disabled={updateSettingsMutation.isPending || Object.keys(formData).length === 0}
-          className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
+          variant="outline"
+          className="border-green-200 text-green-700 hover:bg-green-50 font-medium transition-all duration-300"
           data-testid="button-save-settings"
         >
           <Save className="mr-2" size={16} />
-          Save Changes
+          {Object.keys(formData).length === 0 ? 'All Settings Auto-Saved' : 'Save Remaining Changes'}
         </Button>
+      </div>
+
+      {/* Auto-save information banner */}
+      <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+        <p className="text-sm text-green-800 font-medium">
+          ✨ Auto-save enabled - All changes are automatically saved after 1.5 seconds
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
