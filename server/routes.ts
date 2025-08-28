@@ -1338,8 +1338,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Windows printer detection endpoint
   app.get("/api/printers/detect", async (req, res) => {
     try {
-      // Import child_process at function level to avoid issues on non-Windows systems
-      const { execSync } = require("child_process");
+      // Use dynamic import for child_process to work with ES modules
+      const { execSync } = await import("child_process");
       
       // Detect platform
       const platform = process.platform;
