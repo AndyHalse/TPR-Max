@@ -325,20 +325,45 @@ export default function Settings() {
       return newData;
     });
 
-    // Auto-save for SMTP email configuration fields
-    const smtpFields = ['smtpHost', 'smtpPort', 'smtpSecurity', 'smtpUsername', 'smtpPassword', 'smtpFromEmail', 'smtpFromName', 'smtpReplyTo', 'smtpAuthMethod', 'smtpConnectionTimeout'];
-    if (smtpFields.includes(field)) {
+    // Auto-save for commonly changed settings
+    const autoSaveFields = [
+      // SMTP email configuration fields
+      'smtpHost', 'smtpPort', 'smtpSecurity', 'smtpUsername', 'smtpPassword', 'smtpFromEmail', 'smtpFromName', 'smtpReplyTo', 'smtpAuthMethod', 'smtpConnectionTimeout',
+      // Printer configuration fields
+      'selectedPrinter', 'idCardPrinter', 'printQuality', 'barcodeFormat', 'enableQrCodes', 'enable2dBarcodes',
+      // System toggles and switches
+      'notifyForgottenCheckouts', 'enableWeekendReset', 'enableHolidayReset', 'enable24x7Operations',
+      // Basic company info that might change frequently
+      'phone', 'email', 'timezone'
+    ];
+
+    if (autoSaveFields.includes(field)) {
       // Debounce auto-save to avoid excessive API calls
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
       autoSaveTimeoutRef.current = setTimeout(() => {
-        console.log('Auto-saving SMTP setting:', field, '=', value);
+        console.log('Auto-saving setting:', field, '=', value);
         updateSettingsMutation.mutate({ [field]: value }, {
           onSuccess: () => {
+            // Show friendly messages for different field types
+            let description = `${field} updated automatically`;
+            if (field.startsWith('smtp')) {
+              description = `${field.replace('smtp', 'SMTP ')} updated automatically`;
+            } else if (field.includes('Printer')) {
+              description = `${field.includes('idCard') ? 'ID card printer' : 'Default printer'} updated automatically`;
+            } else if (field.includes('enable') || field.includes('notify')) {
+              description = `Setting updated automatically`;
+            } else if (field === 'printQuality') {
+              description = 'Print quality updated automatically';
+            } else if (field === 'barcodeFormat') {
+              description = 'Barcode format updated automatically';
+            }
+
             toast({
               title: "Auto-saved",
-              description: `${field.replace('smtp', 'SMTP ')} updated automatically`,
+              description: description,
+              className: "bg-green-50 border-green-200"
             });
           },
           onError: () => {
