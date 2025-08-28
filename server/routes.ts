@@ -972,8 +972,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const settings = await storage.getCompanySettings();
         const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
         
-        // Enhanced Windows printing with Magicard wake-up and queue management
-        if (process.platform === 'win32') {
+        // REAL Windows printing - Force execution on actual Windows PC
+        const isRealWindows = process.env.OS === 'Windows_NT' || process.env.WINDIR || process.platform === 'win32';
+        
+        if (isRealWindows) {
           try {
             // Use PowerShell to print the HTML file to the specified printer
             console.log(`🖨️ Using selected ID card printer: ${selectedPrinter}`);
@@ -1079,13 +1081,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }, 5000);
             
           } catch (printError) {
-            console.error(`❌ Print command failed:`, printError);
-            printStatus = "failed";
-            printError = printError.message;
+            console.error(`❌ Windows print command failed:`, printError);
+            
+            // CRITICAL FALLBACK: Force Windows print using multiple methods
+            try {
+              console.log(`🔄 Attempting DIRECT Windows printing methods...`);
+              
+              // Method A: Copy directly to printer (works with most Windows printers)
+              const directCopyCmd = `copy "${tempFile}" "${selectedPrinter}"`;
+              execSync(directCopyCmd, { encoding: 'utf8', timeout: 15000 });
+              console.log(`✅ Direct copy to printer executed`);
+              
+              // Method B: Use Windows system print command
+              const sysPrintCmd = `print /D:"${selectedPrinter}" "${tempFile}"`;
+              execSync(sysPrintCmd, { encoding: 'utf8', timeout: 15000 });
+              console.log(`✅ System print command executed`);
+              
+              // Method C: PowerShell Out-Printer (most reliable)
+              const psPrintCmd = `powershell.exe -Command "Get-Content '${tempFile}' | Out-Printer -Name '${selectedPrinter}'"`;
+              execSync(psPrintCmd, { encoding: 'utf8', timeout: 15000 });
+              console.log(`✅ PowerShell Out-Printer executed`);
+              
+              printStatus = "completed";
+              
+            } catch (fallbackError) {
+              console.error(`❌ ALL print methods failed:`, fallbackError);
+              printStatus = "failed";
+              printError = fallbackError.message;
+            }
           }
         } else {
-          // Non-Windows fallback - just log
-          console.log(`ℹ️ Non-Windows platform detected - print simulation only`);
+          // Running in Replit simulation
+          console.log(`⚠️  SIMULATION ENVIRONMENT DETECTED`);
+          console.log(`💡 To enable REAL printing:`);
+          console.log(`   1. Download this project to your Windows PC`);
+          console.log(`   2. Run: npm install && npm run dev`);
+          console.log(`   3. Connect your Magicard Enduro+ (V2) printer`);
+          console.log(`   4. The system will then send actual jobs to Windows print spooler`);
           printStatus = "simulated";
         }
         
