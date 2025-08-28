@@ -495,6 +495,29 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({
 });
 
 
+// AI Generated Images table for storing generated H&S safety images
+export const aiGeneratedImages = pgTable("ai_generated_images", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slideType: text("slide_type").notNull(), // ppe, emergency, hazard, site_rules, legal_framework
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url").notNull(),
+  dallePrompt: text("dalle_prompt").notNull(), // The prompt used to generate the image
+  dalleRevision: text("dalle_revision").default("dall-e-3"), // DALL-E model version used
+  imageSize: text("image_size").default("1024x1024"), // Generated image dimensions
+  quality: text("quality").default("standard"), // standard or hd
+  style: text("style").default("vivid"), // vivid or natural
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAiGeneratedImageSchema = createInsertSchema(aiGeneratedImages).omit({
+  id: true,
+  generatedAt: true,
+  createdAt: true,
+});
+
 // Types
 export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
@@ -505,6 +528,8 @@ export type InsertContractorWorker = z.infer<typeof insertContractorWorkerSchema
 export type ComplianceDocument = typeof complianceDocuments.$inferSelect;
 export type InsertComplianceDocument = z.infer<typeof insertComplianceDocumentSchema>;
 export type ContractorDocument = typeof contractorDocuments.$inferSelect;
+export type AiGeneratedImage = typeof aiGeneratedImages.$inferSelect;
+export type InsertAiGeneratedImage = z.infer<typeof insertAiGeneratedImageSchema>;
 export type InsertContractorDocument = z.infer<typeof insertContractorDocumentSchema>;
 export type DocumentApproval = typeof documentApprovals.$inferSelect;
 export type InsertDocumentApproval = z.infer<typeof insertDocumentApprovalSchema>;

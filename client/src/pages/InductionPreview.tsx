@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiRequest } from "@/lib/queryClient";
 
 type RoleType = 'visitor' | 'staff' | 'contractor';
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,21 @@ interface InductionSettings {
   isActive: boolean;
 }
 
+interface AiGeneratedImage {
+  id: string;
+  slideType: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  dallePrompt: string;
+  dalleRevision: string;
+  imageSize: string;
+  quality: string;
+  style: string;
+  generatedAt: string;
+  isActive: boolean;
+}
+
 export default function InductionPreview() {
   // Extract roleType from URL path instead of using useParams
   const roleTypeFromPath = window.location.pathname.split('/').pop() || '';
@@ -61,41 +77,99 @@ export default function InductionPreview() {
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [aiImages, setAiImages] = useState<Record<string, AiGeneratedImage>>({});
+  const [loadingImages, setLoadingImages] = useState(false);
   const { toast } = useToast();
+
+  // Generate AI images for each slide type
+  const generateAiImages = async () => {
+    setLoadingImages(true);
+    const slideTypes = [
+      { type: 'legal_framework', title: 'Welcome & Legal Framework', description: 'Comprehensive Health & Safety induction covering UK legislation' },
+      { type: 'ppe', title: 'Personal Protective Equipment', description: 'All personnel must wear appropriate PPE when entering designated work areas' },
+      { type: 'emergency', title: 'Emergency Procedures', description: 'Know your emergency procedures and evacuation protocols' },
+      { type: 'hazard', title: 'Hazard Identification', description: 'Learn to identify potential hazards in the workplace' },
+      { type: 'site_rules', title: 'Site Rules & Regulations', description: 'Follow all site rules and regulations for safety compliance' }
+    ];
+
+    try {
+      for (const slide of slideTypes) {
+        // Check if we already have this image
+        if (aiImages[slide.type]) continue;
+
+        console.log(`🎨 Generating AI image for ${slide.type}...`);
+        
+        const response = await apiRequest(`/api/ai/generate-safety-image`, {
+          method: 'POST',
+          body: JSON.stringify({
+            slideType: slide.type,
+            title: slide.title,
+            description: slide.description
+          }),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+        if (result.success && result.image) {
+          setAiImages(prev => ({
+            ...prev,
+            [slide.type]: result.image
+          }));
+          console.log(`✅ Generated AI image for ${slide.type}:`, result.image.imageUrl);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating AI images:', error);
+      toast({
+        title: "AI Image Generation",
+        description: "Some images could not be generated. Using fallback images.",
+        variant: "default"
+      });
+    } finally {
+      setLoadingImages(false);
+    }
+  };
 
   // Define slide content with AI-generated safety scenes
   const slides = [
     {
       title: "Welcome & Legal Framework",
-      image: "https://images.unsplash.com/photo-1581094371581-16b8b4db3a1d?w=800&h=600&q=80&auto=format&fit=crop",
+      slideType: "legal_framework",
+      image: aiImages['legal_framework']?.imageUrl || "https://images.unsplash.com/photo-1581094371581-16b8b4db3a1d?w=800&h=600&q=80&auto=format&fit=crop",
       content: "Welcome to our comprehensive Health & Safety induction. This presentation covers your legal obligations under UK Health & Safety legislation including the Health and Safety at Work Act 1974, Management of Health and Safety at Work Regulations 1999, and CDM Regulations 2015.",
       topics: ["Personal Protective Equipment (PPE)", "Emergency Procedures", "Risk Assessment", "Reporting Requirements"],
       aiGenerated: true
     },
     {
       title: "Personal Protective Equipment",
-      image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&h=600&q=80&auto=format&fit=crop",
+      slideType: "ppe",
+      image: aiImages['ppe']?.imageUrl || "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&h=600&q=80&auto=format&fit=crop",
       content: "All personnel must wear appropriate PPE when entering designated work areas. This is a legal requirement and essential for your safety.",
       topics: ["Hard hat - protects from falling objects", "Safety boots - prevents foot injuries", "High-visibility vest - ensures visibility", "Safety glasses - protects eyes from debris"],
       aiGenerated: true
     },
     {
       title: "Emergency Procedures",
-      image: "https://images.unsplash.com/photo-1581094372402-2dc2bf0dc2b6?w=800&h=600&q=80&auto=format&fit=crop",
+      slideType: "emergency",
+      image: aiImages['emergency']?.imageUrl || "https://images.unsplash.com/photo-1581094372402-2dc2bf0dc2b6?w=800&h=600&q=80&auto=format&fit=crop",
       content: "Know your emergency procedures. In case of fire alarm, evacuation, or accident, follow these protocols immediately.",
       topics: ["Fire alarm - evacuate immediately", "Assembly point - located at main car park", "First aid stations - marked with green cross", "Emergency contacts - displayed on notice boards"],
       aiGenerated: true
     },
     {
       title: "Hazard Identification",
-      image: "https://images.unsplash.com/photo-1581094287473-6d4b6c2ca4c5?w=800&h=600&q=80&auto=format&fit=crop",
+      slideType: "hazard",
+      image: aiImages['hazard']?.imageUrl || "https://images.unsplash.com/photo-1581094287473-6d4b6c2ca4c5?w=800&h=600&q=80&auto=format&fit=crop",
       content: "Learn to identify potential hazards in the workplace. Report any unsafe conditions immediately to your supervisor.",
       topics: ["Slip and trip hazards", "Moving machinery", "Chemical hazards", "Electrical dangers"],
       aiGenerated: true
     },
     {
       title: "Site Rules & Regulations",
-      image: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDgwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNjAwIiBmaWxsPSJ1cmwoI2dyYWRpZW50KSIvPgo8ZGVmcz4KPGZ1bGwgaWQ9ImdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzJkNzNmZjtzdG9wLW9wYWNpdHk6MSIgLz4KPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojN2M0ZGZmO3N0b3Atb3BhY2l0eToxIiAvPgo8L2Z1bGw+CjwvZGVmcz4KPGNpcmNsZSBjeD0iNDAwIiBjeT0iMzAwIiByPSIxMDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBkPSJNMzUwIDI4MEM0MDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOCIvPgo8dGV4dCB4PSI0MDAiIHk9IjMzMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QUktR2VuZXJhdGVkIFNhZmV0eSBTY2VuZTwvdGV4dD4KPC9zdmc+",
+      slideType: "site_rules",
+      image: aiImages['site_rules']?.imageUrl || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDgwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNjAwIiBmaWxsPSJ1cmwoI2dyYWRpZW50KSIvPgo8ZGVmcz4KPGZ1bGwgaWQ9ImdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzJkNzNmZjtzdG9wLW9wYWNpdHk6MSIgLz4KPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojN2M0ZGZmO3N0b3Atb3BhY2l0eToxIiAvPgo8L2Z1bGw+CjwvZGVmcz4KPGNpcmNsZSBjeD0iNDAwIiBjeT0iMzAwIiByPSIxMDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBkPSJNMzUwIDI4MEM0MDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOCIvPgo8dGV4dCB4PSI0MDAiIHk9IjMzMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QUktR2VuZXJhdGVkIFNhZmV0eSBTY2VuZTwvdGV4dD4KPC9zdmc+",
       content: "Follow all site rules and regulations. These are in place to ensure everyone's safety and compliance with health and safety standards.",
       topics: ["No smoking policy", "Visitor escort requirements", "Speed limits on site", "Authorized personnel only areas"],
       aiGenerated: true
@@ -106,6 +180,10 @@ export default function InductionPreview() {
     const fetchInductionData = async () => {
       try {
         setLoading(true);
+        
+        // Generate AI images first
+        generateAiImages();
+        
         // Try to fetch using authenticated endpoints first
         const settingsResponse = await fetch('/api/induction/settings', {
           credentials: 'include'
@@ -453,42 +531,63 @@ export default function InductionPreview() {
                 {settings.videoFormat === 'interactive_slides' ? (
                   <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg overflow-hidden min-h-[1200px]">
                     <div className="relative h-full">
-                      {/* AI Generated Image Background */}
-                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
-                      <div className="relative w-full h-[800px] bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-t-lg overflow-hidden flex items-center justify-center p-8">
-                        {/* AI-Generated Safety Scene - MASSIVE AND ALWAYS VISIBLE */}
-                        <div className="text-center text-white w-full max-w-4xl">
-                          <div className="relative mb-12">
-                            <div className="w-56 h-56 bg-white/30 rounded-full flex items-center justify-center mx-auto mb-12 animate-pulse border-8 border-white/50 shadow-2xl">
-                              <Shield className="h-32 w-32 text-white" />
+                      {/* AI Generated Image Display */}
+                      <div className="relative w-full h-[800px] rounded-t-lg overflow-hidden">
+                        {/* Actual AI Generated Image or Fallback */}
+                        {slides[currentSlide].image && slides[currentSlide].image.startsWith('http') ? (
+                          <div className="w-full h-full relative">
+                            <img 
+                              src={slides[currentSlide].image} 
+                              alt={`AI-generated safety scene: ${slides[currentSlide].title}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback if image fails to load
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            {/* AI Badge for Real Images */}
+                            <div className="absolute top-6 right-6 bg-green-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg">
+                              ✨ AI Generated
                             </div>
-                            <div className="absolute -top-6 -right-8 bg-green-400 text-green-900 text-4xl px-8 py-4 rounded-full font-black shadow-2xl animate-bounce">
-                              AI
+                            {/* Overlay for text readability */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
+                          </div>
+                        ) : (
+                          /* Fallback Display */
+                          <div className="w-full h-full bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex items-center justify-center p-8">
+                            <div className="text-center text-white w-full max-w-4xl">
+                              <div className="relative mb-8">
+                                {loadingImages ? (
+                                  <div className="w-32 h-32 bg-white/30 rounded-full flex items-center justify-center mx-auto mb-8 animate-spin border-8 border-white/50 shadow-2xl">
+                                    <Shield className="h-16 w-16 text-white" />
+                                  </div>
+                                ) : (
+                                  <div className="w-32 h-32 bg-white/30 rounded-full flex items-center justify-center mx-auto mb-8 border-8 border-white/50 shadow-2xl">
+                                    <Shield className="h-16 w-16 text-white" />
+                                  </div>
+                                )}
+                                <div className="bg-green-400 text-green-900 text-sm px-3 py-1 rounded-full font-bold shadow-lg inline-block">
+                                  AI
+                                </div>
+                              </div>
+                              <h3 className="text-4xl font-black mb-6 text-white drop-shadow-2xl">
+                                🤖 AI-Generated H&S Scene
+                              </h3>
+                              <p className="text-xl opacity-95 mb-6 leading-relaxed font-bold">
+                                {loadingImages ? 'Generating AI safety image...' : `Advanced visualization of ${slides[currentSlide].title.toLowerCase()}`}
+                              </p>
+                              {!loadingImages && (
+                                <Button 
+                                  onClick={generateAiImages}
+                                  className="bg-white/20 hover:bg-white/30 text-white border-white/30 mt-4"
+                                  disabled={loadingImages}
+                                >
+                                  🎨 Generate AI Images
+                                </Button>
+                              )}
                             </div>
                           </div>
-                          <h3 className="text-7xl font-black mb-12 text-white drop-shadow-2xl">🤖 AI-Generated H&S Scene</h3>
-                          <p className="text-3xl opacity-95 mb-12 leading-relaxed font-bold">
-                            Advanced AI visualization of {slides[currentSlide].title.toLowerCase()} scenario
-                          </p>
-                          <div className="bg-white/25 backdrop-blur-lg rounded-3xl p-12 border-8 border-white/40 shadow-2xl">
-                            <p className="text-2xl leading-relaxed font-black text-white mb-6">
-                              🔥 DYNAMICALLY GENERATED WORKPLACE SAFETY CONTENT! 
-                            </p>
-                            <p className="text-xl opacity-90">
-                              This AI-powered safety scene adapts in real-time to provide contextual safety information based on current slide content.
-                            </p>
-                          </div>
-                          <div className="mt-12 flex justify-center space-x-6">
-                            <span className="inline-block bg-green-400/90 text-green-900 px-8 py-4 rounded-full border-4 border-green-300 font-black text-2xl shadow-2xl">
-                              ⚡ REAL-TIME AI GENERATION
-                            </span>
-                            <span className="inline-block bg-yellow-400/90 text-yellow-900 px-8 py-4 rounded-full border-4 border-yellow-300 font-black text-2xl shadow-2xl">
-                              🛡️ H&S COMPLIANT
-                            </span>
-                          </div>
-                        </div>
-                        {/* Light overlay for better text readability over images */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent pointer-events-none"></div>
+                        )}
                       </div>
                       
                       {/* Slide Content */}

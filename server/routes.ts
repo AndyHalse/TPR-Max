@@ -14,7 +14,9 @@ import {
   inductionSettings,
   insertInductionSettingsSchema,
   inductionQuestions,
-  insertNvqQualificationSchema
+  insertNvqQualificationSchema,
+  aiGeneratedImages,
+  insertAiGeneratedImageSchema
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -157,6 +159,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     res.json({ id: user.id, username: user.username });
+  });
+
+  // AI Generated Images endpoints
+  app.post("/api/ai/generate-safety-image", async (req, res) => {
+    try {
+      const { slideType, title, description } = req.body;
+      
+      if (!slideType || !title || !description) {
+        return res.status(400).json({ error: "slideType, title, and description are required" });
+      }
+
+      console.log(`🎨 Generating AI safety image for ${slideType}: ${title}`);
+      
+      // Generate the image using AI service
+      const { imageUrl, dallePrompt } = await aiService.generateSafetyImage(slideType, title, description);
+      
+      // Store the generated image metadata in database
+      const [savedImage] = await db.insert(aiGeneratedImages).values({
+        slideType,
+        title,
+        description,
+        imageUrl,
+        dallePrompt,
+        dalleRevision: "dall-e-3",
+        imageSize: "1024x1024",
+        quality: "standard",
+        style: "vivid",
+        isActive: true
+      }).returning();
+
+      console.log(`✅ AI safety image generated and saved: ${savedImage.id}`);
+      
+      res.json({
+        success: true,
+        image: savedImage
+      });
+    } catch (error) {
+      console.error('Error generating AI safety image:', error);
+      res.status(500).json({ error: 'Failed to generate AI safety image' });
+    }
+  });
+
+  app.get("/api/ai/safety-images", async (req, res) => {
+    try {
+      const { slideType } = req.query;
+      
+      let query = db.select().from(aiGeneratedImages).where(eq(aiGeneratedImages.isActive, true));
+      
+      if (slideType) {
+        query = db.select().from(aiGeneratedImages)
+          .where(and(
+            eq(aiGeneratedImages.isActive, true),
+            eq(aiGeneratedImages.slideType, slideType as string)
+          ));
+      }
+      
+      const images = await query.orderBy(aiGeneratedImages.generatedAt);
+      
+      res.json({ images });
+    } catch (error) {
+      console.error('Error fetching AI safety images:', error);
+      res.status(500).json({ error: 'Failed to fetch AI safety images' });
+    }
+  });
+
+  app.get("/api/ai/safety-images/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const [image] = await db.select().from(aiGeneratedImages)
+        .where(and(
+          eq(aiGeneratedImages.id, id),
+          eq(aiGeneratedImages.isActive, true)
+        ));
+      
+      if (!image) {
+        return res.status(404).json({ error: 'AI safety image not found' });
+      }
+      
+      res.json({ image });
+    } catch (error) {
+      console.error('Error fetching AI safety image:', error);
+      res.status(500).json({ error: 'Failed to fetch AI safety image' });
+    }
   });
 
   // Stats endpoint

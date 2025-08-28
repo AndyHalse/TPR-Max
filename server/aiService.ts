@@ -1,10 +1,58 @@
 import OpenAI from "openai";
-import type { Visitor, Staff, CompanySettings } from '@shared/schema';
+import type { Visitor, Staff, CompanySettings, AiGeneratedImage, InsertAiGeneratedImage } from '@shared/schema';
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export class AIService {
+
+  /**
+   * Generate AI safety images for H&S induction slides using DALL-E
+   */
+  async generateSafetyImage(
+    slideType: string,
+    title: string,
+    description: string
+  ): Promise<{ imageUrl: string; dallePrompt: string }> {
+    try {
+      const prompts = {
+        ppe: "Professional workplace safety scene showing workers wearing complete PPE (hard hat, high-visibility vest, safety boots, safety glasses, work gloves) in a modern industrial setting. Clean, well-lit environment with safety signage visible. Photorealistic style with bright lighting showing proper safety compliance.",
+        emergency: "Emergency evacuation scene in a modern workplace showing clearly marked emergency exits, fire alarm points, and assembly point signs. Workers calmly following evacuation procedures. Bright, clear lighting with visible safety equipment like fire extinguishers and first aid stations.",
+        hazard: "Workplace hazard identification scene showing various safety hazards properly marked with warning signs, barriers, and safety equipment. Industrial setting with clear hazard markings, safety cones, warning tape, and protective equipment. Professional safety training environment.",
+        site_rules: "Modern workplace showing safety rules and regulations prominently displayed on notice boards and digital screens. Professional office or industrial environment with visible safety policies, procedures, and compliance documentation. Clean, organized workspace demonstrating safety culture.",
+        legal_framework: "Professional health and safety compliance scene showing safety documentation, legal frameworks, and regulatory compliance materials in a modern office setting. Safety certificates, compliance checklists, and regulatory documentation prominently displayed."
+      };
+
+      const dallePrompt = prompts[slideType as keyof typeof prompts] || prompts.ppe;
+
+      const response = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: dallePrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        style: "vivid"
+      });
+
+      const imageUrl = response.data[0].url;
+      if (!imageUrl) {
+        throw new Error('No image URL returned from DALL-E');
+      }
+
+      return {
+        imageUrl,
+        dallePrompt
+      };
+
+    } catch (error) {
+      console.error('AI image generation failed:', error);
+      // Return a fallback placeholder image URL
+      return {
+        imageUrl: `https://via.placeholder.com/1024x1024/4f46e5/ffffff?text=${encodeURIComponent(title)}`,
+        dallePrompt: `Fallback placeholder for ${slideType}: ${title}`
+      };
+    }
+  }
 
   /**
    * AI-powered competitive analysis showing VisiGate Pro vs manual systems
