@@ -59,7 +59,43 @@ export default function InductionPreview() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
   const { toast } = useToast();
+
+  // Define slide content
+  const slides = [
+    {
+      title: "Welcome & Legal Framework",
+      image: "https://images.unsplash.com/photo-1581092918484-8313beb7f6d4?w=800&h=600&q=80&auto=format&fit=crop",
+      content: "Welcome to our comprehensive Health & Safety induction. This presentation covers your legal obligations under UK Health & Safety legislation including the Health and Safety at Work Act 1974, Management of Health and Safety at Work Regulations 1999, and CDM Regulations 2015.",
+      topics: ["Personal Protective Equipment (PPE)", "Emergency Procedures", "Risk Assessment", "Reporting Requirements"]
+    },
+    {
+      title: "Personal Protective Equipment",
+      image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&q=80&auto=format&fit=crop",
+      content: "All personnel must wear appropriate PPE when entering designated work areas. This is a legal requirement and essential for your safety.",
+      topics: ["Hard hat - protects from falling objects", "Safety boots - prevents foot injuries", "High-visibility vest - ensures visibility", "Safety glasses - protects eyes from debris"]
+    },
+    {
+      title: "Emergency Procedures",
+      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&q=80&auto=format&fit=crop",
+      content: "Know your emergency procedures. In case of fire alarm, evacuation, or accident, follow these protocols immediately.",
+      topics: ["Fire alarm - evacuate immediately", "Assembly point - located at main car park", "First aid stations - marked with green cross", "Emergency contacts - displayed on notice boards"]
+    },
+    {
+      title: "Hazard Identification",
+      image: "https://images.unsplash.com/photo-1593115057322-e94b77572f20?w=800&h=600&q=80&auto=format&fit=crop",
+      content: "Learn to identify potential hazards in the workplace. Report any unsafe conditions immediately to your supervisor.",
+      topics: ["Slip and trip hazards", "Moving machinery", "Chemical hazards", "Electrical dangers"]
+    },
+    {
+      title: "Site Rules & Regulations",
+      image: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&h=600&q=80&auto=format&fit=crop",
+      content: "Follow all site rules and regulations. These are in place to ensure everyone's safety and compliance with health and safety standards.",
+      topics: ["No smoking policy", "Visitor escort requirements", "Speed limits on site", "Authorized personnel only areas"]
+    }
+  ];
 
   useEffect(() => {
     const fetchInductionData = async () => {
@@ -223,6 +259,37 @@ export default function InductionPreview() {
     setCurrentStep(3); // Results step
   };
 
+  const goToNextSlide = () => {
+    if (currentSlide < slides.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    }
+  };
+
+  const goToPreviousSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  const togglePlayPause = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  // Auto-advance slides when playing
+  useEffect(() => {
+    if (isPlaying && currentStep === 1) { // Only auto-advance on video step
+      const timer = setInterval(() => {
+        if (currentSlide < slides.length - 1) {
+          setCurrentSlide(prev => prev + 1);
+        } else {
+          setIsPlaying(false); // Stop when reaching the end
+        }
+      }, 8000); // Advance every 8 seconds
+
+      return () => clearInterval(timer);
+    }
+  }, [isPlaying, currentSlide, currentStep, slides.length]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -385,16 +452,16 @@ export default function InductionPreview() {
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
                       <div className="relative w-full h-[300px] bg-gradient-to-br from-blue-600 to-purple-700 rounded-t-lg overflow-hidden">
                         <img 
-                          src="https://images.unsplash.com/photo-1581092918484-8313beb7f6d4?w=800&h=600&q=80&auto=format&fit=crop"
-                          alt="Safety workplace scene"
+                          src={slides[currentSlide].image}
+                          alt={slides[currentSlide].title}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            console.log('Image failed to load, using AI-generated scene');
+                            console.log('Image failed to load, using fallback');
                             e.currentTarget.style.display = 'none';
                           }}
                         />
                         {/* AI Generated Safety Scene Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/80 to-purple-700/80 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/60 to-purple-700/60 flex items-center justify-center">
                           <div className="text-center text-white p-6">
                             <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                               <Shield className="h-8 w-8" />
@@ -408,45 +475,81 @@ export default function InductionPreview() {
                       {/* Slide Content */}
                       <div className="p-8 text-white relative z-10">
                         <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-2xl font-bold">Welcome & Legal Framework</h3>
+                          <h3 className="text-2xl font-bold">{slides[currentSlide].title}</h3>
                           <Badge className="bg-white/20 text-white border-white/30">
-                            Slide 1 of 8
+                            Slide {currentSlide + 1} of {slides.length}
                           </Badge>
                         </div>
                         
                         <div className="space-y-4 text-lg">
-                          <p>
-                            Welcome to our comprehensive Health & Safety induction. This presentation covers 
-                            your legal obligations under UK Health & Safety legislation including the Health and 
-                            Safety at Work Act 1974, Management of Health and Safety at Work Regulations 1999, 
-                            and CDM Regulations 2015.
-                          </p>
+                          <p>{slides[currentSlide].content}</p>
                           
                           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mt-6">
                             <h4 className="font-semibold mb-2">Key Topics:</h4>
                             <ul className="space-y-1 text-sm">
-                              <li>• Personal Protective Equipment (PPE)</li>
-                              <li>• Emergency Procedures</li>
-                              <li>• Risk Assessment</li>
-                              <li>• Reporting Requirements</li>
+                              {slides[currentSlide].topics.map((topic, index) => (
+                                <li key={index}>• {topic}</li>
+                              ))}
                             </ul>
                           </div>
                         </div>
                         
                         {/* Interactive Controls */}
                         <div className="flex items-center justify-center gap-4 mt-8">
-                          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30">
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            onClick={goToPreviousSlide}
+                            disabled={currentSlide === 0}
+                          >
                             <ArrowLeft className="h-4 w-4 mr-1" />
                             Previous
                           </Button>
-                          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30">
-                            <Video className="h-4 w-4 mr-1" />
-                            Pause
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            onClick={togglePlayPause}
+                          >
+                            {isPlaying ? (
+                              <>
+                                <Video className="h-4 w-4 mr-1" />
+                                Pause
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-4 w-4 mr-1" />
+                                Play
+                              </>
+                            )}
                           </Button>
-                          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30">
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            onClick={goToNextSlide}
+                            disabled={currentSlide === slides.length - 1}
+                          >
                             Next
                             <ArrowRight className="h-4 w-4 ml-1" />
                           </Button>
+                        </div>
+                        
+                        {/* Slide Progress Indicator */}
+                        <div className="flex items-center justify-center gap-2 mt-6">
+                          {slides.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={() => setCurrentSlide(index)}
+                              className={`w-3 h-3 rounded-full transition-all ${
+                                index === currentSlide 
+                                  ? 'bg-white' 
+                                  : 'bg-white/40 hover:bg-white/60'
+                              }`}
+                              aria-label={`Go to slide ${index + 1}`}
+                            />
+                          ))}
                         </div>
                       </div>
                     </div>
