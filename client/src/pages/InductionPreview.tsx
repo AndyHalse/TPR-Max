@@ -99,7 +99,7 @@ export default function InductionPreview() {
 
         console.log(`🎨 Generating AI image for ${slide.type}...`);
         
-        const response = await apiRequest(`/api/ai/generate-safety-image`, 'POST', {
+        const response = await apiRequest('POST', `/api/ai/generate-safety-image`, {
           slideType: slide.type,
           title: slide.title,
           description: slide.description
