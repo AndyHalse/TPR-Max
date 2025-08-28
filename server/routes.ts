@@ -853,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { design } = req.body;
       
-      const staff = await storage.getStaff(id);
+      const staff = await storage.getStaffById(id);
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
       }

@@ -260,7 +260,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md glass-effect border-white/20" data-testid="add-staff-modal">
+      <DialogContent className="max-w-md max-h-[85vh] glass-effect border-white/20 overflow-y-auto" data-testid="add-staff-modal">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-slate-800">
             {isEditMode ? "Edit Staff Member" : "Add New Staff Member"}
