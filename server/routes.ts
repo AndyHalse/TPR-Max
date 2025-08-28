@@ -1726,6 +1726,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ID Card Design API endpoints
+  app.put("/api/idcard/design", async (req, res) => {
+    try {
+      const { elements, background, cardSize } = req.body;
+      
+      // Validate the design data
+      if (!elements || !Array.isArray(elements)) {
+        return res.status(400).json({ error: "Invalid design elements" });
+      }
+      
+      // Save the design to company settings
+      const designData = JSON.stringify({
+        elements,
+        background: background || 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+        cardSize: cardSize || 'CR80',
+        lastUpdated: new Date().toISOString()
+      });
+      
+      const settings = await storage.updateCompanySettings({
+        idCardDesign: designData
+      });
+      
+      console.log(`💾 ID card design saved with ${elements.length} elements`);
+      
+      res.json({
+        success: true,
+        message: "ID card design saved successfully",
+        design: JSON.parse(settings?.idCardDesign || '{}')
+      });
+    } catch (error) {
+      console.error("Error saving ID card design:", error);
+      res.status(500).json({ error: "Failed to save ID card design" });
+    }
+  });
+
+  app.get("/api/idcard/design", async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      const designData = settings?.idCardDesign || '[]';
+      
+      let parsedDesign;
+      try {
+        parsedDesign = JSON.parse(designData);
+      } catch (parseError) {
+        console.warn("Invalid design data, returning default:", parseError);
+        parsedDesign = { elements: [], background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', cardSize: 'CR80' };
+      }
+      
+      res.json({
+        success: true,
+        design: parsedDesign
+      });
+    } catch (error) {
+      console.error("Error loading ID card design:", error);
+      res.status(500).json({ error: "Failed to load ID card design" });
+    }
+  });
+
   // Company Settings endpoints
   app.get("/api/settings", async (req, res) => {
     try {

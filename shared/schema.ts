@@ -200,6 +200,7 @@ export const companySettings = pgTable("company_settings", {
   idCardPrintQuality: text("id_card_print_quality").default("high"), // draft, normal, high
   idCardPaperSize: text("id_card_paper_size").default("cr80"), // cr80 (standard card size), cr79, custom
   idCardOrientation: text("id_card_orientation").default("landscape"), // portrait, landscape
+  idCardDesign: text("id_card_design").default("[]"), // JSON string storing card element positions and styles
   // Suprema Biostar integration settings
   biostarEnabled: boolean("biostar_enabled").default(false),
   biostarServerUrl: text("biostar_server_url").default(""), // e.g., "https://your-biostar-server.com:8443"
