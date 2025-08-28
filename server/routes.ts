@@ -940,6 +940,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🎨 Using design with ${design?.length || 0} elements`);
       console.log(`🖨️ Sending to ID Card Staff Printer: Magicard 600 (CR80 Format)`);
       
+      // Create actual print job for Windows printer
+      let printStatus = "completed";
+      let printError = null;
+      
+      try {
+        // Use dynamic import for child_process to work with ES modules
+        const { execSync } = await import("child_process");
+        const fs = await import("fs");
+        const path = await import("path");
+        
+        // Generate HTML content for the ID card
+        const cardHtml = generateIdCardHtml(staff, design);
+        
+        // Create temporary HTML file
+        const tempDir = path.join(process.cwd(), 'temp');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        const tempFile = path.join(tempDir, `id-card-${staff.id}-${Date.now()}.html`);
+        fs.writeFileSync(tempFile, cardHtml, 'utf8');
+        
+        console.log(`📄 Generated HTML file: ${tempFile}`);
+        
+        // Try to print using Windows command line
+        if (process.platform === 'win32') {
+          try {
+            // Use PowerShell to print the HTML file to the specified printer
+            const printerName = "Magicard 600 (ID Card Model)";
+            const printCommand = `powershell.exe -Command "Start-Process -FilePath '${tempFile}' -Verb Print -Wait"`;
+            
+            console.log(`🖨️ Executing print command: ${printCommand}`);
+            execSync(printCommand, { encoding: 'utf8', timeout: 30000 });
+            
+            console.log(`✅ Print job sent successfully to ${printerName}`);
+            
+            // Clean up temp file after a delay
+            setTimeout(() => {
+              try {
+                if (fs.existsSync(tempFile)) {
+                  fs.unlinkSync(tempFile);
+                  console.log(`🗑️ Cleaned up temp file: ${tempFile}`);
+                }
+              } catch (cleanupError) {
+                console.warn(`⚠️ Failed to cleanup temp file: ${cleanupError.message}`);
+              }
+            }, 5000);
+            
+          } catch (printError) {
+            console.error(`❌ Print command failed:`, printError);
+            printStatus = "failed";
+            printError = printError.message;
+          }
+        } else {
+          // Non-Windows fallback - just log
+          console.log(`ℹ️ Non-Windows platform detected - print simulation only`);
+          printStatus = "simulated";
+        }
+        
+      } catch (error) {
+        console.error(`❌ Print job creation failed:`, error);
+        printStatus = "failed";
+        printError = error.message;
+      }
+      
       // Use the dedicated ID Card Staff Printer (CR80 Format)
       const testPrintJob = {
         id: `test-print-${Date.now()}`,
@@ -947,7 +1012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         staffId,
         staffName: `${staff.firstName} ${staff.lastName}`,
         department: staff.department,
-        status: "completed",
+        status: printStatus,
         timestamp: new Date().toISOString(),
         printer: "Magicard 600 (ID Card Model)", // Dedicated CR80 ID card printer
         design: design,
@@ -955,7 +1020,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         printQuality: "300 DPI",
         printerType: "id_card_printer",
         format: "CR80_STAFF_CARD",
-        testMode: true
+        testMode: true,
+        error: printError
       };
 
       res.json({
@@ -968,6 +1034,206 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to test print ID card" });
     }
   });
+
+  // Helper function to generate HTML content for ID card printing
+  function generateIdCardHtml(staff: any, design: any[]) {
+    const cardWidth = 323; // CR80 width in pixels (85.60mm * 3.78 px/mm)
+    const cardHeight = 204; // CR80 height in pixels (53.98mm * 3.78 px/mm)
+    
+    // Generate elements HTML
+    let elementsHtml = '';
+    
+    if (design && Array.isArray(design)) {
+      design.forEach(element => {
+        if (!element.visible) return;
+        
+        switch (element.type) {
+          case 'name':
+            elementsHtml += `
+              <div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                font-size: ${element.fontSize || 16}px;
+                font-weight: ${element.fontWeight || 'normal'};
+                color: ${element.color || '#000000'};
+                font-family: Arial, sans-serif;
+                display: flex;
+                align-items: center;
+              ">
+                ${staff.firstName} ${staff.lastName}
+              </div>`;
+            break;
+            
+          case 'department':
+            elementsHtml += `
+              <div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                font-size: ${element.fontSize || 12}px;
+                color: ${element.color || '#666666'};
+                font-family: Arial, sans-serif;
+                display: flex;
+                align-items: center;
+              ">
+                ${staff.department}
+              </div>`;
+            break;
+            
+          case 'employeeId':
+            elementsHtml += `
+              <div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                font-size: ${element.fontSize || 10}px;
+                color: ${element.color || '#666666'};
+                font-family: Arial, sans-serif;
+                display: flex;
+                align-items: center;
+              ">
+                ${staff.employeeId}
+              </div>`;
+            break;
+            
+          case 'company':
+            elementsHtml += `
+              <div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                font-size: ${element.fontSize || 10}px;
+                color: ${element.color || '#666666'};
+                font-family: Arial, sans-serif;
+                display: flex;
+                align-items: center;
+              ">
+                ACS Safety & Security Ltd
+              </div>`;
+            break;
+            
+          case 'accessLevel':
+            elementsHtml += `
+              <div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                font-size: ${element.fontSize || 10}px;
+                font-weight: ${element.fontWeight || 'bold'};
+                color: ${element.color || '#3b82f6'};
+                font-family: Arial, sans-serif;
+                display: flex;
+                align-items: center;
+              ">
+                STAFF ACCESS
+              </div>`;
+            break;
+            
+          case 'photo':
+            if (staff.photoUrl) {
+              elementsHtml += `
+                <div style="
+                  position: absolute;
+                  left: ${element.x}px;
+                  top: ${element.y}px;
+                  width: ${element.width}px;
+                  height: ${element.height}px;
+                  background-image: url('${staff.photoUrl}');
+                  background-size: cover;
+                  background-position: center;
+                  border-radius: 4px;
+                "></div>`;
+            } else {
+              elementsHtml += `
+                <div style="
+                  position: absolute;
+                  left: ${element.x}px;
+                  top: ${element.y}px;
+                  width: ${element.width}px;
+                  height: ${element.height}px;
+                  background-color: #f3f4f6;
+                  border: 1px solid #d1d5db;
+                  border-radius: 4px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 12px;
+                  color: #6b7280;
+                ">
+                  NO PHOTO
+                </div>`;
+            }
+            break;
+            
+          case 'qrcode':
+            // Generate QR code with staff ID
+            elementsHtml += `
+              <div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                background-color: #000000;
+                border: 1px solid #333333;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 8px;
+                color: white;
+              ">
+                QR: ${staff.employeeId}
+              </div>`;
+            break;
+        }
+      });
+    }
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ID Card - ${staff.firstName} ${staff.lastName}</title>
+    <style>
+        @page {
+            size: 85.60mm 53.98mm;
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: white;
+        }
+        .id-card {
+            width: ${cardWidth}px;
+            height: ${cardHeight}px;
+            position: relative;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid #d1d5db;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="id-card">
+        ${elementsHtml}
+    </div>
+</body>
+</html>`;
+  }
 
   // Get checked-in staff endpoint
   app.get("/api/staff/checked-in", async (req, res) => {
