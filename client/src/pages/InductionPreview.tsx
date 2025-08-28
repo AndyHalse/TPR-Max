@@ -451,11 +451,11 @@ export default function InductionPreview() {
                 </div>
 
                 {settings.videoFormat === 'interactive_slides' ? (
-                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg overflow-hidden min-h-[600px]">
+                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg overflow-hidden min-h-[800px]">
                     <div className="relative h-full">
                       {/* AI Generated Image Background */}
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
-                      <div className="relative w-full h-[300px] bg-gray-200 rounded-t-lg overflow-hidden">
+                      <div className="relative w-full h-[500px] bg-gray-200 rounded-t-lg overflow-hidden">
                         <img 
                           key={currentSlide} // Force re-render when slide changes
                           src={slides[currentSlide].image}
@@ -463,13 +463,8 @@ export default function InductionPreview() {
                           className="w-full h-full object-contain transition-opacity duration-300"
                           loading="eager"
                           onLoad={(e) => {
-                            // Show AI-generated overlay for slides 1, 3, and 5 (indices 0, 2, 4)
-                            if ([0, 2, 4].includes(currentSlide)) {
-                              e.currentTarget.style.opacity = '0';
-                            } else {
-                              // Show the image for other slides
-                              e.currentTarget.style.opacity = '1';
-                            }
+                            // Always show AI-generated overlay for all slides in demo
+                            e.currentTarget.style.opacity = '0';
                           }}
                           onError={(e) => {
                             // Hide the image and show fallback
@@ -481,7 +476,7 @@ export default function InductionPreview() {
                         {/* AI-Generated Safety Scene */}
                         <div 
                           className="fallback-overlay absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex items-center justify-center p-4"
-                          style={{ display: [0, 2, 4].includes(currentSlide) ? 'flex' : 'none' }}
+                          style={{ display: [0, 1, 2, 3, 4].includes(currentSlide) ? 'flex' : 'none' }}
                         >
                           <div className="text-center text-white w-full max-w-lg">
                             <div className="relative mb-8">
