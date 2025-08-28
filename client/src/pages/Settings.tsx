@@ -1546,6 +1546,333 @@ export default function Settings() {
             </GlassCard>
           </div>
 
+          {/* Advanced Printer Properties Section */}
+          <GlassCard>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <Settings as SettingsIcon className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Advanced Printer Properties</h3>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+                data-testid="button-reset-printer-defaults"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset to Defaults
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Paper & Media Settings */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <CreditCard className="h-4 w-4" />
+                  Paper & Media
+                </h4>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Paper Size</Label>
+                  <Select
+                    value={currentSettings?.idCardPaperSize || "cr80"}
+                    onValueChange={(value) => handleInputChange("idCardPaperSize", value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-paper-size">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A4">A4 (210 × 297 mm)</SelectItem>
+                      <SelectItem value="A5">A5 (148 × 210 mm)</SelectItem>
+                      <SelectItem value="Letter">Letter (8.5 × 11 in)</SelectItem>
+                      <SelectItem value="Legal">Legal (8.5 × 14 in)</SelectItem>
+                      <SelectItem value="cr80">CR80 (85.6 × 53.98 mm)</SelectItem>
+                      <SelectItem value="cr79">CR79 (79 × 50 mm)</SelectItem>
+                      <SelectItem value="custom">Custom Size</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Orientation</Label>
+                  <Select
+                    value={currentSettings?.idCardOrientation || "landscape"}
+                    onValueChange={(value) => handleInputChange("idCardOrientation", value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-orientation">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portrait">Portrait</SelectItem>
+                      <SelectItem value="landscape">Landscape</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Duplex Printing</Label>
+                  <Select
+                    defaultValue="none"
+                    onValueChange={(value) => console.log('Duplex:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-duplex">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Single-sided</SelectItem>
+                      <SelectItem value="short_edge">Flip on Short Edge</SelectItem>
+                      <SelectItem value="long_edge">Flip on Long Edge</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Paper Source</Label>
+                  <Select
+                    defaultValue="auto"
+                    onValueChange={(value) => console.log('Paper Source:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-paper-source">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto Select</SelectItem>
+                      <SelectItem value="tray1">Tray 1</SelectItem>
+                      <SelectItem value="tray2">Tray 2</SelectItem>
+                      <SelectItem value="manual">Manual Feed</SelectItem>
+                      <SelectItem value="envelope">Envelope Tray</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Quality & Color Settings */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <Palette className="h-4 w-4" />
+                  Quality & Color
+                </h4>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">ID Card Print Quality</Label>
+                  <Select
+                    value={currentSettings?.idCardPrintQuality || "high"}
+                    onValueChange={(value) => handleInputChange("idCardPrintQuality", value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-id-card-quality">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft (Fast)</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">High Quality</SelectItem>
+                      <SelectItem value="photo">Photo Quality</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Color Mode</Label>
+                  <Select
+                    defaultValue="color"
+                    onValueChange={(value) => console.log('Color Mode:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-color-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="color">Full Color</SelectItem>
+                      <SelectItem value="grayscale">Grayscale</SelectItem>
+                      <SelectItem value="monochrome">Black & White</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Print Resolution</Label>
+                  <Select
+                    defaultValue="600dpi"
+                    onValueChange={(value) => console.log('Resolution:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-resolution">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="300dpi">300 DPI (Fast)</SelectItem>
+                      <SelectItem value="600dpi">600 DPI (Standard)</SelectItem>
+                      <SelectItem value="1200dpi">1200 DPI (High)</SelectItem>
+                      <SelectItem value="2400dpi">2400 DPI (Photo)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Thermal Settings</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select
+                      defaultValue="medium"
+                      onValueChange={(value) => console.log('Thermal Speed:', value)}
+                    >
+                      <SelectTrigger className="px-2 py-1 text-xs rounded border border-white/30 bg-white/50">
+                        <SelectValue placeholder="Speed" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="slow">Slow</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="fast">Fast</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      defaultValue="normal"
+                      onValueChange={(value) => console.log('Thermal Density:', value)}
+                    >
+                      <SelectTrigger className="px-2 py-1 text-xs rounded border border-white/30 bg-white/50">
+                        <SelectValue placeholder="Density" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Advanced Options */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <Settings as SettingsIcon className="h-4 w-4" />
+                  Advanced Options
+                </h4>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">QR/Barcode Position</Label>
+                  <Select
+                    defaultValue="bottom_right"
+                    onValueChange={(value) => console.log('Barcode Position:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-barcode-position">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="top_left">Top Left</SelectItem>
+                      <SelectItem value="top_right">Top Right</SelectItem>
+                      <SelectItem value="bottom_left">Bottom Left</SelectItem>
+                      <SelectItem value="bottom_right">Bottom Right</SelectItem>
+                      <SelectItem value="center">Center</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">QR/Barcode Size</Label>
+                  <Select
+                    defaultValue="medium"
+                    onValueChange={(value) => console.log('Barcode Size:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-barcode-size">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="small">Small (15mm)</SelectItem>
+                      <SelectItem value="medium">Medium (20mm)</SelectItem>
+                      <SelectItem value="large">Large (25mm)</SelectItem>
+                      <SelectItem value="xlarge">Extra Large (30mm)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">ID Card Type</Label>
+                  <Select
+                    defaultValue="pvc"
+                    onValueChange={(value) => console.log('Card Type:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-card-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pvc">PVC Cards</SelectItem>
+                      <SelectItem value="pet">PET Cards</SelectItem>
+                      <SelectItem value="teslin">Teslin Cards</SelectItem>
+                      <SelectItem value="composite">Composite Cards</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">Card Thickness</Label>
+                  <Select
+                    defaultValue="30mil"
+                    onValueChange={(value) => console.log('Card Thickness:', value)}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-card-thickness">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10mil">10 mil (Ultra Thin)</SelectItem>
+                      <SelectItem value="20mil">20 mil (Thin)</SelectItem>
+                      <SelectItem value="30mil">30 mil (Standard)</SelectItem>
+                      <SelectItem value="40mil">40 mil (Thick)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-white/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-700">Print Both Sides</Label>
+                      <p className="text-xs text-slate-500">Enable dual-sided ID card printing</p>
+                    </div>
+                    <Switch
+                      defaultChecked={false}
+                      onCheckedChange={(checked) => console.log('Dual Sided:', checked)}
+                      data-testid="switch-dual-sided"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-700">Magnetic Encoding</Label>
+                      <p className="text-xs text-slate-500">Enable magnetic strip encoding</p>
+                    </div>
+                    <Switch
+                      defaultChecked={false}
+                      onCheckedChange={(checked) => console.log('Magnetic Encoding:', checked)}
+                      data-testid="switch-magnetic-encoding"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-700">Smart Card Encoding</Label>
+                      <p className="text-xs text-slate-500">Enable smart card chip programming</p>
+                    </div>
+                    <Switch
+                      defaultChecked={false}
+                      onCheckedChange={(checked) => console.log('Smart Card:', checked)}
+                      data-testid="switch-smart-card"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+              <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                <TestTube className="h-4 w-4" />
+                Configuration Notes
+              </h4>
+              <ul className="text-sm text-amber-700 space-y-1">
+                <li>• Settings automatically save as you change them</li>
+                <li>• Advanced properties are printer-specific and may not apply to all models</li>
+                <li>• Test print functionality will use current settings</li>
+                <li>• ID card settings only apply to dedicated card printers</li>
+              </ul>
+            </div>
+          </GlassCard>
+
           <GlassCard>
             <div className="flex items-center mb-6">
               <FileText className="mr-3 text-blue-600" size={24} />

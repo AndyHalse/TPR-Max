@@ -195,6 +195,11 @@ export const companySettings = pgTable("company_settings", {
   enable2dBarcodes: boolean("enable_2d_barcodes").default(false),
   barcodeFormat: text("barcode_format").default("QR_CODE"), // QR_CODE, DATA_MATRIX, PDF417
   printQuality: text("print_quality").default("normal"), // draft, normal, high
+  // ID Card printer settings
+  idCardPrinter: text("id_card_printer").default(""),
+  idCardPrintQuality: text("id_card_print_quality").default("high"), // draft, normal, high
+  idCardPaperSize: text("id_card_paper_size").default("cr80"), // cr80 (standard card size), cr79, custom
+  idCardOrientation: text("id_card_orientation").default("landscape"), // portrait, landscape
   // Suprema Biostar integration settings
   biostarEnabled: boolean("biostar_enabled").default(false),
   biostarServerUrl: text("biostar_server_url").default(""), // e.g., "https://your-biostar-server.com:8443"
@@ -214,6 +219,45 @@ export const companySettings = pgTable("company_settings", {
   enableAdvancedVideoFeatures: boolean("enable_advanced_video_features").default(true),
   defaultVideoLength: text("default_video_length").default("15"), // minutes
   aiInstructionsPrompt: text("ai_instructions_prompt").default("Create comprehensive, engaging safety induction content"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Printer Configurations table for advanced printer properties
+export const printerConfigurations = pgTable("printer_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  printerName: text("printer_name").notNull(),
+  printerType: text("printer_type").default("standard"), // standard, thermal, id_card, label
+  // Paper and Media Settings
+  paperSize: text("paper_size").default("A4"), // A4, A5, Letter, Legal, Custom, CR80, CR79
+  orientation: text("orientation").default("portrait"), // portrait, landscape
+  duplex: text("duplex").default("none"), // none, short_edge, long_edge
+  paperSource: text("paper_source").default("auto"), // auto, tray1, tray2, manual, envelope
+  // Quality Settings
+  printQuality: text("print_quality").default("normal"), // draft, normal, high, photo
+  colorMode: text("color_mode").default("color"), // color, grayscale, monochrome
+  resolution: text("resolution").default("600dpi"), // 300dpi, 600dpi, 1200dpi, 2400dpi
+  // Barcode and QR Code Settings
+  barcodeFormat: text("barcode_format").default("QR_CODE"), // QR_CODE, DATA_MATRIX, PDF417, CODE128
+  barcodeSize: text("barcode_size").default("medium"), // small, medium, large, xlarge
+  barcodePosition: text("barcode_position").default("bottom_right"), // top_left, top_right, bottom_left, bottom_right, center
+  // Thermal Printer Specific Settings
+  thermalSpeed: text("thermal_speed").default("medium"), // slow, medium, fast
+  thermalDensity: text("thermal_density").default("normal"), // light, normal, dark
+  labelWidth: text("label_width").default("4"), // inches: 2, 3, 4, 6
+  labelHeight: text("label_height").default("6"), // inches: 2, 3, 4, 6, 8
+  // ID Card Printer Specific Settings
+  cardType: text("card_type").default("pvc"), // pvc, pet, teslin, composite
+  cardThickness: text("card_thickness").default("30mil"), // 10mil, 20mil, 30mil, 40mil
+  printSides: text("print_sides").default("single"), // single, dual
+  encodingOptions: text("encoding_options").array().default([]), // magnetic, smart_card, proximity, mifare
+  // Advanced Settings
+  margins: text("margins").default('{"top": 0, "right": 0, "bottom": 0, "left": 0}'), // JSON string for custom margins
+  customSettings: text("custom_settings").default("{}"), // JSON string for printer-specific settings
+  // Status and Configuration
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  lastUsed: timestamp("last_used"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -264,6 +308,13 @@ export const insertReportSchema = createInsertSchema(reports).omit({
   generatedAt: true,
 });
 
+export const insertPrinterConfigurationSchema = createInsertSchema(printerConfigurations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastUsed: true,
+});
+
 export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   id: true,
   qrCode: true,
@@ -281,6 +332,8 @@ export type User = typeof users.$inferSelect;
 export type UserInvitation = typeof userInvitations.$inferSelect;
 export type CompanySettings = typeof companySettings.$inferSelect;
 export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+export type PrinterConfiguration = typeof printerConfigurations.$inferSelect;
+export type InsertPrinterConfiguration = z.infer<typeof insertPrinterConfigurationSchema>;
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type PreBooking = typeof preBookings.$inferSelect;

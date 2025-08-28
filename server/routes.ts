@@ -11,6 +11,7 @@ import {
   insertContractorCompanySchema,
   insertContractorWorkerSchema,
   insertComplianceDocumentSchema,
+  insertPrinterConfigurationSchema,
   inductionSettings,
   insertInductionSettingsSchema,
   inductionQuestions,
@@ -1420,6 +1421,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Failed to detect printers',
         details: error.message
       });
+    }
+  });
+
+  // Printer Configuration endpoints
+  app.get("/api/printers/configurations", async (req, res) => {
+    try {
+      const configurations = await storage.getAllPrinterConfigurations();
+      res.json({ success: true, configurations });
+    } catch (error) {
+      console.error('Error fetching printer configurations:', error);
+      res.status(500).json({ error: 'Failed to fetch printer configurations' });
+    }
+  });
+
+  app.get("/api/printers/configurations/:printerName", async (req, res) => {
+    try {
+      const { printerName } = req.params;
+      const configuration = await storage.getPrinterConfiguration(printerName);
+      
+      if (!configuration) {
+        return res.status(404).json({ error: 'Printer configuration not found' });
+      }
+      
+      res.json({ success: true, configuration });
+    } catch (error) {
+      console.error('Error fetching printer configuration:', error);
+      res.status(500).json({ error: 'Failed to fetch printer configuration' });
+    }
+  });
+
+  app.post("/api/printers/configurations", async (req, res) => {
+    try {
+      const configurationData = insertPrinterConfigurationSchema.parse(req.body);
+      const configuration = await storage.createPrinterConfiguration(configurationData);
+      
+      res.json({ success: true, configuration });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid printer configuration data", details: error.errors });
+      } else {
+        console.error('Error creating printer configuration:', error);
+        res.status(500).json({ error: 'Failed to create printer configuration' });
+      }
+    }
+  });
+
+  app.put("/api/printers/configurations/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const configurationData = insertPrinterConfigurationSchema.partial().parse(req.body);
+      const configuration = await storage.updatePrinterConfiguration(id, configurationData);
+      
+      if (!configuration) {
+        return res.status(404).json({ error: 'Printer configuration not found' });
+      }
+      
+      res.json({ success: true, configuration });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid printer configuration data", details: error.errors });
+      } else {
+        console.error('Error updating printer configuration:', error);
+        res.status(500).json({ error: 'Failed to update printer configuration' });
+      }
+    }
+  });
+
+  app.delete("/api/printers/configurations/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deletePrinterConfiguration(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: 'Printer configuration not found' });
+      }
+      
+      res.json({ success: true, message: 'Printer configuration deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting printer configuration:', error);
+      res.status(500).json({ error: 'Failed to delete printer configuration' });
+    }
+  });
+
+  app.post("/api/printers/configurations/:id/set-default", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const configuration = await storage.setDefaultPrinterConfiguration(id);
+      
+      if (!configuration) {
+        return res.status(404).json({ error: 'Printer configuration not found' });
+      }
+      
+      res.json({ success: true, configuration });
+    } catch (error) {
+      console.error('Error setting default printer configuration:', error);
+      res.status(500).json({ error: 'Failed to set default printer configuration' });
     }
   });
 

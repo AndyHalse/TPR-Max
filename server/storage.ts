@@ -7,6 +7,8 @@ import type {
   InsertUser, 
   CompanySettings, 
   InsertCompanySettings, 
+  PrinterConfiguration,
+  InsertPrinterConfiguration,
   Report, 
   PreBooking, 
   InsertPreBooking,
@@ -245,6 +247,14 @@ export interface IStorage {
       total: number;
     }>;
   }>;
+
+  // Printer Configuration methods
+  getAllPrinterConfigurations(): Promise<PrinterConfiguration[]>;
+  getPrinterConfiguration(printerName: string): Promise<PrinterConfiguration | undefined>;
+  createPrinterConfiguration(insertPrinterConfiguration: InsertPrinterConfiguration): Promise<PrinterConfiguration>;
+  updatePrinterConfiguration(id: string, updates: Partial<InsertPrinterConfiguration>): Promise<PrinterConfiguration | undefined>;
+  deletePrinterConfiguration(id: string): Promise<boolean>;
+  setDefaultPrinterConfiguration(id: string): Promise<PrinterConfiguration | undefined>;
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";
