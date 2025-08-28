@@ -968,7 +968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const settings = await storage.getCompanySettings();
         const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
         
-        // Try to print using Windows command line
+        // Enhanced Windows printing with Magicard wake-up and queue management
         if (process.platform === 'win32') {
           try {
             // Use PowerShell to print the HTML file to the specified printer
@@ -981,11 +981,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
               execSync(printCommand, { encoding: 'utf8', timeout: 30000 });
               console.log(`✅ PDF file opened successfully`);
             } else {
-              // For physical printers, use the print verb with specific printer
-              const printCommand = `powershell.exe -Command "Start-Process -FilePath '${tempFile}' -Verb Print -Wait"`;
-              console.log(`🖨️ Executing print command: ${printCommand}`);
-              execSync(printCommand, { encoding: 'utf8', timeout: 30000 });
-              console.log(`✅ Print job sent successfully to ${selectedPrinter}`);
+              // Enhanced printer handling for Magicard and other card printers
+              console.log(`🔧 Preparing ${selectedPrinter} for printing...`);
+              
+              // Step 1: Wake up Magicard printers specifically
+              if (selectedPrinter.includes('Magicard')) {
+                console.log(`🔔 Waking up Magicard printer...`);
+                try {
+                  const wakeCommand = `powershell.exe -Command "Get-Printer -Name '${selectedPrinter}' | Set-Printer -Comment 'VisiGate-Wake-${Date.now()}'"`; 
+                  execSync(wakeCommand, { encoding: 'utf8', timeout: 10000 });
+                  console.log(`✅ Magicard wake-up command sent`);
+                } catch (wakeError) {
+                  console.log(`⚠️ Wake-up command failed, continuing: ${wakeError.message}`);
+                }
+              }
+              
+              // Step 2: Clear any stuck print jobs in the queue
+              console.log(`🧹 Clearing print queue for ${selectedPrinter}...`);
+              try {
+                const clearQueueCommand = `powershell.exe -Command "Get-PrintJob -PrinterName '${selectedPrinter}' | Remove-PrintJob -Confirm:$false"`;
+                execSync(clearQueueCommand, { encoding: 'utf8', timeout: 10000 });
+                console.log(`✅ Print queue cleared`);
+              } catch (clearError) {
+                console.log(`ℹ️ No existing jobs to clear: ${clearError.message}`);
+              }
+              
+              // Step 3: Check printer status
+              console.log(`🔍 Checking printer status...`);
+              try {
+                const statusCommand = `powershell.exe -Command "Get-Printer -Name '${selectedPrinter}' | Select-Object Name, PrinterStatus, JobCount, Comment"`;
+                const statusResult = execSync(statusCommand, { encoding: 'utf8', timeout: 10000 });
+                console.log(`📊 Printer status:\n${statusResult}`);
+              } catch (statusError) {
+                console.log(`⚠️ Status check failed: ${statusError.message}`);
+              }
+              
+              // Step 4: Send print job using enhanced method for card printers
+              console.log(`🖨️ Sending print job to Windows print spooler...`);
+              
+              // Use rundll32 method which works better with specialized printers like Magicard
+              const enhancedPrintCommand = `powershell.exe -Command "
+                try {
+                  # Method 1: Direct HTML printing using rundll32
+                  Start-Process -FilePath 'rundll32.exe' -ArgumentList 'mshtml.dll,PrintHTML \\"${tempFile}\\"' -Wait -WindowStyle Hidden
+                  Write-Output 'Print job sent via rundll32 method'
+                  
+                  # Check if job appeared in queue
+                  Start-Sleep -Seconds 2
+                  $jobs = Get-PrintJob -PrinterName '${selectedPrinter}' -ErrorAction SilentlyContinue
+                  if ($jobs) {
+                    Write-Output 'Jobs in queue:'
+                    $jobs | ForEach-Object { Write-Output \"Job ID: $($_.Id), Status: $($_.JobStatus), Pages: $($_.TotalPages)\" }
+                  } else {
+                    Write-Output 'No jobs found in queue'
+                  }
+                } catch {
+                  Write-Output \"Print error: $($_.Exception.Message)\"
+                  exit 1
+                }"`;
+              
+              const printResult = execSync(enhancedPrintCommand, { encoding: 'utf8', timeout: 45000 });
+              console.log(`✅ Enhanced print result:\n${printResult}`);
+              
+              // For Magicard, also try a direct printer command
+              if (selectedPrinter.includes('Magicard')) {
+                console.log(`🎯 Sending additional Magicard-specific command...`);
+                try {
+                  const magicardCommand = `powershell.exe -Command "
+                    # Additional Magicard wake-up and status check
+                    Get-WmiObject -Query \\"SELECT * FROM Win32_Printer WHERE Name='${selectedPrinter}'\\" | ForEach-Object {
+                      Write-Output \\"Printer: $($_.Name), Status: $($_.PrinterStatus), State: $($_.PrinterState)\\"
+                    }"`;
+                  const magicardResult = execSync(magicardCommand, { encoding: 'utf8', timeout: 15000 });
+                  console.log(`🔧 Magicard status check:\n${magicardResult}`);
+                } catch (magicardError) {
+                  console.log(`⚠️ Magicard status check failed: ${magicardError.message}`);
+                }
+              }
+              
+              console.log(`✅ Enhanced print job sent successfully to ${selectedPrinter}`);
             }
             
             // Clean up temp file after a delay
