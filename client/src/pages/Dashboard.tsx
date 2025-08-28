@@ -72,6 +72,21 @@ export default function Dashboard() {
     refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
   });
 
+  const { data: peakHoursData, isLoading: peakHoursLoading } = useQuery<{
+    peakHours: string;
+    weeklyTrend: string;
+    hourlyData: Array<{
+      hour: string;
+      visitors: number;
+      staff: number;
+      contractors: number;
+      total: number;
+    }>;
+  }>({
+    queryKey: ["/api/analytics/peak-hours"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
     department: string;
     staff: Array<{
@@ -324,9 +339,11 @@ export default function Dashboard() {
             <div>
               <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Peak Hours</p>
               <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-peak-hours">
-                9AM-11AM
+                {peakHoursLoading ? "Loading..." : (peakHoursData?.peakHours || "No data")}
               </p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">+23% this week</p>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                {peakHoursLoading ? "Calculating..." : (peakHoursData?.weeklyTrend || "No trend data")}
+              </p>
             </div>
             <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
               <TrendingUp className="text-emerald-600 dark:text-emerald-400" size={24} />

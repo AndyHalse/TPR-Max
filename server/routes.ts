@@ -225,6 +225,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Peak hours analytics endpoint
+  app.get("/api/analytics/peak-hours", async (req, res) => {
+    try {
+      const peakHoursData = await storage.getPeakHoursAnalytics();
+      res.json(peakHoursData);
+    } catch (error) {
+      console.error("Failed to fetch peak hours analytics:", error);
+      res.status(500).json({ error: "Failed to fetch peak hours analytics" });
+    }
+  });
+
   app.get("/api/departments/names", async (req, res) => {
     try {
       const names = await storage.getDepartmentNames();
