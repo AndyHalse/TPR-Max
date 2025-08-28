@@ -460,7 +460,7 @@ export default function InductionPreview() {
                           key={currentSlide} // Force re-render when slide changes
                           src={slides[currentSlide].image}
                           alt={slides[currentSlide].title}
-                          className="w-full h-full object-cover transition-opacity duration-300"
+                          className="w-full h-full object-contain transition-opacity duration-300"
                           loading="eager"
                           onLoad={(e) => {
                             // For the last slide (AI demo), always show the AI-generated overlay
@@ -483,23 +483,24 @@ export default function InductionPreview() {
                           }}
                         />
                         {/* AI-Generated Safety Scene - shows when image fails or for specific slides */}
-                        <div className="fallback-overlay absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex items-center justify-center">
-                          <div className="text-center text-white p-6 max-w-md">
-                            <div className="relative mb-6">
-                              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                                <Shield className="h-10 w-10" />
+                        <div className="fallback-overlay absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex items-center justify-center p-4">
+                          <div className="text-center text-white w-full max-w-lg">
+                            <div className="relative mb-8">
+                              <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse border-2 border-white/30">
+                                <Shield className="h-12 w-12" />
                               </div>
-                              <div className="absolute -top-2 -right-2 bg-green-400 text-green-900 text-xs px-2 py-1 rounded-full font-semibold">
+                              <div className="absolute -top-1 -right-8 bg-green-400 text-green-900 text-sm px-3 py-1 rounded-full font-bold shadow-lg">
                                 AI
                               </div>
                             </div>
-                            <h3 className="text-2xl font-bold mb-3">🤖 AI-Generated Safety Scene</h3>
-                            <p className="text-sm opacity-90 mb-4">
+                            <h3 className="text-3xl font-bold mb-4">🤖 AI-Generated Safety Scene</h3>
+                            <p className="text-base opacity-90 mb-6 leading-relaxed">
                               Advanced AI visualization of {slides[currentSlide].title.toLowerCase()} scenario
                             </p>
-                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
-                              <p className="text-xs">
-                                Dynamically generated workplace safety content powered by artificial intelligence
+                            <div className="bg-white/15 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                              <p className="text-sm leading-relaxed">
+                                Dynamically generated workplace safety content powered by artificial intelligence. 
+                                This scene adapts to provide contextual safety information.
                               </p>
                             </div>
                           </div>
