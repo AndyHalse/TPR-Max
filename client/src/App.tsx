@@ -1,6 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -42,7 +43,18 @@ function Router() {
   // Induction preview - no authentication required
   if (window.location.pathname.startsWith('/induction-preview/')) {
     const InductionPreview = lazy(() => import("./pages/InductionPreview"));
-    return <InductionPreview />;
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-slate-600 dark:text-slate-400">Loading induction preview...</p>
+          </div>
+        </div>
+      }>
+        <InductionPreview />
+      </Suspense>
+    );
   }
   
   // Robust authentication with fallback for browser restrictions
