@@ -16,7 +16,7 @@ import type { Staff } from "@shared/schema";
 
 interface CardElement {
   id: string;
-  type: 'photo' | 'name' | 'department' | 'employeeId' | 'company' | 'accessLevel' | 'text' | 'qrcode' | 'barcode';
+  type: 'photo' | 'name' | 'department' | 'employeeId' | 'company' | 'accessLevel' | 'text' | 'qrcode' | 'barcode' | 'logo';
   x: number;
   y: number;
   width: number;
@@ -26,6 +26,7 @@ interface CardElement {
   fontFamily?: string;
   color?: string;
   content?: string;
+  variable?: string; // Staff database field for dynamic content
   visible?: boolean;
 }
 
@@ -36,7 +37,28 @@ interface CardTemplate {
   elements: CardElement[];
   cardSize: 'CR80' | 'CR79' | 'Custom';
   background: string;
+  backgroundType?: 'solid' | 'gradient' | 'image';
+  backgroundImage?: string;
 }
+
+// Available staff database variables for dynamic content
+const STAFF_VARIABLES = [
+  { key: 'firstName', label: 'First Name', category: 'Personal' },
+  { key: 'lastName', label: 'Last Name', category: 'Personal' },
+  { key: 'email', label: 'Email Address', category: 'Contact' },
+  { key: 'department', label: 'Department', category: 'Work' },
+  { key: 'employeeId', label: 'Employee ID', category: 'Work' },
+  { key: 'accessLevel', label: 'Access Level', category: 'Security' },
+  { key: 'phoneNumber', label: 'Phone Number', category: 'Contact' },
+  { key: 'company', label: 'Company Name', category: 'Organization' },
+  { key: 'jobTitle', label: 'Job Title', category: 'Work' },
+  { key: 'emergencyContact', label: 'Emergency Contact', category: 'Emergency' },
+  { key: 'inductionStatus', label: 'Induction Status', category: 'Training' },
+  { key: 'validUntil', label: 'Valid Until Date', category: 'Security' },
+  { key: 'issueDate', label: 'Issue Date', category: 'Security' },
+  { key: 'fullName', label: 'Full Name (First + Last)', category: 'Personal' },
+  { key: 'custom', label: 'Custom Text', category: 'Custom' }
+];
 
 const INDUSTRY_TEMPLATES: CardTemplate[] = [
   {
@@ -47,11 +69,12 @@ const INDUSTRY_TEMPLATES: CardTemplate[] = [
     background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
     elements: [
       { id: 'photo', type: 'photo', x: 20, y: 20, width: 80, height: 80, visible: true },
-      { id: 'name', type: 'name', x: 120, y: 30, width: 180, height: 24, fontSize: 16, fontWeight: 'bold', color: '#1e293b', visible: true },
-      { id: 'department', type: 'department', x: 120, y: 55, width: 180, height: 18, fontSize: 12, color: '#64748b', visible: true },
-      { id: 'employeeId', type: 'employeeId', x: 120, y: 75, width: 180, height: 16, fontSize: 11, color: '#64748b', visible: true },
-      { id: 'company', type: 'company', x: 20, y: 115, width: 200, height: 16, fontSize: 10, color: '#64748b', visible: true },
-      { id: 'accessLevel', type: 'accessLevel', x: 20, y: 135, width: 200, height: 16, fontSize: 10, fontWeight: 'bold', color: '#3b82f6', visible: true },
+      { id: 'name', type: 'text', x: 120, y: 30, width: 180, height: 24, fontSize: 16, fontWeight: 'bold', color: '#1e293b', visible: true, content: 'Full Name', variable: 'fullName' },
+      { id: 'department', type: 'text', x: 120, y: 55, width: 180, height: 18, fontSize: 12, color: '#64748b', visible: true, content: 'Department', variable: 'department' },
+      { id: 'employeeId', type: 'text', x: 120, y: 75, width: 180, height: 16, fontSize: 11, color: '#64748b', visible: true, content: 'Employee ID', variable: 'employeeId' },
+      { id: 'company', type: 'text', x: 20, y: 115, width: 200, height: 16, fontSize: 10, color: '#64748b', visible: true, content: 'Company', variable: 'company' },
+      { id: 'accessLevel', type: 'text', x: 20, y: 135, width: 200, height: 16, fontSize: 10, fontWeight: 'bold', color: '#3b82f6', visible: true, content: 'Access Level', variable: 'accessLevel' },
+      { id: 'logo', type: 'logo', x: 260, y: 20, width: 50, height: 40, visible: true },
       { id: 'qrcode', type: 'qrcode', x: 260, y: 110, width: 50, height: 50, visible: true }
     ]
   },
@@ -63,11 +86,12 @@ const INDUSTRY_TEMPLATES: CardTemplate[] = [
     background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
     elements: [
       { id: 'photo', type: 'photo', x: 20, y: 20, width: 90, height: 90, visible: true },
-      { id: 'name', type: 'name', x: 130, y: 25, width: 180, height: 28, fontSize: 18, fontWeight: 'bold', color: '#1e40af', visible: true },
-      { id: 'department', type: 'department', x: 130, y: 55, width: 180, height: 20, fontSize: 13, fontWeight: 'bold', color: '#1e40af', visible: true },
-      { id: 'employeeId', type: 'employeeId', x: 130, y: 80, width: 180, height: 16, fontSize: 11, color: '#64748b', visible: true },
-      { id: 'company', type: 'company', x: 20, y: 125, width: 200, height: 16, fontSize: 10, color: '#64748b', visible: true },
-      { id: 'accessLevel', type: 'accessLevel', x: 20, y: 145, width: 200, height: 18, fontSize: 12, fontWeight: 'bold', color: '#dc2626', visible: true },
+      { id: 'name', type: 'text', x: 130, y: 25, width: 180, height: 28, fontSize: 18, fontWeight: 'bold', color: '#1e40af', visible: true, content: 'Full Name', variable: 'fullName' },
+      { id: 'department', type: 'text', x: 130, y: 55, width: 180, height: 20, fontSize: 13, fontWeight: 'bold', color: '#1e40af', visible: true, content: 'Department', variable: 'department' },
+      { id: 'employeeId', type: 'text', x: 130, y: 80, width: 180, height: 16, fontSize: 11, color: '#64748b', visible: true, content: 'Employee ID', variable: 'employeeId' },
+      { id: 'company', type: 'text', x: 20, y: 125, width: 200, height: 16, fontSize: 10, color: '#64748b', visible: true, content: 'Company', variable: 'company' },
+      { id: 'accessLevel', type: 'text', x: 20, y: 145, width: 200, height: 18, fontSize: 12, fontWeight: 'bold', color: '#dc2626', visible: true, content: 'Access Level', variable: 'accessLevel' },
+      { id: 'logo', type: 'logo', x: 240, y: 20, width: 60, height: 30, visible: true },
       { id: 'qrcode', type: 'qrcode', x: 260, y: 115, width: 45, height: 45, visible: true },
       { id: 'barcode', type: 'barcode', x: 230, y: 80, width: 80, height: 25, visible: true }
     ]
@@ -119,6 +143,9 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
   const [cardElements, setCardElements] = useState<CardElement[]>(INDUSTRY_TEMPLATES[0].elements);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [selectedCardBackground, setSelectedCardBackground] = useState(INDUSTRY_TEMPLATES[0].background);
+  const [backgroundType, setBackgroundType] = useState<'solid' | 'gradient' | 'image'>('gradient');
+  const [backgroundColor, setBackgroundColor] = useState('#ffffff');
+  const [backgroundImage, setBackgroundImage] = useState('');
   const [showTestPrint, setShowTestPrint] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -144,6 +171,28 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
   };
 
   const getElementPreviewText = (element: CardElement): string => {
+    if (element.variable && element.variable !== 'custom') {
+      // Return sample data based on variable type
+      switch (element.variable) {
+        case 'firstName': return 'John';
+        case 'lastName': return 'Smith';
+        case 'fullName': return 'John Smith';
+        case 'email': return 'j.smith@company.com';
+        case 'department': return 'Engineering';
+        case 'employeeId': return 'ENG-123';
+        case 'accessLevel': return 'STAFF ACCESS';
+        case 'company': return 'ACS Safety & Security Ltd';
+        case 'phoneNumber': return '+44 1234 567890';
+        case 'jobTitle': return 'Senior Engineer';
+        case 'emergencyContact': return 'Emergency: 999';
+        case 'inductionStatus': return 'COMPLETED';
+        case 'validUntil': return new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString('en-GB');
+        case 'issueDate': return new Date().toLocaleDateString('en-GB');
+        default: return element.content || 'Sample Text';
+      }
+    }
+    
+    // Legacy type-based preview text
     switch (element.type) {
       case 'name': return 'John Smith';
       case 'department': return 'Engineering';
@@ -163,6 +212,51 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
         ? { ...el, [property]: value }
         : el
     ));
+  };
+
+  const addNewElement = (type: CardElement['type']) => {
+    const newId = `${type}-${Date.now()}`;
+    const newElement: CardElement = {
+      id: newId,
+      type,
+      x: 50,
+      y: 50,
+      width: type === 'photo' ? 80 : type === 'logo' ? 60 : 150,
+      height: type === 'photo' ? 80 : type === 'logo' ? 40 : type === 'qrcode' ? 50 : 20,
+      fontSize: type === 'text' ? 12 : undefined,
+      color: type === 'text' ? '#1e293b' : undefined,
+      content: type === 'text' ? 'New Text' : undefined,
+      variable: type === 'text' ? 'custom' : undefined,
+      visible: true
+    };
+    
+    setCardElements(prev => [...prev, newElement]);
+    setSelectedElement(newId);
+    
+    toast({
+      title: "Element Added",
+      description: `New ${type} element added to card`,
+    });
+  };
+
+  const updateBackground = (type: 'solid' | 'gradient' | 'image', value?: string) => {
+    setBackgroundType(type);
+    
+    let newBackground = selectedCardBackground;
+    
+    switch (type) {
+      case 'solid':
+        newBackground = backgroundColor;
+        break;
+      case 'gradient':
+        newBackground = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
+        break;
+      case 'image':
+        newBackground = backgroundImage || selectedCardBackground;
+        break;
+    }
+    
+    setSelectedCardBackground(newBackground);
   };
 
   const addElement = (type: CardElement['type']) => {
@@ -348,6 +442,11 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                         <div className="w-full h-full bg-slate-200 rounded border flex items-center justify-center">
                           <User className="text-slate-400" size={Math.min(element.width, element.height) * 0.5} />
                         </div>
+                      ) : element.type === 'logo' ? (
+                        <div className="w-full h-full bg-slate-100 border-2 border-dashed border-slate-300 rounded flex items-center justify-center">
+                          <Building2 className="text-slate-500" size={Math.min(element.width, element.height) * 0.4} />
+                          <span className="text-xs text-slate-500 ml-1">LOGO</span>
+                        </div>
                       ) : element.type === 'qrcode' ? (
                         <div className="w-full h-full bg-white border rounded flex items-center justify-center">
                           <img 
@@ -455,6 +554,47 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                     {cardElements.find(el => el.id === selectedElement)?.type.replace('_', ' ')}
                   </div>
                 </div>
+
+                {/* Variable Selection for Text Elements */}
+                {cardElements.find(el => el.id === selectedElement)?.type === 'text' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Data Source</label>
+                    <Select
+                      value={cardElements.find(el => el.id === selectedElement)?.variable || 'custom'}
+                      onValueChange={(value) => updateElementProperty('variable', value)}
+                    >
+                      <SelectTrigger data-testid="select-variable">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="custom">Custom Text</SelectItem>
+                        {STAFF_VARIABLES.map((variable) => (
+                          <SelectItem key={variable.key} value={variable.key}>
+                            {variable.label} ({variable.category})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Choose staff database field or custom text
+                    </p>
+                  </div>
+                )}
+
+                {/* Custom Text Content (only for custom variable) */}
+                {cardElements.find(el => el.id === selectedElement)?.type === 'text' && 
+                 cardElements.find(el => el.id === selectedElement)?.variable === 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Text Content</label>
+                    <Input
+                      type="text"
+                      value={cardElements.find(el => el.id === selectedElement)?.content || ''}
+                      onChange={(e) => updateElementProperty('content', e.target.value)}
+                      placeholder="Enter custom text"
+                      data-testid="input-text-content"
+                    />
+                  </div>
+                )}
                 
                 {/* Font Size */}
                 <div>
@@ -609,7 +749,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                 variant="outline" 
                 size="sm" 
                 className="flex items-center gap-1"
-                onClick={() => addElement('text')}
+                onClick={() => addNewElement('text')}
                 data-testid="button-add-text"
               >
                 <Type size={14} />
@@ -619,7 +759,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                 variant="outline" 
                 size="sm" 
                 className="flex items-center gap-1"
-                onClick={() => addElement('qrcode')}
+                onClick={() => addNewElement('qrcode')}
                 data-testid="button-add-qr"
               >
                 <QrCode size={14} />
@@ -629,7 +769,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                 variant="outline" 
                 size="sm" 
                 className="flex items-center gap-1"
-                onClick={() => addElement('barcode')}
+                onClick={() => addNewElement('barcode')}
                 data-testid="button-add-barcode"
               >
                 <Hash size={14} />
@@ -639,11 +779,21 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                 variant="outline" 
                 size="sm" 
                 className="flex items-center gap-1"
-                onClick={() => addElement('photo')}
+                onClick={() => addNewElement('photo')}
                 data-testid="button-add-photo"
               >
                 <User size={14} />
                 Photo
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-1"
+                onClick={() => addNewElement('logo')}
+                data-testid="button-add-logo"
+              >
+                <Building2 size={14} />
+                Logo
               </Button>
             </div>
           </Card>
@@ -655,26 +805,143 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
               <h4 className="font-semibold text-slate-800">Card Options</h4>
             </div>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Background Style</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { name: 'White', value: '#ffffff' },
-                    { name: 'Light Gray', value: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' },
-                    { name: 'Blue Gradient', value: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)' }
-                  ].map((bg) => (
-                    <div
-                      key={bg.name}
-                      className={`w-full h-8 rounded cursor-pointer border-2 ${
-                        selectedCardBackground === bg.value ? 'border-blue-500' : 'border-slate-200'
-                      }`}
-                      style={{ background: bg.value }}
-                      onClick={() => setSelectedCardBackground(bg.value)}
-                      title={bg.name}
-                      data-testid={`background-${bg.name.toLowerCase().replace(' ', '-')}`}
-                    />
-                  ))}
+                <label className="block text-sm font-medium text-slate-700 mb-2">Background Type</label>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <Button
+                    variant={backgroundType === 'solid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => updateBackground('solid')}
+                    data-testid="button-bg-solid"
+                  >
+                    Solid
+                  </Button>
+                  <Button
+                    variant={backgroundType === 'gradient' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => updateBackground('gradient')}
+                    data-testid="button-bg-gradient"
+                  >
+                    Gradient
+                  </Button>
+                  <Button
+                    variant={backgroundType === 'image' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => updateBackground('image')}
+                    data-testid="button-bg-image"
+                  >
+                    Image
+                  </Button>
+                </div>
+                
+                {backgroundType === 'solid' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Background Color</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={backgroundColor}
+                        onChange={(e) => {
+                          setBackgroundColor(e.target.value);
+                          setSelectedCardBackground(e.target.value);
+                        }}
+                        className="w-12 h-8 rounded border cursor-pointer"
+                        data-testid="input-bg-color"
+                      />
+                      <Input
+                        type="text"
+                        value={backgroundColor}
+                        onChange={(e) => {
+                          setBackgroundColor(e.target.value);
+                          setSelectedCardBackground(e.target.value);
+                        }}
+                        className="flex-1"
+                        placeholder="#ffffff"
+                        data-testid="input-bg-color-hex"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {backgroundType === 'gradient' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Gradient Presets</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { name: 'Light Gray', value: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' },
+                        { name: 'Blue Professional', value: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)' },
+                        { name: 'Corporate Blue', value: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' },
+                        { name: 'Security Red', value: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)' }
+                      ].map((bg) => (
+                        <div
+                          key={bg.name}
+                          className={`w-full h-10 rounded cursor-pointer border-2 p-1 ${
+                            selectedCardBackground === bg.value ? 'border-blue-500' : 'border-slate-200'
+                          }`}
+                          style={{ background: bg.value }}
+                          onClick={() => setSelectedCardBackground(bg.value)}
+                          title={bg.name}
+                          data-testid={`gradient-${bg.name.toLowerCase().replace(/\\s+/g, '-')}`}
+                        >
+                          <div className="text-xs text-center text-slate-600 font-medium pt-1">
+                            {bg.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {backgroundType === 'image' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Background Image</label>
+                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center">
+                      <Upload className="mx-auto text-slate-400 mb-2" size={24} />
+                      <p className="text-sm text-slate-600 mb-2">Drop image here or click to upload</p>
+                      <Button variant="outline" size="sm">
+                        Choose Image
+                      </Button>
+                      <p className="text-xs text-slate-500 mt-2">Recommended: 340x216px (CR80 aspect ratio)</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Quick Actions</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowGrid(!showGrid);
+                      toast({
+                        title: showGrid ? "Grid Hidden" : "Grid Shown",
+                        description: "Design grid toggled for precise element positioning",
+                      });
+                    }}
+                    data-testid="button-toggle-grid"
+                  >
+                    <Grid size={14} className="mr-1" />
+                    {showGrid ? 'Hide' : 'Show'} Grid
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCardElements(INDUSTRY_TEMPLATES[0].elements);
+                      setSelectedCardBackground(INDUSTRY_TEMPLATES[0].background);
+                      toast({
+                        title: "Card Reset",
+                        description: "Card elements reset to default template",
+                      });
+                    }}
+                    data-testid="button-reset-card"
+                  >
+                    <RotateCcw size={14} className="mr-1" />
+                    Reset Card
+                  </Button>
                 </div>
               </div>
             </div>
