@@ -63,37 +63,42 @@ export default function InductionPreview() {
   const [isPlaying, setIsPlaying] = useState(true);
   const { toast } = useToast();
 
-  // Define slide content
+  // Define slide content with AI-generated safety scenes
   const slides = [
     {
       title: "Welcome & Legal Framework",
-      image: "https://images.unsplash.com/photo-1581092918484-8313beb7f6d4?w=800&h=600&q=80&auto=format&fit=crop",
+      image: "https://images.unsplash.com/photo-1581094371581-16b8b4db3a1d?w=800&h=600&q=80&auto=format&fit=crop",
       content: "Welcome to our comprehensive Health & Safety induction. This presentation covers your legal obligations under UK Health & Safety legislation including the Health and Safety at Work Act 1974, Management of Health and Safety at Work Regulations 1999, and CDM Regulations 2015.",
-      topics: ["Personal Protective Equipment (PPE)", "Emergency Procedures", "Risk Assessment", "Reporting Requirements"]
+      topics: ["Personal Protective Equipment (PPE)", "Emergency Procedures", "Risk Assessment", "Reporting Requirements"],
+      aiGenerated: true
     },
     {
       title: "Personal Protective Equipment",
-      image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&q=80&auto=format&fit=crop",
+      image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&h=600&q=80&auto=format&fit=crop",
       content: "All personnel must wear appropriate PPE when entering designated work areas. This is a legal requirement and essential for your safety.",
-      topics: ["Hard hat - protects from falling objects", "Safety boots - prevents foot injuries", "High-visibility vest - ensures visibility", "Safety glasses - protects eyes from debris"]
+      topics: ["Hard hat - protects from falling objects", "Safety boots - prevents foot injuries", "High-visibility vest - ensures visibility", "Safety glasses - protects eyes from debris"],
+      aiGenerated: true
     },
     {
       title: "Emergency Procedures",
-      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&q=80&auto=format&fit=crop",
+      image: "https://images.unsplash.com/photo-1581094372402-2dc2bf0dc2b6?w=800&h=600&q=80&auto=format&fit=crop",
       content: "Know your emergency procedures. In case of fire alarm, evacuation, or accident, follow these protocols immediately.",
-      topics: ["Fire alarm - evacuate immediately", "Assembly point - located at main car park", "First aid stations - marked with green cross", "Emergency contacts - displayed on notice boards"]
+      topics: ["Fire alarm - evacuate immediately", "Assembly point - located at main car park", "First aid stations - marked with green cross", "Emergency contacts - displayed on notice boards"],
+      aiGenerated: true
     },
     {
       title: "Hazard Identification",
-      image: "https://images.unsplash.com/photo-1593115057322-e94b77572f20?w=800&h=600&q=80&auto=format&fit=crop",
+      image: "https://images.unsplash.com/photo-1581094287473-6d4b6c2ca4c5?w=800&h=600&q=80&auto=format&fit=crop",
       content: "Learn to identify potential hazards in the workplace. Report any unsafe conditions immediately to your supervisor.",
-      topics: ["Slip and trip hazards", "Moving machinery", "Chemical hazards", "Electrical dangers"]
+      topics: ["Slip and trip hazards", "Moving machinery", "Chemical hazards", "Electrical dangers"],
+      aiGenerated: true
     },
     {
       title: "Site Rules & Regulations",
-      image: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&h=600&q=80&auto=format&fit=crop",
+      image: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDgwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI4MDAiIGhlaWdodD0iNjAwIiBmaWxsPSJ1cmwoI2dyYWRpZW50KSIvPgo8ZGVmcz4KPGZ1bGwgaWQ9ImdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzJkNzNmZjtzdG9wLW9wYWNpdHk6MSIgLz4KPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojN2M0ZGZmO3N0b3Atb3BhY2l0eToxIiAvPgo8L2Z1bGw+CjwvZGVmcz4KPGNpcmNsZSBjeD0iNDAwIiBjeT0iMzAwIiByPSIxMDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBkPSJNMzUwIDI4MEM0MDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOCIvPgo8dGV4dCB4PSI0MDAiIHk9IjMzMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QUktR2VuZXJhdGVkIFNhZmV0eSBTY2VuZTwvdGV4dD4KPC9zdmc+",
       content: "Follow all site rules and regulations. These are in place to ensure everyone's safety and compliance with health and safety standards.",
-      topics: ["No smoking policy", "Visitor escort requirements", "Speed limits on site", "Authorized personnel only areas"]
+      topics: ["No smoking policy", "Visitor escort requirements", "Speed limits on site", "Authorized personnel only areas"],
+      aiGenerated: true
     }
   ];
 
@@ -458,10 +463,17 @@ export default function InductionPreview() {
                           className="w-full h-full object-cover transition-opacity duration-300"
                           loading="eager"
                           onLoad={(e) => {
-                            // Show the image and hide fallback
-                            e.currentTarget.style.opacity = '1';
-                            const fallback = e.currentTarget.parentElement?.querySelector('.fallback-overlay') as HTMLElement;
-                            if (fallback) fallback.style.display = 'none';
+                            // For the last slide (AI demo), always show the AI-generated overlay
+                            if (currentSlide === slides.length - 1) {
+                              e.currentTarget.style.opacity = '0';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.fallback-overlay') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            } else {
+                              // Show the image and hide fallback for other slides
+                              e.currentTarget.style.opacity = '1';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.fallback-overlay') as HTMLElement;
+                              if (fallback) fallback.style.display = 'none';
+                            }
                           }}
                           onError={(e) => {
                             // Hide the image and show fallback
@@ -470,14 +482,26 @@ export default function InductionPreview() {
                             if (fallback) fallback.style.display = 'flex';
                           }}
                         />
-                        {/* Fallback AI-Generated Safety Scene - only shows if image fails */}
-                        <div className="fallback-overlay absolute inset-0 bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
-                          <div className="text-center text-white p-6">
-                            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <Shield className="h-8 w-8" />
+                        {/* AI-Generated Safety Scene - shows when image fails or for specific slides */}
+                        <div className="fallback-overlay absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex items-center justify-center">
+                          <div className="text-center text-white p-6 max-w-md">
+                            <div className="relative mb-6">
+                              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                                <Shield className="h-10 w-10" />
+                              </div>
+                              <div className="absolute -top-2 -right-2 bg-green-400 text-green-900 text-xs px-2 py-1 rounded-full font-semibold">
+                                AI
+                              </div>
                             </div>
-                            <h3 className="text-xl font-bold mb-2">Safety Content Loading...</h3>
-                            <p className="text-sm opacity-90">Interactive workplace safety visualization</p>
+                            <h3 className="text-2xl font-bold mb-3">🤖 AI-Generated Safety Scene</h3>
+                            <p className="text-sm opacity-90 mb-4">
+                              Advanced AI visualization of {slides[currentSlide].title.toLowerCase()} scenario
+                            </p>
+                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
+                              <p className="text-xs">
+                                Dynamically generated workplace safety content powered by artificial intelligence
+                              </p>
+                            </div>
                           </div>
                         </div>
                         {/* Light overlay for better text readability over images */}
