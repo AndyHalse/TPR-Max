@@ -869,7 +869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         staffId: id,
         status: "completed",
         timestamp: new Date().toISOString(),
-        printer: "Magicard 600 (ID Card Model)", // Dedicated CR80 ID card printer
+        printer: settings?.idCardPrinter || "Magicard Enduro+ (V2)", // Use actual selected printer
         design: design,
         cardSize: "CR80", // Standard ID card size (85.60mm x 53.98mm)
         printQuality: "300 DPI",
@@ -938,7 +938,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🧪 Test printing ID card for: ${staff.firstName} ${staff.lastName}`);
       console.log(`🎨 Using design with ${design?.length || 0} elements`);
-      console.log(`🖨️ Sending to ID Card Staff Printer: Magicard 600 (CR80 Format)`);
+      
+      // Get the actual selected printer from settings
+      const settings = await storage.getCompanySettings();
+      const actualPrinter = settings?.idCardPrinter || "Magicard Enduro+ (V2)";
+      console.log(`🖨️ Sending to ID Card Staff Printer: ${actualPrinter} (CR80 Format)`);
       
       // Create actual print job for Windows printer
       let printStatus = "completed";
@@ -1091,9 +1095,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         printError = error.message;
       }
       
-      // Get the selected ID card printer name for the print job record
-      const settings = await storage.getCompanySettings();
-      const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
+      // Use the already fetched settings for the print job record
+      const selectedPrinter = settings?.idCardPrinter || "Magicard Enduro+ (V2)";
       
       // Use the selected ID Card Staff Printer from settings
       const testPrintJob = {

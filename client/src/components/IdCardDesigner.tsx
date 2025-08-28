@@ -102,6 +102,38 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
     setSelectedElement(null);
   };
 
+  const handleSaveTemplate = async () => {
+    try {
+      const response = await fetch('/api/idcard/design', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          elements: elements,
+          background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+          cardSize: 'CR80'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save design');
+      }
+
+      toast({
+        title: "Design Saved Successfully",
+        description: "ID card template has been saved",
+      });
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({
+        title: "Save Failed", 
+        description: "Failed to save ID card design. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handlePrint = async () => {
     try {
       const response = await fetch(`/api/staff/${staff.id}/print-id-card`, {
@@ -254,6 +286,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
           </Button>
           <Button 
             variant="outline"
+            onClick={handleSaveTemplate}
             className="flex items-center gap-2"
           >
             <Save size={16} />
