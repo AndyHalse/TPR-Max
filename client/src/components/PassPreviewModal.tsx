@@ -48,11 +48,11 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                 .pass-container {
                   width: 95mm;
                   height: 66mm;
-                  border: 1px solid #ddd;
+                  border: 1px solid #000000;
                   padding: 3mm;
                   box-sizing: border-box;
                   position: relative;
-                  background: linear-gradient(135deg, #f8faff 0%, #e6f2ff 100%);
+                  background: white;
                 }
                 .header { 
                   display: flex; 
@@ -67,25 +67,25 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                   font-size: 11pt; 
                   font-weight: bold; 
                   margin: 0;
-                  color: #1a365d;
+                  color: #000000;
                 }
                 .visitor-pass { 
                   font-size: 8pt; 
                   margin: 0;
-                  color: #4a5568;
+                  color: #000000;
                   font-weight: 600;
                 }
                 .address { 
                   font-size: 6.5pt; 
                   margin: 0;
-                  color: #718096;
+                  color: #000000;
                   line-height: 1.2;
                   margin-top: 0.5mm;
                 }
                 .logo { 
                   width: 12mm;
                   height: 12mm;
-                  background: #3182ce;
+                  background: #000000;
                   border-radius: 2mm;
                   display: flex;
                   align-items: center;
@@ -109,29 +109,29 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                   font-weight: bold; 
                   margin: 0;
                   margin-bottom: 1mm;
-                  color: #1a202c;
+                  color: #000000;
                 }
                 .visitor-company { 
                   font-size: 9pt; 
                   margin: 0;
                   margin-bottom: 0.5mm;
-                  color: #4a5568;
+                  color: #000000;
                 }
                 .visitor-date { 
                   font-size: 8pt; 
                   margin: 0;
                   margin-bottom: 0.5mm;
-                  color: #718096;
+                  color: #000000;
                 }
                 .visitor-host { 
                   font-size: 8pt; 
                   margin: 0;
-                  color: #718096;
+                  color: #000000;
                 }
                 .qr-code { 
                   width: 18mm; 
                   height: 18mm;
-                  border: 1px solid #e2e8f0;
+                  border: 1px solid #000000;
                   border-radius: 1mm;
                 }
                 .footer { 
@@ -140,21 +140,21 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                   left: 3mm; 
                   right: 3mm;
                   font-size: 6pt; 
-                  color: #a0aec0;
+                  color: #000000;
                   display: flex;
                   justify-content: space-between;
                   align-items: center;
                 }
                 .contact-info {
                   font-size: 6pt;
-                  color: #718096;
+                  color: #000000;
                   text-align: left;
                 }
                 .phone {
                   margin-bottom: 0.5mm;
                 }
                 .website {
-                  color: #3182ce;
+                  color: #000000;
                 }
               }
             </style>

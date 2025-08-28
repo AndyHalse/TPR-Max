@@ -1,8 +1,8 @@
 export function generateQRCode(text: string): string {
-  // Using a simple QR code generator service for demonstration
-  // In production, you might want to use a more robust library or API
+  // Optimized QR code for direct thermal printers - high contrast black/white only
+  // Using larger size and error correction for better thermal printer readability
   const encodedText = encodeURIComponent(text);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodedText}`;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&color=000000&bgcolor=ffffff&data=${encodedText}`;
 }
 
 export function generateBarcodePattern(data: string): string {
