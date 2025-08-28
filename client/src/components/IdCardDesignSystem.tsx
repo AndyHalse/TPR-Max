@@ -993,6 +993,9 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
               <Button 
                 onClick={async () => {
                   try {
+                    console.log("Selected test staff ID:", selectedTestStaffId);
+                    console.log("Staff list:", staffList);
+                    
                     if (!selectedTestStaffId) {
                       toast({
                         title: "Staff Selection Required",
