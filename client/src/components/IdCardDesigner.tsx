@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,6 +40,37 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load saved design when component opens
+  const loadSavedDesign = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/idcard/design');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.design?.elements?.length > 0) {
+          setElements(data.design.elements);
+          console.log(`🎨 Loaded saved design with ${data.design.elements.length} elements`);
+        } else {
+          console.log('🎨 No saved design found, using defaults');
+          setElements(defaultElements);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load saved design:', error);
+      setElements(defaultElements);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load design when dialog opens
+  React.useEffect(() => {
+    if (isOpen) {
+      loadSavedDesign();
+    }
+  }, [isOpen]);
 
   const getElementContent = (element: CardElement): string => {
     switch (element.type) {
@@ -121,9 +153,11 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
       }
 
       toast({
-        title: "Design Saved Successfully",
-        description: "ID card template has been saved",
+        title: "✅ Design Saved Successfully",
+        description: "ID card template has been saved to database",
       });
+      
+      console.log('💾 Design saved successfully to database');
     } catch (error) {
       console.error('Save error:', error);
       toast({
@@ -177,7 +211,12 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Card Preview */}
           <div className="lg:col-span-2">
-            <h3 className="text-lg font-semibold mb-4">Card Preview (95mm x 66mm)</h3>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              Card Preview (95mm x 66mm)
+              {isLoading && (
+                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              )}
+            </h3>
             <div className="flex justify-center">
               <div 
                 className="relative bg-white border-2 border-slate-300 shadow-lg"
