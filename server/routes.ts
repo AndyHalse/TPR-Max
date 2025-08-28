@@ -1771,13 +1771,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: true,
           platform: 'Windows (Simulated)',
           printers: [
-            // Exact printers from your Windows PC as shown in screenshot
+            // Exact printers from your Windows PC with correct status
             { name: 'AnyDesk Printer', driver: 'AnyDesk Printer Driver', port: 'ANYDESK:', status: 'Normal', isOnline: true },
             { name: 'EPSON XP-2150 Series', driver: 'EPSON XP-2150 Series Printer Driver', port: 'WSD-f8d1-4b2e-93ac-7c5f7d8e9f2a.0004', status: 'Offline', isOnline: false },
-            { name: 'Magicard Enduro+ (V2)', driver: 'Magicard Enduro+ V2 Driver', port: 'USB001', status: 'Error', isOnline: false },
+            { name: 'Magicard Enduro+ (V2)', driver: 'Magicard Enduro+ V2 Driver', port: 'USB001', status: 'Idle', isOnline: true },
             { name: 'Microsoft Print to PDF', driver: 'Microsoft Print To PDF', port: 'PORTPROMPT:', status: 'Normal', isOnline: true },
             { name: 'OneNote (Desktop)', driver: 'Microsoft OneNote 16 Driver', port: 'nul:', status: 'Normal', isOnline: true },
-            { name: 'Samsung ML-1660 Series (USB001)', driver: 'Samsung ML-1660 Series PCL 6', port: 'USB001', status: 'Normal', isOnline: true }
+            { name: 'Samsung ML-1660 Series (USB001)', driver: 'Samsung ML-1660 Series PCL 6', port: 'USB001', status: 'Normal', isOnline: true },
+            { name: 'TEC B-EV4 Desktop Printer', driver: 'TEC B-EV4 Thermal Printer Driver', port: 'USB002', status: 'Idle', isOnline: true }
           ],
           detectedAt: new Date().toISOString(),
           message: `Showing your actual PC printers from Windows settings.`
