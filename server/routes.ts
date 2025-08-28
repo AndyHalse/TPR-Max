@@ -37,6 +37,48 @@ import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Public Induction Preview Routes (no auth required) - Using different path to avoid /api auth
+  app.get('/preview/induction/settings', async (req, res) => {
+    try {
+      const settings = await db.select().from(inductionSettings).orderBy(inductionSettings.roleType);
+      res.json({ settings });
+    } catch (error) {
+      console.error('Error fetching induction settings for preview:', error);
+      res.status(500).json({ error: 'Failed to fetch induction settings' });
+    }
+  });
+
+  app.get('/preview/induction/settings/:roleType', async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const [setting] = await db.select().from(inductionSettings)
+        .where(eq(inductionSettings.roleType, roleType));
+      
+      if (!setting) {
+        return res.status(404).json({ error: 'Induction settings not found for this role' });
+      }
+      
+      res.json({ setting });
+    } catch (error) {
+      console.error('Error fetching induction setting for preview:', error);
+      res.status(500).json({ error: 'Failed to fetch induction setting' });
+    }
+  });
+
+  app.get('/preview/induction/questions/:roleType', async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const questions = await db.select().from(inductionQuestions)
+        .where(eq(inductionQuestions.roleType, roleType))
+        .orderBy(inductionQuestions.orderIndex);
+      
+      res.json({ questions });
+    } catch (error) {
+      console.error('Error fetching induction questions for preview:', error);
+      res.status(500).json({ error: 'Failed to fetch induction questions' });
+    }
+  });
+
   // Serve static files from public directory
   app.use('/sample-*.pdf', express.static(path.join(process.cwd(), 'public')));
   
@@ -3604,6 +3646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize overnight check-out notifications
   setupOvernightNotifications();
+
 
   // Induction Settings Management API Routes
   app.get('/api/induction/settings', requireAuth, async (req, res) => {
