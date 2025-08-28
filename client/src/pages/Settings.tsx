@@ -1546,330 +1546,228 @@ export default function Settings() {
             </GlassCard>
           </div>
 
-          {/* Advanced Printer Properties Section */}
+          {/* Individual Printer Configuration Section */}
           <GlassCard>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Settings as SettingsIcon className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Advanced Printer Properties</h3>
+                <h3 className="text-lg font-semibold text-slate-800">Individual Printer Configuration</h3>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
-                data-testid="button-reset-printer-defaults"
+                data-testid="button-refresh-printer-configs"
+                onClick={() => refetchPrinters()}
+                disabled={isDetectingPrinters}
               >
-                <RotateCcw className="h-4 w-4" />
-                Reset to Defaults
+                <RefreshCw className={`h-4 w-4 ${isDetectingPrinters ? 'animate-spin' : ''}`} />
+                {isDetectingPrinters ? 'Updating...' : 'Refresh'}
               </Button>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Paper & Media Settings */}
+
+            {detectedPrinters && detectedPrinters.printers.length > 0 ? (
               <div className="space-y-4">
-                <h4 className="font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <CreditCard className="h-4 w-4" />
-                  Paper & Media
-                </h4>
-                
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Paper Size</Label>
-                  <Select
-                    value={currentSettings?.idCardPaperSize || "cr80"}
-                    onValueChange={(value) => handleInputChange("idCardPaperSize", value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-paper-size">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A4">A4 (210 × 297 mm)</SelectItem>
-                      <SelectItem value="A5">A5 (148 × 210 mm)</SelectItem>
-                      <SelectItem value="Letter">Letter (8.5 × 11 in)</SelectItem>
-                      <SelectItem value="Legal">Legal (8.5 × 14 in)</SelectItem>
-                      <SelectItem value="cr80">CR80 (85.6 × 53.98 mm)</SelectItem>
-                      <SelectItem value="cr79">CR79 (79 × 50 mm)</SelectItem>
-                      <SelectItem value="custom">Custom Size</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Orientation</Label>
-                  <Select
-                    value={currentSettings?.idCardOrientation || "landscape"}
-                    onValueChange={(value) => handleInputChange("idCardOrientation", value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-orientation">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="portrait">Portrait</SelectItem>
-                      <SelectItem value="landscape">Landscape</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Duplex Printing</Label>
-                  <Select
-                    defaultValue="none"
-                    onValueChange={(value) => console.log('Duplex:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-duplex">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Single-sided</SelectItem>
-                      <SelectItem value="short_edge">Flip on Short Edge</SelectItem>
-                      <SelectItem value="long_edge">Flip on Long Edge</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Paper Source</Label>
-                  <Select
-                    defaultValue="auto"
-                    onValueChange={(value) => console.log('Paper Source:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-paper-source">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">Auto Select</SelectItem>
-                      <SelectItem value="tray1">Tray 1</SelectItem>
-                      <SelectItem value="tray2">Tray 2</SelectItem>
-                      <SelectItem value="manual">Manual Feed</SelectItem>
-                      <SelectItem value="envelope">Envelope Tray</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Quality & Color Settings */}
-              <div className="space-y-4">
-                <h4 className="font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <Palette className="h-4 w-4" />
-                  Quality & Color
-                </h4>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">ID Card Print Quality</Label>
-                  <Select
-                    value={currentSettings?.idCardPrintQuality || "high"}
-                    onValueChange={(value) => handleInputChange("idCardPrintQuality", value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-id-card-quality">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft (Fast)</SelectItem>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="high">High Quality</SelectItem>
-                      <SelectItem value="photo">Photo Quality</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Color Mode</Label>
-                  <Select
-                    defaultValue="color"
-                    onValueChange={(value) => console.log('Color Mode:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-color-mode">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="color">Full Color</SelectItem>
-                      <SelectItem value="grayscale">Grayscale</SelectItem>
-                      <SelectItem value="monochrome">Black & White</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Print Resolution</Label>
-                  <Select
-                    defaultValue="600dpi"
-                    onValueChange={(value) => console.log('Resolution:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-resolution">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="300dpi">300 DPI (Fast)</SelectItem>
-                      <SelectItem value="600dpi">600 DPI (Standard)</SelectItem>
-                      <SelectItem value="1200dpi">1200 DPI (High)</SelectItem>
-                      <SelectItem value="2400dpi">2400 DPI (Photo)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Thermal Settings</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      defaultValue="medium"
-                      onValueChange={(value) => console.log('Thermal Speed:', value)}
-                    >
-                      <SelectTrigger className="px-2 py-1 text-xs rounded border border-white/30 bg-white/50">
-                        <SelectValue placeholder="Speed" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="slow">Slow</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="fast">Fast</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      defaultValue="normal"
-                      onValueChange={(value) => console.log('Thermal Density:', value)}
-                    >
-                      <SelectTrigger className="px-2 py-1 text-xs rounded border border-white/30 bg-white/50">
-                        <SelectValue placeholder="Density" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="dark">Dark</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Advanced Options */}
-              <div className="space-y-4">
-                <h4 className="font-semibold text-slate-700 flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <Settings as SettingsIcon className="h-4 w-4" />
-                  Advanced Options
-                </h4>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">QR/Barcode Position</Label>
-                  <Select
-                    defaultValue="bottom_right"
-                    onValueChange={(value) => console.log('Barcode Position:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-barcode-position">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="top_left">Top Left</SelectItem>
-                      <SelectItem value="top_right">Top Right</SelectItem>
-                      <SelectItem value="bottom_left">Bottom Left</SelectItem>
-                      <SelectItem value="bottom_right">Bottom Right</SelectItem>
-                      <SelectItem value="center">Center</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">QR/Barcode Size</Label>
-                  <Select
-                    defaultValue="medium"
-                    onValueChange={(value) => console.log('Barcode Size:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-barcode-size">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="small">Small (15mm)</SelectItem>
-                      <SelectItem value="medium">Medium (20mm)</SelectItem>
-                      <SelectItem value="large">Large (25mm)</SelectItem>
-                      <SelectItem value="xlarge">Extra Large (30mm)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">ID Card Type</Label>
-                  <Select
-                    defaultValue="pvc"
-                    onValueChange={(value) => console.log('Card Type:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-card-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pvc">PVC Cards</SelectItem>
-                      <SelectItem value="pet">PET Cards</SelectItem>
-                      <SelectItem value="teslin">Teslin Cards</SelectItem>
-                      <SelectItem value="composite">Composite Cards</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">Card Thickness</Label>
-                  <Select
-                    defaultValue="30mil"
-                    onValueChange={(value) => console.log('Card Thickness:', value)}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 rounded-lg border border-white/30 bg-white/50" data-testid="select-card-thickness">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10mil">10 mil (Ultra Thin)</SelectItem>
-                      <SelectItem value="20mil">20 mil (Thin)</SelectItem>
-                      <SelectItem value="30mil">30 mil (Standard)</SelectItem>
-                      <SelectItem value="40mil">40 mil (Thick)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-4 pt-4 border-t border-white/30">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">Print Both Sides</Label>
-                      <p className="text-xs text-slate-500">Enable dual-sided ID card printing</p>
+                {detectedPrinters.printers.slice(0, 6).map((printer, index) => (
+                  <div key={printer.name} className="border border-white/30 rounded-xl p-4 bg-white/30">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Printer className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <h4 className="font-semibold text-slate-800">{printer.name}</h4>
+                          <p className="text-xs text-slate-600">{printer.driver} • {printer.port}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {printer.isOnline ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                            {printer.status}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
+                            Offline
+                          </Badge>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3"
+                          data-testid={`button-configure-${index}`}
+                        >
+                          <Settings as SettingsIcon className="h-3 w-3 mr-1" />
+                          Configure
+                        </Button>
+                      </div>
                     </div>
-                    <Switch
-                      defaultChecked={false}
-                      onCheckedChange={(checked) => console.log('Dual Sided:', checked)}
-                      data-testid="switch-dual-sided"
-                    />
-                  </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">Magnetic Encoding</Label>
-                      <p className="text-xs text-slate-500">Enable magnetic strip encoding</p>
-                    </div>
-                    <Switch
-                      defaultChecked={false}
-                      onCheckedChange={(checked) => console.log('Magnetic Encoding:', checked)}
-                      data-testid="switch-magnetic-encoding"
-                    />
-                  </div>
+                    {/* Printer-specific properties - collapsible by default */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-white/20">
+                      {/* Quick Settings */}
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Quick Settings</h5>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-slate-600">Print Quality</Label>
+                          <Select defaultValue="normal">
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="draft">Draft</SelectItem>
+                              <SelectItem value="normal">Normal</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-slate-600">Paper Size</Label>
+                          <Select defaultValue={printer.name.includes('TEC') || printer.name.includes('Card') ? 'cr80' : 'A4'}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="A4">A4</SelectItem>
+                              <SelectItem value="cr80">CR80 (ID Card)</SelectItem>
+                              <SelectItem value="label">Label</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">Smart Card Encoding</Label>
-                      <p className="text-xs text-slate-500">Enable smart card chip programming</p>
+                      {/* Color & Quality */}
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Color & Output</h5>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-slate-600">Color Mode</Label>
+                          <Select defaultValue="color">
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="color">Color</SelectItem>
+                              <SelectItem value="grayscale">Grayscale</SelectItem>
+                              <SelectItem value="mono">Black & White</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-slate-600">Orientation</Label>
+                          <Select defaultValue="portrait">
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="portrait">Portrait</SelectItem>
+                              <SelectItem value="landscape">Landscape</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Advanced Options */}
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Advanced</h5>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-slate-600">Duplex</Label>
+                          <Switch
+                            defaultChecked={false}
+                            onCheckedChange={(checked) => console.log(`${printer.name} Duplex:`, checked)}
+                            data-testid={`switch-duplex-${index}`}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-slate-600">High Quality</Label>
+                          <Switch
+                            defaultChecked={printer.name.includes('TEC') || printer.name.includes('Card')}
+                            onCheckedChange={(checked) => console.log(`${printer.name} High Quality:`, checked)}
+                            data-testid={`switch-quality-${index}`}
+                          />
+                        </div>
+                        {(printer.name.includes('TEC') || printer.name.includes('Card')) && (
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-slate-600">Card Encoding</Label>
+                            <Switch
+                              defaultChecked={false}
+                              onCheckedChange={(checked) => console.log(`${printer.name} Encoding:`, checked)}
+                              data-testid={`switch-encoding-${index}`}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <Switch
-                      defaultChecked={false}
-                      onCheckedChange={(checked) => console.log('Smart Card:', checked)}
-                      data-testid="switch-smart-card"
-                    />
+
+                    <div className="mt-4 pt-3 border-t border-white/20 flex justify-between items-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-3 text-xs"
+                        data-testid={`button-test-${index}`}
+                      >
+                        <TestTube className="h-3 w-3 mr-1" />
+                        Test Print
+                      </Button>
+                      <div className="text-xs text-slate-500">
+                        Settings auto-save
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <Printer className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No printers detected. Click refresh to scan for available printers.</p>
+              </div>
+            )}
 
-            <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
-              <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
-                <TestTube className="h-4 w-4" />
-                Configuration Notes
+            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                <Brain className="h-4 w-4" />
+                Per-Printer Configuration
               </h4>
-              <ul className="text-sm text-amber-700 space-y-1">
-                <li>• Settings automatically save as you change them</li>
-                <li>• Advanced properties are printer-specific and may not apply to all models</li>
-                <li>• Test print functionality will use current settings</li>
-                <li>• ID card settings only apply to dedicated card printers</li>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Each printer can have individual settings and properties</li>
+                <li>• Settings are automatically saved when changed</li>
+                <li>• Test print to verify configuration works correctly</li>
+                <li>• ID card printers show additional encoding options</li>
               </ul>
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <FileText className="mr-3 text-blue-600" size={24} />
+              <h3 className="text-lg font-semibold text-slate-800">Print Test & Troubleshooting</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Test Print Options</h4>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  data-testid="button-test-visitor-pass"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Test Visitor Pass
+                </Button>
+                <Button
+                  variant="outline" 
+                  className="w-full justify-start"
+                  data-testid="button-test-staff-card"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Test Staff ID Card
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Troubleshooting</h4>
+                <div className="text-sm text-slate-600 space-y-2">
+                  <p>• Check printer status and connections</p>
+                  <p>• Ensure correct paper/card stock is loaded</p>
+                  <p>• Verify driver settings match printer model</p>
+                </div>
+              </div>
             </div>
           </GlassCard>
 
