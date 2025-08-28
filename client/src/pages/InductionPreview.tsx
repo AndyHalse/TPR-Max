@@ -53,7 +53,6 @@ export default function InductionPreview() {
   // Extract roleType from URL path instead of using useParams
   const roleTypeFromPath = window.location.pathname.split('/').pop() || '';
   const roleType = roleTypeFromPath as RoleType;
-  console.log('InductionPreview component loaded with roleType:', roleType, 'from path:', window.location.pathname);
   const [settings, setSettings] = useState<InductionSettings | null>(null);
   const [questions, setQuestions] = useState<InductionQuestion[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -66,14 +65,10 @@ export default function InductionPreview() {
     const fetchInductionData = async () => {
       try {
         setLoading(true);
-        console.log('Starting induction preview fetch for role:', roleType);
-        
         // Try to fetch using authenticated endpoints first
         const settingsResponse = await fetch('/api/induction/settings', {
           credentials: 'include'
         });
-        
-        console.log('Settings response status:', settingsResponse.status);
         
         if (settingsResponse.ok) {
           const settingsData = await settingsResponse.json();
@@ -94,8 +89,6 @@ export default function InductionPreview() {
           }
         } else {
           // If auth fails, use mock data for preview
-          console.log('Authentication failed, using mock data for preview. Status:', settingsResponse.status);
-          console.log('Role type for mock data:', roleType);
           
           // Create mock settings based on role type
           const mockSettings: InductionSettings = {
@@ -176,12 +169,9 @@ export default function InductionPreview() {
       }
     };
 
-    console.log('useEffect running, roleType is:', roleType);
     if (roleType) {
-      console.log('Calling fetchInductionData for roleType:', roleType);
       fetchInductionData();
     } else {
-      console.log('No roleType provided, not fetching data');
       setLoading(false);
     }
   }, [roleType, toast]);
@@ -393,11 +383,27 @@ export default function InductionPreview() {
                     <div className="relative h-full">
                       {/* AI Generated Image Background */}
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
-                      <img 
-                        src="https://images.unsplash.com/photo-1581092918484-8313beb7f6d4?w=800&q=80" 
-                        alt="Safety workplace scene"
-                        className="w-full h-[300px] object-cover rounded-t-lg"
-                      />
+                      <div className="relative w-full h-[300px] bg-gradient-to-br from-blue-600 to-purple-700 rounded-t-lg overflow-hidden">
+                        <img 
+                          src="https://images.unsplash.com/photo-1581092918484-8313beb7f6d4?w=800&h=600&q=80&auto=format&fit=crop"
+                          alt="Safety workplace scene"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.log('Image failed to load, using AI-generated scene');
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        {/* AI Generated Safety Scene Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/80 to-purple-700/80 flex items-center justify-center">
+                          <div className="text-center text-white p-6">
+                            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <Shield className="h-8 w-8" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-2">AI-Generated Safety Scene</h3>
+                            <p className="text-sm opacity-90">Interactive workplace safety visualization</p>
+                          </div>
+                        </div>
+                      </div>
                       
                       {/* Slide Content */}
                       <div className="p-8 text-white relative z-10">

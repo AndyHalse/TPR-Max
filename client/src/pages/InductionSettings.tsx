@@ -420,7 +420,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={formData.isActive}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked as true }))}
                   />
                   <Badge variant={formData.isActive ? "default" : "secondary"}>
                     {formData.isActive ? "Active" : "Inactive"}
