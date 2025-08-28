@@ -1332,7 +1332,7 @@ export default function Settings() {
                       <SelectValue placeholder="Select a printer" />
                     </SelectTrigger>
                     <SelectContent>
-                      {detectedPrinters?.printers.map((printer) => (
+                      {detectedPrinters?.printers?.map((printer) => (
                         <SelectItem key={printer.name} value={printer.name}>
                           <div className="flex items-center justify-between w-full">
                             <span>{printer.name}</span>
@@ -1342,18 +1342,17 @@ export default function Settings() {
                                   {printer.status}
                                 </Badge>
                               ) : (
-                                <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
-                                  Offline
+                                <Badge variant="secondary" className="bg-red-100 text-red-600 text-xs">
+                                  {printer.status}
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </SelectItem>
                       )) || (
-                        <>
-                          <SelectItem value="PDF Printer (Testing)">PDF Printer (Testing)</SelectItem>
-                          <SelectItem value="System Default Printer">System Default Printer</SelectItem>
-                        </>
+                        <SelectItem value="No printers detected" disabled>
+                          No printers detected - Click "Refresh Printers"
+                        </SelectItem>
                       )}
                     </SelectContent>
                   </Select>
@@ -1383,8 +1382,8 @@ export default function Settings() {
                                   {printer.status}
                                 </Badge>
                               ) : (
-                                <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
-                                  Offline
+                                <Badge variant="secondary" className="bg-red-100 text-red-600 text-xs">
+                                  {printer.status}
                                 </Badge>
                               )}
                             </div>
