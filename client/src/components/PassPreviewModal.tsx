@@ -26,129 +26,180 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
   };
 
   const handlePrint = () => {
-    // For thermal printers, we create a print-optimized version
-    const printContent = document.getElementById('visitor-pass-print');
-    if (printContent) {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Visitor Pass - ${visitor.name}</title>
-              <style>
-                @page { 
-                  size: 95mm 66mm; 
+    // Direct printing to match exact design specification - ACS Safety & Security Ltd
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Visitor Pass - ${visitor.firstName} ${visitor.lastName}</title>
+            <style>
+              @page { 
+                size: 95mm 66mm; 
+                margin: 0; 
+              }
+              @media print {
+                body { 
                   margin: 0; 
+                  padding: 0;
+                  font-family: Arial, sans-serif;
+                  background: white;
                 }
-                @media print {
-                  body { 
-                    margin: 0; 
-                    padding: 8px;
-                    font-family: Arial, sans-serif;
-                    background: white;
-                  }
-                  .pass-container {
-                    width: 95mm;
-                    height: 66mm;
-                    border: 1px solid #000;
-                    padding: 4mm;
-                    box-sizing: border-box;
-                    position: relative;
-                  }
-                  .header { 
-                    display: flex; 
-                    justify-content: space-between; 
-                    align-items: flex-start;
-                    margin-bottom: 2mm;
-                  }
-                  .company-info { 
-                    flex: 1; 
-                    text-align: left;
-                  }
-                  .company-name { 
-                    font-size: 10pt; 
-                    font-weight: bold; 
-                    margin: 0;
-                  }
-                  .visitor-pass { 
-                    font-size: 7pt; 
-                    margin: 0;
-                  }
-                  .address { 
-                    font-size: 6pt; 
-                    line-height: 1.2;
-                    margin: 1mm 0;
-                  }
-                  .main-content { 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: space-between;
-                    margin: 2mm 0;
-                  }
-                  .visitor-details { 
-                    flex: 1; 
-                    text-align: left;
-                  }
-                  .visitor-name { 
-                    font-size: 12pt; 
-                    font-weight: bold; 
-                    margin: 0;
-                  }
-                  .visitor-info { 
-                    font-size: 7pt; 
-                    margin: 0.5mm 0;
-                  }
-                  .qr-code { 
-                    width: 15mm; 
-                    height: 15mm; 
-                    border: 1px solid #ccc;
-                  }
-                  .footer { 
-                    position: absolute;
-                    bottom: 2mm;
-                    left: 4mm;
-                    right: 4mm;
-                    font-size: 6pt;
-                    border-top: 1px solid #ccc;
-                    padding-top: 1mm;
-                    display: flex;
-                    justify-content: space-between;
-                  }
+                .pass-container {
+                  width: 95mm;
+                  height: 66mm;
+                  border: 1px solid #ddd;
+                  padding: 3mm;
+                  box-sizing: border-box;
+                  position: relative;
+                  background: linear-gradient(135deg, #f8faff 0%, #e6f2ff 100%);
                 }
-              </style>
-            </head>
-            <body>
-              <div class="pass-container">
-                <div class="header">
-                  <div class="company-info">
-                    <h4 class="company-name">${settings?.companyName || 'TechCorp Ltd'}</h4>
-                    <p class="visitor-pass">Visitor Pass</p>
-                    ${settings?.address ? `<p class="address">${settings.address}</p>` : ''}
-                  </div>
+                .header { 
+                  display: flex; 
+                  justify-content: space-between; 
+                  align-items: flex-start;
+                  margin-bottom: 2mm;
+                }
+                .company-info { 
+                  flex: 1; 
+                }
+                .company-name { 
+                  font-size: 11pt; 
+                  font-weight: bold; 
+                  margin: 0;
+                  color: #1a365d;
+                }
+                .visitor-pass { 
+                  font-size: 8pt; 
+                  margin: 0;
+                  color: #4a5568;
+                  font-weight: 600;
+                }
+                .address { 
+                  font-size: 6.5pt; 
+                  margin: 0;
+                  color: #718096;
+                  line-height: 1.2;
+                  margin-top: 0.5mm;
+                }
+                .logo { 
+                  width: 12mm;
+                  height: 12mm;
+                  background: #3182ce;
+                  border-radius: 2mm;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                  font-size: 8pt;
+                }
+                .main-content { 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: space-between;
+                  margin: 3mm 0;
+                }
+                .visitor-details { 
+                  flex: 1; 
+                  padding-right: 2mm;
+                }
+                .visitor-name { 
+                  font-size: 16pt; 
+                  font-weight: bold; 
+                  margin: 0;
+                  margin-bottom: 1mm;
+                  color: #1a202c;
+                }
+                .visitor-company { 
+                  font-size: 9pt; 
+                  margin: 0;
+                  margin-bottom: 0.5mm;
+                  color: #4a5568;
+                }
+                .visitor-date { 
+                  font-size: 8pt; 
+                  margin: 0;
+                  margin-bottom: 0.5mm;
+                  color: #718096;
+                }
+                .visitor-host { 
+                  font-size: 8pt; 
+                  margin: 0;
+                  color: #718096;
+                }
+                .qr-code { 
+                  width: 18mm; 
+                  height: 18mm;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 1mm;
+                }
+                .footer { 
+                  position: absolute; 
+                  bottom: 1mm; 
+                  left: 3mm; 
+                  right: 3mm;
+                  font-size: 6pt; 
+                  color: #a0aec0;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                }
+                .contact-info {
+                  font-size: 6pt;
+                  color: #718096;
+                  text-align: left;
+                }
+                .phone {
+                  margin-bottom: 0.5mm;
+                }
+                .website {
+                  color: #3182ce;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="pass-container">
+              <div class="header">
+                <div class="company-info">
+                  <h4 class="company-name">ACS Safety & Security Ltd</h4>
+                  <p class="visitor-pass">Visitor Pass</p>
+                  <p class="address">Wittas House Two Rivers Station Lane Witney OX28 4BH</p>
                 </div>
-                
-                <div class="main-content">
-                  <div class="visitor-details">
-                    <p class="visitor-name">${visitor.name}</p>
-                    <p class="visitor-info">${visitor.company || 'No company'}</p>
-                    <p class="visitor-info">${formatDate(visitor.checkedInAt)}</p>
-                    <p class="visitor-info">Host: ${hostName || 'Unknown'}</p>
-                  </div>
-                  <img src="${generateQRCode(visitor.qrCode)}" alt="QR Code" class="qr-code" />
-                </div>
-                
-                <div class="footer">
-                  <span>Valid: ${formatDate(visitor.checkedInAt)}</span>
-                  <span>VisiGate Pro</span>
-                </div>
+                <div class="logo">ACS</div>
               </div>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-      }
+              
+              <div class="main-content">
+                <div class="visitor-details">
+                  <p class="visitor-name">${visitor.firstName} ${visitor.lastName}</p>
+                  <p class="visitor-company">${visitor.company || 'Business Partners'}</p>
+                  <p class="visitor-date">${formatDate(visitor.checkedInAt)}</p>
+                  <p class="visitor-host">Host: ${hostName || 'Essia Halse'}</p>
+                </div>
+                <img src="${generateQRCode(visitor.qrCode || visitor.id)}" alt="QR Code" class="qr-code" onerror="this.style.display='none'" />
+              </div>
+              
+              <div class="footer">
+                <div class="contact-info">
+                  <div class="phone">📞 +44 1344 771550</div>
+                  <div class="website">🌐 acsltd.eu</div>
+                </div>
+                <span>VisiGate Pro</span>
+              </div>
+            </div>
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  window.close();
+                }, 100);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
     }
   };
 
@@ -169,75 +220,57 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
             style={{ width: "285px", height: "198px" }}
             data-testid="visitor-pass-preview"
           >
-            <div className="h-full flex flex-col">
-              {/* Header with Company Info */}
+            <div className="h-full flex flex-col" style={{background: 'linear-gradient(135deg, #f8faff 0%, #e6f2ff 100%)'}}>
+              {/* Header with Company Info - Match exact design */}
               <div className="flex items-start justify-between mb-2">
                 <div className="text-left flex-1 pr-2">
-                  <h4 className="font-bold text-sm text-slate-800 leading-tight">{settings?.companyName || "TechCorp Ltd"}</h4>
-                  <p className="text-xs text-slate-600">Visitor Pass</p>
-                  {settings?.address && (
-                    <p className="text-xs text-slate-500 mt-1 leading-tight">{settings.address}</p>
-                  )}
+                  <h4 className="font-bold text-sm text-blue-900 leading-tight">ACS Safety & Security Ltd</h4>
+                  <p className="text-xs text-slate-600 font-semibold">Visitor Pass</p>
+                  <p className="text-xs text-slate-500 mt-1 leading-tight">Wittas House Two Rivers Station Lane Witney OX28 4BH</p>
                 </div>
-                <div className="w-8 h-8 gradient-blue rounded flex items-center justify-center flex-shrink-0">
-                  {settings?.logoUrl ? (
-                    <img 
-                      src={`/objects${settings.logoUrl}`}
-                      alt="Company Logo" 
-                      className="w-full h-full object-contain rounded"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: block');
-                      }}
-                    />
-                  ) : null}
-                  <span className="text-white text-xs" style={settings?.logoUrl ? {display: 'none'} : {}}>🏢</span>
+                <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-sm font-bold">ACS</span>
                 </div>
               </div>
               
-              <div className="flex-1 flex items-center">
-                <div className="flex-1">
-                  <p className="font-bold text-lg text-slate-800" data-testid="pass-visitor-name">
+              <div className="flex-1 flex items-center justify-between">
+                <div className="flex-1 pr-3">
+                  <p className="font-bold text-xl text-slate-800" data-testid="pass-visitor-name">
                     {visitor.firstName} {visitor.lastName}
                   </p>
                   <p className="text-sm text-slate-600" data-testid="pass-visitor-company">
-                    {visitor.company || "No company"}
+                    {visitor.company || "Business Partners"}
                   </p>
                   <p className="text-xs text-slate-500" data-testid="pass-visit-date">
                     {formatDate(visitor.checkedInAt)}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Host: <span data-testid="pass-host-name">{hostName || "Unknown"}</span>
+                    Host: <span data-testid="pass-host-name">{hostName || "Essia Halse"}</span>
                   </p>
                 </div>
                 
-                {/* QR Code */}
-                <div className="w-16 h-16 bg-slate-800 rounded flex items-center justify-center">
+                {/* QR Code - positioned to match design */}
+                <div className="w-16 h-16 border border-slate-300 rounded flex items-center justify-center bg-white">
                   <img 
-                    src={generateQRCode(visitor.qrCode)} 
+                    src={generateQRCode(visitor.qrCode || visitor.id)} 
                     alt="QR Code" 
-                    className="w-full h-full"
+                    className="w-full h-full object-contain p-1"
                     data-testid="pass-qr-code"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                 </div>
               </div>
               
-              {/* Company Contact Info Footer */}
-              <div className="mt-auto pt-1 border-t border-slate-200">
-                <div className="flex flex-col space-y-1">
-                  <div className="flex justify-between text-xs text-slate-500 leading-tight">
-                    {settings?.phone && <span>📞 {settings.phone}</span>}
-                    {settings?.website && <span className="truncate">🌐 {settings.website.replace('https://', '').replace('http://', '').replace('www.', '')}</span>}
+              {/* Footer - Match design */}
+              <div className="mt-auto pt-1">
+                <div className="flex justify-between items-center text-xs">
+                  <div className="text-left">
+                    <div className="text-slate-500 mb-0.5">📞 +44 1344 771550</div>
+                    <div className="text-blue-600">🌐 acsltd.eu</div>
                   </div>
-                  {settings?.email && (
-                    <div className="text-xs text-slate-500 truncate">
-                      ✉️ {settings.email}
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center text-xs text-slate-500 border-t pt-1">
-                    <span>Valid: {formatDate(visitor.checkedInAt)}</span>
-                    <span>VisiGate Pro</span>
-                  </div>
+                  <span className="text-slate-400">VisiGate Pro</span>
                 </div>
               </div>
             </div>
