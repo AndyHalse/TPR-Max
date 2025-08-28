@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play, Eye, Monitor, Clock, Film, Presentation, ImageIcon } from "lucide-react";
+import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play, Eye, Monitor, Clock, Film, Presentation, ImageIcon, X } from "lucide-react";
 import type { InductionSettings } from "@shared/schema";
 
 interface RoleSettingsFormProps {
@@ -18,6 +19,7 @@ interface RoleSettingsFormProps {
   settings: InductionSettings | null;
   onSave: (settingsId: string, data: any) => Promise<void>;
   onGenerateVideo: (roleType: string) => Promise<void>;
+  onPreviewInduction: (roleType: string) => void;
   isGenerating?: boolean;
   generatedVideo?: {
     title: string;
@@ -28,7 +30,7 @@ interface RoleSettingsFormProps {
   } | null;
 }
 
-const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGenerating, generatedVideo }: RoleSettingsFormProps) => {
+const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onPreviewInduction, isGenerating, generatedVideo }: RoleSettingsFormProps) => {
   const [formData, setFormData] = useState({
     videoTitle: settings?.videoTitle || "",
     videoUrl: settings?.videoUrl || "",
@@ -271,7 +273,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGener
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')}
+                  onClick={() => onPreviewInduction(roleType)}
                   className="shrink-0 flex items-center gap-2"
                   disabled={!formData.videoUrl}
                   data-testid={`preview-induction-${roleType}`}
@@ -430,6 +432,7 @@ export default function InductionSettings() {
     timestamp: string;
     url: string;
   }>>({});
+  const [previewRole, setPreviewRole] = useState<string | null>(null);
   const { toast } = useToast();
 
   const roleTypes = [
@@ -547,6 +550,10 @@ export default function InductionSettings() {
     }
   };
 
+  const handlePreviewInduction = (roleType: string) => {
+    setPreviewRole(roleType);
+  };
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -593,6 +600,7 @@ export default function InductionSettings() {
                 settings={settings[role.value] || null}
                 onSave={handleSaveSetting}
                 onGenerateVideo={handleGenerateVideo}
+                onPreviewInduction={handlePreviewInduction}
                 isGenerating={generatingFor === role.value}
                 generatedVideo={generatedVideos[role.value] || null}
               />
@@ -628,6 +636,28 @@ export default function InductionSettings() {
             </TabsContent>
           ))}
         </Tabs>
+        
+        {/* Embedded Preview Modal */}
+        <Dialog open={!!previewRole} onOpenChange={() => setPreviewRole(null)}>
+          <DialogContent className="max-w-7xl w-[95vw] h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Play className="h-5 w-5" />
+                {previewRole && `${previewRole.charAt(0).toUpperCase() + previewRole.slice(1)} Induction Preview`}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden">
+              {previewRole && (
+                <iframe
+                  src={`/induction-preview/${previewRole}`}
+                  title={`${previewRole} Induction Preview`}
+                  className="w-full h-full border-0 rounded-lg"
+                  style={{ height: 'calc(90vh - 120px)' }}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
