@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+type RoleType = 'visitor' | 'staff' | 'contractor';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -386,18 +388,75 @@ export default function InductionPreview() {
                   </div>
                 </div>
 
-                {settings.videoUrl ? (
+                {settings.videoFormat === 'interactive_slides' ? (
+                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg overflow-hidden min-h-[600px]">
+                    <div className="relative h-full">
+                      {/* AI Generated Image Background */}
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
+                      <img 
+                        src="https://images.unsplash.com/photo-1581092918484-8313beb7f6d4?w=800&q=80" 
+                        alt="Safety workplace scene"
+                        className="w-full h-[300px] object-cover rounded-t-lg"
+                      />
+                      
+                      {/* Slide Content */}
+                      <div className="p-8 text-white relative z-10">
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-2xl font-bold">Welcome & Legal Framework</h3>
+                          <Badge className="bg-white/20 text-white border-white/30">
+                            Slide 1 of 8
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-4 text-lg">
+                          <p>
+                            Welcome to our comprehensive Health & Safety induction. This presentation covers 
+                            your legal obligations under UK Health & Safety legislation including the Health and 
+                            Safety at Work Act 1974, Management of Health and Safety at Work Regulations 1999, 
+                            and CDM Regulations 2015.
+                          </p>
+                          
+                          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mt-6">
+                            <h4 className="font-semibold mb-2">Key Topics:</h4>
+                            <ul className="space-y-1 text-sm">
+                              <li>• Personal Protective Equipment (PPE)</li>
+                              <li>• Emergency Procedures</li>
+                              <li>• Risk Assessment</li>
+                              <li>• Reporting Requirements</li>
+                            </ul>
+                          </div>
+                        </div>
+                        
+                        {/* Interactive Controls */}
+                        <div className="flex items-center justify-center gap-4 mt-8">
+                          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30">
+                            <ArrowLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30">
+                            <Video className="h-4 w-4 mr-1" />
+                            Pause
+                          </Button>
+                          <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30">
+                            Next
+                            <ArrowRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : settings.videoUrl ? (
                   <div className="bg-black rounded-lg overflow-hidden">
                     <iframe 
                       src={settings.videoUrl}
                       title={settings.videoTitle}
-                      className="w-full h-[400px]"
+                      className="w-full h-[600px]"
                       frameBorder="0"
                       allow="autoplay; fullscreen"
                     />
                   </div>
                 ) : (
-                  <div className="bg-gray-100 rounded-lg h-[400px] flex items-center justify-center">
+                  <div className="bg-gray-100 rounded-lg h-[600px] flex items-center justify-center">
                     <div className="text-center">
                       <Video className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-500">No video configured</p>
