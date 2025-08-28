@@ -48,7 +48,6 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                 .pass-container {
                   width: 95mm;
                   height: 66mm;
-                  border: 1px solid #000000;
                   padding: 3mm;
                   box-sizing: border-box;
                   position: relative;
@@ -131,8 +130,6 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                 .qr-code { 
                   width: 18mm; 
                   height: 18mm;
-                  border: 1px solid #000000;
-                  border-radius: 1mm;
                 }
                 .footer { 
                   position: absolute; 
@@ -216,7 +213,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
           {/* Mock ID Pass (95mm x 66mm aspect ratio) */}
           <div 
             id="visitor-pass-print"
-            className="bg-white rounded-lg p-4 shadow-lg mx-auto border-2 border-slate-200 relative"
+            className="bg-white rounded-lg p-4 shadow-lg mx-auto relative"
             style={{ width: "285px", height: "198px" }}
             data-testid="visitor-pass-preview"
           >
@@ -250,7 +247,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                 </div>
                 
                 {/* QR Code - positioned to match design */}
-                <div className="w-16 h-16 border border-slate-300 rounded flex items-center justify-center bg-white">
+                <div className="w-16 h-16 flex items-center justify-center bg-white">
                   <img 
                     src={generateQRCode(visitor.qrCode || visitor.id)} 
                     alt="QR Code" 
