@@ -450,26 +450,38 @@ export default function InductionPreview() {
                     <div className="relative h-full">
                       {/* AI Generated Image Background */}
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
-                      <div className="relative w-full h-[300px] bg-gradient-to-br from-blue-600 to-purple-700 rounded-t-lg overflow-hidden">
+                      <div className="relative w-full h-[300px] bg-gray-200 rounded-t-lg overflow-hidden">
                         <img 
+                          key={currentSlide} // Force re-render when slide changes
                           src={slides[currentSlide].image}
                           alt={slides[currentSlide].title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-opacity duration-300"
+                          loading="eager"
+                          onLoad={(e) => {
+                            // Show the image and hide fallback
+                            e.currentTarget.style.opacity = '1';
+                            const fallback = e.currentTarget.parentElement?.querySelector('.fallback-overlay') as HTMLElement;
+                            if (fallback) fallback.style.display = 'none';
+                          }}
                           onError={(e) => {
-                            console.log('Image failed to load, using fallback');
-                            e.currentTarget.style.display = 'none';
+                            // Hide the image and show fallback
+                            e.currentTarget.style.opacity = '0';
+                            const fallback = e.currentTarget.parentElement?.querySelector('.fallback-overlay') as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
                           }}
                         />
-                        {/* AI Generated Safety Scene Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/60 to-purple-700/60 flex items-center justify-center">
+                        {/* Fallback AI-Generated Safety Scene - only shows if image fails */}
+                        <div className="fallback-overlay absolute inset-0 bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
                           <div className="text-center text-white p-6">
                             <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                               <Shield className="h-8 w-8" />
                             </div>
-                            <h3 className="text-xl font-bold mb-2">AI-Generated Safety Scene</h3>
+                            <h3 className="text-xl font-bold mb-2">Safety Content Loading...</h3>
                             <p className="text-sm opacity-90">Interactive workplace safety visualization</p>
                           </div>
                         </div>
+                        {/* Light overlay for better text readability over images */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent pointer-events-none"></div>
                       </div>
                       
                       {/* Slide Content */}
