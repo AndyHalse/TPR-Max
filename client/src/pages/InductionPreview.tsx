@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +48,10 @@ interface InductionSettings {
 }
 
 export default function InductionPreview() {
-  const { roleType } = useParams();
+  // Extract roleType from URL path instead of using useParams
+  const roleTypeFromPath = window.location.pathname.split('/').pop() || '';
+  const roleType = roleTypeFromPath as RoleType;
+  console.log('InductionPreview component loaded with roleType:', roleType, 'from path:', window.location.pathname);
   const [settings, setSettings] = useState<InductionSettings | null>(null);
   const [questions, setQuestions] = useState<InductionQuestion[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -62,11 +64,14 @@ export default function InductionPreview() {
     const fetchInductionData = async () => {
       try {
         setLoading(true);
+        console.log('Starting induction preview fetch for role:', roleType);
         
         // Try to fetch using authenticated endpoints first
         const settingsResponse = await fetch('/api/induction/settings', {
           credentials: 'include'
         });
+        
+        console.log('Settings response status:', settingsResponse.status);
         
         if (settingsResponse.ok) {
           const settingsData = await settingsResponse.json();
@@ -87,7 +92,8 @@ export default function InductionPreview() {
           }
         } else {
           // If auth fails, use mock data for preview
-          console.log('Using mock data for preview due to authentication requirements');
+          console.log('Authentication failed, using mock data for preview. Status:', settingsResponse.status);
+          console.log('Role type for mock data:', roleType);
           
           // Create mock settings based on role type
           const mockSettings: InductionSettings = {
@@ -168,8 +174,13 @@ export default function InductionPreview() {
       }
     };
 
+    console.log('useEffect running, roleType is:', roleType);
     if (roleType) {
+      console.log('Calling fetchInductionData for roleType:', roleType);
       fetchInductionData();
+    } else {
+      console.log('No roleType provided, not fetching data');
+      setLoading(false);
     }
   }, [roleType, toast]);
 
