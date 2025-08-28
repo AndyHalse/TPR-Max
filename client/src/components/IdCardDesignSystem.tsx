@@ -147,6 +147,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
   const [backgroundImage, setBackgroundImage] = useState('');
   const [showTestPrint, setShowTestPrint] = useState(false);
+  const [selectedTestStaffId, setSelectedTestStaffId] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
@@ -950,7 +951,12 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
       </div>
 
       {/* Test Print Modal */}
-      <Dialog open={showTestPrint} onOpenChange={setShowTestPrint}>
+      <Dialog open={showTestPrint} onOpenChange={(open) => {
+        setShowTestPrint(open);
+        if (!open) {
+          setSelectedTestStaffId(''); // Clear selection when modal closes
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -962,13 +968,13 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
           <div className="space-y-4">
             <div>
               <Label className="text-sm font-medium text-slate-700">Select Staff Member</Label>
-              <Select>
+              <Select value={selectedTestStaffId} onValueChange={setSelectedTestStaffId}>
                 <SelectTrigger data-testid="select-test-staff">
                   <SelectValue placeholder="Choose a staff member to print" />
                 </SelectTrigger>
                 <SelectContent>
                   {staffList.map((staff) => (
-                    <SelectItem key={staff.id} value={staff.id}>
+                    <SelectItem key={staff.id} value={staff.id.toString()}>
                       {staff.firstName} {staff.lastName} - {staff.department}
                     </SelectItem>
                   ))}
@@ -987,9 +993,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
               <Button 
                 onClick={async () => {
                   try {
-                    const selectedStaffId = document.querySelector<HTMLSelectElement>('[data-testid="select-test-staff"] select')?.value;
-                    
-                    if (!selectedStaffId) {
+                    if (!selectedTestStaffId) {
                       toast({
                         title: "Staff Selection Required",
                         description: "Please select a staff member to print",
@@ -1004,8 +1008,9 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                         'Content-Type': 'application/json',
                       },
                       body: JSON.stringify({
-                        staffId: selectedStaffId,
-                        design: cardElements
+                        staffId: selectedTestStaffId,
+                        design: cardElements,
+                        background: selectedCardBackground
                       }),
                     });
 
