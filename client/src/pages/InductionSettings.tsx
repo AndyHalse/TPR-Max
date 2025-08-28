@@ -268,9 +268,20 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, isGener
                     </>
                   )}
                 </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')}
+                  className="shrink-0 flex items-center gap-2"
+                  disabled={!formData.videoUrl}
+                  data-testid={`preview-induction-${roleType}`}
+                >
+                  <Play className="h-4 w-4" />
+                  Preview
+                </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Use AI to generate a comprehensive induction video presentation for {getRoleDisplayName(roleType).toLowerCase()}
+                Use AI to generate a comprehensive induction video presentation for {getRoleDisplayName(roleType).toLowerCase()} or preview the complete induction experience
               </p>
             </div>
 

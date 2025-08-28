@@ -35,8 +35,14 @@ function Router() {
   }
   
   // Public induction system - no authentication required
-  if (window.location.pathname.startsWith('/induction/')) {
+  if (window.location.pathname.startsWith('/induction/') && !window.location.pathname.startsWith('/induction-preview/')) {
     return <SiteInduction />;
+  }
+  
+  // Induction preview - no authentication required
+  if (window.location.pathname.startsWith('/induction-preview/')) {
+    const InductionPreview = lazy(() => import("./pages/InductionPreview"));
+    return <InductionPreview />;
   }
   
   // Robust authentication with fallback for browser restrictions
