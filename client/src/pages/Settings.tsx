@@ -1372,75 +1372,29 @@ export default function Settings() {
                       <SelectValue placeholder="Select ID card printer" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Always show specialized ID card printers first */}
-                      <SelectItem value="PDF Printer (Testing)">PDF Printer (Testing)</SelectItem>
-                      <SelectItem value="B-FV4 Desktop Printer (95mm x 66mm)">B-FV4 Desktop Printer (95mm x 66mm)</SelectItem>
-                      <SelectItem value="Evolis Primacy (Professional ID Cards)">Evolis Primacy (Professional ID Cards)</SelectItem>
-                      <SelectItem value="Fargo DTC1250e (Plastic Cards)">Fargo DTC1250e (Plastic Cards)</SelectItem>
-                      <SelectItem value="HID FARGO DTC1250e">HID FARGO DTC1250e</SelectItem>
-                      <SelectItem value="Magicard 600">Magicard 600</SelectItem>
-                      
-                      {/* Then show detected printers that might work for ID cards */}
-                      {detectedPrinters?.printers
-                        .filter(printer => 
-                          printer.name.toLowerCase().includes('card') || 
-                          printer.name.toLowerCase().includes('badge') ||
-                          printer.name.toLowerCase().includes('fargo') ||
-                          printer.name.toLowerCase().includes('evolis') ||
-                          printer.name.toLowerCase().includes('magicard') ||
-                          printer.driver.toLowerCase().includes('card')
-                        )
-                        .map((printer) => (
-                          <SelectItem key={`card-${printer.name}`} value={`${printer.name} (ID Card Mode)`}>
-                            <div className="flex items-center justify-between w-full">
-                              <span>{printer.name} (ID Card Mode)</span>
-                              <div className="flex items-center gap-2 ml-2">
-                                {printer.isOnline ? (
-                                  <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
-                                    {printer.status}
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
-                                    Offline
-                                  </Badge>
-                                )}
-                              </div>
+                      {/* Show ONLY detected printers from your PC - no hardcoded ones */}
+                      {detectedPrinters?.printers?.map((printer) => (
+                        <SelectItem key={printer.name} value={printer.name}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{printer.name}</span>
+                            <div className="flex items-center gap-2 ml-2">
+                              {printer.isOnline ? (
+                                <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                                  {printer.status}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
+                                  Offline
+                                </Badge>
+                              )}
                             </div>
-                          </SelectItem>
-                        )) || []
-                      }
-                      
-                      {/* Finally, show all other detected printers */}
-                      {detectedPrinters?.printers
-                        .filter(printer => 
-                          !printer.name.toLowerCase().includes('card') && 
-                          !printer.name.toLowerCase().includes('badge') &&
-                          !printer.name.toLowerCase().includes('fargo') &&
-                          !printer.name.toLowerCase().includes('evolis') &&
-                          !printer.name.toLowerCase().includes('magicard') &&
-                          !printer.driver.toLowerCase().includes('card') &&
-                          printer.name !== 'PDF Printer (Testing)' &&
-                          printer.name !== 'Microsoft Print to PDF'
-                        )
-                        .map((printer) => (
-                          <SelectItem key={`other-${printer.name}`} value={`${printer.name} (Generic)`}>
-                            <div className="flex items-center justify-between w-full">
-                              <span>{printer.name} (Generic)</span>
-                              <div className="flex items-center gap-2 ml-2">
-                                {printer.isOnline ? (
-                                  <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
-                                    {printer.status}
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs">
-                                    Offline
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </SelectItem>
-                        )) || []
-                      }
+                          </div>
+                        </SelectItem>
+                      )) || (
+                        <SelectItem value="No printers detected" disabled>
+                          No printers detected - Click "Refresh Printers"
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-slate-500">Dedicated printer for staff ID cards - CR80 format (85.6mm x 53.98mm)</p>

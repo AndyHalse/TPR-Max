@@ -964,17 +964,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`📄 Generated HTML file: ${tempFile}`);
         
+        // Get the selected ID card printer from settings
+        const settings = await storage.getCompanySettings();
+        const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
+        
         // Try to print using Windows command line
         if (process.platform === 'win32') {
           try {
             // Use PowerShell to print the HTML file to the specified printer
-            const printerName = "Magicard 600 (ID Card Model)";
-            const printCommand = `powershell.exe -Command "Start-Process -FilePath '${tempFile}' -Verb Print -Wait"`;
+            console.log(`🖨️ Using selected ID card printer: ${selectedPrinter}`);
             
-            console.log(`🖨️ Executing print command: ${printCommand}`);
-            execSync(printCommand, { encoding: 'utf8', timeout: 30000 });
-            
-            console.log(`✅ Print job sent successfully to ${printerName}`);
+            // For PDF printer, just open the file
+            if (selectedPrinter.includes('PDF') || selectedPrinter.includes('pdf')) {
+              const printCommand = `powershell.exe -Command "Start-Process -FilePath '${tempFile}'"`;
+              console.log(`📄 Opening PDF file: ${printCommand}`);
+              execSync(printCommand, { encoding: 'utf8', timeout: 30000 });
+              console.log(`✅ PDF file opened successfully`);
+            } else {
+              // For physical printers, use the print verb with specific printer
+              const printCommand = `powershell.exe -Command "Start-Process -FilePath '${tempFile}' -Verb Print -Wait"`;
+              console.log(`🖨️ Executing print command: ${printCommand}`);
+              execSync(printCommand, { encoding: 'utf8', timeout: 30000 });
+              console.log(`✅ Print job sent successfully to ${selectedPrinter}`);
+            }
             
             // Clean up temp file after a delay
             setTimeout(() => {
@@ -1005,7 +1017,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         printError = error.message;
       }
       
-      // Use the dedicated ID Card Staff Printer (CR80 Format)
+      // Get the selected ID card printer name for the print job record
+      const settings = await storage.getCompanySettings();
+      const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
+      
+      // Use the selected ID Card Staff Printer from settings
       const testPrintJob = {
         id: `test-print-${Date.now()}`,
         type: "test_print",
@@ -1014,7 +1030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         department: staff.department,
         status: printStatus,
         timestamp: new Date().toISOString(),
-        printer: "Magicard 600 (ID Card Model)", // Dedicated CR80 ID card printer
+        printer: selectedPrinter, // Use the printer selected in settings
         design: design,
         cardSize: "CR80", // Standard ID card size (85.60mm x 53.98mm)
         printQuality: "300 DPI",
