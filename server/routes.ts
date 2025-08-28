@@ -863,16 +863,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🖨️ Printing ID card for staff: ${staff.firstName} ${staff.lastName}`);
       console.log(`📐 Design elements:`, design);
       
-      // Simulate print job with thermal printer optimization
+      // Use dedicated ID Card Staff Printer (CR80 Format)
       const printJob = {
         id: `print-${Date.now()}`,
         staffId: id,
         status: "completed",
         timestamp: new Date().toISOString(),
-        printer: "TEC B-EV4 Direct Thermal Printer", // Updated to match thermal printer specs
+        printer: "Magicard 600 (ID Card Model)", // Dedicated CR80 ID card printer
         design: design,
-        cardSize: "CR80", // Industry standard
-        printQuality: "300 DPI", // Thermal printer quality
+        cardSize: "CR80", // Standard ID card size (85.60mm x 53.98mm)
+        printQuality: "300 DPI",
+        printerType: "id_card_printer",
+        format: "CR80_STAFF_CARD",
         printTime: "15 seconds" // Estimated print time
       };
 
@@ -936,8 +938,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🧪 Test printing ID card for: ${staff.firstName} ${staff.lastName}`);
       console.log(`🎨 Using design with ${design?.length || 0} elements`);
+      console.log(`🖨️ Sending to ID Card Staff Printer: Magicard 600 (CR80 Format)`);
       
-      // Simulate test print job
+      // Use the dedicated ID Card Staff Printer (CR80 Format)
       const testPrintJob = {
         id: `test-print-${Date.now()}`,
         type: "test_print",
@@ -946,10 +949,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         department: staff.department,
         status: "completed",
         timestamp: new Date().toISOString(),
-        printer: "TEC B-EV4 Direct Thermal Printer",
+        printer: "Magicard 600 (ID Card Model)", // Dedicated CR80 ID card printer
         design: design,
-        cardSize: "CR80",
+        cardSize: "CR80", // Standard ID card size (85.60mm x 53.98mm)
         printQuality: "300 DPI",
+        printerType: "id_card_printer",
+        format: "CR80_STAFF_CARD",
         testMode: true
       };
 
