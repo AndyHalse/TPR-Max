@@ -451,38 +451,38 @@ export default function InductionPreview() {
                 </div>
 
                 {settings.videoFormat === 'interactive_slides' ? (
-                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg overflow-hidden min-h-[800px]">
+                  <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg overflow-hidden min-h-[1200px]">
                     <div className="relative h-full">
                       {/* AI Generated Image Background */}
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
-                      <div className="relative w-full h-[500px] bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-t-lg overflow-hidden flex items-center justify-center p-6">
-                        {/* AI-Generated Safety Scene - ALWAYS VISIBLE */}
-                        <div className="text-center text-white w-full max-w-2xl">
-                          <div className="relative mb-10">
-                            <div className="w-40 h-40 bg-white/30 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse border-8 border-white/50 shadow-2xl">
-                              <Shield className="h-20 w-20 text-white" />
+                      <div className="relative w-full h-[800px] bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-t-lg overflow-hidden flex items-center justify-center p-8">
+                        {/* AI-Generated Safety Scene - MASSIVE AND ALWAYS VISIBLE */}
+                        <div className="text-center text-white w-full max-w-4xl">
+                          <div className="relative mb-12">
+                            <div className="w-56 h-56 bg-white/30 rounded-full flex items-center justify-center mx-auto mb-12 animate-pulse border-8 border-white/50 shadow-2xl">
+                              <Shield className="h-32 w-32 text-white" />
                             </div>
-                            <div className="absolute -top-3 -right-4 bg-green-400 text-green-900 text-2xl px-6 py-3 rounded-full font-black shadow-2xl animate-bounce">
+                            <div className="absolute -top-6 -right-8 bg-green-400 text-green-900 text-4xl px-8 py-4 rounded-full font-black shadow-2xl animate-bounce">
                               AI
                             </div>
                           </div>
-                          <h3 className="text-5xl font-black mb-8 text-white drop-shadow-2xl">🤖 AI-Generated H&S Scene</h3>
-                          <p className="text-2xl opacity-95 mb-8 leading-relaxed font-bold">
+                          <h3 className="text-7xl font-black mb-12 text-white drop-shadow-2xl">🤖 AI-Generated H&S Scene</h3>
+                          <p className="text-3xl opacity-95 mb-12 leading-relaxed font-bold">
                             Advanced AI visualization of {slides[currentSlide].title.toLowerCase()} scenario
                           </p>
-                          <div className="bg-white/25 backdrop-blur-lg rounded-2xl p-8 border-4 border-white/40 shadow-2xl">
-                            <p className="text-xl leading-relaxed font-bold text-white">
+                          <div className="bg-white/25 backdrop-blur-lg rounded-3xl p-12 border-8 border-white/40 shadow-2xl">
+                            <p className="text-2xl leading-relaxed font-black text-white mb-6">
                               🔥 DYNAMICALLY GENERATED WORKPLACE SAFETY CONTENT! 
                             </p>
-                            <p className="text-lg mt-4 opacity-90">
+                            <p className="text-xl opacity-90">
                               This AI-powered safety scene adapts in real-time to provide contextual safety information based on current slide content.
                             </p>
                           </div>
-                          <div className="mt-8 flex justify-center space-x-4">
-                            <span className="inline-block bg-green-400/90 text-green-900 px-6 py-3 rounded-full border-2 border-green-300 font-black text-lg shadow-xl">
+                          <div className="mt-12 flex justify-center space-x-6">
+                            <span className="inline-block bg-green-400/90 text-green-900 px-8 py-4 rounded-full border-4 border-green-300 font-black text-2xl shadow-2xl">
                               ⚡ REAL-TIME AI GENERATION
                             </span>
-                            <span className="inline-block bg-yellow-400/90 text-yellow-900 px-6 py-3 rounded-full border-2 border-yellow-300 font-black text-lg shadow-xl">
+                            <span className="inline-block bg-yellow-400/90 text-yellow-900 px-8 py-4 rounded-full border-4 border-yellow-300 font-black text-2xl shadow-2xl">
                               🛡️ H&S COMPLIANT
                             </span>
                           </div>
