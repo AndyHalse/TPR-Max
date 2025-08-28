@@ -3684,6 +3684,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate AI questions from existing video content
+  app.post('/api/induction/generate-questions/:roleType', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const { VideoGenerationService } = await import('./videoGenerationService');
+      
+      // Validate role type
+      if (!['visitor', 'staff', 'contractor'].includes(roleType)) {
+        return res.status(400).json({ error: 'Invalid role type' });
+      }
+
+      // Get induction settings for this role to get model type
+      let modelType = 'gpt-5';
+      
+      try {
+        const inductionSettings = await storage.getInductionSettings();
+        const roleSetting = inductionSettings.find(s => s.roleType === roleType);
+        modelType = roleSetting?.modelType || 'gpt-5';
+      } catch (error) {
+        console.log('Using default model type');
+      }
+
+      // Get company settings for AI configuration
+      const settings = await storage.getCompanySettings();
+      const videoService = new VideoGenerationService(settings);
+
+      // Generate script to base questions on
+      const scriptContent = await videoService.generateInductionScript(roleType, 'interactive_slides', modelType);
+      
+      // Generate AI questions based on the script content
+      console.log(`🧠 Generating AI questions for ${roleType} from script...`);
+      const aiQuestions = await videoService.generateQuestionsFromScript(
+        scriptContent.script, 
+        scriptContent.scenes, 
+        roleType, 
+        modelType
+      );
+      
+      // Store AI-generated questions in the database
+      if (aiQuestions.length > 0) {
+        console.log(`💾 Storing ${aiQuestions.length} AI-generated questions...`);
+        
+        // First, deactivate existing AI-generated questions for this role to avoid duplicates
+        await db
+          .update(inductionQuestions)
+          .set({ isActive: false })
+          .where(and(
+            eq(inductionQuestions.roleType, roleType),
+            eq(inductionQuestions.isAiGenerated, true)
+          ));
+        
+        // Insert new AI-generated questions
+        for (let i = 0; i < aiQuestions.length; i++) {
+          const question = aiQuestions[i];
+          await db.insert(inductionQuestions).values({
+            questionText: question.questionText,
+            questionType: question.questionType || 'multiple_choice',
+            correctAnswer: question.correctAnswer,
+            optionA: question.optionA,
+            optionB: question.optionB,
+            optionC: question.optionC,
+            optionD: question.optionD,
+            explanation: question.explanation,
+            category: question.category,
+            roleType: roleType,
+            videoId: roleType, // Link to the generated video
+            isAiGenerated: true,
+            orderIndex: i + 100, // Start AI questions after manual ones
+            isActive: true
+          });
+        }
+        
+        console.log(`✅ Successfully stored ${aiQuestions.length} AI-generated questions for ${roleType}`);
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Generated ${aiQuestions.length} AI questions for ${roleType} induction`,
+        questionsGenerated: aiQuestions.length
+      });
+      
+    } catch (error) {
+      console.error('Error generating AI questions:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ 
+        error: 'Failed to generate AI questions',
+        details: errorMessage 
+      });
+    }
+  });
+
   // AI Video Generation Routes
   app.post('/api/induction/generate-video/:roleType', requireAuth, async (req, res) => {
     try {
@@ -3717,12 +3808,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate the video content with format and model selection
       const generatedContent = await videoService.generateVideoPresentation(roleType, videoFormat, modelType);
       
+      // Generate AI questions based on the video content
+      console.log('🧠 Generating AI questions from video script...');
+      try {
+        const aiQuestions = await videoService.generateQuestionsFromScript(
+          generatedContent.script, 
+          generatedContent.scenes, 
+          roleType, 
+          modelType
+        );
+        
+        // Store AI-generated questions in the database
+        if (aiQuestions.length > 0) {
+          console.log(`💾 Storing ${aiQuestions.length} AI-generated questions...`);
+          
+          // First, deactivate existing AI-generated questions for this role to avoid duplicates
+          await db
+            .update(inductionQuestions)
+            .set({ isActive: false })
+            .where(and(
+              eq(inductionQuestions.roleType, roleType),
+              eq(inductionQuestions.isAiGenerated, true)
+            ));
+          
+          // Insert new AI-generated questions
+          for (let i = 0; i < aiQuestions.length; i++) {
+            const question = aiQuestions[i];
+            await db.insert(inductionQuestions).values({
+              questionText: question.questionText,
+              questionType: question.questionType || 'multiple_choice',
+              correctAnswer: question.correctAnswer,
+              optionA: question.optionA,
+              optionB: question.optionB,
+              optionC: question.optionC,
+              optionD: question.optionD,
+              explanation: question.explanation,
+              category: question.category,
+              roleType: roleType,
+              videoId: roleType, // Link to the generated video
+              isAiGenerated: true,
+              orderIndex: i + 100, // Start AI questions after manual ones
+              isActive: true
+            });
+          }
+          
+          console.log(`✅ Successfully stored ${aiQuestions.length} AI-generated questions for ${roleType}`);
+        }
+      } catch (questionError) {
+        console.error('⚠️ Failed to generate AI questions, continuing with video creation:', questionError);
+        // Don't fail the entire video generation if questions fail
+      }
+      
       // Update the settings with generated content
       await videoService.updateSettingsWithGeneratedContent(roleType, generatedContent);
       
       res.json({ 
         success: true, 
-        message: 'AI-generated induction video created successfully',
+        message: 'AI-generated induction video and questions created successfully',
         preview: {
           title: generatedContent.script.substring(0, 100) + '...',
           duration: Math.round(generatedContent.totalDuration / 60),

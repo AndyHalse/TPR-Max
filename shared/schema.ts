@@ -644,6 +644,8 @@ export const inductionQuestions = pgTable("induction_questions", {
   explanation: text("explanation"),
   category: text("category").notNull(), // general_safety, ppe, emergency_procedures, hazard_identification, working_at_height, etc.
   roleType: text("role_type").notNull().default("contractor"), // visitor, staff, contractor
+  videoId: varchar("video_id"), // Link to generated video for AI-generated questions
+  isAiGenerated: boolean("is_ai_generated").default(false).notNull(), // Flag to identify AI-generated questions
   isActive: boolean("is_active").default(true).notNull(),
   orderIndex: integer("order_index").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),

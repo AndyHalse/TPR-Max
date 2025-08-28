@@ -19,8 +19,10 @@ interface RoleSettingsFormProps {
   settings: InductionSettings | null;
   onSave: (settingsId: string, data: any) => Promise<void>;
   onGenerateVideo: (roleType: string) => Promise<void>;
+  onGenerateQuestions: (roleType: string) => Promise<void>;
   onPreviewInduction: (roleType: string) => void;
   isGenerating?: boolean;
+  isGeneratingQuestions?: boolean;
   generatedVideo?: {
     title: string;
     duration: number;
@@ -30,7 +32,7 @@ interface RoleSettingsFormProps {
   } | null;
 }
 
-const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onPreviewInduction, isGenerating, generatedVideo }: RoleSettingsFormProps) => {
+const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGenerateQuestions, onPreviewInduction, isGenerating, isGeneratingQuestions, generatedVideo }: RoleSettingsFormProps) => {
   const [formData, setFormData] = useState({
     videoTitle: settings?.videoTitle || "",
     videoUrl: settings?.videoUrl || "",
@@ -272,6 +274,26 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onPrevi
                 </Button>
                 <Button
                   type="button"
+                  variant="outline"
+                  onClick={() => onGenerateQuestions(roleType)}
+                  className="shrink-0 flex items-center gap-2 text-purple-600 border-purple-300 hover:bg-purple-50"
+                  disabled={isGeneratingQuestions}
+                  data-testid={`generate-questions-${roleType}`}
+                >
+                  {isGeneratingQuestions ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <FileQuestion className="h-4 w-4" />
+                      Generate Questions
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
                   variant="secondary"
                   onClick={() => onPreviewInduction(roleType)}
                   className="shrink-0 flex items-center gap-2"
@@ -425,6 +447,7 @@ export default function InductionSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [questions, setQuestions] = useState<Record<string, any[]>>({});
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [generatingQuestionsFor, setGeneratingQuestionsFor] = useState<string | null>(null);
   const [generatedVideos, setGeneratedVideos] = useState<Record<string, {
     title: string;
     duration: number;
@@ -554,6 +577,47 @@ export default function InductionSettings() {
     setPreviewRole(roleType);
   };
 
+  const fetchQuestions = async (roleType: string) => {
+    try {
+      const response = await apiRequest('GET', `/api/induction/questions/${roleType}`);
+      const data = await response.json();
+      setQuestions(prev => ({ ...prev, [roleType]: data.questions || [] }));
+    } catch (error) {
+      console.error(`Error fetching ${roleType} questions:`, error);
+    }
+  };
+
+  const handleGenerateQuestions = async (roleType: string) => {
+    setGeneratingQuestionsFor(roleType);
+    
+    try {
+      const response = await apiRequest('POST', `/api/induction/generate-questions/${roleType}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        toast({
+          title: "AI Questions Generated!",
+          description: `Successfully generated ${data.questionsGenerated} questions for ${roleType}`,
+        });
+        
+        // Refresh questions to show the new AI-generated ones
+        await fetchQuestions(roleType);
+      } else {
+        throw new Error(data.error || 'Failed to generate questions');
+      }
+    } catch (error) {
+      console.error('Error generating AI questions:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast({
+        title: "Question Generation Error",
+        description: `Failed to generate AI questions: ${errorMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingQuestionsFor(null);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -600,8 +664,10 @@ export default function InductionSettings() {
                 settings={settings[role.value] || null}
                 onSave={handleSaveSetting}
                 onGenerateVideo={handleGenerateVideo}
+                onGenerateQuestions={handleGenerateQuestions}
                 onPreviewInduction={handlePreviewInduction}
                 isGenerating={generatingFor === role.value}
+                isGeneratingQuestions={generatingQuestionsFor === role.value}
                 generatedVideo={generatedVideos[role.value] || null}
               />
 

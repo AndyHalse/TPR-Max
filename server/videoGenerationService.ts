@@ -12,6 +12,180 @@ export class VideoGenerationService {
     this.companySettings = settings || null;
   }
   
+  // Generate AI-powered questions based on video script content
+  async generateQuestionsFromScript(script: string, scenes: any[], roleType: string, modelType: string = 'gpt-5'): Promise<Array<{
+    questionText: string;
+    questionType: string;
+    correctAnswer: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    explanation: string;
+    category: string;
+    roleType: string;
+  }>> {
+    console.log(`🧠 Generating AI questions for ${roleType} induction video...`);
+    
+    try {
+      const companyName = this.companySettings?.companyName || "VisiGate Pro";
+      
+      // Create comprehensive prompt for question generation
+      const prompt = `Based on the following ${roleType} safety induction video content, generate 8-12 comprehensive multiple choice questions that test understanding of the key safety concepts covered.
+
+INDUCTION VIDEO SCRIPT:
+${script}
+
+SCENE DETAILS:
+${scenes.map((scene, index) => `Scene ${index + 1}: ${scene.title}\n${scene.content}`).join('\n\n')}
+
+REQUIREMENTS:
+- Generate 8-12 multiple choice questions (A, B, C, D options)
+- Focus on critical safety knowledge from the video content
+- Include questions about PPE, emergency procedures, hazards, and role-specific requirements
+- Make questions practical and scenario-based where possible
+- Ensure questions directly relate to content covered in the video
+- Provide clear, educational explanations for correct answers
+- Use UK Health & Safety terminology and standards
+- Vary difficulty levels from basic recall to application of concepts
+
+QUESTION CATEGORIES to cover:
+- ${roleType}_safety_protocols
+- emergency_procedures  
+- ppe_requirements
+- hazard_identification
+- company_policies
+- risk_assessment
+- legal_compliance
+- workplace_behavior
+
+Company: ${companyName}
+Role Type: ${roleType}
+
+IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
+[
+  {
+    "questionText": "What is the first step when entering the site as a visitor?",
+    "questionType": "multiple_choice",
+    "correctAnswer": "C",
+    "optionA": "Put on safety helmet immediately",
+    "optionB": "Find your meeting location",
+    "optionC": "Report to reception and sign in",
+    "optionD": "Contact your host directly",
+    "explanation": "All visitors must report to reception first to sign in and receive safety briefing before entering any work areas.",
+    "category": "${roleType}_safety_protocols",
+    "roleType": "${roleType}"
+  }
+]`;
+
+      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
+      
+      const response = await openai.chat.completions.create({
+        model: selectedModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a UK Health & Safety expert creating assessment questions. Generate comprehensive questions that test understanding of the safety content provided. You MUST respond with valid JSON format.`
+          },
+          {
+            role: "user", 
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        // GPT-5 and newer use max_completion_tokens instead of max_tokens
+        ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
+          ? { max_completion_tokens: parseInt(this.companySettings?.openaiMaxTokens || "3000") }
+          : { max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "3000") }),
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error('No content received from AI');
+      }
+
+      // Parse the JSON response
+      const parsedResponse = JSON.parse(content);
+      
+      // Handle both direct array and object with questions property
+      const questions = Array.isArray(parsedResponse) ? parsedResponse : 
+                      (parsedResponse.questions || parsedResponse.data || []);
+
+      console.log(`✅ Generated ${questions.length} AI questions based on video content`);
+      return questions;
+
+    } catch (error) {
+      console.error('❌ Error generating questions from script:', error);
+      
+      // Return fallback questions based on role type
+      const fallbackQuestions = this.getFallbackQuestions(roleType);
+      console.log(`⚠️ Using ${fallbackQuestions.length} fallback questions for ${roleType}`);
+      return fallbackQuestions;
+    }
+  }
+
+  // Fallback questions if AI generation fails
+  private getFallbackQuestions(roleType: string): Array<any> {
+    const commonQuestions = {
+      visitor: [
+        {
+          questionText: "What must you do before entering any work areas as a visitor?",
+          questionType: "multiple_choice",
+          correctAnswer: "C",
+          optionA: "Put on a hard hat",
+          optionB: "Find your meeting location",
+          optionC: "Report to reception and wait for your escort",
+          optionD: "Go directly to your destination",
+          explanation: "All visitors must report to reception and wait for an escort before entering any work areas.",
+          category: "visitor_safety_protocols",
+          roleType: "visitor"
+        },
+        {
+          questionText: "What PPE must visitors wear in designated areas?",
+          questionType: "multiple_choice",
+          correctAnswer: "B",
+          optionA: "Only safety boots",
+          optionB: "Hard hat, safety boots, and high-visibility vest",
+          optionC: "Just a high-visibility vest",
+          optionD: "No PPE required for visitors",
+          explanation: "Visitors entering work areas must wear the same basic PPE as workers.",
+          category: "ppe_requirements",
+          roleType: "visitor"
+        }
+      ],
+      staff: [
+        {
+          questionText: "How often must you attend H&S refresher training?",
+          questionType: "multiple_choice",
+          correctAnswer: "B",
+          optionA: "Every 6 months",
+          optionB: "Annually",
+          optionC: "Every 2 years",
+          optionD: "Only when required by law",
+          explanation: "Staff must attend annual H&S refresher training to maintain competency.",
+          category: "staff_safety_protocols",
+          roleType: "staff"
+        }
+      ],
+      contractor: [
+        {
+          questionText: "What must contractors provide before starting work?",
+          questionType: "multiple_choice",
+          correctAnswer: "A",
+          optionA: "Risk assessment and method statement",
+          optionB: "Only insurance certificate",
+          optionC: "Just qualification certificates",
+          optionD: "Equipment inspection records only",
+          explanation: "Contractors must provide comprehensive risk assessments and method statements.",
+          category: "contractor_safety_protocols",
+          roleType: "contractor"
+        }
+      ]
+    };
+
+    return commonQuestions[roleType as keyof typeof commonQuestions] || [];
+  }
+  
   // Generate comprehensive induction script for a specific role
   async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
     script: string;
