@@ -19,7 +19,8 @@ import {
   ArrowRight,
   Award,
   AlertTriangle,
-  Shield
+  Shield,
+  X
 } from "lucide-react";
 
 interface InductionQuestion {
@@ -81,7 +82,37 @@ export default function InductionPreview() {
   const [loadingImages, setLoadingImages] = useState(false);
   const { toast } = useToast();
 
-  // Generate AI images for each slide type
+  // Load existing AI images from database
+  const loadExistingAiImages = async () => {
+    const slideTypes = ['legal_framework', 'ppe', 'emergency', 'hazard', 'site_rules'];
+    
+    try {
+      for (const slideType of slideTypes) {
+        try {
+          const response = await fetch(`/api/ai/images/type/${slideType}`, {
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.image) {
+              setAiImages(prev => ({
+                ...prev,
+                [slideType]: result.image
+              }));
+              console.log(`📦 Loaded existing AI image for ${slideType}:`, result.image.imageUrl);
+            }
+          }
+        } catch (error) {
+          console.log(`No existing AI image found for ${slideType}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading existing AI images:', error);
+    }
+  };
+
+  // Generate AI images for each slide type (only if not already exists)
   const generateAiImages = async () => {
     setLoadingImages(true);
     const slideTypes = [
@@ -95,7 +126,10 @@ export default function InductionPreview() {
     try {
       for (const slide of slideTypes) {
         // Check if we already have this image
-        if (aiImages[slide.type]) continue;
+        if (aiImages[slide.type]) {
+          console.log(`⏭️ Skipping ${slide.type} - already exists`);
+          continue;
+        }
 
         console.log(`🎨 Generating AI image for ${slide.type}...`);
         
@@ -111,7 +145,7 @@ export default function InductionPreview() {
             ...prev,
             [slide.type]: result.image
           }));
-          console.log(`✅ Generated AI image for ${slide.type}:`, result.image.imageUrl);
+          console.log(`✅ Generated and saved AI image for ${slide.type}:`, result.image.imageUrl);
         }
       }
     } catch (error) {
@@ -175,8 +209,8 @@ export default function InductionPreview() {
       try {
         setLoading(true);
         
-        // Generate AI images first
-        generateAiImages();
+        // Load existing AI images first, then generate missing ones
+        await loadExistingAiImages();
         
         // Try to fetch using authenticated endpoints first
         const settingsResponse = await fetch('/api/induction/settings', {
@@ -400,16 +434,33 @@ export default function InductionPreview() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Shield className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-800">
+                  {getRoleDisplayName(roleType || '')} Safety Induction
+                </h1>
+                <p className="text-slate-600">Preview Mode - VisiGate Pro</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">
-                {getRoleDisplayName(roleType || '')} Safety Induction
-              </h1>
-              <p className="text-slate-600">Preview Mode - VisiGate Pro</p>
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // Try to close the window if opened in popup, otherwise navigate back
+                if (window.opener) {
+                  window.close();
+                } else {
+                  window.history.back();
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Close Preview
+            </Button>
           </div>
           
           {/* Progress Bar */}

@@ -245,6 +245,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get AI image by slide type (returns most recent)
+  app.get("/api/ai/images/type/:slideType", async (req, res) => {
+    try {
+      const { slideType } = req.params;
+      
+      const [image] = await db.select().from(aiGeneratedImages)
+        .where(and(
+          eq(aiGeneratedImages.slideType, slideType),
+          eq(aiGeneratedImages.isActive, true)
+        ))
+        .orderBy(aiGeneratedImages.generatedAt)
+        .limit(1);
+      
+      if (!image) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'No AI safety image found for this slide type' 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        image 
+      });
+    } catch (error) {
+      console.error('Error fetching AI safety image by type:', error);
+      res.status(500).json({ error: 'Failed to fetch AI safety image' });
+    }
+  });
+
   // Stats endpoint
   app.get("/api/stats", async (req, res) => {
     try {

@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, Save, X, User, Mail, Phone, Shield, Award, FileText, Clock, Plus } from "lucide-react";
+import { CalendarIcon, Save, X, User, Mail, Phone, Shield, Award, FileText, Clock, Plus, Video } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -850,6 +850,59 @@ export default function EditContractorWorkerModal({
                       </FormItem>
                     )}
                   />
+                  
+                  {/* Induction Action Buttons */}
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (worker?.id) {
+                          const previewUrl = `/induction/preview?role=contractor&workerId=${worker.id}`;
+                          window.open(previewUrl, '_blank', 'width=1200,height=800');
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                      data-testid="button-start-induction"
+                    >
+                      <Video className="h-3 w-3" />
+                      Start Induction
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (worker?.email) {
+                          try {
+                            await apiRequest("POST", `/api/contractors/${worker.id}/send-induction`);
+                            toast({
+                              title: "Email Sent",
+                              description: `Induction email sent successfully to ${worker.email}`,
+                            });
+                          } catch (error: any) {
+                            toast({
+                              title: "Error",
+                              description: error.message || "Failed to send induction email",
+                              variant: "destructive",
+                            });
+                          }
+                        } else {
+                          toast({
+                            title: "No Email Address",
+                            description: "Please add an email address first to send induction by email.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                      data-testid="button-email-induction"
+                    >
+                      <Mail className="h-3 w-3" />
+                      Email Induction
+                    </Button>
+                  </div>
                   
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm font-medium text-gray-700 mb-1">Current Status:</p>

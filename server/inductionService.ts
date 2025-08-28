@@ -6,6 +6,8 @@ import {
   inductionQuestions, 
   inductionAnswers, 
   contractorWorkers,
+  staff,
+  visitors,
   type InductionToken,
   type InductionQuestion,
   type InsertInductionToken,
@@ -252,7 +254,7 @@ VisiGate Pro - Contractor Management System
       })
       .where(eq(inductionTokens.id, tokenId));
 
-    // Update worker induction status if passed
+    // Update user induction status if passed
     if (passed) {
       const [token] = await db
         .select()
@@ -260,13 +262,53 @@ VisiGate Pro - Contractor Management System
         .where(eq(inductionTokens.id, tokenId));
 
       if (token) {
-        await db
-          .update(contractorWorkers)
-          .set({
-            inductionCompleted: true,
-            inductionCompletedAt: new Date()
-          })
+        // First, try contractor workers
+        const [contractor] = await db
+          .select()
+          .from(contractorWorkers)
           .where(eq(contractorWorkers.id, token.workerId));
+
+        if (contractor) {
+          await db
+            .update(contractorWorkers)
+            .set({
+              inductionCompleted: true,
+              inductionCompletedAt: new Date()
+            })
+            .where(eq(contractorWorkers.id, token.workerId));
+        } else {
+          // Check if it's a staff member
+          const [staffMember] = await db
+            .select()
+            .from(staff)
+            .where(eq(staff.id, token.workerId));
+
+          if (staffMember) {
+            await db
+              .update(staff)
+              .set({
+                inductionCompleted: true,
+                inductionCompletedAt: new Date()
+              })
+              .where(eq(staff.id, token.workerId));
+          } else {
+            // Check if it's a visitor
+            const [visitor] = await db
+              .select()
+              .from(visitors)
+              .where(eq(visitors.id, token.workerId));
+
+            if (visitor) {
+              await db
+                .update(visitors)
+                .set({
+                  inductionCompleted: true,
+                  inductionCompletedAt: new Date()
+                })
+                .where(eq(visitors.id, token.workerId));
+            }
+          }
+        }
       }
     }
 

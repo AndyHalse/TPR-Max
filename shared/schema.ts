@@ -27,6 +27,9 @@ export const staff = pgTable("staff", {
   emergencyToken: text("emergency_token"), // Secure token for emergency access without login
   emergencyTokenExpires: timestamp("emergency_token_expires"), // Token expiration
   userId: varchar("user_id").references(() => users.id), // Link to user account
+  // Induction tracking
+  inductionCompleted: boolean("induction_completed").default(false).notNull(),
+  inductionCompletedAt: timestamp("induction_completed_at"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -64,6 +67,9 @@ export const visitors = pgTable("visitors", {
   isCheckedIn: boolean("is_checked_in").default(true).notNull(),
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  // Induction tracking
+  inductionCompleted: boolean("induction_completed").default(false).notNull(),
+  inductionCompletedAt: timestamp("induction_completed_at"),
   qrCode: text("qr_code").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
