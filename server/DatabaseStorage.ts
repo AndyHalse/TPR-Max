@@ -2291,8 +2291,8 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(contractorWorkers)
         .where(and(
-          gte(contractorWorkers.lastCheckedInAt, thisWeekStart),
-          isNotNull(contractorWorkers.lastCheckedInAt)
+          gte(contractorWorkers.checkedInAt, thisWeekStart),
+          isNotNull(contractorWorkers.checkedInAt)
         ));
 
       // Process visitor check-ins
@@ -2311,8 +2311,8 @@ export class DatabaseStorage implements IStorage {
 
       // Process contractor check-ins
       thisWeekContractors.forEach(contractor => {
-        if (contractor.lastCheckedInAt) {
-          const hour = new Date(contractor.lastCheckedInAt).getHours();
+        if (contractor.checkedInAt) {
+          const hour = new Date(contractor.checkedInAt).getHours();
           hourlyData[hour].contractors++;
           hourlyData[hour].total++;
         }
@@ -2363,9 +2363,9 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(contractorWorkers)
         .where(and(
-          gte(contractorWorkers.lastCheckedInAt, lastWeekStart),
-          lte(contractorWorkers.lastCheckedInAt, lastWeekEnd),
-          isNotNull(contractorWorkers.lastCheckedInAt)
+          gte(contractorWorkers.checkedInAt, lastWeekStart),
+          lte(contractorWorkers.checkedInAt, lastWeekEnd),
+          isNotNull(contractorWorkers.checkedInAt)
         ));
 
       const lastWeekTotal = lastWeekVisitors.length + lastWeekStaff.length + lastWeekContractors.length;

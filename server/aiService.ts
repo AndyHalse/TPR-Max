@@ -1063,8 +1063,7 @@ Respond with JSON only: {"rating": "A+", "score": 95, "reasoning": "Brief explan
             content: analysisPrompt
           }
         ],
-        response_format: { type: "json_object" },
-        temperature: 0.3
+        response_format: { type: "json_object" }
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
