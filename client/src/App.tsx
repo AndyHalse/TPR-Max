@@ -18,6 +18,8 @@ import Reports from "@/pages/Reports";
 import TimeAttendance from "@/pages/TimeAttendance";
 import Visitors from "@/pages/Visitors";
 import SuperAdmin from "@/pages/SuperAdmin";
+import TenantDashboard from "@/pages/TenantDashboard";
+import TenantSettings from "@/pages/TenantSettings";
 import AIDemo from "@/pages/AIDemo";
 import Contractors from "@/pages/Contractors";
 import ContractorDetails from "@/pages/ContractorDetails";
@@ -121,7 +123,9 @@ function Router() {
             <Route path="/reports" component={Reports} />
             <Route path="/time-attendance" component={TimeAttendance} />
             <Route path="/settings" component={Settings} />
-            <Route path="/super-admin" component={SuperAdmin} />
+            <Route path="/multi-tenant" component={SuperAdmin} />
+            <Route path="/tenant/:slug/dashboard" component={TenantDashboard} />
+            <Route path="/tenant/:slug/settings" component={TenantSettings} />
             <Route path="/induction-settings" component={InductionSettings} />
             <Route path="/ai-demo" component={AIDemo} />
             <Route component={NotFound} />

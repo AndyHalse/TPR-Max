@@ -5114,6 +5114,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Tenant-specific endpoints
+  app.get("/api/super-admin/tenants/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const tenant = await storage.getTenantBySlug(slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error fetching tenant:", error);
+      res.status(500).json({ error: "Failed to fetch tenant" });
+    }
+  });
+
+  app.patch("/api/super-admin/tenants/:tenantId", async (req, res) => {
+    try {
+      const { tenantId } = req.params;
+      const updateData = req.body;
+      const tenant = await storage.updateTenantCompany(tenantId, updateData);
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error updating tenant:", error);
+      res.status(500).json({ error: "Failed to update tenant" });
+    }
+  });
+
+  app.get("/api/tenants/:slug/staff", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const tenant = await storage.getTenantBySlug(slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const staff = await storage.getStaffByTenant(tenant.id);
+      res.json(staff);
+    } catch (error) {
+      console.error("Error fetching tenant staff:", error);
+      res.status(500).json({ error: "Failed to fetch tenant staff" });
+    }
+  });
+
+  app.get("/api/tenants/:slug/visitors", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const tenant = await storage.getTenantBySlug(slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const visitors = await storage.getVisitorsByTenant(tenant.id);
+      res.json(visitors);
+    } catch (error) {
+      console.error("Error fetching tenant visitors:", error);
+      res.status(500).json({ error: "Failed to fetch tenant visitors" });
+    }
+  });
+
+  app.get("/api/tenants/:slug/visitors/pre-booked", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const tenant = await storage.getTenantBySlug(slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const preBookedVisitors = await storage.getPreBookedVisitorsByTenant(tenant.id);
+      res.json(preBookedVisitors);
+    } catch (error) {
+      console.error("Error fetching pre-booked visitors:", error);
+      res.status(500).json({ error: "Failed to fetch pre-booked visitors" });
+    }
+  });
+
+  app.post("/api/tenants/:slug/visitors/pre-book", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const tenant = await storage.getTenantBySlug(slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const visitorData = {
+        ...req.body,
+        tenantId: tenant.id,
+        isPreBooked: true,
+        checkedInAt: null,
+        checkedOutAt: null,
+        isCheckedIn: false,
+      };
+      const visitor = await storage.createVisitor(visitorData);
+      res.json(visitor);
+    } catch (error) {
+      console.error("Error pre-booking visitor:", error);
+      res.status(500).json({ error: "Failed to pre-book visitor" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -65,6 +65,10 @@ export const visitors = pgTable("visitors", {
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
   // Multi-Tenant: Link visitor to the tenant company they're visiting
   visitingTenantId: varchar("visiting_tenant_id").references(() => tenantCompanies.id),
+  // Pre-booking functionality
+  isPreBooked: boolean("is_pre_booked").default(false).notNull(),
+  expectedDateTime: timestamp("expected_date_time"),
+  visitPurpose: text("visit_purpose"),
   checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset

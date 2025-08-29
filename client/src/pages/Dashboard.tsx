@@ -342,7 +342,7 @@ export default function Dashboard() {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => setLocation('/super-admin')}
+            onClick={() => setLocation('/multi-tenant')}
             className="flex items-center gap-2"
             data-testid="button-multi-tenant-dashboard"
           >
@@ -395,7 +395,7 @@ export default function Dashboard() {
                     variant="outline" 
                     size="sm" 
                     className="w-full text-xs flex items-center justify-center gap-2"
-                    onClick={() => setLocation('/super-admin')}
+                    onClick={() => setLocation('/multi-tenant')}
                     data-testid="button-manage-tenants"
                   >
                     <Eye className="w-3 h-3" />

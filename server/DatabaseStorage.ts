@@ -2445,6 +2445,28 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getTenantBySlug(slug: string): Promise<TenantCompany | undefined> {
+    return this.getTenantCompanyBySlug(slug);
+  }
+
+  async getStaffByTenant(tenantId: string): Promise<Staff[]> {
+    return await db.select().from(staff).where(eq(staff.tenantCompanyId, tenantId));
+  }
+
+  async getVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    return await db.select().from(visitors).where(eq(visitors.visitingTenantId, tenantId));
+  }
+
+  async getPreBookedVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    return await db.select().from(visitors).where(
+      and(
+        eq(visitors.visitingTenantId, tenantId),
+        eq(visitors.isPreBooked, true),
+        eq(visitors.isCheckedIn, false)
+      )
+    );
+  }
+
   async getBuildingSettings(): Promise<BuildingSettings | undefined> {
     const [settings] = await db.select().from(buildingSettings);
     return settings;

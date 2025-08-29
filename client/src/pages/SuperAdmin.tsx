@@ -393,6 +393,7 @@ export default function SuperAdmin() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      onClick={() => setLocation(`/tenant/${tenant.slug}/dashboard`)}
                       data-testid={`button-view-${tenant.slug}`}
                     >
                       <Eye className="w-4 h-4 mr-1" />
@@ -401,6 +402,7 @@ export default function SuperAdmin() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      onClick={() => setLocation(`/tenant/${tenant.slug}/settings`)}
                       data-testid={`button-settings-${tenant.slug}`}
                     >
                       <Settings className="w-4 h-4 mr-1" />
