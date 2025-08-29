@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import GlassCard from "@/components/GlassCard";
-import { Building2, ArrowLeft, Save, Users, Mail, Globe, DollarSign } from "lucide-react";
+import { Building2, ArrowLeft, Save, Users, Mail, Globe, DollarSign, Upload, Image, X } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ interface TenantCompany {
   phone?: string;
   website?: string;
   description?: string;
+  logoUrl?: string;
 }
 
 const tenantSettingsSchema = z.object({
@@ -74,6 +76,7 @@ export default function TenantSettings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [logoPreview, setLogoPreview] = useState<string>("");
   
   const form = useForm<TenantSettingsFormData>({
     resolver: zodResolver(tenantSettingsSchema),
@@ -99,6 +102,7 @@ export default function TenantSettings() {
         website: tenant.website || "",
         description: tenant.description || "",
       });
+      setLogoPreview(tenant.logoUrl || "");
     }
   }, [tenant, form]);
 
@@ -126,6 +130,41 @@ export default function TenantSettings() {
       });
     },
   });
+
+  // Logo upload mutation
+  const logoUploadMutation = useMutation({
+    mutationFn: async (logoUrl: string) => {
+      return apiRequest(`/api/super-admin/tenants/${tenant?.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ logoUrl }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Company logo updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/super-admin/tenants/${slug}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/tenants"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update company logo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleLogoUpload = (uploadUrl: string) => {
+    setLogoPreview(uploadUrl);
+    logoUploadMutation.mutate(uploadUrl);
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview("");
+    logoUploadMutation.mutate("");
+  };
 
   const onSubmit = (data: TenantSettingsFormData) => {
     updateMutation.mutate(data);
@@ -349,6 +388,88 @@ export default function TenantSettings() {
                   </div>
                 </form>
               </Form>
+            </div>
+          </Card>
+
+          {/* Logo Upload Section */}
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                <Image className="w-5 h-5" />
+                Company Logo for Visitor Passes
+              </h3>
+              <div className="space-y-4">
+                {/* Current Logo Preview */}
+                {logoPreview && (
+                  <div className="flex items-center gap-4 p-4 border border-slate-200 rounded-lg bg-slate-50">
+                    <img 
+                      src={logoPreview} 
+                      alt="Company Logo" 
+                      className="w-16 h-16 object-contain border border-slate-200 rounded"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-800">Current Logo</p>
+                      <p className="text-xs text-slate-600">This logo will appear on visitor passes</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRemoveLogo}
+                      disabled={logoUploadMutation.isPending}
+                      data-testid="button-remove-logo"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* Upload New Logo */}
+                <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+                  <div className="space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-800 mb-2">
+                        {logoPreview ? "Update Company Logo" : "Upload Company Logo"}
+                      </h4>
+                      <p className="text-xs text-slate-600 mb-4">
+                        Recommended: PNG or JPG format, max 5MB
+                        <br />
+                        Best size: 300x100px for visitor passes
+                      </p>
+                      <ObjectUploader
+                        onUploadComplete={handleLogoUpload}
+                        accept="image/*"
+                        maxSize={5 * 1024 * 1024}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Upload className="w-4 h-4" />
+                          {logoUploadMutation.isPending ? "Uploading..." : "Choose File"}
+                        </div>
+                      </ObjectUploader>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">i</span>
+                      </div>
+                    </div>
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-800 mb-1">Logo Usage</p>
+                      <p className="text-blue-700">
+                        Your company logo will be automatically included on all visitor passes printed for guests visiting your company. 
+                        The logo helps with branding and professional appearance of visitor badges.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </Card>
         </div>

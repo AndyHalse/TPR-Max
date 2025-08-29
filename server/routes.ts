@@ -5171,6 +5171,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get tenant by ID (for visitor pass printing)
+  app.get("/api/super-admin/tenants/by-id/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const tenant = await storage.getTenantCompanyById(id);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error fetching tenant by ID:", error);
+      res.status(500).json({ error: "Failed to fetch tenant" });
+    }
+  });
+
   app.patch("/api/super-admin/tenants/:tenantId", async (req, res) => {
     try {
       const { tenantId } = req.params;

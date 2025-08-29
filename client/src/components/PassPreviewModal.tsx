@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { generateQRCode } from "@/lib/qr-generator";
 import { useQuery } from "@tanstack/react-query";
-import type { Visitor, CompanySettings } from "@shared/schema";
+import type { Visitor, CompanySettings, TenantCompany } from "@shared/schema";
 
 interface PassPreviewModalProps {
   isOpen: boolean;
@@ -17,6 +17,12 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
     queryKey: ["/api/settings"],
   });
 
+  // Fetch tenant company information for the visitor
+  const { data: tenantCompany } = useQuery<TenantCompany>({
+    queryKey: [`/api/super-admin/tenants/by-id/${visitor.visitingTenantId}`],
+    enabled: !!visitor.visitingTenantId,
+  });
+
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -26,7 +32,14 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
   };
 
   const handlePrint = () => {
-    // Direct printing to match exact design specification - ACS Safety & Security Ltd
+    // Get tenant-specific information
+    const companyName = tenantCompany?.companyName || "Company Name";
+    const companyAddress = tenantCompany?.address || "Address not provided";
+    const companyPhone = tenantCompany?.phone || "";
+    const companyWebsite = tenantCompany?.website || "";
+    const companyLogo = tenantCompany?.logoUrl;
+    
+    // Direct printing with tenant-specific information
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
@@ -82,6 +95,20 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                   margin-top: 0.5mm;
                 }
                 .logo { 
+                  width: 16mm;
+                  height: 12mm;
+                  border-radius: 2mm;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  overflow: hidden;
+                }
+                .logo img {
+                  max-width: 100%;
+                  max-height: 100%;
+                  object-fit: contain;
+                }
+                .logo-fallback { 
                   width: 12mm;
                   height: 12mm;
                   background: #000000;
@@ -160,11 +187,16 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
             <div class="pass-container">
               <div class="header">
                 <div class="company-info">
-                  <h4 class="company-name">ACS Safety & Security Ltd</h4>
+                  <h4 class="company-name">${companyName}</h4>
                   <p class="visitor-pass">Visitor Pass</p>
-                  <p class="address">Wittas House Two Rivers Station Lane Witney OX28 4BH</p>
+                  <p class="address">${companyAddress}</p>
                 </div>
-                <div class="logo">ACS</div>
+                <div class="logo">
+                  ${companyLogo ? 
+                    `<img src="${companyLogo}" alt="${companyName} Logo" />` : 
+                    `<div class="logo-fallback">${companyName.substring(0, 3).toUpperCase()}</div>`
+                  }
+                </div>
               </div>
               
               <div class="main-content">
@@ -179,10 +211,10 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               
               <div class="footer">
                 <div class="contact-info">
-                  <div class="phone">📞 +44 1344 771550</div>
-                  <div class="website">🌐 acsltd.eu</div>
+                  ${companyPhone ? `<div class="phone">📞 ${companyPhone}</div>` : ''}
+                  ${companyWebsite ? `<div class="website">🌐 ${companyWebsite.replace(/^https?:\/\//, '')}</div>` : ''}
                 </div>
-                <span>VisiGate Pro</span>
+                <span>© ${new Date().getFullYear()} ${companyName}</span>
               </div>
             </div>
             <script>
@@ -218,15 +250,31 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
             data-testid="visitor-pass-preview"
           >
             <div className="h-full flex flex-col" style={{background: 'linear-gradient(135deg, #f8faff 0%, #e6f2ff 100%)'}}>
-              {/* Header with Company Info - Match exact design */}
+              {/* Header with Company Info - Tenant specific */}
               <div className="flex items-start justify-between mb-2">
                 <div className="text-left flex-1 pr-2">
-                  <h4 className="font-bold text-sm text-blue-900 leading-tight">ACS Safety & Security Ltd</h4>
+                  <h4 className="font-bold text-sm text-blue-900 leading-tight">
+                    {tenantCompany?.companyName || "Company Name"}
+                  </h4>
                   <p className="text-xs text-slate-600 font-semibold">Visitor Pass</p>
-                  <p className="text-xs text-slate-500 mt-1 leading-tight">Wittas House Two Rivers Station Lane Witney OX28 4BH</p>
+                  <p className="text-xs text-slate-500 mt-1 leading-tight">
+                    {tenantCompany?.address || "Address not provided"}
+                  </p>
                 </div>
-                <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-sm font-bold">ACS</span>
+                <div className="w-12 h-10 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {tenantCompany?.logoUrl ? (
+                    <img 
+                      src={tenantCompany.logoUrl} 
+                      alt={`${tenantCompany.companyName} Logo`}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">
+                        {(tenantCompany?.companyName || "CO").substring(0, 3).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               
