@@ -103,7 +103,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/induction-settings", icon: Video, label: "Induction Settings" },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
     { path: "/ai-demo", icon: Brain, label: "AI Demo" },
-    { path: "/super-admin", icon: Building2, label: "Super Admin" },
+    { path: "/multi-tenant", icon: Building2, label: "Multi-Tenant" },
     { path: "/settings", icon: Settings, label: "Settings" },
   ];
 
