@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import AIInsights from "@/components/AIInsights";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,10 @@ export default function Dashboard() {
   const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'department-details' | 'visitor-details' | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [selectedVisitor, setSelectedVisitor] = useState<any>(null);
+  
+  // Reception Diary view state
+  const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('tomorrow');
+  const [currentDate, setCurrentDate] = useState(new Date());
   
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
     queryKey: ["/api/stats"],
@@ -184,13 +188,89 @@ export default function Dashboard() {
     return { level: 'normal', color: 'bg-slate-100 text-slate-600 border-slate-200' };
   };
 
+  // Diary navigation helper functions
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    if (diaryViewMode === 'weekly') {
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+    } else {
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+    }
+    setCurrentDate(newDate);
+  };
+
+  const getDateRange = () => {
+    const start = new Date(currentDate);
+    const end = new Date(currentDate);
+    
+    if (diaryViewMode === 'weekly') {
+      // Get start of week (Monday)
+      const dayOfWeek = start.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      start.setDate(start.getDate() - daysToMonday);
+      end.setDate(start.getDate() + 6);
+    } else if (diaryViewMode === 'today') {
+      // Today only
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      // Tomorrow only
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    }
+    
+    return { start, end };
+  };
+
+  const getFilteredDiary = () => {
+    if (!receptionDiary) return [];
+    
+    const { start, end } = getDateRange();
+    
+    return receptionDiary.filter(entry => {
+      const visitDate = new Date(entry.visitDate);
+      return visitDate >= start && visitDate <= end;
+    });
+  };
+
+  const getViewTitle = () => {
+    const today = new Date();
+    const isCurrentWeek = diaryViewMode === 'weekly' && 
+      currentDate >= new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay()) &&
+      currentDate <= new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
+    
+    if (diaryViewMode === 'today') {
+      if (currentDate.toDateString() === today.toDateString()) {
+        return 'Today';
+      } else {
+        return currentDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
+      }
+    } else if (diaryViewMode === 'tomorrow') {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (currentDate.toDateString() === tomorrow.toDateString()) {
+        return 'Tomorrow';
+      } else {
+        return currentDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
+      }
+    } else {
+      if (isCurrentWeek) {
+        return 'This Week';
+      } else {
+        const { start, end } = getDateRange();
+        return `${start.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}`;
+      }
+    }
+  };
+
   // Group diary entries by date
-  const groupedDiary = receptionDiary?.reduce((groups, entry) => {
+  const filteredDiary = getFilteredDiary();
+  const groupedDiary = filteredDiary.reduce((groups, entry) => {
     const dateKey = new Date(entry.visitDate).toDateString();
     if (!groups[dateKey]) groups[dateKey] = [];
     groups[dateKey].push(entry);
     return groups;
-  }, {} as Record<string, typeof receptionDiary>) || {};
+  }, {} as Record<string, typeof filteredDiary>) || {};
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -763,8 +843,80 @@ export default function Dashboard() {
             </div>
           </div>
           <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
-            {receptionDiary?.length || 0} Scheduled
+            {filteredDiary?.length || 0} Scheduled
           </Badge>
+        </div>
+
+        {/* View Controls */}
+        <div className="flex items-center justify-between mb-4 gap-4">
+          {/* View Mode Buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={diaryViewMode === 'today' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setDiaryViewMode('today');
+                setCurrentDate(new Date());
+              }}
+              className="text-xs"
+              data-testid="button-diary-today"
+            >
+              Today
+            </Button>
+            <Button
+              variant={diaryViewMode === 'tomorrow' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setDiaryViewMode('tomorrow');
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                setCurrentDate(tomorrow);
+              }}
+              className="text-xs"
+              data-testid="button-diary-tomorrow"
+            >
+              Tomorrow
+            </Button>
+            <Button
+              variant={diaryViewMode === 'weekly' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setDiaryViewMode('weekly');
+                setCurrentDate(new Date());
+              }}
+              className="text-xs"
+              data-testid="button-diary-weekly"
+            >
+              Weekly
+            </Button>
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigateDate('prev')}
+              className="h-8 w-8 p-0"
+              data-testid="button-diary-prev"
+            >
+              <ChevronLeft size={16} />
+            </Button>
+            
+            <div className="text-sm font-medium text-indigo-800 dark:text-indigo-200 min-w-[120px] text-center">
+              {getViewTitle()}
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigateDate('next')}
+              className="h-8 w-8 p-0"
+              data-testid="button-diary-next"
+            >
+              <ChevronRight size={16} />
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6 max-h-96 overflow-y-auto scrollbar-thin">
@@ -773,16 +925,16 @@ export default function Dashboard() {
               <Calendar className="mx-auto mb-3 text-slate-400" size={40} />
               <p>Loading reception diary...</p>
             </div>
-          ) : !receptionDiary || receptionDiary.length === 0 ? (
+          ) : !filteredDiary || filteredDiary.length === 0 ? (
             <div className="text-center py-8 text-slate-600">
               <CalendarDays className="mx-auto mb-3 text-slate-400" size={40} />
-              <p className="font-medium">No upcoming visits scheduled</p>
+              <p className="font-medium">No visits scheduled for {getViewTitle().toLowerCase()}</p>
               <p className="text-sm mt-2">Pre-booked visitors will appear here for preparation</p>
             </div>
           ) : (
             Object.entries(groupedDiary)
               .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-              .slice(0, 4) // Show next 4 days max
+              .slice(0, diaryViewMode === 'weekly' ? 7 : 4) // Show all 7 days for weekly view, 4 for others
               .map(([dateKey, entries]) => {
                 const date = new Date(dateKey);
                 const dayStatus = getDayStatus(date);
