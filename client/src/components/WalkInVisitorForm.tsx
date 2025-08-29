@@ -29,8 +29,10 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const [createdVisitor, setCreatedVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
 
+  // GDPR Fix: Get company-specific staff based on company field
   const { data: staff } = useQuery<Staff[]>({
-    queryKey: ["/api/staff"],
+    queryKey: ["/api/staff/by-company", formData.company],
+    enabled: !!formData.company && formData.company.trim().length > 0,
   });
 
   const { data: settings } = useQuery<CompanySettings>({

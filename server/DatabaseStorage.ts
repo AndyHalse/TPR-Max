@@ -2449,6 +2449,13 @@ export class DatabaseStorage implements IStorage {
     return this.getTenantCompanyBySlug(slug);
   }
 
+  async getTenantByCompanyName(companyName: string): Promise<TenantCompany | undefined> {
+    const [tenant] = await db.select().from(tenantCompanies).where(
+      ilike(tenantCompanies.companyName, companyName)
+    );
+    return tenant;
+  }
+
   async getStaffByTenant(tenantId: string): Promise<Staff[]> {
     return await db.select().from(staff).where(eq(staff.tenantCompanyId, tenantId));
   }

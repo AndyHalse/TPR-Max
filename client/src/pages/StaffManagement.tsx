@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useParams, useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -13,9 +14,16 @@ export default function StaffManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const { toast } = useToast();
+  const { slug } = useParams<{ slug: string }>();
+  const [location] = useLocation();
 
+  // Determine if this is a tenant-specific view or building-wide view
+  const isTenantView = location.startsWith('/tenant/');
+  
+  // GDPR-compliant staff query: Use tenant-specific or building-wide endpoint based on context
   const { data: staff, isLoading } = useQuery<Staff[]>({
-    queryKey: ["/api/staff"],
+    queryKey: isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"],
+    enabled: isTenantView ? !!slug : true,
   });
 
   const deleteMutation = useMutation({
@@ -23,7 +31,9 @@ export default function StaffManagement() {
       return apiRequest("DELETE", `/api/staff/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      // Invalidate the correct query based on context
+      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
+      queryClient.invalidateQueries({ queryKey });
       toast({
         title: "Success",
         description: "Staff member deleted successfully",
@@ -43,7 +53,9 @@ export default function StaffManagement() {
       return apiRequest("POST", `/api/staff/${id}/checkin`, { manual: true });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      // Invalidate the correct query based on context
+      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
+      queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
@@ -66,7 +78,9 @@ export default function StaffManagement() {
       return apiRequest("POST", `/api/staff/${id}/checkout`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      // Invalidate the correct query based on context
+      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
+      queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });

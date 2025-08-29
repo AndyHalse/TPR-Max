@@ -310,9 +310,22 @@ export default function Visitors() {
     },
   });
 
-  // Queries
+  // GDPR Fix: Get staff by company for walk-in visitors
+  const { data: walkInStaff } = useQuery<Staff[]>({
+    queryKey: ["/api/staff/by-company", walkInData.company],
+    enabled: !!walkInData.company && walkInData.company.trim().length > 0,
+  });
+
+  // GDPR Fix: Get staff by company for pre-bookings  
+  const { data: preBookingStaff } = useQuery<Staff[]>({
+    queryKey: ["/api/staff/by-company", preBookingData.company],
+    enabled: !!preBookingData.company && preBookingData.company.trim().length > 0,
+  });
+
+  // Legacy global staff query (GDPR WARNING: Shows ALL staff from ALL companies)
   const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
+    enabled: false, // Disable for now - use company-specific queries above
   });
 
   const { data: preBookings } = useQuery<PreBooking[]>({
@@ -1082,11 +1095,16 @@ export default function Visitors() {
                       <SelectValue placeholder="Select host staff member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {staff?.map((member) => (
+                      {walkInStaff?.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.firstName} {member.lastName} - {member.department}
                         </SelectItem>
                       ))}
+                      {(!walkInData.company || walkInData.company.trim().length === 0) && (
+                        <SelectItem key="no-company" value="" disabled>
+                          Please select a company first
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1224,11 +1242,16 @@ export default function Visitors() {
                       <SelectValue placeholder="Select host staff member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {staff?.map((member) => (
+                      {preBookingStaff?.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.firstName} {member.lastName} - {member.department}
                         </SelectItem>
                       ))}
+                      {(!preBookingData.company || preBookingData.company.trim().length === 0) && (
+                        <SelectItem key="no-company" value="" disabled>
+                          Please select a company first
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

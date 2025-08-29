@@ -232,8 +232,10 @@ export default function PreBooking() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({});
 
+  // GDPR Fix: Get staff by company instead of all staff
   const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
-    queryKey: ["/api/staff"],
+    queryKey: ["/api/staff/by-company", formData.company],
+    enabled: !!formData.company && formData.company.trim().length > 0,
   });
 
   const { data: companies = [] } = useQuery<string[]>({

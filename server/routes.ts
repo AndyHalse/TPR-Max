@@ -714,10 +714,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Staff endpoints
   app.get("/api/staff", async (req, res) => {
     try {
+      // GDPR WARNING: This endpoint returns ALL staff from ALL companies
+      // Only use for building-wide administration, not for tenant-specific operations
       const staff = await storage.getAllStaff();
       res.json(staff);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch staff" });
+    }
+  });
+
+  // GDPR-compliant endpoint: Get staff by company name for visitor host selection
+  app.get("/api/staff/by-company/:companyName", async (req, res) => {
+    try {
+      const { companyName } = req.params;
+      if (!companyName) {
+        return res.status(400).json({ error: "Company name is required" });
+      }
+      
+      // Find the tenant company by name (case-insensitive)
+      const tenant = await storage.getTenantByCompanyName(companyName);
+      if (!tenant) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      
+      // Get only staff from that specific company
+      const staff = await storage.getStaffByTenant(tenant.id);
+      res.json(staff);
+    } catch (error) {
+      console.error("Error fetching staff by company:", error);
+      res.status(500).json({ error: "Failed to fetch staff for company" });
     }
   });
 
