@@ -90,13 +90,10 @@ export default function TenantDashboard() {
   // Pre-book visitor mutation
   const preBookMutation = useMutation({
     mutationFn: async (data: VisitorFormData) => {
-      return apiRequest(`/api/tenants/${slug}/visitors/pre-book`, {
-        method: "POST",
-        body: JSON.stringify({
-          ...data,
-          tenantId: tenant?.id,
-          expectedDateTime: `${data.expectedDate}T${data.expectedTime}`,
-        }),
+      return apiRequest(`/api/tenants/${slug}/visitors/pre-book`, "POST", {
+        ...data,
+        tenantId: tenant?.id,
+        expectedDateTime: `${data.expectedDate}T${data.expectedTime}`,
       });
     },
     onSuccess: () => {
