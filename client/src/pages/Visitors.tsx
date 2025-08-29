@@ -1101,7 +1101,7 @@ export default function Visitors() {
                         </SelectItem>
                       ))}
                       {(!walkInData.company || walkInData.company.trim().length === 0) && (
-                        <SelectItem key="no-company" value="" disabled>
+                        <SelectItem key="no-company" value="no-selection" disabled>
                           Please select a company first
                         </SelectItem>
                       )}
@@ -1248,7 +1248,7 @@ export default function Visitors() {
                         </SelectItem>
                       ))}
                       {(!preBookingData.company || preBookingData.company.trim().length === 0) && (
-                        <SelectItem key="no-company" value="" disabled>
+                        <SelectItem key="no-company" value="no-selection" disabled>
                           Please select a company first
                         </SelectItem>
                       )}
