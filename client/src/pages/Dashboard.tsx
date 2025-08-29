@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import AIInsights from "@/components/AIInsights";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -330,6 +330,85 @@ export default function Dashboard() {
             </div>
           </div>
         </GlassCard>
+      </div>
+
+      {/* Multi-Tenant Building Overview */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <Building2 className="text-blue-600" size={20} />
+            Building Overview
+          </h2>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setLocation('/super-admin')}
+            className="flex items-center gap-2"
+            data-testid="button-multi-tenant-dashboard"
+          >
+            <Settings className="w-4 h-4" />
+            Multi-Tenant Dashboard
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <GlassCard className="dark:glass-dark">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Companies</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-total-companies">
+                  10
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  Active tenants in building
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <Building2 className="text-blue-600 dark:text-blue-400" size={24} />
+              </div>
+            </div>
+          </GlassCard>
+          
+          <GlassCard className="dark:glass-dark">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Building Occupancy</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-building-occupancy">
+                  {((stats?.currentVisitors || 0) + (stats?.staffOnSite || 0))}
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  Total people in building
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                <UsersRound className="text-green-600 dark:text-green-400" size={24} />
+              </div>
+            </div>
+          </GlassCard>
+          
+          <GlassCard className="dark:glass-dark">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Quick Actions</p>
+                <div className="mt-2 space-y-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-xs flex items-center justify-center gap-2"
+                    onClick={() => setLocation('/super-admin')}
+                    data-testid="button-manage-tenants"
+                  >
+                    <Eye className="w-3 h-3" />
+                    View All Tenants
+                  </Button>
+                </div>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                <Settings className="text-purple-600 dark:text-purple-400" size={24} />
+              </div>
+            </div>
+          </GlassCard>
+        </div>
       </div>
 
       {/* Advanced Analytics Row */}

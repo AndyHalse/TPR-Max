@@ -2424,36 +2424,24 @@ export class DatabaseStorage implements IStorage {
     today.setHours(0, 0, 0, 0);
 
     // Get tenant counts
-    const [tenantCounts] = await db
-      .select({
-        totalTenants: count(),
-        activeTenants: count().where(eq(tenantCompanies.isActive, true))
-      })
-      .from(tenantCompanies);
+    const totalTenants = await db.select({ count: count() }).from(tenantCompanies);
+    const activeTenants = await db.select({ count: count() }).from(tenantCompanies).where(eq(tenantCompanies.isActive, true));
 
     // Get staff counts
-    const [staffCounts] = await db
-      .select({
-        totalStaff: count(),
-        staffOnSite: count().where(eq(staff.isCheckedIn, true))
-      })
-      .from(staff);
+    const totalStaff = await db.select({ count: count() }).from(staff);
+    const staffOnSite = await db.select({ count: count() }).from(staff).where(eq(staff.isCheckedIn, true));
 
     // Get visitor counts
-    const [visitorCounts] = await db
-      .select({
-        totalVisitors: count(),
-        visitorsToday: count().where(gte(visitors.checkedInAt, today))
-      })
-      .from(visitors);
+    const totalVisitors = await db.select({ count: count() }).from(visitors);
+    const visitorsToday = await db.select({ count: count() }).from(visitors).where(gte(visitors.checkedInAt, today));
 
     return {
-      totalTenants: tenantCounts?.totalTenants || 0,
-      activeTenants: tenantCounts?.activeTenants || 0,
-      totalStaff: staffCounts?.totalStaff || 0,
-      totalVisitors: visitorCounts?.totalVisitors || 0,
-      visitorsToday: visitorCounts?.visitorsToday || 0,
-      staffOnSite: staffCounts?.staffOnSite || 0,
+      totalTenants: totalTenants[0]?.count || 0,
+      activeTenants: activeTenants[0]?.count || 0,
+      totalStaff: totalStaff[0]?.count || 0,
+      totalVisitors: totalVisitors[0]?.count || 0,
+      visitorsToday: visitorsToday[0]?.count || 0,
+      staffOnSite: staffOnSite[0]?.count || 0,
     };
   }
 

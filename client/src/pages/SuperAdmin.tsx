@@ -106,7 +106,7 @@ export default function SuperAdmin() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Building2 className="w-8 h-8 text-blue-600" />
-            Super Admin Dashboard
+            Multi-Tenant Dashboard
           </h1>
           <p className="text-muted-foreground mt-1">
             Manage all tenant companies in the serviced office building
@@ -382,8 +382,8 @@ export default function SuperAdmin() {
                         <p data-testid={`text-contact-${tenant.slug}`}>
                           📧 {tenant.contactEmail} | 🏢 /{tenant.slug}
                         </p>
-                        <p data-testid={`text-limits-${tenant.slug}`}>
-                          👥 {tenant.maxUsers} max users | 👨‍💼 {tenant.maxVisitorsPerMonth} visitors/month
+                        <p data-testid={`text-info-${tenant.slug}`}>
+                          👥 {tenant.employeeCount} employees | 🏭 {tenant.industry}
                         </p>
                       </div>
                     </div>
