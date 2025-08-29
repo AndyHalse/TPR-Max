@@ -3,7 +3,7 @@ import {
   staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
   contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies,
   documentApprovals, departments, cardOffences, cardIssues, workerCertifications, ramsDocuments,
-  co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications
+  co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings
 } from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
@@ -14,7 +14,8 @@ import type {
   Department, InsertDepartment, CardOffence, InsertCardOffence, CardIssue, InsertCardIssue,
   WorkerCertification, InsertWorkerCertification, RamsDocument, InsertRamsDocument,
   Co2Record, InsertCo2Record, LocalLabourRecord, InsertLocalLabourRecord,
-  EnhancedCompanyDetails, InsertEnhancedCompanyDetails, NvqQualification, InsertNvqQualification
+  EnhancedCompanyDetails, InsertEnhancedCompanyDetails, NvqQualification, InsertNvqQualification,
+  TenantCompany, InsertTenantCompany, BuildingSettings, InsertBuildingSettings
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, count, isNotNull } from "drizzle-orm";
@@ -2352,6 +2353,146 @@ export class DatabaseStorage implements IStorage {
         weeklyTrend: "+23% this week",
         hourlyData: [],
       };
+    }
+  }
+
+  // Multi-Tenant methods implementation
+  async getAllTenantCompanies(): Promise<TenantCompany[]> {
+    return await db.select().from(tenantCompanies).orderBy(asc(tenantCompanies.companyName));
+  }
+
+  async getTenantCompanyById(id: string): Promise<TenantCompany | undefined> {
+    const [tenant] = await db.select().from(tenantCompanies).where(eq(tenantCompanies.id, id));
+    return tenant;
+  }
+
+  async getTenantCompanyBySlug(slug: string): Promise<TenantCompany | undefined> {
+    const [tenant] = await db.select().from(tenantCompanies).where(eq(tenantCompanies.slug, slug));
+    return tenant;
+  }
+
+  async createTenantCompany(insertTenant: InsertTenantCompany): Promise<TenantCompany> {
+    const tenant: TenantCompany = {
+      id: randomUUID(),
+      ...insertTenant,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await db.insert(tenantCompanies).values(tenant);
+    return tenant;
+  }
+
+  async updateTenantCompany(id: string, updates: Partial<InsertTenantCompany>): Promise<TenantCompany | undefined> {
+    const [updated] = await db
+      .update(tenantCompanies)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(tenantCompanies.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateTenantStatus(id: string, isActive: boolean): Promise<TenantCompany> {
+    const [updated] = await db
+      .update(tenantCompanies)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(tenantCompanies.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error(`Tenant with id ${id} not found`);
+    }
+    
+    return updated;
+  }
+
+  async deleteTenantCompany(id: string): Promise<boolean> {
+    const result = await db.delete(tenantCompanies).where(eq(tenantCompanies.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getBuildingStats(): Promise<{
+    totalTenants: number;
+    activeTenants: number;
+    totalStaff: number;
+    totalVisitors: number;
+    visitorsToday: number;
+    staffOnSite: number;
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get tenant counts
+    const [tenantCounts] = await db
+      .select({
+        totalTenants: count(),
+        activeTenants: count().where(eq(tenantCompanies.isActive, true))
+      })
+      .from(tenantCompanies);
+
+    // Get staff counts
+    const [staffCounts] = await db
+      .select({
+        totalStaff: count(),
+        staffOnSite: count().where(eq(staff.isCheckedIn, true))
+      })
+      .from(staff);
+
+    // Get visitor counts
+    const [visitorCounts] = await db
+      .select({
+        totalVisitors: count(),
+        visitorsToday: count().where(gte(visitors.checkedInAt, today))
+      })
+      .from(visitors);
+
+    return {
+      totalTenants: tenantCounts?.totalTenants || 0,
+      activeTenants: tenantCounts?.activeTenants || 0,
+      totalStaff: staffCounts?.totalStaff || 0,
+      totalVisitors: visitorCounts?.totalVisitors || 0,
+      visitorsToday: visitorCounts?.visitorsToday || 0,
+      staffOnSite: staffCounts?.staffOnSite || 0,
+    };
+  }
+
+  async getBuildingSettings(): Promise<BuildingSettings | undefined> {
+    const [settings] = await db.select().from(buildingSettings);
+    return settings;
+  }
+
+  async updateBuildingSettings(updates: Partial<InsertBuildingSettings>): Promise<BuildingSettings | undefined> {
+    const existing = await this.getBuildingSettings();
+    
+    if (!existing) {
+      // Create new building settings
+      const newSettings: BuildingSettings = {
+        id: randomUUID(),
+        buildingName: "Default Building",
+        address: "",
+        contactEmail: "",
+        phone: "",
+        buildingManagerName: "",
+        buildingManagerEmail: "",
+        maxTenants: 50,
+        operatingHours: "9:00-17:00",
+        emergencyContacts: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...updates,
+      };
+
+      await db.insert(buildingSettings).values(newSettings);
+      return newSettings;
+    } else {
+      // Update existing settings
+      const [updated] = await db
+        .update(buildingSettings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(buildingSettings.id, existing.id))
+        .returning();
+      return updated;
     }
   }
 }
