@@ -126,6 +126,8 @@ function Router() {
             <Route path="/multi-tenant" component={SuperAdmin} />
             <Route path="/tenant/:slug/dashboard" component={TenantDashboard} />
             <Route path="/tenant/:slug/settings" component={TenantSettings} />
+            <Route path="/tenant/:slug/staff" component={StaffManagement} />
+            <Route path="/tenant/:slug/visitors" component={Visitors} />
             <Route path="/induction-settings" component={InductionSettings} />
             <Route path="/ai-demo" component={AIDemo} />
             <Route component={NotFound} />

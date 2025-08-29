@@ -1,3 +1,4 @@
+import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -82,22 +83,24 @@ export default function TenantSettings() {
   const { data: tenant, isLoading: tenantLoading } = useQuery<TenantCompany>({
     queryKey: [`/api/super-admin/tenants/${slug}`],
     enabled: !!slug,
-    onSuccess: (data) => {
-      if (data) {
-        form.reset({
-          companyName: data.companyName,
-          contactEmail: data.contactEmail,
-          industry: data.industry,
-          employeeCount: data.employeeCount,
-          subscriptionTier: data.subscriptionTier,
-          address: data.address || "",
-          phone: data.phone || "",
-          website: data.website || "",
-          description: data.description || "",
-        });
-      }
-    },
   });
+
+  // Reset form when tenant data loads
+  React.useEffect(() => {
+    if (tenant) {
+      form.reset({
+        companyName: tenant.companyName,
+        contactEmail: tenant.contactEmail,
+        industry: tenant.industry,
+        employeeCount: tenant.employeeCount,
+        subscriptionTier: tenant.subscriptionTier,
+        address: tenant.address || "",
+        phone: tenant.phone || "",
+        website: tenant.website || "",
+        description: tenant.description || "",
+      });
+    }
+  }, [tenant, form]);
 
   // Update tenant mutation
   const updateMutation = useMutation({
