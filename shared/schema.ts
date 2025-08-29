@@ -10,6 +10,8 @@ export const staff = pgTable("staff", {
   email: text("email").notNull().unique(),
   department: text("department").notNull(),
   employeeId: text("employee_id").notNull().unique(),
+  // Multi-Tenant: Link staff to tenant company
+  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   photoUrl: text("photo_url"),
   accessLevel: text("access_level").notNull().default("staff"), // admin, supervisor, manager, staff, security, visitor, fire_marshal
   password: text("password"), // Only for admin and supervisor levels
@@ -61,6 +63,8 @@ export const visitors = pgTable("visitors", {
   purpose: text("purpose"),
   carRegistration: text("car_registration"),
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
+  // Multi-Tenant: Link visitor to the tenant company they're visiting
+  visitingTenantId: varchar("visiting_tenant_id").references(() => tenantCompanies.id),
   checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
@@ -86,6 +90,8 @@ export const preBookings = pgTable("pre_bookings", {
   visitDate: timestamp("visit_date").notNull(),
   visitTime: text("visit_time"), // Store time as string for UI compatibility
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
+  // Multi-Tenant: Link pre-booking to tenant company
+  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   qrCode: text("qr_code").notNull(),
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
   isCheckedIn: boolean("is_checked_in").default(false).notNull(),
@@ -141,6 +147,68 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Multi-Tenant Serviced Office Management
+// Tenant Companies - Each company renting space in the building
+export const tenantCompanies = pgTable("tenant_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull().unique(),
+  slug: text("slug").notNull().unique(), // For URL routing: acme.replit.app or /acme/login
+  logoUrl: text("logo_url"),
+  // Contact Information
+  contactEmail: text("contact_email").notNull(),
+  phone: text("phone"),
+  address: text("address"),
+  website: text("website"),
+  // Tenant Admin Contact
+  adminFirstName: text("admin_first_name"),
+  adminLastName: text("admin_last_name"),
+  adminEmail: text("admin_email"),
+  // Subscription & Status
+  isActive: boolean("is_active").default(true).notNull(),
+  subscriptionTier: text("subscription_tier").default("basic"), // basic, premium, enterprise
+  subscriptionExpires: timestamp("subscription_expires"),
+  maxUsers: integer("max_users").default(50),
+  maxVisitorsPerMonth: integer("max_visitors_per_month").default(1000),
+  // Branding Settings
+  primaryColor: text("primary_color").default("#3b82f6"),
+  secondaryColor: text("secondary_color").default("#64748b"),
+  // Custom Fields for Visitor Registration
+  customVisitorFields: text("custom_visitor_fields").array().default([]), // JSON field names
+  // API Access
+  apiKeyEnabled: boolean("api_key_enabled").default(false),
+  apiKey: text("api_key"), // For integrations
+  // Data Privacy & GDPR
+  dataRetentionDays: integer("data_retention_days").default(365),
+  gdprContactEmail: text("gdpr_contact_email"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Building/Super Admin Settings (replaces single companySettings)
+export const buildingSettings = pgTable("building_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buildingName: text("building_name").notNull().default("Serviced Office Building"),
+  buildingAddress: text("building_address"),
+  managementCompany: text("management_company").notNull().default("Building Management Ltd"),
+  logoUrl: text("logo_url"),
+  // Super Admin Contact
+  superAdminEmail: text("super_admin_email").notNull(),
+  phone: text("phone"),
+  website: text("website"),
+  // Global Settings for All Tenants
+  allowTenantSelfSignup: boolean("allow_tenant_self_signup").default(false),
+  maxTenantsAllowed: integer("max_tenants_allowed").default(100),
+  defaultVisitorRetention: integer("default_visitor_retention").default(90), // days
+  // Emergency & Security
+  emergencyPhone: text("emergency_phone"),
+  securityCompany: text("security_company"),
+  // Notifications
+  notifyNewTenantSignup: boolean("notify_new_tenant_signup").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Legacy Company Settings (for single-tenant backward compatibility)
 export const companySettings = pgTable("company_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyName: text("company_name").notNull().default("TechCorp Ltd"),
@@ -925,3 +993,21 @@ export type ContractorVisit = typeof contractorVisits.$inferSelect;
 export type InsertContractorVisit = z.infer<typeof insertContractorVisitSchema>;
 export type ContractorPreBooking = typeof contractorPreBookings.$inferSelect;
 export type InsertContractorPreBooking = z.infer<typeof insertContractorPreBookingSchema>;
+
+// Multi-Tenant Types and Schemas
+export const insertTenantCompanySchema = createInsertSchema(tenantCompanies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBuildingSettingsSchema = createInsertSchema(buildingSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TenantCompany = typeof tenantCompanies.$inferSelect;
+export type InsertTenantCompany = z.infer<typeof insertTenantCompanySchema>;
+export type BuildingSettings = typeof buildingSettings.$inferSelect;
+export type InsertBuildingSettings = z.infer<typeof insertBuildingSettingsSchema>;

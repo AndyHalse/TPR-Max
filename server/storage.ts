@@ -27,7 +27,11 @@ import type {
   InductionSettings,
   InsertInductionSettings,
   NvqQualification,
-  InsertNvqQualification
+  InsertNvqQualification,
+  TenantCompany,
+  InsertTenantCompany,
+  BuildingSettings,
+  InsertBuildingSettings
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -167,6 +171,29 @@ export interface IStorage {
   updateWorkerCompetency(id: string, updates: Partial<InsertWorkerCompetency>): Promise<WorkerCompetency | undefined>;
   deleteWorkerCompetency(id: string): Promise<boolean>;
 
+  // Multi-Tenant methods
+  getAllTenantCompanies(): Promise<TenantCompany[]>;
+  getTenantCompanyById(id: string): Promise<TenantCompany | undefined>;
+  getTenantCompanyBySlug(slug: string): Promise<TenantCompany | undefined>;
+  createTenantCompany(insertTenant: InsertTenantCompany): Promise<TenantCompany>;
+  updateTenantCompany(id: string, updates: Partial<InsertTenantCompany>): Promise<TenantCompany | undefined>;
+  updateTenantStatus(id: string, isActive: boolean): Promise<TenantCompany>;
+  deleteTenantCompany(id: string): Promise<boolean>;
+  
+  // Building Statistics for Super Admin
+  getBuildingStats(): Promise<{
+    totalTenants: number;
+    activeTenants: number;
+    totalStaff: number;
+    totalVisitors: number;
+    visitorsToday: number;
+    staffOnSite: number;
+  }>;
+
+  // Building Settings methods
+  getBuildingSettings(): Promise<BuildingSettings | undefined>;
+  updateBuildingSettings(updates: Partial<InsertBuildingSettings>): Promise<BuildingSettings | undefined>;
+
   // NVQ Qualification methods
   getAllNvqQualifications(): Promise<NvqQualification[]>;
   getActiveNvqQualifications(): Promise<NvqQualification[]>;
@@ -272,6 +299,8 @@ export class MemStorage implements IStorage {
   private inductionSettings: InductionSettings[];
   private reports: Map<string, Report>;
   private preBookings: Map<string, PreBooking>;
+  private tenantCompanies: Map<string, TenantCompany>;
+  private buildingSettings: BuildingSettings | undefined;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
   private readonly staffFilePath = path.join(process.cwd(), 'data', 'staff-data.json');
   private readonly visitorsFilePath = path.join(process.cwd(), 'data', 'visitors-data.json');
@@ -286,6 +315,8 @@ export class MemStorage implements IStorage {
     this.inductionSettings = [];
     this.reports = new Map();
     this.preBookings = new Map();
+    this.tenantCompanies = new Map();
+    this.buildingSettings = undefined;
     
     // Ensure data directory exists
     this.ensureDataDirectory();
@@ -1440,6 +1471,128 @@ export class MemStorage implements IStorage {
         hourlyData: [],
       };
     }
+  }
+
+  // Multi-Tenant methods implementation
+  async getAllTenantCompanies(): Promise<TenantCompany[]> {
+    return Array.from(this.tenantCompanies.values());
+  }
+
+  async getTenantCompanyById(id: string): Promise<TenantCompany | undefined> {
+    return this.tenantCompanies.get(id);
+  }
+
+  async getTenantCompanyBySlug(slug: string): Promise<TenantCompany | undefined> {
+    return Array.from(this.tenantCompanies.values()).find(tenant => tenant.slug === slug);
+  }
+
+  async createTenantCompany(insertTenant: InsertTenantCompany): Promise<TenantCompany> {
+    const tenant: TenantCompany = {
+      id: randomUUID(),
+      ...insertTenant,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.tenantCompanies.set(tenant.id, tenant);
+    return tenant;
+  }
+
+  async updateTenantCompany(id: string, updates: Partial<InsertTenantCompany>): Promise<TenantCompany | undefined> {
+    const tenant = this.tenantCompanies.get(id);
+    if (!tenant) return undefined;
+
+    const updatedTenant = {
+      ...tenant,
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    this.tenantCompanies.set(id, updatedTenant);
+    return updatedTenant;
+  }
+
+  async updateTenantStatus(id: string, isActive: boolean): Promise<TenantCompany> {
+    const tenant = this.tenantCompanies.get(id);
+    if (!tenant) {
+      throw new Error(`Tenant with id ${id} not found`);
+    }
+
+    const updatedTenant = {
+      ...tenant,
+      isActive,
+      updatedAt: new Date(),
+    };
+
+    this.tenantCompanies.set(id, updatedTenant);
+    return updatedTenant;
+  }
+
+  async deleteTenantCompany(id: string): Promise<boolean> {
+    return this.tenantCompanies.delete(id);
+  }
+
+  async getBuildingStats(): Promise<{
+    totalTenants: number;
+    activeTenants: number;
+    totalStaff: number;
+    totalVisitors: number;
+    visitorsToday: number;
+    staffOnSite: number;
+  }> {
+    const allTenants = Array.from(this.tenantCompanies.values());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayVisitors = Array.from(this.visitors.values()).filter(v => 
+      v.checkedInAt >= today
+    );
+
+    const staffOnSite = Array.from(this.staffMembers.values()).filter(s => 
+      s.isActive && s.isCheckedIn
+    ).length;
+
+    return {
+      totalTenants: allTenants.length,
+      activeTenants: allTenants.filter(t => t.isActive).length,
+      totalStaff: this.staffMembers.size,
+      totalVisitors: this.visitors.size,
+      visitorsToday: todayVisitors.length,
+      staffOnSite,
+    };
+  }
+
+  async getBuildingSettings(): Promise<BuildingSettings | undefined> {
+    return this.buildingSettings;
+  }
+
+  async updateBuildingSettings(updates: Partial<InsertBuildingSettings>): Promise<BuildingSettings | undefined> {
+    if (!this.buildingSettings) {
+      this.buildingSettings = {
+        id: randomUUID(),
+        buildingName: "Default Building",
+        address: "",
+        contactEmail: "",
+        phone: "",
+        buildingManagerName: "",
+        buildingManagerEmail: "",
+        maxTenants: 50,
+        operatingHours: "9:00-17:00",
+        emergencyContacts: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...updates,
+      };
+    } else {
+      this.buildingSettings = {
+        ...this.buildingSettings,
+        ...updates,
+        updatedAt: new Date(),
+      };
+    }
+
+    return this.buildingSettings;
   }
 }
 

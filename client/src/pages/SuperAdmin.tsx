@@ -1,0 +1,440 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { Building2, Plus, Users, Eye, Settings, AlertTriangle, CheckCircle, Calendar, DollarSign } from "lucide-react";
+import type { TenantCompany, InsertTenantCompany } from "@/../../shared/schema";
+
+interface TenantStats {
+  totalStaff: number;
+  totalVisitors: number;
+  visitorsThisMonth: number;
+  lastActivity?: string;
+}
+
+export default function SuperAdmin() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<TenantCompany | null>(null);
+
+  // Fetch all tenant companies
+  const { data: tenants = [], isLoading } = useQuery<TenantCompany[]>({
+    queryKey: ["/api/super-admin/tenants"],
+  });
+
+  // Fetch building overview stats
+  const { data: buildingStats } = useQuery({
+    queryKey: ["/api/super-admin/stats"],
+  });
+
+  // Add new tenant mutation
+  const addTenantMutation = useMutation({
+    mutationFn: async (tenant: InsertTenantCompany) => {
+      return apiRequest("/api/super-admin/tenants", {
+        method: "POST",
+        body: JSON.stringify(tenant),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/stats"] });
+      setIsAddDialogOpen(false);
+      toast({
+        title: "✅ Tenant Added Successfully",
+        description: "New tenant company has been created",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "❌ Failed to Add Tenant",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle tenant status mutation
+  const toggleTenantMutation = useMutation({
+    mutationFn: async ({ tenantId, isActive }: { tenantId: string; isActive: boolean }) => {
+      return apiRequest(`/api/super-admin/tenants/${tenantId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/tenants"] });
+      toast({
+        title: "✅ Tenant Status Updated",
+        description: "Tenant status has been changed",
+      });
+    },
+  });
+
+  const handleAddTenant = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    
+    const tenantData: InsertTenantCompany = {
+      companyName: formData.get("companyName") as string,
+      slug: formData.get("slug") as string,
+      contactEmail: formData.get("contactEmail") as string,
+      phone: formData.get("phone") as string,
+      adminFirstName: formData.get("adminFirstName") as string,
+      adminLastName: formData.get("adminLastName") as string,
+      adminEmail: formData.get("adminEmail") as string,
+      subscriptionTier: formData.get("subscriptionTier") as string,
+      maxUsers: parseInt(formData.get("maxUsers") as string) || 50,
+      maxVisitorsPerMonth: parseInt(formData.get("maxVisitorsPerMonth") as string) || 1000,
+    };
+
+    addTenantMutation.mutate(tenantData);
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Building2 className="w-8 h-8 text-blue-600" />
+            Super Admin Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage all tenant companies in the serviced office building
+          </p>
+        </div>
+        
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2" data-testid="button-add-tenant">
+              <Plus className="w-4 h-4" />
+              Add New Tenant
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Add New Tenant Company</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddTenant} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="companyName">Company Name *</Label>
+                  <Input 
+                    id="companyName" 
+                    name="companyName" 
+                    required 
+                    placeholder="e.g., Acme Inc."
+                    data-testid="input-company-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="slug">URL Slug *</Label>
+                  <Input 
+                    id="slug" 
+                    name="slug" 
+                    required 
+                    placeholder="e.g., acme"
+                    data-testid="input-slug"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="contactEmail">Contact Email *</Label>
+                  <Input 
+                    id="contactEmail" 
+                    name="contactEmail" 
+                    type="email" 
+                    required 
+                    placeholder="contact@company.com"
+                    data-testid="input-contact-email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input 
+                    id="phone" 
+                    name="phone" 
+                    placeholder="+44 20 1234 5678"
+                    data-testid="input-phone"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+              <h3 className="text-lg font-semibold">Tenant Admin Contact</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="adminFirstName">Admin First Name</Label>
+                  <Input 
+                    id="adminFirstName" 
+                    name="adminFirstName" 
+                    placeholder="John"
+                    data-testid="input-admin-first-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="adminLastName">Admin Last Name</Label>
+                  <Input 
+                    id="adminLastName" 
+                    name="adminLastName" 
+                    placeholder="Smith"
+                    data-testid="input-admin-last-name"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="adminEmail">Admin Email</Label>
+                <Input 
+                  id="adminEmail" 
+                  name="adminEmail" 
+                  type="email" 
+                  placeholder="admin@company.com"
+                  data-testid="input-admin-email"
+                />
+              </div>
+
+              <Separator />
+              <h3 className="text-lg font-semibold">Subscription Settings</h3>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="subscriptionTier">Subscription Tier</Label>
+                  <Select name="subscriptionTier" defaultValue="basic">
+                    <SelectTrigger data-testid="select-subscription-tier">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basic">Basic</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="maxUsers">Max Users</Label>
+                  <Input 
+                    id="maxUsers" 
+                    name="maxUsers" 
+                    type="number" 
+                    defaultValue="50"
+                    data-testid="input-max-users"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="maxVisitorsPerMonth">Max Visitors/Month</Label>
+                  <Input 
+                    id="maxVisitorsPerMonth" 
+                    name="maxVisitorsPerMonth" 
+                    type="number" 
+                    defaultValue="1000"
+                    data-testid="input-max-visitors"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsAddDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={addTenantMutation.isPending}
+                  data-testid="button-save-tenant"
+                >
+                  {addTenantMutation.isPending ? "Creating..." : "Create Tenant"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Building Overview Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card data-testid="card-total-tenants">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Tenants</CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-tenants">
+              {buildingStats?.totalTenants || tenants.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {tenants.filter(t => t.isActive).length} active
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card data-testid="card-total-staff">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-staff">
+              {buildingStats?.totalStaff || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">Across all tenants</p>
+          </CardContent>
+        </Card>
+        
+        <Card data-testid="card-total-visitors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Visitors Today</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-visitors">
+              {buildingStats?.visitorsToday || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">Building-wide</p>
+          </CardContent>
+        </Card>
+        
+        <Card data-testid="card-monthly-revenue">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-active-subscriptions">
+              {tenants.filter(t => t.isActive).length}
+            </div>
+            <p className="text-xs text-muted-foreground">Paying tenants</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tenant Companies List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tenant Companies</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="animate-pulse flex space-x-4 p-4 border rounded-lg">
+                  <div className="rounded-full bg-gray-300 h-12 w-12"></div>
+                  <div className="flex-1 space-y-2 py-1">
+                    <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-gray-300 rounded"></div>
+                      <div className="h-3 bg-gray-300 rounded w-5/6"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : tenants.length === 0 ? (
+            <div className="text-center py-8" data-testid="empty-tenants">
+              <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No tenant companies yet</h3>
+              <p className="text-gray-600 mb-4">Add your first tenant company to get started</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {tenants.map((tenant) => (
+                <div 
+                  key={tenant.id} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  data-testid={`tenant-${tenant.slug}`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg" data-testid={`text-company-name-${tenant.slug}`}>
+                          {tenant.companyName}
+                        </h3>
+                        <Badge 
+                          variant={tenant.isActive ? "default" : "secondary"}
+                          data-testid={`badge-status-${tenant.slug}`}
+                        >
+                          {tenant.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <Badge variant="outline" data-testid={`badge-tier-${tenant.slug}`}>
+                          {tenant.subscriptionTier}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p data-testid={`text-contact-${tenant.slug}`}>
+                          📧 {tenant.contactEmail} | 🏢 /{tenant.slug}
+                        </p>
+                        <p data-testid={`text-limits-${tenant.slug}`}>
+                          👥 {tenant.maxUsers} max users | 👨‍💼 {tenant.maxVisitorsPerMonth} visitors/month
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      data-testid={`button-view-${tenant.slug}`}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      data-testid={`button-settings-${tenant.slug}`}
+                    >
+                      <Settings className="w-4 h-4 mr-1" />
+                      Settings
+                    </Button>
+                    <Button
+                      variant={tenant.isActive ? "destructive" : "default"}
+                      size="sm"
+                      onClick={() => toggleTenantMutation.mutate({ 
+                        tenantId: tenant.id, 
+                        isActive: !tenant.isActive 
+                      })}
+                      disabled={toggleTenantMutation.isPending}
+                      data-testid={`button-toggle-${tenant.slug}`}
+                    >
+                      {tenant.isActive ? (
+                        <>
+                          <AlertTriangle className="w-4 h-4 mr-1" />
+                          Deactivate
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Activate
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

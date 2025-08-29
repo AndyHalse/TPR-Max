@@ -5068,6 +5068,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Multi-Tenant Super Admin API Routes
+  app.get("/api/super-admin/tenants", async (req, res) => {
+    try {
+      const tenants = await storage.getAllTenantCompanies();
+      res.json(tenants);
+    } catch (error) {
+      console.error("Error fetching tenants:", error);
+      res.status(500).json({ error: "Failed to fetch tenant companies" });
+    }
+  });
+
+  app.post("/api/super-admin/tenants", async (req, res) => {
+    try {
+      const tenantData = req.body;
+      const tenant = await storage.createTenantCompany(tenantData);
+      console.log(`🏢 Created new tenant company: ${tenant.companyName} (${tenant.slug})`);
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error creating tenant:", error);
+      res.status(500).json({ error: "Failed to create tenant company" });
+    }
+  });
+
+  app.patch("/api/super-admin/tenants/:tenantId/status", async (req, res) => {
+    try {
+      const { tenantId } = req.params;
+      const { isActive } = req.body;
+      const tenant = await storage.updateTenantStatus(tenantId, isActive);
+      console.log(`🏢 Updated tenant ${tenant.companyName} status to: ${isActive ? 'active' : 'inactive'}`);
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error updating tenant status:", error);
+      res.status(500).json({ error: "Failed to update tenant status" });
+    }
+  });
+
+  app.get("/api/super-admin/stats", async (req, res) => {
+    try {
+      const stats = await storage.getBuildingStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching building stats:", error);
+      res.status(500).json({ error: "Failed to fetch building statistics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1,0 +1,40 @@
+New Multi-Tenant Feature:  We need to manage serviced offices, which are companies that rent out offices or floors to other companies. We should use the main staff database, but add a ‘Company’ field to the staff record, with the default being the company information from the /settings - Company Information page for all standard companies.
+
+Each company tenant will have their own access to the system, so they can’t see other companies’ details for GDPR reasons. We need to manage this professionally, perhaps with a different page they login to where they can use the Visitor pre-booking feature. When a visitor arrives, it should print the visitor pass with the company they’re visiting within the serviced office and the company logo for that company!
+
+
+Core User Stories & Features:
+1. Super Admin (Building Management):
+    * Can access a /super-admin dashboard to view ALL activity across ALL tenants.
+    * Can create and manage new Tenant Companies (e.g., "Acme Inc.", "XYZ Ltd").
+    * For each tenant, can set: Company Name, Contact Email, Logo, and subdomain (e.g., acme.[your-app].repl.co).
+    * Can assign a main point of contact for the tenant.
+2. Tenant Admin (Company Admin):
+    * Logs in via a tenant-specific portal (e.g., acme.[your-app].repl.co or [your-app].repl.co/acme/login).
+    * Can only see data (staff, visitors, contractors) belonging to their company.
+    * Can invite and manage their own company's staff members.
+    * Can pre-register visitors on their behalf.
+    * Has a real-time dashboard showing only their company's guests and staff who are currently on-site.
+3. Staff Member (Employee of a Tenant):
+    * Can log in to their tenant's portal.
+    * Can pre-register their own visitors.
+    * Can receive an email notification when their visitor checks in.
+4. Receptionist (Building Front Desk):
+    * Has a single kiosk-style check-in interface at the main building reception.
+    * When a visitor arrives, the receptionist can search by name or host.
+    * The system must correctly identify which tenant company the visitor is visiting.
+    * The check-in process must print a visitor pass using the tenant company's logo and name, not the building's logo.
+5. Visitor/Contractor:
+    * Receives a pre-arrival email with a QR code.
+    * Can use the QR code at the reception kiosk for a swift check-in.
+
+
+Here are some additional points to consider for a professional, robust system:
+
+1. Tenant Onboarding Flow: How does a new company sign up? Do they fill out a form that alerts the Super Admin, or does the Super Admin create everything manually? A seamless onboarding process is key.
+2. Super Admin "Impersonation": For support purposes, can a Super Admin log in as a specific tenant to see what they see without knowing the tenant's password? This is a crucial troubleshooting tool.
+3. Data Export & Reporting (GDPR): Tenant Admins will need a way to export all data you hold on their company (e.g., a list of all visitors in the last 12 months) to fulfill GDPR "Right to Access" requests. Similarly, they need a way to delete old data ("Right to be Forgotten").
+4. Customizable Visitor Fields: Can Tenant Admins add custom fields to their visitor registration form? (e.g., "Please provide your license plate number," or "Sign this NDA").
+5. API Access: Will you provide tenants with API keys to integrate visitor pre-registration into their own systems (e.g., their own internal HR or calendar apps)?
+6. Billing & Subscription: How will you track which tenants are active? Is there a monthly fee? This would require a subscriptions table linked to tenants.
+7. Email Branding: Should the automated emails (invites, confirmations) also use the tenant's logo and company name, not the building's?
