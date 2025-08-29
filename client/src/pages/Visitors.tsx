@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useParams } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -242,6 +243,10 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
 export default function Visitors() {
   const { toast } = useToast();
   
+  // Detect if we're in tenant context
+  const { slug } = useParams<{ slug?: string }>();
+  const isTenantView = !!slug;
+  
   // Tab state
   const [activeTab, setActiveTab] = useState("existing");
   
@@ -295,7 +300,12 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      }
       toast({
         title: "Success!",
         description: `Generated ${data.visitors?.length || 30} test visitors for load testing`,
@@ -329,15 +339,16 @@ export default function Visitors() {
   });
 
   const { data: preBookings } = useQuery<PreBooking[]>({
-    queryKey: ["/api/prebookings"],
+    queryKey: isTenantView ? [`/api/tenants/${slug}/prebookings`] : ["/api/prebookings"],
   });
 
   const { data: upcomingBookings } = useQuery<PreBooking[]>({
-    queryKey: ["/api/prebookings/upcoming"],
+    queryKey: isTenantView ? [`/api/tenants/${slug}/prebookings/upcoming`] : ["/api/prebookings/upcoming"],
   });
 
+  // GDPR FIX: Use tenant-specific endpoint when in tenant view
   const { data: allVisitors } = useQuery<Visitor[]>({
-    queryKey: ["/api/visitors"],
+    queryKey: isTenantView ? [`/api/tenants/${slug}/visitors`] : ["/api/visitors"],
   });
 
   const { data: companies = [] } = useQuery<string[]>({
@@ -359,7 +370,12 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({
@@ -383,8 +399,14 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/prebookings`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/prebookings/upcoming`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      }
       toast({
         title: "Success",
         description: "Pre-booking created and confirmation emails sent!",
@@ -415,7 +437,12 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: (visitor: Visitor) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       
       // Show visitor pass preview (same as previous visitors)
@@ -464,7 +491,12 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      }
       toast({
         title: "Success",
         description: `Removed ${result.duplicatesRemoved} duplicate visitors. ${result.uniqueVisitorsRemaining} unique visitors remaining.`,
@@ -485,7 +517,12 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: (visitor: Visitor) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
+      if (isTenantView) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       setCheckedInVisitor(visitor);
       setShowPassPreview(true);
