@@ -1132,14 +1132,14 @@ export default function Visitors() {
                       <SelectValue placeholder="Select host staff member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {walkInStaff?.map((member) => (
+                      {staff?.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.firstName} {member.lastName} - {member.department}
                         </SelectItem>
                       ))}
-                      {(!walkInStaff || walkInStaff.length === 0) && (
+                      {(!staff || staff.length === 0) && (
                         <SelectItem key="no-staff" value="no-selection" disabled>
-                          {!walkInData.company?.trim() ? "Please select a company first" : "No staff found for this company"}
+                          No staff members available
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -1279,14 +1279,14 @@ export default function Visitors() {
                       <SelectValue placeholder="Select host staff member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {preBookingStaff?.map((member) => (
+                      {staff?.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.firstName} {member.lastName} - {member.department}
                         </SelectItem>
                       ))}
-                      {(!preBookingStaff || preBookingStaff.length === 0) && (
+                      {(!staff || staff.length === 0) && (
                         <SelectItem key="no-staff" value="no-selection" disabled>
-                          {!preBookingData.company?.trim() ? "Please select a company first" : "No staff found for this company"}
+                          No staff members available
                         </SelectItem>
                       )}
                     </SelectContent>
