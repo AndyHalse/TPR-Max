@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import AIInsights from "@/components/AIInsights";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -110,11 +110,87 @@ export default function Dashboard() {
     enabled: !!selectedDepartment && openModal === 'department-details',
   });
 
+  // Reception Diary Data
+  const { data: receptionDiary, isLoading: diaryLoading } = useQuery<Array<{
+    id: string;
+    visitorFirstName: string;
+    visitorLastName: string;
+    visitorEmail: string;
+    company: string;
+    visitDate: Date;
+    purpose: string;
+    isCheckedIn: boolean;
+    createdAt: Date;
+    hostStaffId: string;
+    hostFirstName: string;
+    hostLastName: string;
+    hostDepartment: string;
+    hostEmail: string;
+    tenantCompanyName: string;
+    tenantSlug: string;
+    tenantPrimaryColor: string;
+  }>>({
+    queryKey: ["/api/reception/diary"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const getStaffName = (staffId?: string) => {
     if (!staffId || !staff) return "Unknown";
     const staffMember = staff.find(s => s.id === staffId);
     return staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : "Unknown";
   };
+
+  // Reception Diary utility functions
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString('en-GB', {
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric'
+    });
+  };
+
+  const formatVisitTime = (date: Date) => {
+    return new Date(date).toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+
+  const isTomorrow = (date: Date) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return date.toDateString() === tomorrow.toDateString();
+  };
+
+  const getDayStatus = (date: Date) => {
+    if (isToday(date)) return { label: 'Today', color: 'bg-blue-100 text-blue-800' };
+    if (isTomorrow(date)) return { label: 'Tomorrow', color: 'bg-green-100 text-green-800' };
+    return { label: formatDate(date), color: 'bg-slate-100 text-slate-600' };
+  };
+
+  const getPriorityLevel = (entry: any) => {
+    const visitDate = new Date(entry.visitDate);
+    const now = new Date();
+    const hoursUntilVisit = (visitDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    if (hoursUntilVisit < 2) return { level: 'urgent', color: 'bg-red-100 text-red-800 border-red-200' };
+    if (hoursUntilVisit < 24) return { level: 'high', color: 'bg-orange-100 text-orange-800 border-orange-200' };
+    if (hoursUntilVisit < 72) return { level: 'medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    return { level: 'normal', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+  };
+
+  // Group diary entries by date
+  const groupedDiary = receptionDiary?.reduce((groups, entry) => {
+    const dateKey = new Date(entry.visitDate).toDateString();
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(entry);
+    return groups;
+  }, {} as Record<string, typeof receptionDiary>) || {};
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -676,68 +752,154 @@ export default function Dashboard() {
         </GlassCard>
       </div>
 
-      {/* Sales-Focused ROI Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <GlassCard className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800">
-          <div className="flex items-center mb-6">
-            <DollarSign className="mr-3 text-green-600 dark:text-green-400" size={32} />
-            <h3 className="text-xl font-bold text-green-800 dark:text-green-200">Return on Investment</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex justify-between items-center p-4 bg-white/70 dark:bg-slate-800/70 rounded-xl">
-              <span className="font-medium text-slate-700 dark:text-slate-300">Annual Cost Savings</span>
-              <span className="text-2xl font-bold text-green-600 dark:text-green-400">£12,500</span>
-            </div>
-            <div className="flex justify-between items-center p-4 bg-white/70 dark:bg-slate-800/70 rounded-xl">
-              <span className="font-medium text-slate-700 dark:text-slate-300">Efficiency Improvement</span>
-              <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">89%</span>
-            </div>
-            <div className="flex justify-between items-center p-4 bg-white/70 dark:bg-slate-800/70 rounded-xl">
-              <span className="font-medium text-slate-700 dark:text-slate-300">Payback Period</span>
-              <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">3.2 months</span>
-            </div>
-            <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-xl border border-green-200 dark:border-green-800">
-              <p className="text-sm text-green-800 dark:text-green-200 font-medium">"VisiGate Pro has transformed our reception process and saved us thousands in administrative costs."</p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-2">- Sarah M., Operations Manager</p>
+      {/* Reception Diary - Comprehensive Cross-Tenant Pre-Booking Management */}
+      <GlassCard className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200 dark:border-indigo-800">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <CalendarDays className="mr-3 text-indigo-600 dark:text-indigo-400" size={32} />
+            <div>
+              <h3 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">Reception Diary</h3>
+              <p className="text-sm text-indigo-600 dark:text-indigo-400">Cross-tenant visitor scheduling & preparation</p>
             </div>
           </div>
-        </GlassCard>
-        
-        <GlassCard className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800">
-          <div className="flex items-center mb-6">
-            <CheckCircle className="mr-3 text-blue-600 dark:text-blue-400" size={32} />
-            <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">Success Metrics</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="text-center p-4 bg-white/70 dark:bg-slate-800/70 rounded-xl">
-              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">98.7%</div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">Customer Satisfaction</div>
+          <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
+            {receptionDiary?.length || 0} Scheduled
+          </Badge>
+        </div>
+
+        <div className="space-y-6 max-h-96 overflow-y-auto scrollbar-thin">
+          {diaryLoading ? (
+            <div className="text-center py-8 text-slate-600">
+              <Calendar className="mx-auto mb-3 text-slate-400" size={40} />
+              <p>Loading reception diary...</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-white/70 dark:bg-slate-800/70 rounded-xl">
-                <div className="text-xl font-bold text-green-600 dark:text-green-400">99.8%</div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Uptime</div>
+          ) : !receptionDiary || receptionDiary.length === 0 ? (
+            <div className="text-center py-8 text-slate-600">
+              <CalendarDays className="mx-auto mb-3 text-slate-400" size={40} />
+              <p className="font-medium">No upcoming visits scheduled</p>
+              <p className="text-sm mt-2">Pre-booked visitors will appear here for preparation</p>
+            </div>
+          ) : (
+            Object.entries(groupedDiary)
+              .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+              .slice(0, 4) // Show next 4 days max
+              .map(([dateKey, entries]) => {
+                const date = new Date(dateKey);
+                const dayStatus = getDayStatus(date);
+                
+                return (
+                  <div key={dateKey} className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Badge className={`${dayStatus.color} font-medium`}>
+                        {dayStatus.label}
+                      </Badge>
+                      <span className="text-xs text-slate-500">
+                        {entries.length} visit{entries.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2 pl-4 border-l-2 border-indigo-200 dark:border-indigo-800">
+                      {entries
+                        .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
+                        .map((entry) => {
+                          const priority = getPriorityLevel(entry);
+                          const visitTime = formatVisitTime(new Date(entry.visitDate));
+                          
+                          return (
+                            <div
+                              key={entry.id}
+                              className={`p-4 rounded-xl border ${priority.color} bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors`}
+                              data-testid={`diary-entry-${entry.id}`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="flex items-center gap-1">
+                                      {entry.isCheckedIn ? (
+                                        <CheckCircle2 className="text-green-600" size={16} />
+                                      ) : (
+                                        <Clock3 className="text-orange-600" size={16} />
+                                      )}
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                        {entry.visitorFirstName} {entry.visitorLastName}
+                                      </span>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs" style={{ backgroundColor: entry.tenantPrimaryColor + '20', borderColor: entry.tenantPrimaryColor }}>
+                                      {entry.tenantCompanyName}
+                                    </Badge>
+                                  </div>
+                                  
+                                  <div className="space-y-1 text-sm">
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                      <Building2 size={14} />
+                                      <span>{entry.company}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                      <UserCheck size={14} />
+                                      <span>Host: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                      <Mail size={14} />
+                                      <span>{entry.visitorEmail}</span>
+                                    </div>
+                                    {entry.purpose && (
+                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <AtSign size={14} />
+                                        <span>{entry.purpose}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="text-right">
+                                  <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                                    {visitTime}
+                                  </div>
+                                  {priority.level === 'urgent' && (
+                                    <Badge className="bg-red-100 text-red-800 text-xs mt-1">
+                                      <AlertCircle size={12} className="mr-1" />
+                                      Urgent
+                                    </Badge>
+                                  )}
+                                  {entry.isCheckedIn && (
+                                    <Badge className="bg-green-100 text-green-800 text-xs mt-1">
+                                      Checked In
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                );
+              })
+          )}
+        </div>
+
+        {receptionDiary && receptionDiary.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-indigo-200 dark:border-indigo-800">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
+                  <span className="text-slate-600">Urgent (&lt; 2hrs)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded"></div>
+                  <span className="text-slate-600">High (&lt; 24hrs)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="text-green-600" size={14} />
+                  <span className="text-slate-600">Checked In</span>
+                </div>
               </div>
-              <div className="text-center p-3 bg-white/70 dark:bg-slate-800/70 rounded-xl">
-                <div className="text-xl font-bold text-purple-600 dark:text-purple-400">-67%</div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Setup Time</div>
-              </div>
-            </div>
-            <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
-              <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Why Choose VisiGate Pro?</h4>
-              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                <li>• UK H&S compliant emergency features</li>
-                <li>• Real-time visitor tracking & analytics</li>
-                <li>• Professional ID badge printing</li>
-                <li>• Cloud-based with automatic backups</li>
-                <li>• 24/7 customer support included</li>
-              </ul>
+              <span className="text-slate-500">Auto-refreshes every 30s</span>
             </div>
           </div>
-        </GlassCard>
-      </div>
+        )}
+      </GlassCard>
 
       {/* AI-Powered Insights Section */}
       <div className="space-y-6">

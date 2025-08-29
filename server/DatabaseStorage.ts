@@ -804,6 +804,46 @@ export class DatabaseStorage implements IStorage {
     return updatedPreBooking || undefined;
   }
 
+  async getReceptionDiary(startDate: Date, daysAhead: number): Promise<any[]> {
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + daysAhead);
+    
+    // Get all pre-bookings in the date range with enhanced details
+    const diaryEntries = await db.select({
+      id: preBookings.id,
+      visitorFirstName: preBookings.visitorFirstName,
+      visitorLastName: preBookings.visitorLastName,
+      visitorEmail: preBookings.visitorEmail,
+      company: preBookings.company,
+      visitDate: preBookings.visitDate,
+      purpose: preBookings.purpose,
+      isCheckedIn: preBookings.isCheckedIn,
+      createdAt: preBookings.createdAt,
+      hostStaffId: preBookings.hostStaffId,
+      // Host staff details
+      hostFirstName: staff.firstName,
+      hostLastName: staff.lastName,
+      hostDepartment: staff.department,
+      hostEmail: staff.email,
+      // Tenant company details
+      tenantCompanyName: tenantCompanies.companyName,
+      tenantSlug: tenantCompanies.slug,
+      tenantPrimaryColor: tenantCompanies.primaryColor
+    })
+    .from(preBookings)
+    .leftJoin(staff, eq(preBookings.hostStaffId, staff.id))
+    .leftJoin(tenantCompanies, eq(staff.tenantCompanyId, tenantCompanies.id))
+    .where(
+      and(
+        gte(preBookings.visitDate, startDate),
+        lte(preBookings.visitDate, endDate)
+      )
+    )
+    .orderBy(asc(preBookings.visitDate));
+
+    return diaryEntries;
+  }
+
   async deletePreBooking(id: string): Promise<boolean> {
     const result = await db.delete(preBookings).where(eq(preBookings.id, id));
     return (result.rowCount || 0) > 0;

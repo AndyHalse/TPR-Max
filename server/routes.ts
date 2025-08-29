@@ -2780,6 +2780,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reception Diary: All pre-bookings across all tenants for main reception
+  app.get("/api/reception/diary", async (req, res) => {
+    try {
+      const { date, days = 7 } = req.query;
+      const targetDate = date ? new Date(date as string) : new Date();
+      const daysAhead = parseInt(days as string) || 7;
+      
+      // Get all pre-bookings for the specified period
+      const allPreBookings = await storage.getReceptionDiary(targetDate, daysAhead);
+      
+      res.json(allPreBookings);
+    } catch (error) {
+      console.error("Error fetching reception diary:", error);
+      res.status(500).json({ error: "Failed to fetch reception diary" });
+    }
+  });
+
   app.get("/api/prebookings/today", async (req, res) => {
     try {
       const today = new Date();
