@@ -332,10 +332,10 @@ export default function Visitors() {
     enabled: !!preBookingData.company && preBookingData.company.trim().length > 0,
   });
 
-  // Legacy global staff query (GDPR WARNING: Shows ALL staff from ALL companies)
+  // Global staff query for previous visitor host selection
   const { data: staff, isLoading: isLoadingStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
-    enabled: false, // Disable for now - use company-specific queries above
+    enabled: true, // Re-enable for previous visitor host selection
   });
 
   const { data: preBookings } = useQuery<PreBooking[]>({
@@ -1137,9 +1137,9 @@ export default function Visitors() {
                           {member.firstName} {member.lastName} - {member.department}
                         </SelectItem>
                       ))}
-                      {(!walkInData.company || walkInData.company.trim().length === 0) && (
-                        <SelectItem key="no-company" value="no-selection" disabled>
-                          Please select a company first
+                      {(!walkInStaff || walkInStaff.length === 0) && (
+                        <SelectItem key="no-staff" value="no-selection" disabled>
+                          {!walkInData.company?.trim() ? "Please select a company first" : "No staff found for this company"}
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -1284,9 +1284,9 @@ export default function Visitors() {
                           {member.firstName} {member.lastName} - {member.department}
                         </SelectItem>
                       ))}
-                      {(!preBookingData.company || preBookingData.company.trim().length === 0) && (
-                        <SelectItem key="no-company" value="no-selection" disabled>
-                          Please select a company first
+                      {(!preBookingStaff || preBookingStaff.length === 0) && (
+                        <SelectItem key="no-staff" value="no-selection" disabled>
+                          {!preBookingData.company?.trim() ? "Please select a company first" : "No staff found for this company"}
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -1377,7 +1377,7 @@ export default function Visitors() {
                     <div key={booking.id} className="p-4 bg-white/50 rounded-xl border border-white/30">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-slate-800">{booking.visitorName}</h4>
+                          <h4 className="font-semibold text-slate-800">{booking.visitorFirstName} {booking.visitorLastName}</h4>
                           <p className="text-sm text-slate-600">{booking.company}</p>
                           <p className="text-xs text-slate-500 mt-1">
                             {formatBookingDate(booking.visitDate)}
@@ -1424,11 +1424,11 @@ export default function Visitors() {
       <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Select Host for {selectedPreviousVisitor?.name}</DialogTitle>
+            <DialogTitle>Select Host for {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-slate-600">
-              Who is {selectedPreviousVisitor?.name} visiting today?
+              Who is {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName} visiting today?
             </p>
             <div className="space-y-2">
               <Label htmlFor="hostSelection" className="text-sm font-medium text-slate-700">
