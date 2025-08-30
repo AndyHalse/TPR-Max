@@ -361,12 +361,29 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                     size="sm" 
                     variant="outline" 
                     className="text-green-600 border-green-300 hover:bg-green-50"
-                    onClick={() => {
-                      setFormData(prev => ({ 
-                        ...prev, 
+                    onClick={async () => {
+                      const updatedFormData = { 
+                        ...formData, 
                         videoUrl: generatedVideo.url,
                         videoTitle: generatedVideo.title
-                      }));
+                      };
+                      setFormData(updatedFormData);
+                      
+                      // Auto-save the settings so preview will show the new video immediately
+                      try {
+                        await onSave(settings?.id || '', updatedFormData);
+                        toast({
+                          title: "Video Selected",
+                          description: "Video URL updated and settings saved successfully!",
+                        });
+                      } catch (error) {
+                        console.error('Error saving settings:', error);
+                        toast({
+                          title: "Save Error", 
+                          description: "Video URL updated but failed to save settings. Please save manually.",
+                          variant: "destructive",
+                        });
+                      }
                     }}
                   >
                     <Save className="h-3 w-3 mr-1" />
