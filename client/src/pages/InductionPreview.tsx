@@ -573,7 +573,30 @@ export default function InductionPreview() {
                   </div>
                 </div>
 
-                {settings.videoFormat === 'interactive_slides' ? (
+                {settings.videoUrl && !settings.videoUrl.startsWith('data:') && settings.videoUrl.startsWith('http') ? (
+                  // Show iframe for real video URLs (YouTube, Vimeo, etc.)
+                  <div className="bg-black rounded-lg overflow-hidden">
+                    <iframe 
+                      src={settings.videoUrl}
+                      title={settings.videoTitle}
+                      className="w-full h-[600px]"
+                      frameBorder="0"
+                      allow="autoplay; fullscreen"
+                    />
+                  </div>
+                ) : settings.videoUrl && settings.videoUrl.startsWith('data:') ? (
+                  // Show HTML content for AI-generated presentations (data URLs)
+                  <div className="bg-white rounded-lg overflow-hidden border-2 border-blue-200">
+                    <iframe 
+                      src={settings.videoUrl}
+                      title={settings.videoTitle}
+                      className="w-full h-[800px]"
+                      frameBorder="0"
+                      allow="autoplay; fullscreen"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+                    />
+                  </div>
+                ) : settings.videoFormat === 'interactive_slides' ? (
                   <div className="bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg overflow-hidden min-h-[1200px]">
                     <div className="relative h-full">
                       {/* AI Generated Image Display */}
@@ -716,16 +739,6 @@ export default function InductionPreview() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                ) : settings.videoUrl ? (
-                  <div className="bg-black rounded-lg overflow-hidden">
-                    <iframe 
-                      src={settings.videoUrl}
-                      title={settings.videoTitle}
-                      className="w-full h-[600px]"
-                      frameBorder="0"
-                      allow="autoplay; fullscreen"
-                    />
                   </div>
                 ) : (
                   <div className="bg-gray-100 rounded-lg h-[600px] flex items-center justify-center">
