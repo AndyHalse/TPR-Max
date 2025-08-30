@@ -263,7 +263,8 @@ export const companySettings = pgTable("company_settings", {
   alertMinutesBefore: text("alert_minutes_before").default("30"),
   // Branding settings
   backgroundColor: text("background_color").default("#f8fafc"),
-  foregroundColor: text("foreground_color").default("#1e293b"),
+  foregroundColor: text("foreground_color").default("#1e293b"), // Fixed text: labels, headings
+  variableTextColor: text("variable_text_color").default("#374151"), // Variable text: data values, content
   accentColor: text("accent_color").default("#3b82f6"),
   bannerUrl: text("banner_url"),
   theme: text("theme").default("light"), // light or dark

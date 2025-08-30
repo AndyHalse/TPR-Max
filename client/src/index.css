@@ -40,6 +40,10 @@
   /* Gradient backgrounds */
   --gradient-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --gradient-blue: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  
+  /* Dual text color system */
+  --fixed-text: hsl(222.2, 84%, 4.9%);
+  --variable-text: hsl(215.4, 16.3%, 46.9%);
 }
 
 .dark {
@@ -72,6 +76,10 @@
   --glass-bg: rgba(30, 41, 59, 0.3);
   --glass-border: rgba(71, 85, 105, 0.3);
   --glass-hover: rgba(30, 41, 59, 0.4);
+  
+  /* Dark mode dual text colors */
+  --fixed-text: hsl(210, 40%, 98%);
+  --variable-text: hsl(215, 20.2%, 65.1%);
 }
 
 @layer base {
@@ -118,6 +126,15 @@
   
   .animate-slide-up {
     animation: slideUp 0.3s ease-out;
+  }
+  
+  /* Dual text color utility classes */
+  .text-fixed {
+    color: var(--fixed-text);
+  }
+  
+  .text-variable {
+    color: var(--variable-text);
   }
 }
 

@@ -1129,7 +1129,7 @@ export default function Settings() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700">
-                      Text Color
+                      Fixed Text Color
                     </Label>
                     <div className="flex gap-1">
                       <Button
@@ -1179,6 +1179,63 @@ export default function Settings() {
                       )}
                     </div>
                   )}
+                  <p className="text-xs text-slate-500">Used for labels, headings, and static text elements</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="variableTextColor" className="text-sm font-medium text-slate-700">
+                      Variable Text Color
+                    </Label>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs bg-white hover:bg-gray-50"
+                        onClick={() => handleInputChange("variableTextColor", suggestedTextColors.light)}
+                        data-testid="button-suggest-light-variable-text"
+                      >
+                        Light
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs bg-gray-800 text-white hover:bg-gray-700"
+                        onClick={() => handleInputChange("variableTextColor", suggestedTextColors.dark)}
+                        data-testid="button-suggest-dark-variable-text"
+                      >
+                        Dark
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <Input
+                      id="variableTextColor"
+                      type="color"
+                      value={currentSettings?.variableTextColor || "#374151"}
+                      onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
+                      className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                      data-testid="input-variable-text-color"
+                    />
+                    <Input
+                      type="text"
+                      value={currentSettings?.variableTextColor || "#374151"}
+                      onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
+                      className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                      placeholder="#374151"
+                    />
+                  </div>
+                  {currentSettings?.backgroundColor && (
+                    <div className="text-xs text-slate-500">
+                      Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151").toFixed(1)}:1
+                      {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151") < 4.5 && (
+                        <span className="text-amber-600 ml-2">⚠ Low contrast - may be hard to read</span>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500">Used for data values, content, and variable information</p>
                 </div>
                 
                 <div className="space-y-2">
@@ -1212,15 +1269,29 @@ export default function Settings() {
                       className="p-4 rounded-lg border transition-colors"
                       style={{
                         backgroundColor: currentSettings?.backgroundColor || "#f8fafc",
-                        color: currentSettings?.foregroundColor || "#1e293b",
                         borderColor: currentSettings?.accentColor ? `${currentSettings.accentColor}30` : "#3b82f630"
                       }}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-semibold">Dashboard Card</h4>
-                        <span className="text-2xl font-bold">42</span>
+                        <h4 
+                          className="font-semibold"
+                          style={{ color: currentSettings?.foregroundColor || "#1e293b" }}
+                        >
+                          Dashboard Card (Fixed Text)
+                        </h4>
+                        <span 
+                          className="text-2xl font-bold"
+                          style={{ color: currentSettings?.variableTextColor || "#374151" }}
+                        >
+                          42
+                        </span>
                       </div>
-                      <p className="text-sm opacity-80">Sample dashboard metrics</p>
+                      <p 
+                        className="text-sm"
+                        style={{ color: currentSettings?.variableTextColor || "#374151" }}
+                      >
+                        Sample dashboard metrics (Variable Text)
+                      </p>
                       <div 
                         className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mt-2"
                         style={{ 
@@ -1237,7 +1308,6 @@ export default function Settings() {
                       className="p-3 rounded-lg border transition-colors"
                       style={{
                         backgroundColor: currentSettings?.backgroundColor || "#f8fafc",
-                        color: currentSettings?.foregroundColor || "#1e293b",
                         borderColor: currentSettings?.accentColor ? `${currentSettings.accentColor}30` : "#3b82f630"
                       }}
                     >
@@ -1248,8 +1318,18 @@ export default function Settings() {
                         >
                           🏠
                         </div>
-                        <span className="font-medium">Navigation Item</span>
-                        <span className="ml-auto text-sm opacity-60">Badge</span>
+                        <span 
+                          className="font-medium"
+                          style={{ color: currentSettings?.foregroundColor || "#1e293b" }}
+                        >
+                          Navigation (Fixed)
+                        </span>
+                        <span 
+                          className="ml-auto text-sm"
+                          style={{ color: currentSettings?.variableTextColor || "#374151" }}
+                        >
+                          Value (Variable)
+                        </span>
                       </div>
                     </div>
 

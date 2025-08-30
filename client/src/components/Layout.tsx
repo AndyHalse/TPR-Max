@@ -69,7 +69,7 @@ export default function Layout({ children }: LayoutProps) {
         }
       }
 
-      // Apply text color (foregroundColor is the correct field name)
+      // Apply fixed text color (labels, headings, static elements)
       if (settings.foregroundColor) {
         const hsl = hexToHsl(settings.foregroundColor);
         if (hsl) {
@@ -79,6 +79,17 @@ export default function Layout({ children }: LayoutProps) {
           root.style.setProperty('--secondary-foreground', `hsl(${hsl})`);
           root.style.setProperty('--muted-foreground', `hsl(${hsl})`);
           root.style.setProperty('--accent-foreground', `hsl(${hsl})`);
+          // Fixed text color for labels and headings
+          root.style.setProperty('--fixed-text', `hsl(${hsl})`);
+        }
+      }
+
+      // Apply variable text color (data values, content, dynamic information)
+      if (settings.variableTextColor) {
+        const hsl = hexToHsl(settings.variableTextColor);
+        if (hsl) {
+          // Variable text color for data values and content
+          root.style.setProperty('--variable-text', `hsl(${hsl})`);
         }
       }
 
@@ -92,7 +103,7 @@ export default function Layout({ children }: LayoutProps) {
         }
       }
     }
-  }, [settings?.backgroundColor, settings?.foregroundColor, settings?.accentColor]);
+  }, [settings?.backgroundColor, settings?.foregroundColor, settings?.variableTextColor, settings?.accentColor]);
 
   const navItems = [
     { path: "/", icon: ChartLine, label: "Dashboard" },
