@@ -28,7 +28,7 @@ export default function Layout({ children }: LayoutProps) {
 
   // Apply branding colors dynamically
   useEffect(() => {
-    if (settings?.backgroundColor || settings?.textColor || settings?.accentColor) {
+    if (settings?.backgroundColor || settings?.foregroundColor || settings?.accentColor) {
       const root = document.documentElement;
       
       // Convert hex to HSL for CSS variables
@@ -69,13 +69,16 @@ export default function Layout({ children }: LayoutProps) {
         }
       }
 
-      // Apply text color
-      if (settings.textColor) {
-        const hsl = hexToHsl(settings.textColor);
+      // Apply text color (foregroundColor is the correct field name)
+      if (settings.foregroundColor) {
+        const hsl = hexToHsl(settings.foregroundColor);
         if (hsl) {
           root.style.setProperty('--foreground', `hsl(${hsl})`);
           root.style.setProperty('--card-foreground', `hsl(${hsl})`);
           root.style.setProperty('--popover-foreground', `hsl(${hsl})`);
+          root.style.setProperty('--secondary-foreground', `hsl(${hsl})`);
+          root.style.setProperty('--muted-foreground', `hsl(${hsl})`);
+          root.style.setProperty('--accent-foreground', `hsl(${hsl})`);
         }
       }
 
@@ -89,7 +92,7 @@ export default function Layout({ children }: LayoutProps) {
         }
       }
     }
-  }, [settings?.backgroundColor, settings?.textColor, settings?.accentColor]);
+  }, [settings?.backgroundColor, settings?.foregroundColor, settings?.accentColor]);
 
   const navItems = [
     { path: "/", icon: ChartLine, label: "Dashboard" },
