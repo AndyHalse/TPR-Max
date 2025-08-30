@@ -192,14 +192,16 @@ export default function AIDemo() {
     });
   };
 
-  const formatReportType = (type: string) => {
+  const formatReportType = (type: string | undefined) => {
+    if (!type) return "Unknown";
     if (type.startsWith("auto_")) {
       return `Auto ${type.replace("auto_", "").charAt(0).toUpperCase() + type.replace("auto_", "").slice(1)}`;
     }
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  const getReportTypeColor = (type: string) => {
+  const getReportTypeColor = (type: string | undefined) => {
+    if (!type) return "bg-gray-100 text-gray-800";
     if (type.startsWith("auto_")) return "bg-green-100 text-green-800";
     return "bg-blue-100 text-blue-800";
   };
