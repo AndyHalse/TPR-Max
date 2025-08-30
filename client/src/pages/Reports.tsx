@@ -54,12 +54,18 @@ export default function Reports() {
       const response = await apiRequest("POST", "/api/reports/generate", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       toast({
         title: "Success",
         description: "Report generated successfully!",
       });
+      
+      // Open the generated report in a new window
+      if (data.id) {
+        const reportUrl = `/api/reports/${data.id}/view`;
+        window.open(reportUrl, '_blank', 'width=1024,height=768,scrollbars=yes,resizable=yes');
+      }
     },
     onError: () => {
       toast({
@@ -547,6 +553,19 @@ export default function Reports() {
                           <Send size={12} className="mr-1" />
                           Email
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const reportUrl = `/api/reports/${report.id}/view`;
+                            window.open(reportUrl, '_blank', 'width=1024,height=768,scrollbars=yes,resizable=yes');
+                          }}
+                          data-testid={`button-view-report-${report.id}`}
+                        >
+                          <FileText size={12} className="mr-1" />
+                          View
+                        </Button>
+
                         <Button
                           size="sm"
                           variant="outline"
