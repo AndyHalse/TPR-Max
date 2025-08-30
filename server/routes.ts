@@ -2433,10 +2433,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
       );
       
+      // Enrich visitor data with host names and properly formatted visitor names
+      const enrichedVisitors = visitorsInRange.map(visitor => {
+        const hostStaff = staff.find(s => s.id === visitor.hostStaffId);
+        return {
+          ...visitor,
+          name: `${visitor.firstName} ${visitor.lastName}`.trim(),
+          hostName: hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'N/A'
+        };
+      });
+      
       const reportData = {
-        visitors: visitorsInRange,
+        visitors: enrichedVisitors,
         staff,
-        checkedOutVisitors: visitorsInRange.filter(v => v.checkedOutAt)
+        checkedOutVisitors: enrichedVisitors.filter(v => v.checkedOutAt)
       };
       
       // Send email using EmailService
@@ -2478,10 +2488,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
       );
       
+      // Enrich visitor data with host names and properly formatted visitor names
+      const enrichedVisitors = visitorsInRange.map(visitor => {
+        const hostStaff = staff.find(s => s.id === visitor.hostStaffId);
+        return {
+          ...visitor,
+          name: `${visitor.firstName} ${visitor.lastName}`.trim(),
+          hostName: hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'N/A'
+        };
+      });
+      
       const reportData = {
-        visitors: visitorsInRange,
+        visitors: enrichedVisitors,
         staff,
-        checkedOutVisitors: visitorsInRange.filter(v => v.checkedOutAt)
+        checkedOutVisitors: enrichedVisitors.filter(v => v.checkedOutAt)
       };
       
       // Generate HTML using the same method as email
