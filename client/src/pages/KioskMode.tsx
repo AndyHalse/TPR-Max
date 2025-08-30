@@ -391,7 +391,7 @@ export default function KioskMode() {
             </div>
             <div className="text-center">
               <UserPlus className="mx-auto mb-2 text-blue-600" size={24} />
-              <p className="font-medium mb-1 text-sm sm:text-base">New visitors</p>
+              <p className="font-medium mb-1 text-sm sm:text-base text-[#9b81d6]">New visitors</p>
               <p className="text-xs sm:text-sm" style={{color: 'white'}}>Use Manual Check-In to register</p>
             </div>
             <div className="text-center">
