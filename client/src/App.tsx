@@ -14,7 +14,6 @@ import KioskMode from "@/pages/KioskMode";
 import VisitorCheckIn from "@/pages/VisitorCheckIn";
 import EmergencyMuster from "@/pages/EmergencyMuster";
 import Settings from "@/pages/Settings";
-import Reports from "@/pages/Reports";
 import TimeAttendance from "@/pages/TimeAttendance";
 import Visitors from "@/pages/Visitors";
 import SuperAdmin from "@/pages/SuperAdmin";
@@ -120,7 +119,6 @@ function Router() {
             <Route path="/contractor" component={ContractorKiosk} />
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
-            <Route path="/reports" component={Reports} />
             <Route path="/time-attendance" component={TimeAttendance} />
             <Route path="/settings" component={Settings} />
             <Route path="/multi-tenant" component={SuperAdmin} />
