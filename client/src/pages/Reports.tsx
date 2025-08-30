@@ -19,16 +19,14 @@ import {
   Plus,
   Clock,
   Users,
-  TrendingUp,
   Send,
   BarChart3,
-  PieChart,
-  Activity,
-  Target,
-  Star
+  UserCheck,
+  Printer
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Report } from "@shared/schema";
+import type { Report, Staff } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Reports() {
   const { toast } = useToast();
@@ -36,6 +34,8 @@ export default function Reports() {
   const [dateTo, setDateTo] = useState<Date>(new Date());
   const [reportType, setReportType] = useState("weekly");
   const [emailRecipients, setEmailRecipients] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+  const [showStaffSelection, setShowStaffSelection] = useState(false);
 
   const { data: reports, isLoading } = useQuery<Report[]>({
     queryKey: ["/api/reports"],
@@ -43,6 +43,10 @@ export default function Reports() {
 
   const { data: settings } = useQuery<{ email?: string; reportRecipients?: string }>({
     queryKey: ["/api/settings"],
+  });
+
+  const { data: staff } = useQuery<Staff[]>({
+    queryKey: ["/api/staff"],
   });
 
   const generateReportMutation = useMutation({
@@ -116,10 +120,15 @@ export default function Reports() {
   };
 
   const handleEmailReport = (reportId: string) => {
-    // Use administrator email from settings if no manual recipients entered
     let recipients: string[] = [];
     
-    if (emailRecipients.trim()) {
+    if (selectedStaff.length > 0) {
+      // Use selected staff emails (prioritized)
+      recipients = selectedStaff.map(staffId => {
+        const staffMember = staff?.find(s => s.id === staffId);
+        return staffMember?.email || `${staffMember?.firstName?.toLowerCase()}.${staffMember?.lastName?.toLowerCase()}@company.com`;
+      });
+    } else if (emailRecipients.trim()) {
       // Use manually entered emails if provided
       recipients = emailRecipients
         .split(",")
@@ -127,24 +136,13 @@ export default function Reports() {
         .filter(email => email.length > 0);
     } else {
       // Use administrator email from company settings
-      if (settings?.email) {
-        recipients = [settings.email];
-      } else if (settings?.reportRecipients && settings.reportRecipients.length > 0) {
-        recipients = settings.reportRecipients;
-      } else {
-        toast({
-          title: "Error",
-          description: "No administrator email configured. Please contact support.",
-          variant: "destructive",
-        });
-        return;
-      }
+      recipients = [settings?.email || "admin@company.com"];
     }
 
     if (recipients.length === 0) {
       toast({
         title: "Error",
-        description: "No valid email addresses found",
+        description: "Please select staff members or provide email recipients",
         variant: "destructive",
       });
       return;
@@ -154,6 +152,46 @@ export default function Reports() {
       id: reportId,
       recipients,
     });
+  };
+
+  const downloadPDFMutation = useMutation({
+    mutationFn: async (reportId: string) => {
+      const response = await apiRequest("GET", `/api/reports/${reportId}/pdf`);
+      return response.blob();
+    },
+    onSuccess: (blob, reportId) => {
+      const report = reports?.find(r => r.id === reportId);
+      if (report) {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const fileName = `${formatReportType(report.reportType)}_${format(new Date(report.dateFrom), "yyyy-MM-dd")}_to_${format(new Date(report.dateTo), "yyyy-MM-dd")}.pdf`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
+      toast({
+        title: "Success",
+        description: "Report PDF downloaded successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to download PDF",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleStaffSelection = (staffId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedStaff(prev => [...prev, staffId]);
+    } else {
+      setSelectedStaff(prev => prev.filter(id => id !== staffId));
+    }
   };
 
   const formatReportType = (type: string) => {
@@ -224,68 +262,6 @@ export default function Reports() {
         <h2 className="text-2xl font-bold text-slate-800">Reports & Analytics</h2>
       </div>
 
-      {/* Advanced Analytics Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-        <GlassCard className="dark:glass-dark">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">ROI Impact</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-                £12.5K
-              </p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">Saved annually</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-              <Target className="text-green-600 dark:text-green-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-        
-        <GlassCard className="dark:glass-dark">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Efficiency Gain</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                89%
-              </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">vs manual logging</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-              <Activity className="text-blue-600 dark:text-blue-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-        
-        <GlassCard className="dark:glass-dark">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">User Rating</p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">
-                4.9/5
-              </p>
-              <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">98% satisfaction</p>
-            </div>
-            <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
-              <Star className="text-yellow-600 dark:text-yellow-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-        
-        <GlassCard className="dark:glass-dark">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Cost Savings</p>
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
-                67%
-              </p>
-              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">vs traditional systems</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-              <PieChart className="text-purple-600 dark:text-purple-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Generate New Report */}
@@ -393,7 +369,7 @@ export default function Reports() {
         {/* Quick Stats */}
         <GlassCard>
           <div className="flex items-center mb-6">
-            <TrendingUp className="mr-3 text-blue-600" size={24} />
+            <BarChart3 className="mr-3 text-blue-600" size={24} />
             <h3 className="text-lg font-semibold text-slate-800">Quick Stats</h3>
           </div>
           
@@ -414,21 +390,66 @@ export default function Reports() {
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">
-                Email Recipients (optional - defaults to administrator)
-              </Label>
-              <Input
-                type="text"
-                placeholder={`Default: ${settings?.email || settings?.reportRecipients?.[0] || 'admin@company.com'}`}
-                value={emailRecipients}
-                onChange={(e) => setEmailRecipients(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                data-testid="input-email-recipients"
-              />
-              <p className="text-xs text-slate-500">
-                Leave empty to send to administrator email: {settings?.email || settings?.reportRecipients?.[0] || 'admin@company.com'}
-              </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-slate-700">Recipients</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowStaffSelection(!showStaffSelection)}
+                  className="text-xs"
+                  data-testid="button-toggle-staff-selection"
+                >
+                  <UserCheck className="mr-1" size={12} />
+                  {showStaffSelection ? 'Hide Staff' : 'Select Staff'}
+                </Button>
+              </div>
+
+              {showStaffSelection && (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-white/30 rounded-xl p-3 bg-white/30">
+                  <Label className="text-xs font-medium text-slate-600">Select Staff Members:</Label>
+                  {staff?.map((staffMember) => (
+                    <div key={staffMember.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`staff-${staffMember.id}`}
+                        checked={selectedStaff.includes(staffMember.id)}
+                        onCheckedChange={(checked) => handleStaffSelection(staffMember.id, checked === true)}
+                        data-testid={`checkbox-staff-${staffMember.id}`}
+                      />
+                      <Label htmlFor={`staff-${staffMember.id}`} className="text-sm text-slate-700 cursor-pointer">
+                        {staffMember.firstName} {staffMember.lastName} ({staffMember.department})
+                      </Label>
+                    </div>
+                  ))}
+                  {selectedStaff.length > 0 && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      {selectedStaff.length} staff member{selectedStaff.length !== 1 ? 's' : ''} selected
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">
+                  Manual Email Recipients (optional)
+                </Label>
+                <Input
+                  type="text"
+                  placeholder="Enter email addresses separated by commas"
+                  value={emailRecipients}
+                  onChange={(e) => setEmailRecipients(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  data-testid="input-email-recipients"
+                />
+                <p className="text-xs text-slate-500">
+                  {selectedStaff.length > 0 
+                    ? `Will send to ${selectedStaff.length} selected staff member${selectedStaff.length !== 1 ? 's' : ''}` 
+                    : emailRecipients.trim() 
+                      ? "Will use manual recipients" 
+                      : `Default: ${settings?.email || 'admin@company.com'}`
+                  }
+                </p>
+              </div>
             </div>
           </div>
         </GlassCard>
@@ -529,10 +550,23 @@ export default function Reports() {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => downloadPDFMutation.mutate(report.id)}
+                          disabled={downloadPDFMutation.isPending}
                           data-testid={`button-download-report-${report.id}`}
                         >
                           <Download size={12} className="mr-1" />
                           PDF
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => console.log('Print report:', report.id)}
+                          className="hover:bg-gray-50"
+                          data-testid={`button-print-report-${report.id}`}
+                        >
+                          <Printer size={12} className="mr-1" />
+                          Print
                         </Button>
                       </div>
                     </td>
