@@ -417,6 +417,10 @@ export default function Settings() {
               description = 'Company email updated automatically';
             } else if (field === 'timezone') {
               description = 'Timezone updated automatically';
+            } else if (field === 'variableTextColor') {
+              description = 'Variable text color updated automatically';
+            } else if (field === 'foregroundColor') {
+              description = 'Fixed text color updated automatically';
             } else if (field.includes('Color') || field.includes('color')) {
               description = 'Color setting updated automatically';
             } else if (field.includes('reportRecipients')) {
