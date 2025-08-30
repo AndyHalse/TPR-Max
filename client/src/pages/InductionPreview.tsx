@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -160,8 +160,8 @@ export default function InductionPreview() {
     }
   };
 
-  // Define slide content with AI-generated safety scenes
-  const slides = [
+  // Define slide content with AI-generated safety scenes - use useMemo to make it reactive to aiImages
+  const slides = useMemo(() => [
     {
       title: "Welcome & Legal Framework",
       slideType: "legal_framework",
@@ -202,7 +202,7 @@ export default function InductionPreview() {
       topics: ["No smoking policy", "Visitor escort requirements", "Speed limits on site", "Authorized personnel only areas"],
       aiGenerated: true
     }
-  ];
+  ], [aiImages]);
 
   useEffect(() => {
     const fetchInductionData = async () => {
