@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { printVisitorPass } from "@/lib/printVisitorPass";
 import { Staff, PreBooking, InsertPreBooking } from "@shared/schema";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -280,14 +281,21 @@ export default function PreBooking() {
       const response = await apiRequest("POST", "/api/prebookings/manual-checkin", { preBookingId });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data: { visitor: any }) => {
+      const visitor = data.visitor;
+      
+      // Auto-print the pass after a short delay
+      setTimeout(() => {
+        printVisitorPass({ visitor, staff, toast });
+      }, 500);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({
         title: "Success",
-        description: "Visitor checked in manually!",
+        description: "Visitor checked in manually! Pass is printing...",
       });
     },
     onError: () => {

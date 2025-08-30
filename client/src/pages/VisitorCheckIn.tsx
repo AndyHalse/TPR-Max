@@ -310,8 +310,13 @@ export default function VisitorCheckIn() {
       return;
     }
 
+    const nameParts = formData.name.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || firstName;
+    
     checkinMutation.mutate({
-      name: formData.name.trim(),
+      firstName,
+      lastName,
       company: formData.company.trim() || null,
       hostStaffId: formData.hostStaffId,
       purpose: formData.purpose.trim() || null,
@@ -376,7 +381,7 @@ export default function VisitorCheckIn() {
               <SelectContent>
                 {staff?.map((member) => (
                   <SelectItem key={member.id} value={member.id}>
-                    {member.name} - {member.department}
+                    {member.firstName} {member.lastName} - {member.department}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -451,7 +456,7 @@ export default function VisitorCheckIn() {
             setLocation("/kiosk");
           }}
           visitor={createdVisitor}
-          hostName={staff?.find(s => s.id === createdVisitor.hostStaffId)?.name}
+          hostName={staff?.find(s => s.id === createdVisitor.hostStaffId) ? `${staff.find(s => s.id === createdVisitor.hostStaffId)?.firstName} ${staff.find(s => s.id === createdVisitor.hostStaffId)?.lastName}` : "Unknown Host"}
         />
       )}
     </div>

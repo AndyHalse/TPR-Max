@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import { VisitorEditModal } from "@/components/VisitorEditModal";
+import { printVisitorPass } from "@/lib/printVisitorPass";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -437,6 +438,11 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: (visitor: Visitor) => {
+      // Auto-print the pass after a short delay
+      setTimeout(() => {
+        printVisitorPass({ visitor, staff, toast });
+      }, 500);
+      
       // GDPR FIX: Invalidate tenant-specific cache when in tenant view
       if (isTenantView) {
         queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
@@ -467,7 +473,7 @@ export default function Visitors() {
       
       toast({
         title: "Success",
-        description: "Visitor checked in successfully!",
+        description: "Visitor checked in successfully! Pass is printing...",
       });
     },
     onError: (error: any) => {
@@ -517,6 +523,11 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: (visitor: Visitor) => {
+      // Auto-print the pass after a short delay
+      setTimeout(() => {
+        printVisitorPass({ visitor, staff, toast });
+      }, 500);
+      
       // GDPR FIX: Invalidate tenant-specific cache when in tenant view
       if (isTenantView) {
         queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
@@ -531,7 +542,7 @@ export default function Visitors() {
       setSelectedHostForPrevious("");
       toast({
         title: "Success",
-        description: "Previous visitor checked in successfully!",
+        description: "Previous visitor checked in successfully! Pass is printing...",
       });
     },
     onError: (error: any) => {
