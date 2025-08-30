@@ -589,8 +589,8 @@ export default function Dashboard() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Security Alerts</p>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-security-alerts">
+              <p className="text-variable text-sm font-medium">Security Alerts</p>
+              <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-security-alerts">
                 0
               </p>
               <p className="text-xs text-green-600 dark:text-green-400 mt-1">All clear today</p>
@@ -604,8 +604,8 @@ export default function Dashboard() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Compliance Rate</p>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-compliance-rate">
+              <p className="text-variable text-sm font-medium">Compliance Rate</p>
+              <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-compliance-rate">
                 99.8%
               </p>
               <p className="text-xs text-green-600 dark:text-green-400 mt-1">UK H&S Standards</p>
@@ -619,8 +619,8 @@ export default function Dashboard() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Emergency Ready</p>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-emergency-ready">
+              <p className="text-variable text-sm font-medium">Emergency Ready</p>
+              <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-emergency-ready">
                 100%
               </p>
               <p className="text-xs text-green-600 dark:text-green-400 mt-1">Muster points active</p>
