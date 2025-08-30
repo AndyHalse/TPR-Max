@@ -32,7 +32,7 @@ export default function KioskMode() {
 
   // Apply branding colors dynamically to kiosk mode
   useEffect(() => {
-    if (settings?.backgroundColor || settings?.textColor || settings?.accentColor) {
+    if (settings?.backgroundColor || settings?.fixedTextColor || settings?.variableTextColor || settings?.accentColor) {
       const root = document.documentElement;
       
       // Convert hex to HSL for CSS variables
@@ -73,13 +73,19 @@ export default function KioskMode() {
         }
       }
 
-      // Apply text color
-      if (settings.textColor) {
-        const hsl = hexToHsl(settings.textColor);
+      // Apply fixed text color
+      if (settings.fixedTextColor) {
+        const hsl = hexToHsl(settings.fixedTextColor);
         if (hsl) {
-          root.style.setProperty('--foreground', `hsl(${hsl})`);
-          root.style.setProperty('--card-foreground', `hsl(${hsl})`);
-          root.style.setProperty('--popover-foreground', `hsl(${hsl})`);
+          root.style.setProperty('--fixed-text', `hsl(${hsl})`);
+        }
+      }
+
+      // Apply variable text color  
+      if (settings.variableTextColor) {
+        const hsl = hexToHsl(settings.variableTextColor);
+        if (hsl) {
+          root.style.setProperty('--variable-text', `hsl(${hsl})`);
         }
       }
 
@@ -93,7 +99,7 @@ export default function KioskMode() {
         }
       }
     }
-  }, [settings?.backgroundColor, settings?.textColor, settings?.accentColor]);
+  }, [settings?.backgroundColor, settings?.fixedTextColor, settings?.variableTextColor, settings?.accentColor]);
 
   const checkOutMutation = useMutation({
     mutationFn: async (qrCode: string) => {
@@ -377,8 +383,8 @@ export default function KioskMode() {
         {/* Instructions - Responsive and compact */}
         <div className="mt-6 sm:mt-8 lg:mt-10">
         <GlassCard className="p-4 sm:p-6 lg:p-8 flex-shrink-0">
-          <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-slate-800 mb-3 sm:mb-4 lg:mb-6 text-center">Instructions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 text-slate-700">
+          <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-fixed mb-3 sm:mb-4 lg:mb-6 text-center">Instructions</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 text-variable">
             <div className="text-center">
               <QrCode className="mx-auto mb-2 text-purple-600" size={24} />
               <p className="font-medium mb-1 text-sm sm:text-base">Pre-booked visitors</p>

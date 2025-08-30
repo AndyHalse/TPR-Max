@@ -176,7 +176,7 @@ export default function StaffManagement() {
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-800">Staff Management</h2>
+        <h2 className="text-2xl font-bold text-fixed">Staff Management</h2>
         <Button
           onClick={() => setIsAddModalOpen(true)}
           className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
@@ -191,8 +191,8 @@ export default function StaffManagement() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {!staff || staff.length === 0 ? (
           <div className="col-span-full text-center py-12">
-            <p className="text-slate-600 text-lg">No staff members found</p>
-            <p className="text-slate-500 text-sm mt-2">Add your first staff member to get started</p>
+            <p className="text-variable text-lg">No staff members found</p>
+            <p className="text-variable text-sm mt-2">Add your first staff member to get started</p>
           </div>
         ) : (
           staff.map((member, index) => (
@@ -210,16 +210,16 @@ export default function StaffManagement() {
                   </div>
                 )}
                 <div className="flex-1">
-                  <h3 className="font-semibold text-slate-800" data-testid={`staff-name-${member.id}`}>
+                  <h3 className="font-semibold text-fixed" data-testid={`staff-name-${member.id}`}>
                     {getFullName(member)}
                   </h3>
-                  <p className="text-slate-600 text-sm" data-testid={`staff-email-${member.id}`}>
+                  <p className="text-variable text-sm" data-testid={`staff-email-${member.id}`}>
                     {member.email}
                   </p>
-                  <p className="text-slate-500 text-sm" data-testid={`staff-department-${member.id}`}>
+                  <p className="text-variable text-sm" data-testid={`staff-department-${member.id}`}>
                     {member.department}
                   </p>
-                  <p className="text-slate-500 text-xs" data-testid={`staff-id-${member.id}`}>
+                  <p className="text-variable text-xs" data-testid={`staff-id-${member.id}`}>
                     ID: {member.employeeId}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
@@ -264,7 +264,7 @@ export default function StaffManagement() {
                       )}
                     </span>
                     {member.isCheckedIn && member.checkedInAt && (
-                      <span className="text-xs text-gray-500 flex items-center">
+                      <span className="text-xs text-variable flex items-center">
                         <Clock size={10} className="mr-1" />
                         {new Date(member.checkedInAt).toLocaleTimeString([], { 
                           hour: '2-digit', 

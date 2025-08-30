@@ -434,8 +434,8 @@ export default function Dashboard() {
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Current Visitors</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-current-visitors">
+              <p className="text-variable text-sm font-medium">Current Visitors</p>
+              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-current-visitors">
                 {stats?.currentVisitors || 0}
               </p>
             </div>
@@ -448,8 +448,8 @@ export default function Dashboard() {
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('checkins')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Today's Check-ins</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-today-checkins">
+              <p className="text-variable text-sm font-medium">Today's Check-ins</p>
+              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-today-checkins">
                 {stats?.todayCheckins || 0}
               </p>
             </div>
@@ -462,8 +462,8 @@ export default function Dashboard() {
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('staff')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Staff On-Site</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-staff-onsite">
+              <p className="text-variable text-sm font-medium">Staff On-Site</p>
+              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-staff-onsite">
                 {stats?.staffOnSite || 0}
               </p>
             </div>
@@ -476,8 +476,8 @@ export default function Dashboard() {
         <GlassCard hover className="cursor-pointer" onClick={() => setLocation('/contractor')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Contractors On Site</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-contractors-onsite">
+              <p className="text-variable text-sm font-medium">Contractors On Site</p>
+              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-contractors-onsite">
                 {stats?.contractorsOnSite || 0}
               </p>
             </div>
@@ -491,7 +491,7 @@ export default function Dashboard() {
       {/* Multi-Tenant Building Overview */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
             <Building2 className="text-blue-600" size={20} />
             Building Overview
           </h2>
@@ -511,8 +511,8 @@ export default function Dashboard() {
           <GlassCard className="dark:glass-dark">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Companies</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-total-companies">
+                <p className="text-variable text-sm font-medium">Total Companies</p>
+                <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-total-companies">
                   10
                 </p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
@@ -528,8 +528,8 @@ export default function Dashboard() {
           <GlassCard className="dark:glass-dark">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Building Occupancy</p>
-                <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-building-occupancy">
+                <p className="text-variable text-sm font-medium">Building Occupancy</p>
+                <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-building-occupancy">
                   {((stats?.currentVisitors || 0) + (stats?.staffOnSite || 0))}
                 </p>
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
@@ -545,7 +545,7 @@ export default function Dashboard() {
           <GlassCard className="dark:glass-dark">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Quick Actions</p>
+                <p className="text-variable text-sm font-medium">Quick Actions</p>
                 <div className="mt-2 space-y-2">
                   <Button 
                     variant="outline" 
@@ -572,8 +572,8 @@ export default function Dashboard() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Peak Hours</p>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-peak-hours">
+              <p className="text-variable text-sm font-medium">Peak Hours</p>
+              <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-peak-hours">
                 {peakHoursLoading ? "Loading..." : (peakHoursData?.peakHours || "No data")}
               </p>
               <p className="text-xs text-green-600 dark:text-green-400 mt-1">

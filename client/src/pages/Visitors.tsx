@@ -753,7 +753,7 @@ export default function Visitors() {
   return (
     <div className="space-y-6 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-800">Visitor Management</h1>
+        <h1 className="text-3xl font-bold text-fixed">Visitor Management</h1>
         <Button
           onClick={() => generateTestDataMutation.mutate()}
           disabled={generateTestDataMutation.isPending}
@@ -800,8 +800,8 @@ export default function Visitors() {
                   <History className="text-blue-600" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-800">Previous Visitors</h2>
-                  <p className="text-slate-600">Select a visitor who has been onsite before</p>
+                  <h2 className="text-xl font-semibold text-fixed">Previous Visitors</h2>
+                  <p className="text-variable">Select a visitor who has been onsite before</p>
                 </div>
               </div>
               <Button
@@ -818,7 +818,7 @@ export default function Visitors() {
 
             {/* Search */}
             <div className="relative mb-6">
-              <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+              <Search className="absolute left-3 top-3 text-variable" size={20} />
               <Input
                 placeholder="Search by visitor name or company..."
                 value={searchTerm}
@@ -854,7 +854,7 @@ export default function Visitors() {
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-slate-800">{visitor.firstName} {visitor.lastName}</h3>
+                          <h3 className="font-semibold text-fixed">{visitor.firstName} {visitor.lastName}</h3>
                           {visitor.company && (
                             <p className="text-sm text-slate-600">{visitor.company}</p>
                           )}
