@@ -349,9 +349,9 @@ export default function SuperAdmin() {
             </div>
           ) : tenants.length === 0 ? (
             <div className="text-center py-8" data-testid="empty-tenants">
-              <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tenant companies yet</h3>
-              <p className="text-gray-600 mb-4">Add your first tenant company to get started</p>
+              <Building2 className="w-12 h-12 text-variable mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-fixed mb-2">No tenant companies yet</h3>
+              <p className="text-variable mb-4">Add your first tenant company to get started</p>
             </div>
           ) : (
             <div className="space-y-4">

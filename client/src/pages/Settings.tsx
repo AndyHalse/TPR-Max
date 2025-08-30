@@ -584,7 +584,7 @@ export default function Settings() {
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
+        <h2 className="text-2xl font-bold text-fixed">Settings</h2>
         <Button
           onClick={handleSave}
           disabled={updateSettingsMutation.isPending || Object.keys(formData).length === 0}
@@ -654,12 +654,12 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Building2 className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Company Information</h3>
+                <h3 className="text-lg font-semibold text-fixed">Company Information</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="companyName" className="text-sm font-medium text-variable">
                     Company Name
                   </Label>
                   <Input

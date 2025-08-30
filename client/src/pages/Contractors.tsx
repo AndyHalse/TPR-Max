@@ -279,8 +279,8 @@ export default function Contractors() {
             <HardHat className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Contractor Management</h1>
-            <p className="text-slate-600">Manage contractor companies and compliance</p>
+            <h1 className="text-2xl font-bold text-fixed">Contractor Management</h1>
+            <p className="text-variable">Manage contractor companies and compliance</p>
           </div>
         </div>
         <Button 
@@ -301,8 +301,8 @@ export default function Contractors() {
               <Building2 className="text-blue-600" size={20} />
             </div>
             <div>
-              <p className="text-slate-600 text-sm">Total Contractors</p>
-              <p className="text-2xl font-bold text-slate-800">{contractors?.length || 0}</p>
+              <p className="text-variable text-sm">Total Contractors</p>
+              <p className="text-2xl font-bold text-fixed">{contractors?.length || 0}</p>
             </div>
           </div>
         </GlassCard>
@@ -313,8 +313,8 @@ export default function Contractors() {
               <CheckCircle className="text-green-600" size={20} />
             </div>
             <div>
-              <p className="text-slate-600 text-sm">Approved</p>
-              <p className="text-2xl font-bold text-slate-800">
+              <p className="text-variable text-sm">Approved</p>
+              <p className="text-2xl font-bold text-fixed">
                 {contractors?.filter(c => c.status === "approved").length || 0}
               </p>
             </div>
@@ -327,8 +327,8 @@ export default function Contractors() {
               <Clock className="text-yellow-600" size={20} />
             </div>
             <div>
-              <p className="text-slate-600 text-sm">Pending Review</p>
-              <p className="text-2xl font-bold text-slate-800">
+              <p className="text-variable text-sm">Pending Review</p>
+              <p className="text-2xl font-bold text-fixed">
                 {contractors?.filter(c => c.status === "pending").length || 0}
               </p>
             </div>
@@ -341,8 +341,8 @@ export default function Contractors() {
               <AlertTriangle className="text-orange-600" size={20} />
             </div>
             <div>
-              <p className="text-slate-600 text-sm">Compliance Issues</p>
-              <p className="text-2xl font-bold text-slate-800">
+              <p className="text-variable text-sm">Compliance Issues</p>
+              <p className="text-2xl font-bold text-fixed">
                 {contractors?.filter(c => (c.complianceScore || 0) < 80).length || 0}
               </p>
             </div>
@@ -354,7 +354,7 @@ export default function Contractors() {
       <GlassCard>
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-variable" size={16} />
             <Input
               type="text"
               placeholder="Search contractors by name or contact..."
@@ -372,7 +372,7 @@ export default function Contractors() {
         {isLoading ? (
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
-            <p className="mt-2 text-slate-600">Loading contractors...</p>
+            <p className="mt-2 text-variable">Loading contractors...</p>
           </div>
         ) : filteredContractors.map((contractor) => (
           <GlassCard key={contractor.id}>
@@ -384,8 +384,8 @@ export default function Contractors() {
                       <Building2 className="text-slate-600" size={20} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-800">{contractor.name}</h3>
-                      <div className="flex items-center space-x-4 text-sm text-slate-600">
+                      <h3 className="font-semibold text-fixed">{contractor.name}</h3>
+                      <div className="flex items-center space-x-4 text-sm text-variable">
                         <span className="flex items-center">
                           <Users className="mr-1" size={14} />
                           {contractor.workersCount} workers

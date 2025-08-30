@@ -212,8 +212,8 @@ export default function EmergencyMuster() {
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Emergency Muster</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
+          <h2 className="text-2xl font-bold text-fixed">Emergency Muster</h2>
+          <p className="text-variable mt-1">
             Real-time emergency evacuation management and accountability
           </p>
         </div>
@@ -247,8 +247,8 @@ export default function EmergencyMuster() {
                 <div className="flex items-center">
                   <Shield className="text-blue-600 mr-3" size={24} />
                   <div>
-                    <h4 className="font-semibold text-slate-800 dark:text-slate-200">Fire Marshal Emergency System</h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <h4 className="font-semibold text-fixed">Fire Marshal Emergency System</h4>
+                    <p className="text-sm text-variable">
                       Notify Fire Marshals via secure email links for mobile emergency response
                     </p>
                   </div>
@@ -282,8 +282,8 @@ export default function EmergencyMuster() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total People</p>
-              <p className="text-3xl font-bold text-slate-800 dark:text-slate-200 mt-1" data-testid="stat-total-people">
+              <p className="text-variable text-sm font-medium">Total People</p>
+              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-total-people">
                 {totalPeople}
               </p>
             </div>

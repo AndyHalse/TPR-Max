@@ -101,10 +101,10 @@ export default function AIDemo() {
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">
+        <h1 className="text-3xl font-bold text-fixed">
           AI-Powered Features Demo
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+        <p className="text-variable max-w-2xl mx-auto">
           Experience the cutting-edge AI capabilities that make VisiGate Pro the most intelligent visitor management system available.
         </p>
         <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
@@ -122,10 +122,10 @@ export default function AIDemo() {
       {/* AI Sales & Competitive Analysis Tools */}
       <div className="space-y-8">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-200 mb-4">
+          <h2 className="text-3xl font-bold text-fixed mb-4">
             🚀 Sales-Focused AI Features
           </h2>
-          <p className="text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+          <p className="text-lg text-variable max-w-3xl mx-auto">
             Powerful AI tools designed to demonstrate clear business value, competitive advantages, 
             and measurable ROI that help close deals and justify investments.
           </p>

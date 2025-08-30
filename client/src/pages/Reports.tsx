@@ -307,7 +307,7 @@ export default function Reports() {
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-800">Reports & Analytics</h2>
+        <h2 className="text-2xl font-bold text-fixed">Reports & Analytics</h2>
       </div>
 
       
@@ -316,12 +316,12 @@ export default function Reports() {
         <GlassCard>
           <div className="flex items-center mb-6">
             <Plus className="mr-3 text-blue-600" size={24} />
-            <h3 className="text-lg font-semibold text-slate-800">Generate New Report</h3>
+            <h3 className="text-lg font-semibold text-fixed">Generate New Report</h3>
           </div>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="reportType" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="reportType" className="text-sm font-medium text-variable">
                 Report Type
               </Label>
               <Select value={reportType} onValueChange={setReportType}>
@@ -354,7 +354,7 @@ export default function Reports() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">From Date</Label>
+                <Label className="text-sm font-medium text-variable">From Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
