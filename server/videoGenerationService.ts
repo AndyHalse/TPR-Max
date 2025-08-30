@@ -282,7 +282,7 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         console.log(`🚀 Making API call to ${selectedModel}...`);
         console.log(`📝 Prompt length: ${prompt.length} characters`);
         
-        const startTime = Date.now();
+        const apiStartTime = Date.now();
         response = await openai.chat.completions.create({
           model: selectedModel,
         messages: [
@@ -367,7 +367,7 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         }
       }
 
-      const apiDuration = Date.now() - startTime;
+      const apiDuration = Date.now() - apiStartTime;
       console.log(`⏱️ API call completed in ${apiDuration}ms`);
       
       const rawContent = response.choices[0].message.content;
@@ -444,7 +444,7 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       
       console.log('🎬 Final result - scenes count:', result.scenes.length);
       console.log('🎬 First scene title:', result.scenes[0]?.title || 'No scenes');
-      console.log('🎬 All scene titles:', result.scenes.map(s => s.title));
+      console.log('🎬 All scene titles:', result.scenes.map((s: any) => s.title));
       
       if (result.scenes.length === 0) {
         console.error('🚨 FINAL VALIDATION: Zero scenes in result - this will cause fallback!');
@@ -487,6 +487,7 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       }
       
       throw new Error(`Failed to generate induction script: ${error.message}`);
+    }
   }
 
   // Generate scene images for the induction (optimized for speed)
