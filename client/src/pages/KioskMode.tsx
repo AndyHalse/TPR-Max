@@ -280,7 +280,7 @@ export default function KioskMode() {
                 </div>
               </div>
               
-              <div className="text-sm sm:text-base lg:text-lg text-slate-500 space-y-2">
+              <div className="text-sm sm:text-base lg:text-lg text-variable space-y-2">
                 <p>✓ Pre-booked visitors: Scan your email QR code to check in</p>
                 <p>✓ Current visitors: Scan your pass QR code to check out</p>
               </div>
@@ -388,17 +388,17 @@ export default function KioskMode() {
             <div className="text-center">
               <QrCode className="mx-auto mb-2 text-purple-600" size={24} />
               <p className="font-medium mb-1 text-sm sm:text-base">Pre-booked visitors</p>
-              <p className="text-xs sm:text-sm">Use QR Scanner with your email QR code</p>
+              <p className="text-xs sm:text-sm text-variable">Use QR Scanner with your email QR code</p>
             </div>
             <div className="text-center">
               <UserPlus className="mx-auto mb-2 text-blue-600" size={24} />
               <p className="font-medium mb-1 text-sm sm:text-base">New visitors</p>
-              <p className="text-xs sm:text-sm">Use Manual Check-In to register</p>
+              <p className="text-xs sm:text-sm text-variable">Use Manual Check-In to register</p>
             </div>
             <div className="text-center">
               <LogOut className="mx-auto mb-2 text-green-600" size={24} />
               <p className="font-medium mb-1 text-sm sm:text-base">Leaving</p>
-              <p className="text-xs sm:text-sm">Use QR Scanner with your pass QR code</p>
+              <p className="text-xs sm:text-sm text-variable">Use QR Scanner with your pass QR code</p>
             </div>
           </div>
         </GlassCard>
