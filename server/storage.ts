@@ -44,6 +44,10 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(insertUser: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
+  
+  // Tenant-specific authentication
+  authenticateTenantUser(username: string, password: string, tenantId?: string): Promise<User | null>;
+  getUsersByTenant(tenantId: string): Promise<User[]>;
 
   // Staff methods
   getAllStaff(): Promise<Staff[]>;
@@ -52,6 +56,10 @@ export interface IStorage {
   createStaff(insertStaff: InsertStaff): Promise<Staff>;
   updateStaff(id: string, updates: Partial<InsertStaff>): Promise<Staff | undefined>;
   deleteStaff(id: string): Promise<boolean>;
+  
+  // Tenant-specific staff methods
+  getStaffByTenant(tenantId: string): Promise<Staff[]>;
+  getCheckedInStaffByTenant(tenantId: string): Promise<Staff[]>;
   
   // Staff authentication methods
   authenticateStaff(email: string, password: string): Promise<Staff | null>;
@@ -94,6 +102,11 @@ export interface IStorage {
   findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined>;
   searchVisitors(searchTerm: string): Promise<Visitor[]>;
   getUniqueCompanies(): Promise<string[]>;
+  
+  // Tenant-specific visitor methods
+  getVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
+  getCurrentVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
+  getTodayVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
 
   // Company settings methods
   getCompanySettings(): Promise<CompanySettings | undefined>;
@@ -621,6 +634,43 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
+  // Tenant-specific authentication methods
+  async authenticateTenantUser(username: string, password: string, tenantId?: string): Promise<User | null> {
+    try {
+      let user = Array.from(this.users.values()).find(u => u.username === username && u.isActive);
+      
+      // If tenantId is provided, filter by tenant
+      if (tenantId && user) {
+        if (user.tenantCompanyId !== tenantId) {
+          return null;
+        }
+      }
+
+      if (!user || !user.password) {
+        return null;
+      }
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return null;
+      }
+
+      // Update last login time
+      await this.updateUser(user.id, { lastLoginAt: new Date() });
+
+      return user;
+    } catch (error) {
+      console.error('Tenant user authentication error:', error);
+      return null;
+    }
+  }
+
+  async getUsersByTenant(tenantId: string): Promise<User[]> {
+    return Array.from(this.users.values())
+      .filter(user => user.tenantCompanyId === tenantId)
+      .sort((a, b) => a.username.localeCompare(b.username));
+  }
+
   // Staff methods
   async getAllStaff(): Promise<Staff[]> {
     return Array.from(this.staffMembers.values())
@@ -827,6 +877,19 @@ export class MemStorage implements IStorage {
       .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   }
 
+  // Tenant-specific staff methods
+  async getStaffByTenant(tenantId: string): Promise<Staff[]> {
+    return Array.from(this.staffMembers.values())
+      .filter(staff => staff.tenantCompanyId === tenantId)
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+  }
+
+  async getCheckedInStaffByTenant(tenantId: string): Promise<Staff[]> {
+    return Array.from(this.staffMembers.values())
+      .filter(staff => staff.tenantCompanyId === tenantId && staff.isCheckedIn && staff.isActive)
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+  }
+
   async getStaffTimeAndAttendance(dateFrom?: Date, dateTo?: Date): Promise<Array<{
     staffId: string;
     staffName: string;
@@ -1003,6 +1066,54 @@ export class MemStorage implements IStorage {
 
   async getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined> {
     return Array.from(this.visitors.values()).find(visitor => visitor.qrCode === qrCode);
+  }
+
+  async getUniqueCompanies(): Promise<string[]> {
+    const companies = new Set<string>();
+    
+    // Collect unique company names from visitors
+    Array.from(this.visitors.values()).forEach(visitor => {
+      if (visitor.company && visitor.company.trim()) {
+        companies.add(visitor.company.trim());
+      }
+    });
+    
+    // Also collect from pre-bookings
+    Array.from(this.preBookings.values()).forEach(booking => {
+      if (booking.company && booking.company.trim()) {
+        companies.add(booking.company.trim());
+      }
+    });
+    
+    return Array.from(companies).sort();
+  }
+
+  // Tenant-specific visitor methods
+  async getVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    return Array.from(this.visitors.values())
+      .filter(visitor => visitor.tenantCompanyId === tenantId)
+      .sort((a, b) => b.checkedInAt.getTime() - a.checkedInAt.getTime());
+  }
+
+  async getCurrentVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    return Array.from(this.visitors.values())
+      .filter(visitor => visitor.tenantCompanyId === tenantId && visitor.isCheckedIn)
+      .sort((a, b) => b.checkedInAt.getTime() - a.checkedInAt.getTime());
+  }
+
+  async getTodayVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return Array.from(this.visitors.values())
+      .filter(visitor => {
+        const checkedInAt = new Date(visitor.checkedInAt || 0);
+        return visitor.tenantCompanyId === tenantId &&
+               checkedInAt >= today && checkedInAt < tomorrow;
+      })
+      .sort((a, b) => new Date(a.checkedInAt || 0).getTime() - new Date(b.checkedInAt || 0).getTime());
   }
 
   // Company settings methods
@@ -1365,20 +1476,8 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getUniqueCompanies(): Promise<string[]> {
-    const visitors = Array.from(this.visitors.values());
-    const companies = new Set<string>();
-    
-    // Collect unique company names from visitors
-    visitors.forEach(visitor => {
-      if (visitor.company && visitor.company.trim()) {
-        companies.add(visitor.company.trim());
-      }
-    });
-    
-    // Convert to array and sort alphabetically
-    return Array.from(companies).sort();
-  }
+  // This method was moved up to avoid duplication
+  // async getUniqueCompanies() is now above in the visitor methods section
 
   async getPeakHoursAnalytics(): Promise<{
     peakHours: string;

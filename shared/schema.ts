@@ -146,9 +146,15 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
-  role: text("role").notNull().default("user"), // admin, user
+  role: text("role").notNull().default("user"), // admin, user, tenant_admin, tenant_staff
+  // Multi-Tenant: Link user to tenant company for tenant isolation
+  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   isActive: boolean("is_active").default(true),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Multi-Tenant Serviced Office Management

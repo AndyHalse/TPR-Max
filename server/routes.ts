@@ -159,7 +159,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ error: "User not found" });
     }
     
-    res.json({ id: user.id, username: user.username });
+    res.json({ id: user.id, username: user.username, tenantCompanyId: user.tenantCompanyId });
+  });
+
+  // Tenant-specific authentication route
+  app.post("/api/auth/tenant-login", async (req, res) => {
+    try {
+      const { username, password, tenantId } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      const user = await storage.authenticateTenantUser(username, password, tenantId);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials or unauthorized tenant access" });
+      }
+
+      // Set session
+      req.session.userId = user.id;
+      req.session.tenantId = user.tenantCompanyId;
+      
+      res.json({ 
+        success: true, 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          tenantCompanyId: user.tenantCompanyId 
+        }
+      });
+    } catch (error) {
+      console.error("Tenant login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
   });
 
   // AI Generated Images endpoints

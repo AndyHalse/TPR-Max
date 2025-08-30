@@ -203,6 +203,50 @@ export class DatabaseStorage implements IStorage {
     return updatedUser || undefined;
   }
 
+  // Tenant-specific authentication methods
+  async authenticateTenantUser(username: string, password: string, tenantId?: string): Promise<User | null> {
+    try {
+      let whereConditions = [eq(users.username, username), eq(users.isActive, true)];
+      
+      // If tenantId is provided, filter by tenant
+      if (tenantId) {
+        whereConditions.push(eq(users.tenantCompanyId, tenantId));
+      }
+
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(and(...whereConditions));
+
+      if (!user) {
+        return null;
+      }
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return null;
+      }
+
+      // Update last login time
+      await this.updateUser(user.id, { lastLoginAt: new Date() });
+
+      return user;
+    } catch (error) {
+      console.error('Tenant user authentication error:', error);
+      return null;
+    }
+  }
+
+  async getUsersByTenant(tenantId: string): Promise<User[]> {
+    const results = await db
+      .select()
+      .from(users)
+      .where(eq(users.tenantCompanyId, tenantId))
+      .orderBy(asc(users.username));
+    
+    return results;
+  }
+
   // Staff methods
   async getAllStaff(): Promise<Staff[]> {
     const results = await db.select().from(staff).orderBy(asc(staff.firstName));
@@ -343,6 +387,29 @@ export class DatabaseStorage implements IStorage {
 
   async getCheckedInStaff(): Promise<Staff[]> {
     const results = await db.select().from(staff).where(eq(staff.isCheckedIn, true));
+    return results;
+  }
+
+  // Tenant-specific staff methods
+  async getStaffByTenant(tenantId: string): Promise<Staff[]> {
+    const results = await db
+      .select()
+      .from(staff)
+      .where(eq(staff.tenantCompanyId, tenantId))
+      .orderBy(asc(staff.firstName));
+    
+    return results;
+  }
+
+  async getCheckedInStaffByTenant(tenantId: string): Promise<Staff[]> {
+    const results = await db
+      .select()
+      .from(staff)
+      .where(and(
+        eq(staff.tenantCompanyId, tenantId),
+        eq(staff.isCheckedIn, true)
+      ));
+    
     return results;
   }
 
@@ -673,6 +740,55 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(visitors.checkedInAt))
       .limit(10);
+    
+    return results;
+  }
+
+  async getUniqueCompanies(): Promise<string[]> {
+    const results = await db
+      .selectDistinct({ company: visitors.company })
+      .from(visitors)
+      .where(isNotNull(visitors.company));
+    
+    return results.map(result => result.company as string).filter(Boolean);
+  }
+
+  // Tenant-specific visitor methods
+  async getVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    const results = await db
+      .select()
+      .from(visitors)
+      .where(eq(visitors.tenantCompanyId, tenantId))
+      .orderBy(desc(visitors.checkedInAt));
+    
+    return results;
+  }
+
+  async getCurrentVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    const results = await db
+      .select()
+      .from(visitors)
+      .where(and(
+        eq(visitors.tenantCompanyId, tenantId),
+        eq(visitors.isCheckedIn, true)
+      ))
+      .orderBy(desc(visitors.checkedInAt));
+    
+    return results;
+  }
+
+  async getTodayVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const results = await db
+      .select()
+      .from(visitors)
+      .where(and(
+        eq(visitors.tenantCompanyId, tenantId),
+        gte(visitors.checkedInAt, today)
+      ))
+      .orderBy(desc(visitors.checkedInAt));
     
     return results;
   }
@@ -1525,31 +1641,8 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
-  async getUniqueCompanies(): Promise<string[]> {
-    try {
-      const visitorList = await db.select({
-        company: visitors.company
-      }).from(visitors).where(and(
-        not(eq(visitors.company, '')),
-        not(isNull(visitors.company))
-      ));
-      
-      const companies = new Set<string>();
-      
-      // Collect unique company names from visitors
-      visitorList.forEach(visitor => {
-        if (visitor.company && visitor.company.trim()) {
-          companies.add(visitor.company.trim());
-        }
-      });
-      
-      // Convert to array and sort alphabetically
-      return Array.from(companies).sort();
-    } catch (error) {
-      console.error("Error in DatabaseStorage.getUniqueCompanies:", error);
-      return [];
-    }
-  }
+  // This method was moved up to avoid duplication
+  // async getUniqueCompanies() is now above in the visitor methods section
 
   // Fire Marshal emergency methods
   async getFireMarshals(): Promise<Staff[]> {
