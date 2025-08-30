@@ -278,11 +278,12 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       console.log(`🤖 Selected AI model: ${selectedModel}`);
       
       let response;
+      let apiStartTime: number = Date.now();
       try {
         console.log(`🚀 Making API call to ${selectedModel}...`);
         console.log(`📝 Prompt length: ${prompt.length} characters`);
         
-        const apiStartTime = Date.now();
+        apiStartTime = Date.now();
         response = await openai.chat.completions.create({
           model: selectedModel,
         messages: [
