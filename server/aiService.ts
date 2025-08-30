@@ -46,10 +46,10 @@ export class AIService {
 
     } catch (error) {
       console.error('AI image generation failed:', error);
-      // Return a fallback placeholder image URL
+      // Return no image URL if generation fails
       return {
-        imageUrl: `https://via.placeholder.com/1024x1024/4f46e5/ffffff?text=${encodeURIComponent(title)}`,
-        dallePrompt: `Fallback placeholder for ${slideType}: ${title}`
+        imageUrl: "",
+        dallePrompt: `Failed to generate image for ${slideType}: ${title}`
       };
     }
   }

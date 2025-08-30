@@ -192,6 +192,48 @@ export default function Reports() {
     },
   });
 
+  const exportAllMutation = useMutation({
+    mutationFn: async () => {
+      if (!reports || reports.length === 0) {
+        throw new Error("No reports available to export");
+      }
+
+      // Download all PDFs one by one
+      for (const report of reports) {
+        const response = await apiRequest("GET", `/api/reports/${report.id}/pdf`);
+        const blob = await response.blob();
+        
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const fileName = `${formatReportType(report.reportType)}_${format(new Date(report.dateFrom), "yyyy-MM-dd")}_to_${format(new Date(report.dateTo), "yyyy-MM-dd")}.pdf`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        
+        // Small delay between downloads
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      return reports.length;
+    },
+    onSuccess: (count) => {
+      toast({
+        title: "Export Complete",
+        description: `Successfully exported ${count} report PDFs!`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export all reports",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleStaffSelection = (staffId: string, checked: boolean) => {
     if (checked) {
       setSelectedStaff(prev => [...prev, staffId]);
@@ -475,11 +517,17 @@ export default function Reports() {
           <h3 className="text-lg font-semibold text-slate-800">Generated Reports</h3>
           <Button
             variant="outline"
-            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium hover:shadow-lg transition-all duration-300"
+            onClick={() => {
+              if (reports && reports.length > 0) {
+                exportAllMutation.mutate();
+              }
+            }}
+            disabled={exportAllMutation.isPending || !reports || reports.length === 0}
+            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
             data-testid="button-export-all"
           >
             <Download className="mr-2" size={16} />
-            Export All
+            {exportAllMutation.isPending ? 'Exporting...' : 'Export All'}
           </Button>
         </div>
         

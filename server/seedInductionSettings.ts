@@ -7,7 +7,7 @@ const inductionSettingsData: InsertInductionSettings[] = [
   {
     roleType: "visitor",
     videoTitle: "Visitor Induction",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Sample placeholder - replace with real visitor induction video
+    videoUrl: "", // Replace with your company's visitor induction video URL
     videoDescription: "Essential safety information for site visitors including emergency procedures, visitor escort requirements, and prohibited areas.",
     videoDurationMinutes: 10,
     passPercentage: 75,
@@ -16,7 +16,7 @@ const inductionSettingsData: InsertInductionSettings[] = [
   {
     roleType: "staff",
     videoTitle: "Staff Induction",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Sample placeholder - replace with real staff induction video
+    videoUrl: "", // Replace with your company's staff induction video URL
     videoDescription: "Comprehensive health and safety training for permanent staff members including company policies, emergency procedures, and workplace hazards.",
     videoDurationMinutes: 20,
     passPercentage: 80,
@@ -25,7 +25,7 @@ const inductionSettingsData: InsertInductionSettings[] = [
   {
     roleType: "contractor",
     videoTitle: "Contractor Induction",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Sample placeholder - replace with real contractor induction video
+    videoUrl: "", // Replace with your company's contractor induction video URL
     videoDescription: "Detailed safety requirements for contractors including PPE standards, permit requirements, risk assessments, and site-specific hazards.",
     videoDurationMinutes: 25,
     passPercentage: 85,
