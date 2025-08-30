@@ -11,11 +11,19 @@ interface PrintVisitorPassOptions {
 export async function printVisitorPass({ visitor, staff, toast }: PrintVisitorPassOptions) {
   try {
     // Fetch tenant company information for branding
-    const tenantResponse = await apiRequest("GET", `/api/super-admin/tenants/by-id/${visitor.visitingTenantId}`);
-    const tenantCompany: TenantCompany = await tenantResponse.json();
+    let tenantCompany: TenantCompany | null = null;
     
-    // Get tenant-specific information
-    const companyName = tenantCompany?.companyName || "Company Name";
+    if (visitor.visitingTenantId) {
+      try {
+        const tenantResponse = await apiRequest("GET", `/api/super-admin/tenants/by-id/${visitor.visitingTenantId}`);
+        tenantCompany = await tenantResponse.json();
+      } catch (error) {
+        console.warn("Failed to fetch tenant company info:", error);
+      }
+    }
+    
+    // Get tenant-specific information with fallbacks
+    const companyName = tenantCompany?.companyName || "VisiGate Pro";
     const companyAddress = tenantCompany?.address || "Address not provided";
     const companyPhone = tenantCompany?.phone || "";
     const companyWebsite = tenantCompany?.website || "";
