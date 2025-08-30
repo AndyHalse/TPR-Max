@@ -34,7 +34,7 @@ export class AIService {
         style: "vivid"
       });
 
-      const imageUrl = response.data[0].url;
+      const imageUrl = response.data?.[0]?.url;
       if (!imageUrl) {
         throw new Error('No image URL returned from DALL-E');
       }
@@ -97,7 +97,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 600
+        max_completion_tokens: 600
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -177,7 +177,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 500
+        max_completion_tokens: 500
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -263,7 +263,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 400
+        max_completion_tokens: 400
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -355,7 +355,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 700
+        max_completion_tokens: 700
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -449,10 +449,10 @@ export class AIService {
         Current Visitors on Site: ${stats.currentVisitors}
 
         Visitor Details:
-        ${visitors.map(v => `- ${v.name} from ${v.company || 'Unknown'}, Purpose: ${v.purpose || 'General'}, Host: ${staff.find(s => s.id === v.hostStaffId)?.name || 'Unknown'}`).join('\n')}
+        ${visitors.map(v => `- ${v.firstName} ${v.lastName} from ${v.company || 'Unknown'}, Purpose: ${v.purpose || 'General'}, Host: ${staff.find(s => s.id === v.hostStaffId) ? `${staff.find(s => s.id === v.hostStaffId)?.firstName} ${staff.find(s => s.id === v.hostStaffId)?.lastName}` : 'Unknown'}`).join('\n')}
 
         Staff Departments:
-        ${staff.map(s => `- ${s.name} (${s.department})`).join('\n')}
+        ${staff.map(s => `- ${s.firstName} ${s.lastName} (${s.department})`).join('\n')}
 
         Please provide a JSON response with simple string values:
         1. insights: Array of 3-4 key business insights about visitor patterns (simple strings)
@@ -477,7 +477,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 800
+        max_completion_tokens: 800
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -535,7 +535,7 @@ export class AIService {
         Current Visitors: ${visitors.length}
         
         Recent Visitor Activity:
-        ${visitors.slice(0, 5).map(v => `- ${v.name} from ${v.company || 'Unknown'} (${v.purpose || 'General visit'})`).join('\n')}
+        ${visitors.slice(0, 5).map(v => `- ${v.firstName} ${v.lastName} from ${v.company || 'Unknown'} (${v.purpose || 'General visit'})`).join('\n')}
 
         Provide a brief, professional security recommendation (2-3 sentences) on whether this requires immediate attention.
       `;
@@ -552,7 +552,7 @@ export class AIService {
             content: prompt
           }
         ],
-        max_tokens: 200
+        max_completion_tokens: 200
       });
 
       return response.choices[0].message.content || 'Standard security protocols recommended.';
@@ -605,7 +605,7 @@ export class AIService {
             content: prompt
           }
         ],
-        max_tokens: 600
+        max_completion_tokens: 600
       });
 
       return response.choices[0].message.content || originalContent;
@@ -661,7 +661,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 500
+        max_completion_tokens: 500
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -752,7 +752,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 400
+        max_completion_tokens: 400
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -824,7 +824,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 600
+        max_completion_tokens: 600
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -897,7 +897,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 500
+        max_completion_tokens: 500
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -967,7 +967,7 @@ export class AIService {
           }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 500
+        max_completion_tokens: 500
       });
 
       const result = JSON.parse(response.choices[0].message.content || '{}');
