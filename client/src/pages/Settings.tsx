@@ -34,6 +34,7 @@ export default function Settings() {
   const [showManualResetDialog, setShowManualResetDialog] = useState(false);
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [departmentToEdit, setDepartmentToEdit] = useState<Department | null>(null);
+  const [suggestedTextColors, setSuggestedTextColors] = useState<{light: string, dark: string}>({ light: '#000000', dark: '#ffffff' });
   const [departmentForm, setDepartmentForm] = useState<Partial<InsertDepartment>>({
     name: "",
     description: "",
@@ -318,8 +319,56 @@ export default function Settings() {
     }
   };
 
+  // Calculate contrast ratio between two colors
+  const calculateContrastRatio = (color1: string, color2: string) => {
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    };
+
+    const getLuminance = (r: number, g: number, b: number) => {
+      const [rs, gs, bs] = [r, g, b].map(c => {
+        c = c / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    };
+
+    const rgb1 = hexToRgb(color1);
+    const rgb2 = hexToRgb(color2);
+    if (!rgb1 || !rgb2) return 1;
+
+    const lum1 = getLuminance(rgb1.r, rgb1.g, rgb1.b);
+    const lum2 = getLuminance(rgb2.r, rgb2.g, rgb2.b);
+    const brightest = Math.max(lum1, lum2);
+    const darkest = Math.min(lum1, lum2);
+    return (brightest + 0.05) / (darkest + 0.05);
+  };
+
+  // Suggest text colors based on background
+  const suggestTextColors = (backgroundColor: string) => {
+    const whiteContrast = calculateContrastRatio(backgroundColor, '#ffffff');
+    const blackContrast = calculateContrastRatio(backgroundColor, '#000000');
+    
+    return {
+      light: whiteContrast > blackContrast ? '#ffffff' : '#f8fafc',
+      dark: blackContrast > whiteContrast ? '#000000' : '#1e293b'
+    };
+  };
+
   const handleInputChange = (field: keyof InsertCompanySettings, value: any) => {
     console.log('Input changed:', field, '=', value);
+    
+    // If background color changed, suggest text colors
+    if (field === 'backgroundColor') {
+      const suggestions = suggestTextColors(value);
+      setSuggestedTextColors(suggestions);
+    }
+    
     setFormData(prev => {
       const newData = { ...prev, [field]: value };
       console.log('Updated form data:', newData);
@@ -1078,9 +1127,33 @@ export default function Settings() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700">
-                    Text Color
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700">
+                      Text Color
+                    </Label>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs bg-white hover:bg-gray-50"
+                        onClick={() => handleInputChange("foregroundColor", suggestedTextColors.light)}
+                        data-testid="button-suggest-light-text"
+                      >
+                        Light
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs bg-gray-800 text-white hover:bg-gray-700"
+                        onClick={() => handleInputChange("foregroundColor", suggestedTextColors.dark)}
+                        data-testid="button-suggest-dark-text"
+                      >
+                        Dark
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex gap-3 items-center">
                     <Input
                       id="foregroundColor"
@@ -1098,6 +1171,14 @@ export default function Settings() {
                       placeholder="#1e293b"
                     />
                   </div>
+                  {currentSettings?.backgroundColor && (
+                    <div className="text-xs text-slate-500">
+                      Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b").toFixed(1)}:1
+                      {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b") < 4.5 && (
+                        <span className="text-amber-600 ml-2">⚠ Low contrast - may be hard to read</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -1124,20 +1205,103 @@ export default function Settings() {
                 </div>
                 
                 <div className="p-4 rounded-xl border-2 border-dashed border-slate-300 mt-6">
-                  <div 
-                    className="p-4 rounded-lg transition-colors"
-                    style={{
-                      backgroundColor: currentSettings?.backgroundColor || "#f8fafc",
-                      color: currentSettings?.foregroundColor || "#1e293b"
-                    }}
-                  >
-                    <h4 className="font-semibold mb-2">Preview</h4>
-                    <p className="text-sm mb-3">This is how your branding will look</p>
+                  <h5 className="font-medium text-slate-700 mb-4">Live Preview</h5>
+                  <div className="space-y-4">
+                    {/* Dashboard Card Preview */}
                     <div 
-                      className="inline-block px-3 py-2 rounded text-white text-sm"
-                      style={{ backgroundColor: currentSettings?.accentColor || "#3b82f6" }}
+                      className="p-4 rounded-lg border transition-colors"
+                      style={{
+                        backgroundColor: currentSettings?.backgroundColor || "#f8fafc",
+                        color: currentSettings?.foregroundColor || "#1e293b",
+                        borderColor: currentSettings?.accentColor ? `${currentSettings.accentColor}30` : "#3b82f630"
+                      }}
                     >
-                      Button Example
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-semibold">Dashboard Card</h4>
+                        <span className="text-2xl font-bold">42</span>
+                      </div>
+                      <p className="text-sm opacity-80">Sample dashboard metrics</p>
+                      <div 
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mt-2"
+                        style={{ 
+                          backgroundColor: currentSettings?.accentColor || "#3b82f6",
+                          color: "white"
+                        }}
+                      >
+                        ✓ Active Status
+                      </div>
+                    </div>
+
+                    {/* Navigation Preview */}
+                    <div 
+                      className="p-3 rounded-lg border transition-colors"
+                      style={{
+                        backgroundColor: currentSettings?.backgroundColor || "#f8fafc",
+                        color: currentSettings?.foregroundColor || "#1e293b",
+                        borderColor: currentSettings?.accentColor ? `${currentSettings.accentColor}30` : "#3b82f630"
+                      }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div 
+                          className="w-8 h-8 rounded flex items-center justify-center text-white text-sm font-medium"
+                          style={{ backgroundColor: currentSettings?.accentColor || "#3b82f6" }}
+                        >
+                          🏠
+                        </div>
+                        <span className="font-medium">Navigation Item</span>
+                        <span className="ml-auto text-sm opacity-60">Badge</span>
+                      </div>
+                    </div>
+
+                    {/* Form Preview */}
+                    <div 
+                      className="p-4 rounded-lg border transition-colors"
+                      style={{
+                        backgroundColor: currentSettings?.backgroundColor || "#f8fafc",
+                        color: currentSettings?.foregroundColor || "#1e293b",
+                        borderColor: currentSettings?.accentColor ? `${currentSettings.accentColor}30` : "#3b82f630"
+                      }}
+                    >
+                      <h5 className="font-medium mb-3">Form Example</h5>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Sample Field</label>
+                        <div 
+                          className="p-2 rounded border text-sm"
+                          style={{ 
+                            backgroundColor: "rgba(255,255,255,0.5)",
+                            borderColor: currentSettings?.accentColor || "#3b82f6"
+                          }}
+                        >
+                          Input field example
+                        </div>
+                        <button 
+                          className="px-4 py-2 rounded font-medium text-white text-sm transition-all hover:opacity-90"
+                          style={{ backgroundColor: currentSettings?.accentColor || "#3b82f6" }}
+                        >
+                          Submit Button
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Alert Preview */}
+                    <div 
+                      className="p-3 rounded-lg border-l-4 transition-colors"
+                      style={{
+                        backgroundColor: currentSettings?.backgroundColor ? `${currentSettings.backgroundColor}80` : "#f8fafc80",
+                        color: currentSettings?.foregroundColor || "#1e293b",
+                        borderLeftColor: currentSettings?.accentColor || "#3b82f6"
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span 
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-xs text-white"
+                          style={{ backgroundColor: currentSettings?.accentColor || "#3b82f6" }}
+                        >
+                          ℹ
+                        </span>
+                        <span className="text-sm font-medium">Alert Message</span>
+                      </div>
+                      <p className="text-xs mt-1 opacity-80">This is how notifications will appear</p>
                     </div>
                   </div>
                 </div>
