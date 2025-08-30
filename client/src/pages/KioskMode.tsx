@@ -396,7 +396,7 @@ export default function KioskMode() {
             </div>
             <div className="text-center">
               <LogOut className="mx-auto mb-2 text-green-600" size={24} />
-              <p className="font-medium mb-1 text-sm sm:text-base">Leaving</p>
+              <p className="font-medium mb-1 text-sm sm:text-base text-[#a587e5]">Leaving</p>
               <p className="text-xs sm:text-sm" style={{color: 'white'}}>Use QR Scanner with your pass QR code</p>
             </div>
           </div>
