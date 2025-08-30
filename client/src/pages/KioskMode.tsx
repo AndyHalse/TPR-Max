@@ -326,7 +326,6 @@ export default function KioskMode() {
           />
         </div>
       )}
-      
       <div className="max-w-6xl mx-auto flex-1 flex flex-col justify-center">
         <div className="text-center flex-shrink-0 mb-4 sm:mb-6 lg:mb-8">
           <h2 
@@ -387,7 +386,7 @@ export default function KioskMode() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 text-variable">
             <div className="text-center">
               <QrCode className="mx-auto mb-2 text-purple-600" size={24} />
-              <p className="font-medium mb-1 text-sm sm:text-base">Pre-booked visitors</p>
+              <p className="font-medium mb-1 text-sm sm:text-base text-[#ab94e0]">Pre-booked visitors</p>
               <p className="text-xs sm:text-sm" style={{color: 'white'}}>Use QR Scanner with your email QR code</p>
             </div>
             <div className="text-center">
