@@ -266,16 +266,29 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     const prompt = roleSpecificPrompts[roleType as keyof typeof roleSpecificPrompts] || roleSpecificPrompts.contractor;
 
     try {
+      console.log(`🔧 Starting script generation with comprehensive logging...`);
+      console.log(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
+      console.log(`🔧 OpenAI API key configured: ${process.env.OPENAI_API_KEY ? 'YES' : 'NO'}`);
+      
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('CRITICAL: OpenAI API key not configured');
+      }
+      
       let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
+      console.log(`🤖 Selected AI model: ${selectedModel}`);
       
       let response;
       try {
+        console.log(`🚀 Making API call to ${selectedModel}...`);
+        console.log(`📝 Prompt length: ${prompt.length} characters`);
+        
+        const startTime = Date.now();
         response = await openai.chat.completions.create({
           model: selectedModel,
         messages: [
           {
             role: "system",
-            content: `You are a UK Health & Safety expert creating professional induction content. You MUST respond with valid JSON format. Create a detailed, engaging script that covers all essential safety points for ${roleType}s.`
+            content: `You are a UK Health & Safety expert creating professional induction content. You MUST respond with valid JSON format containing script, scenes array, and totalDuration. Each scene must have title, content, duration, and imagePrompt fields.`
           },
           {
             role: "user", 
@@ -354,13 +367,29 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         }
       }
 
+      const apiDuration = Date.now() - startTime;
+      console.log(`⏱️ API call completed in ${apiDuration}ms`);
+      
+      const rawContent = response.choices[0].message.content;
+      console.log(`📥 Raw AI response length: ${rawContent?.length || 0} characters`);
+      console.log(`📥 Raw AI response preview: ${rawContent?.substring(0, 200) || 'NO CONTENT'}...`);
+      
+      if (!rawContent) {
+        throw new Error('CRITICAL: No content received from OpenAI API');
+      }
+      
       let content;
       try {
-        content = JSON.parse(response.choices[0].message.content || '{}');
+        content = JSON.parse(rawContent);
         console.log('✅ JSON parsing successful, scenes found:', content.scenes?.length || 0);
+        
+        if (!content.scenes || content.scenes.length === 0) {
+          console.error('🚨 CRITICAL: AI returned valid JSON but NO SCENES!');
+          console.error('🚨 Response structure:', JSON.stringify(content, null, 2));
+        }
       } catch (parseError) {
         console.error('❌ JSON parsing failed:', parseError);
-        console.error('Raw response:', response.choices[0].message.content);
+        console.error('❌ Raw content that failed parsing:', rawContent);
         // Fallback: create default scenes if parsing fails
         console.log('🔄 Using fallback scenes');
         content = {
@@ -415,13 +444,49 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       
       console.log('🎬 Final result - scenes count:', result.scenes.length);
       console.log('🎬 First scene title:', result.scenes[0]?.title || 'No scenes');
+      console.log('🎬 All scene titles:', result.scenes.map(s => s.title));
+      
+      if (result.scenes.length === 0) {
+        console.error('🚨 FINAL VALIDATION: Zero scenes in result - this will cause fallback!');
+        console.error('🚨 Full AI response structure:', JSON.stringify(content, null, 2));
+      }
       
       return result;
       
-    } catch (error) {
-      console.error('Error generating induction script:', error);
-      throw new Error('Failed to generate induction script');
-    }
+    } catch (error: any) {
+      console.error('🚨 CRITICAL ERROR in generateInductionScript:', error);
+      console.error('🚨 Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // Check specific error types for better debugging
+      if (error.response?.status === 429) {
+        console.error('🚫 RATE LIMIT ERROR: Too many requests to OpenAI API');
+        throw new Error('Rate limit exceeded. Please wait and try again.');
+      }
+      
+      if (error.response?.status === 401) {
+        console.error('🚫 AUTHENTICATION ERROR: Invalid OpenAI API key');
+        throw new Error('Invalid OpenAI API key. Please check configuration.');
+      }
+      
+      if (error.response?.status === 404) {
+        console.error('🚫 MODEL ERROR: Requested model not available');
+        throw new Error(`Model ${modelType} not available. Falling back to default.`);
+      }
+      
+      if (error.response?.status >= 500) {
+        console.error('🚫 SERVER ERROR: OpenAI service unavailable');
+        throw new Error('OpenAI service temporarily unavailable. Please try again later.');
+      }
+      
+      throw new Error(`Failed to generate induction script: ${error.message}`);
   }
 
   // Generate scene images for the induction (optimized for speed)
