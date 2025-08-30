@@ -274,8 +274,9 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         throw new Error('CRITICAL: OpenAI API key not configured');
       }
       
-      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-4o";
-      console.log(`🤖 Selected AI model: ${selectedModel}`);
+      // Force GPT-4o since GPT-5 is not available yet
+      let selectedModel = "gpt-4o";
+      console.log(`🤖 Selected AI model: ${selectedModel} (forced to use available model)`);
       
       let response;
       let apiStartTime: number = Date.now();
@@ -315,14 +316,8 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
           }
         ],
         response_format: { type: "json_object" },
-        // GPT-5 only supports temperature 1.0, older models support custom values
-        ...(this.companySettings?.openaiModel === 'gpt-5' || this.companySettings?.openaiModel?.includes('gpt-6') || this.companySettings?.openaiModel?.includes('gpt-7')
-          ? {} // Use default temperature (1.0) for GPT-5+
-          : { temperature: parseFloat(this.companySettings?.openaiTemperature || "0.7") }),
-        // GPT-5 and newer use max_completion_tokens instead of max_tokens
-        ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
-          ? { max_completion_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }
-          : { max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "4000") }),
+        temperature: 0.7,
+        max_tokens: 4000,
         });
       } catch (error: any) {
         if (error.code === 'model_not_found' && selectedModel === 'gpt-5') {
