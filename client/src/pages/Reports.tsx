@@ -160,12 +160,48 @@ export default function Reports() {
     if (type.startsWith("auto_")) {
       return `Auto ${type.replace("auto_", "").charAt(0).toUpperCase() + type.replace("auto_", "").slice(1)}`;
     }
-    return type.charAt(0).toUpperCase() + type.slice(1);
+    
+    const typeMap: Record<string, string> = {
+      daily: "Daily Report",
+      weekly: "Weekly Report", 
+      monthly: "Monthly Report",
+      quarterly: "Quarterly Report",
+      yearly: "Yearly Report",
+      custom: "Custom Range Report",
+      visitor_analysis: "Visitor Analysis",
+      security_audit: "Security Audit",
+      contractor_summary: "Contractor Summary",
+      emergency_readiness: "Emergency Readiness",
+      compliance_check: "Compliance Check",
+      department_analytics: "Department Analytics",
+      peak_hours_analysis: "Peak Hours Analysis",
+      visitor_satisfaction: "Visitor Satisfaction"
+    };
+    
+    return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   const getReportTypeColor = (type: string) => {
     if (type.startsWith("auto_")) return "bg-green-100 text-green-800";
-    return "bg-blue-100 text-blue-800";
+    
+    const colorMap: Record<string, string> = {
+      daily: "bg-blue-100 text-blue-800",
+      weekly: "bg-blue-100 text-blue-800",
+      monthly: "bg-indigo-100 text-indigo-800",
+      quarterly: "bg-purple-100 text-purple-800",
+      yearly: "bg-violet-100 text-violet-800",
+      custom: "bg-gray-100 text-gray-800",
+      visitor_analysis: "bg-emerald-100 text-emerald-800",
+      security_audit: "bg-red-100 text-red-800",
+      contractor_summary: "bg-orange-100 text-orange-800",
+      emergency_readiness: "bg-yellow-100 text-yellow-800",
+      compliance_check: "bg-teal-100 text-teal-800",
+      department_analytics: "bg-cyan-100 text-cyan-800",
+      peak_hours_analysis: "bg-rose-100 text-rose-800",
+      visitor_satisfaction: "bg-pink-100 text-pink-800"
+    };
+    
+    return colorMap[type] || "bg-blue-100 text-blue-800";
   };
 
   if (isLoading) {
@@ -262,7 +298,17 @@ export default function Reports() {
                   <SelectItem value="daily">Daily Report</SelectItem>
                   <SelectItem value="weekly">Weekly Report</SelectItem>
                   <SelectItem value="monthly">Monthly Report</SelectItem>
+                  <SelectItem value="quarterly">Quarterly Report</SelectItem>
+                  <SelectItem value="yearly">Yearly Report</SelectItem>
                   <SelectItem value="custom">Custom Range</SelectItem>
+                  <SelectItem value="visitor_analysis">Visitor Analysis Report</SelectItem>
+                  <SelectItem value="security_audit">Security Audit Report</SelectItem>
+                  <SelectItem value="contractor_summary">Contractor Summary</SelectItem>
+                  <SelectItem value="emergency_readiness">Emergency Readiness Report</SelectItem>
+                  <SelectItem value="compliance_check">Compliance Check Report</SelectItem>
+                  <SelectItem value="department_analytics">Department Analytics</SelectItem>
+                  <SelectItem value="peak_hours_analysis">Peak Hours Analysis</SelectItem>
+                  <SelectItem value="visitor_satisfaction">Visitor Satisfaction Report</SelectItem>
                 </SelectContent>
               </Select>
             </div>
