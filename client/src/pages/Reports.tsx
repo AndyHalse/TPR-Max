@@ -169,8 +169,13 @@ export default function Reports() {
       yearly: "Yearly Report",
       custom: "Custom Range Report",
       visitor_analysis: "Visitor Analysis",
-      security_audit: "Security Audit",
+      staff_attendance: "Staff Attendance",
+      staff_by_department: "Staff by Department",
       contractor_summary: "Contractor Summary",
+      contractor_safety: "Contractor Safety",
+      contractor_attendance: "Contractor Attendance",
+      contractor_compliance: "Contractor Compliance",
+      security_audit: "Security Audit",
       emergency_readiness: "Emergency Readiness",
       compliance_check: "Compliance Check",
       department_analytics: "Department Analytics",
@@ -192,8 +197,13 @@ export default function Reports() {
       yearly: "bg-violet-100 text-violet-800",
       custom: "bg-gray-100 text-gray-800",
       visitor_analysis: "bg-emerald-100 text-emerald-800",
-      security_audit: "bg-red-100 text-red-800",
+      staff_attendance: "bg-blue-100 text-blue-800",
+      staff_by_department: "bg-indigo-100 text-indigo-800",
       contractor_summary: "bg-orange-100 text-orange-800",
+      contractor_safety: "bg-red-100 text-red-800",
+      contractor_attendance: "bg-amber-100 text-amber-800",
+      contractor_compliance: "bg-yellow-100 text-yellow-800",
+      security_audit: "bg-red-100 text-red-800",
       emergency_readiness: "bg-yellow-100 text-yellow-800",
       compliance_check: "bg-teal-100 text-teal-800",
       department_analytics: "bg-cyan-100 text-cyan-800",
@@ -302,8 +312,13 @@ export default function Reports() {
                   <SelectItem value="yearly">Yearly Report</SelectItem>
                   <SelectItem value="custom">Custom Range</SelectItem>
                   <SelectItem value="visitor_analysis">Visitor Analysis Report</SelectItem>
+                  <SelectItem value="staff_attendance">Staff Attendance Report</SelectItem>
+                  <SelectItem value="staff_by_department">Staff by Department Report</SelectItem>
+                  <SelectItem value="contractor_summary">Contractor Summary Report</SelectItem>
+                  <SelectItem value="contractor_safety">Contractor Safety Report</SelectItem>
+                  <SelectItem value="contractor_attendance">Contractor Attendance Report</SelectItem>
+                  <SelectItem value="contractor_compliance">Contractor Compliance Report</SelectItem>
                   <SelectItem value="security_audit">Security Audit Report</SelectItem>
-                  <SelectItem value="contractor_summary">Contractor Summary</SelectItem>
                   <SelectItem value="emergency_readiness">Emergency Readiness Report</SelectItem>
                   <SelectItem value="compliance_check">Compliance Check Report</SelectItem>
                   <SelectItem value="department_analytics">Department Analytics</SelectItem>
