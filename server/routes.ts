@@ -2409,8 +2409,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { recipients } = req.body;
       
-      if (!recipients || !Array.isArray(recipients)) {
-        return res.status(400).json({ error: "Recipients are required" });
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ error: "Valid recipients are required" });
       }
       
       // Get report and settings
@@ -2439,9 +2439,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedOutVisitors: visitorsInRange.filter(v => v.checkedOutAt)
       };
       
-      // Send email using dynamic service
-      const dynamicEmailService = new EmailService(settings);
-      const emailSent = await dynamicEmailService.sendReport(report, settings, recipients, reportData);
+      // Send email using EmailService
+      const emailService = new EmailService();
+      const emailSent = await emailService.sendReport(report, settings, recipients, reportData);
       
       if (emailSent) {
         await storage.updateReport(id, {
@@ -2454,6 +2454,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending report email:", error);
       res.status(500).json({ error: "Failed to send report email" });
+    }
+  });
+
+  // Add route for viewing reports
+  app.get("/api/reports/:id/view", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get report and settings
+      const reports = await storage.getAllReports();
+      const report = reports.find(r => r.id === id);
+      const settings = await storage.getCompanySettings();
+      
+      if (!report) {
+        return res.status(404).send("<h1>Report Not Found</h1><p>The requested report could not be found.</p>");
+      }
+      
+      // Get report data
+      const allVisitors = await storage.getAllVisitors();
+      const staff = await storage.getAllStaff();
+      const visitorsInRange = allVisitors.filter(v => 
+        v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
+      );
+      
+      const reportData = {
+        visitors: visitorsInRange,
+        staff,
+        checkedOutVisitors: visitorsInRange.filter(v => v.checkedOutAt)
+      };
+      
+      // Generate HTML using the same method as email
+      const emailService = new EmailService();
+      const html = (emailService as any).generateReportHTML(report, reportData, settings?.companyName || 'VisiGate Pro');
+      
+      res.send(html);
+    } catch (error) {
+      console.error("Error viewing report:", error);
+      res.status(500).send("<h1>Error</h1><p>Failed to load report.</p>");
     }
   });
 

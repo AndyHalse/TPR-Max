@@ -398,12 +398,12 @@ export default function Reports() {
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-slate-700">Recipients</Label>
+                <Label className="text-sm font-medium text-slate-700">Email Recipients</Label>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowStaffSelection(!showStaffSelection)}
-                  className="text-xs"
+                  className="text-xs hover:bg-blue-50"
                   data-testid="button-toggle-staff-selection"
                 >
                   <UserCheck className="mr-1" size={12} />
@@ -414,47 +414,55 @@ export default function Reports() {
               {showStaffSelection && (
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-white/30 rounded-xl p-3 bg-white/30">
                   <Label className="text-xs font-medium text-slate-600">Select Staff Members:</Label>
-                  {staff?.map((staffMember) => (
-                    <div key={staffMember.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`staff-${staffMember.id}`}
-                        checked={selectedStaff.includes(staffMember.id)}
-                        onCheckedChange={(checked) => handleStaffSelection(staffMember.id, checked === true)}
-                        data-testid={`checkbox-staff-${staffMember.id}`}
-                      />
-                      <Label htmlFor={`staff-${staffMember.id}`} className="text-sm text-slate-700 cursor-pointer">
-                        {staffMember.firstName} {staffMember.lastName} ({staffMember.department})
-                      </Label>
-                    </div>
-                  ))}
-                  {selectedStaff.length > 0 && (
-                    <p className="text-xs text-blue-600 mt-2">
-                      {selectedStaff.length} staff member{selectedStaff.length !== 1 ? 's' : ''} selected
-                    </p>
+                  {staff && staff.length > 0 ? (
+                    <>
+                      {staff.map((staffMember) => (
+                        <div key={staffMember.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`staff-${staffMember.id}`}
+                            checked={selectedStaff.includes(staffMember.id)}
+                            onCheckedChange={(checked) => handleStaffSelection(staffMember.id, checked === true)}
+                            data-testid={`checkbox-staff-${staffMember.id}`}
+                          />
+                          <Label htmlFor={`staff-${staffMember.id}`} className="text-sm text-slate-700 cursor-pointer">
+                            {staffMember.firstName} {staffMember.lastName} 
+                            {staffMember.department && ` (${staffMember.department})`}
+                            {staffMember.email && <span className="text-xs text-slate-500 ml-1">- {staffMember.email}</span>}
+                          </Label>
+                        </div>
+                      ))}
+                      {selectedStaff.length > 0 && (
+                        <p className="text-xs text-blue-600 mt-2 font-medium">
+                          ✓ {selectedStaff.length} staff member{selectedStaff.length !== 1 ? 's' : ''} selected
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xs text-slate-500">No staff members found</p>
                   )}
                 </div>
               )}
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-slate-700">
-                  Manual Email Recipients (optional)
+                  Additional Email Recipients (optional)
                 </Label>
                 <Input
-                  type="text"
+                  type="email"
                   placeholder="Enter email addresses separated by commas"
                   value={emailRecipients}
                   onChange={(e) => setEmailRecipients(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                   data-testid="input-email-recipients"
                 />
-                <p className="text-xs text-slate-500">
+                <div className="text-xs text-slate-600 bg-blue-50 p-2 rounded-lg">
                   {selectedStaff.length > 0 
-                    ? `Will send to ${selectedStaff.length} selected staff member${selectedStaff.length !== 1 ? 's' : ''}` 
+                    ? `📧 Will send to ${selectedStaff.length} selected staff member${selectedStaff.length !== 1 ? 's' : ''}${emailRecipients.trim() ? ' + manual recipients' : ''}` 
                     : emailRecipients.trim() 
-                      ? "Will use manual recipients" 
-                      : `Default: ${settings?.email || 'admin@company.com'}`
+                      ? "📧 Will send to manual recipients only" 
+                      : `📧 Default recipient: ${settings?.email || 'admin@company.com'}`
                   }
-                </p>
+                </div>
               </div>
             </div>
           </div>
