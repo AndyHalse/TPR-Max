@@ -274,7 +274,7 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         throw new Error('CRITICAL: OpenAI API key not configured');
       }
       
-      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
+      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-4o";
       console.log(`🤖 Selected AI model: ${selectedModel}`);
       
       let response;
@@ -371,11 +371,31 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       const apiDuration = Date.now() - apiStartTime;
       console.log(`⏱️ API call completed in ${apiDuration}ms`);
       
-      const rawContent = response.choices[0].message.content;
+      // Debug the full API response structure
+      console.log('🔍 Full API response structure:', JSON.stringify({
+        choices: response.choices?.map(choice => ({
+          index: choice.index,
+          message: {
+            role: choice.message?.role,
+            content: choice.message?.content ? `${choice.message.content.substring(0, 100)}...` : 'NO CONTENT',
+            contentLength: choice.message?.content?.length || 0
+          },
+          finish_reason: choice.finish_reason
+        })),
+        usage: response.usage,
+        model: response.model,
+        id: response.id
+      }, null, 2));
+      
+      const rawContent = response.choices?.[0]?.message?.content;
       console.log(`📥 Raw AI response length: ${rawContent?.length || 0} characters`);
       console.log(`📥 Raw AI response preview: ${rawContent?.substring(0, 200) || 'NO CONTENT'}...`);
       
       if (!rawContent) {
+        console.error('❌ CRITICAL: OpenAI returned empty content!');
+        console.error('❌ Response choices:', response.choices);
+        console.error('❌ First choice message:', response.choices?.[0]?.message);
+        console.error('❌ Finish reason:', response.choices?.[0]?.finish_reason);
         throw new Error('CRITICAL: No content received from OpenAI API');
       }
       
