@@ -1186,6 +1186,15 @@ export class MemStorage implements IStorage {
     return Array.from(this.visitors.values()).find(visitor => visitor.qrCode === qrCode);
   }
 
+  async findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
+    return Array.from(this.visitors.values()).find(visitor => 
+      visitor.isCheckedIn &&
+      visitor.firstName === firstName &&
+      visitor.lastName === lastName &&
+      (company ? visitor.company === company : true)
+    );
+  }
+
   async getUniqueCompanies(): Promise<string[]> {
     const companies = new Set<string>();
     

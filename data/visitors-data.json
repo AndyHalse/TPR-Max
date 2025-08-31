@@ -416,5 +416,18 @@
     "checkedInAt": "2025-08-31T14:32:19.815Z",
     "checkedOutAt": null,
     "isCheckedIn": true
+  },
+  {
+    "id": "5aa83a90-de42-41c9-af74-0760e2333d8f",
+    "firstName": "John",
+    "lastName": "Smith",
+    "company": "Tech Solutions Ltd",
+    "purpose": "Site Visit",
+    "carRegistration": null,
+    "hostStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+    "qrCode": "VIS-1756651866146-vz5k5z30b",
+    "checkedInAt": "2025-08-31T14:51:06.146Z",
+    "checkedOutAt": null,
+    "isCheckedIn": true
   }
 ]
