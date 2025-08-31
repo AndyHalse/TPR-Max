@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import AIInsights from "@/components/AIInsights";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -851,19 +851,24 @@ export default function Dashboard() {
         </GlassCard>
       </div>
 
-      {/* Reception Diary - Comprehensive Cross-Tenant Pre-Booking Management */}
+      {/* Reception Diary - Comprehensive Operations Overview */}
       <GlassCard className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200 dark:border-indigo-800">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <CalendarDays className="mr-3 text-indigo-600 dark:text-indigo-400" size={32} />
             <div>
               <h3 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">Reception Diary</h3>
-              <p className="text-sm text-indigo-600 dark:text-indigo-400">Cross-tenant visitor scheduling & preparation</p>
+              <p className="text-sm text-indigo-600 dark:text-indigo-400">Complete operational overview - visitors & meetings</p>
             </div>
           </div>
-          <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
-            {filteredDiary?.length || 0} Scheduled
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
+              {filteredDiary?.length || 0} Visitors
+            </Badge>
+            <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+              {todayRoomBookings?.length || 0} Meetings
+            </Badge>
+          </div>
         </div>
 
         {/* View Controls */}
@@ -938,121 +943,234 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Quick Summary Bar */}
+        {((filteredDiary && filteredDiary.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
+              <div className="flex items-center gap-2">
+                <Users className="text-indigo-600" size={20} />
+                <div>
+                  <div className="text-lg font-bold text-indigo-800 dark:text-indigo-200">
+                    {filteredDiary?.length || 0}
+                  </div>
+                  <div className="text-xs text-indigo-600 dark:text-indigo-400">Expected Visitors</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center gap-2">
+                <Calendar className="text-purple-600" size={20} />
+                <div>
+                  <div className="text-lg font-bold text-purple-800 dark:text-purple-200">
+                    {diaryViewMode === 'today' ? (todayRoomBookings?.length || 0) : 0}
+                  </div>
+                  <div className="text-xs text-purple-600 dark:text-purple-400">Room Bookings</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="text-green-600" size={20} />
+                <div>
+                  <div className="text-lg font-bold text-green-800 dark:text-green-200">
+                    {filteredDiary?.filter(entry => entry.isCheckedIn).length || 0}
+                  </div>
+                  <div className="text-xs text-green-600 dark:text-green-400">Already Arrived</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-6 max-h-96 overflow-y-auto scrollbar-thin">
           {diaryLoading ? (
             <div className="text-center py-8 text-slate-600">
               <Calendar className="mx-auto mb-3 text-slate-400" size={40} />
               <p>Loading reception diary...</p>
             </div>
-          ) : !filteredDiary || filteredDiary.length === 0 ? (
+          ) : (!filteredDiary || filteredDiary.length === 0) && (!todayRoomBookings || todayRoomBookings.length === 0) ? (
             <div className="text-center py-8 text-slate-600">
               <CalendarDays className="mx-auto mb-3 text-slate-400" size={40} />
-              <p className="font-medium">No visits scheduled for {getViewTitle().toLowerCase()}</p>
-              <p className="text-sm mt-2">Pre-booked visitors will appear here for preparation</p>
+              <p className="font-medium">No activities scheduled for {getViewTitle().toLowerCase()}</p>
+              <p className="text-sm mt-2">Visitor pre-bookings and meeting room bookings will appear here</p>
             </div>
           ) : (
-            Object.entries(groupedDiary)
-              .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-              .slice(0, diaryViewMode === 'weekly' ? 7 : 4) // Show all 7 days for weekly view, 4 for others
-              .map(([dateKey, entries]) => {
-                const date = new Date(dateKey);
-                const dayStatus = getDayStatus(date);
-                
-                return (
-                  <div key={dateKey} className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <Badge className={`${dayStatus.color} font-medium`}>
-                        {dayStatus.label}
-                      </Badge>
-                      <span className="text-xs text-slate-500">
-                        {entries.length} visit{entries.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2 pl-4 border-l-2 border-indigo-200 dark:border-indigo-800">
-                      {entries
-                        .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
-                        .map((entry) => {
-                          const priority = getPriorityLevel(entry);
-                          const visitTime = formatVisitTime(new Date(entry.visitDate));
-                          
-                          return (
-                            <div
-                              key={entry.id}
-                              className={`p-4 rounded-xl border ${priority.color} bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors`}
-                              data-testid={`diary-entry-${entry.id}`}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className="flex items-center gap-1">
-                                      {entry.isCheckedIn ? (
-                                        <CheckCircle2 className="text-green-600" size={16} />
-                                      ) : (
-                                        <Clock3 className="text-orange-600" size={16} />
-                                      )}
-                                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                        {entry.visitorFirstName} {entry.visitorLastName}
-                                      </span>
+            <div className="space-y-4">
+              {/* Today's Meeting Room Bookings */}
+              {diaryViewMode === 'today' && todayRoomBookings && todayRoomBookings.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-medium">
+                      Today's Meetings
+                    </Badge>
+                    <span className="text-xs text-slate-500">
+                      {todayRoomBookings.length} meeting{todayRoomBookings.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
+                    {todayRoomBookings
+                      .sort((a, b) => new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime())
+                      .map((booking) => (
+                        <div
+                          key={booking.id}
+                          className="p-4 rounded-xl border border-purple-200 bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors"
+                          data-testid={`meeting-${booking.id}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="text-purple-600" size={16} />
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                    {booking.title}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                  <Building2 size={14} />
+                                  <span>{booking.roomName}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                  <UserCheck size={14} />
+                                  <span>Host: {booking.organizer}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                  <Users size={14} />
+                                  <span>{booking.attendees?.length || 0} attendees</span>
+                                </div>
+                                {booking.description && (
+                                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                    <AtSign size={14} />
+                                    <span>{booking.description}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                                {booking.startTime} - {booking.endTime}
+                              </div>
+                              <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
+                                Meeting
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Visitor Pre-bookings */}
+              {filteredDiary && filteredDiary.length > 0 && Object.entries(groupedDiary)
+                .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+                .slice(0, diaryViewMode === 'weekly' ? 7 : 4) // Show all 7 days for weekly view, 4 for others
+                .map(([dateKey, entries]) => {
+                  const date = new Date(dateKey);
+                  const dayStatus = getDayStatus(date);
+                  
+                  return (
+                    <div key={dateKey} className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Badge className={`${dayStatus.color} font-medium`}>
+                          {dayStatus.label} - Visitors
+                        </Badge>
+                        <span className="text-xs text-slate-500">
+                          {entries.length} visit{entries.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2 pl-4 border-l-2 border-indigo-200 dark:border-indigo-800">
+                        {entries
+                          .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
+                          .map((entry) => {
+                            const priority = getPriorityLevel(entry);
+                            const visitTime = formatVisitTime(new Date(entry.visitDate));
+                            
+                            return (
+                              <div
+                                key={entry.id}
+                                className={`p-4 rounded-xl border ${priority.color} bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors`}
+                                data-testid={`diary-entry-${entry.id}`}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="flex items-center gap-1">
+                                        {entry.isCheckedIn ? (
+                                          <CheckCircle2 className="text-green-600" size={16} />
+                                        ) : (
+                                          <Clock3 className="text-orange-600" size={16} />
+                                        )}
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                          {entry.visitorFirstName} {entry.visitorLastName}
+                                        </span>
+                                      </div>
+                                      <Badge variant="outline" className="text-xs" style={{ backgroundColor: entry.tenantPrimaryColor + '20', borderColor: entry.tenantPrimaryColor }}>
+                                        {entry.tenantCompanyName}
+                                      </Badge>
                                     </div>
-                                    <Badge variant="outline" className="text-xs" style={{ backgroundColor: entry.tenantPrimaryColor + '20', borderColor: entry.tenantPrimaryColor }}>
-                                      {entry.tenantCompanyName}
-                                    </Badge>
+                                    
+                                    <div className="space-y-1 text-sm">
+                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <Building2 size={14} />
+                                        <span>{entry.company}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <UserCheck size={14} />
+                                        <span>Host: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <Mail size={14} />
+                                        <span>{entry.visitorEmail}</span>
+                                      </div>
+                                      {entry.purpose && (
+                                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                          <AtSign size={14} />
+                                          <span>{entry.purpose}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                   
-                                  <div className="space-y-1 text-sm">
-                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                      <Building2 size={14} />
-                                      <span>{entry.company}</span>
+                                  <div className="text-right">
+                                    <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                                      {visitTime}
                                     </div>
-                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                      <UserCheck size={14} />
-                                      <span>Host: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                      <Mail size={14} />
-                                      <span>{entry.visitorEmail}</span>
-                                    </div>
-                                    {entry.purpose && (
-                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                        <AtSign size={14} />
-                                        <span>{entry.purpose}</span>
-                                      </div>
+                                    {priority.level === 'urgent' && (
+                                      <Badge className="bg-red-100 text-red-800 text-xs mt-1">
+                                        <AlertCircle size={12} className="mr-1" />
+                                        Urgent
+                                      </Badge>
+                                    )}
+                                    {entry.isCheckedIn && (
+                                      <Badge className="bg-green-100 text-green-800 text-xs mt-1">
+                                        Checked In
+                                      </Badge>
                                     )}
                                   </div>
                                 </div>
-                                
-                                <div className="text-right">
-                                  <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                                    {visitTime}
-                                  </div>
-                                  {priority.level === 'urgent' && (
-                                    <Badge className="bg-red-100 text-red-800 text-xs mt-1">
-                                      <AlertCircle size={12} className="mr-1" />
-                                      Urgent
-                                    </Badge>
-                                  )}
-                                  {entry.isCheckedIn && (
-                                    <Badge className="bg-green-100 text-green-800 text-xs mt-1">
-                                      Checked In
-                                    </Badge>
-                                  )}
-                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+            </div>
           )}
         </div>
 
-        {receptionDiary && receptionDiary.length > 0 && (
+        {((receptionDiary && receptionDiary.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
           <div className="mt-6 pt-4 border-t border-indigo-200 dark:border-indigo-800">
             <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
                   <span className="text-slate-600">Urgent (&lt; 2hrs)</span>
@@ -1064,6 +1182,10 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="text-green-600" size={14} />
                   <span className="text-slate-600">Checked In</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="text-purple-600" size={14} />
+                  <span className="text-slate-600">Meeting Room</span>
                 </div>
               </div>
               <span className="text-slate-500">Auto-refreshes every 30s</span>
