@@ -2288,6 +2288,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Find duplicates based on firstName + lastName combination
       for (const visitor of allVisitors) {
+        // Skip visitors with missing name data
+        if (!visitor.firstName || !visitor.lastName) {
+          continue;
+        }
+        
         const nameKey = `${visitor.firstName.toLowerCase()}_${visitor.lastName.toLowerCase()}`;
         if (uniqueVisitors.has(nameKey)) {
           // Keep the newest visitor, mark older ones for removal
