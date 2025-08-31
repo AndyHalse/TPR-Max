@@ -65,15 +65,9 @@ export default function MeetingRooms() {
   const roomMutation = useMutation({
     mutationFn: async (data: InsertMeetingRoom) => {
       if (isEditMode && selectedRoom) {
-        return await apiRequest(`/api/meeting-rooms/${selectedRoom.id}`, {
-          method: "PATCH",
-          body: data,
-        });
+        return await apiRequest("PATCH", `/api/meeting-rooms/${selectedRoom.id}`, data);
       } else {
-        return await apiRequest("/api/meeting-rooms", {
-          method: "POST",
-          body: data,
-        });
+        return await apiRequest("POST", "/api/meeting-rooms", data);
       }
     },
     onSuccess: () => {
@@ -96,7 +90,7 @@ export default function MeetingRooms() {
   // Delete room mutation
   const deleteMutation = useMutation({
     mutationFn: async (roomId: string) => {
-      await apiRequest(`/api/meeting-rooms/${roomId}`, { method: "DELETE" });
+      await apiRequest("DELETE", `/api/meeting-rooms/${roomId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meeting-rooms"] });
