@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import { IdCardDesignSystem } from "@/components/IdCardDesignSystem";
 
@@ -40,6 +40,10 @@ export default function Settings() {
     description: "",
     color: "bg-blue-500"
   });
+
+  // Backup/Restore state
+  const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -256,6 +260,137 @@ export default function Settings() {
       });
     },
   });
+
+  // Backup mutation
+  const backupMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/system/backup", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create backup");
+      }
+      
+      return response.blob();
+    },
+    onSuccess: (blob) => {
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      a.href = url;
+      a.download = `visigate-backup-${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Backup Complete",
+        description: "Database backup has been downloaded successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Backup Failed",
+        description: error.message || "Failed to create database backup",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Restore mutation
+  const restoreMutation = useMutation({
+    mutationFn: async (backupData: any) => {
+      const response = await apiRequest("POST", "/api/system/restore", {
+        backupData,
+        clearExisting: true
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Invalidate all queries to refresh the entire app
+      queryClient.invalidateQueries();
+      
+      toast({
+        title: "Restore Complete",
+        description: `Successfully restored ${data.restored.records} records across ${data.restored.tables} tables`,
+      });
+      
+      setSelectedBackupFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Refresh page after short delay to ensure all data is updated
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Restore Failed",
+        description: error.message || "Failed to restore database",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBackupDatabase = () => {
+    backupMutation.mutate();
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.json')) {
+        toast({
+          title: "Invalid File",
+          description: "Please select a valid JSON backup file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedBackupFile(file);
+    }
+  };
+
+  const handleRestoreDatabase = () => {
+    if (!selectedBackupFile) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const backupData = JSON.parse(e.target?.result as string);
+        
+        if (!backupData.metadata || !backupData.data) {
+          throw new Error("Invalid backup file format");
+        }
+        
+        restoreMutation.mutate(backupData);
+      } catch (error) {
+        toast({
+          title: "Invalid Backup File",
+          description: "The selected file is not a valid VisiGate backup",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    reader.onerror = () => {
+      toast({
+        title: "File Read Error",
+        description: "Failed to read the backup file",
+        variant: "destructive",
+      });
+    };
+    
+    reader.readAsText(selectedBackupFile);
+  };
 
   const handleLogoUpload = async (objectPath: string) => {
     try {
@@ -3022,6 +3157,112 @@ export default function Settings() {
             </GlassCard>
           </div>
 
+          {/* Database Backup & Restore */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Database Backup
+              </h3>
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Export all customer data including settings, branding, staff, visitors, AI images, and operational data to a JSON file.
+                </p>
+                <Button 
+                  onClick={handleBackupDatabase}
+                  disabled={backupMutation.isPending}
+                  className="gradient-blue text-white w-full"
+                  data-testid="button-backup-database"
+                >
+                  {backupMutation.isPending ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creating Backup...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Download className="w-4 h-4" />
+                      Download Database Backup
+                    </div>
+                  )}
+                </Button>
+                <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="text-xs text-green-800 dark:text-green-200">
+                    <strong>✅ Complete Data Export:</strong> All customer data, branding, AI images, and settings included for full portability
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Database Restore
+              </h3>
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Restore customer data from a previously exported backup file. This will replace all current data.
+                </p>
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    data-testid="input-backup-file"
+                  />
+                  <Button 
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full"
+                    data-testid="button-select-backup"
+                  >
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Select Backup File
+                  </Button>
+                  
+                  {selectedBackupFile && (
+                    <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                        📄 {selectedBackupFile.name}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">
+                        {(selectedBackupFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <Button 
+                  onClick={handleRestoreDatabase}
+                  disabled={!selectedBackupFile || restoreMutation.isPending}
+                  variant="destructive"
+                  className="w-full"
+                  data-testid="button-restore-database"
+                >
+                  {restoreMutation.isPending ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Restoring Database...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4" />
+                      Restore Database
+                    </div>
+                  )}
+                </Button>
+                
+                <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-800 dark:text-red-200">
+                    <strong>⚠️ Warning:</strong> This will completely replace all existing data with the backup data
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
             <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Industry Standard Features</h4>
             <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
@@ -3031,6 +3272,7 @@ export default function Settings() {
               <p>• <strong>24/7 Operations Mode:</strong> Disable reset for continuous operations</p>
               <p>• <strong>Manual Override:</strong> Emergency reset capability with confirmation</p>
               <p>• <strong>Audit Logging:</strong> Complete record of all reset activities</p>
+              <p>• <strong>Database Portability:</strong> Full backup and restore capability for system migration</p>
             </div>
           </div>
         </TabsContent>

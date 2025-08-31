@@ -35,7 +35,7 @@ import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
 import cron from "node-cron";
 
@@ -3517,6 +3517,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI security alert error:", error);
       res.status(500).json({ error: "Failed to generate security alert" });
+    }
+  });
+
+  // Database backup endpoint
+  app.get("/api/system/backup", async (req, res) => {
+    try {
+      console.log("🗄️ Creating full database backup...");
+      
+      // Get all customer data tables
+      const tables = [
+        'company_settings', 'building_settings', 'enhanced_company_details',
+        'staff', 'visitors', 'departments', 'users', 'user_invitations',
+        'pre_bookings', 'meeting_rooms', 'room_bookings', 'room_booking_attendees', 'room_booking_waitlist',
+        'contractor_companies', 'contractor_workers', 'contractor_visits', 'contractor_prebookings',
+        'induction_settings', 'induction_questions', 'induction_answers', 'induction_tokens',
+        'ai_generated_images', 'compliance_documents', 'document_approvals', 'document_types',
+        'rams_documents', 'nvq_qualifications', 'worker_certifications', 'worker_competencies',
+        'co2_records', 'local_labour_records', 'card_issues', 'card_offences',
+        'printer_configurations', 'reports', 'staff_sessions', 'tenant_companies'
+      ];
+
+      const backupData = {};
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      
+      // Export data from each table
+      for (const table of tables) {
+        try {
+          const result = await db.execute(sql.raw(`SELECT * FROM ${table}`));
+          backupData[table] = result.rows;
+          console.log(`📋 Exported ${result.rows.length} records from ${table}`);
+        } catch (error) {
+          console.warn(`⚠️ Warning: Could not export table ${table}:`, error.message);
+          backupData[table] = [];
+        }
+      }
+
+      // Create comprehensive backup object
+      const backup = {
+        metadata: {
+          version: "1.0",
+          created: new Date().toISOString(),
+          system: "VisiGate Pro",
+          tables_exported: Object.keys(backupData).length,
+          total_records: Object.values(backupData).reduce((sum, records) => sum + records.length, 0)
+        },
+        data: backupData
+      };
+
+      console.log(`✅ Backup created: ${backup.metadata.total_records} records across ${backup.metadata.tables_exported} tables`);
+
+      // Set headers for download
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="visigate-backup-${timestamp}.json"`);
+      
+      res.json(backup);
+    } catch (error) {
+      console.error("Database backup error:", error);
+      res.status(500).json({ error: "Failed to create database backup" });
+    }
+  });
+
+  // Database restore endpoint
+  app.post("/api/system/restore", async (req, res) => {
+    try {
+      const { backupData, clearExisting = true } = req.body;
+      
+      if (!backupData || !backupData.data || !backupData.metadata) {
+        return res.status(400).json({ error: "Invalid backup data format" });
+      }
+
+      console.log("🔄 Starting database restore...");
+      console.log(`📊 Backup contains: ${backupData.metadata.total_records} records across ${backupData.metadata.tables_exported} tables`);
+
+      let restoredTables = 0;
+      let restoredRecords = 0;
+      const errors = [];
+
+      // Clear existing data if requested
+      if (clearExisting) {
+        console.log("🗑️ Clearing existing data...");
+        const tablesToClear = Object.keys(backupData.data);
+        
+        // Clear in reverse dependency order to avoid foreign key conflicts
+        const clearOrder = tablesToClear.reverse();
+        for (const table of clearOrder) {
+          try {
+            await db.execute(sql.raw(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`));
+            console.log(`🧹 Cleared table: ${table}`);
+          } catch (error) {
+            console.warn(`⚠️ Warning: Could not clear table ${table}:`, error.message);
+          }
+        }
+      }
+
+      // Restore data to each table
+      for (const [table, records] of Object.entries(backupData.data)) {
+        if (!records || records.length === 0) continue;
+
+        try {
+          console.log(`📥 Restoring ${records.length} records to ${table}...`);
+          
+          // Get table schema to build proper insert
+          const sampleRecord = records[0];
+          const columns = Object.keys(sampleRecord);
+          const placeholders = columns.map(() => '?').join(', ');
+          
+          // Insert records in batches to avoid memory issues
+          const batchSize = 100;
+          for (let i = 0; i < records.length; i += batchSize) {
+            const batch = records.slice(i, i + batchSize);
+            
+            for (const record of batch) {
+              const values = columns.map(col => record[col]);
+              await db.execute(sql.raw(
+                `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
+                values
+              ));
+            }
+          }
+          
+          restoredTables++;
+          restoredRecords += records.length;
+          console.log(`✅ Restored ${records.length} records to ${table}`);
+          
+        } catch (error) {
+          console.error(`❌ Error restoring table ${table}:`, error);
+          errors.push({ table, error: error.message });
+        }
+      }
+
+      console.log(`🎉 Restore completed: ${restoredRecords} records across ${restoredTables} tables`);
+
+      res.json({
+        success: true,
+        message: "Database restore completed",
+        restored: {
+          tables: restoredTables,
+          records: restoredRecords,
+          errors: errors.length
+        },
+        errors: errors
+      });
+
+    } catch (error) {
+      console.error("Database restore error:", error);
+      res.status(500).json({ error: "Failed to restore database" });
     }
   });
 
