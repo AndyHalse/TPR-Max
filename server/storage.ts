@@ -400,7 +400,9 @@ export class MemStorage implements IStorage {
   private contractorCompanies: Map<string, ContractorCompany>;
   private contractorWorkers: Map<string, ContractorWorker>;
   private complianceDocuments: Map<string, ComplianceDocument>;
+  private departments: Map<string, Department>;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
+  private readonly departmentsFilePath = path.join(process.cwd(), 'data', 'departments-data.json');
   private readonly staffFilePath = path.join(process.cwd(), 'data', 'staff-data.json');
   private readonly visitorsFilePath = path.join(process.cwd(), 'data', 'visitors-data.json');
   private readonly reportsFilePath = path.join(process.cwd(), 'data', 'reports-data.json');
@@ -428,6 +430,7 @@ export class MemStorage implements IStorage {
     this.contractorCompanies = new Map();
     this.contractorWorkers = new Map();
     this.complianceDocuments = new Map();
+    this.departments = new Map();
     this.buildingSettings = undefined;
     
     // Ensure data directory exists
@@ -437,6 +440,7 @@ export class MemStorage implements IStorage {
     this.loadOrInitializeSettings();
     this.loadOrInitializeStaff();
     this.loadOrInitializeVisitors();
+    this.loadOrInitializeDepartments();
     this.loadOrInitializeReports();
     this.loadOrInitializePreBookings();
     this.loadOrInitializeUsers();
@@ -565,6 +569,63 @@ export class MemStorage implements IStorage {
       }
     } catch (error) {
       console.error('❌ Error loading staff data:', error);
+    }
+  }
+
+  private loadOrInitializeDepartments(): void {
+    try {
+      if (fs.existsSync(this.departmentsFilePath)) {
+        const departmentsData = fs.readFileSync(this.departmentsFilePath, 'utf8');
+        const departmentsArray = JSON.parse(departmentsData);
+        this.departments = new Map();
+        departmentsArray.forEach((dept: Department) => {
+          // Convert date strings back to Date objects
+          if (dept.createdAt) dept.createdAt = new Date(dept.createdAt);
+          if (dept.updatedAt) dept.updatedAt = new Date(dept.updatedAt);
+          this.departments.set(dept.id, dept);
+        });
+        console.log(`✅ Departments data loaded: ${this.departments.size} departments`);
+      } else {
+        // Initialize with default departments based on existing staff data
+        this.initializeDefaultDepartments();
+      }
+    } catch (error) {
+      console.error('❌ Error loading departments data:', error);
+      this.initializeDefaultDepartments();
+    }
+  }
+
+  private initializeDefaultDepartments(): void {
+    // Get unique departments from existing staff
+    const uniqueDepartments = [...new Set(Array.from(this.staffMembers.values()).map(s => s.department))]
+      .filter(Boolean);
+    
+    const colors = ['bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-purple-500', 'bg-pink-500', 'bg-red-500', 'bg-indigo-500', 'bg-yellow-500'];
+    
+    uniqueDepartments.forEach((deptName, index) => {
+      const id = crypto.randomUUID();
+      const department: Department = {
+        id,
+        name: deptName,
+        description: `${deptName} Department`,
+        color: colors[index % colors.length],
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.departments.set(id, department);
+    });
+    
+    this.saveDepartmentsToFile();
+    console.log(`✅ Initialized ${uniqueDepartments.length} default departments from existing staff data`);
+  }
+
+  private saveDepartmentsToFile(): void {
+    try {
+      const departmentsArray = Array.from(this.departments.values());
+      fs.writeFileSync(this.departmentsFilePath, JSON.stringify(departmentsArray, null, 2), 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving departments data:', error);
     }
   }
 
@@ -2958,6 +3019,49 @@ export class MemStorage implements IStorage {
     this.contractorCompanies.set(id, updatedCompany);
     this.saveContractorCompaniesToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedCompany;
+  }
+
+  // Department management methods implementation
+  async getAllDepartments(): Promise<Department[]> {
+    return Array.from(this.departments.values()).filter(dept => dept.isActive);
+  }
+
+  async getDepartmentById(id: string): Promise<Department | undefined> {
+    return this.departments.get(id);
+  }
+
+  async createDepartment(insertDepartment: InsertDepartment): Promise<Department> {
+    const id = crypto.randomUUID();
+    const department: Department = {
+      id,
+      ...insertDepartment,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.departments.set(id, department);
+    this.saveDepartmentsToFile();
+    console.log(`Created department: ${department.name} (ID: ${id})`);
+    return department;
+  }
+
+  async updateDepartment(id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined> {
+    const department = this.departments.get(id);
+    if (!department) return undefined;
+    
+    const updatedDepartment = { ...department, ...updates, updatedAt: new Date() };
+    this.departments.set(id, updatedDepartment);
+    this.saveDepartmentsToFile();
+    return updatedDepartment;
+  }
+
+  async deleteDepartment(id: string): Promise<boolean> {
+    const existed = this.departments.has(id);
+    this.departments.delete(id);
+    if (existed) {
+      this.saveDepartmentsToFile();
+    }
+    return existed;
   }
 }
 
