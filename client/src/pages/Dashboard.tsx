@@ -446,7 +446,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
           <div className="flex items-center justify-between">
             <div>
@@ -499,6 +499,20 @@ export default function Dashboard() {
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
               <HardHat className="text-orange-600" size={24} />
+            </div>
+          </div>
+        </GlassCard>
+        
+        <GlassCard hover className="cursor-pointer">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-variable text-sm font-medium">Total People On-Site</p>
+              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-total-people-onsite">
+                {stats?.totalPeopleOnSite || 0}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <Users className="text-emerald-600" size={24} />
             </div>
           </div>
         </GlassCard>

@@ -320,9 +320,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;
       
+      // Calculate total people on-site
+      const totalPeopleOnSite = otherStats.currentVisitors + otherStats.staffOnSite + contractorsOnSite;
+      
       res.json({
         ...otherStats,
-        contractorsOnSite
+        contractorsOnSite,
+        totalPeopleOnSite
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
