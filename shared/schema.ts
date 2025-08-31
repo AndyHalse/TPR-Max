@@ -1022,3 +1022,155 @@ export type TenantCompany = typeof tenantCompanies.$inferSelect;
 export type InsertTenantCompany = z.infer<typeof insertTenantCompanySchema>;
 export type BuildingSettings = typeof buildingSettings.$inferSelect;
 export type InsertBuildingSettings = z.infer<typeof insertBuildingSettingsSchema>;
+
+// Meeting Room Management System
+export const meetingRooms = pgTable("meeting_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  location: text("location").notNull(), // Floor, Wing, etc.
+  capacity: integer("capacity").notNull(),
+  
+  // Multi-tenant support
+  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
+  isSharedRoom: boolean("is_shared_room").default(false).notNull(), // Available to all tenants
+  
+  // Equipment and amenities
+  hasProjector: boolean("has_projector").default(false).notNull(),
+  hasVideoConference: boolean("has_video_conference").default(false).notNull(),
+  hasWhiteboard: boolean("has_whiteboard").default(false).notNull(),
+  hasTV: boolean("has_tv").default(false).notNull(),
+  hasAirCon: boolean("has_air_con").default(false).notNull(),
+  hasCatering: boolean("has_catering").default(false).notNull(),
+  
+  // Availability
+  isActive: boolean("is_active").default(true).notNull(),
+  availableFrom: text("available_from").default("09:00").notNull(), // HH:MM format
+  availableTo: text("available_to").default("18:00").notNull(), // HH:MM format
+  
+  // Booking rules
+  maxBookingHours: integer("max_booking_hours").default(8).notNull(),
+  advanceBookingDays: integer("advance_booking_days").default(30).notNull(),
+  requiresApproval: boolean("requires_approval").default(false).notNull(),
+  
+  // Costs (optional for billing)
+  hourlyRate: text("hourly_rate"), // Store as string to handle decimal places
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const roomBookings = pgTable("room_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull().references(() => meetingRooms.id),
+  
+  // Booking details
+  title: text("title").notNull(),
+  description: text("description"),
+  startDateTime: timestamp("start_date_time").notNull(),
+  endDateTime: timestamp("end_date_time").notNull(),
+  
+  // Who booked it
+  bookedByStaffId: varchar("booked_by_staff_id").notNull().references(() => staff.id),
+  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
+  
+  // Attendees
+  expectedAttendees: integer("expected_attendees").notNull(),
+  attendeeEmails: text("attendee_emails").array().default([]),
+  
+  // Special requirements
+  requiresCatering: boolean("requires_catering").default(false).notNull(),
+  cateringNotes: text("catering_notes"),
+  specialRequirements: text("special_requirements"),
+  
+  // Booking status and management
+  status: text("status").default("confirmed").notNull(), // confirmed, pending, cancelled, completed
+  isRecurring: boolean("is_recurring").default(false).notNull(),
+  recurringPattern: text("recurring_pattern"), // weekly, daily, monthly
+  recurringEndDate: timestamp("recurring_end_date"),
+  parentBookingId: varchar("parent_booking_id"), // For recurring meetings
+  
+  // Check-in/out for room usage tracking
+  actualStartTime: timestamp("actual_start_time"),
+  actualEndTime: timestamp("actual_end_time"),
+  checkedInByStaffId: varchar("checked_in_by_staff_id").references(() => staff.id),
+  
+  // Notifications
+  reminderSent: boolean("reminder_sent").default(false).notNull(),
+  confirmationSent: boolean("confirmation_sent").default(false).notNull(),
+  
+  // Admin approval workflow
+  approvedBy: varchar("approved_by").references(() => staff.id),
+  approvedAt: timestamp("approved_at"),
+  rejectedReason: text("rejected_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const roomBookingAttendees = pgTable("room_booking_attendees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").notNull().references(() => roomBookings.id),
+  staffId: varchar("staff_id").references(() => staff.id), // If attendee is staff
+  email: text("email").notNull(), // For external attendees
+  name: text("name").notNull(),
+  isOrganizer: boolean("is_organizer").default(false).notNull(),
+  responseStatus: text("response_status").default("pending").notNull(), // pending, accepted, declined
+  responseAt: timestamp("response_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const roomBookingWaitlist = pgTable("room_booking_waitlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roomId: varchar("room_id").notNull().references(() => meetingRooms.id),
+  staffId: varchar("staff_id").notNull().references(() => staff.id),
+  
+  // Desired booking details
+  title: text("title").notNull(),
+  startDateTime: timestamp("start_date_time").notNull(),
+  endDateTime: timestamp("end_date_time").notNull(),
+  expectedAttendees: integer("expected_attendees").notNull(),
+  
+  // Waitlist status
+  isActive: boolean("is_active").default(true).notNull(),
+  notifiedAt: timestamp("notified_at"), // When user was notified of availability
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for meeting rooms
+export const insertMeetingRoomSchema = createInsertSchema(meetingRooms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRoomBookingSchema = createInsertSchema(roomBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  // Make datetime fields required and properly typed
+  startDateTime: z.string().transform(str => new Date(str)),
+  endDateTime: z.string().transform(str => new Date(str)),
+});
+
+export const insertRoomBookingAttendeeSchema = createInsertSchema(roomBookingAttendees).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRoomBookingWaitlistSchema = createInsertSchema(roomBookingWaitlist).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for meeting rooms
+export type MeetingRoom = typeof meetingRooms.$inferSelect;
+export type InsertMeetingRoom = z.infer<typeof insertMeetingRoomSchema>;
+export type RoomBooking = typeof roomBookings.$inferSelect;
+export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
+export type RoomBookingAttendee = typeof roomBookingAttendees.$inferSelect;
+export type InsertRoomBookingAttendee = z.infer<typeof insertRoomBookingAttendeeSchema>;
+export type RoomBookingWaitlist = typeof roomBookingWaitlist.$inferSelect;
+export type InsertRoomBookingWaitlist = z.infer<typeof insertRoomBookingWaitlistSchema>;

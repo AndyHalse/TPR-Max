@@ -29,7 +29,7 @@ const staffAuthSchema = z.object({
   password: z.string().min(1),
 });
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { EmailService } from "./emailService";
+import { EmailService, emailService } from "./emailService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
@@ -5353,6 +5353,379 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error pre-booking visitor:", error);
       res.status(500).json({ error: "Failed to pre-book visitor" });
+    }
+  });
+
+  // ===== MEETING ROOM ENDPOINTS =====
+  // Meeting Rooms Management
+  app.get("/api/meeting-rooms", async (req, res) => {
+    try {
+      const { tenant_id } = req.query;
+      let rooms;
+      
+      if (tenant_id) {
+        // Get rooms allocated to specific tenant + shared rooms
+        const [tenantRooms, sharedRooms] = await Promise.all([
+          storage.getMeetingRoomsByTenant(tenant_id as string),
+          storage.getSharedMeetingRooms()
+        ]);
+        rooms = [...tenantRooms, ...sharedRooms];
+      } else {
+        rooms = await storage.getAllMeetingRooms();
+      }
+      
+      res.json(rooms);
+    } catch (error) {
+      console.error("Error fetching meeting rooms:", error);
+      res.status(500).json({ error: "Failed to fetch meeting rooms" });
+    }
+  });
+
+  app.get("/api/meeting-rooms/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const room = await storage.getMeetingRoomById(id);
+      
+      if (!room) {
+        return res.status(404).json({ error: "Meeting room not found" });
+      }
+      
+      res.json(room);
+    } catch (error) {
+      console.error("Error fetching meeting room:", error);
+      res.status(500).json({ error: "Failed to fetch meeting room" });
+    }
+  });
+
+  app.post("/api/meeting-rooms", async (req, res) => {
+    try {
+      const roomData = req.body;
+      const room = await storage.createMeetingRoom(roomData);
+      res.json(room);
+    } catch (error) {
+      console.error("Error creating meeting room:", error);
+      res.status(500).json({ error: "Failed to create meeting room" });
+    }
+  });
+
+  app.patch("/api/meeting-rooms/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const room = await storage.updateMeetingRoom(id, updates);
+      
+      if (!room) {
+        return res.status(404).json({ error: "Meeting room not found" });
+      }
+      
+      res.json(room);
+    } catch (error) {
+      console.error("Error updating meeting room:", error);
+      res.status(500).json({ error: "Failed to update meeting room" });
+    }
+  });
+
+  app.delete("/api/meeting-rooms/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteMeetingRoom(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Meeting room not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting meeting room:", error);
+      res.status(500).json({ error: "Failed to delete meeting room" });
+    }
+  });
+
+  // Room Availability Check
+  app.post("/api/meeting-rooms/:id/check-availability", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { startTime, endTime, excludeBookingId } = req.body;
+      
+      const isAvailable = await storage.checkRoomAvailability(
+        id,
+        new Date(startTime),
+        new Date(endTime),
+        excludeBookingId
+      );
+      
+      res.json({ available: isAvailable });
+    } catch (error) {
+      console.error("Error checking room availability:", error);
+      res.status(500).json({ error: "Failed to check room availability" });
+    }
+  });
+
+  // Room Bookings Management
+  app.get("/api/room-bookings", async (req, res) => {
+    try {
+      const { tenant_id, room_id, start_date, end_date } = req.query;
+      let bookings;
+
+      if (tenant_id) {
+        bookings = await storage.getRoomBookingsByTenant(
+          tenant_id as string,
+          start_date ? new Date(start_date as string) : undefined,
+          end_date ? new Date(end_date as string) : undefined
+        );
+      } else if (room_id) {
+        bookings = await storage.getRoomBookingsByRoom(
+          room_id as string,
+          start_date ? new Date(start_date as string) : undefined,
+          end_date ? new Date(end_date as string) : undefined
+        );
+      } else {
+        bookings = await storage.getRoomBookings(
+          start_date ? new Date(start_date as string) : undefined,
+          end_date ? new Date(end_date as string) : undefined
+        );
+      }
+
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching room bookings:", error);
+      res.status(500).json({ error: "Failed to fetch room bookings" });
+    }
+  });
+
+  app.get("/api/room-bookings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const booking = await storage.getRoomBookingById(id);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching room booking:", error);
+      res.status(500).json({ error: "Failed to fetch room booking" });
+    }
+  });
+
+  app.post("/api/room-bookings", async (req, res) => {
+    try {
+      const bookingData = req.body;
+      
+      // Check room availability first
+      const isAvailable = await storage.checkRoomAvailability(
+        bookingData.roomId,
+        new Date(bookingData.startDateTime),
+        new Date(bookingData.endDateTime)
+      );
+
+      if (!isAvailable) {
+        return res.status(409).json({ 
+          error: "Room is not available during the requested time" 
+        });
+      }
+
+      // Create the booking
+      const booking = await storage.createRoomBooking(bookingData);
+      
+      // Get full booking details for email
+      const fullBooking = await storage.getRoomBookingById(booking.id);
+      
+      if (fullBooking) {
+        // Send confirmation email
+        try {
+          const attendeeEmails = bookingData.attendeeEmails || [];
+          await emailService.sendBookingConfirmation(
+            fullBooking, 
+            fullBooking.room, 
+            fullBooking.organizer, 
+            attendeeEmails
+          );
+        } catch (emailError) {
+          console.error("Failed to send booking confirmation email:", emailError);
+          // Don't fail the booking creation if email fails
+        }
+      }
+
+      res.json(booking);
+    } catch (error) {
+      console.error("Error creating room booking:", error);
+      res.status(500).json({ error: "Failed to create room booking" });
+    }
+  });
+
+  app.patch("/api/room-bookings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      // If updating time, check availability
+      if (updates.startDateTime || updates.endDateTime) {
+        const currentBooking = await storage.getRoomBookingById(id);
+        if (!currentBooking) {
+          return res.status(404).json({ error: "Room booking not found" });
+        }
+
+        const startTime = updates.startDateTime ? new Date(updates.startDateTime) : new Date(currentBooking.startDateTime);
+        const endTime = updates.endDateTime ? new Date(updates.endDateTime) : new Date(currentBooking.endDateTime);
+
+        const isAvailable = await storage.checkRoomAvailability(
+          currentBooking.roomId,
+          startTime,
+          endTime,
+          id // Exclude current booking from availability check
+        );
+
+        if (!isAvailable) {
+          return res.status(409).json({ 
+            error: "Room is not available during the updated time" 
+          });
+        }
+      }
+
+      const booking = await storage.updateRoomBooking(id, updates);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error updating room booking:", error);
+      res.status(500).json({ error: "Failed to update room booking" });
+    }
+  });
+
+  app.post("/api/room-bookings/:id/cancel", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { cancelledBy, attendeeEmails } = req.body;
+      
+      // Get booking details before cancellation for email
+      const fullBooking = await storage.getRoomBookingById(id);
+      
+      const booking = await storage.cancelRoomBooking(id, cancelledBy);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+
+      // Send cancellation email if booking details were available
+      if (fullBooking) {
+        try {
+          await emailService.sendBookingCancellation(
+            fullBooking, 
+            fullBooking.room, 
+            fullBooking.organizer, 
+            attendeeEmails || []
+          );
+        } catch (emailError) {
+          console.error("Failed to send cancellation email:", emailError);
+          // Don't fail the cancellation if email fails
+        }
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error cancelling room booking:", error);
+      res.status(500).json({ error: "Failed to cancel room booking" });
+    }
+  });
+
+  app.delete("/api/room-bookings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteRoomBooking(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting room booking:", error);
+      res.status(500).json({ error: "Failed to delete room booking" });
+    }
+  });
+
+  // Meeting Check-in/out
+  app.post("/api/room-bookings/:id/check-in", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { staffId } = req.body;
+      
+      const booking = await storage.checkInToMeeting(id, staffId);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error checking in to meeting:", error);
+      res.status(500).json({ error: "Failed to check in to meeting" });
+    }
+  });
+
+  app.post("/api/room-bookings/:id/end-meeting", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const booking = await storage.endMeeting(id);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      console.error("Error ending meeting:", error);
+      res.status(500).json({ error: "Failed to end meeting" });
+    }
+  });
+
+  // Upcoming Bookings & Reminders
+  app.get("/api/room-bookings/upcoming", async (req, res) => {
+    try {
+      const { room_id, minutes } = req.query;
+      
+      const upcomingBookings = await storage.getUpcomingBookings(
+        room_id as string | undefined,
+        minutes ? parseInt(minutes as string) : 15
+      );
+      
+      res.json(upcomingBookings);
+    } catch (error) {
+      console.error("Error fetching upcoming bookings:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming bookings" });
+    }
+  });
+
+  // Room Analytics
+  app.get("/api/meeting-rooms/analytics/utilization", async (req, res) => {
+    try {
+      const { start_date, end_date } = req.query;
+      
+      const stats = await storage.getRoomUtilizationStats(
+        start_date ? new Date(start_date as string) : undefined,
+        end_date ? new Date(end_date as string) : undefined
+      );
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching room utilization stats:", error);
+      res.status(500).json({ error: "Failed to fetch room utilization stats" });
+    }
+  });
+
+  app.get("/api/meeting-rooms/analytics/patterns", async (req, res) => {
+    try {
+      const patterns = await storage.getMeetingPatterns();
+      res.json(patterns);
+    } catch (error) {
+      console.error("Error fetching meeting patterns:", error);
+      res.status(500).json({ error: "Failed to fetch meeting patterns" });
     }
   });
 

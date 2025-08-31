@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Brain, Clock, Menu, X, HardHat, Video, Building2 } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import type { CompanySettings } from "@shared/schema";
@@ -111,6 +111,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/contractors", icon: HardHat, label: "Contractors" },
     { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out" },
     { path: "/staff", icon: Users, label: "Staff" },
+    { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms" },
     { path: "/time-attendance", icon: Clock, label: "T&A Report" },
     { path: "/muster", icon: ListChecks, label: "Muster List" },
     { path: "/reports", icon: FileText, label: "Reports" },

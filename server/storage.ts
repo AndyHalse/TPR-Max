@@ -31,7 +31,15 @@ import type {
   TenantCompany,
   InsertTenantCompany,
   BuildingSettings,
-  InsertBuildingSettings
+  InsertBuildingSettings,
+  MeetingRoom,
+  InsertMeetingRoom,
+  RoomBooking,
+  InsertRoomBooking,
+  RoomBookingAttendee,
+  InsertRoomBookingAttendee,
+  RoomBookingWaitlist,
+  InsertRoomBookingWaitlist
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -295,6 +303,57 @@ export interface IStorage {
   updatePrinterConfiguration(id: string, updates: Partial<InsertPrinterConfiguration>): Promise<PrinterConfiguration | undefined>;
   deletePrinterConfiguration(id: string): Promise<boolean>;
   setDefaultPrinterConfiguration(id: string): Promise<PrinterConfiguration | undefined>;
+
+  // Meeting Room methods
+  getAllMeetingRooms(): Promise<MeetingRoom[]>;
+  getMeetingRoomById(id: string): Promise<MeetingRoom | undefined>;
+  getMeetingRoomsByTenant(tenantId: string): Promise<MeetingRoom[]>;
+  getSharedMeetingRooms(): Promise<MeetingRoom[]>;
+  createMeetingRoom(insertRoom: InsertMeetingRoom): Promise<MeetingRoom>;
+  updateMeetingRoom(id: string, updates: Partial<InsertMeetingRoom>): Promise<MeetingRoom | undefined>;
+  deleteMeetingRoom(id: string): Promise<boolean>;
+  checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string): Promise<boolean>;
+
+  // Room Booking methods
+  getRoomBookings(startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]>;
+  getRoomBookingsByRoom(roomId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { organizer: Staff })[]>;
+  getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]>;
+  getRoomBookingById(id: string): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff }) | undefined>;
+  createRoomBooking(insertBooking: InsertRoomBooking): Promise<RoomBooking>;
+  updateRoomBooking(id: string, updates: Partial<InsertRoomBooking>): Promise<RoomBooking | undefined>;
+  cancelRoomBooking(id: string, cancelledBy: string): Promise<RoomBooking | undefined>;
+  deleteRoomBooking(id: string): Promise<boolean>;
+  getUpcomingBookings(roomId?: string, minutes?: number): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]>;
+  checkInToMeeting(bookingId: string, staffId: string): Promise<RoomBooking | undefined>;
+  endMeeting(bookingId: string): Promise<RoomBooking | undefined>;
+
+  // Room Booking Attendees methods
+  getBookingAttendees(bookingId: string): Promise<RoomBookingAttendee[]>;
+  addBookingAttendee(insertAttendee: InsertRoomBookingAttendee): Promise<RoomBookingAttendee>;
+  updateAttendeeResponse(id: string, status: string): Promise<RoomBookingAttendee | undefined>;
+  removeBookingAttendee(id: string): Promise<boolean>;
+
+  // Room Booking Waitlist methods
+  getWaitlistByRoom(roomId: string): Promise<RoomBookingWaitlist[]>;
+  addToWaitlist(insertWaitlist: InsertRoomBookingWaitlist): Promise<RoomBookingWaitlist>;
+  removeFromWaitlist(id: string): Promise<boolean>;
+  notifyWaitlistUsers(roomId: string, startTime: Date, endTime: Date): Promise<RoomBookingWaitlist[]>;
+
+  // Meeting Room Analytics methods
+  getRoomUtilizationStats(startDate?: Date, endDate?: Date): Promise<Array<{
+    roomId: string;
+    roomName: string;
+    totalBookings: number;
+    totalHours: number;
+    utilizationRate: number;
+    averageBookingDuration: number;
+  }>>;
+  getMeetingPatterns(): Promise<{
+    peakHours: string;
+    popularRooms: Array<{ roomName: string; bookingCount: number }>;
+    averageMeetingDuration: number;
+    weeklyTrend: Array<{ day: string; bookings: number }>;
+  }>;
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";

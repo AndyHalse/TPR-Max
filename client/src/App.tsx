@@ -27,6 +27,7 @@ import ContractorKiosk from "@/pages/ContractorKiosk";
 import ContractorManagement from "@/pages/ContractorManagement";
 import FireMarshalMuster from "@/pages/FireMarshalMuster";
 import InductionSettings from "@/pages/InductionSettings";
+import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
 
 function Router() {
@@ -129,6 +130,7 @@ function Router() {
             <Route path="/tenant/:slug/staff" component={StaffManagement} />
             <Route path="/tenant/:slug/visitors" component={Visitors} />
             <Route path="/induction-settings" component={InductionSettings} />
+            <Route path="/meeting-rooms" component={MeetingRooms} />
             <Route path="/ai-demo" component={AIDemo} />
             <Route component={NotFound} />
           </Switch>
