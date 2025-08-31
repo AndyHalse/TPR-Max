@@ -2687,20 +2687,23 @@ export class MemStorage implements IStorage {
       
       // Realistic trend calculation based on department activity
       let trend = '0%';
-      if (totalCount > 0) {
+      if (totalCount === 0) {
+        // When there are 0 people total (display shows "0 people"), trend should be 0%
+        trend = '0%';
+      } else if (staff.length === 0) {
+        // No staff assigned to this department - neutral trend
+        trend = '0%';
+      } else if (totalCount > 0) {
         // Calculate trend based on department size and activity
-        const baselineForDept = staff.length * 0.7; // Expected 70% check-in rate
-        const currentRate = totalCount / Math.max(staff.length, 1);
+        const currentRate = totalCount / staff.length;
         
         if (currentRate > 0.8) {
           trend = '+' + Math.round((currentRate - 0.7) * 100) + '%';
-        } else if (currentRate < 0.5) {
+        } else if (currentRate < 0.5 && currentRate > 0) {
           trend = '-' + Math.round((0.7 - currentRate) * 100) + '%';
-        } else {
+        } else if (currentRate >= 0.5) {
           trend = '+' + Math.round((currentRate - 0.6) * 50) + '%';
         }
-      } else if (staff.length > 0) {
-        trend = '-15%'; // No one checked in but staff exist
       }
       
       // Color based on department
