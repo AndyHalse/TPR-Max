@@ -682,10 +682,14 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
+    
+    // Hash the password before storing
+    const hashedPassword = await bcrypt.hash(insertUser.password, 10);
+    
     const user: User = {
       id,
       username: insertUser.username,
-      password: insertUser.password,
+      password: hashedPassword,
       email: insertUser.email || null,
       role: insertUser.role || 'user',
       isActive: insertUser.isActive ?? true,
@@ -700,9 +704,15 @@ export class MemStorage implements IStorage {
     const user = this.users.get(id);
     if (!user) return undefined;
 
+    // Hash password if it's being updated
+    const processedUpdates = { ...updates };
+    if (updates.password) {
+      processedUpdates.password = await bcrypt.hash(updates.password, 10);
+    }
+
     const updatedUser: User = {
       ...user,
-      ...updates,
+      ...processedUpdates,
     };
     
     this.users.set(id, updatedUser);
