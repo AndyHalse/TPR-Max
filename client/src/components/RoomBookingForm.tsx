@@ -20,7 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { MeetingRoom, Staff } from '@shared/schema';
 
-const bookingFormSchema = z.object({
+// Create a function to build the schema with room data for capacity validation
+const createBookingFormSchema = (rooms: MeetingRoom[]) => z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(100, 'Title cannot exceed 100 characters'),
   description: z.string().optional(),
   roomId: z.string().min(1, 'Please select a room'),
@@ -50,9 +51,18 @@ const bookingFormSchema = z.object({
 }, {
   message: "Total selected attendees cannot exceed expected attendees count",
   path: ["expectedAttendees"],
+}).refine((data) => {
+  // Room capacity validation
+  const selectedRoom = rooms.find(room => room.id === data.roomId);
+  if (!selectedRoom) return true; // Let other validation handle missing room
+  
+  return data.expectedAttendees <= selectedRoom.capacity;
+}, {
+  message: "Expected attendees exceed room capacity",
+  path: ["expectedAttendees"],
 });
 
-type BookingFormData = z.infer<typeof bookingFormSchema>;
+type BookingFormData = z.infer<ReturnType<typeof createBookingFormSchema>>;
 
 interface RoomBookingFormProps {
   open: boolean;
@@ -99,7 +109,7 @@ export function RoomBookingForm({
   });
 
   const form = useForm<BookingFormData>({
-    resolver: zodResolver(bookingFormSchema),
+    resolver: zodResolver(createBookingFormSchema(rooms)),
     defaultValues: {
       title: '',
       description: '',
@@ -408,8 +418,21 @@ export function RoomBookingForm({
                                 {...field}
                                 onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
                                 data-testid="input-attendees"
+                                className={
+                                  selectedRoom && field.value > selectedRoom.capacity 
+                                    ? "border-red-500 focus:border-red-500" 
+                                    : ""
+                                }
                               />
                             </FormControl>
+                            {selectedRoom && field.value > selectedRoom.capacity && (
+                              <Alert className="border-red-200 bg-red-50 mt-2">
+                                <AlertTriangle className="h-4 w-4 text-red-600" />
+                                <AlertDescription className="text-red-800">
+                                  Too many attendees! {selectedRoom.name} can only accommodate {selectedRoom.capacity} people.
+                                </AlertDescription>
+                              </Alert>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
