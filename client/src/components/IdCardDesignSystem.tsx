@@ -157,6 +157,34 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
     queryKey: ["/api/staff"],
   });
 
+  // Load saved design on component mount
+  useEffect(() => {
+    const loadSavedDesign = async () => {
+      try {
+        console.log('🔍 Loading saved ID card design...');
+        const response = await fetch('/api/idcard/design');
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.design) {
+            if (data.design.elements && data.design.elements.length > 0) {
+              console.log(`✅ Loaded saved design with ${data.design.elements.length} elements`);
+              setCardElements(data.design.elements);
+              setSelectedCardBackground(data.design.background || INDUSTRY_TEMPLATES[0].background);
+            } else {
+              console.log('📝 No saved design found, using default template');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved design:', error);
+        // Silently fail and use default template
+      }
+    };
+
+    loadSavedDesign();
+  }, []);
+
   const loadTemplate = (templateId: string) => {
     const template = INDUSTRY_TEMPLATES.find(t => t.id === templateId);
     if (template) {
@@ -343,15 +371,41 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => {
-                    localStorage.setItem('idcard-template', JSON.stringify({
-                      elements: cardElements,
-                      background: selectedCardBackground
-                    }));
-                    toast({
-                      title: "Template Saved",
-                      description: "ID card template saved successfully",
-                    });
+                  onClick={async () => {
+                    try {
+                      console.log('💾 Saving ID card design with', cardElements.length, 'elements');
+                      
+                      const response = await fetch('/api/idcard/design', {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          elements: cardElements,
+                          background: selectedCardBackground,
+                          cardSize: 'CR80'
+                        })
+                      });
+
+                      if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
+                      }
+
+                      const data = await response.json();
+                      console.log('✅ ID card design saved successfully:', data);
+                      
+                      toast({
+                        title: "Template Saved",
+                        description: "ID card template saved to database successfully",
+                      });
+                    } catch (error) {
+                      console.error('❌ Error saving ID card design:', error);
+                      toast({
+                        title: "Save Failed",
+                        description: "Failed to save ID card template. Please try again.",
+                        variant: "destructive",
+                      });
+                    }
                   }}
                   data-testid="button-save-template"
                 >
