@@ -394,6 +394,9 @@ export class MemStorage implements IStorage {
   private roomBookings: Map<string, RoomBooking>;
   private roomBookingAttendees: Map<string, RoomBookingAttendee>;
   private roomBookingWaitlist: Map<string, RoomBookingWaitlist>;
+  private contractorCompanies: Map<string, ContractorCompany>;
+  private contractorWorkers: Map<string, ContractorWorker>;
+  private complianceDocuments: Map<string, ComplianceDocument>;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
   private readonly staffFilePath = path.join(process.cwd(), 'data', 'staff-data.json');
   private readonly visitorsFilePath = path.join(process.cwd(), 'data', 'visitors-data.json');
@@ -417,6 +420,9 @@ export class MemStorage implements IStorage {
     this.roomBookings = new Map();
     this.roomBookingAttendees = new Map();
     this.roomBookingWaitlist = new Map();
+    this.contractorCompanies = new Map();
+    this.contractorWorkers = new Map();
+    this.complianceDocuments = new Map();
     this.buildingSettings = undefined;
     
     // Ensure data directory exists
@@ -2611,8 +2617,23 @@ export class MemStorage implements IStorage {
       const visitorCount = visitors.length;
       const totalCount = staffCount + visitorCount;
       
-      // Simple trend calculation - positive if more people than usual
-      const trend = totalCount > 5 ? '+15%' : '-5%';
+      // Realistic trend calculation based on department activity
+      let trend = '0%';
+      if (totalCount > 0) {
+        // Calculate trend based on department size and activity
+        const baselineForDept = staff.length * 0.7; // Expected 70% check-in rate
+        const currentRate = totalCount / Math.max(staff.length, 1);
+        
+        if (currentRate > 0.8) {
+          trend = '+' + Math.round((currentRate - 0.7) * 100) + '%';
+        } else if (currentRate < 0.5) {
+          trend = '-' + Math.round((0.7 - currentRate) * 100) + '%';
+        } else {
+          trend = '+' + Math.round((currentRate - 0.6) * 50) + '%';
+        }
+      } else if (staff.length > 0) {
+        trend = '-15%'; // No one checked in but staff exist
+      }
       
       // Color based on department
       const colors = ['bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-purple-500', 'bg-pink-500'];
