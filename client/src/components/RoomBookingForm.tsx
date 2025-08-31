@@ -124,6 +124,20 @@ export function RoomBookingForm({
     },
   });
 
+  // Watch start time and auto-update end time
+  const startDateTime = form.watch('startDateTime');
+  useEffect(() => {
+    if (startDateTime && !editBooking) { // Only auto-update for new bookings, not when editing
+      const startDate = new Date(startDateTime);
+      if (!isNaN(startDate.getTime())) {
+        // Add 1 hour to start time for end time
+        const endDate = addMinutes(startDate, 60);
+        const endDateTimeString = format(endDate, 'yyyy-MM-dd') + 'T' + format(endDate, 'HH:mm');
+        form.setValue('endDateTime', endDateTimeString);
+      }
+    }
+  }, [startDateTime, form, editBooking]);
+
   // Update form when editing
   useEffect(() => {
     if (editBooking) {

@@ -1,13 +1,13 @@
 [
   {
     "id": "f7804de8-8b0e-4b32-a63a-f321a8fb43d6",
-    "title": "Testing",
+    "title": "Test Room Booking",
     "description": "",
     "roomId": "55985489-1a1c-4e29-9f4f-4a4a144c73a6",
     "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
     "tenantCompanyId": "different-tenant-123",
-    "startDateTime": "2025-08-31T07:00:00.000Z",
-    "endDateTime": "2025-08-31T08:00:00.000Z",
+    "startDateTime": "2025-08-31T11:00:00.000Z",
+    "endDateTime": "2025-08-31T13:00:00.000Z",
     "expectedAttendees": 2,
     "isRecurring": false,
     "cateringRequired": false,
@@ -24,7 +24,13 @@
     "cancelledBy": null,
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:02:21.508Z",
-    "updatedAt": "2025-08-31T13:02:21.508Z"
+    "updatedAt": "2025-08-31T13:34:07.935Z",
+    "staffAttendeeIds": [
+      "0f4f3551-e565-4548-8e71-39472bf99b81"
+    ],
+    "externalAttendeeEmails": [],
+    "cateringNotes": "",
+    "technicalRequirements": ""
   },
   {
     "id": "f2516f27-da07-4505-9fad-d090f2b2013d",
@@ -80,18 +86,17 @@
   },
   {
     "id": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
-    "title": "dbddg",
+    "title": "MArketing Meeting",
     "description": "",
     "roomId": "eb8fcbf3-eb28-464c-966c-d5c817ee6b62",
     "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
     "tenantCompanyId": "different-tenant-789",
     "startDateTime": "2025-08-31T07:00:00.000Z",
     "endDateTime": "2025-08-31T08:00:00.000Z",
-    "expectedAttendees": 1,
+    "expectedAttendees": 3,
     "staffAttendeeIds": [
-      "3a8ad419-0d8d-4ea8-8752-611611ccfc76",
-      "0f4f3551-e565-4548-8e71-39472bf99b81",
-      "0d11a269-1cb2-4657-81f0-ce847d6f7002"
+      "b9a8b36a-cd51-4556-8b59-52b85688ac99",
+      "0f4f3551-e565-4548-8e71-39472bf99b81"
     ],
     "externalAttendeeEmails": [],
     "isRecurring": false,
@@ -109,7 +114,9 @@
     "cancelledBy": null,
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:15:09.611Z",
-    "updatedAt": "2025-08-31T13:15:09.611Z"
+    "updatedAt": "2025-08-31T13:34:50.408Z",
+    "cateringNotes": "",
+    "technicalRequirements": ""
   },
   {
     "id": "7c673c6f-f020-4e96-828b-f6c8cfdebe01",
