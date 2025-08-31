@@ -363,6 +363,12 @@ export interface IStorage {
     averageMeetingDuration: number;
     weeklyTrend: Array<{ day: string; bookings: number }>;
   }>;
+  
+  // Reception diary methods
+  getReceptionDiary(startDate: Date, daysAhead: number): Promise<any[]>;
+  
+  // Today's room bookings
+  getTodayRoomBookings(): Promise<RoomBooking[]>;
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";
@@ -2581,6 +2587,77 @@ export class MemStorage implements IStorage {
       averageMeetingDuration: Math.round(averageMeetingDuration * 100) / 100,
       weeklyTrend,
     };
+  }
+
+  async getDepartmentAnalytics(): Promise<Array<{
+    department: string;
+    visitorCount: number;
+    staffCount: number;
+    totalCount: number;
+    trend: string;
+    color: string;
+  }>> {
+    const departments = Array.from(new Set(Array.from(this.staffMembers.values()).map(s => s.department)));
+    
+    return departments.map(department => {
+      const staff = Array.from(this.staffMembers.values()).filter(s => s.department === department);
+      const visitors = Array.from(this.visitors.values()).filter(v => 
+        v.isCheckedIn && staff.some(s => s.id === v.hostStaffId)
+      );
+      
+      const staffCount = staff.filter(s => s.isCheckedIn).length;
+      const visitorCount = visitors.length;
+      const totalCount = staffCount + visitorCount;
+      
+      // Simple trend calculation - positive if more people than usual
+      const trend = totalCount > 5 ? '+15%' : '-5%';
+      
+      // Color based on department
+      const colors = ['bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-purple-500', 'bg-pink-500'];
+      const color = colors[departments.indexOf(department) % colors.length];
+      
+      return {
+        department,
+        visitorCount,
+        staffCount,
+        totalCount,
+        trend,
+        color
+      };
+    });
+  }
+
+  async getReceptionDiary(startDate: Date, daysAhead: number): Promise<any[]> {
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + daysAhead);
+    
+    return Array.from(this.preBookings.values())
+      .filter(booking => {
+        const bookingDate = new Date(booking.visitDate);
+        return bookingDate >= startDate && bookingDate <= endDate;
+      })
+      .map(booking => {
+        const staff = this.staffMembers.get(booking.hostStaffId);
+        return {
+          ...booking,
+          hostName: staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown',
+        };
+      })
+      .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
+  }
+
+  async getTodayRoomBookings(): Promise<RoomBooking[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    return Array.from(this.roomBookings.values())
+      .filter(booking => {
+        const bookingDate = new Date(booking.startDateTime);
+        return bookingDate >= today && bookingDate < tomorrow;
+      })
+      .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
   }
 }
 

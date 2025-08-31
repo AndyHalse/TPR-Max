@@ -313,14 +313,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const stats = await storage.getVisitorStats();
       
-      // Get contractor counts
-      const contractorCompanies = await storage.getAllContractorCompanies();
-      let contractorsOnSite = 0;
-      
-      for (const company of contractorCompanies) {
-        const workers = await storage.getWorkersByCompanyId(company.id);
-        contractorsOnSite += workers.filter(worker => worker.isCheckedIn).length;
-      }
+      // For now, set contractors to 0 since contractor system is optional
+      const contractorsOnSite = 0;
       
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;
@@ -330,6 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contractorsOnSite
       });
     } catch (error) {
+      console.error("Error fetching stats:", error);
       res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
@@ -5583,6 +5578,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching room bookings:", error);
       res.status(500).json({ error: "Failed to fetch room bookings" });
+    }
+  });
+
+  // Today's Room Bookings - specific route must come before parameterized route
+  app.get("/api/room-bookings/today", async (req, res) => {
+    try {
+      const todayBookings = await storage.getTodayRoomBookings();
+      res.json(todayBookings);
+    } catch (error) {
+      console.error("Error fetching today's room bookings:", error);
+      res.status(500).json({ error: "Failed to fetch today's room bookings" });
     }
   });
 

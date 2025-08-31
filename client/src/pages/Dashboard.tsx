@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
-import type { Staff, Visitor } from "@shared/schema";
+import type { Staff, Visitor, RoomBooking, MeetingRoom } from "@shared/schema";
 
 interface Stats {
   currentVisitors: number;
@@ -89,6 +89,16 @@ export default function Dashboard() {
   }>({
     queryKey: ["/api/analytics/peak-hours"],
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Meeting room booking data for today
+  const { data: todayRoomBookings, isLoading: roomBookingsLoading } = useQuery<RoomBooking[]>({
+    queryKey: ["/api/room-bookings/today"],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { data: meetingRooms } = useQuery<MeetingRoom[]>({
+    queryKey: ["/api/meeting-rooms"],
   });
 
   const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
@@ -713,6 +723,15 @@ export default function Dashboard() {
             >
               <Download className="mr-2" size={16} />
               Export Data
+            </Button>
+            <Button 
+              className="w-full justify-start" 
+              variant="outline" 
+              onClick={() => setLocation('/meeting-rooms')}
+              data-testid="button-room-booking"
+            >
+              <Calendar className="mr-2" size={16} />
+              Room Booking
             </Button>
             <Button 
               className="w-full justify-start" 
