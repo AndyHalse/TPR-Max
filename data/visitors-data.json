@@ -20,8 +20,8 @@
     "hostStaffId": "0d11a269-1cb2-4657-81f0-ce847d6f7002",
     "qrCode": "VIS-1756050684759-qixkv7a15",
     "checkedInAt": "2025-08-24T14:51:24.758Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:35.771Z",
+    "isCheckedIn": false
   },
   {
     "id": "11a760b1-43ae-4fba-97b4-05d750aa89de",
@@ -33,8 +33,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739756-su3j98xo8",
     "checkedInAt": "2025-08-31T14:32:19.756Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:37.123Z",
+    "isCheckedIn": false
   },
   {
     "id": "6dedf0e5-62ad-4b9e-a7f8-b7040d08cedf",
@@ -46,8 +46,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739756-4vgx8vpz4",
     "checkedInAt": "2025-08-31T14:32:19.756Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:33.620Z",
+    "isCheckedIn": false
   },
   {
     "id": "8e0282e6-1a7f-4ee8-884a-772fbab8332d",
@@ -59,8 +59,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739756-cnakuwwdd",
     "checkedInAt": "2025-08-31T14:32:19.756Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:34.914Z",
+    "isCheckedIn": false
   },
   {
     "id": "c37c02d8-d3be-4e5a-8644-101b02f7ebd4",
@@ -72,8 +72,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739758-fxh6rxiuz",
     "checkedInAt": "2025-08-31T14:32:19.758Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:37.692Z",
+    "isCheckedIn": false
   },
   {
     "id": "1f6c6044-9d3a-4bc4-b447-cb5d296351e2",
@@ -85,8 +85,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739759-460n4fnq5",
     "checkedInAt": "2025-08-31T14:32:19.759Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:40.171Z",
+    "isCheckedIn": false
   },
   {
     "id": "a02c72ba-c6b2-4825-980f-74eea04c1f29",
@@ -98,8 +98,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739767-q30urim5o",
     "checkedInAt": "2025-08-31T14:32:19.767Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:39.175Z",
+    "isCheckedIn": false
   },
   {
     "id": "efa51af8-71d2-40f4-9c9f-065db8ac33c5",
@@ -111,8 +111,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739769-yk48wi5zi",
     "checkedInAt": "2025-08-31T14:32:19.769Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:38.355Z",
+    "isCheckedIn": false
   },
   {
     "id": "355bc1b5-aa56-4ce6-b279-6e70034f79f5",
@@ -124,8 +124,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739770-yz5t1yje5",
     "checkedInAt": "2025-08-31T14:32:19.770Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:43.169Z",
+    "isCheckedIn": false
   },
   {
     "id": "34845078-7944-4935-a9b4-1255180c7e13",
@@ -137,8 +137,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739785-sbsraq59x",
     "checkedInAt": "2025-08-31T14:32:19.785Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:44.079Z",
+    "isCheckedIn": false
   },
   {
     "id": "f4e8c683-be5b-4daf-9bbb-e6bb6adc3cc9",
@@ -150,8 +150,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739788-7y1iuroyt",
     "checkedInAt": "2025-08-31T14:32:19.788Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:45.350Z",
+    "isCheckedIn": false
   },
   {
     "id": "df275549-88bb-4f9b-80e6-3c5282b86e5e",
@@ -163,8 +163,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739789-edbhtpy9x",
     "checkedInAt": "2025-08-31T14:32:19.789Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:48.383Z",
+    "isCheckedIn": false
   },
   {
     "id": "83251ef4-cb6f-4a9d-8f50-5edf20a47ef4",
@@ -176,8 +176,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739791-cfkrdiy91",
     "checkedInAt": "2025-08-31T14:32:19.791Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:47.051Z",
+    "isCheckedIn": false
   },
   {
     "id": "a8daec3a-8c29-44c2-9679-87da428cecd0",
@@ -189,8 +189,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739796-jbkybjn4m",
     "checkedInAt": "2025-08-31T14:32:19.796Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:46.224Z",
+    "isCheckedIn": false
   },
   {
     "id": "f35db5d9-a0a3-4c42-8bfa-8ede5b25adf3",
@@ -202,8 +202,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739799-gejyupso8",
     "checkedInAt": "2025-08-31T14:32:19.799Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:49.257Z",
+    "isCheckedIn": false
   },
   {
     "id": "c6e2ae0f-1fda-42fd-a67a-943f8415c0fd",
@@ -215,8 +215,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739799-rgsd3ifdw",
     "checkedInAt": "2025-08-31T14:32:19.799Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:50.077Z",
+    "isCheckedIn": false
   },
   {
     "id": "779b6449-e2c4-49e5-9857-52387c077c92",
@@ -228,8 +228,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739800-3dlakfs9z",
     "checkedInAt": "2025-08-31T14:32:19.800Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:51.967Z",
+    "isCheckedIn": false
   },
   {
     "id": "beee39ff-845b-426f-a434-9d2cf45cfa15",
@@ -241,8 +241,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739801-4o3fvt0xz",
     "checkedInAt": "2025-08-31T14:32:19.801Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:55.140Z",
+    "isCheckedIn": false
   },
   {
     "id": "8c8c27ef-98fe-406d-b834-96db8a700147",
@@ -254,8 +254,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739801-n27csqdsi",
     "checkedInAt": "2025-08-31T14:32:19.801Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:53.903Z",
+    "isCheckedIn": false
   },
   {
     "id": "1e837957-24e3-4360-b3e1-3825f320edad",
@@ -267,8 +267,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739805-vzxcfdix1",
     "checkedInAt": "2025-08-31T14:32:19.805Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:52.619Z",
+    "isCheckedIn": false
   },
   {
     "id": "1541669e-503a-4c97-a2af-553ecb3778e2",
@@ -280,8 +280,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739805-6a8i686zv",
     "checkedInAt": "2025-08-31T14:32:19.805Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:55.867Z",
+    "isCheckedIn": false
   },
   {
     "id": "f13f7e71-01ae-41a5-bd22-2e9fb9b03db3",
@@ -293,8 +293,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739806-bgg24w637",
     "checkedInAt": "2025-08-31T14:32:19.806Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:41:57.113Z",
+    "isCheckedIn": false
   },
   {
     "id": "71e8f04c-79b8-47a9-aad5-57490bc0dda9",
@@ -306,8 +306,8 @@
     "hostStaffId": null,
     "qrCode": "VIS-1756650739806-r9vngltbj",
     "checkedInAt": "2025-08-31T14:32:19.806Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-08-31T14:42:20.871Z",
+    "isCheckedIn": false
   },
   {
     "id": "3088028d-8b86-4cc0-a665-1933c0cf6325",

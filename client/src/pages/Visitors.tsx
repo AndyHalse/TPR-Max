@@ -356,13 +356,20 @@ export default function Visitors() {
     queryKey: ["/api/companies"],
   });
 
-  // Filter existing visitors based on search
-  const filteredVisitors = allVisitors?.filter(visitor => 
-    `${visitor.firstName} ${visitor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    visitor.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    visitor.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (visitor.company && visitor.company.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) || [];
+  // Filter existing visitors based on search (exclude visitors with missing essential data)
+  const filteredVisitors = allVisitors?.filter(visitor => {
+    // Skip visitors with missing essential data
+    if (!visitor.firstName || !visitor.lastName) {
+      return false;
+    }
+    
+    return (
+      `${visitor.firstName} ${visitor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      visitor.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      visitor.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (visitor.company && visitor.company.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }) || [];
 
   // Visitor checkout mutation
   const checkoutVisitorMutation = useMutation({
@@ -695,13 +702,23 @@ export default function Visitors() {
     }
 
     if (selectedPreviousVisitor) {
+      // Validate visitor data before submitting
+      if (!selectedPreviousVisitor.firstName || !selectedPreviousVisitor.lastName) {
+        toast({
+          title: "Error",
+          description: "Invalid visitor data: Missing first name or last name",
+          variant: "destructive",
+        });
+        return;
+      }
+
       checkInPreviousVisitorMutation.mutate({
         firstName: selectedPreviousVisitor.firstName,
         lastName: selectedPreviousVisitor.lastName,
-        company: selectedPreviousVisitor.company,
+        company: selectedPreviousVisitor.company || null,
         hostStaffId: selectedHostForPrevious,
-        purpose: selectedPreviousVisitor.purpose,
-        carRegistration: selectedPreviousVisitor.carRegistration,
+        purpose: selectedPreviousVisitor.purpose || null,
+        carRegistration: selectedPreviousVisitor.carRegistration || null,
       });
     }
   };
