@@ -480,6 +480,89 @@ For questions about this report, please contact the administrator.
     return success;
   }
 
+  // Send visitor invitation with meeting room details
+  async sendVisitorInvitation(preBooking: any, hostStaff: Staff, meetingRoom?: any): Promise<boolean> {
+    const formatDateTime = (date: Date) => {
+      return new Intl.DateTimeFormat('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/London'
+      }).format(date);
+    };
+
+    const visitDateTime = formatDateTime(new Date(preBooking.visitDate));
+    const subject = `You're Invited to Visit - ${preBooking.purpose || 'Business Meeting'}`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">🎯 You're Invited to Visit</h1>
+        </div>
+        
+        <div style="padding: 30px; background: #f8f9fa; border-left: 4px solid #10b981;">
+          <h2 style="color: #333; margin-top: 0;">Welcome ${preBooking.visitorFirstName}!</h2>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #10b981; margin-top: 0;">📍 Visit Details</h3>
+            <p><strong>Date & Time:</strong> ${visitDateTime}</p>
+            <p><strong>Purpose:</strong> ${preBooking.purpose || 'Business meeting'}</p>
+            <p><strong>Your Host:</strong> ${hostStaff.firstName} ${hostStaff.lastName}</p>
+            <p><strong>Host Email:</strong> ${hostStaff.email}</p>
+            ${preBooking.company ? `<p><strong>Visiting Company:</strong> ${preBooking.company}</p>` : ''}
+            
+            ${meetingRoom ? `
+              <div style="background: #e6fffa; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid #10b981;">
+                <h4 style="color: #047857; margin: 0 0 10px 0;">🏢 Meeting Room</h4>
+                <p style="margin: 5px 0;"><strong>Room:</strong> ${meetingRoom.name}</p>
+                <p style="margin: 5px 0;"><strong>Location:</strong> ${meetingRoom.location}</p>
+                <p style="margin: 5px 0;"><strong>Capacity:</strong> ${meetingRoom.capacity} people</p>
+                
+                <div style="margin-top: 10px;">
+                  <strong>Facilities:</strong>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                    ${meetingRoom.hasProjector ? '<span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📽️ Projector</span>' : ''}
+                    ${meetingRoom.hasVideoConference ? '<span style="background: #2196f3; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📹 Video Call</span>' : ''}
+                    ${meetingRoom.hasWhiteboard ? '<span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📝 Whiteboard</span>' : ''}
+                    ${meetingRoom.hasTV ? '<span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📺 TV</span>' : ''}
+                    ${meetingRoom.hasAirCon ? '<span style="background: #00bcd4; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">❄️ Air Con</span>' : ''}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+            
+            <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid #f59e0b;">
+              <h4 style="color: #92400e; margin: 0 0 10px 0;">📋 Important Information</h4>
+              <p style="margin: 5px 0;">• Please bring a valid photo ID for security</p>
+              <p style="margin: 5px 0;">• Arrive 5-10 minutes early for check-in</p>
+              <p style="margin: 5px 0;">• Your QR code: <strong>${preBooking.qrCode}</strong></p>
+              <p style="margin: 5px 0;">• Show this email at reception for quick check-in</p>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <p style="color: #666; font-size: 14px;">
+              📧 This invitation was sent automatically by VisiGate Pro<br>
+              Questions? Contact your host: ${hostStaff.email}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const text = `You're Invited to Visit\n\nHello ${preBooking.visitorFirstName},\n\nYou have been invited for a visit:\n\nDate & Time: ${visitDateTime}\nPurpose: ${preBooking.purpose || 'Business meeting'}\nYour Host: ${hostStaff.firstName} ${hostStaff.lastName}\nHost Email: ${hostStaff.email}\n\n${meetingRoom ? `Meeting Room: ${meetingRoom.name}\nLocation: ${meetingRoom.location}\nCapacity: ${meetingRoom.capacity} people\n\n` : ''}Important Information:\n• Please bring a valid photo ID for security\n• Arrive 5-10 minutes early for check-in\n• Your QR code: ${preBooking.qrCode}\n• Show this email at reception for quick check-in\n\nQuestions? Contact your host: ${hostStaff.email}\n\nThis invitation was sent automatically by VisiGate Pro.`;
+
+    return await this.sendEmail({
+      to: preBooking.visitorEmail,
+      subject,
+      html,
+      text
+    });
+  }
+
   async sendMeetingReminder(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
     const subject = `Reminder: ${booking.title} starts in 15 minutes`;
     

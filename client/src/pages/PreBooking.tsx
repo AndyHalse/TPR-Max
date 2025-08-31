@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { printVisitorPass } from "@/lib/printVisitorPass";
-import { Staff, PreBooking, InsertPreBooking } from "@shared/schema";
+import { Staff, PreBooking, InsertPreBooking, MeetingRoom } from "@shared/schema";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -251,6 +251,11 @@ export default function PreBooking() {
     queryKey: ["/api/prebookings/upcoming"],
   });
 
+  // Get meeting rooms for optional room assignment
+  const { data: meetingRooms } = useQuery<MeetingRoom[]>({
+    queryKey: ["/api/meeting-rooms"],
+  });
+
   const createPreBookingMutation = useMutation({
     mutationFn: async (data: InsertPreBooking) => {
       const response = await apiRequest("POST", "/api/prebookings", data);
@@ -302,6 +307,28 @@ export default function PreBooking() {
       toast({
         title: "Error", 
         description: "Failed to check in visitor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendInvitationMutation = useMutation({
+    mutationFn: async (preBookingId: string) => {
+      const response = await apiRequest("POST", `/api/prebookings/${preBookingId}/send-invitation`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      toast({
+        title: "Success",
+        description: "Visitor invitation sent with meeting room details!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send visitor invitation",
         variant: "destructive",
       });
     },
@@ -524,6 +551,31 @@ export default function PreBooking() {
               </Select>
             </div>
             
+            <div className="space-y-2">
+              <Label htmlFor="meetingRoomId" className="text-sm font-medium text-slate-700">
+                Meeting Room (Optional)
+              </Label>
+              <Select 
+                value={formData.meetingRoomId || ""} 
+                onValueChange={(value) => handleInputChange("meetingRoomId", value || null)}
+              >
+                <SelectTrigger 
+                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="input-meeting-room"
+                >
+                  <SelectValue placeholder="Select meeting room (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No meeting room</SelectItem>
+                  {meetingRooms?.filter(room => room.isActive).map((room) => (
+                    <SelectItem key={room.id} value={room.id}>
+                      {room.name} - {room.location} (Capacity: {room.capacity})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-slate-700">Visit Date *</Label>
@@ -621,21 +673,38 @@ export default function PreBooking() {
                       <p className="text-sm text-slate-600">{booking.company}</p>
                       <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
                       <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
+                      {booking.meetingRoomId && (
+                        <p className="text-sm text-slate-600">Room: {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.name} - {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.location}</p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking)}`}>
                         {getStatusText(booking)}
                       </span>
-                      {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
-                        <Button
-                          size="sm"
-                          onClick={() => manualCheckInMutation.mutate(booking.id)}
-                          disabled={manualCheckInMutation.isPending}
-                          className="text-xs"
-                        >
-                          Check In
-                        </Button>
-                      )}
+                      <div className="flex gap-2">
+                        {!booking.emailSent && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => sendInvitationMutation.mutate(booking.id)}
+                            disabled={sendInvitationMutation.isPending}
+                            className="text-xs"
+                          >
+                            <Send size={14} className="mr-1" />
+                            Send Invite
+                          </Button>
+                        )}
+                        {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
+                          <Button
+                            size="sm"
+                            onClick={() => manualCheckInMutation.mutate(booking.id)}
+                            disabled={manualCheckInMutation.isPending}
+                            className="text-xs"
+                          >
+                            Check In
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -672,23 +741,40 @@ export default function PreBooking() {
                     <p className="text-sm text-slate-600">{booking.company}</p>
                     <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
                     <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
+                    {booking.meetingRoomId && (
+                      <p className="text-sm text-slate-600">Room: {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.name} - {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.location}</p>
+                    )}
                     {booking.purpose && <p className="text-sm text-slate-600 mt-1">Purpose: {booking.purpose}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking)}`}>
                       {getStatusText(booking)}
                     </span>
-                    {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
-                      <Button
-                        size="sm"
-                        onClick={() => manualCheckInMutation.mutate(booking.id)}
-                        disabled={manualCheckInMutation.isPending}
-                        className="text-xs"
-                      >
-                        <UserPlus size={14} className="mr-1" />
-                        Check In
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {!booking.emailSent && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => sendInvitationMutation.mutate(booking.id)}
+                          disabled={sendInvitationMutation.isPending}
+                          className="text-xs"
+                        >
+                          <Send size={14} className="mr-1" />
+                          Send Invite
+                        </Button>
+                      )}
+                      {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
+                        <Button
+                          size="sm"
+                          onClick={() => manualCheckInMutation.mutate(booking.id)}
+                          disabled={manualCheckInMutation.isPending}
+                          className="text-xs"
+                        >
+                          <UserPlus size={14} className="mr-1" />
+                          Check In
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

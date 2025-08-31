@@ -1338,13 +1338,18 @@ export class MemStorage implements IStorage {
     
     const preBooking: PreBooking = {
       id,
-      visitorName: insertPreBooking.visitorName,
+      visitorFirstName: insertPreBooking.visitorFirstName,
+      visitorLastName: insertPreBooking.visitorLastName,
       visitorEmail: insertPreBooking.visitorEmail,
       company: insertPreBooking.company || null,
       purpose: insertPreBooking.purpose || null,
-      hostStaffId: insertPreBooking.hostStaffId || null,
       visitDate: insertPreBooking.visitDate,
+      visitTime: insertPreBooking.visitTime || null,
+      hostStaffId: insertPreBooking.hostStaffId || null,
+      meetingRoomId: insertPreBooking.meetingRoomId || null,
+      tenantCompanyId: insertPreBooking.tenantCompanyId || null,
       qrCode,
+      status: 'pending',
       isCheckedIn: false,
       checkedInAt: null,
       visitorId: null,
@@ -1459,7 +1464,7 @@ export class MemStorage implements IStorage {
       activities.push({
         id: `prebooking-${booking.id}`,
         type: 'prebooking' as const,
-        name: booking.visitorName,
+        name: `${booking.visitorFirstName} ${booking.visitorLastName}`,
         timestamp: new Date(booking.createdAt || new Date()),
         details: `pre-booked for ${new Date(booking.visitDate).toLocaleDateString()}`
       });

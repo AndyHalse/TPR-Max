@@ -2706,23 +2706,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const preBookingData = insertPreBookingSchema.parse(transformedData);
       const preBooking = await storage.createPreBooking(preBookingData);
       
-      // Get host staff and company settings for email
+      // Get host staff and meeting room details for email
       const hostStaff = await storage.getStaffById(preBooking.hostStaffId!);
-      const companySettings = await storage.getCompanySettings();
+      const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
       
-      if (hostStaff && companySettings) {
-        // Generate QR code URL for email
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(preBooking.qrCode)}`;
-        
-        // Send email
+      if (hostStaff) {
+        // Send visitor invitation email with meeting room details
         try {
           const { EmailService } = await import("./emailService");
           const emailService = new EmailService();
-          const emailSent = await emailService.sendPreBookingEmail(
+          const emailSent = await emailService.sendVisitorInvitation(
             preBooking,
             hostStaff,
-            companySettings,
-            qrCodeUrl
+            meetingRoom
           );
           
           if (emailSent) {
@@ -2732,7 +2728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
         } catch (emailError) {
-          console.error("Failed to send pre-booking email:", emailError);
+          console.error("Failed to send visitor invitation email:", emailError);
           // Don't fail the pre-booking if email fails
         }
       }
@@ -2745,6 +2741,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error creating pre-booking:", error);
         res.status(500).json({ error: "Failed to create pre-booking" });
       }
+    }
+  });
+
+  // Send visitor invitation email
+  app.post("/api/prebookings/:id/send-invitation", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const preBooking = await storage.getPreBookingById(id);
+      
+      if (!preBooking) {
+        return res.status(404).json({ error: "Pre-booking not found" });
+      }
+      
+      if (preBooking.emailSent) {
+        return res.status(400).json({ error: "Invitation already sent" });
+      }
+      
+      // Get host staff and meeting room details
+      const hostStaff = await storage.getStaffById(preBooking.hostStaffId!);
+      const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
+      
+      if (!hostStaff) {
+        return res.status(400).json({ error: "Host staff not found" });
+      }
+      
+      // Send visitor invitation email
+      const { EmailService } = await import("./emailService");
+      const emailService = new EmailService();
+      const emailSent = await emailService.sendVisitorInvitation(
+        preBooking,
+        hostStaff,
+        meetingRoom
+      );
+      
+      if (emailSent) {
+        await storage.updatePreBooking(preBooking.id, {
+          emailSent: true,
+          emailSentAt: new Date(),
+        });
+      }
+      
+      res.json({ success: emailSent, preBooking });
+    } catch (error) {
+      console.error("Error sending visitor invitation:", error);
+      res.status(500).json({ error: "Failed to send visitor invitation" });
     }
   });
 
@@ -2767,11 +2808,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create visitor record from pre-booking
       const visitor = await storage.createVisitor({
-        name: preBooking.visitorName,
+        firstName: preBooking.visitorFirstName,
+        lastName: preBooking.visitorLastName,
+        email: preBooking.visitorEmail,
         company: preBooking.company,
         purpose: preBooking.purpose,
         carRegistration: null,
         hostStaffId: preBooking.hostStaffId,
+        visitingTenantId: preBooking.tenantCompanyId,
+        isPreBooked: true,
+        expectedDateTime: preBooking.visitDate,
+        visitPurpose: preBooking.purpose,
       });
       
       // Update pre-booking as checked in
