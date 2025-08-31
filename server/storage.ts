@@ -214,6 +214,13 @@ export interface IStorage {
   // Building Settings methods
   getBuildingSettings(): Promise<BuildingSettings | undefined>;
   updateBuildingSettings(updates: Partial<InsertBuildingSettings>): Promise<BuildingSettings | undefined>;
+  
+  // Meeting Room methods
+  getAllMeetingRooms(): Promise<MeetingRoom[]>;
+  getMeetingRoomById(id: string): Promise<MeetingRoom | undefined>;
+  createMeetingRoom(insertRoom: InsertMeetingRoom): Promise<MeetingRoom>;
+  updateMeetingRoom(id: string, updates: Partial<InsertMeetingRoom>): Promise<MeetingRoom | undefined>;
+  deleteMeetingRoom(id: string): Promise<boolean>;
 
   // NVQ Qualification methods
   getAllNvqQualifications(): Promise<NvqQualification[]>;
@@ -359,8 +366,8 @@ export interface IStorage {
 import { DatabaseStorage } from "./DatabaseStorage";
 
 export function createStorage(): IStorage {
-  // Using SQL database storage for production-ready data persistence
-  return new DatabaseStorage();
+  // Using memory storage for development with sample data
+  return new MemStorage();
 }
 
 export class MemStorage implements IStorage {
@@ -373,12 +380,14 @@ export class MemStorage implements IStorage {
   private preBookings: Map<string, PreBooking>;
   private tenantCompanies: Map<string, TenantCompany>;
   private buildingSettings: BuildingSettings | undefined;
+  private meetingRooms: Map<string, MeetingRoom>;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
   private readonly staffFilePath = path.join(process.cwd(), 'data', 'staff-data.json');
   private readonly visitorsFilePath = path.join(process.cwd(), 'data', 'visitors-data.json');
   private readonly reportsFilePath = path.join(process.cwd(), 'data', 'reports-data.json');
   private readonly preBookingsFilePath = path.join(process.cwd(), 'data', 'prebookings-data.json');
   private readonly usersFilePath = path.join(process.cwd(), 'data', 'users-data.json');
+  private readonly meetingRoomsFilePath = path.join(process.cwd(), 'data', 'meeting-rooms-data.json');
 
   constructor() {
     this.users = new Map();
@@ -388,6 +397,7 @@ export class MemStorage implements IStorage {
     this.reports = new Map();
     this.preBookings = new Map();
     this.tenantCompanies = new Map();
+    this.meetingRooms = new Map();
     this.buildingSettings = undefined;
     
     // Ensure data directory exists
@@ -400,10 +410,16 @@ export class MemStorage implements IStorage {
     this.loadOrInitializeReports();
     this.loadOrInitializePreBookings();
     this.loadOrInitializeUsers();
+    this.loadOrInitializeMeetingRooms();
     
     // Initialize sample data only if no existing data
     if (this.staffMembers.size === 0) {
       this.initializeSampleData();
+    }
+    
+    // Initialize sample meeting rooms if none exist
+    if (this.meetingRooms.size === 0) {
+      this.initializeSampleMeetingRooms();
     }
   }
 
@@ -1751,6 +1767,182 @@ export class MemStorage implements IStorage {
     }
 
     return this.buildingSettings;
+  }
+
+  // Meeting Room persistence methods
+  private loadOrInitializeMeetingRooms(): void {
+    try {
+      if (fs.existsSync(this.meetingRoomsFilePath)) {
+        const meetingRoomsData = fs.readFileSync(this.meetingRoomsFilePath, 'utf8');
+        const meetingRoomsArray = JSON.parse(meetingRoomsData);
+        meetingRoomsArray.forEach((room: any) => {
+          if (room.createdAt) room.createdAt = new Date(room.createdAt);
+          if (room.updatedAt) room.updatedAt = new Date(room.updatedAt);
+          this.meetingRooms.set(room.id, room);
+        });
+        console.log(`✅ Meeting rooms data loaded: ${this.meetingRooms.size} rooms`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading meeting rooms data:', error);
+    }
+  }
+
+  private saveMeetingRoomsToFile(): void {
+    try {
+      const meetingRoomsArray = Array.from(this.meetingRooms.values());
+      fs.writeFileSync(this.meetingRoomsFilePath, JSON.stringify(meetingRoomsArray, null, 2));
+    } catch (error) {
+      console.error('❌ Error saving meeting rooms data:', error);
+    }
+  }
+
+  // Meeting Room methods
+  async getAllMeetingRooms(): Promise<MeetingRoom[]> {
+    return Array.from(this.meetingRooms.values())
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async getMeetingRoomById(id: string): Promise<MeetingRoom | undefined> {
+    return this.meetingRooms.get(id);
+  }
+
+  async createMeetingRoom(insertRoom: InsertMeetingRoom): Promise<MeetingRoom> {
+    const id = randomUUID();
+    const meetingRoom: MeetingRoom = {
+      id,
+      ...insertRoom,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.meetingRooms.set(id, meetingRoom);
+    this.saveMeetingRoomsToFile(); // 💾 PERSIST IMMEDIATELY
+    return meetingRoom;
+  }
+
+  async updateMeetingRoom(id: string, updates: Partial<InsertMeetingRoom>): Promise<MeetingRoom | undefined> {
+    const meetingRoom = this.meetingRooms.get(id);
+    if (!meetingRoom) return undefined;
+
+    const updatedRoom = {
+      ...meetingRoom,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    
+    this.meetingRooms.set(id, updatedRoom);
+    this.saveMeetingRoomsToFile(); // 💾 PERSIST IMMEDIATELY
+    return updatedRoom;
+  }
+
+  async deleteMeetingRoom(id: string): Promise<boolean> {
+    const result = this.meetingRooms.delete(id);
+    if (result) {
+      this.saveMeetingRoomsToFile(); // 💾 PERSIST IMMEDIATELY
+    }
+    return result;
+  }
+
+  // Initialize sample meeting rooms with different configurations
+  private initializeSampleMeetingRooms(): void {
+    const sampleRooms: InsertMeetingRoom[] = [
+      {
+        name: "Executive Boardroom",
+        description: "Premium boardroom with panoramic city views, perfect for high-level meetings and presentations.",
+        location: "Floor 25, North Wing",
+        capacity: 14,
+        isSharedRoom: false,
+        tenantCompanyId: null,
+        hasProjector: true,
+        hasVideoConference: true,
+        hasWhiteboard: true,
+        hasTV: true,
+        hasAirCon: true,
+        hasCatering: true,
+        isActive: true,
+      },
+      {
+        name: "Innovation Hub",
+        description: "Modern collaborative space with interactive whiteboards and flexible seating arrangements.",
+        location: "Floor 12, Creative Zone",
+        capacity: 8,
+        isSharedRoom: true,
+        tenantCompanyId: null,
+        hasProjector: false,
+        hasVideoConference: true,
+        hasWhiteboard: true,
+        hasTV: true,
+        hasAirCon: true,
+        hasCatering: false,
+        isActive: true,
+      },
+      {
+        name: "Tech Conference Room",
+        description: "Fully equipped technology center with dual screens and advanced video conferencing setup.",
+        location: "Floor 8, Tech Hub",
+        capacity: 12,
+        isSharedRoom: true,
+        tenantCompanyId: null,
+        hasProjector: true,
+        hasVideoConference: true,
+        hasWhiteboard: false,
+        hasTV: true,
+        hasAirCon: true,
+        hasCatering: true,
+        isActive: true,
+      },
+      {
+        name: "Quiet Study Room",
+        description: "Intimate meeting space ideal for small team discussions and private consultations.",
+        location: "Floor 5, East Wing",
+        capacity: 4,
+        isSharedRoom: true,
+        tenantCompanyId: null,
+        hasProjector: false,
+        hasVideoConference: false,
+        hasWhiteboard: true,
+        hasTV: false,
+        hasAirCon: true,
+        hasCatering: false,
+        isActive: true,
+      },
+      {
+        name: "Training Center Alpha",
+        description: "Large training facility with tiered seating and multiple presentation screens.",
+        location: "Floor 3, Training Wing",
+        capacity: 24,
+        isSharedRoom: true,
+        tenantCompanyId: null,
+        hasProjector: true,
+        hasVideoConference: true,
+        hasWhiteboard: true,
+        hasTV: true,
+        hasAirCon: true,
+        hasCatering: true,
+        isActive: true,
+      },
+      {
+        name: "Quick Meet Pod",
+        description: "Compact meeting pod for quick discussions and phone calls with soundproofing.",
+        location: "Floor 7, Open Office Area",
+        capacity: 3,
+        isSharedRoom: true,
+        tenantCompanyId: null,
+        hasProjector: false,
+        hasVideoConference: true,
+        hasWhiteboard: false,
+        hasTV: false,
+        hasAirCon: false,
+        hasCatering: false,
+        isActive: true,
+      }
+    ];
+
+    sampleRooms.forEach(async (roomData) => {
+      await this.createMeetingRoom(roomData);
+    });
+
+    console.log(`🏢 Initialized ${sampleRooms.length} sample meeting rooms`);
   }
 }
 
