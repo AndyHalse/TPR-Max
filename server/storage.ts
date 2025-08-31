@@ -319,7 +319,7 @@ export interface IStorage {
   createMeetingRoom(insertRoom: InsertMeetingRoom): Promise<MeetingRoom>;
   updateMeetingRoom(id: string, updates: Partial<InsertMeetingRoom>): Promise<MeetingRoom | undefined>;
   deleteMeetingRoom(id: string): Promise<boolean>;
-  checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string): Promise<boolean>;
+  checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean>;
 
   // Room Booking methods
   getRoomBookings(startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]>;
@@ -2232,13 +2232,26 @@ export class MemStorage implements IStorage {
     return result;
   }
 
-  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string): Promise<boolean> {
+  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean> {
+    // Get the room to check if it's shared or tenant-specific
+    const room = this.meetingRooms.get(roomId);
+    if (!room) return false;
+    
     const roomBookings = Array.from(this.roomBookings.values())
-      .filter(b => 
-        b.roomId === roomId && 
-        b.status !== 'cancelled' &&
-        (!excludeBookingId || b.id !== excludeBookingId)
-      );
+      .filter(b => {
+        if (b.roomId !== roomId || b.status === 'cancelled') return false;
+        if (excludeBookingId && b.id === excludeBookingId) return false;
+        
+        // For shared rooms, check all bookings
+        // For tenant-specific rooms, only check bookings from the same tenant
+        if (room.isSharedRoom) {
+          return true; // Check all bookings for shared rooms
+        } else if (tenantId) {
+          return b.tenantCompanyId === tenantId; // Only check same tenant bookings
+        }
+        
+        return true; // Default: check all bookings
+      });
     
     return !roomBookings.some(booking => {
       const bookingStart = new Date(booking.startDateTime);

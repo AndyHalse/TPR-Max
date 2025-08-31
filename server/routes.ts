@@ -5456,7 +5456,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         roomId as string,
         new Date(startDateTime as string),
         new Date(endDateTime as string),
-        excludeBookingId as string
+        excludeBookingId as string,
+        req.user?.tenantCompanyId
       );
       
       if (isAvailable) {
@@ -5495,7 +5496,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id,
         new Date(startTime),
         new Date(endTime),
-        excludeBookingId
+        excludeBookingId,
+        req.user?.tenantCompanyId
       );
       
       res.json({ available: isAvailable });
@@ -5561,7 +5563,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAvailable = await storage.checkRoomAvailability(
         bookingData.roomId,
         new Date(bookingData.startDateTime),
-        new Date(bookingData.endDateTime)
+        new Date(bookingData.endDateTime),
+        undefined,
+        req.user?.tenantCompanyId
       );
 
       if (!isAvailable) {
@@ -5629,7 +5633,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentBooking.roomId,
           startTime,
           endTime,
-          id // Exclude current booking from availability check
+          id, // Exclude current booking from availability check
+          req.user?.tenantCompanyId
         );
 
         if (!isAvailable) {

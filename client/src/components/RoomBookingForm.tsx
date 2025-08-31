@@ -212,7 +212,9 @@ export function RoomBookingForm({
       form.reset();
       onOpenChange(false);
       // Invalidate bookings cache to refresh calendar
-      queryClient.invalidateQueries({ queryKey: ['/api/room-bookings'] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === '/api/room-bookings'
+      });
     },
     onError: (error) => {
       toast({
@@ -243,7 +245,9 @@ export function RoomBookingForm({
       setConflictingBookings([]);
       onOpenChange(false);
       // Invalidate bookings cache to refresh calendar
-      queryClient.invalidateQueries({ queryKey: ['/api/room-bookings'] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === '/api/room-bookings'
+      });
     },
     onError: (error) => {
       toast({

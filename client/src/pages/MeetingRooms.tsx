@@ -668,6 +668,7 @@ export default function MeetingRooms() {
             selectedRoomId={selectedRoom?.id}
             onBookingSelect={handleBookingSelect}
             onCreateBooking={handleCreateBooking}
+            tenantId="0f97f5a9-2b83-45ae-9ebf-cead4a9abd6a"
           />
         </TabsContent>
       </Tabs>
