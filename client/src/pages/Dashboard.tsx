@@ -445,8 +445,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      {/* People On-Site Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
+          <Users className="text-blue-600" size={20} />
+          People On-Site
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
           <div className="flex items-center justify-between">
             <div>
@@ -478,7 +483,7 @@ export default function Dashboard() {
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('staff')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-variable text-sm font-medium">Staff On-Site</p>
+              <p className="text-variable text-sm font-medium">Staff</p>
               <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-staff-onsite">
                 {stats?.staffOnSite || 0}
               </p>
@@ -492,7 +497,7 @@ export default function Dashboard() {
         <GlassCard hover className="cursor-pointer" onClick={() => setLocation('/contractor')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-variable text-sm font-medium">Contractors On Site</p>
+              <p className="text-variable text-sm font-medium">Contractors</p>
               <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-contractors-onsite">
                 {stats?.contractorsOnSite || 0}
               </p>
@@ -506,7 +511,7 @@ export default function Dashboard() {
         <GlassCard hover className="cursor-pointer">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-variable text-sm font-medium">Total People On-Site</p>
+              <p className="text-variable text-sm font-medium">Total People</p>
               <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-total-people-onsite">
                 {stats?.totalPeopleOnSite || 0}
               </p>
@@ -516,6 +521,7 @@ export default function Dashboard() {
             </div>
           </div>
         </GlassCard>
+        </div>
       </div>
 
       {/* Multi-Tenant Building Overview */}
