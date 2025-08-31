@@ -108,6 +108,8 @@ export interface IStorage {
   deleteVisitor(id: string): Promise<boolean>;
   getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined>;
   findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined>;
+  findExistingVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined>;
+  checkInExistingVisitor(id: string, updates: { hostStaffId?: string, purpose?: string, carRegistration?: string }): Promise<Visitor>;
   searchVisitors(searchTerm: string): Promise<Visitor[]>;
   getUniqueCompanies(): Promise<string[]>;
   
@@ -1193,6 +1195,35 @@ export class MemStorage implements IStorage {
       visitor.lastName === lastName &&
       (company ? visitor.company === company : true)
     );
+  }
+
+  async findExistingVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
+    return Array.from(this.visitors.values()).find(visitor => 
+      visitor.firstName === firstName &&
+      visitor.lastName === lastName &&
+      (company ? visitor.company === company : true)
+    );
+  }
+
+  async checkInExistingVisitor(id: string, updates: { hostStaffId?: string, purpose?: string, carRegistration?: string }): Promise<Visitor> {
+    const visitor = this.visitors.get(id);
+    if (!visitor) {
+      throw new Error("Visitor not found");
+    }
+
+    const updatedVisitor: Visitor = {
+      ...visitor,
+      hostStaffId: updates.hostStaffId ?? visitor.hostStaffId,
+      purpose: updates.purpose ?? visitor.purpose,
+      carRegistration: updates.carRegistration ?? visitor.carRegistration,
+      checkedInAt: new Date(),
+      checkedOutAt: null,
+      isCheckedIn: true,
+    };
+    
+    this.visitors.set(id, updatedVisitor);
+    this.saveVisitorsToFile(); // 💾 PERSIST IMMEDIATELY
+    return updatedVisitor;
   }
 
   async getUniqueCompanies(): Promise<string[]> {

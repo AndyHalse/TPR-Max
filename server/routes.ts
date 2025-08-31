@@ -1493,23 +1493,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔍 Checking for duplicate: ${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'no company'}`);
       
       // Check if visitor with same name and company is already checked in
-      const existingVisitor = await storage.findCheckedInVisitor(
+      const existingCheckedInVisitor = await storage.findCheckedInVisitor(
         visitorData.firstName, 
         visitorData.lastName, 
         visitorData.company
       );
       
-      if (existingVisitor) {
-        console.log(`❌ DUPLICATE FOUND: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id}) is already checked in`);
+      if (existingCheckedInVisitor) {
+        console.log(`❌ DUPLICATE FOUND: ${existingCheckedInVisitor.firstName} ${existingCheckedInVisitor.lastName} (ID: ${existingCheckedInVisitor.id}) is already checked in`);
         return res.status(400).json({ 
           error: "Visitor already checked in", 
           details: `${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'this company'} is already on-site.`
         });
       }
-      
-      console.log(`✅ No duplicate found, creating new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
-      const visitor = await storage.createVisitor(visitorData);
-      res.json(visitor);
+
+      // Try to find any existing visitor record (checked out) to reuse
+      const existingVisitor = await storage.findExistingVisitor(
+        visitorData.firstName,
+        visitorData.lastName,
+        visitorData.company
+      );
+
+      if (existingVisitor) {
+        console.log(`✅ Found existing visitor record, updating check-in status: ${visitorData.firstName} ${visitorData.lastName}`);
+        const updatedVisitor = await storage.checkInExistingVisitor(existingVisitor.id, {
+          hostStaffId: visitorData.hostStaffId,
+          purpose: visitorData.purpose,
+          carRegistration: visitorData.carRegistration
+        });
+        res.json(updatedVisitor);
+      } else {
+        console.log(`✅ No existing record found, creating new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
+        const visitor = await storage.createVisitor(visitorData);
+        res.json(visitor);
+      }
     } catch (error) {
       console.error("❌ Error during visitor check-in:", error);
       if (error instanceof z.ZodError) {

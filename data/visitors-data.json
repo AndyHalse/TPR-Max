@@ -429,5 +429,18 @@
     "checkedInAt": "2025-08-31T14:51:06.146Z",
     "checkedOutAt": null,
     "isCheckedIn": true
+  },
+  {
+    "id": "d724346c-13aa-4078-bdca-18813fb9800d",
+    "firstName": "Sarah",
+    "lastName": "Johnson",
+    "company": "Digital Dynamics",
+    "purpose": "Presentation",
+    "carRegistration": null,
+    "hostStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+    "qrCode": "VIS-1756651893265-6n782vcd2",
+    "checkedInAt": "2025-08-31T14:51:33.265Z",
+    "checkedOutAt": null,
+    "isCheckedIn": true
   }
 ]
