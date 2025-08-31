@@ -313,8 +313,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const stats = await storage.getVisitorStats();
       
-      // For now, set contractors to 0 since contractor system is optional
-      const contractorsOnSite = 0;
+      // Get actual number of checked-in contractors
+      const checkedInContractors = await storage.getCheckedInContractors();
+      const contractorsOnSite = checkedInContractors.length;
       
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;

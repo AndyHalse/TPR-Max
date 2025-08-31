@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "reportType": "staff_attendance",
+    "generatedAt": "2025-08-31T15:00:47.950Z",
+    "dateFrom": "2025-08-24T15:00:40.818Z",
+    "dateTo": "2025-08-31T15:00:40.818Z",
+    "totalVisitors": "28",
+    "avgDuration": "0.2h",
+    "emailSent": false,
+    "emailSentAt": null,
+    "id": "306c5627-7bf9-42cd-9c03-6b76ee74eda6"
+  },
+  {
+    "reportType": "staff_by_department",
+    "generatedAt": "2025-08-31T15:01:02.480Z",
+    "dateFrom": "2025-08-24T15:00:40.818Z",
+    "dateTo": "2025-08-31T15:00:40.818Z",
+    "totalVisitors": "28",
+    "avgDuration": "0.2h",
+    "emailSent": false,
+    "emailSentAt": null,
+    "id": "4cae15d5-470d-4857-8da8-c3f2db6d2ce3"
+  }
+]
