@@ -1511,6 +1511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const visitor = await storage.createVisitor(visitorData);
       res.json(visitor);
     } catch (error) {
+      console.error("❌ Error during visitor check-in:", error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid visitor data", details: error.errors });
       } else {

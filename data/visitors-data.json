@@ -29,12 +29,17 @@
     "lastName": "Smith",
     "company": "Tech Solutions Ltd",
     "purpose": "Site Visit",
-    "carRegistration": null,
+    "carRegistration": "",
     "hostStaffId": null,
     "qrCode": "VIS-1756650739756-su3j98xo8",
     "checkedInAt": "2025-08-31T14:32:19.756Z",
     "checkedOutAt": "2025-08-31T14:41:37.123Z",
-    "isCheckedIn": false
+    "isCheckedIn": false,
+    "email": "andy@acsltd.eu",
+    "phoneNumber": "",
+    "mobileNumber": "",
+    "jobTitle": "",
+    "address": "Wittas House\nTwo Rivers\nStation Lane\nWitney\nOX28 4BH"
   },
   {
     "id": "6dedf0e5-62ad-4b9e-a7f8-b7040d08cedf",
@@ -42,12 +47,17 @@
     "lastName": "Johnson",
     "company": "Digital Dynamics",
     "purpose": "Presentation",
-    "carRegistration": null,
+    "carRegistration": "",
     "hostStaffId": null,
     "qrCode": "VIS-1756650739756-4vgx8vpz4",
     "checkedInAt": "2025-08-31T14:32:19.756Z",
     "checkedOutAt": "2025-08-31T14:41:33.620Z",
-    "isCheckedIn": false
+    "isCheckedIn": false,
+    "email": "andy@acsltd.eu",
+    "phoneNumber": "",
+    "mobileNumber": "",
+    "jobTitle": "",
+    "address": ""
   },
   {
     "id": "8e0282e6-1a7f-4ee8-884a-772fbab8332d",
@@ -55,12 +65,17 @@
     "lastName": "Brown",
     "company": "Innovation Hub",
     "purpose": "Meeting",
-    "carRegistration": null,
+    "carRegistration": "",
     "hostStaffId": null,
     "qrCode": "VIS-1756650739756-cnakuwwdd",
     "checkedInAt": "2025-08-31T14:32:19.756Z",
     "checkedOutAt": "2025-08-31T14:41:34.914Z",
-    "isCheckedIn": false
+    "isCheckedIn": false,
+    "email": "andy@acsltd.eu",
+    "phoneNumber": "",
+    "mobileNumber": "",
+    "jobTitle": "",
+    "address": ""
   },
   {
     "id": "c37c02d8-d3be-4e5a-8644-101b02f7ebd4",
@@ -68,12 +83,17 @@
     "lastName": "Davis",
     "company": "Future Systems",
     "purpose": "Site Visit",
-    "carRegistration": null,
+    "carRegistration": "",
     "hostStaffId": null,
     "qrCode": "VIS-1756650739758-fxh6rxiuz",
     "checkedInAt": "2025-08-31T14:32:19.758Z",
     "checkedOutAt": "2025-08-31T14:41:37.692Z",
-    "isCheckedIn": false
+    "isCheckedIn": false,
+    "email": "andy@acsltd.eu",
+    "phoneNumber": "",
+    "mobileNumber": "",
+    "jobTitle": "",
+    "address": ""
   },
   {
     "id": "1f6c6044-9d3a-4bc4-b447-cb5d296351e2",
@@ -81,12 +101,17 @@
     "lastName": "Wilson",
     "company": "Smart Solutions",
     "purpose": "Site Visit",
-    "carRegistration": null,
+    "carRegistration": "",
     "hostStaffId": null,
     "qrCode": "VIS-1756650739759-460n4fnq5",
     "checkedInAt": "2025-08-31T14:32:19.759Z",
     "checkedOutAt": "2025-08-31T14:41:40.171Z",
-    "isCheckedIn": false
+    "isCheckedIn": false,
+    "email": "andy@acsltd.eu",
+    "phoneNumber": "",
+    "mobileNumber": "",
+    "jobTitle": "",
+    "address": ""
   },
   {
     "id": "a02c72ba-c6b2-4825-980f-74eea04c1f29",
@@ -94,12 +119,17 @@
     "lastName": "Taylor",
     "company": "Data Corp",
     "purpose": "Training",
-    "carRegistration": null,
+    "carRegistration": "",
     "hostStaffId": null,
     "qrCode": "VIS-1756650739767-q30urim5o",
     "checkedInAt": "2025-08-31T14:32:19.767Z",
     "checkedOutAt": "2025-08-31T14:41:39.175Z",
-    "isCheckedIn": false
+    "isCheckedIn": false,
+    "email": "andy@acsltd.eu",
+    "phoneNumber": "",
+    "mobileNumber": "",
+    "jobTitle": "",
+    "address": ""
   },
   {
     "id": "efa51af8-71d2-40f4-9c9f-065db8ac33c5",
