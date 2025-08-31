@@ -24,5 +24,28 @@
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:02:21.508Z",
     "updatedAt": "2025-08-31T13:02:21.508Z"
+  },
+  {
+    "id": "f2516f27-da07-4505-9fad-d090f2b2013d",
+    "roomId": "c4d13dab-a4e2-4c29-a83c-3ad1a0c38a52",
+    "title": "Test Meeting",
+    "startDateTime": "2025-08-31T09:00:00.000Z",
+    "endDateTime": "2025-08-31T10:00:00.000Z",
+    "organizerStaffId": "aea47885-0257-4b8b-a4ee-a1791d1d5655",
+    "expectedAttendees": 3,
+    "status": "confirmed",
+    "tenantCompanyId": "0f97f5a9-2b83-45ae-9ebf-cead4a9abd6a",
+    "confirmationEmailSent": false,
+    "reminderEmailSent": false,
+    "confirmationEmailSentAt": null,
+    "reminderEmailSentAt": null,
+    "actualAttendees": null,
+    "meetingNotes": null,
+    "actionItems": [],
+    "cancelledAt": null,
+    "cancelledBy": null,
+    "cancellationReason": null,
+    "createdAt": "2025-08-31T13:06:52.714Z",
+    "updatedAt": "2025-08-31T13:06:52.714Z"
   }
 ]

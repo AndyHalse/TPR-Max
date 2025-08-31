@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar, Clock, Users, MapPin, Wifi, Monitor, Coffee, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { MeetingRoom, Staff } from '@shared/schema';
 
 const bookingFormSchema = z.object({
@@ -150,8 +150,12 @@ export function RoomBookingForm({
       setIsCheckingAvailability(true);
       setAvailabilityStatus('checking');
       
+      // Convert to ISO format for consistency with booking creation
+      const startISO = new Date(startDateTime).toISOString();
+      const endISO = new Date(endDateTime).toISOString();
+      
       const excludeParam = editBooking ? `&excludeBookingId=${editBooking.id}` : '';
-      const url = `/api/room-bookings/check-availability?roomId=${encodeURIComponent(roomId)}&startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}${excludeParam}`;
+      const url = `/api/room-bookings/check-availability?roomId=${encodeURIComponent(roomId)}&startDateTime=${encodeURIComponent(startISO)}&endDateTime=${encodeURIComponent(endISO)}${excludeParam}`;
       
       const response = await fetch(url);
       
@@ -192,8 +196,13 @@ export function RoomBookingForm({
         title: "Booking Created",
         description: "Room has been successfully booked.",
       });
+      // Reset availability status and form
+      setAvailabilityStatus(null);
+      setConflictingBookings([]);
       form.reset();
       onOpenChange(false);
+      // Invalidate bookings cache to refresh calendar
+      queryClient.invalidateQueries({ queryKey: ['/api/room-bookings'] });
     },
     onError: (error) => {
       toast({
@@ -217,7 +226,12 @@ export function RoomBookingForm({
         title: "Booking Updated",
         description: "Room booking has been successfully updated.",
       });
+      // Reset availability status
+      setAvailabilityStatus(null);
+      setConflictingBookings([]);
       onOpenChange(false);
+      // Invalidate bookings cache to refresh calendar
+      queryClient.invalidateQueries({ queryKey: ['/api/room-bookings'] });
     },
     onError: (error) => {
       toast({
