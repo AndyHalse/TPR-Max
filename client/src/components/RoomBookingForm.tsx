@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CalendarDays, Clock, Users, MapPin, Wifi, Monitor, Coffee, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, Wifi, Monitor, Coffee, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import type { MeetingRoom, Staff } from '@shared/schema';
@@ -129,25 +129,36 @@ export function RoomBookingForm({
     }
   }, [editBooking, form]);
 
-  // Watch form changes for availability checking
-  const watchedValues = form.watch(['roomId', 'startDateTime', 'endDateTime']);
-
-  useEffect(() => {
-    const [roomId, startDateTime, endDateTime] = watchedValues;
+  // Manual availability checking - no automatic watching to prevent infinite loops
+  const manualCheckAvailability = () => {
+    const roomId = form.getValues('roomId');
+    const startDateTime = form.getValues('startDateTime');
+    const endDateTime = form.getValues('endDateTime');
     
     if (roomId && startDateTime && endDateTime) {
       checkAvailability(roomId, startDateTime, endDateTime);
     }
-  }, [watchedValues]);
+  };
 
   const checkAvailability = async (roomId: string, startDateTime: string, endDateTime: string) => {
-    if (!roomId || !startDateTime || !endDateTime) return;
-    
-    setIsCheckingAvailability(true);
-    setAvailabilityStatus('checking');
+    if (!roomId || !startDateTime || !endDateTime) {
+      setAvailabilityStatus(null);
+      return;
+    }
     
     try {
-      const response = await fetch(`/api/room-bookings/check-availability?roomId=${roomId}&startDateTime=${startDateTime}&endDateTime=${endDateTime}${editBooking ? `&excludeBookingId=${editBooking.id}` : ''}`);
+      setIsCheckingAvailability(true);
+      setAvailabilityStatus('checking');
+      
+      const excludeParam = editBooking ? `&excludeBookingId=${editBooking.id}` : '';
+      const url = `/api/room-bookings/check-availability?roomId=${encodeURIComponent(roomId)}&startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}${excludeParam}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('Failed to check availability');
+      }
+      
       const data = await response.json();
       
       if (data.available) {
@@ -168,15 +179,12 @@ export function RoomBookingForm({
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      return await apiRequest(`/api/room-bookings`, {
-        method: 'POST',
-        body: JSON.stringify({
-          ...data,
-          tenantCompanyId: tenantId,
-          status: 'confirmed',
-          startDateTime: new Date(data.startDateTime).toISOString(),
-          endDateTime: new Date(data.endDateTime).toISOString(),
-        }),
+      return await apiRequest('POST', '/api/room-bookings', {
+        ...data,
+        tenantCompanyId: tenantId,
+        status: 'confirmed',
+        startDateTime: new Date(data.startDateTime).toISOString(),
+        endDateTime: new Date(data.endDateTime).toISOString(),
       });
     },
     onSuccess: () => {
@@ -198,13 +206,10 @@ export function RoomBookingForm({
 
   const updateBookingMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      return await apiRequest(`/api/room-bookings/${editBooking.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          ...data,
-          startDateTime: new Date(data.startDateTime).toISOString(),
-          endDateTime: new Date(data.endDateTime).toISOString(),
-        }),
+      return await apiRequest('PATCH', `/api/room-bookings/${editBooking.id}`, {
+        ...data,
+        startDateTime: new Date(data.startDateTime).toISOString(),
+        endDateTime: new Date(data.endDateTime).toISOString(),
       });
     },
     onSuccess: () => {
@@ -427,21 +432,44 @@ export function RoomBookingForm({
                       />
                     </div>
 
-                    {/* Availability Status */}
-                    {availabilityStatus && (
-                      <Alert className={
-                        availabilityStatus === 'available' ? 'border-green-200 bg-green-50' :
-                        availabilityStatus === 'conflict' ? 'border-red-200 bg-red-50' :
-                        'border-yellow-200 bg-yellow-50'
-                      }>
-                        <div className="flex items-center gap-2">
-                          {getAvailabilityIcon()}
-                          <AlertDescription data-testid="text-availability-status">
-                            {getAvailabilityMessage()}
-                          </AlertDescription>
-                        </div>
-                      </Alert>
-                    )}
+                    {/* Availability Check Button and Status */}
+                    <div className="space-y-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={manualCheckAvailability}
+                        disabled={isCheckingAvailability}
+                        data-testid="button-check-availability"
+                        className="w-full"
+                      >
+                        {isCheckingAvailability ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Checking availability...
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Check Availability
+                          </>
+                        )}
+                      </Button>
+
+                      {availabilityStatus && !isCheckingAvailability && (
+                        <Alert className={
+                          availabilityStatus === 'available' ? 'border-green-200 bg-green-50' :
+                          availabilityStatus === 'conflict' ? 'border-red-200 bg-red-50' :
+                          'border-yellow-200 bg-yellow-50'
+                        }>
+                          <div className="flex items-center gap-2">
+                            {getAvailabilityIcon()}
+                            <AlertDescription data-testid="text-availability-status">
+                              {getAvailabilityMessage()}
+                            </AlertDescription>
+                          </div>
+                        </Alert>
+                      )}
+                    </div>
 
                     {/* Conflicting Bookings */}
                     {conflictingBookings.length > 0 && (

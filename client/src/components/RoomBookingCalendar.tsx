@@ -43,7 +43,12 @@ export function RoomBookingCalendar({
   const endDate = endOfDay(addDays(startDate, 60)); // 60 days range
 
   const { data: bookings = [], isLoading } = useQuery<BookingWithDetails[]>({
-    queryKey: ['/api/room-bookings', { startDate: startDate.toISOString(), endDate: endDate.toISOString(), roomId: selectedRoomId, tenantId }],
+    queryKey: ['/api/room-bookings', {
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      room_id: selectedRoomId,
+      tenant_id: tenantId
+    }],
   });
 
   const { data: rooms = [] } = useQuery<MeetingRoom[]>({

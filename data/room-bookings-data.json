@@ -1,0 +1,28 @@
+[
+  {
+    "id": "f7804de8-8b0e-4b32-a63a-f321a8fb43d6",
+    "title": "Testing",
+    "description": "",
+    "roomId": "55985489-1a1c-4e29-9f4f-4a4a144c73a6",
+    "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+    "startDateTime": "2025-08-31T07:00:00.000Z",
+    "endDateTime": "2025-08-31T08:00:00.000Z",
+    "expectedAttendees": 2,
+    "isRecurring": false,
+    "cateringRequired": false,
+    "priority": "normal",
+    "status": "confirmed",
+    "confirmationEmailSent": false,
+    "reminderEmailSent": false,
+    "confirmationEmailSentAt": null,
+    "reminderEmailSentAt": null,
+    "actualAttendees": null,
+    "meetingNotes": null,
+    "actionItems": [],
+    "cancelledAt": null,
+    "cancelledBy": null,
+    "cancellationReason": null,
+    "createdAt": "2025-08-31T13:02:21.508Z",
+    "updatedAt": "2025-08-31T13:02:21.508Z"
+  }
+]
