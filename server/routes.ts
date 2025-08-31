@@ -3765,7 +3765,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate test workers for all contractor companies
   app.post("/api/contractors/generate-test-workers", async (req, res) => {
     try {
-      const companies = await storage.getAllContractorCompanies();
+      let companies = await storage.getAllContractorCompanies();
+      
+      // If no companies exist, create some test companies first
+      if (companies.length === 0) {
+        const testCompanies = [
+          {
+            name: "Steel Works Ltd",
+            contactPerson: "John Smith",
+            email: "john.smith@steelworks.co.uk",
+            phone: "+44 1234 567890",
+            address: "123 Industrial Estate, Manchester M1 1AA"
+          },
+          {
+            name: "Prime Construction",
+            contactPerson: "Sarah Johnson",
+            email: "sarah@primeconstruction.co.uk", 
+            phone: "+44 2034 567891",
+            address: "456 Building Road, London E1 4AB"
+          },
+          {
+            name: "Elite Engineering Services",
+            contactPerson: "Mike Wilson",
+            email: "mike.wilson@eliteeng.co.uk",
+            phone: "+44 3456 789012",
+            address: "789 Tech Park, Birmingham B2 5CD"
+          }
+        ];
+        
+        for (const companyData of testCompanies) {
+          await storage.createContractorCompany(companyData);
+        }
+        
+        // Refresh companies list
+        companies = await storage.getAllContractorCompanies();
+        console.log(`Created ${testCompanies.length} test contractor companies`);
+      }
       const workerNames = [
         "James Wilson", "Sarah Connor", "Michael Brown", "Emma Thompson", "David Miller",
         "Lisa Anderson", "Robert Taylor", "Jennifer Davis", "Christopher Moore", "Amanda Clark",

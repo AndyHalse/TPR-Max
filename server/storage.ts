@@ -2725,6 +2725,57 @@ export class MemStorage implements IStorage {
     }));
   }
 
+  async getContractorCompanyById(id: string): Promise<ContractorCompany | undefined> {
+    return this.contractorCompanies.get(id);
+  }
+
+  async createContractorCompany(insertCompany: InsertContractorCompany): Promise<ContractorCompany> {
+    const id = crypto.randomUUID();
+    const company: ContractorCompany = {
+      id,
+      ...insertCompany,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.contractorCompanies.set(id, company);
+    console.log(`Created contractor company: ${company.name} (ID: ${id})`);
+    return company;
+  }
+
+  async deleteContractorCompany(id: string): Promise<boolean> {
+    const existed = this.contractorCompanies.has(id);
+    this.contractorCompanies.delete(id);
+    
+    // Also delete all workers for this company
+    const workersToDelete = Array.from(this.contractorWorkers.entries())
+      .filter(([, worker]) => worker.companyId === id)
+      .map(([workerId]) => workerId);
+    
+    for (const workerId of workersToDelete) {
+      this.contractorWorkers.delete(workerId);
+    }
+    
+    return existed;
+  }
+
+  async createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker> {
+    const id = crypto.randomUUID();
+    const worker: ContractorWorker = {
+      id,
+      ...insertWorker,
+      isCheckedIn: false,
+      checkedInAt: null,
+      checkedOutAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.contractorWorkers.set(id, worker);
+    console.log(`Created contractor worker: ${worker.firstName} ${worker.lastName} (ID: ${id})`);
+    return worker;
+  }
+
   async getAllContractorWorkers(): Promise<ContractorWorker[]> {
     return Array.from(this.contractorWorkers.values());
   }
@@ -2751,7 +2802,6 @@ export class MemStorage implements IStorage {
     
     const updatedCompany = { ...company, ...updates, updatedAt: new Date() };
     this.contractorCompanies.set(id, updatedCompany);
-    this.saveContractorCompanies();
     return updatedCompany;
   }
 }
