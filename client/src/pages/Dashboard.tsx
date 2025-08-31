@@ -1385,7 +1385,7 @@ export default function Dashboard() {
                 <span className="text-xl">Department Details: {selectedDepartment}</span>
                 {departmentDetails && (
                   <Badge variant="secondary" className="ml-2">
-                    {departmentDetails.statistics.totalStaff + departmentDetails.statistics.visitors} people on-site
+                    {departmentDetails.statistics.checkedInStaff + departmentDetails.statistics.visitors} people on-site
                   </Badge>
                 )}
               </DialogTitle>
@@ -1413,7 +1413,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-center p-4 bg-purple-50 rounded-lg">
                     <div className="text-2xl font-bold text-purple-600">
-                      {departmentDetails.statistics.totalStaff + departmentDetails.statistics.visitors}
+                      {departmentDetails.statistics.checkedInStaff + departmentDetails.statistics.visitors}
                     </div>
                     <div className="text-sm text-purple-800">Total People</div>
                   </div>
