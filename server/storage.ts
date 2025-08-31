@@ -2253,13 +2253,15 @@ export class MemStorage implements IStorage {
         return true; // Default: check all bookings
       });
     
-    return !roomBookings.some(booking => {
+    const hasConflict = roomBookings.some(booking => {
       const bookingStart = new Date(booking.startDateTime);
       const bookingEnd = new Date(booking.endDateTime);
       
       // Check for overlap: new booking overlaps if it starts before existing ends and ends after existing starts
       return startTime < bookingEnd && endTime > bookingStart;
     });
+    
+    return !hasConflict;
   }
 
   async getUpcomingBookings(roomId?: string, minutes: number = 60): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]> {
