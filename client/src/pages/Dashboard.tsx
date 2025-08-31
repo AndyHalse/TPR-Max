@@ -466,20 +466,6 @@ export default function Dashboard() {
           </div>
         </GlassCard>
         
-        <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('checkins')}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-variable text-sm font-medium">Today's Check-ins</p>
-              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-today-checkins">
-                {stats?.todayCheckins || 0}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <AtSign className="text-green-600" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-        
         <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('staff')}>
           <div className="flex items-center justify-between">
             <div>
@@ -518,6 +504,20 @@ export default function Dashboard() {
             </div>
             <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
               <Users className="text-emerald-600" size={24} />
+            </div>
+          </div>
+        </GlassCard>
+        
+        <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('checkins')}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-variable text-sm font-medium">Today's Check-ins</p>
+              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-today-checkins">
+                {stats?.todayCheckins || 0}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <AtSign className="text-green-600" size={24} />
             </div>
           </div>
         </GlassCard>
