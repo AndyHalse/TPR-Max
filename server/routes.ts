@@ -2329,14 +2329,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No staff members found to assign as hosts" });
       }
 
-      // No mock data generation - return only real visitors
+      // Generate 30 test visitors as requested
       const existingVisitors = await storage.getAllVisitors();
+      const targetCount = 30;
+      const toGenerate = Math.max(0, targetCount - existingVisitors.length);
 
-      // Zero fake data policy - only return existing real visitors
+      if (toGenerate > 0) {
+        const testVisitorNames = [
+          { firstName: 'John', lastName: 'Smith', company: 'Tech Solutions Ltd' },
+          { firstName: 'Sarah', lastName: 'Johnson', company: 'Digital Dynamics' },
+          { firstName: 'Michael', lastName: 'Brown', company: 'Innovation Hub' },
+          { firstName: 'Emily', lastName: 'Davis', company: 'Future Systems' },
+          { firstName: 'David', lastName: 'Wilson', company: 'Smart Solutions' },
+          { firstName: 'Lisa', lastName: 'Taylor', company: 'Data Corp' },
+          { firstName: 'James', lastName: 'Anderson', company: 'Cloud Services' },
+          { firstName: 'Jennifer', lastName: 'Thomas', company: 'Tech Innovations' },
+          { firstName: 'Robert', lastName: 'Jackson', company: 'Digital Solutions' },
+          { firstName: 'Maria', lastName: 'White', company: 'Advanced Systems' },
+          { firstName: 'Christopher', lastName: 'Harris', company: 'Modern Tech' },
+          { firstName: 'Jessica', lastName: 'Martin', company: 'IT Consultancy' },
+          { firstName: 'Matthew', lastName: 'Thompson', company: 'Software House' },
+          { firstName: 'Ashley', lastName: 'Garcia', company: 'Tech Partners' },
+          { firstName: 'Daniel', lastName: 'Martinez', company: 'Innovation Labs' },
+          { firstName: 'Amanda', lastName: 'Robinson', company: 'Digital Agency' },
+          { firstName: 'Joshua', lastName: 'Clark', company: 'Future Tech' },
+          { firstName: 'Michelle', lastName: 'Rodriguez', company: 'Smart Corp' },
+          { firstName: 'Andrew', lastName: 'Lewis', company: 'Tech Ventures' },
+          { firstName: 'Stephanie', lastName: 'Lee', company: 'Data Solutions' },
+          { firstName: 'Kenneth', lastName: 'Walker', company: 'Cloud Systems' },
+          { firstName: 'Nicole', lastName: 'Hall', company: 'Digital Works' },
+          { firstName: 'Ryan', lastName: 'Allen', company: 'Innovation Group' },
+          { firstName: 'Rachel', lastName: 'Young', company: 'Tech Services' },
+          { firstName: 'Brandon', lastName: 'Hernandez', company: 'Modern Solutions' },
+          { firstName: 'Samantha', lastName: 'King', company: 'Advanced Tech' },
+          { firstName: 'Justin', lastName: 'Wright', company: 'Software Solutions' },
+          { firstName: 'Lauren', lastName: 'Lopez', company: 'Digital Innovations' },
+          { firstName: 'Kevin', lastName: 'Hill', company: 'Tech Experts' },
+          { firstName: 'Megan', lastName: 'Scott', company: 'Smart Technologies' }
+        ];
+
+        const departments = ['Engineering', 'Marketing', 'Sales', 'Operations', 'HR', 'Finance'];
+        const purposes = ['Meeting', 'Interview', 'Consultation', 'Training', 'Presentation', 'Site Visit'];
+        
+        let generated = 0;
+        for (let i = 0; i < Math.min(toGenerate, testVisitorNames.length); i++) {
+          const visitor = testVisitorNames[i];
+          const randomStaff = staff[Math.floor(Math.random() * staff.length)];
+          const randomDepartment = departments[Math.floor(Math.random() * departments.length)];
+          const randomPurpose = purposes[Math.floor(Math.random() * purposes.length)];
+          
+          // Random check-in time within last 4 hours
+          const checkedInAt = new Date();
+          checkedInAt.setHours(checkedInAt.getHours() - Math.floor(Math.random() * 4));
+          
+          const newVisitor: InsertVisitor = {
+            firstName: visitor.firstName,
+            lastName: visitor.lastName,
+            company: visitor.company,
+            email: `${visitor.firstName.toLowerCase()}.${visitor.lastName.toLowerCase()}@${visitor.company.toLowerCase().replace(/\s+/g, '')}.com`,
+            hostName: `${randomStaff.firstName} ${randomStaff.lastName}`,
+            department: randomDepartment,
+            purpose: randomPurpose,
+            checkedInAt,
+            checkedOutAt: null, // Still checked in
+            badgeNumber: `V${String(1000 + i).padStart(4, '0')}`,
+            accessLevel: 'Visitor',
+            status: 'active'
+          };
+
+          await storage.createVisitor(newVisitor);
+          generated++;
+        }
+
+        console.log(`Generated ${generated} test visitors`);
+      }
+
+      const allVisitors = await storage.getAllVisitors();
       res.json({ 
         success: true, 
-        message: `Returned ${existingVisitors.length} real visitors (no fake data generated)`,
-        visitors: existingVisitors 
+        message: `Generated ${toGenerate} new test visitors. Total visitors: ${allVisitors.length}`,
+        visitors: allVisitors 
       });
     } catch (error) {
       console.error("Error generating test visitors:", error);
