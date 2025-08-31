@@ -44,6 +44,12 @@ const bookingFormSchema = z.object({
 }, {
   message: "End time must be after start time",
   path: ["endDateTime"],
+}).refine((data) => {
+  const totalSelectedAttendees = (data.staffAttendeeIds?.length || 0) + (data.externalAttendeeEmails?.length || 0) + 1; // +1 for organizer
+  return totalSelectedAttendees <= data.expectedAttendees;
+}, {
+  message: "Total selected attendees cannot exceed expected attendees count",
+  path: ["expectedAttendees"],
 });
 
 type BookingFormData = z.infer<typeof bookingFormSchema>;

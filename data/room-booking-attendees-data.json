@@ -1,0 +1,41 @@
+[
+  {
+    "id": "74ed062d-6db1-4c3b-a332-b5628bbb4f4a",
+    "bookingId": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
+    "staffId": "3a8ad419-0d8d-4ea8-8752-611611ccfc76",
+    "email": "david.rodriguez@techcorp.com",
+    "name": "David Rodriguez",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:15:09.612Z"
+  },
+  {
+    "id": "dda74a74-7a06-4299-aac6-f117d261ee77",
+    "bookingId": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
+    "staffId": "0f4f3551-e565-4548-8e71-39472bf99b81",
+    "email": "emma@acsltd.eu",
+    "name": "Emma Leschenko",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:15:09.612Z"
+  },
+  {
+    "id": "e5d58042-2b23-4879-93b0-dd849e2e2241",
+    "bookingId": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
+    "staffId": "0d11a269-1cb2-4657-81f0-ce847d6f7002",
+    "email": "michael.chen@techcorp.com",
+    "name": "Michael Chen",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:15:09.612Z"
+  }
+]

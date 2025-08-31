@@ -5644,6 +5644,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
+
+      // Handle staff attendees if provided
+      const { staffAttendeeIds, externalAttendeeEmails } = updates;
+      if (staffAttendeeIds || externalAttendeeEmails) {
+        // Clear existing attendees and add new ones
+        const existingAttendees = await storage.getBookingAttendees(id);
+        for (const attendee of existingAttendees) {
+          await storage.removeBookingAttendee(attendee.id);
+        }
+
+        // Add updated attendees
+        await storage.createBookingAttendees(
+          id,
+          staffAttendeeIds || [],
+          externalAttendeeEmails || []
+        );
+
+        // Send update notification email
+        const fullBooking = await storage.getRoomBookingById(id);
+        if (fullBooking) {
+          const staffAttendees = staffAttendeeIds?.length > 0 ? await storage.getStaffByIds(staffAttendeeIds) : [];
+          
+          try {
+            await emailService.sendBookingConfirmation(
+              fullBooking, 
+              fullBooking.room, 
+              fullBooking.organizer, 
+              staffAttendees,
+              externalAttendeeEmails || []
+            );
+          } catch (emailError) {
+            console.error("Failed to send booking update email:", emailError);
+          }
+        }
+      }
       
       res.json(booking);
     } catch (error) {
@@ -5669,11 +5704,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send cancellation email if booking details were available
       if (fullBooking) {
         try {
+          // Get attendees for email notifications
+          const attendees = await storage.getBookingAttendees(id);
+          const staffAttendees = await storage.getStaffByIds(
+            attendees.filter(a => a.staffId).map(a => a.staffId!)
+          );
+          const externalEmails = attendees.filter(a => !a.staffId).map(a => a.email);
+          
           await emailService.sendBookingCancellation(
             fullBooking, 
             fullBooking.room, 
             fullBooking.organizer, 
-            attendeeEmails || []
+            staffAttendees,
+            externalEmails
           );
         } catch (emailError) {
           console.error("Failed to send cancellation email:", emailError);

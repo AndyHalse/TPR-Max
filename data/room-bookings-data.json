@@ -75,5 +75,37 @@
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:09:18.918Z",
     "updatedAt": "2025-08-31T13:09:18.918Z"
+  },
+  {
+    "id": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
+    "title": "dbddg",
+    "description": "",
+    "roomId": "eb8fcbf3-eb28-464c-966c-d5c817ee6b62",
+    "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+    "startDateTime": "2025-08-31T07:00:00.000Z",
+    "endDateTime": "2025-08-31T08:00:00.000Z",
+    "expectedAttendees": 1,
+    "staffAttendeeIds": [
+      "3a8ad419-0d8d-4ea8-8752-611611ccfc76",
+      "0f4f3551-e565-4548-8e71-39472bf99b81",
+      "0d11a269-1cb2-4657-81f0-ce847d6f7002"
+    ],
+    "externalAttendeeEmails": [],
+    "isRecurring": false,
+    "cateringRequired": false,
+    "priority": "normal",
+    "status": "confirmed",
+    "confirmationEmailSent": false,
+    "reminderEmailSent": false,
+    "confirmationEmailSentAt": null,
+    "reminderEmailSentAt": null,
+    "actualAttendees": null,
+    "meetingNotes": null,
+    "actionItems": [],
+    "cancelledAt": null,
+    "cancelledBy": null,
+    "cancellationReason": null,
+    "createdAt": "2025-08-31T13:15:09.611Z",
+    "updatedAt": "2025-08-31T13:15:09.611Z"
   }
 ]

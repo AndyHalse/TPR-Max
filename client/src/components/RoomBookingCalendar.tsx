@@ -43,12 +43,21 @@ export function RoomBookingCalendar({
   const endDate = endOfDay(addDays(startDate, 60)); // 60 days range
 
   const { data: bookings = [], isLoading } = useQuery<BookingWithDetails[]>({
-    queryKey: ['/api/room-bookings', {
-      start_date: startDate.toISOString(),
-      end_date: endDate.toISOString(),
-      room_id: selectedRoomId,
-      tenant_id: tenantId
-    }],
+    queryKey: ['/api/room-bookings', startDate.toISOString(), endDate.toISOString(), selectedRoomId, tenantId],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        ...(selectedRoomId && { room_id: selectedRoomId }),
+        ...(tenantId && { tenant_id: tenantId })
+      });
+      
+      const response = await fetch(`/api/room-bookings?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      return response.json();
+    },
   });
 
   const { data: rooms = [] } = useQuery<MeetingRoom[]>({
