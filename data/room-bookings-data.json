@@ -220,5 +220,35 @@
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:27:33.236Z",
     "updatedAt": "2025-08-31T13:27:33.236Z"
+  },
+  {
+    "id": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "title": "jkhgkj",
+    "description": "",
+    "roomId": "08a3a595-8d76-4a13-8ba2-accc3f2ed187",
+    "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+    "startDateTime": "2025-08-31T07:00:00.000Z",
+    "endDateTime": "2025-08-31T08:00:00.000Z",
+    "expectedAttendees": 2,
+    "staffAttendeeIds": [
+      "0f4f3551-e565-4548-8e71-39472bf99b81"
+    ],
+    "externalAttendeeEmails": [],
+    "isRecurring": false,
+    "cateringRequired": false,
+    "priority": "normal",
+    "status": "confirmed",
+    "confirmationEmailSent": false,
+    "reminderEmailSent": false,
+    "confirmationEmailSentAt": null,
+    "reminderEmailSentAt": null,
+    "actualAttendees": null,
+    "meetingNotes": null,
+    "actionItems": [],
+    "cancelledAt": null,
+    "cancelledBy": null,
+    "cancellationReason": null,
+    "createdAt": "2025-08-31T13:28:58.345Z",
+    "updatedAt": "2025-08-31T13:28:58.345Z"
   }
 ]

@@ -43,13 +43,13 @@ export function RoomBookingCalendar({
   const endDate = endOfDay(addDays(startDate, 60)); // 60 days range
 
   const { data: bookings = [], isLoading } = useQuery<BookingWithDetails[]>({
-    queryKey: ['/api/room-bookings', startDate.toISOString(), endDate.toISOString(), selectedRoomId, tenantId],
+    queryKey: ['/api/room-bookings', startDate.toISOString(), endDate.toISOString(), selectedRoomId],
     queryFn: async () => {
       const params = new URLSearchParams({
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
-        ...(selectedRoomId && { room_id: selectedRoomId }),
-        ...(tenantId && { tenant_id: tenantId })
+        ...(selectedRoomId && { room_id: selectedRoomId })
+        // Note: Don't filter by tenant_id for calendar view - we want to see all bookings for proper availability checking
       });
       
       const response = await fetch(`/api/room-bookings?${params}`);

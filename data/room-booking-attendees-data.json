@@ -76,5 +76,18 @@
     "checkedIn": false,
     "checkedInAt": null,
     "createdAt": "2025-08-31T13:27:33.237Z"
+  },
+  {
+    "id": "46a92bd3-1b86-43a3-847f-125a053eaddb",
+    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "staffId": "0f4f3551-e565-4548-8e71-39472bf99b81",
+    "email": "emma@acsltd.eu",
+    "name": "Emma Leschenko",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:28:58.346Z"
   }
 ]
