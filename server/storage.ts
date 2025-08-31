@@ -381,6 +381,9 @@ export class MemStorage implements IStorage {
   private tenantCompanies: Map<string, TenantCompany>;
   private buildingSettings: BuildingSettings | undefined;
   private meetingRooms: Map<string, MeetingRoom>;
+  private roomBookings: Map<string, RoomBooking>;
+  private roomBookingAttendees: Map<string, RoomBookingAttendee>;
+  private roomBookingWaitlist: Map<string, RoomBookingWaitlist>;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
   private readonly staffFilePath = path.join(process.cwd(), 'data', 'staff-data.json');
   private readonly visitorsFilePath = path.join(process.cwd(), 'data', 'visitors-data.json');
@@ -388,6 +391,9 @@ export class MemStorage implements IStorage {
   private readonly preBookingsFilePath = path.join(process.cwd(), 'data', 'prebookings-data.json');
   private readonly usersFilePath = path.join(process.cwd(), 'data', 'users-data.json');
   private readonly meetingRoomsFilePath = path.join(process.cwd(), 'data', 'meeting-rooms-data.json');
+  private readonly roomBookingsFilePath = path.join(process.cwd(), 'data', 'room-bookings-data.json');
+  private readonly roomBookingAttendeesFilePath = path.join(process.cwd(), 'data', 'room-booking-attendees-data.json');
+  private readonly roomBookingWaitlistFilePath = path.join(process.cwd(), 'data', 'room-booking-waitlist-data.json');
 
   constructor() {
     this.users = new Map();
@@ -398,6 +404,9 @@ export class MemStorage implements IStorage {
     this.preBookings = new Map();
     this.tenantCompanies = new Map();
     this.meetingRooms = new Map();
+    this.roomBookings = new Map();
+    this.roomBookingAttendees = new Map();
+    this.roomBookingWaitlist = new Map();
     this.buildingSettings = undefined;
     
     // Ensure data directory exists
@@ -411,6 +420,9 @@ export class MemStorage implements IStorage {
     this.loadOrInitializePreBookings();
     this.loadOrInitializeUsers();
     this.loadOrInitializeMeetingRooms();
+    this.loadOrInitializeRoomBookings();
+    this.loadOrInitializeRoomBookingAttendees();
+    this.loadOrInitializeRoomBookingWaitlist();
     
     // Initialize sample data only if no existing data
     if (this.staffMembers.size === 0) {
@@ -1954,6 +1966,559 @@ export class MemStorage implements IStorage {
     });
 
     console.log(`🏢 Initialized ${sampleRooms.length} sample meeting rooms`);
+  }
+
+  // Room Booking persistence methods
+  private loadOrInitializeRoomBookings(): void {
+    try {
+      if (fs.existsSync(this.roomBookingsFilePath)) {
+        const bookingsData = fs.readFileSync(this.roomBookingsFilePath, 'utf8');
+        const bookingsArray = JSON.parse(bookingsData);
+        bookingsArray.forEach((booking: any) => {
+          if (booking.startDateTime) booking.startDateTime = new Date(booking.startDateTime);
+          if (booking.endDateTime) booking.endDateTime = new Date(booking.endDateTime);
+          if (booking.createdAt) booking.createdAt = new Date(booking.createdAt);
+          if (booking.updatedAt) booking.updatedAt = new Date(booking.updatedAt);
+          if (booking.cancelledAt) booking.cancelledAt = new Date(booking.cancelledAt);
+          if (booking.confirmationEmailSentAt) booking.confirmationEmailSentAt = new Date(booking.confirmationEmailSentAt);
+          if (booking.reminderEmailSentAt) booking.reminderEmailSentAt = new Date(booking.reminderEmailSentAt);
+          this.roomBookings.set(booking.id, booking);
+        });
+        console.log(`✅ Room bookings data loaded: ${this.roomBookings.size} bookings`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading room bookings data:', error);
+    }
+  }
+
+  private saveRoomBookingsToFile(): void {
+    try {
+      const bookingsArray = Array.from(this.roomBookings.values());
+      fs.writeFileSync(this.roomBookingsFilePath, JSON.stringify(bookingsArray, null, 2));
+    } catch (error) {
+      console.error('❌ Error saving room bookings data:', error);
+    }
+  }
+
+  private loadOrInitializeRoomBookingAttendees(): void {
+    try {
+      if (fs.existsSync(this.roomBookingAttendeesFilePath)) {
+        const attendeesData = fs.readFileSync(this.roomBookingAttendeesFilePath, 'utf8');
+        const attendeesArray = JSON.parse(attendeesData);
+        attendeesArray.forEach((attendee: any) => {
+          if (attendee.responseAt) attendee.responseAt = new Date(attendee.responseAt);
+          if (attendee.checkedInAt) attendee.checkedInAt = new Date(attendee.checkedInAt);
+          if (attendee.createdAt) attendee.createdAt = new Date(attendee.createdAt);
+          this.roomBookingAttendees.set(attendee.id, attendee);
+        });
+        console.log(`✅ Room booking attendees data loaded: ${this.roomBookingAttendees.size} attendees`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading room booking attendees data:', error);
+    }
+  }
+
+  private saveRoomBookingAttendeesToFile(): void {
+    try {
+      const attendeesArray = Array.from(this.roomBookingAttendees.values());
+      fs.writeFileSync(this.roomBookingAttendeesFilePath, JSON.stringify(attendeesArray, null, 2));
+    } catch (error) {
+      console.error('❌ Error saving room booking attendees data:', error);
+    }
+  }
+
+  private loadOrInitializeRoomBookingWaitlist(): void {
+    try {
+      if (fs.existsSync(this.roomBookingWaitlistFilePath)) {
+        const waitlistData = fs.readFileSync(this.roomBookingWaitlistFilePath, 'utf8');
+        const waitlistArray = JSON.parse(waitlistData);
+        waitlistArray.forEach((waitlist: any) => {
+          if (waitlist.startDateTime) waitlist.startDateTime = new Date(waitlist.startDateTime);
+          if (waitlist.endDateTime) waitlist.endDateTime = new Date(waitlist.endDateTime);
+          if (waitlist.notifiedAt) waitlist.notifiedAt = new Date(waitlist.notifiedAt);
+          if (waitlist.createdAt) waitlist.createdAt = new Date(waitlist.createdAt);
+          this.roomBookingWaitlist.set(waitlist.id, waitlist);
+        });
+        console.log(`✅ Room booking waitlist data loaded: ${this.roomBookingWaitlist.size} entries`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading room booking waitlist data:', error);
+    }
+  }
+
+  private saveRoomBookingWaitlistToFile(): void {
+    try {
+      const waitlistArray = Array.from(this.roomBookingWaitlist.values());
+      fs.writeFileSync(this.roomBookingWaitlistFilePath, JSON.stringify(waitlistArray, null, 2));
+    } catch (error) {
+      console.error('❌ Error saving room booking waitlist data:', error);
+    }
+  }
+
+  // Room Booking CRUD methods
+  async getRoomBookings(startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]> {
+    let bookings = Array.from(this.roomBookings.values());
+    
+    if (startDate) {
+      bookings = bookings.filter(b => new Date(b.startDateTime) >= startDate);
+    }
+    if (endDate) {
+      bookings = bookings.filter(b => new Date(b.endDateTime) <= endDate);
+    }
+    
+    // Join with room and organizer data
+    const bookingsWithDetails = [];
+    for (const booking of bookings) {
+      const room = this.meetingRooms.get(booking.roomId);
+      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      
+      if (room && organizer) {
+        bookingsWithDetails.push({
+          ...booking,
+          room,
+          organizer
+        });
+      }
+    }
+    
+    return bookingsWithDetails.sort((a, b) => 
+      new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+    );
+  }
+
+  async getRoomBookingsByRoom(roomId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { organizer: Staff })[]> {
+    let bookings = Array.from(this.roomBookings.values()).filter(b => b.roomId === roomId);
+    
+    if (startDate) {
+      bookings = bookings.filter(b => new Date(b.startDateTime) >= startDate);
+    }
+    if (endDate) {
+      bookings = bookings.filter(b => new Date(b.endDateTime) <= endDate);
+    }
+    
+    // Join with organizer data
+    const bookingsWithOrganizer = [];
+    for (const booking of bookings) {
+      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      if (organizer) {
+        bookingsWithOrganizer.push({
+          ...booking,
+          organizer
+        });
+      }
+    }
+    
+    return bookingsWithOrganizer.sort((a, b) => 
+      new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+    );
+  }
+
+  async getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]> {
+    let bookings = Array.from(this.roomBookings.values()).filter(b => b.tenantCompanyId === tenantId);
+    
+    if (startDate) {
+      bookings = bookings.filter(b => new Date(b.startDateTime) >= startDate);
+    }
+    if (endDate) {
+      bookings = bookings.filter(b => new Date(b.endDateTime) <= endDate);
+    }
+    
+    // Join with room and organizer data
+    const bookingsWithDetails = [];
+    for (const booking of bookings) {
+      const room = this.meetingRooms.get(booking.roomId);
+      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      
+      if (room && organizer) {
+        bookingsWithDetails.push({
+          ...booking,
+          room,
+          organizer
+        });
+      }
+    }
+    
+    return bookingsWithDetails.sort((a, b) => 
+      new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+    );
+  }
+
+  async getRoomBookingById(id: string): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff }) | undefined> {
+    const booking = this.roomBookings.get(id);
+    if (!booking) return undefined;
+    
+    const room = this.meetingRooms.get(booking.roomId);
+    const organizer = this.staffMembers.get(booking.organizerStaffId);
+    
+    if (!room || !organizer) return undefined;
+    
+    return {
+      ...booking,
+      room,
+      organizer
+    };
+  }
+
+  async createRoomBooking(insertBooking: InsertRoomBooking): Promise<RoomBooking> {
+    const id = randomUUID();
+    const booking: RoomBooking = {
+      id,
+      ...insertBooking,
+      confirmationEmailSent: false,
+      reminderEmailSent: false,
+      confirmationEmailSentAt: null,
+      reminderEmailSentAt: null,
+      actualAttendees: null,
+      meetingNotes: null,
+      actionItems: [],
+      cancelledAt: null,
+      cancelledBy: null,
+      cancellationReason: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.roomBookings.set(id, booking);
+    this.saveRoomBookingsToFile();
+    return booking;
+  }
+
+  async updateRoomBooking(id: string, updates: Partial<InsertRoomBooking>): Promise<RoomBooking | undefined> {
+    const booking = this.roomBookings.get(id);
+    if (!booking) return undefined;
+
+    const updatedBooking = {
+      ...booking,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    
+    this.roomBookings.set(id, updatedBooking);
+    this.saveRoomBookingsToFile();
+    return updatedBooking;
+  }
+
+  async cancelRoomBooking(id: string, cancelledBy: string): Promise<RoomBooking | undefined> {
+    const booking = this.roomBookings.get(id);
+    if (!booking) return undefined;
+
+    const cancelledBooking = {
+      ...booking,
+      status: 'cancelled' as const,
+      cancelledAt: new Date(),
+      cancelledBy,
+      updatedAt: new Date(),
+    };
+    
+    this.roomBookings.set(id, cancelledBooking);
+    this.saveRoomBookingsToFile();
+    return cancelledBooking;
+  }
+
+  async deleteRoomBooking(id: string): Promise<boolean> {
+    const result = this.roomBookings.delete(id);
+    if (result) {
+      this.saveRoomBookingsToFile();
+      // Also remove related attendees
+      const attendeesToRemove = Array.from(this.roomBookingAttendees.values())
+        .filter(a => a.bookingId === id);
+      attendeesToRemove.forEach(a => this.roomBookingAttendees.delete(a.id));
+      if (attendeesToRemove.length > 0) {
+        this.saveRoomBookingAttendeesToFile();
+      }
+    }
+    return result;
+  }
+
+  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string): Promise<boolean> {
+    const roomBookings = Array.from(this.roomBookings.values())
+      .filter(b => 
+        b.roomId === roomId && 
+        b.status !== 'cancelled' &&
+        (!excludeBookingId || b.id !== excludeBookingId)
+      );
+    
+    return !roomBookings.some(booking => {
+      const bookingStart = new Date(booking.startDateTime);
+      const bookingEnd = new Date(booking.endDateTime);
+      
+      // Check for overlap: new booking overlaps if it starts before existing ends and ends after existing starts
+      return startTime < bookingEnd && endTime > bookingStart;
+    });
+  }
+
+  async getUpcomingBookings(roomId?: string, minutes: number = 60): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]> {
+    const now = new Date();
+    const futureTime = new Date(now.getTime() + minutes * 60000);
+    
+    let bookings = Array.from(this.roomBookings.values())
+      .filter(b => 
+        b.status !== 'cancelled' &&
+        new Date(b.startDateTime) >= now &&
+        new Date(b.startDateTime) <= futureTime
+      );
+    
+    if (roomId) {
+      bookings = bookings.filter(b => b.roomId === roomId);
+    }
+    
+    // Join with room and organizer data
+    const bookingsWithDetails = [];
+    for (const booking of bookings) {
+      const room = this.meetingRooms.get(booking.roomId);
+      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      
+      if (room && organizer) {
+        bookingsWithDetails.push({
+          ...booking,
+          room,
+          organizer
+        });
+      }
+    }
+    
+    return bookingsWithDetails.sort((a, b) => 
+      new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+    );
+  }
+
+  async checkInToMeeting(bookingId: string, staffId: string): Promise<RoomBooking | undefined> {
+    const booking = this.roomBookings.get(bookingId);
+    if (!booking) return undefined;
+
+    const attendee = Array.from(this.roomBookingAttendees.values())
+      .find(a => a.bookingId === bookingId && a.staffId === staffId);
+    
+    if (attendee) {
+      const updatedAttendee = {
+        ...attendee,
+        checkedIn: true,
+        checkedInAt: new Date(),
+      };
+      this.roomBookingAttendees.set(attendee.id, updatedAttendee);
+      this.saveRoomBookingAttendeesToFile();
+    }
+
+    return booking;
+  }
+
+  async endMeeting(bookingId: string): Promise<RoomBooking | undefined> {
+    const booking = this.roomBookings.get(bookingId);
+    if (!booking) return undefined;
+
+    const updatedBooking = {
+      ...booking,
+      status: 'completed' as const,
+      updatedAt: new Date(),
+    };
+    
+    this.roomBookings.set(bookingId, updatedBooking);
+    this.saveRoomBookingsToFile();
+    return updatedBooking;
+  }
+
+  // Room Booking Attendees methods
+  async getBookingAttendees(bookingId: string): Promise<RoomBookingAttendee[]> {
+    return Array.from(this.roomBookingAttendees.values())
+      .filter(a => a.bookingId === bookingId);
+  }
+
+  async addBookingAttendee(insertAttendee: InsertRoomBookingAttendee): Promise<RoomBookingAttendee> {
+    const id = randomUUID();
+    const attendee: RoomBookingAttendee = {
+      id,
+      ...insertAttendee,
+      responseAt: null,
+      checkedIn: false,
+      checkedInAt: null,
+      createdAt: new Date(),
+    };
+    
+    this.roomBookingAttendees.set(id, attendee);
+    this.saveRoomBookingAttendeesToFile();
+    return attendee;
+  }
+
+  async updateAttendeeResponse(id: string, status: string): Promise<RoomBookingAttendee | undefined> {
+    const attendee = this.roomBookingAttendees.get(id);
+    if (!attendee) return undefined;
+
+    const updatedAttendee = {
+      ...attendee,
+      responseStatus: status,
+      responseAt: new Date(),
+    };
+    
+    this.roomBookingAttendees.set(id, updatedAttendee);
+    this.saveRoomBookingAttendeesToFile();
+    return updatedAttendee;
+  }
+
+  async removeBookingAttendee(id: string): Promise<boolean> {
+    const result = this.roomBookingAttendees.delete(id);
+    if (result) {
+      this.saveRoomBookingAttendeesToFile();
+    }
+    return result;
+  }
+
+  // Room Booking Waitlist methods
+  async getWaitlistByRoom(roomId: string): Promise<RoomBookingWaitlist[]> {
+    return Array.from(this.roomBookingWaitlist.values())
+      .filter(w => w.roomId === roomId && w.isActive)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+
+  async addToWaitlist(insertWaitlist: InsertRoomBookingWaitlist): Promise<RoomBookingWaitlist> {
+    const id = randomUUID();
+    const waitlistEntry: RoomBookingWaitlist = {
+      id,
+      ...insertWaitlist,
+      isActive: true,
+      notifiedAt: null,
+      createdAt: new Date(),
+    };
+    
+    this.roomBookingWaitlist.set(id, waitlistEntry);
+    this.saveRoomBookingWaitlistToFile();
+    return waitlistEntry;
+  }
+
+  async removeFromWaitlist(id: string): Promise<boolean> {
+    const result = this.roomBookingWaitlist.delete(id);
+    if (result) {
+      this.saveRoomBookingWaitlistToFile();
+    }
+    return result;
+  }
+
+  async notifyWaitlistUsers(roomId: string, startTime: Date, endTime: Date): Promise<RoomBookingWaitlist[]> {
+    const waitlistEntries = Array.from(this.roomBookingWaitlist.values())
+      .filter(w => 
+        w.roomId === roomId &&
+        w.isActive &&
+        new Date(w.startDateTime) <= endTime &&
+        new Date(w.endDateTime) >= startTime
+      );
+    
+    // Mark as notified
+    for (const entry of waitlistEntries) {
+      const updatedEntry = {
+        ...entry,
+        notifiedAt: new Date(),
+      };
+      this.roomBookingWaitlist.set(entry.id, updatedEntry);
+    }
+    
+    if (waitlistEntries.length > 0) {
+      this.saveRoomBookingWaitlistToFile();
+    }
+    
+    return waitlistEntries;
+  }
+
+  // Room Analytics methods
+  async getRoomUtilizationStats(startDate?: Date, endDate?: Date): Promise<Array<{
+    roomId: string;
+    roomName: string;
+    totalBookings: number;
+    totalHours: number;
+    utilizationRate: number;
+    averageBookingDuration: number;
+  }>> {
+    const rooms = Array.from(this.meetingRooms.values());
+    const stats = [];
+    
+    for (const room of rooms) {
+      let bookings = Array.from(this.roomBookings.values())
+        .filter(b => b.roomId === room.id && b.status !== 'cancelled');
+      
+      if (startDate) {
+        bookings = bookings.filter(b => new Date(b.startDateTime) >= startDate);
+      }
+      if (endDate) {
+        bookings = bookings.filter(b => new Date(b.endDateTime) <= endDate);
+      }
+      
+      const totalBookings = bookings.length;
+      const totalHours = bookings.reduce((sum, booking) => {
+        const duration = new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime();
+        return sum + (duration / (1000 * 60 * 60));
+      }, 0);
+      
+      const averageBookingDuration = totalBookings > 0 ? totalHours / totalBookings : 0;
+      const utilizationRate = totalHours / (24 * 7) * 100; // Assume 7 days per week availability
+      
+      stats.push({
+        roomId: room.id,
+        roomName: room.name,
+        totalBookings,
+        totalHours: Math.round(totalHours * 100) / 100,
+        utilizationRate: Math.round(utilizationRate * 100) / 100,
+        averageBookingDuration: Math.round(averageBookingDuration * 100) / 100,
+      });
+    }
+    
+    return stats.sort((a, b) => b.totalBookings - a.totalBookings);
+  }
+
+  async getMeetingPatterns(): Promise<{
+    peakHours: string;
+    popularRooms: Array<{ roomName: string; bookingCount: number }>;
+    averageMeetingDuration: number;
+    weeklyTrend: Array<{ day: string; bookings: number }>;
+  }> {
+    const bookings = Array.from(this.roomBookings.values())
+      .filter(b => b.status !== 'cancelled');
+    
+    // Calculate peak hours
+    const hourCounts = Array(24).fill(0);
+    bookings.forEach(booking => {
+      const hour = new Date(booking.startDateTime).getHours();
+      hourCounts[hour]++;
+    });
+    
+    const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
+    const peakHours = `${peakHour.toString().padStart(2, '0')}:00-${(peakHour + 1).toString().padStart(2, '0')}:00`;
+    
+    // Popular rooms
+    const roomBookingCounts = new Map<string, number>();
+    bookings.forEach(booking => {
+      const count = roomBookingCounts.get(booking.roomId) || 0;
+      roomBookingCounts.set(booking.roomId, count + 1);
+    });
+    
+    const popularRooms = Array.from(roomBookingCounts.entries())
+      .map(([roomId, count]) => {
+        const room = this.meetingRooms.get(roomId);
+        return { roomName: room?.name || 'Unknown', bookingCount: count };
+      })
+      .sort((a, b) => b.bookingCount - a.bookingCount)
+      .slice(0, 5);
+    
+    // Average meeting duration
+    const totalDuration = bookings.reduce((sum, booking) => {
+      const duration = new Date(booking.endDateTime).getTime() - new Date(booking.startDateTime).getTime();
+      return sum + (duration / (1000 * 60 * 60));
+    }, 0);
+    const averageMeetingDuration = bookings.length > 0 ? totalDuration / bookings.length : 0;
+    
+    // Weekly trend
+    const weeklyTrend = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+      .map(day => {
+        const dayBookings = bookings.filter(booking => {
+          const bookingDate = new Date(booking.startDateTime);
+          return bookingDate.toLocaleDateString('en-US', { weekday: 'long' }) === day;
+        }).length;
+        return { day, bookings: dayBookings };
+      });
+    
+    return {
+      peakHours,
+      popularRooms,
+      averageMeetingDuration: Math.round(averageMeetingDuration * 100) / 100,
+      weeklyTrend,
+    };
   }
 }
 

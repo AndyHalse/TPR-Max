@@ -5441,7 +5441,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Room Availability Check
+  // Room Availability Check - GET with query parameters
+  app.get("/api/room-bookings/check-availability", async (req, res) => {
+    try {
+      const { roomId, startDateTime, endDateTime, excludeBookingId } = req.query;
+      
+      if (!roomId || !startDateTime || !endDateTime) {
+        return res.status(400).json({ 
+          error: "Missing required parameters: roomId, startDateTime, endDateTime" 
+        });
+      }
+      
+      const isAvailable = await storage.checkRoomAvailability(
+        roomId as string,
+        new Date(startDateTime as string),
+        new Date(endDateTime as string),
+        excludeBookingId as string
+      );
+      
+      if (isAvailable) {
+        res.json({ available: true });
+      } else {
+        // Get conflicting bookings for better user experience
+        const conflicts = await storage.getRoomBookingsByRoom(
+          roomId as string,
+          new Date(startDateTime as string),
+          new Date(endDateTime as string)
+        );
+        
+        const filteredConflicts = conflicts.filter(booking => 
+          booking.id !== excludeBookingId &&
+          booking.status !== 'cancelled'
+        );
+        
+        res.json({ 
+          available: false, 
+          conflicts: filteredConflicts 
+        });
+      }
+    } catch (error) {
+      console.error("Error checking room availability:", error);
+      res.status(500).json({ error: "Failed to check room availability" });
+    }
+  });
+
+  // Room Availability Check - POST method (legacy)
   app.post("/api/meeting-rooms/:id/check-availability", async (req, res) => {
     try {
       const { id } = req.params;

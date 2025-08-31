@@ -10,12 +10,15 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMeetingRoomSchema } from "@shared/schema";
 import type { InsertMeetingRoom, MeetingRoom } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { RoomBookingCalendar } from "@/components/RoomBookingCalendar";
+import { RoomBookingForm } from "@/components/RoomBookingForm";
 import { 
   Plus, 
   Edit, 
@@ -27,13 +30,19 @@ import {
   Tv, 
   Snowflake,
   PenTool,
-  Calendar
+  Calendar,
+  CalendarDays,
+  Settings
 } from "lucide-react";
 
 export default function MeetingRooms() {
   const [selectedRoom, setSelectedRoom] = useState<MeetingRoom | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
+  const [selectedBookingDate, setSelectedBookingDate] = useState<Date>(new Date());
+  const [editBooking, setEditBooking] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('rooms');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -168,6 +177,18 @@ export default function MeetingRooms() {
       : "bg-orange-100 text-orange-800 border-orange-200";
   };
 
+  const handleCreateBooking = (date: Date, roomId?: string) => {
+    setSelectedBookingDate(date);
+    setSelectedRoom(roomId ? rooms.find(r => r.id === roomId) || null : null);
+    setEditBooking(null);
+    setIsBookingFormOpen(true);
+  };
+
+  const handleBookingSelect = (booking: any) => {
+    setEditBooking(booking);
+    setIsBookingFormOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -184,27 +205,40 @@ export default function MeetingRooms() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Meeting Rooms Management
+            Meeting Rooms & Booking Management
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
-            Manage meeting rooms and their facilities
+            Manage meeting rooms, view bookings calendar, and create new reservations
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={() => {
-                resetForm();
-                setIsDialogOpen(true);
-              }}
-              data-testid="button-create-room"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Meeting Room
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => {
+              handleCreateBooking(new Date());
+            }}
+            data-testid="button-quick-book"
+            variant="outline"
+            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Quick Book
+          </Button>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                onClick={() => {
+                  resetForm();
+                  setIsDialogOpen(true);
+                }}
+                data-testid="button-create-room"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Meeting Room
+              </Button>
+            </DialogTrigger>
           
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -480,10 +514,26 @@ export default function MeetingRooms() {
               </form>
             </Form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Rooms Grid */}
+      {/* Tabs for Rooms and Bookings */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="rooms" className="flex items-center gap-2" data-testid="tab-rooms">
+            <Settings className="h-4 w-4" />
+            Manage Rooms
+          </TabsTrigger>
+          <TabsTrigger value="bookings" className="flex items-center gap-2" data-testid="tab-bookings">
+            <CalendarDays className="h-4 w-4" />
+            Booking Calendar
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Rooms Management Tab */}
+        <TabsContent value="rooms" className="space-y-6">
+          {/* Rooms Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {rooms.map((room: MeetingRoom) => (
           <Card 
@@ -570,6 +620,10 @@ export default function MeetingRooms() {
                     variant="outline" 
                     size="sm" 
                     className="flex-1"
+                    onClick={() => {
+                      setSelectedRoom(room);
+                      setActiveTab('bookings');
+                    }}
                     data-testid={`button-view-bookings-${room.id}`}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
@@ -582,30 +636,50 @@ export default function MeetingRooms() {
         ))}
       </div>
 
-      {/* Empty State */}
-      {rooms.length === 0 && (
-        <Card className="p-12 text-center">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-              <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+        {/* Empty State for Rooms */}
+        {rooms.length === 0 && (
+          <Card className="p-12 text-center">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">No Meeting Rooms</h3>
+                <p className="text-gray-600 dark:text-gray-300 mt-1">
+                  Get started by creating your first meeting room.
+                </p>
+              </div>
+              <Button 
+                onClick={() => setIsDialogOpen(true)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                data-testid="button-create-first-room"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Meeting Room
+              </Button>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">No Meeting Rooms</h3>
-              <p className="text-gray-600 dark:text-gray-300 mt-1">
-                Get started by creating your first meeting room.
-              </p>
-            </div>
-            <Button 
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              data-testid="button-create-first-room"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Meeting Room
-            </Button>
-          </div>
-        </Card>
-      )}
+          </Card>
+        )}
+        </TabsContent>
+
+        {/* Booking Calendar Tab */}
+        <TabsContent value="bookings" className="space-y-6">
+          <RoomBookingCalendar
+            selectedRoomId={selectedRoom?.id}
+            onBookingSelect={handleBookingSelect}
+            onCreateBooking={handleCreateBooking}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Room Booking Form Dialog */}
+      <RoomBookingForm
+        open={isBookingFormOpen}
+        onOpenChange={setIsBookingFormOpen}
+        selectedDate={selectedBookingDate}
+        selectedRoomId={selectedRoom?.id}
+        editBooking={editBooking}
+      />
     </div>
   );
 }
