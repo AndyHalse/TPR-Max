@@ -106,19 +106,5 @@
     "isActive": true,
     "createdAt": "2025-08-31T12:30:12.992Z",
     "updatedAt": "2025-08-31T12:30:12.992Z"
-  },
-  {
-    "id": "c7aff667-00c3-4c33-b79b-09712ab51ab3",
-    "name": "",
-    "capacity": 150,
-    "location": "",
-    "createdAt": "2025-08-31T12:38:55.785Z",
-    "updatedAt": "2025-08-31T12:38:55.785Z"
-  },
-  {
-    "id": "651df15f-4e11-4dff-8e62-83ef29371de0",
-    "name": "Test Room",
-    "createdAt": "2025-08-31T12:38:55.794Z",
-    "updatedAt": "2025-08-31T12:38:55.794Z"
   }
 ]
