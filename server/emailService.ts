@@ -24,14 +24,15 @@ class EmailService {
     });
   }
 
-  async sendEmail(options: EmailOptions): Promise<boolean> {
+  async sendEmail(options: EmailOptions & { attachments?: any[] }): Promise<boolean> {
     try {
       const mailOptions = {
         from: process.env.SMTP_USER,
         to: options.to,
         subject: options.subject,
         html: options.html,
-        text: options.text
+        text: options.text,
+        attachments: options.attachments || []
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -222,6 +223,43 @@ For questions about this report, please contact the administrator.
     `;
   }
 
+  // Generate iCal calendar file for meeting invitations
+  private generateICalFile(booking: RoomBooking, room: MeetingRoom, organizer: Staff): string {
+    const formatICalDate = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const startDate = new Date(booking.startDateTime);
+    const endDate = new Date(booking.endDateTime);
+    const now = new Date();
+
+    // Generate unique UID for the event
+    const uid = `${booking.id}@visigate-pro.com`;
+
+    const icalContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//VisiGate Pro//Meeting Room Booking//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:REQUEST',
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${formatICalDate(now)}`,
+      `DTSTART:${formatICalDate(startDate)}`,
+      `DTEND:${formatICalDate(endDate)}`,
+      `SUMMARY:${booking.title}`,
+      `DESCRIPTION:${booking.description || 'Meeting room booking'}\\n\\nRoom: ${room.name}\\nLocation: ${room.location}\\nCapacity: ${room.capacity} people\\nExpected Attendees: ${booking.expectedAttendees}`,
+      `LOCATION:${room.name}, ${room.location}`,
+      `ORGANIZER;CN=${organizer.firstName} ${organizer.lastName}:mailto:${organizer.email}`,
+      'STATUS:CONFIRMED',
+      'TRANSP:OPAQUE',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    return icalContent;
+  }
+
   // Meeting Room Booking Email Methods
   async sendBookingConfirmation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
     const formatDateTime = (date: Date) => {
@@ -300,7 +338,15 @@ For questions about this report, please contact the administrator.
       </div>
     `;
 
-    const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\nOrganizer: ${organizer.firstName} ${organizer.lastName}\nExpected Attendees: ${booking.expectedAttendees} people\n\n${booking.description ? `Description: ${booking.description}\n\n` : ''}This confirmation was sent automatically by VisiGate Pro.`;
+    const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\nOrganizer: ${organizer.firstName} ${organizer.lastName}\nExpected Attendees: ${booking.expectedAttendees} people\n\n${booking.description ? `Description: ${booking.description}\n\n` : ''}📅 A calendar invitation is attached to this email. You can add this meeting to your Outlook, Mac Calendar, or any other calendar app.\n\nThis confirmation was sent automatically by VisiGate Pro.`;
+
+    // Generate calendar file
+    const icalContent = this.generateICalFile(booking, room, organizer);
+    const calendarAttachment = {
+      filename: `meeting-${booking.id}.ics`,
+      content: icalContent,
+      contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+    };
 
     // Gather all email addresses
     const allEmails = [
@@ -309,14 +355,56 @@ For questions about this report, please contact the administrator.
       ...externalAttendeeEmails
     ].filter(Boolean);
 
-    // Send to all attendees
+    // Send to all attendees with calendar attachment
     let success = true;
     for (const email of allEmails) {
-      const emailSuccess = await this.sendEmail({ to: email, subject, html, text });
+      const emailSuccess = await this.sendEmail({ 
+        to: email, 
+        subject, 
+        html, 
+        text, 
+        attachments: [calendarAttachment] 
+      });
       if (!emailSuccess) success = false;
     }
 
     return success;
+  }
+
+  // Generate iCal cancellation file for meeting cancellations
+  private generateICalCancellation(booking: RoomBooking, room: MeetingRoom, organizer: Staff): string {
+    const formatICalDate = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const startDate = new Date(booking.startDateTime);
+    const endDate = new Date(booking.endDateTime);
+    const now = new Date();
+
+    // Use same UID as original event for proper cancellation
+    const uid = `${booking.id}@visigate-pro.com`;
+
+    const icalContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//VisiGate Pro//Meeting Room Booking//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:CANCEL',
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${formatICalDate(now)}`,
+      `DTSTART:${formatICalDate(startDate)}`,
+      `DTEND:${formatICalDate(endDate)}`,
+      `SUMMARY:${booking.title}`,
+      `DESCRIPTION:CANCELLED - ${booking.description || 'Meeting room booking'}`,
+      `LOCATION:${room.name}, ${room.location}`,
+      `ORGANIZER;CN=${organizer.firstName} ${organizer.lastName}:mailto:${organizer.email}`,
+      'STATUS:CANCELLED',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    return icalContent;
   }
 
   async sendBookingCancellation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
@@ -360,7 +448,15 @@ For questions about this report, please contact the administrator.
       </div>
     `;
 
-    const text = `Meeting Room Cancelled: ${booking.title}\n\nThis meeting has been cancelled.\nRoom: ${room.name} (${room.location})\nOriginal Time: ${startTime}\nCancelled by: ${organizer.firstName} ${organizer.lastName}\n\nThis cancellation notice was sent automatically by VisiGate Pro.`;
+    const text = `Meeting Room Cancelled: ${booking.title}\n\nThis meeting has been cancelled.\nRoom: ${room.name} (${room.location})\nOriginal Time: ${startTime}\nCancelled by: ${organizer.firstName} ${organizer.lastName}\n\n📅 A calendar cancellation is attached to remove this meeting from your calendar.\n\nThis cancellation notice was sent automatically by VisiGate Pro.`;
+
+    // Generate calendar cancellation file
+    const icalContent = this.generateICalCancellation(booking, room, organizer);
+    const calendarCancellation = {
+      filename: `meeting-cancelled-${booking.id}.ics`,
+      content: icalContent,
+      contentType: 'text/calendar; charset=utf-8; method=CANCEL'
+    };
 
     // Gather all email addresses
     const allEmails = [
@@ -371,7 +467,13 @@ For questions about this report, please contact the administrator.
     
     let success = true;
     for (const email of allEmails) {
-      const emailSuccess = await this.sendEmail({ to: email, subject, html, text });
+      const emailSuccess = await this.sendEmail({ 
+        to: email, 
+        subject, 
+        html, 
+        text, 
+        attachments: [calendarCancellation] 
+      });
       if (!emailSuccess) success = false;
     }
 

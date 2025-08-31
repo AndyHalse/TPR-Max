@@ -86,7 +86,7 @@
   },
   {
     "id": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
-    "title": "MArketing Meeting",
+    "title": "Marketing Meeting",
     "description": "",
     "roomId": "eb8fcbf3-eb28-464c-966c-d5c817ee6b62",
     "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
@@ -95,8 +95,8 @@
     "endDateTime": "2025-08-31T08:00:00.000Z",
     "expectedAttendees": 3,
     "staffAttendeeIds": [
-      "b9a8b36a-cd51-4556-8b59-52b85688ac99",
-      "0f4f3551-e565-4548-8e71-39472bf99b81"
+      "0f4f3551-e565-4548-8e71-39472bf99b81",
+      "b9a8b36a-cd51-4556-8b59-52b85688ac99"
     ],
     "externalAttendeeEmails": [],
     "isRecurring": false,
@@ -114,7 +114,7 @@
     "cancelledBy": null,
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:15:09.611Z",
-    "updatedAt": "2025-08-31T13:34:50.408Z",
+    "updatedAt": "2025-08-31T13:35:55.285Z",
     "cateringNotes": "",
     "technicalRequirements": ""
   },
@@ -230,15 +230,20 @@
   },
   {
     "id": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
-    "title": "jkhgkj",
+    "title": "General Meeting ",
     "description": "",
-    "roomId": "08a3a595-8d76-4a13-8ba2-accc3f2ed187",
+    "roomId": "c4d13dab-a4e2-4c29-a83c-3ad1a0c38a2d",
     "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
     "startDateTime": "2025-08-31T07:00:00.000Z",
     "endDateTime": "2025-08-31T08:00:00.000Z",
-    "expectedAttendees": 2,
+    "expectedAttendees": 7,
     "staffAttendeeIds": [
-      "0f4f3551-e565-4548-8e71-39472bf99b81"
+      "0f4f3551-e565-4548-8e71-39472bf99b81",
+      "b9a8b36a-cd51-4556-8b59-52b85688ac99",
+      "3a8ad419-0d8d-4ea8-8752-611611ccfc76",
+      "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+      "f3d8ad9b-e5eb-4440-ba45-57ce0662ba31",
+      "0d11a269-1cb2-4657-81f0-ce847d6f7002"
     ],
     "externalAttendeeEmails": [],
     "isRecurring": false,
@@ -256,6 +261,8 @@
     "cancelledBy": null,
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:28:58.345Z",
-    "updatedAt": "2025-08-31T13:28:58.345Z"
+    "updatedAt": "2025-08-31T13:37:48.063Z",
+    "cateringNotes": "",
+    "technicalRequirements": ""
   }
 ]

@@ -39,19 +39,6 @@
     "createdAt": "2025-08-31T13:27:33.237Z"
   },
   {
-    "id": "46a92bd3-1b86-43a3-847f-125a053eaddb",
-    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
-    "staffId": "0f4f3551-e565-4548-8e71-39472bf99b81",
-    "email": "emma@acsltd.eu",
-    "name": "Emma Leschenko",
-    "isOrganizer": false,
-    "responseStatus": "pending",
-    "responseAt": null,
-    "checkedIn": false,
-    "checkedInAt": null,
-    "createdAt": "2025-08-31T13:28:58.346Z"
-  },
-  {
     "id": "98a8e95d-4ca4-460f-b6d8-6d36a4af64bd",
     "bookingId": "f7804de8-8b0e-4b32-a63a-f321a8fb43d6",
     "staffId": "0f4f3551-e565-4548-8e71-39472bf99b81",
@@ -65,20 +52,7 @@
     "createdAt": "2025-08-31T13:34:07.936Z"
   },
   {
-    "id": "2c0f3e6e-465e-451c-9ae2-3fe97cf97aa2",
-    "bookingId": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
-    "staffId": "b9a8b36a-cd51-4556-8b59-52b85688ac99",
-    "email": "emma.johnson@techcorp.com",
-    "name": "Emma Johnson",
-    "isOrganizer": false,
-    "responseStatus": "pending",
-    "responseAt": null,
-    "checkedIn": false,
-    "checkedInAt": null,
-    "createdAt": "2025-08-31T13:34:50.430Z"
-  },
-  {
-    "id": "bc429fe2-910c-44f6-846e-04c9ffcce74a",
+    "id": "a0aeb8a3-89ab-4fc3-ad5e-1b18fa8c22e9",
     "bookingId": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
     "staffId": "0f4f3551-e565-4548-8e71-39472bf99b81",
     "email": "emma@acsltd.eu",
@@ -88,6 +62,97 @@
     "responseAt": null,
     "checkedIn": false,
     "checkedInAt": null,
-    "createdAt": "2025-08-31T13:34:50.430Z"
+    "createdAt": "2025-08-31T13:35:55.295Z"
+  },
+  {
+    "id": "14342d53-9410-4627-939c-693e7e435218",
+    "bookingId": "842e41cf-b8ba-4c82-86df-fe31da5a31e6",
+    "staffId": "b9a8b36a-cd51-4556-8b59-52b85688ac99",
+    "email": "emma.johnson@techcorp.com",
+    "name": "Emma Johnson",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:35:55.295Z"
+  },
+  {
+    "id": "912c1ee7-f86e-424c-a177-be4180b8a9b9",
+    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "staffId": "0f4f3551-e565-4548-8e71-39472bf99b81",
+    "email": "emma@acsltd.eu",
+    "name": "Emma Leschenko",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:37:48.064Z"
+  },
+  {
+    "id": "593afb13-a53b-42fb-8476-ec8c7605baa4",
+    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "staffId": "b9a8b36a-cd51-4556-8b59-52b85688ac99",
+    "email": "emma.johnson@techcorp.com",
+    "name": "Emma Johnson",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:37:48.075Z"
+  },
+  {
+    "id": "d340b532-1eaa-40df-8f10-66856812b5bb",
+    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "staffId": "3a8ad419-0d8d-4ea8-8752-611611ccfc76",
+    "email": "david.rodriguez@techcorp.com",
+    "name": "David Rodriguez",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:37:48.076Z"
+  },
+  {
+    "id": "81b87ec1-f62d-49aa-81ab-5ff4e8b1560c",
+    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "staffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+    "email": "andy@test.com",
+    "name": "Andy Halse",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:37:48.080Z"
+  },
+  {
+    "id": "cd85a35e-fb35-4cf7-b144-3fe307c82392",
+    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "staffId": "f3d8ad9b-e5eb-4440-ba45-57ce0662ba31",
+    "email": "sarah.wilson@techcorp.com",
+    "name": "Sarah Wilson",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:37:48.083Z"
+  },
+  {
+    "id": "924286ae-d7fe-42a2-8b7f-29e1cac43626",
+    "bookingId": "bcd57650-0a2a-4db0-9e50-92eef60ecf44",
+    "staffId": "0d11a269-1cb2-4657-81f0-ce847d6f7002",
+    "email": "michael.chen@techcorp.com",
+    "name": "Michael Chen",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-08-31T13:37:48.084Z"
   }
 ]
