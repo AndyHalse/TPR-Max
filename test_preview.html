@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Induction</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        .duration {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+        }
+        .slide-preview {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 30px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .slide-number {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+        }
+        .slide-title {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .slide-image {
+            width: 100%;
+            max-width: 600px;
+            height: 400px;
+            object-fit: cover;
+            border-radius: 15px;
+            margin: 20px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        .slide-content {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .interactive-badge {
+            display: inline-block;
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin: 10px 5px;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .loading {
+            opacity: 0.6;
+            text-align: center;
+            font-style: italic;
+        }
+        .error-image {
+            width: 100%;
+            max-width: 600px;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Visitor Induction</h1>
+            <p class="subtitle">Comprehensive AI-generated safety induction covering all essential requirements for visitors. Duration: 21 minutes.</p>
+            <div class="duration">
+                <span>⏱️ 21 minutes</span>
+                <span>📱 INTERACTIVE SLIDES</span>
+            </div>
+        </div>
+
+        <!-- Welcome and Introduction Slide -->
+        <div class="slide-preview" style="position: relative;">
+            <div class="slide-number">1 / 7</div>
+            <h2 class="slide-title">Welcome and Introduction</h2>
+            <img src="https://oaidalleapiprodscus.blob.core.windows.net/private/org-KTx1uNrrElwmS7jBPMgcUzIc/user-ErSVYD7fzSO14ZiZNpgcNkA5/img-u1FyPfBWwvx9GSl7MjBcl2Xn.png?st=2025-08-28T07%3A04%3A57Z&se=2025-08-28T09%3A04%3A57Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=f1dafa11-a0c2-4092-91d4-10981fbda051&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-08-28T06%3A11%3A13Z&ske=2025-08-29T06%3A11%3A13Z&sks=b&skv=2024-08-04&sig=fOjXytRofU0bz2OZ9FZy0Peg3qkVH0T0iDQGU/vn1Mk%3D" alt="Legal Framework" class="slide-image" />
+            <div class="slide-content">
+                <p>Welcome to Hexagon Business Centres Ltd. As a valued visitor, your safety is our priority.</p>
+                <div class="interactive-badge">Interactive Content</div>
+            </div>
+        </div>
+
+        <!-- PPE Requirements Slide -->
+        <div class="slide-preview" style="position: relative;">
+            <div class="slide-number">2 / 7</div>
+            <h2 class="slide-title">Personal Protective Equipment (PPE)</h2>
+            <img src="https://oaidalleapiprodscus.blob.core.windows.net/private/org-KTx1uNrrElwmS7jBPMgcUzIc/user-ErSVYD7fzSO14ZiZNpgcNkA5/img-2aDdvbmjhEdpjmqAFIDNTAeg.png?st=2025-08-28T07%3A05%3A11Z&se=2025-08-28T09%3A05%3A11Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=77e5a8ec-6bd1-4477-8afc-16703a64f029&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-08-28T02%3A35%3A06Z&ske=2025-08-29T02%3A35%3A06Z&sks=b&skv=2024-08-04&sig=l5ApRJFTUN0ofoHs/gp/GJGTjxm4TMke6EtFfDGEOXQ%3D" alt="PPE Requirements" class="slide-image" />
+            <div class="slide-content">
+                <p>Essential PPE requirements for all visitors on site including hard hats, high-visibility clothing, and safety footwear.</p>
+                <div class="interactive-badge">PPE Checklist</div>
+                <div class="interactive-badge">Interactive Quiz</div>
+            </div>
+        </div>
+
+        <!-- Emergency Procedures Slide -->
+        <div class="slide-preview" style="position: relative;">
+            <div class="slide-number">3 / 7</div>
+            <h2 class="slide-title">Emergency Procedures</h2>
+            <img src="https://oaidalleapiprodscus.blob.core.windows.net/private/org-KTx1uNrrElwmS7jBPMgcUzIc/user-ErSVYD7fzSO14ZiZNpgcNkA5/img-OcEcfq4w1oQns2prxzvLCxk4.png?st=2025-08-28T07%3A05%3A26Z&se=2025-08-28T09%3A05%3A26Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=cc612491-d948-4d2e-9821-2683df3719f5&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-08-27T18%3A12%3A08Z&ske=2025-08-28T18%3A12%3A08Z&sks=b&skv=2024-08-04&sig=PgQQLlsfpNP8AiDttF6VjwhMSYbc8847MjwSU3jxnXA%3D" alt="Emergency Procedures" class="slide-image" />
+            <div class="slide-content">
+                <p>Critical emergency evacuation procedures, assembly points, and safety protocols.</p>
+                <div class="interactive-badge">Emergency Drill</div>
+                <div class="interactive-badge">Assembly Points</div>
+            </div>
+        </div>
+
+        <!-- Hazard Identification Slide -->
+        <div class="slide-preview" style="position: relative;">
+            <div class="slide-number">4 / 7</div>
+            <h2 class="slide-title">Hazard Identification</h2>
+            <img src="https://oaidalleapiprodscus.blob.core.windows.net/private/org-KTx1uNrrElwmS7jBPMgcUzIc/user-ErSVYD7fzSO14ZiZNpgcNkA5/img-jw8GCJJypMpgh3G4gvcWwInn.png?st=2025-08-28T07%3A05%3A44Z&se=2025-08-28T09%3A05%3A44Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=b1a0ae1f-618f-4548-84fd-8b16cacd5485&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-08-28T08%3A05%3A20Z&ske=2025-08-29T08%3A05%3A20Z&sks=b&skv=2024-08-04&sig=rzaCFzL5xZ4WBPT0963eHnL/H7xOMr%2BGhBoAwO63sDQ%3D" alt="Hazard Identification" class="slide-image" />
+            <div class="slide-content">
+                <p>Common workplace hazards and how to identify, assess, and report safety concerns.</p>
+                <div class="interactive-badge">Hazard Spotting</div>
+                <div class="interactive-badge">Reporting System</div>
+            </div>
+        </div>
+
+        <!-- Site Rules and Regulations Slide -->
+        <div class="slide-preview" style="position: relative;">
+            <div class="slide-number">5 / 7</div>
+            <h2 class="slide-title">Site Rules and Regulations</h2>
+            <img src="https://oaidalleapiprodscus.blob.core.windows.net/private/org-KTx1uNrrElwmS7jBPMgcUzIc/user-ErSVYD7fzSO14ZiZNpgcNkA5/img-FN1mPSpmPdEbiPMMaV8hv4t3.png?st=2025-08-28T07%3A05%3A59Z&se=2025-08-28T09%3A05%3A59Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=cc612491-d948-4d2e-9821-2683df3719f5&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-08-28T03%3A25%3A42Z&ske=2025-08-29T03%3A25%3A42Z&sks=b&skv=2024-08-04&sig=uOtr0oNKo68cqK1r7iFpuSfXK/wERaHGCHQcwv6kzwA%3D" alt="Site Rules" class="slide-image" />
+            <div class="slide-content">
+                <p>Essential site rules, access control, and compliance requirements for visitors.</p>
+                <div class="interactive-badge">Rules Quiz</div>
+                <div class="interactive-badge">Compliance Check</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Auto-refresh images if they fail to load
+        document.addEventListener('DOMContentLoaded', function() {
+            const images = document.querySelectorAll('.slide-image');
+            images.forEach(img => {
+                img.onerror = function() {
+                    // Retry loading the image after a delay
+                    setTimeout(() => {
+                        this.src = this.src + '?retry=' + Date.now();
+                    }, 2000);
+                };
+            });
+        });
+    </script>
+</body>
+</html>
