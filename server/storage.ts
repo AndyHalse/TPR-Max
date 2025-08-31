@@ -407,6 +407,8 @@ export class MemStorage implements IStorage {
   private readonly roomBookingsFilePath = path.join(process.cwd(), 'data', 'room-bookings-data.json');
   private readonly roomBookingAttendeesFilePath = path.join(process.cwd(), 'data', 'room-booking-attendees-data.json');
   private readonly roomBookingWaitlistFilePath = path.join(process.cwd(), 'data', 'room-booking-waitlist-data.json');
+  private readonly contractorCompaniesFilePath = path.join(process.cwd(), 'data', 'contractor-companies-data.json');
+  private readonly contractorWorkersFilePath = path.join(process.cwd(), 'data', 'contractor-workers-data.json');
 
   constructor() {
     this.users = new Map();
@@ -439,6 +441,8 @@ export class MemStorage implements IStorage {
     this.loadOrInitializeRoomBookings();
     this.loadOrInitializeRoomBookingAttendees();
     this.loadOrInitializeRoomBookingWaitlist();
+    this.loadOrInitializeContractorCompanies();
+    this.loadOrInitializeContractorWorkers();
     
     // Initialize sample data only if no existing data
     if (this.staffMembers.size === 0) {
@@ -2067,6 +2071,70 @@ export class MemStorage implements IStorage {
     }
   }
 
+  private loadOrInitializeContractorCompanies(): void {
+    try {
+      if (fs.existsSync(this.contractorCompaniesFilePath)) {
+        const companiesData = fs.readFileSync(this.contractorCompaniesFilePath, 'utf8');
+        const companies: ContractorCompany[] = JSON.parse(companiesData);
+        
+        companies.forEach(company => {
+          // Convert date strings back to Date objects
+          company.createdAt = new Date(company.createdAt);
+          company.updatedAt = new Date(company.updatedAt);
+          this.contractorCompanies.set(company.id, company);
+        });
+        
+        console.log(`✅ Contractor companies data loaded: ${companies.length} companies`);
+      } else {
+        console.log('📂 No contractor companies data file found - starting fresh');
+      }
+    } catch (error) {
+      console.error('❌ Error loading contractor companies data:', error);
+    }
+  }
+
+  private loadOrInitializeContractorWorkers(): void {
+    try {
+      if (fs.existsSync(this.contractorWorkersFilePath)) {
+        const workersData = fs.readFileSync(this.contractorWorkersFilePath, 'utf8');
+        const workers: ContractorWorker[] = JSON.parse(workersData);
+        
+        workers.forEach(worker => {
+          // Convert date strings back to Date objects
+          worker.createdAt = new Date(worker.createdAt);
+          worker.updatedAt = new Date(worker.updatedAt);
+          if (worker.checkedInAt) worker.checkedInAt = new Date(worker.checkedInAt);
+          if (worker.checkedOutAt) worker.checkedOutAt = new Date(worker.checkedOutAt);
+          this.contractorWorkers.set(worker.id, worker);
+        });
+        
+        console.log(`✅ Contractor workers data loaded: ${workers.length} workers`);
+      } else {
+        console.log('📂 No contractor workers data file found - starting fresh');
+      }
+    } catch (error) {
+      console.error('❌ Error loading contractor workers data:', error);
+    }
+  }
+
+  private saveContractorCompaniesToFile(): void {
+    try {
+      const companies = Array.from(this.contractorCompanies.values());
+      fs.writeFileSync(this.contractorCompaniesFilePath, JSON.stringify(companies, null, 2), 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving contractor companies to file:', error);
+    }
+  }
+
+  private saveContractorWorkersToFile(): void {
+    try {
+      const workers = Array.from(this.contractorWorkers.values());
+      fs.writeFileSync(this.contractorWorkersFilePath, JSON.stringify(workers, null, 2), 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving contractor workers to file:', error);
+    }
+  }
+
   private saveRoomBookingWaitlistToFile(): void {
     try {
       const waitlistArray = Array.from(this.roomBookingWaitlist.values());
@@ -2739,6 +2807,7 @@ export class MemStorage implements IStorage {
     };
 
     this.contractorCompanies.set(id, company);
+    this.saveContractorCompaniesToFile(); // 💾 PERSIST IMMEDIATELY
     console.log(`Created contractor company: ${company.name} (ID: ${id})`);
     return company;
   }
@@ -2754,6 +2823,13 @@ export class MemStorage implements IStorage {
     
     for (const workerId of workersToDelete) {
       this.contractorWorkers.delete(workerId);
+    }
+    
+    if (existed) {
+      this.saveContractorCompaniesToFile(); // 💾 PERSIST IMMEDIATELY
+      if (workersToDelete.length > 0) {
+        this.saveContractorWorkersToFile(); // 💾 PERSIST IMMEDIATELY
+      }
     }
     
     return existed;
@@ -2772,8 +2848,32 @@ export class MemStorage implements IStorage {
     };
 
     this.contractorWorkers.set(id, worker);
+    this.saveContractorWorkersToFile(); // 💾 PERSIST IMMEDIATELY
     console.log(`Created contractor worker: ${worker.firstName} ${worker.lastName} (ID: ${id})`);
     return worker;
+  }
+
+  async getContractorWorkerById(id: string): Promise<ContractorWorker | undefined> {
+    return this.contractorWorkers.get(id);
+  }
+
+  async updateContractorWorker(id: string, updates: Partial<InsertContractorWorker>): Promise<ContractorWorker | undefined> {
+    const worker = this.contractorWorkers.get(id);
+    if (!worker) return undefined;
+    
+    const updatedWorker = { ...worker, ...updates, updatedAt: new Date() };
+    this.contractorWorkers.set(id, updatedWorker);
+    this.saveContractorWorkersToFile(); // 💾 PERSIST IMMEDIATELY
+    return updatedWorker;
+  }
+
+  async deleteContractorWorker(id: string): Promise<boolean> {
+    const existed = this.contractorWorkers.has(id);
+    this.contractorWorkers.delete(id);
+    if (existed) {
+      this.saveContractorWorkersToFile(); // 💾 PERSIST IMMEDIATELY
+    }
+    return existed;
   }
 
   async getAllContractorWorkers(): Promise<ContractorWorker[]> {
@@ -2802,6 +2902,7 @@ export class MemStorage implements IStorage {
     
     const updatedCompany = { ...company, ...updates, updatedAt: new Date() };
     this.contractorCompanies.set(id, updatedCompany);
+    this.saveContractorCompaniesToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedCompany;
   }
 }

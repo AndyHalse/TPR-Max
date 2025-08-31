@@ -1,0 +1,37 @@
+[
+  {
+    "id": "4c3917cf-db88-4ab3-833e-7bed51bfa01f",
+    "name": "Steel Works Ltd",
+    "contactPerson": "John Smith",
+    "email": "john.smith@steelworks.co.uk",
+    "phone": "+44 1234 567890",
+    "address": "123 Industrial Estate, Manchester M1 1AA",
+    "createdAt": "2025-08-31T14:28:11.555Z",
+    "updatedAt": "2025-08-31T14:28:34.638Z",
+    "workersCount": 2,
+    "complianceScore": "B"
+  },
+  {
+    "id": "9bdd36cb-3ebe-4ae7-a71e-daad8d159e57",
+    "name": "Prime Construction",
+    "contactPerson": "Sarah Johnson",
+    "email": "sarah@primeconstruction.co.uk",
+    "phone": "+44 2034 567891",
+    "address": "456 Building Road, London E1 4AB",
+    "createdAt": "2025-08-31T14:28:11.556Z",
+    "updatedAt": "2025-08-31T14:28:11.566Z",
+    "workersCount": 2
+  },
+  {
+    "id": "db9955c3-e11b-4e2a-a9b7-01d7a5900f87",
+    "name": "Elite Engineering Services",
+    "contactPerson": "Mike Wilson",
+    "email": "mike.wilson@eliteeng.co.uk",
+    "phone": "+44 3456 789012",
+    "address": "789 Tech Park, Birmingham B2 5CD",
+    "createdAt": "2025-08-31T14:28:11.557Z",
+    "updatedAt": "2025-08-31T14:28:29.960Z",
+    "workersCount": 2,
+    "complianceScore": "A+"
+  }
+]
