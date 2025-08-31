@@ -47,5 +47,33 @@
     "cancellationReason": null,
     "createdAt": "2025-08-31T13:06:52.714Z",
     "updatedAt": "2025-08-31T13:06:52.714Z"
+  },
+  {
+    "id": "092015a9-ba7a-44cb-a86b-16503181ad0e",
+    "title": "Test",
+    "description": "",
+    "roomId": "644b274e-1b93-4905-9a13-e1387e1eadc1",
+    "organizerStaffId": "5a318ef1-12c4-4bec-bdc2-69c6cf0b66a0",
+    "startDateTime": "2025-08-31T07:00:00.000Z",
+    "endDateTime": "2025-08-31T10:00:00.000Z",
+    "expectedAttendees": 3,
+    "staffAttendeeIds": [],
+    "externalAttendeeEmails": [],
+    "isRecurring": false,
+    "cateringRequired": false,
+    "priority": "normal",
+    "status": "confirmed",
+    "confirmationEmailSent": false,
+    "reminderEmailSent": false,
+    "confirmationEmailSentAt": null,
+    "reminderEmailSentAt": null,
+    "actualAttendees": null,
+    "meetingNotes": null,
+    "actionItems": [],
+    "cancelledAt": null,
+    "cancelledBy": null,
+    "cancellationReason": null,
+    "createdAt": "2025-08-31T13:09:18.918Z",
+    "updatedAt": "2025-08-31T13:09:18.918Z"
   }
 ]

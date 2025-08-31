@@ -5573,18 +5573,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create the booking
       const booking = await storage.createRoomBooking(bookingData);
       
+      // Create attendee records if staff or external attendees provided
+      const staffAttendeeIds = bookingData.staffAttendeeIds || [];
+      const externalAttendeeEmails = bookingData.externalAttendeeEmails || [];
+      
+      if (staffAttendeeIds.length > 0 || externalAttendeeEmails.length > 0) {
+        await storage.createBookingAttendees(booking.id, staffAttendeeIds, externalAttendeeEmails);
+      }
+      
       // Get full booking details for email
       const fullBooking = await storage.getRoomBookingById(booking.id);
       
       if (fullBooking) {
+        // Get staff attendees for email
+        const staffAttendees = staffAttendeeIds.length > 0 ? await storage.getStaffByIds(staffAttendeeIds) : [];
+        
         // Send confirmation email
         try {
-          const attendeeEmails = bookingData.attendeeEmails || [];
           await emailService.sendBookingConfirmation(
             fullBooking, 
             fullBooking.room, 
             fullBooking.organizer, 
-            attendeeEmails
+            staffAttendees,
+            externalAttendeeEmails
           );
         } catch (emailError) {
           console.error("Failed to send booking confirmation email:", emailError);

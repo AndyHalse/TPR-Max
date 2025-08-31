@@ -223,7 +223,7 @@ For questions about this report, please contact the administrator.
   }
 
   // Meeting Room Booking Email Methods
-  async sendBookingConfirmation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, attendeeEmails: string[] = []): Promise<boolean> {
+  async sendBookingConfirmation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
     const formatDateTime = (date: Date) => {
       return new Intl.DateTimeFormat('en-GB', {
         weekday: 'long',
@@ -302,19 +302,24 @@ For questions about this report, please contact the administrator.
 
     const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\nOrganizer: ${organizer.firstName} ${organizer.lastName}\nExpected Attendees: ${booking.expectedAttendees} people\n\n${booking.description ? `Description: ${booking.description}\n\n` : ''}This confirmation was sent automatically by VisiGate Pro.`;
 
-    // Send to organizer
-    let success = await this.sendEmail({ to: organizer.email, subject, html, text });
+    // Gather all email addresses
+    const allEmails = [
+      organizer.email,
+      ...staffAttendees.map(staff => staff.email),
+      ...externalAttendeeEmails
+    ].filter(Boolean);
 
-    // Send to attendees if provided
-    for (const email of attendeeEmails) {
-      const attendeeSuccess = await this.sendEmail({ to: email, subject, html, text });
-      if (!attendeeSuccess) success = false;
+    // Send to all attendees
+    let success = true;
+    for (const email of allEmails) {
+      const emailSuccess = await this.sendEmail({ to: email, subject, html, text });
+      if (!emailSuccess) success = false;
     }
 
     return success;
   }
 
-  async sendBookingCancellation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, attendeeEmails: string[] = []): Promise<boolean> {
+  async sendBookingCancellation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
     const formatDateTime = (date: Date) => {
       return new Intl.DateTimeFormat('en-GB', {
         weekday: 'long',
@@ -357,8 +362,13 @@ For questions about this report, please contact the administrator.
 
     const text = `Meeting Room Cancelled: ${booking.title}\n\nThis meeting has been cancelled.\nRoom: ${room.name} (${room.location})\nOriginal Time: ${startTime}\nCancelled by: ${organizer.firstName} ${organizer.lastName}\n\nThis cancellation notice was sent automatically by VisiGate Pro.`;
 
-    // Send to organizer and attendees
-    const allEmails = [organizer.email, ...attendeeEmails].filter(Boolean);
+    // Gather all email addresses
+    const allEmails = [
+      organizer.email,
+      ...staffAttendees.map(staff => staff.email),
+      ...externalAttendeeEmails
+    ].filter(Boolean);
+    
     let success = true;
     for (const email of allEmails) {
       const emailSuccess = await this.sendEmail({ to: email, subject, html, text });
@@ -368,7 +378,7 @@ For questions about this report, please contact the administrator.
     return success;
   }
 
-  async sendMeetingReminder(booking: RoomBooking, room: MeetingRoom, organizer: Staff, attendeeEmails: string[] = []): Promise<boolean> {
+  async sendMeetingReminder(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
     const subject = `Reminder: ${booking.title} starts in 15 minutes`;
     
     const html = `
@@ -393,7 +403,13 @@ For questions about this report, please contact the administrator.
 
     const text = `Meeting Reminder: ${booking.title}\n\nStarting in 15 minutes at ${room.name} (${room.location})\nExpected attendees: ${booking.expectedAttendees} people\n\n${booking.requiresCatering ? 'Catering arranged\n\n' : ''}See you there!`;
 
-    const allEmails = [organizer.email, ...attendeeEmails].filter(Boolean);
+    // Gather all email addresses
+    const allEmails = [
+      organizer.email,
+      ...staffAttendees.map(staff => staff.email),
+      ...externalAttendeeEmails
+    ].filter(Boolean);
+    
     let success = true;
     for (const email of allEmails) {
       const emailSuccess = await this.sendEmail({ to: email, subject, html, text });

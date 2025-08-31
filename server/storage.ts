@@ -339,6 +339,8 @@ export interface IStorage {
   addBookingAttendee(insertAttendee: InsertRoomBookingAttendee): Promise<RoomBookingAttendee>;
   updateAttendeeResponse(id: string, status: string): Promise<RoomBookingAttendee | undefined>;
   removeBookingAttendee(id: string): Promise<boolean>;
+  createBookingAttendees(bookingId: string, staffIds: string[], externalEmails: string[]): Promise<void>;
+  getStaffByIds(staffIds: string[]): Promise<Staff[]>;
 
   // Room Booking Waitlist methods
   getWaitlistByRoom(roomId: string): Promise<RoomBookingWaitlist[]>;
@@ -2360,6 +2362,46 @@ export class MemStorage implements IStorage {
       this.saveRoomBookingAttendeesToFile();
     }
     return result;
+  }
+
+  async createBookingAttendees(bookingId: string, staffIds: string[], externalEmails: string[]): Promise<void> {
+    // Add staff attendees
+    for (const staffId of staffIds) {
+      const staff = this.staffMembers.get(staffId);
+      if (staff) {
+        await this.addBookingAttendee({
+          bookingId,
+          staffId,
+          email: staff.email,
+          name: `${staff.firstName} ${staff.lastName}`,
+          isOrganizer: false,
+          responseStatus: 'pending'
+        });
+      }
+    }
+
+    // Add external attendees
+    for (const email of externalEmails) {
+      await this.addBookingAttendee({
+        bookingId,
+        staffId: null,
+        email,
+        name: email, // Use email as name for external attendees
+        isOrganizer: false,
+        responseStatus: 'pending'
+      });
+    }
+  }
+
+  async getStaffByIds(staffIds: string[]): Promise<Staff[]> {
+    const staffMembers: Staff[] = [];
+    for (const staffId of staffIds) {
+      const staff = this.staffMembers.get(staffId);
+      if (staff) {
+        staffMembers.push(staff);
+      }
+    }
+    return staffMembers;
   }
 
   // Room Booking Waitlist methods

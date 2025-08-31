@@ -28,6 +28,8 @@ const bookingFormSchema = z.object({
   startDateTime: z.string().min(1, 'Start time is required'),
   endDateTime: z.string().min(1, 'End time is required'),
   expectedAttendees: z.number().min(1, 'At least 1 attendee required').max(100, 'Maximum 100 attendees'),
+  staffAttendeeIds: z.array(z.string()).default([]),
+  externalAttendeeEmails: z.array(z.string().email('Invalid email format')).default([]),
   isRecurring: z.boolean().default(false),
   recurringType: z.string().optional(),
   recurringEndDate: z.string().optional(),
@@ -189,6 +191,8 @@ export function RoomBookingForm({
         status: 'confirmed',
         startDateTime: new Date(data.startDateTime).toISOString(),
         endDateTime: new Date(data.endDateTime).toISOString(),
+        staffAttendeeIds: data.staffAttendeeIds || [],
+        externalAttendeeEmails: data.externalAttendeeEmails || [],
       });
     },
     onSuccess: () => {
@@ -219,6 +223,8 @@ export function RoomBookingForm({
         ...data,
         startDateTime: new Date(data.startDateTime).toISOString(),
         endDateTime: new Date(data.endDateTime).toISOString(),
+        staffAttendeeIds: data.staffAttendeeIds || [],
+        externalAttendeeEmails: data.externalAttendeeEmails || [],
       });
     },
     onSuccess: () => {
@@ -399,6 +405,73 @@ export function RoomBookingForm({
                         )}
                       />
                     </div>
+
+                    {/* Staff Attendees */}
+                    <FormField
+                      control={form.control}
+                      name="staffAttendeeIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Staff Attendees</FormLabel>
+                          <FormDescription>
+                            Select staff members who will attend this meeting
+                          </FormDescription>
+                          <div className="space-y-2">
+                            {staff.map((member) => (
+                              <div key={member.id} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`staff-${member.id}`}
+                                  checked={field.value?.includes(member.id) || false}
+                                  onChange={(e) => {
+                                    const currentValue = field.value || [];
+                                    if (e.target.checked) {
+                                      field.onChange([...currentValue, member.id]);
+                                    } else {
+                                      field.onChange(currentValue.filter(id => id !== member.id));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-staff-${member.id}`}
+                                  className="rounded border-gray-300"
+                                />
+                                <label htmlFor={`staff-${member.id}`} className="text-sm font-medium">
+                                  {member.firstName} {member.lastName}
+                                  <span className="text-muted-foreground ml-1">({member.email})</span>
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* External Attendee Emails */}
+                    <FormField
+                      control={form.control}
+                      name="externalAttendeeEmails"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>External Attendee Emails (Optional)</FormLabel>
+                          <FormDescription>
+                            Enter email addresses for external attendees (one per line)
+                          </FormDescription>
+                          <FormControl>
+                            <Textarea
+                              placeholder="john@example.com&#10;jane@company.com"
+                              rows={3}
+                              value={field.value?.join('\n') || ''}
+                              onChange={(e) => {
+                                const emails = e.target.value.split('\n').filter(email => email.trim() !== '');
+                                field.onChange(emails);
+                              }}
+                              data-testid="textarea-external-emails"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
 
