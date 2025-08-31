@@ -103,22 +103,28 @@ export default function Dashboard() {
 
   const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
     department: string;
-    staff: Array<{
+    staffMembers: Array<{
       id: string;
-      name: string;
-      checkedInAt: Date | null;
+      firstName: string;
+      lastName: string;
       isCheckedIn: boolean;
       accessLevel: string;
+      checkedInAt: string;
+      checkedOutAt: string | null;
     }>;
     visitors: Array<{
       id: string;
       name: string;
       company: string | null;
-      checkedInAt: Date;
+      checkedInAt: string;
       isCheckedIn: boolean;
-      hostName: string;
     }>;
-    totalCount: number;
+    statistics: {
+      totalStaff: number;
+      checkedInStaff: number;
+      visitors: number;
+      weeklyTrend: number;
+    };
   }>({
     queryKey: ["/api/analytics/departments", selectedDepartment],
     enabled: !!selectedDepartment && openModal === 'department-details',
@@ -1379,7 +1385,7 @@ export default function Dashboard() {
                 <span className="text-xl">Department Details: {selectedDepartment}</span>
                 {departmentDetails && (
                   <Badge variant="secondary" className="ml-2">
-                    {departmentDetails.totalCount} people on-site
+                    {departmentDetails.statistics.totalStaff + departmentDetails.statistics.visitors} people on-site
                   </Badge>
                 )}
               </DialogTitle>
@@ -1395,7 +1401,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">
-                      {departmentDetails.staff.filter(s => s.isCheckedIn).length}
+                      {departmentDetails.statistics.checkedInStaff}
                     </div>
                     <div className="text-sm text-blue-800">Staff On-Site</div>
                   </div>
@@ -1407,7 +1413,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-center p-4 bg-purple-50 rounded-lg">
                     <div className="text-2xl font-bold text-purple-600">
-                      {departmentDetails.totalCount}
+                      {departmentDetails.statistics.totalStaff + departmentDetails.statistics.visitors}
                     </div>
                     <div className="text-sm text-purple-800">Total People</div>
                   </div>
@@ -1417,13 +1423,13 @@ export default function Dashboard() {
                 <div>
                   <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
                     <User className="mr-2" size={20} />
-                    Staff Members ({departmentDetails.staff.length})
+                    Staff Members ({departmentDetails.staffMembers.length})
                   </h3>
                   <div className="space-y-3">
-                    {departmentDetails.staff.length === 0 ? (
+                    {departmentDetails.staffMembers.length === 0 ? (
                       <div className="text-center py-4 text-slate-600">No staff assigned to this department</div>
                     ) : (
-                      departmentDetails.staff.map((staffMember) => (
+                      departmentDetails.staffMembers.map((staffMember) => (
                         <div key={staffMember.id} className="flex items-center justify-between p-4 bg-white border rounded-lg">
                           <div className="flex items-center space-x-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -1432,7 +1438,7 @@ export default function Dashboard() {
                               <User size={20} />
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800">{staffMember.name}</p>
+                              <p className="font-medium text-slate-800">{staffMember.firstName} {staffMember.lastName}</p>
                               <p className="text-sm text-slate-600 capitalize">{staffMember.accessLevel}</p>
                             </div>
                           </div>
