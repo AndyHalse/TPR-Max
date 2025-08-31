@@ -704,6 +704,7 @@ export class MemStorage implements IStorage {
       ...user,
       ...updates,
     };
+    
     this.users.set(id, updatedUser);
     this.saveUsersToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedUser;
