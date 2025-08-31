@@ -117,6 +117,7 @@ export interface IStorage {
   getVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
   getCurrentVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
   getTodayVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
+  getPreBookedVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
 
   // Company settings methods
   getCompanySettings(): Promise<CompanySettings | undefined>;
@@ -1272,6 +1273,16 @@ export class MemStorage implements IStorage {
                checkedInAt >= today && checkedInAt < tomorrow;
       })
       .sort((a, b) => new Date(a.checkedInAt || 0).getTime() - new Date(b.checkedInAt || 0).getTime());
+  }
+
+  async getPreBookedVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
+    return Array.from(this.visitors.values())
+      .filter(visitor => 
+        visitor.tenantCompanyId === tenantId &&
+        visitor.isPreBooked === true &&
+        visitor.isCheckedIn === false
+      )
+      .sort((a, b) => new Date(b.checkedInAt || 0).getTime() - new Date(a.checkedInAt || 0).getTime());
   }
 
   // Company settings methods
