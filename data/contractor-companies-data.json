@@ -7,9 +7,9 @@
     "phone": "+44 1234 567890",
     "address": "123 Industrial Estate, Manchester M1 1AA",
     "createdAt": "2025-08-31T14:28:11.555Z",
-    "updatedAt": "2025-08-31T15:01:45.969Z",
+    "updatedAt": "2025-08-31T15:16:34.976Z",
     "workersCount": 2,
-    "complianceScore": "D+"
+    "complianceScore": "C+"
   },
   {
     "id": "9bdd36cb-3ebe-4ae7-a71e-daad8d159e57",
@@ -19,9 +19,9 @@
     "phone": "+44 2034 567891",
     "address": "456 Building Road, London E1 4AB",
     "createdAt": "2025-08-31T14:28:11.556Z",
-    "updatedAt": "2025-08-31T15:01:38.102Z",
+    "updatedAt": "2025-08-31T15:16:35.554Z",
     "workersCount": 2,
-    "complianceScore": "C"
+    "complianceScore": "B"
   },
   {
     "id": "db9955c3-e11b-4e2a-a9b7-01d7a5900f87",
@@ -31,8 +31,8 @@
     "phone": "+44 3456 789012",
     "address": "789 Tech Park, Birmingham B2 5CD",
     "createdAt": "2025-08-31T14:28:11.557Z",
-    "updatedAt": "2025-08-31T15:01:28.837Z",
+    "updatedAt": "2025-08-31T15:16:38.339Z",
     "workersCount": 2,
-    "complianceScore": "A"
+    "complianceScore": "D+"
   }
 ]

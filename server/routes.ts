@@ -5427,7 +5427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/super-admin/tenants/:slug", async (req, res) => {
     try {
       const { slug } = req.params;
-      const tenant = await storage.getTenantBySlug(slug);
+      const tenant = await storage.getTenantCompanyBySlug(slug);
       if (!tenant) {
         return res.status(404).json({ error: "Tenant not found" });
       }
@@ -5468,7 +5468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tenants/:slug/staff", async (req, res) => {
     try {
       const { slug } = req.params;
-      const tenant = await storage.getTenantBySlug(slug);
+      const tenant = await storage.getTenantCompanyBySlug(slug);
       if (!tenant) {
         return res.status(404).json({ error: "Tenant not found" });
       }
@@ -5483,7 +5483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tenants/:slug/visitors", async (req, res) => {
     try {
       const { slug } = req.params;
-      const tenant = await storage.getTenantBySlug(slug);
+      const tenant = await storage.getTenantCompanyBySlug(slug);
       if (!tenant) {
         return res.status(404).json({ error: "Tenant not found" });
       }
@@ -5495,10 +5495,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate sample tenant companies with staff for testing
+  app.post("/api/super-admin/generate-sample-tenants", async (req, res) => {
+    try {
+      const sampleTenants = [
+        {
+          companyName: "TechVenture Solutions",
+          slug: "techventure",
+          contactEmail: "admin@techventure.com",
+          phone: "+44 20 7123 4567",
+          address: "Floor 3, Innovation Hub",
+          website: "https://techventure.com",
+          adminFirstName: "Sarah",
+          adminLastName: "Chen",
+          adminEmail: "sarah.chen@techventure.com",
+          subscriptionTier: "premium",
+          maxUsers: 25,
+          primaryColor: "#3b82f6",
+          secondaryColor: "#64748b"
+        },
+        {
+          companyName: "Creative Design Studio",
+          slug: "creativestudio",
+          contactEmail: "hello@creativestudio.com",
+          phone: "+44 20 7987 6543",
+          address: "Floor 2, Creative Quarter",
+          website: "https://creativestudio.com",
+          adminFirstName: "Marcus",
+          adminLastName: "Rivera",
+          adminEmail: "marcus.rivera@creativestudio.com",
+          subscriptionTier: "basic",
+          maxUsers: 15,
+          primaryColor: "#8b5cf6",
+          secondaryColor: "#64748b"
+        },
+        {
+          companyName: "FinanceFirst Consulting",
+          slug: "financefirst",
+          contactEmail: "contact@financefirst.com",
+          phone: "+44 20 7456 7890",
+          address: "Floor 4, Business Centre",
+          website: "https://financefirst.com",
+          adminFirstName: "Emma",
+          adminLastName: "Thompson",
+          adminEmail: "emma.thompson@financefirst.com",
+          subscriptionTier: "enterprise",
+          maxUsers: 50,
+          primaryColor: "#059669",
+          secondaryColor: "#64748b"
+        },
+        {
+          companyName: "Digital Marketing Pro",
+          slug: "digitalmarketing",
+          contactEmail: "info@digitalmarketing.com",
+          phone: "+44 20 7234 5678",
+          address: "Floor 1, Marketing Suite",
+          website: "https://digitalmarketing.com",
+          adminFirstName: "James",
+          adminLastName: "Wilson",
+          adminEmail: "james.wilson@digitalmarketing.com",
+          subscriptionTier: "premium",
+          maxUsers: 30,
+          primaryColor: "#dc2626",
+          secondaryColor: "#64748b"
+        },
+        {
+          companyName: "CloudSoft Innovations",
+          slug: "cloudsoft",
+          contactEmail: "support@cloudsoft.com",
+          phone: "+44 20 7345 6789",
+          address: "Floor 5, Tech Hub",
+          website: "https://cloudsoft.com",
+          adminFirstName: "Priya",
+          adminLastName: "Patel",
+          adminEmail: "priya.patel@cloudsoft.com",
+          subscriptionTier: "premium",
+          maxUsers: 40,
+          primaryColor: "#f59e0b",
+          secondaryColor: "#64748b"
+        }
+      ];
+
+      const createdTenants = [];
+      for (const tenantData of sampleTenants) {
+        try {
+          const existing = await storage.getTenantCompanyBySlug(tenantData.slug);
+          if (!existing) {
+            const tenant = await storage.createTenantCompany(tenantData);
+            createdTenants.push(tenant);
+            console.log(`✅ Created tenant: ${tenant.companyName}`);
+          } else {
+            console.log(`⏭️ Tenant ${tenantData.companyName} already exists`);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to create tenant ${tenantData.companyName}:`, error);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Generated ${createdTenants.length} sample tenant companies`,
+        tenants: createdTenants
+      });
+    } catch (error) {
+      console.error("Error generating sample tenants:", error);
+      res.status(500).json({ error: "Failed to generate sample tenants" });
+    }
+  });
+
+  // Generate sample staff for each tenant
+  app.post("/api/super-admin/generate-sample-staff", async (req, res) => {
+    try {
+      const tenants = await storage.getAllTenantCompanies();
+      const createdStaff = [];
+
+      const sampleStaffByTenant = {
+        "techventure": [
+          { firstName: "Sarah", lastName: "Chen", email: "sarah.chen@techventure.com", department: "Management", employeeId: "TV001", accessLevel: "admin" },
+          { firstName: "David", lastName: "Kumar", email: "david.kumar@techventure.com", department: "Engineering", employeeId: "TV002", accessLevel: "staff" },
+          { firstName: "Lisa", lastName: "Rodriguez", email: "lisa.rodriguez@techventure.com", department: "Product", employeeId: "TV003", accessLevel: "staff" },
+          { firstName: "Michael", lastName: "Brown", email: "michael.brown@techventure.com", department: "Sales", employeeId: "TV004", accessLevel: "staff" },
+          { firstName: "Anita", lastName: "Singh", email: "anita.singh@techventure.com", department: "Marketing", employeeId: "TV005", accessLevel: "supervisor" }
+        ],
+        "creativestudio": [
+          { firstName: "Marcus", lastName: "Rivera", email: "marcus.rivera@creativestudio.com", department: "Creative Director", employeeId: "CS001", accessLevel: "admin" },
+          { firstName: "Sophie", lastName: "Martin", email: "sophie.martin@creativestudio.com", department: "Design", employeeId: "CS002", accessLevel: "staff" },
+          { firstName: "Alex", lastName: "Johnson", email: "alex.johnson@creativestudio.com", department: "Photography", employeeId: "CS003", accessLevel: "staff" },
+          { firstName: "Maya", lastName: "Patel", email: "maya.patel@creativestudio.com", department: "Animation", employeeId: "CS004", accessLevel: "staff" }
+        ],
+        "financefirst": [
+          { firstName: "Emma", lastName: "Thompson", email: "emma.thompson@financefirst.com", department: "Management", employeeId: "FF001", accessLevel: "admin" },
+          { firstName: "Robert", lastName: "Davis", email: "robert.davis@financefirst.com", department: "Financial Analysis", employeeId: "FF002", accessLevel: "manager" },
+          { firstName: "Grace", lastName: "Lee", email: "grace.lee@financefirst.com", department: "Accounting", employeeId: "FF003", accessLevel: "staff" },
+          { firstName: "Thomas", lastName: "White", email: "thomas.white@financefirst.com", department: "Tax Advisory", employeeId: "FF004", accessLevel: "staff" },
+          { firstName: "Rachel", lastName: "Green", email: "rachel.green@financefirst.com", department: "Compliance", employeeId: "FF005", accessLevel: "supervisor" },
+          { firstName: "Daniel", lastName: "Anderson", email: "daniel.anderson@financefirst.com", department: "Investment", employeeId: "FF006", accessLevel: "staff" }
+        ],
+        "digitalmarketing": [
+          { firstName: "James", lastName: "Wilson", email: "james.wilson@digitalmarketing.com", department: "Management", employeeId: "DM001", accessLevel: "admin" },
+          { firstName: "Kelly", lastName: "Turner", email: "kelly.turner@digitalmarketing.com", department: "SEO", employeeId: "DM002", accessLevel: "staff" },
+          { firstName: "Ryan", lastName: "Clark", email: "ryan.clark@digitalmarketing.com", department: "Social Media", employeeId: "DM003", accessLevel: "staff" },
+          { firstName: "Natalie", lastName: "Moore", email: "natalie.moore@digitalmarketing.com", department: "Content", employeeId: "DM004", accessLevel: "staff" },
+          { firstName: "Chris", lastName: "Garcia", email: "chris.garcia@digitalmarketing.com", department: "PPC", employeeId: "DM005", accessLevel: "supervisor" }
+        ],
+        "cloudsoft": [
+          { firstName: "Priya", lastName: "Patel", email: "priya.patel@cloudsoft.com", department: "Management", employeeId: "CS001", accessLevel: "admin" },
+          { firstName: "Kevin", lastName: "Zhang", email: "kevin.zhang@cloudsoft.com", department: "DevOps", employeeId: "CS002", accessLevel: "manager" },
+          { firstName: "Amanda", lastName: "Taylor", email: "amanda.taylor@cloudsoft.com", department: "Cloud Architecture", employeeId: "CS003", accessLevel: "staff" },
+          { firstName: "Ian", lastName: "Mitchell", email: "ian.mitchell@cloudsoft.com", department: "Security", employeeId: "CS004", accessLevel: "staff" },
+          { firstName: "Laura", lastName: "Adams", email: "laura.adams@cloudsoft.com", department: "Support", employeeId: "CS005", accessLevel: "staff" },
+          { firstName: "Ben", lastName: "Carter", email: "ben.carter@cloudsoft.com", department: "Sales", employeeId: "CS006", accessLevel: "supervisor" }
+        ]
+      };
+
+      for (const tenant of tenants) {
+        if (sampleStaffByTenant[tenant.slug]) {
+          const staffList = sampleStaffByTenant[tenant.slug];
+          for (const staffData of staffList) {
+            try {
+              const existingStaff = await storage.getStaffByEmail(staffData.email);
+              if (!existingStaff) {
+                const newStaff = await storage.createStaff({
+                  ...staffData,
+                  tenantCompanyId: tenant.id,
+                  password: staffData.accessLevel === 'admin' || staffData.accessLevel === 'supervisor' ? 'tempPassword123' : null,
+                  isCheckedIn: Math.random() > 0.5, // Randomly check in some staff
+                  checkedInAt: Math.random() > 0.5 ? new Date() : null
+                });
+                createdStaff.push(newStaff);
+                console.log(`✅ Created staff: ${staffData.firstName} ${staffData.lastName} for ${tenant.companyName}`);
+              } else {
+                console.log(`⏭️ Staff ${staffData.firstName} ${staffData.lastName} already exists`);
+              }
+            } catch (error) {
+              console.error(`❌ Failed to create staff ${staffData.firstName} ${staffData.lastName}:`, error);
+            }
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Generated ${createdStaff.length} sample staff members`,
+        staff: createdStaff
+      });
+    } catch (error) {
+      console.error("Error generating sample staff:", error);
+      res.status(500).json({ error: "Failed to generate sample staff" });
+    }
+  });
+
   app.get("/api/tenants/:slug/visitors/pre-booked", async (req, res) => {
     try {
       const { slug } = req.params;
-      const tenant = await storage.getTenantBySlug(slug);
+      const tenant = await storage.getTenantCompanyBySlug(slug);
       if (!tenant) {
         return res.status(404).json({ error: "Tenant not found" });
       }

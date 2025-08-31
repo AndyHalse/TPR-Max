@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Building2, Plus, Users, Eye, Settings, AlertTriangle, CheckCircle, Calendar, DollarSign } from "lucide-react";
+import { Building2, Plus, Users, Eye, Settings, AlertTriangle, CheckCircle, Calendar, DollarSign, Zap, Database } from "lucide-react";
 import type { TenantCompany, InsertTenantCompany } from "@/../../shared/schema";
 
 interface TenantStats {
@@ -34,17 +34,20 @@ export default function SuperAdmin() {
   });
 
   // Fetch building overview stats
-  const { data: buildingStats } = useQuery({
+  const { data: buildingStats } = useQuery<{
+    totalTenants: number;
+    activeTenants: number;
+    totalStaff: number;
+    visitorsToday: number;
+  }>({
     queryKey: ["/api/super-admin/stats"],
   });
 
   // Add new tenant mutation
   const addTenantMutation = useMutation({
     mutationFn: async (tenant: InsertTenantCompany) => {
-      return apiRequest("/api/super-admin/tenants", {
-        method: "POST",
-        body: JSON.stringify(tenant),
-      });
+      const response = await apiRequest("POST", "/api/super-admin/tenants", tenant);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/tenants"] });
@@ -67,16 +70,60 @@ export default function SuperAdmin() {
   // Toggle tenant status mutation
   const toggleTenantMutation = useMutation({
     mutationFn: async ({ tenantId, isActive }: { tenantId: string; isActive: boolean }) => {
-      return apiRequest(`/api/super-admin/tenants/${tenantId}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive }),
-      });
+      const response = await apiRequest("PATCH", `/api/super-admin/tenants/${tenantId}/status`, { isActive });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/tenants"] });
       toast({
         title: "✅ Tenant Status Updated",
         description: "Tenant status has been changed",
+      });
+    },
+  });
+
+  // Generate sample tenants mutation
+  const generateSampleTenantsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/super-admin/generate-sample-tenants");
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/stats"] });
+      toast({
+        title: "✅ Sample Tenants Generated",
+        description: data.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "❌ Failed to Generate Sample Tenants",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Generate sample staff mutation
+  const generateSampleStaffMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/super-admin/generate-sample-staff");
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/stats"] });
+      toast({
+        title: "✅ Sample Staff Generated",
+        description: data.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "❌ Failed to Generate Sample Staff",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -115,13 +162,37 @@ export default function SuperAdmin() {
           </p>
         </div>
         
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2" data-testid="button-add-tenant">
-              <Plus className="w-4 h-4" />
-              Add New Tenant
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          {/* Sample Data Generation Buttons */}
+          <Button
+            variant="outline"
+            onClick={() => generateSampleTenantsMutation.mutate()}
+            disabled={generateSampleTenantsMutation.isPending}
+            className="flex items-center gap-2"
+            data-testid="button-generate-sample-tenants"
+          >
+            <Database className="w-4 h-4" />
+            {generateSampleTenantsMutation.isPending ? "Generating..." : "Sample Tenants"}
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => generateSampleStaffMutation.mutate()}
+            disabled={generateSampleStaffMutation.isPending || tenants.length === 0}
+            className="flex items-center gap-2"
+            data-testid="button-generate-sample-staff"
+          >
+            <Users className="w-4 h-4" />
+            {generateSampleStaffMutation.isPending ? "Generating..." : "Sample Staff"}
+          </Button>
+          
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2" data-testid="button-add-tenant">
+                <Plus className="w-4 h-4" />
+                Add New Tenant
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Tenant Company</DialogTitle>
@@ -267,6 +338,7 @@ export default function SuperAdmin() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Building Overview Stats */}
@@ -385,7 +457,7 @@ export default function SuperAdmin() {
                           📧 {tenant.contactEmail} | 🏢 /{tenant.slug}
                         </p>
                         <p data-testid={`text-info-${tenant.slug}`}>
-                          👥 {tenant.employeeCount} employees | 🏭 {tenant.industry}
+                          👥 Max {tenant.maxUsers} users | 📊 {tenant.subscriptionTier}
                         </p>
                       </div>
                     </div>
