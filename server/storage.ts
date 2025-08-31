@@ -171,6 +171,8 @@ export interface IStorage {
   // Contractor Worker methods
   getAllContractorWorkers(): Promise<ContractorWorker[]>;
   getWorkersByCompanyId(companyId: string): Promise<ContractorWorker[]>;
+  getCheckedInContractors(): Promise<ContractorWorker[]>;
+  getContractorWorkers(companyId: string): Promise<ContractorWorker[]>;
   getContractorWorkerById(id: string): Promise<ContractorWorker | undefined>;
   createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker>;
   updateContractorWorker(id: string, updates: Partial<InsertContractorWorker>): Promise<ContractorWorker | undefined>;
@@ -2658,6 +2660,78 @@ export class MemStorage implements IStorage {
         return bookingDate >= today && bookingDate < tomorrow;
       })
       .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
+  }
+
+  async getDepartmentDetails(department: string): Promise<{
+    department: string;
+    staffMembers: Staff[];
+    visitors: any[];
+    statistics: {
+      totalStaff: number;
+      checkedInStaff: number;
+      visitors: number;
+      weeklyTrend: number;
+    };
+  }> {
+    const staff = Array.from(this.staffMembers.values()).filter(s => s.department === department);
+    const visitors = Array.from(this.visitors.values()).filter(v => 
+      v.isCheckedIn && staff.some(s => s.id === v.hostStaffId)
+    );
+    
+    return {
+      department,
+      staffMembers: staff,
+      visitors,
+      statistics: {
+        totalStaff: staff.length,
+        checkedInStaff: staff.filter(s => s.isCheckedIn).length,
+        visitors: visitors.length,
+        weeklyTrend: Math.floor(Math.random() * 20) - 10 // Simple trend
+      }
+    };
+  }
+
+  async getDepartmentNames(): Promise<string[]> {
+    const departments = Array.from(new Set(Array.from(this.staffMembers.values()).map(s => s.department)));
+    return departments.filter(Boolean);
+  }
+
+  async getAllContractorCompanies(): Promise<Array<ContractorCompany & { workersCount: number; documentsStatus: Record<string, string> }>> {
+    return Array.from(this.contractorCompanies.values()).map(company => ({
+      ...company,
+      workersCount: Array.from(this.contractorWorkers.values()).filter(w => w.companyId === company.id).length,
+      documentsStatus: {} // Empty for now since documents system is optional
+    }));
+  }
+
+  async getAllContractorWorkers(): Promise<ContractorWorker[]> {
+    return Array.from(this.contractorWorkers.values());
+  }
+
+  async getWorkersByCompanyId(companyId: string): Promise<ContractorWorker[]> {
+    return Array.from(this.contractorWorkers.values()).filter(worker => worker.companyId === companyId);
+  }
+
+  async getCheckedInContractors(): Promise<ContractorWorker[]> {
+    return Array.from(this.contractorWorkers.values()).filter(worker => worker.isCheckedIn);
+  }
+
+  async getContractorWorkers(companyId: string): Promise<ContractorWorker[]> {
+    return Array.from(this.contractorWorkers.values()).filter(worker => worker.companyId === companyId);
+  }
+
+  async getDocumentsByCompanyId(companyId: string): Promise<ComplianceDocument[]> {
+    return Array.from(this.complianceDocuments.values()).filter(doc => doc.companyId === companyId);
+  }
+
+  async updateContractorCompany(id: string, updates: Partial<InsertContractorCompany>): Promise<ContractorCompany | undefined> {
+    const company = this.contractorCompanies.get(id);
+    if (!company) return undefined;
+    
+    const updatedCompany = { ...company, ...updates, updatedAt: new Date() };
+    this.contractorCompanies.set(id, updatedCompany);
+    this.saveContractorCompanies();
+    return updatedCompany;
   }
 }
 
