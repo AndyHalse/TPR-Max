@@ -92,6 +92,7 @@ export function ThermalPassDesigner() {
   const [passElements, setPassElements] = useState<ThermalElement[]>(THERMAL_TEMPLATES[0].elements);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [passType, setPassType] = useState<'visitor' | 'contractor'>('visitor');
+  const [isPrinting, setIsPrinting] = useState(false);
   const [previewData, setPreviewData] = useState({
     name: 'John Smith',
     company: 'Tech Corp Ltd',
