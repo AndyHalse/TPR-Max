@@ -18,6 +18,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import { IdCardDesignSystem } from "@/components/IdCardDesignSystem";
+import { ThermalPassDesigner } from "@/components/ThermalPassDesigner";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -741,7 +742,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-10">
+        <TabsList className="grid w-full grid-cols-11">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -757,6 +758,10 @@ export default function Settings() {
           <TabsTrigger value="idcards" className="flex items-center gap-2">
             <CreditCard size={16} />
             ID Cards
+          </TabsTrigger>
+          <TabsTrigger value="thermal-passes" className="flex items-center gap-2">
+            <Printer size={16} />
+            Thermal Passes
           </TabsTrigger>
           <TabsTrigger value="biostar" className="flex items-center gap-2">
             <Shield size={16} />
@@ -2649,6 +2654,10 @@ export default function Settings() {
 
         <TabsContent value="idcards" className="space-y-6 mt-6">
           <IdCardDesignSystem />
+        </TabsContent>
+
+        <TabsContent value="thermal-passes" className="space-y-6 mt-6">
+          <ThermalPassDesigner />
         </TabsContent>
 
         <TabsContent value="departments" className="space-y-6 mt-6">

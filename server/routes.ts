@@ -6611,6 +6611,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===========================
+  // THERMAL PASS PRINTING ENDPOINTS
+  // ===========================
+  
+  const { thermalPrintService } = await import("./thermalPrintService");
+
+  // Get thermal pass design
+  app.get("/api/thermal-passes/design/:type", async (req, res) => {
+    try {
+      const { type } = req.params; // visitor or contractor
+      const settings = await storage.getCompanySettings();
+      
+      let design;
+      if (type === 'visitor') {
+        design = settings.visitorPassDesign ? JSON.parse(settings.visitorPassDesign) : [];
+      } else if (type === 'contractor') {
+        design = settings.contractorPassDesign ? JSON.parse(settings.contractorPassDesign) : [];
+      } else {
+        return res.status(400).json({ error: 'Invalid pass type' });
+      }
+      
+      res.json({ success: true, design });
+    } catch (error) {
+      console.error('Error loading thermal pass design:', error);
+      res.status(500).json({ error: 'Failed to load thermal pass design' });
+    }
+  });
+
+  // Save thermal pass design
+  app.put("/api/thermal-passes/design/:type", async (req, res) => {
+    try {
+      const { type } = req.params;
+      const { elements, printerSettings } = req.body;
+      
+      if (!elements || !Array.isArray(elements)) {
+        return res.status(400).json({ error: 'Invalid elements data' });
+      }
+      
+      const designData = {
+        elements,
+        printerSettings,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      const updateData: any = {};
+      if (type === 'visitor') {
+        updateData.visitorPassDesign = JSON.stringify(designData);
+      } else if (type === 'contractor') {
+        updateData.contractorPassDesign = JSON.stringify(designData);
+      } else {
+        return res.status(400).json({ error: 'Invalid pass type' });
+      }
+      
+      await storage.updateCompanySettings(updateData);
+      
+      console.log(`💾 ${type} thermal pass design saved with ${elements.length} elements`);
+      res.json({ 
+        success: true, 
+        message: `${type} thermal pass design saved successfully`,
+        design: designData
+      });
+    } catch (error) {
+      console.error('Error saving thermal pass design:', error);
+      res.status(500).json({ error: 'Failed to save thermal pass design' });
+    }
+  });
+
+  // Generate RTF for thermal printer
+  app.post("/api/thermal-passes/generate-rtf", async (req, res) => {
+    try {
+      const { elements, type, data, printerSettings } = req.body;
+      
+      if (!elements || !Array.isArray(elements)) {
+        return res.status(400).json({ error: 'Invalid elements data' });
+      }
+      
+      const rtfContent = thermalPrintService.generateRTF(elements, data, printerSettings);
+      
+      res.setHeader('Content-Type', 'application/rtf');
+      res.setHeader('Content-Disposition', `attachment; filename="${type}_pass_template.rtf"`);
+      res.send(rtfContent);
+      
+      console.log(`📄 Generated RTF for ${type} pass (${rtfContent.length} chars)`);
+    } catch (error) {
+      console.error('Error generating RTF:', error);
+      res.status(500).json({ error: 'Failed to generate RTF' });
+    }
+  });
+
+  // Direct thermal printing
+  app.post("/api/thermal-passes/print-direct", async (req, res) => {
+    try {
+      const { elements, type, data, printerSettings } = req.body;
+      
+      if (!elements || !Array.isArray(elements)) {
+        return res.status(400).json({ error: 'Invalid elements data' });
+      }
+      
+      const rtfContent = thermalPrintService.generateRTF(elements, data, printerSettings);
+      const success = await thermalPrintService.printDirect(rtfContent, 'TEC B-EV4 Desktop Printer');
+      
+      if (success) {
+        console.log(`🖨️ Successfully sent ${type} pass to thermal printer`);
+        res.json({ success: true, message: 'Pass sent to thermal printer' });
+      } else {
+        res.status(500).json({ error: 'Failed to print to thermal printer' });
+      }
+    } catch (error) {
+      console.error('Error printing to thermal printer:', error);
+      res.status(500).json({ error: 'Failed to print to thermal printer' });
+    }
+  });
+
+  // Print emergency muster list
+  app.post("/api/thermal-passes/print-muster", async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      const printerSettings = {
+        blackMarkSensing: true,
+        printSpeed: 'medium' as const,
+        printDensity: 'normal' as const,
+        thermalAdjustment: 0,
+        labelLength: 200, // Longer for muster list
+        labelWidth: 85,
+        cutAfterPrint: true,
+        backfeedAdjustment: 0
+      };
+      
+      // Get all people currently on site
+      const [visitors, staff, contractors] = await Promise.all([
+        storage.getAllVisitors(),
+        storage.getAllStaff(), 
+        storage.getAllContractorWorkers()
+      ]);
+      
+      // Filter to only those currently checked in
+      const visitorsOnSite = visitors.filter(v => v.status === 'checked_in').map(v => ({
+        name: v.fullName,
+        company: v.company,
+        type: 'Visitor',
+        checkInTime: v.checkInTime
+      }));
+      
+      const staffOnSite = staff.filter(s => s.status === 'checked_in').map(s => ({
+        name: `${s.firstName} ${s.lastName}`,
+        company: settings.companyName,
+        department: s.department,
+        type: 'Staff',
+        checkInTime: s.checkInTime
+      }));
+      
+      const contractorsOnSite = contractors.filter(c => c.checkInStatus === 'checked_in').map(c => ({
+        name: c.fullName,
+        company: c.company,
+        type: 'Contractor',
+        checkInTime: c.checkInTime
+      }));
+      
+      const allPeopleOnSite = [...visitorsOnSite, ...staffOnSite, ...contractorsOnSite];
+      
+      const success = await thermalPrintService.printMusterList(allPeopleOnSite, printerSettings);
+      
+      if (success) {
+        console.log(`🚨 Emergency muster list printed (${allPeopleOnSite.length} people)`);
+        res.json({ 
+          success: true, 
+          message: `Emergency muster list printed (${allPeopleOnSite.length} people on site)`,
+          totalPeople: allPeopleOnSite.length
+        });
+      } else {
+        res.status(500).json({ error: 'Failed to print muster list' });
+      }
+    } catch (error) {
+      console.error('Error printing muster list:', error);
+      res.status(500).json({ error: 'Failed to print emergency muster list' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
