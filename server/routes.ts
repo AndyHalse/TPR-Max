@@ -6678,27 +6678,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate RTF for thermal printer
-  app.post("/api/thermal-passes/generate-rtf", async (req, res) => {
-    try {
-      const { elements, type, data, printerSettings } = req.body;
-      
-      if (!elements || !Array.isArray(elements)) {
-        return res.status(400).json({ error: 'Invalid elements data' });
-      }
-      
-      const rtfContent = thermalPrintService.generateRTF(elements, data, printerSettings);
-      
-      res.setHeader('Content-Type', 'application/rtf');
-      res.setHeader('Content-Disposition', `attachment; filename="${type}_pass_template.rtf"`);
-      res.send(rtfContent);
-      
-      console.log(`📄 Generated RTF for ${type} pass (${rtfContent.length} chars)`);
-    } catch (error) {
-      console.error('Error generating RTF:', error);
-      res.status(500).json({ error: 'Failed to generate RTF' });
-    }
-  });
 
   // Direct thermal printing using raw ESC/POS commands
   // WINDOWS: Simple Windows printing endpoint (Crystal Reports Alternative)
@@ -6750,64 +6729,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ADVANCED: Robust thermal pass printing endpoint (Superior to Crystal Reports)
-  app.post("/api/thermal-passes/print-robust", async (req, res) => {
-    try {
-      const { RobustPrintService } = await import('./robustPrintService');
-      const { elements, data, printerSettings, method = 'auto' } = req.body;
-
-      const printService = new RobustPrintService();
-      
-      // Convert your existing elements to the new format
-      const printElements = elements.map((el: any) => ({
-        type: el.type,
-        x: el.x / 3.779527559, // Convert pixels to mm (assuming 96 DPI)
-        y: el.y / 3.779527559,
-        width: el.width ? el.width / 3.779527559 : undefined,
-        height: el.height ? el.height / 3.779527559 : undefined,
-        content: el.content,
-        fontSize: el.fontSize,
-        fontWeight: el.fontWeight,
-        alignment: el.alignment,
-        color: el.color || '#000000'
-      }));
-
-      const options = {
-        printerName: printerSettings.selectedPrinter || 'TEC B-EV4 Desktop Printer',
-        method: method, // 'thermal', 'pdf', 'image', or 'auto'
-        paperSize: { 
-          width: printerSettings.labelWidth || 85, // mm
-          height: printerSettings.labelLength || 66 // mm
-        },
-        dpi: 203, // B-FV4D printer DPI
-        quality: 'high' as const
-      };
-
-      console.log(`🎯 Starting robust print with ${printElements.length} elements`);
-      
-      const result = await printService.printPass(printElements, data, options);
-      
-      if (result.success) {
-        res.json({
-          success: true,
-          message: result.message,
-          method: result.method,
-          file: result.file
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          error: result.message
-        });
-      }
-    } catch (error) {
-      console.error('❌ Robust printing failed:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
 
   // LEGACY: Existing thermal pass printing endpoint
   app.post("/api/thermal-passes/print-direct", async (req, res) => {

@@ -163,37 +163,36 @@ export function ThermalPassDesigner() {
     }
   };
 
-  const generateRTF = async () => {
+  const printWindows = async () => {
     try {
-      const response = await fetch('/api/thermal-passes/generate-rtf', {
+      const response = await fetch('/api/thermal-passes/print-windows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           elements: passElements,
-          type: passType,
           data: previewData,
           printerSettings
         })
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${passType}_pass_template.rtf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        
+      const result = await response.json();
+      
+      if (result.success) {
         toast({
-          title: "RTF Generated",
-          description: `${passType} pass RTF template downloaded`
+          title: "✅ Windows Print Success!",
+          description: `Method: ${result.method} - ${result.message}`
+        });
+      } else {
+        toast({
+          title: "Print Failed",
+          description: result.error || "Windows printing failed",
+          variant: "destructive"
         });
       }
     } catch (error) {
       toast({
-        title: "RTF Generation Failed",
-        description: "Could not generate RTF template",
+        title: "Print Error",
+        description: "Could not connect to Windows print service",
         variant: "destructive"
       });
     }
@@ -281,13 +280,13 @@ export function ThermalPassDesigner() {
             <Save className="h-4 w-4 mr-2" />
             Save Design
           </Button>
-          <Button onClick={generateRTF} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Download RTF
-          </Button>
-          <Button onClick={printDirect}>
+          <Button onClick={printDirect} variant="outline">
             <Printer className="h-4 w-4 mr-2" />
-            Print Test
+            Legacy Print
+          </Button>
+          <Button onClick={printWindows} className="bg-green-600 hover:bg-green-700">
+            <Printer className="h-4 w-4 mr-2" />
+            🚀 Windows Print (New)
           </Button>
         </div>
       </div>
