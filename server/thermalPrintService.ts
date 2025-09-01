@@ -281,52 +281,132 @@ export class ThermalPrintService {
    */
   async printDirect(elements: ThermalElement[], data: PassData, printerSettings: PrinterSettings, printerName: string = 'TEC B-EV4 Desktop Printer'): Promise<boolean> {
     try {
-      console.log(`🖨️ Generating raw thermal commands for: ${printerName}`);
+      console.log(`🖨️ Generating thermal pass for B-FV4D printer: ${printerName}`);
       
-      // Generate ESC/POS commands for B-FV4D thermal printer
-      const rawCommands = this.generateESCPOSCommands(elements, data, printerSettings);
-      console.log(`📄 Generated ${rawCommands.length} bytes of ESC/POS data`);
+      // For now, let's create a comprehensive text-based pass that any thermal printer can handle
+      const thermalContent = this.generateThermalText(elements, data, printerSettings);
+      console.log(`📄 Generated thermal content: ${thermalContent.length} characters`);
       
-      // Try multiple methods to send raw commands to thermal printer
-      let printed = false;
-      
-      try {
-        // Method 1: Serial Port Communication (preferred for B-FV4D)
-        printed = await this.printViaSerialPort(rawCommands, printerName);
-        if (printed) {
-          console.log(`✅ Successfully printed via serial port`);
-          return true;
-        }
-      } catch (serialError) {
-        console.log(`⚠️ Serial port method failed: ${serialError.message}`);
-      }
-      
-      try {
-        // Method 2: Raw printer data via Windows spooler
-        printed = await this.printRawData(rawCommands, printerName);
-        if (printed) {
-          console.log(`✅ Successfully printed via raw printer data`);
-          return true;
-        }
-      } catch (rawError) {
-        console.log(`⚠️ Raw printer method failed: ${rawError.message}`);
-      }
-      
-      try {
-        // Method 3: Network printing (if printer has Ethernet)
-        printed = await this.printViaNetwork(rawCommands, printerName);
-        if (printed) {
-          console.log(`✅ Successfully printed via network`);
-          return true;
-        }
-      } catch (networkError) {
-        console.log(`⚠️ Network printing failed: ${networkError.message}`);
-      }
-      
-      console.log(`❌ All thermal printing methods failed`);
-      return false;
+      // Use a simple approach that works with thermal printers
+      return await this.printThermalText(thermalContent, printerName);
     } catch (error) {
       console.error('❌ Failed to print to thermal printer:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Generate simple thermal text content
+   */
+  private generateThermalText(elements: ThermalElement[], data: PassData, settings: PrinterSettings): string {
+    let content = '';
+    
+    // Add thermal printer initialization (ESC/POS commands as text)
+    content += String.fromCharCode(27) + '@'; // ESC @ - Initialize printer
+    
+    // Sort elements by Y position
+    const sortedElements = [...elements].sort((a, b) => a.y - b.y || a.x - b.x);
+    
+    for (const element of sortedElements) {
+      switch (element.type) {
+        case 'text':
+          let text = element.content || '';
+          if (element.isVariable && element.variableType) {
+            text = this.getVariableValue(element.variableType, data);
+          }
+          
+          // Add formatting for thermal printer
+          if (element.fontWeight === 'bold') {
+            content += String.fromCharCode(27) + 'E' + String.fromCharCode(1); // Bold on
+          }
+          if (element.fontSize && element.fontSize > 14) {
+            content += String.fromCharCode(29) + '!' + String.fromCharCode(17); // Double size
+          }
+          
+          content += text + '\n';
+          
+          // Reset formatting
+          content += String.fromCharCode(27) + 'E' + String.fromCharCode(0); // Bold off
+          content += String.fromCharCode(29) + '!' + String.fromCharCode(0); // Normal size
+          break;
+          
+        case 'qr_code':
+          const qrText = element.isVariable && element.variableType 
+            ? this.getVariableValue(element.variableType, data)
+            : (element.content || '');
+          content += `QR: ${qrText}\n`;
+          break;
+          
+        case 'line':
+          content += '------------------------\n';
+          break;
+      }
+    }
+    
+    // Add paper cut command if enabled
+    if (settings.cutAfterPrint) {
+      content += String.fromCharCode(29) + 'V' + String.fromCharCode(0); // Full cut
+    }
+    
+    return content;
+  }
+
+  /**
+   * Print thermal text content directly
+   */
+  private async printThermalText(content: string, printerName: string): Promise<boolean> {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const { execSync } = require('child_process');
+      
+      // Create temporary file with raw thermal data
+      const tempDir = path.join(process.cwd(), 'temp');
+      await fs.mkdir(tempDir, { recursive: true });
+      const tempFile = path.join(tempDir, `thermal_${Date.now()}.prn`);
+      
+      // Write binary thermal data
+      const buffer = Buffer.from(content, 'latin1');
+      await fs.writeFile(tempFile, buffer);
+      console.log(`📁 Created thermal file: ${tempFile} (${buffer.length} bytes)`);
+      
+      try {
+        // Try to send raw data to printer
+        const copyCmd = `copy /B "${tempFile}" "\\\\localhost\\${printerName.replace(/\s+/g, '')}" 2>nul`;
+        execSync(copyCmd, { timeout: 5000 });
+        console.log(`✅ Sent raw thermal data to ${printerName}`);
+        
+        // Clean up
+        setTimeout(async () => {
+          try {
+            await fs.unlink(tempFile);
+          } catch (e) {}
+        }, 2000);
+        
+        return true;
+      } catch (copyError) {
+        console.log(`⚠️ Raw copy failed, trying print command...`);
+        
+        // Fallback: use print command
+        try {
+          const printCmd = `print /D:"${printerName}" "${tempFile}"`;
+          execSync(printCmd, { timeout: 5000 });
+          console.log(`✅ Sent via print command to ${printerName}`);
+          
+          setTimeout(async () => {
+            try {
+              await fs.unlink(tempFile);
+            } catch (e) {}
+          }, 2000);
+          
+          return true;
+        } catch (printError) {
+          console.log(`⚠️ Print command failed: ${printError.message}`);
+          return false;
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error in thermal printing:', error);
       return false;
     }
   }
@@ -420,7 +500,9 @@ export class ThermalPrintService {
     
     // Add text content
     const textBytes = Buffer.from(content, 'utf8');
-    commands.push(...textBytes);
+    for (let i = 0; i < textBytes.length; i++) {
+      commands.push(textBytes[i]);
+    }
     
     // Reset formatting
     commands.push(0x1B, 0x45, 0x00); // ESC E - Bold off
@@ -445,7 +527,9 @@ export class ThermalPrintService {
     const qrData = Buffer.from(content, 'utf8');
     const qrLength = qrData.length + 3;
     commands.push(0x1D, 0x28, 0x6B, qrLength & 0xFF, (qrLength >> 8) & 0xFF, 0x31, 0x50, 0x30);
-    commands.push(...qrData);
+    for (let i = 0; i < qrData.length; i++) {
+      commands.push(qrData[i]);
+    }
     
     // Print QR code
     commands.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30);
@@ -460,7 +544,9 @@ export class ThermalPrintService {
     const lineLength = Math.floor((element.width || 100) / 6); // Approximate character width
     const line = '-'.repeat(Math.min(lineLength, 48)); // Max 48 chars per line
     const lineBytes = Buffer.from(line, 'utf8');
-    commands.push(...lineBytes);
+    for (let i = 0; i < lineBytes.length; i++) {
+      commands.push(lineBytes[i]);
+    }
     commands.push(0x0A); // Line feed
   }
   
@@ -469,14 +555,14 @@ export class ThermalPrintService {
    */
   private async printViaSerialPort(commands: Buffer, printerName: string): Promise<boolean> {
     try {
-      const { SerialPort } = require('serialport');
+      const { SerialPort } = await import('serialport');
       
       // List available serial ports
       const ports = await SerialPort.list();
-      console.log('📍 Available serial ports:', ports.map(p => `${p.path} (${p.manufacturer || 'Unknown'})`));
+      console.log('📍 Available serial ports:', ports.map((p: any) => `${p.path} (${p.manufacturer || 'Unknown'})`));
       
       // Try to find B-FV4D or Toshiba device
-      let targetPort = ports.find(port => 
+      let targetPort = ports.find((port: any) => 
         port.manufacturer && (
           port.manufacturer.toLowerCase().includes('toshiba') ||
           port.manufacturer.toLowerCase().includes('tec') ||
@@ -509,7 +595,7 @@ export class ThermalPrintService {
       return new Promise((resolve, reject) => {
         port.on('open', () => {
           console.log('✅ Serial port opened, sending thermal data...');
-          port.write(commands, (err) => {
+          port.write(commands, (err: any) => {
             if (err) {
               reject(err);
             } else {
@@ -522,7 +608,7 @@ export class ThermalPrintService {
           });
         });
         
-        port.on('error', (err) => {
+        port.on('error', (err: any) => {
           console.error('❌ Serial port error:', err);
           reject(err);
         });
@@ -537,27 +623,27 @@ export class ThermalPrintService {
    */
   private async printRawData(commands: Buffer, printerName: string): Promise<boolean> {
     try {
-      const fs = require('fs').promises;
-      const path = require('path');
-      const { execSync } = require('child_process');
+      const fs = await import('fs');
+      const path = await import('path');
+      const { execSync } = await import('child_process');
       
       // Create temporary raw data file
-      const tempDir = path.join(process.cwd(), 'temp');
-      await fs.mkdir(tempDir, { recursive: true });
-      const tempFile = path.join(tempDir, `thermal_raw_${Date.now()}.prn`);
+      const tempDir = path.default.join(process.cwd(), 'temp');
+      await fs.promises.mkdir(tempDir, { recursive: true });
+      const tempFile = path.default.join(tempDir, `thermal_raw_${Date.now()}.prn`);
       
       // Write raw ESC/POS commands to file
-      await fs.writeFile(tempFile, commands);
+      await fs.promises.writeFile(tempFile, commands);
       console.log(`📁 Created raw print file: ${tempFile} (${commands.length} bytes)`);
       
       // Send raw data to printer using copy command (Windows)
       const copyCmd = `copy /B "${tempFile}" "\\\\localhost\\${printerName.replace(/\s+/g, '')}"`;
-      execSync(copyCmd, { timeout: 10000 });
+      execSync.default(copyCmd, { timeout: 10000 });
       
       // Clean up
       setTimeout(async () => {
         try {
-          await fs.unlink(tempFile);
+          await fs.promises.unlink(tempFile);
         } catch (e) {}
       }, 3000);
       
@@ -572,7 +658,7 @@ export class ThermalPrintService {
    */
   private async printViaNetwork(commands: Buffer, printerName: string): Promise<boolean> {
     try {
-      const net = require('net');
+      const net = await import('net');
       
       // Try common B-FV4D network port (usually 9100 for raw printing)
       const printerIP = '192.168.1.100'; // This would need to be configured
@@ -581,7 +667,7 @@ export class ThermalPrintService {
       console.log(`🌐 Attempting network connection to ${printerIP}:${printerPort}`);
       
       return new Promise((resolve, reject) => {
-        const socket = net.createConnection(printerPort, printerIP);
+        const socket = net.default.createConnection(printerPort, printerIP);
         
         socket.on('connect', () => {
           console.log('✅ Network connection established');
@@ -590,7 +676,7 @@ export class ThermalPrintService {
           resolve(true);
         });
         
-        socket.on('error', (err) => {
+        socket.on('error', (err: any) => {
           reject(err);
         });
         
@@ -601,6 +687,28 @@ export class ThermalPrintService {
       });
     } catch (error) {
       throw error;
+    }
+  }
+
+  /**
+   * Get variable value for thermal pass data
+   */
+  private getVariableValue(variableType: string, data: PassData): string {
+    switch (variableType) {
+      case 'fullName':
+        return data.fullName || '';
+      case 'company':
+        return data.company || '';
+      case 'department':
+        return data.department || '';
+      case 'date':
+        return new Date().toLocaleDateString();
+      case 'time':
+        return new Date().toLocaleTimeString();
+      case 'qr_code':
+        return data.qrCode || data.fullName || '';
+      default:
+        return '';
     }
   }
 
