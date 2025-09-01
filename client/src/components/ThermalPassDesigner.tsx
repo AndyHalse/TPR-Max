@@ -214,46 +214,37 @@ export function ThermalPassDesigner() {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         
-        // Create a hidden iframe for silent printing
+        // Create invisible iframe and print directly 
         const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
         iframe.src = url;
+        
         document.body.appendChild(iframe);
         
-        // Auto-trigger print when PDF loads in iframe
+        // Wait for PDF to load then trigger print
         iframe.onload = () => {
           setTimeout(() => {
-            // Try to print directly from iframe
-            try {
-              iframe.contentWindow?.print();
-            } catch (error) {
-              // Fallback: open in new window and print
-              const printWindow = window.open(url);
-              if (printWindow) {
-                printWindow.onload = () => {
-                  setTimeout(() => {
-                    printWindow.print();
-                  }, 300);
-                };
-              }
-            }
+            // Focus the iframe and print
+            iframe.focus();
+            iframe.contentWindow!.print();
             
-            // Clean up iframe
+            // Clean up
             setTimeout(() => {
               document.body.removeChild(iframe);
-            }, 2000);
+              window.URL.revokeObjectURL(url);
+            }, 1000);
           }, 500);
         };
 
         toast({
-          title: "🖨️ Printing to Thermal Printer",
-          description: "PDF generated and sending to your thermal printer directly!"
+          title: "🖨️ Printing Thermal Pass",
+          description: "Sending to your thermal printer now!"
         });
-
-        // Cleanup
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 3000);
       } else {
         throw new Error('PDF generation failed');
       }
