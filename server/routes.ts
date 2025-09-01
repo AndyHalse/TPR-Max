@@ -6701,6 +6701,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Direct thermal printing using raw ESC/POS commands
+  // WINDOWS: Simple Windows printing endpoint (Crystal Reports Alternative)
+  app.post("/api/thermal-passes/print-windows", async (req, res) => {
+    try {
+      const { WindowsPrintService } = await import('./windowsPrintService');
+      const { elements, data, printerSettings } = req.body;
+
+      const printService = new WindowsPrintService();
+      
+      // Convert existing elements to Windows format
+      const windowsElements = elements.map((el: any) => ({
+        type: el.type,
+        x: el.x / 3.779527559, // Convert pixels to mm
+        y: el.y / 3.779527559,
+        width: el.width ? el.width / 3.779527559 : undefined,
+        height: el.height ? el.height / 3.779527559 : undefined,
+        content: el.content,
+        fontSize: el.fontSize,
+        fontWeight: el.fontWeight,
+        alignment: el.alignment
+      }));
+
+      const printerName = printerSettings.selectedPrinter || 'TEC B-EV4 Desktop Printer';
+      
+      console.log(`🪟 Windows Print: ${windowsElements.length} elements to "${printerName}"`);
+      
+      const result = await printService.print(windowsElements, data, printerName);
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message,
+          method: result.method,
+          file: result.file
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: result.message
+        });
+      }
+    } catch (error) {
+      console.error('❌ Windows printing failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // ADVANCED: Robust thermal pass printing endpoint (Superior to Crystal Reports)
+  app.post("/api/thermal-passes/print-robust", async (req, res) => {
+    try {
+      const { RobustPrintService } = await import('./robustPrintService');
+      const { elements, data, printerSettings, method = 'auto' } = req.body;
+
+      const printService = new RobustPrintService();
+      
+      // Convert your existing elements to the new format
+      const printElements = elements.map((el: any) => ({
+        type: el.type,
+        x: el.x / 3.779527559, // Convert pixels to mm (assuming 96 DPI)
+        y: el.y / 3.779527559,
+        width: el.width ? el.width / 3.779527559 : undefined,
+        height: el.height ? el.height / 3.779527559 : undefined,
+        content: el.content,
+        fontSize: el.fontSize,
+        fontWeight: el.fontWeight,
+        alignment: el.alignment,
+        color: el.color || '#000000'
+      }));
+
+      const options = {
+        printerName: printerSettings.selectedPrinter || 'TEC B-EV4 Desktop Printer',
+        method: method, // 'thermal', 'pdf', 'image', or 'auto'
+        paperSize: { 
+          width: printerSettings.labelWidth || 85, // mm
+          height: printerSettings.labelLength || 66 // mm
+        },
+        dpi: 203, // B-FV4D printer DPI
+        quality: 'high' as const
+      };
+
+      console.log(`🎯 Starting robust print with ${printElements.length} elements`);
+      
+      const result = await printService.printPass(printElements, data, options);
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message,
+          method: result.method,
+          file: result.file
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: result.message
+        });
+      }
+    } catch (error) {
+      console.error('❌ Robust printing failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // LEGACY: Existing thermal pass printing endpoint
   app.post("/api/thermal-passes/print-direct", async (req, res) => {
     try {
       const { elements, type, data, printerSettings } = req.body;
