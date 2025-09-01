@@ -231,7 +231,7 @@ export class PDFPrintService {
   private async createPDFFromElements(elements: PDFElement[], data: PDFPrintData): Promise<Buffer> {
     const { jsPDF } = await import('jspdf');
     
-    console.log('📄 Creating PDF with jsPDF...');
+    console.log('📄 Creating PDF with jsPDF using', elements.length, 'design elements');
     
     // Create PDF with thermal pass dimensions (85mm x 66mm)
     const pdf = new jsPDF({
@@ -240,50 +240,117 @@ export class PDFPrintService {
       format: [85, 66]
     });
     
-    // Process each element
+    // Set default font
+    pdf.setFont('helvetica');
+    
+    // Process each element from the designer
     for (const element of elements) {
-      const x = (element.x * 85) / 323; // Convert pixels to mm
-      const y = (element.y * 66) / 251; // Convert pixels to mm
+      // Convert from designer canvas coordinates (323x251) to PDF mm (85x66)
+      const x = (element.x / 323) * 85;
+      const y = (element.y / 251) * 66;
+      const width = ((element.width || 100) / 323) * 85;
+      const height = ((element.height || 20) / 251) * 66;
+      
+      console.log(`Processing ${element.type}: x=${x.toFixed(1)}, y=${y.toFixed(1)}, content="${element.content}"`);
       
       switch (element.type) {
         case 'text':
-          pdf.setFontSize(element.fontSize || 10);
-          pdf.setFont('helvetica', element.fontWeight === 'bold' ? 'bold' : 'normal');
           if (element.content) {
-            pdf.text(element.content, x, y + 3); // Slight offset for text baseline
+            const fontSize = Math.max(6, Math.min(12, (element.fontSize || 12) * 0.8));
+            pdf.setFontSize(fontSize);
+            pdf.setFont('helvetica', element.fontWeight === 'bold' ? 'bold' : 'normal');
+            
+            // Handle text color if specified
+            if (element.color) {
+              const color = this.parseColor(element.color);
+              pdf.setTextColor(color.r, color.g, color.b);
+            }
+            
+            pdf.text(element.content, x, y + fontSize * 0.3);
+            
+            // Reset color
+            pdf.setTextColor(0, 0, 0);
           }
           break;
           
         case 'qr_code':
-          const size = Math.min((element.width || 50) * 85 / 323, (element.height || 50) * 66 / 251);
-          pdf.rect(x, y, size, size);
-          pdf.setFontSize(6);
-          pdf.text('QR', x + size/3, y + size/2);
+          // Draw QR code placeholder
+          const qrSize = Math.min(width, height);
+          pdf.setLineWidth(0.5);
+          pdf.rect(x, y, qrSize, qrSize);
+          
+          // Add QR pattern simulation
+          const cellSize = qrSize / 12;
+          pdf.setFillColor(0, 0, 0);
+          for (let i = 0; i < 12; i++) {
+            for (let j = 0; j < 12; j++) {
+              if ((i + j) % 3 === 0) {
+                pdf.rect(x + i * cellSize, y + j * cellSize, cellSize, cellSize, 'F');
+              }
+            }
+          }
           break;
           
         case 'logo':
-          const logoSize = Math.min((element.width || 40) * 85 / 323, (element.height || 20) * 66 / 251);
-          pdf.rect(x, y, logoSize, logoSize * 0.6);
-          pdf.setFontSize(6);
-          pdf.text('LOGO', x + 2, y + logoSize * 0.4);
+          // Draw logo placeholder
+          pdf.setLineWidth(0.5);
+          pdf.rect(x, y, width, height);
+          pdf.setFontSize(8);
+          pdf.text('LOGO', x + width/4, y + height/2);
           break;
           
         case 'line':
-          const lineWidth = (element.width || 100) * 85 / 323;
-          pdf.line(x, y, x + lineWidth, y);
+          pdf.setLineWidth(element.strokeWidth || 1);
+          if (element.color) {
+            const color = this.parseColor(element.color);
+            pdf.setDrawColor(color.r, color.g, color.b);
+          }
+          pdf.line(x, y, x + width, y);
+          pdf.setDrawColor(0, 0, 0); // Reset color
+          break;
+          
+        case 'image':
+          // Image placeholder
+          pdf.setLineWidth(0.5);
+          pdf.rect(x, y, width, height);
+          pdf.setFontSize(6);
+          pdf.text('IMAGE', x + 1, y + height/2);
           break;
       }
     }
-    
-    // Add border around the entire pass
-    pdf.rect(1, 1, 83, 64);
     
     // Convert to buffer
     const pdfArrayBuffer = pdf.output('arraybuffer');
     const buffer = Buffer.from(pdfArrayBuffer);
     
-    console.log('✅ PDF generated with jsPDF:', buffer.length, 'bytes');
+    console.log('✅ PDF generated with proper design elements:', buffer.length, 'bytes');
     return buffer;
+  }
+  
+  /**
+   * Parse color string to RGB values
+   */
+  private parseColor(color: string): { r: number, g: number, b: number } {
+    // Default to black
+    let r = 0, g = 0, b = 0;
+    
+    if (color.startsWith('#')) {
+      const hex = color.slice(1);
+      if (hex.length === 6) {
+        r = parseInt(hex.substr(0, 2), 16);
+        g = parseInt(hex.substr(2, 2), 16);
+        b = parseInt(hex.substr(4, 2), 16);
+      }
+    } else if (color.startsWith('rgb')) {
+      const matches = color.match(/\d+/g);
+      if (matches && matches.length >= 3) {
+        r = parseInt(matches[0]);
+        g = parseInt(matches[1]);
+        b = parseInt(matches[2]);
+      }
+    }
+    
+    return { r, g, b };
   }
 
   /**

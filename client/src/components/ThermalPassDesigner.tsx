@@ -213,41 +213,27 @@ export function ThermalPassDesigner() {
       if (response.ok) {
         const blob = await response.blob();
         
-        // Convert to data URL to avoid cross-origin issues
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result as string;
-          
-          // Create a new window with same origin
-          const printWindow = window.open('about:blank', '_blank');
-          if (printWindow) {
-            printWindow.document.write(`
-              <html>
-                <head>
-                  <title>Thermal Pass Print</title>
-                  <style>
-                    body { margin: 0; padding: 0; }
-                    iframe { width: 100vw; height: 100vh; border: none; }
-                  </style>
-                </head>
-                <body>
-                  <iframe src="${dataUrl}" onload="setTimeout(() => window.print(), 500)"></iframe>
-                </body>
-              </html>
-            `);
-            printWindow.document.close();
-            
-            // Auto-close window after printing
-            setTimeout(() => {
-              printWindow.close();
-            }, 3000);
-          }
-        };
-        reader.readAsDataURL(blob);
+        // For direct thermal printing, we'll use a download approach
+        // This is the most reliable method across all browsers and platforms
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `thermal-pass-${new Date().toISOString().slice(0,10)}.pdf`;
+        link.style.display = 'none';
+        
+        // Add to DOM, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up URL
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
 
         toast({
-          title: "🖨️ Opening Print Dialog",
-          description: "Select your B-FV4 thermal printer and print!"
+          title: "📄 PDF Ready for Thermal Printing",
+          description: "Download complete! Open the PDF and print to your B-FV4 thermal printer."
         });
       } else {
         throw new Error('PDF generation failed');
