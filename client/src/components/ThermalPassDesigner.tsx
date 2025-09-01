@@ -198,6 +198,45 @@ export function ThermalPassDesigner() {
     }
   };
 
+  const printBrowser = async () => {
+    try {
+      const response = await fetch('/api/thermal-passes/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          elements: passElements,
+          data: previewData,
+          settings: printerSettings
+        })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `visitor-pass-${Date.now()}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: "✅ PDF Generated!",
+          description: "Universal print-ready PDF downloaded. Print from any browser/device!"
+        });
+      } else {
+        throw new Error('PDF generation failed');
+      }
+    } catch (error) {
+      toast({
+        title: "PDF Generation Error",
+        description: "Failed to generate printable PDF",
+        variant: "destructive"
+      });
+    }
+  };
+
   const printDirect = async () => {
     try {
       const response = await fetch('/api/thermal-passes/print-direct', {
@@ -287,6 +326,10 @@ export function ThermalPassDesigner() {
           <Button onClick={printWindows} className="bg-green-600 hover:bg-green-700">
             <Printer className="h-4 w-4 mr-2" />
             🚀 Windows Print (New)
+          </Button>
+          <Button onClick={printBrowser} className="bg-purple-600 hover:bg-purple-700">
+            <Download className="h-4 w-4 mr-2" />
+            🌐 Universal Print (SaaS)
           </Button>
         </div>
       </div>

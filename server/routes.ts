@@ -6729,6 +6729,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SaaS: Universal PDF printing endpoint for browser-based printing
+  app.post("/api/thermal-passes/pdf", async (req, res) => {
+    try {
+      const { PDFPrintService } = await import('./pdfPrintService');
+      const { elements, data, settings } = req.body;
+
+      const pdfService = new PDFPrintService();
+      const pdfBuffer = await pdfService.generatePDF(elements, data);
+
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', 'attachment; filename=visitor-pass.html');
+      
+      res.send(pdfBuffer);
+      
+      console.log(`📄 PDF generated for browser printing: ${pdfBuffer.length} bytes`);
+    } catch (error) {
+      console.error("PDF Generation Error:", error);
+      res.status(500).json({ 
+        error: 'Failed to generate PDF',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
 
   // LEGACY: Existing thermal pass printing endpoint
   app.post("/api/thermal-passes/print-direct", async (req, res) => {
