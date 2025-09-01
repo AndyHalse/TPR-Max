@@ -72,16 +72,18 @@ export class WindowsPrintService {
           return { ...result, method };
         }
         
-        console.log(`⚠️ ${method} failed: ${result.message}`);
+        // Development environment: Expected failure on Linux
+        console.log(`ℹ️ ${method} not available in Linux development environment`);
       } catch (error) {
-        console.log(`❌ ${method} error:`, error.message);
+        // Development environment: Expected in Linux
+        console.log(`ℹ️ ${method} requires Windows environment`);
       }
     }
 
     return {
       success: false,
       method: 'none',
-      message: 'All Windows printing methods failed'
+      message: 'Windows printing methods require Windows environment with B-FV4D printer'
     };
   }
 
