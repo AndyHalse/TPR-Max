@@ -55,6 +55,18 @@ export class WindowsPrintService {
     file?: string;
   }> {
     console.log(`🖨️ Windows Print Service: Targeting printer "${printerName}"`);
+    
+    // Check if we're actually on Windows
+    const isWindows = process.platform === 'win32';
+    console.log(`🖥️ Platform: ${process.platform} (Windows: ${isWindows})`);
+    
+    if (!isWindows) {
+      return {
+        success: false,
+        method: 'none',
+        message: `Windows printing requires Windows OS. Current platform: ${process.platform}. Deploy this application to a Windows server with B-FV4D printer for full functionality.`
+      };
+    }
 
     // Try methods in order of reliability for Windows + B-FV4D
     const methods = [
@@ -72,18 +84,18 @@ export class WindowsPrintService {
           return { ...result, method };
         }
         
-        // Development environment: Expected failure on Linux
-        console.log(`ℹ️ ${method} not available in Linux development environment`);
+        // Windows environment: Method failed
+        console.log(`⚠️ ${method} failed: ${result.message}`);
       } catch (error) {
-        // Development environment: Expected in Linux
-        console.log(`ℹ️ ${method} requires Windows environment`);
+        // Windows environment: Method error
+        console.log(`❌ ${method} error:`, error.message);
       }
     }
 
     return {
       success: false,
       method: 'none',
-      message: 'Windows printing methods require Windows environment with B-FV4D printer'
+      message: 'All Windows printing methods failed. Check printer connection and system setup.'
     };
   }
 
