@@ -154,7 +154,7 @@ export class WindowsPrintService {
         file: htmlFile
       };
 
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: `HTML+Chrome failed: ${error.message}`
@@ -198,7 +198,7 @@ export class WindowsPrintService {
         file: textFile
       };
 
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: `Raw text failed: ${error.message}`
@@ -258,7 +258,7 @@ export class WindowsPrintService {
         throw new Error(result.stdout || 'PowerShell print failed');
       }
 
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: `PowerShell failed: ${error.message}`
