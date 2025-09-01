@@ -218,7 +218,7 @@ export function ThermalPassDesigner() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          elements: design,
+          elements: passElements,
           type: passType,
           data: visitorData,
           printerSettings
@@ -240,9 +240,10 @@ export function ThermalPassDesigner() {
         throw new Error(error.details || error.error || 'Direct printing failed');
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to print directly to thermal printer";
       toast({
         title: "Direct Print Error",
-        description: error.message || "Failed to print directly to thermal printer",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
