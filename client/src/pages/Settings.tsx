@@ -1713,7 +1713,7 @@ export default function Settings() {
                     Default Printer (Visitor Passes)
                   </Label>
                   <Select
-                    value={currentSettings?.selectedPrinter || "PDF Printer (Testing)"}
+                    value={currentSettings?.selectedPrinter || "PDF Printer"}
                     onValueChange={(value) => handleInputChange("selectedPrinter", value)}
                   >
                     <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-printer">
