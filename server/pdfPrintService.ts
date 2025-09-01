@@ -229,33 +229,43 @@ export class PDFPrintService {
   }
 
   /**
-   * Simple HTML to PDF conversion
-   * Note: This is a basic implementation. For production, consider using puppeteer or similar
+   * Convert HTML to PDF using Puppeteer
    */
   private async htmlToPDF(html: string): Promise<Buffer> {
-    // For now, we'll return the HTML as a simple "PDF-like" format
-    // In production, you'd use a proper HTML-to-PDF conversion library
+    const puppeteer = await import('puppeteer');
     
-    const timestamp = Date.now();
-    const filename = `visitor-pass-${timestamp}.html`;
-    const filepath = path.join(this.tempDir, filename);
+    console.log('🚀 Launching browser for PDF generation...');
+    const browser = await puppeteer.default.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     
-    // Write HTML file
-    fs.writeFileSync(filepath, html);
-    
-    // Read it back as buffer (simulating PDF generation)
-    const buffer = fs.readFileSync(filepath);
-    
-    // Clean up
-    setTimeout(() => {
-      try {
-        fs.unlinkSync(filepath);
-      } catch (err) {
-        console.log(`🗑️ Cleanup: Could not delete ${filepath}`);
-      }
-    }, 5000);
-    
-    return buffer;
+    try {
+      const page = await browser.newPage();
+      
+      // Set content and wait for it to load
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      
+      // Generate PDF with thermal pass dimensions
+      const pdfBuffer = await page.pdf({
+        width: '85mm',
+        height: '66mm',
+        printBackground: true,
+        margin: {
+          top: '0mm',
+          right: '0mm',
+          bottom: '0mm',
+          left: '0mm'
+        },
+        preferCSSPageSize: true
+      });
+      
+      console.log('✅ PDF generated successfully');
+      return Buffer.from(pdfBuffer);
+      
+    } finally {
+      await browser.close();
+    }
   }
 
   /**

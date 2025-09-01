@@ -6738,8 +6738,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pdfService = new PDFPrintService();
       const pdfBuffer = await pdfService.generatePDF(elements, data);
 
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Content-Disposition', 'attachment; filename=visitor-pass.html');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=visitor-pass.pdf');
       
       res.send(pdfBuffer);
       

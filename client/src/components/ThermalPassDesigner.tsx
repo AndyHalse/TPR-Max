@@ -213,18 +213,33 @@ export function ThermalPassDesigner() {
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `visitor-pass-${Date.now()}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+        
+        // Open PDF in new window for immediate printing
+        const printWindow = window.open(url);
+        if (printWindow) {
+          printWindow.onload = () => {
+            // Auto-trigger print dialog when PDF loads
+            setTimeout(() => {
+              printWindow.print();
+            }, 500);
+          };
+        }
 
         toast({
           title: "✅ PDF Generated!",
-          description: "Universal print-ready PDF downloaded. Print from any browser/device!"
+          description: "PDF opened for printing. Select your thermal printer and print!"
         });
+
+        // Also provide download option
+        setTimeout(() => {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `visitor-pass-${Date.now()}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 1000);
       } else {
         throw new Error('PDF generation failed');
       }
