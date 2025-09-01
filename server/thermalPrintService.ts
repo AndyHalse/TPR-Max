@@ -279,77 +279,328 @@ export class ThermalPrintService {
    * Send RTF directly to thermal printer
    * Uses Windows printing API for direct communication with B-FV4D
    */
-  async printDirect(rtfContent: string, printerName: string = 'B-FV4D'): Promise<boolean> {
+  async printDirect(elements: ThermalElement[], data: PassData, printerSettings: PrinterSettings, printerName: string = 'TEC B-EV4 Desktop Printer'): Promise<boolean> {
     try {
-      console.log(`🖨️ Sending RTF content to thermal printer: ${printerName}`);
-      console.log(`📄 RTF Content (${rtfContent.length} chars):`, rtfContent.substring(0, 200) + '...');
+      console.log(`🖨️ Generating raw thermal commands for: ${printerName}`);
       
-      // Import required modules
+      // Generate ESC/POS commands for B-FV4D thermal printer
+      const rawCommands = this.generateESCPOSCommands(elements, data, printerSettings);
+      console.log(`📄 Generated ${rawCommands.length} bytes of ESC/POS data`);
+      
+      // Try multiple methods to send raw commands to thermal printer
+      let printed = false;
+      
+      try {
+        // Method 1: Serial Port Communication (preferred for B-FV4D)
+        printed = await this.printViaSerialPort(rawCommands, printerName);
+        if (printed) {
+          console.log(`✅ Successfully printed via serial port`);
+          return true;
+        }
+      } catch (serialError) {
+        console.log(`⚠️ Serial port method failed: ${serialError.message}`);
+      }
+      
+      try {
+        // Method 2: Raw printer data via Windows spooler
+        printed = await this.printRawData(rawCommands, printerName);
+        if (printed) {
+          console.log(`✅ Successfully printed via raw printer data`);
+          return true;
+        }
+      } catch (rawError) {
+        console.log(`⚠️ Raw printer method failed: ${rawError.message}`);
+      }
+      
+      try {
+        // Method 3: Network printing (if printer has Ethernet)
+        printed = await this.printViaNetwork(rawCommands, printerName);
+        if (printed) {
+          console.log(`✅ Successfully printed via network`);
+          return true;
+        }
+      } catch (networkError) {
+        console.log(`⚠️ Network printing failed: ${networkError.message}`);
+      }
+      
+      console.log(`❌ All thermal printing methods failed`);
+      return false;
+    } catch (error) {
+      console.error('❌ Failed to print to thermal printer:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Generate ESC/POS commands for B-FV4D thermal printer
+   */
+  private generateESCPOSCommands(elements: ThermalElement[], data: PassData, settings: PrinterSettings): Buffer {
+    const commands: number[] = [];
+    
+    // ESC/POS initialization commands for B-FV4D
+    commands.push(0x1B, 0x40); // ESC @ - Initialize printer
+    commands.push(0x1B, 0x21, 0x00); // ESC ! - Select character font
+    
+    // Set print density for thermal printing
+    const density = { light: 1, normal: 2, dark: 3 }[settings.printDensity] || 2;
+    commands.push(0x1D, 0x7C, density); // GS | - Set print density
+    
+    // Set print speed
+    const speed = { slow: 1, medium: 2, fast: 3 }[settings.printSpeed] || 2;
+    commands.push(0x1B, 0x73, speed); // ESC s - Set print speed
+    
+    // Black mark sensing setup for B-FV4D
+    if (settings.blackMarkSensing) {
+      commands.push(0x1B, 0x63, 0x30, 0x00); // ESC c 0 - Enable black mark sensor
+    }
+    
+    // Sort elements by Y position for proper printing order
+    const sortedElements = [...elements].sort((a, b) => a.y - b.y || a.x - b.x);
+    
+    for (const element of sortedElements) {
+      this.addElementToESCPOS(commands, element, data, settings);
+    }
+    
+    // Paper feed and cut commands
+    commands.push(0x1B, 0x64, 0x03); // ESC d - Feed paper 3 lines
+    
+    if (settings.cutAfterPrint) {
+      commands.push(0x1D, 0x56, 0x00); // GS V - Full cut
+    }
+    
+    return Buffer.from(commands);
+  }
+  
+  /**
+   * Add individual element to ESC/POS command stream
+   */
+  private addElementToESCPOS(commands: number[], element: ThermalElement, data: PassData, settings: PrinterSettings): void {
+    switch (element.type) {
+      case 'text':
+        this.addTextToESCPOS(commands, element, data);
+        break;
+      case 'qr_code':
+        this.addQRCodeToESCPOS(commands, element, data);
+        break;
+      case 'line':
+        this.addLineToESCPOS(commands, element);
+        break;
+    }
+  }
+  
+  /**
+   * Add text element to ESC/POS commands
+   */
+  private addTextToESCPOS(commands: number[], element: ThermalElement, data: PassData): void {
+    let content = element.content || '';
+    
+    // Replace variable content
+    if (element.isVariable && element.variableType) {
+      content = this.getVariableValue(element.variableType, data);
+    }
+    
+    // Position cursor (approximate positioning)
+    const x = Math.floor(element.x / 12); // Convert pixels to character columns
+    const y = Math.floor(element.y / 24); // Convert pixels to lines
+    
+    // Move to position
+    if (y > 0) {
+      commands.push(0x1B, 0x64, y); // ESC d - Line feed
+    }
+    
+    // Set text properties
+    if (element.fontWeight === 'bold') {
+      commands.push(0x1B, 0x45, 0x01); // ESC E - Bold on
+    }
+    
+    // Font size (double height/width for large text)
+    if (element.fontSize && element.fontSize > 14) {
+      commands.push(0x1D, 0x21, 0x11); // GS ! - Double height and width
+    }
+    
+    // Add text content
+    const textBytes = Buffer.from(content, 'utf8');
+    commands.push(...textBytes);
+    
+    // Reset formatting
+    commands.push(0x1B, 0x45, 0x00); // ESC E - Bold off
+    commands.push(0x1D, 0x21, 0x00); // GS ! - Normal size
+    commands.push(0x0A); // Line feed
+  }
+  
+  /**
+   * Add QR code to ESC/POS commands
+   */
+  private addQRCodeToESCPOS(commands: number[], element: ThermalElement, data: PassData): void {
+    const content = element.isVariable && element.variableType 
+      ? this.getVariableValue(element.variableType, data)
+      : (element.content || '');
+    
+    // QR Code ESC/POS commands for B-FV4D
+    commands.push(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00); // Set QR model
+    commands.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08); // Set module size
+    commands.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30); // Set error correction
+    
+    // Store QR data
+    const qrData = Buffer.from(content, 'utf8');
+    const qrLength = qrData.length + 3;
+    commands.push(0x1D, 0x28, 0x6B, qrLength & 0xFF, (qrLength >> 8) & 0xFF, 0x31, 0x50, 0x30);
+    commands.push(...qrData);
+    
+    // Print QR code
+    commands.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30);
+    commands.push(0x0A); // Line feed
+  }
+  
+  /**
+   * Add line element to ESC/POS commands
+   */
+  private addLineToESCPOS(commands: number[], element: ThermalElement): void {
+    // Draw horizontal line using dash characters
+    const lineLength = Math.floor((element.width || 100) / 6); // Approximate character width
+    const line = '-'.repeat(Math.min(lineLength, 48)); // Max 48 chars per line
+    const lineBytes = Buffer.from(line, 'utf8');
+    commands.push(...lineBytes);
+    commands.push(0x0A); // Line feed
+  }
+  
+  /**
+   * Print via serial port (USB or RS-232)
+   */
+  private async printViaSerialPort(commands: Buffer, printerName: string): Promise<boolean> {
+    try {
+      const { SerialPort } = require('serialport');
+      
+      // List available serial ports
+      const ports = await SerialPort.list();
+      console.log('📍 Available serial ports:', ports.map(p => `${p.path} (${p.manufacturer || 'Unknown'})`));
+      
+      // Try to find B-FV4D or Toshiba device
+      let targetPort = ports.find(port => 
+        port.manufacturer && (
+          port.manufacturer.toLowerCase().includes('toshiba') ||
+          port.manufacturer.toLowerCase().includes('tec') ||
+          port.productId === '0001' // Common B-FV4D product ID
+        )
+      );
+      
+      if (!targetPort && ports.length > 0) {
+        // Fallback to first available port
+        targetPort = ports[0];
+        console.log('⚠️ B-FV4D not found, using first available port:', targetPort.path);
+      }
+      
+      if (!targetPort) {
+        throw new Error('No serial ports available');
+      }
+      
+      console.log(`🔌 Connecting to thermal printer on: ${targetPort.path}`);
+      
+      // Open serial port with B-FV4D settings
+      const port = new SerialPort({
+        path: targetPort.path,
+        baudRate: 9600, // Standard B-FV4D baud rate
+        dataBits: 8,
+        parity: 'none',
+        stopBits: 1,
+        flowControl: false,
+      });
+      
+      return new Promise((resolve, reject) => {
+        port.on('open', () => {
+          console.log('✅ Serial port opened, sending thermal data...');
+          port.write(commands, (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              console.log(`📤 Sent ${commands.length} bytes to thermal printer`);
+              setTimeout(() => {
+                port.close();
+                resolve(true);
+              }, 1000);
+            }
+          });
+        });
+        
+        port.on('error', (err) => {
+          console.error('❌ Serial port error:', err);
+          reject(err);
+        });
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  /**
+   * Print raw data via Windows printer spooler
+   */
+  private async printRawData(commands: Buffer, printerName: string): Promise<boolean> {
+    try {
       const fs = require('fs').promises;
       const path = require('path');
       const { execSync } = require('child_process');
       
+      // Create temporary raw data file
       const tempDir = path.join(process.cwd(), 'temp');
-      const tempFile = path.join(tempDir, `thermal_pass_${Date.now()}.rtf`);
+      await fs.mkdir(tempDir, { recursive: true });
+      const tempFile = path.join(tempDir, `thermal_raw_${Date.now()}.prn`);
       
-      // Ensure temp directory exists
-      try {
-        await fs.mkdir(tempDir, { recursive: true });
-      } catch (err) {
-        // Directory might already exist
-      }
+      // Write raw ESC/POS commands to file
+      await fs.writeFile(tempFile, commands);
+      console.log(`📁 Created raw print file: ${tempFile} (${commands.length} bytes)`);
       
-      // Write RTF content to temporary file
-      await fs.writeFile(tempFile, rtfContent, 'utf8');
-      console.log(`📁 Created temporary RTF file: ${tempFile}`);
+      // Send raw data to printer using copy command (Windows)
+      const copyCmd = `copy /B "${tempFile}" "\\\\localhost\\${printerName.replace(/\s+/g, '')}"`;
+      execSync(copyCmd, { timeout: 10000 });
       
-      // Try multiple printing methods for B-FV4D thermal printer
-      let printed = false;
-      
-      try {
-        // Method 1: Direct Windows print command
-        const printCmd = `print /D:"TEC B-EV4 Desktop Printer" "${tempFile}"`;
-        execSync(printCmd, { timeout: 10000 });
-        console.log(`✅ Successfully sent to TEC B-EV4 Desktop Printer via print command`);
-        printed = true;
-      } catch (printError) {
-        console.log(`⚠️ Direct print failed: ${printError.message}`);
-        
-        try {
-          // Method 2: PowerShell with specific printer
-          const powershellCmd = `powershell -Command "Get-Content '${tempFile}' | Out-Printer -Name 'TEC B-EV4 Desktop Printer'"`;
-          execSync(powershellCmd, { timeout: 10000 });
-          console.log(`✅ Successfully sent to TEC B-EV4 Desktop Printer via PowerShell`);
-          printed = true;
-        } catch (psError) {
-          console.log(`⚠️ PowerShell failed: ${psError.message}`);
-          
-          try {
-            // Method 3: Notepad print (fallback)
-            const notepadCmd = `notepad.exe /p "${tempFile}"`;
-            execSync(notepadCmd, { timeout: 15000 });
-            console.log(`✅ Successfully sent to default printer via Notepad`);
-            printed = true;
-          } catch (notepadError) {
-            console.log(`⚠️ All print methods failed: ${notepadError.message}`);
-          }
-        }
-      }
-      
-      // Clean up temporary file after delay
+      // Clean up
       setTimeout(async () => {
         try {
           await fs.unlink(tempFile);
-          console.log(`🗑️ Cleaned up temporary file: ${tempFile}`);
-        } catch (cleanupError) {
-          console.warn('⚠️ Could not clean up temporary file:', cleanupError.message);
-        }
-      }, 5000);
+        } catch (e) {}
+      }, 3000);
       
-      return printed;
+      return true;
     } catch (error) {
-      console.error('❌ Failed to print to thermal printer:', error);
-      return false;
+      throw error;
+    }
+  }
+  
+  /**
+   * Print via network (Ethernet) if B-FV4D has network interface
+   */
+  private async printViaNetwork(commands: Buffer, printerName: string): Promise<boolean> {
+    try {
+      const net = require('net');
+      
+      // Try common B-FV4D network port (usually 9100 for raw printing)
+      const printerIP = '192.168.1.100'; // This would need to be configured
+      const printerPort = 9100;
+      
+      console.log(`🌐 Attempting network connection to ${printerIP}:${printerPort}`);
+      
+      return new Promise((resolve, reject) => {
+        const socket = net.createConnection(printerPort, printerIP);
+        
+        socket.on('connect', () => {
+          console.log('✅ Network connection established');
+          socket.write(commands);
+          socket.end();
+          resolve(true);
+        });
+        
+        socket.on('error', (err) => {
+          reject(err);
+        });
+        
+        socket.setTimeout(5000, () => {
+          socket.destroy();
+          reject(new Error('Network connection timeout'));
+        });
+      });
+    } catch (error) {
+      throw error;
     }
   }
 

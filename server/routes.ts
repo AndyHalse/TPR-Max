@@ -6700,7 +6700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Direct thermal printing
+  // Direct thermal printing using raw ESC/POS commands
   app.post("/api/thermal-passes/print-direct", async (req, res) => {
     try {
       const { elements, type, data, printerSettings } = req.body;
@@ -6709,12 +6709,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid elements data' });
       }
       
-      const rtfContent = thermalPrintService.generateRTF(elements, data, printerSettings);
-      const success = await thermalPrintService.printDirect(rtfContent, 'TEC B-EV4 Desktop Printer');
+      // Use raw ESC/POS commands for direct thermal printing
+      const success = await thermalPrintService.printDirect(elements, data, printerSettings, 'TEC B-EV4 Desktop Printer');
       
       if (success) {
-        console.log(`🖨️ Successfully sent ${type} pass to thermal printer`);
-        res.json({ success: true, message: 'Pass sent to thermal printer' });
+        console.log(`🖨️ Successfully sent ${type} pass to B-FV4D thermal printer`);
+        res.json({ success: true, message: 'Pass sent to thermal printer using raw commands' });
       } else {
         res.status(500).json({ error: 'Failed to print to thermal printer' });
       }
