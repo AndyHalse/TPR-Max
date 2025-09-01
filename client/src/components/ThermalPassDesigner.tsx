@@ -212,38 +212,42 @@ export function ThermalPassDesigner() {
 
       if (response.ok) {
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
         
-        // Create invisible iframe and print directly 
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'fixed';
-        iframe.style.right = '0';
-        iframe.style.bottom = '0';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
-        iframe.style.border = 'none';
-        iframe.src = url;
-        
-        document.body.appendChild(iframe);
-        
-        // Wait for PDF to load then trigger print
-        iframe.onload = () => {
-          setTimeout(() => {
-            // Focus the iframe and print
-            iframe.focus();
-            iframe.contentWindow!.print();
+        // Convert to data URL to avoid cross-origin issues
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          
+          // Create a new window with same origin
+          const printWindow = window.open('about:blank', '_blank');
+          if (printWindow) {
+            printWindow.document.write(`
+              <html>
+                <head>
+                  <title>Thermal Pass Print</title>
+                  <style>
+                    body { margin: 0; padding: 0; }
+                    iframe { width: 100vw; height: 100vh; border: none; }
+                  </style>
+                </head>
+                <body>
+                  <iframe src="${dataUrl}" onload="setTimeout(() => window.print(), 500)"></iframe>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
             
-            // Clean up
+            // Auto-close window after printing
             setTimeout(() => {
-              document.body.removeChild(iframe);
-              window.URL.revokeObjectURL(url);
-            }, 1000);
-          }, 500);
+              printWindow.close();
+            }, 3000);
+          }
         };
+        reader.readAsDataURL(blob);
 
         toast({
-          title: "🖨️ Printing Thermal Pass",
-          description: "Sending to your thermal printer now!"
+          title: "🖨️ Opening Print Dialog",
+          description: "Select your B-FV4 thermal printer and print!"
         });
       } else {
         throw new Error('PDF generation failed');
