@@ -198,6 +198,57 @@ export function ThermalPassDesigner() {
     }
   };
 
+  const handleDirectPrint = async () => {
+    setIsPrinting(true);
+    
+    try {
+      const visitorData = {
+        fullName: 'John Smith',
+        company: 'Tech Corp Ltd',
+        date: new Date().toLocaleDateString('en-GB'),
+        time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        host: 'Sarah Johnson',
+        qrCode: '#SEVKQLUS'
+      };
+
+      const response = await fetch('/api/thermal-passes/print-direct', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          elements: design,
+          type: passType,
+          data: visitorData,
+          printerSettings
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          toast({
+            title: "🖨️ Print Job Sent!",
+            description: `${result.message} - Pass printed directly to your thermal printer without any windows or dialogs!`
+          });
+        } else {
+          throw new Error(result.details || result.error);
+        }
+      } else {
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Direct printing failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Direct Print Error",
+        description: error.message || "Failed to print directly to thermal printer",
+        variant: "destructive"
+      });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   const printBrowser = async () => {
     try {
       const response = await fetch('/api/thermal-passes/pdf', {
@@ -337,9 +388,13 @@ export function ThermalPassDesigner() {
             <Printer className="h-4 w-4 mr-2" />
             🚀 Windows Print (New)
           </Button>
-          <Button onClick={printBrowser} className="bg-purple-600 hover:bg-purple-700">
+          <Button onClick={handleDirectPrint} className="bg-green-600 hover:bg-green-700">
+            <Printer className="h-4 w-4 mr-2" />
+            🖨️ Direct Print to B-FV4
+          </Button>
+          <Button onClick={printBrowser} variant="outline" className="border-purple-300 hover:bg-purple-50">
             <Download className="h-4 w-4 mr-2" />
-            🌐 Universal Print (SaaS)
+            📄 Download PDF
           </Button>
         </div>
       </div>

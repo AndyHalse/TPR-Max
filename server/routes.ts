@@ -6754,7 +6754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // LEGACY: Existing thermal pass printing endpoint
+  // DIRECT PRINTING: True server-side printing to thermal printer using Windows drivers
   app.post("/api/thermal-passes/print-direct", async (req, res) => {
     try {
       const { elements, type, data, printerSettings } = req.body;
@@ -6763,18 +6763,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid elements data' });
       }
       
-      // Use raw ESC/POS commands for direct thermal printing
-      const success = await thermalPrintService.printDirect(elements, data, printerSettings, 'TEC B-EV4 Desktop Printer');
+      // Generate PDF first
+      const { PDFPrintService } = await import('./pdfPrintService');
+      const pdfService = new PDFPrintService();
+      const pdfBuffer = await pdfService.generatePDF(elements, data);
       
-      if (success) {
-        console.log(`🖨️ Successfully sent ${type} pass to B-FV4D thermal printer`);
-        res.json({ success: true, message: 'Pass sent to thermal printer using raw commands' });
+      // Send directly to thermal printer using Windows drivers (no user interaction)
+      const { directPrintService } = await import('./directPrintService');
+      const printResult = await directPrintService.printPdfToThermalPrinter(pdfBuffer, {
+        printerName: printerSettings?.printerName,
+        copies: 1
+      });
+      
+      if (printResult.success) {
+        console.log(`🖨️ Successfully sent ${type} pass directly to thermal printer: ${printResult.message}`);
+        res.json({ 
+          success: true, 
+          message: printResult.message,
+          method: 'Windows Driver Direct Print'
+        });
       } else {
-        res.status(500).json({ error: 'Failed to print to thermal printer' });
+        console.error('❌ Direct thermal printing failed:', printResult.message);
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to print to thermal printer',
+          details: printResult.message 
+        });
       }
     } catch (error) {
-      console.error('Error printing to thermal printer:', error);
-      res.status(500).json({ error: 'Failed to print to thermal printer' });
+      console.error('Error in direct thermal printing:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to print to thermal printer',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
