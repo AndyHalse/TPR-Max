@@ -281,25 +281,74 @@ export class ThermalPrintService {
    */
   async printDirect(rtfContent: string, printerName: string = 'B-FV4D'): Promise<boolean> {
     try {
-      // For direct thermal printing, we would typically:
-      // 1. Save RTF to temporary file
-      // 2. Use Windows print spooler or direct port communication
-      // 3. Send to specific printer by name
+      console.log(`🖨️ Sending RTF content to thermal printer: ${printerName}`);
+      console.log(`📄 RTF Content (${rtfContent.length} chars):`, rtfContent.substring(0, 200) + '...');
       
-      // Simulated implementation - in production this would use:
-      // - Windows print spooler API
-      // - Direct USB/Serial port communication
-      // - B-FV4D specific command set
+      // Import required modules
+      const fs = require('fs').promises;
+      const path = require('path');
+      const { execSync } = require('child_process');
       
-      console.log(`🖨️ Sending to thermal printer: ${printerName}`);
-      console.log(`📄 RTF Content Length: ${rtfContent.length} characters`);
+      const tempDir = path.join(process.cwd(), 'temp');
+      const tempFile = path.join(tempDir, `thermal_pass_${Date.now()}.rtf`);
       
-      // Simulate printing delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Ensure temp directory exists
+      try {
+        await fs.mkdir(tempDir, { recursive: true });
+      } catch (err) {
+        // Directory might already exist
+      }
       
-      return true;
+      // Write RTF content to temporary file
+      await fs.writeFile(tempFile, rtfContent, 'utf8');
+      console.log(`📁 Created temporary RTF file: ${tempFile}`);
+      
+      // Try multiple printing methods for B-FV4D thermal printer
+      let printed = false;
+      
+      try {
+        // Method 1: Direct Windows print command
+        const printCmd = `print /D:"TEC B-EV4 Desktop Printer" "${tempFile}"`;
+        execSync(printCmd, { timeout: 10000 });
+        console.log(`✅ Successfully sent to TEC B-EV4 Desktop Printer via print command`);
+        printed = true;
+      } catch (printError) {
+        console.log(`⚠️ Direct print failed: ${printError.message}`);
+        
+        try {
+          // Method 2: PowerShell with specific printer
+          const powershellCmd = `powershell -Command "Get-Content '${tempFile}' | Out-Printer -Name 'TEC B-EV4 Desktop Printer'"`;
+          execSync(powershellCmd, { timeout: 10000 });
+          console.log(`✅ Successfully sent to TEC B-EV4 Desktop Printer via PowerShell`);
+          printed = true;
+        } catch (psError) {
+          console.log(`⚠️ PowerShell failed: ${psError.message}`);
+          
+          try {
+            // Method 3: Notepad print (fallback)
+            const notepadCmd = `notepad.exe /p "${tempFile}"`;
+            execSync(notepadCmd, { timeout: 15000 });
+            console.log(`✅ Successfully sent to default printer via Notepad`);
+            printed = true;
+          } catch (notepadError) {
+            console.log(`⚠️ All print methods failed: ${notepadError.message}`);
+          }
+        }
+      }
+      
+      // Clean up temporary file after delay
+      setTimeout(async () => {
+        try {
+          await fs.unlink(tempFile);
+          console.log(`🗑️ Cleaned up temporary file: ${tempFile}`);
+        } catch (cleanupError) {
+          console.warn('⚠️ Could not clean up temporary file:', cleanupError.message);
+        }
+      }, 5000);
+      
+      return printed;
     } catch (error) {
-      console.error('❌ Thermal printing error:', error);
+      console.error('❌ Failed to print to thermal printer:', error);
       return false;
     }
   }
