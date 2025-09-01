@@ -214,32 +214,46 @@ export function ThermalPassDesigner() {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         
-        // Open PDF in new window for immediate printing
-        const printWindow = window.open(url);
-        if (printWindow) {
-          printWindow.onload = () => {
-            // Auto-trigger print dialog when PDF loads
+        // Create a hidden iframe for silent printing
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        
+        // Auto-trigger print when PDF loads in iframe
+        iframe.onload = () => {
+          setTimeout(() => {
+            // Try to print directly from iframe
+            try {
+              iframe.contentWindow?.print();
+            } catch (error) {
+              // Fallback: open in new window and print
+              const printWindow = window.open(url);
+              if (printWindow) {
+                printWindow.onload = () => {
+                  setTimeout(() => {
+                    printWindow.print();
+                  }, 300);
+                };
+              }
+            }
+            
+            // Clean up iframe
             setTimeout(() => {
-              printWindow.print();
-            }, 500);
-          };
-        }
+              document.body.removeChild(iframe);
+            }, 2000);
+          }, 500);
+        };
 
         toast({
-          title: "✅ PDF Generated!",
-          description: "PDF opened for printing. Select your thermal printer and print!"
+          title: "🖨️ Printing to Thermal Printer",
+          description: "PDF generated and sending to your thermal printer directly!"
         });
 
-        // Also provide download option
+        // Cleanup
         setTimeout(() => {
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `visitor-pass-${Date.now()}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
-        }, 1000);
+        }, 3000);
       } else {
         throw new Error('PDF generation failed');
       }
