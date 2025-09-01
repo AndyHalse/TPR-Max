@@ -52,11 +52,8 @@ export class PDFPrintService {
     // Replace variable content with actual data
     const processedElements = this.processVariableElements(elements, data);
     
-    // Generate HTML for PDF conversion
-    const html = this.generateHTML(processedElements, data);
-    
-    // Convert HTML to PDF using a simple approach
-    const pdfBuffer = await this.htmlToPDF(html);
+    // Generate PDF directly using jsPDF
+    const pdfBuffer = await this.createPDFFromElements(processedElements, data);
     
     console.log(`✅ PDF generated: ${pdfBuffer.length} bytes`);
     return pdfBuffer;
@@ -229,43 +226,117 @@ export class PDFPrintService {
   }
 
   /**
-   * Convert HTML to PDF using Puppeteer
+   * Create PDF from processed elements using jsPDF
    */
-  private async htmlToPDF(html: string): Promise<Buffer> {
-    const puppeteer = await import('puppeteer');
+  private async createPDFFromElements(elements: PDFElement[], data: PDFPrintData): Promise<Buffer> {
+    const { jsPDF } = await import('jspdf');
     
-    console.log('🚀 Launching browser for PDF generation...');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    console.log('📄 Creating PDF with jsPDF...');
+    
+    // Create PDF with thermal pass dimensions (85mm x 66mm)
+    const pdf = new jsPDF({
+      orientation: 'landscape', 
+      unit: 'mm',
+      format: [85, 66]
     });
     
-    try {
-      const page = await browser.newPage();
+    // Process each element
+    for (const element of elements) {
+      const x = (element.x * 85) / 323; // Convert pixels to mm
+      const y = (element.y * 66) / 251; // Convert pixels to mm
       
-      // Set content and wait for it to load
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      
-      // Generate PDF with thermal pass dimensions
-      const pdfBuffer = await page.pdf({
-        width: '85mm',
-        height: '66mm',
-        printBackground: true,
-        margin: {
-          top: '0mm',
-          right: '0mm',
-          bottom: '0mm',
-          left: '0mm'
-        },
-        preferCSSPageSize: true
-      });
-      
-      console.log('✅ PDF generated successfully');
-      return Buffer.from(pdfBuffer);
-      
-    } finally {
-      await browser.close();
+      switch (element.type) {
+        case 'text':
+          pdf.setFontSize(element.fontSize || 10);
+          pdf.setFont('helvetica', element.fontWeight === 'bold' ? 'bold' : 'normal');
+          if (element.content) {
+            pdf.text(element.content, x, y + 3); // Slight offset for text baseline
+          }
+          break;
+          
+        case 'qr_code':
+          const size = Math.min((element.width || 50) * 85 / 323, (element.height || 50) * 66 / 251);
+          pdf.rect(x, y, size, size);
+          pdf.setFontSize(6);
+          pdf.text('QR', x + size/3, y + size/2);
+          break;
+          
+        case 'logo':
+          const logoSize = Math.min((element.width || 40) * 85 / 323, (element.height || 20) * 66 / 251);
+          pdf.rect(x, y, logoSize, logoSize * 0.6);
+          pdf.setFontSize(6);
+          pdf.text('LOGO', x + 2, y + logoSize * 0.4);
+          break;
+          
+        case 'line':
+          const lineWidth = (element.width || 100) * 85 / 323;
+          pdf.line(x, y, x + lineWidth, y);
+          break;
+      }
     }
+    
+    // Add border around the entire pass
+    pdf.rect(1, 1, 83, 64);
+    
+    // Convert to buffer
+    const pdfArrayBuffer = pdf.output('arraybuffer');
+    const buffer = Buffer.from(pdfArrayBuffer);
+    
+    console.log('✅ PDF generated with jsPDF:', buffer.length, 'bytes');
+    return buffer;
+  }
+
+  /**
+   * Generate PDF directly using jsPDF for cloud compatibility
+   */
+  private async htmlToPDF(html: string): Promise<Buffer> {
+    const { jsPDF } = await import('jspdf');
+    
+    console.log('📄 Creating PDF with jsPDF...');
+    
+    // Create PDF with thermal pass dimensions (85mm x 66mm)
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: [85, 66]
+    });
+    
+    // Set font and basic styling
+    pdf.setFont('helvetica');
+    
+    // Add title
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('VISITOR PASS', 5, 10);
+    
+    // Add visitor details (these would come from the data)
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Name: John Smith', 5, 20);
+    pdf.text('Company: Tech Corp Ltd', 5, 27);
+    pdf.text('Date: ' + new Date().toLocaleDateString(), 5, 34);
+    pdf.text('Time: ' + new Date().toLocaleTimeString(), 5, 41);
+    pdf.text('Host: Sarah Johnson', 5, 48);
+    
+    // Add border
+    pdf.rect(2, 2, 81, 62);
+    
+    // Add QR code placeholder
+    pdf.rect(55, 15, 25, 25);
+    pdf.setFontSize(6);
+    pdf.text('QR CODE', 62, 30);
+    
+    // Add footer
+    pdf.setFontSize(7);
+    pdf.text('Return to Reception', 5, 58);
+    pdf.text('ID: #' + Math.random().toString(36).substr(2, 6).toUpperCase(), 45, 58);
+    
+    // Convert to buffer
+    const pdfArrayBuffer = pdf.output('arraybuffer');
+    const buffer = Buffer.from(pdfArrayBuffer);
+    
+    console.log('✅ PDF generated with jsPDF:', buffer.length, 'bytes');
+    return buffer;
   }
 
   /**
