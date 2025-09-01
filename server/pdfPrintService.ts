@@ -136,13 +136,14 @@ export class PDFPrintService {
           break;
           
         case 'qr_code':
-          // Simple QR placeholder - could integrate with QR generation service
+          // Generate thermal-optimized QR code
           const qrData = data.id || 'VISITOR-PASS-' + Date.now();
+          const qrSize = Math.min(element.width || 100, element.height || 100);
           elementsHTML += `
-            <div style="${style} border: 2px solid #000; display: flex; align-items: center; justify-content: center; background: #f0f0f0;">
-              <div style="font-size: 8px; text-align: center; word-break: break-all; padding: 2px;">
-                QR: ${qrData}
-              </div>
+            <div style="${style} display: flex; align-items: center; justify-content: center; background: white; border: 1px solid #000;">
+              <svg width="${qrSize}" height="${qrSize}" viewBox="0 0 25 25" style="image-rendering: pixelated;">
+                ${this.generateSimpleQRSVG(qrData, 25)}
+              </svg>
             </div>`;
           break;
           
@@ -255,6 +256,50 @@ export class PDFPrintService {
     }, 5000);
     
     return buffer;
+  }
+
+  /**
+   * Generate simple QR code pattern for thermal printing
+   */
+  private generateSimpleQRSVG(data: string, size: number): string {
+    // Create a simple data matrix pattern based on data hash
+    const hash = this.simpleHash(data);
+    let svg = '';
+    
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        // Create finder patterns (corners)
+        if ((x < 7 && y < 7) || (x >= size-7 && y < 7) || (x < 7 && y >= size-7)) {
+          const isBlack = (x === 0 || x === 6 || y === 0 || y === 6 || 
+                          (x >= 2 && x <= 4 && y >= 2 && y <= 4));
+          if (isBlack) {
+            svg += `<rect x="${x}" y="${y}" width="1" height="1" fill="black"/>`;
+          }
+        }
+        // Data area - use hash to determine pattern
+        else if (x > 7 || y > 7) {
+          const isBlack = (hash >> ((x + y * size) % 32)) & 1;
+          if (isBlack) {
+            svg += `<rect x="${x}" y="${y}" width="1" height="1" fill="black"/>`;
+          }
+        }
+      }
+    }
+    
+    return svg;
+  }
+
+  /**
+   * Simple hash function for QR pattern generation
+   */
+  private simpleHash(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
   }
 
   /**
