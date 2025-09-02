@@ -304,6 +304,11 @@ export const companySettings = pgTable("company_settings", {
   enableAdvancedVideoFeatures: boolean("enable_advanced_video_features").default(true),
   defaultVideoLength: text("default_video_length").default("15"), // minutes
   aiInstructionsPrompt: text("ai_instructions_prompt").default("Create comprehensive, engaging safety induction content"),
+  // QR Code Reader Integration Settings
+  qrReaderEnabled: boolean("qr_reader_enabled").default(false),
+  qrReaderDevice: text("qr_reader_device").default("auto"), // auto, hid, serial, usb
+  qrCodeFormat: text("qr_code_format").default("visigate"), // visigate, uuid, custom
+  qrReaderSettings: text("qr_reader_settings").default("{}"), // JSON string for device-specific settings
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

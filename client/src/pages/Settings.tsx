@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2 } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import { IdCardDesignSystem } from "@/components/IdCardDesignSystem";
 import { ThermalPassDesigner } from "@/components/ThermalPassDesigner";
@@ -27,6 +27,7 @@ export default function Settings() {
   const [testEmail, setTestEmail] = useState("");
   const [activeTab, setActiveTab] = useState("company");
   const [brandingSubTab, setBrandingSubTab] = useState("visual");
+  const [printingSubTab, setPrintingSubTab] = useState("printer");
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [newEmailRecipient, setNewEmailRecipient] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "user" });
@@ -738,7 +739,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-11">
+        <TabsList className="grid w-full grid-cols-10">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -747,17 +748,13 @@ export default function Settings() {
             <Palette size={16} />
             Branding
           </TabsTrigger>
-          <TabsTrigger value="printer" className="flex items-center gap-2">
-            <Printer size={16} />
-            Printer
+          <TabsTrigger value="printing" className="flex items-center gap-2">
+            <Settings2 size={16} />
+            Printing & ID
           </TabsTrigger>
-          <TabsTrigger value="idcards" className="flex items-center gap-2">
-            <CreditCard size={16} />
-            ID Cards
-          </TabsTrigger>
-          <TabsTrigger value="thermal-passes" className="flex items-center gap-2">
-            <Printer size={16} />
-            Passes
+          <TabsTrigger value="qr-readers" className="flex items-center gap-2">
+            <Scan size={16} />
+            QR Readers
           </TabsTrigger>
           <TabsTrigger value="biostar" className="flex items-center gap-2">
             <Shield size={16} />
@@ -1665,7 +1662,24 @@ export default function Settings() {
           </Tabs>
         </TabsContent>
 
-        <TabsContent value="printer" className="space-y-6 mt-6">
+        <TabsContent value="printing" className="space-y-6 mt-6">
+          <Tabs value={printingSubTab} onValueChange={setPrintingSubTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="printer" className="flex items-center gap-2">
+                <Printer size={16} />
+                Printer Settings
+              </TabsTrigger>
+              <TabsTrigger value="idcards" className="flex items-center gap-2">
+                <CreditCard size={16} />
+                ID Cards
+              </TabsTrigger>
+              <TabsTrigger value="thermal-passes" className="flex items-center gap-2">
+                <FileText size={16} />
+                Thermal Passes
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="printer" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center justify-between mb-6">
@@ -2648,12 +2662,150 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        <TabsContent value="idcards" className="space-y-6 mt-6">
-          <IdCardDesignSystem />
+            <TabsContent value="idcards" className="space-y-6">
+              <IdCardDesignSystem />
+            </TabsContent>
+
+            <TabsContent value="thermal-passes" className="space-y-6">
+              <ThermalPassDesigner />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
-        <TabsContent value="thermal-passes" className="space-y-6 mt-6">
-          <ThermalPassDesigner />
+        <TabsContent value="qr-readers" className="space-y-6 mt-6">
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <Scan className="mr-3 text-blue-600" size={24} />
+              <h3 className="text-lg font-semibold text-fixed">USB QR Code Reader Integration</h3>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="qrReaderEnabled" className="text-sm font-medium text-variable">
+                      Enable QR Code Reader
+                    </Label>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="qrReaderEnabled"
+                        checked={currentSettings?.qrReaderEnabled || false}
+                        onCheckedChange={(checked) => handleInputChange("qrReaderEnabled", checked)}
+                        data-testid="switch-qr-reader-enabled"
+                      />
+                      <Label htmlFor="qrReaderEnabled" className="text-sm text-variable">
+                        Enable USB QR code reader for visitor/staff check-in/out
+                      </Label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="qrReaderDevice" className="text-sm font-medium text-variable">
+                      QR Reader Device
+                    </Label>
+                    <Select
+                      value={currentSettings?.qrReaderDevice || "auto"}
+                      onValueChange={(value) => handleInputChange("qrReaderDevice", value)}
+                    >
+                      <SelectTrigger data-testid="select-qr-reader-device">
+                        <SelectValue placeholder="Select QR Reader Device" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto-Detect USB QR Reader</SelectItem>
+                        <SelectItem value="hid">HID Scanner (Default Mode)</SelectItem>
+                        <SelectItem value="serial">Serial Port Scanner</SelectItem>
+                        <SelectItem value="usb">Direct USB Communication</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="qrCodeFormat" className="text-sm font-medium text-variable">
+                      QR Code Format
+                    </Label>
+                    <Select
+                      value={currentSettings?.qrCodeFormat || "visigate"}
+                      onValueChange={(value) => handleInputChange("qrCodeFormat", value)}
+                    >
+                      <SelectTrigger data-testid="select-qr-code-format">
+                        <SelectValue placeholder="Select QR Code Format" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="visigate">VisiGate Format (VG-XXXXXXXXXX)</SelectItem>
+                        <SelectItem value="uuid">UUID Format</SelectItem>
+                        <SelectItem value="custom">Custom Format</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                    <h4 className="font-medium text-blue-800 mb-2">Check-In/Out Features</h4>
+                    <div className="space-y-2 text-sm text-blue-700">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Automatic visitor check-in/out via QR code scan</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Staff member check-in/out tracking</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Contractor worker check-in/out management</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Real-time status updates</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // Test QR reader connection
+                        fetch("/api/qr-readers/test", { method: "POST" })
+                          .then(res => res.json())
+                          .then(data => {
+                            toast({
+                              title: data.success ? "QR Reader Connected" : "Connection Failed",
+                              description: data.message,
+                              variant: data.success ? "default" : "destructive"
+                            });
+                          });
+                      }}
+                      data-testid="button-test-qr-reader"
+                    >
+                      <TestTube className="mr-2" size={16} />
+                      Test QR Reader
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // Refresh QR reader devices
+                        fetch("/api/qr-readers/detect", { method: "POST" })
+                          .then(res => res.json())
+                          .then(data => {
+                            toast({
+                              title: "Device Scan Complete",
+                              description: `Found ${data.devices?.length || 0} QR reader devices`,
+                            });
+                          });
+                      }}
+                      data-testid="button-detect-qr-readers"
+                    >
+                      <RefreshCw className="mr-2" size={16} />
+                      Detect Devices
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </GlassCard>
         </TabsContent>
 
         <TabsContent value="departments" className="space-y-6 mt-6">

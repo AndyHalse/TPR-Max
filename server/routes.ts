@@ -7046,6 +7046,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // QR Code Reader Integration Routes
+  app.get('/api/qr-readers/devices', async (req, res) => {
+    try {
+      const { qrReaderService } = await import('./qrReaderService');
+      const devices = await qrReaderService.detectDevices();
+      
+      res.json({
+        success: true,
+        devices,
+        count: devices.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('QR reader device detection error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to detect QR reader devices',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.post('/api/qr-readers/test', async (req, res) => {
+    try {
+      const { qrReaderService } = await import('./qrReaderService');
+      const { deviceId } = req.body;
+      
+      const result = await qrReaderService.testConnection(deviceId);
+      
+      res.json({
+        success: result.success,
+        message: result.message,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('QR reader test error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to test QR reader connection',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.post('/api/qr-readers/detect', async (req, res) => {
+    try {
+      const { qrReaderService } = await import('./qrReaderService');
+      const devices = await qrReaderService.detectDevices();
+      
+      res.json({
+        success: true,
+        message: `Device scan complete. Found ${devices.length} QR reader devices.`,
+        devices,
+        count: devices.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('QR reader detection error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to detect QR reader devices',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // QR Code Scan Processing Routes
+  app.post('/api/qr-scan/visitor', async (req, res) => {
+    try {
+      const { qrReaderService } = await import('./qrReaderService');
+      const { qrData, action } = req.body;
+      
+      if (!qrData) {
+        return res.status(400).json({
+          success: false,
+          message: 'QR code data is required'
+        });
+      }
+
+      const result = await qrReaderService.processVisitorScan(qrData);
+      
+      // Log the scan activity
+      console.log(`📱 Visitor QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
+      
+      res.json({
+        success: result.success,
+        message: result.message,
+        action: result.action,
+        qrData,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Visitor QR scan error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to process visitor QR scan',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.post('/api/qr-scan/staff', async (req, res) => {
+    try {
+      const { qrReaderService } = await import('./qrReaderService');
+      const { qrData, action } = req.body;
+      
+      if (!qrData) {
+        return res.status(400).json({
+          success: false,
+          message: 'QR code data is required'
+        });
+      }
+
+      const result = await qrReaderService.processStaffScan(qrData);
+      
+      console.log(`👥 Staff QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
+      
+      res.json({
+        success: result.success,
+        message: result.message,
+        action: result.action,
+        qrData,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Staff QR scan error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to process staff QR scan',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.post('/api/qr-scan/contractor', async (req, res) => {
+    try {
+      const { qrReaderService } = await import('./qrReaderService');
+      const { qrData, action } = req.body;
+      
+      if (!qrData) {
+        return res.status(400).json({
+          success: false,
+          message: 'QR code data is required'
+        });
+      }
+
+      const result = await qrReaderService.processContractorScan(qrData);
+      
+      console.log(`🔧 Contractor QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
+      
+      res.json({
+        success: result.success,
+        message: result.message,
+        action: result.action,
+        qrData,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Contractor QR scan error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to process contractor QR scan',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
