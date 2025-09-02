@@ -1129,10 +1129,7 @@ export default function Settings() {
             </TabsContent>
 
             <TabsContent value="idcards" className="space-y-6">
-              <div className="text-center py-8">
-                <p className="text-slate-600">ID Card designer will be restored next...</p>
-                <p className="text-xs text-slate-400 mt-2">IdCardDesignSystem component detected - restoring shortly</p>
-              </div>
+              <IdCardDesignSystem />
             </TabsContent>
 
             <TabsContent value="thermal-passes" className="space-y-6">
