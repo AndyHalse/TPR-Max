@@ -6914,6 +6914,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`📊 Received ${passElements.length} pass elements:`, passElements.slice(0, 2));
       console.log(`📝 Visitor data:`, data);
+      
+      // Test specific element content
+      const testElement = passElements.find(el => el.type === 'text');
+      if (testElement) {
+        console.log(`🧪 Test element content: "${testElement.content}" text: "${testElement.text}"`);
+      }
       const visitorData = data || {
         name: 'John Smith',
         company: 'Tech Corp Ltd',
@@ -6932,13 +6938,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           switch(element.type) {
             case 'text':
               // Replace placeholders with actual visitor data
-              let text = element.text || '';
+              let text = element.content || element.text || '';
               text = text.replace('{{name}}', visitorData.name);
               text = text.replace('{{company}}', visitorData.company);
               text = text.replace('{{date}}', visitorData.date);
               text = text.replace('{{time}}', visitorData.time);
               text = text.replace('{{host}}', visitorData.host);
-              text = text.replace('{{id}}', visitorData.id);
+              text = text.replace('{{id}}', visitorData.passId || visitorData.id);
               
               content = `<div style="
                 position: absolute;
@@ -7025,21 +7031,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         @media print {
             body { 
                 margin: 0; 
+                padding: 0;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .no-print { display: none; }
+            .no-print { display: none !important; }
             .pass-container { 
                 page-break-inside: avoid; 
                 box-shadow: none;
+                margin: 0;
+                padding: 0;
+                height: 65mm;
+                width: 95mm;
             }
+            .instructions { display: none !important; }
         }
         
         body {
             margin: 0;
-            padding: 20px;
+            padding: 0;
             font-family: Arial, sans-serif;
             background: #f0f0f0;
+        }
+        
+        .container {
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -7061,6 +7077,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             height: 100%;
             position: relative;
             background: white;
+        }
+        
+        @media print {
+            .container {
+                padding: 0;
+                min-height: 65mm;
+                height: 65mm;
+                display: block;
+            }
         }
         
         .instructions {
@@ -7089,22 +7114,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </style>
 </head>
 <body>
-    <div class="no-print instructions">
-        <h3>🖨️ VisiGate Pro - Visitor Pass Ready to Print</h3>
-        <p>Click the button below to open your browser's print dialog, then:</p>
-        <ul style="text-align: left; display: inline-block;">
-            <li>Select your thermal printer (TEC B-FV4D or Zebra)</li>
-            <li>Choose "More settings" → Paper size: Custom (95mm x 65mm)</li>
-            <li>Set margins to "None" or "Minimum"</li>
-            <li>Enable "Background graphics"</li>
-        </ul>
-        <button class="print-button" onclick="window.print()">🖨️ Print Visitor Pass</button>
-        <button class="print-button" onclick="window.close()" style="background: #666;">✕ Close</button>
-    </div>
+    <div class="container">
+        <div class="no-print instructions">
+            <h3>🖨️ VisiGate Pro - Visitor Pass Ready to Print</h3>
+            <p>Click the button below to open your browser's print dialog, then:</p>
+            <ul style="text-align: left; display: inline-block;">
+                <li>Select your thermal printer (TEC B-FV4D or Zebra)</li>
+                <li>Choose "More settings" → Paper size: Custom (95mm x 65mm)</li>
+                <li>Set margins to "None" or "Minimum"</li>
+                <li>Enable "Background graphics"</li>
+            </ul>
+            <button class="print-button" onclick="window.print()">🖨️ Print Visitor Pass</button>
+            <button class="print-button" onclick="window.close()" style="background: #666;">✕ Close</button>
+        </div>
 
-    <div class="pass-container">
-        <div class="pass">
-            ${elementsHTML}
+        <div class="pass-container">
+            <div class="pass">
+                ${elementsHTML}
+            </div>
         </div>
     </div>
 
