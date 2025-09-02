@@ -105,15 +105,25 @@ export function ThermalPassDesigner() {
   });
 
   // Printer settings for B-FV4D
+  // Printer selection
+  const [selectedPrinter, setSelectedPrinter] = useState<'tec' | 'zebra'>('tec');
+  
   const [printerSettings, setPrinterSettings] = useState({
     blackMarkSensing: true,
     printSpeed: 'medium', // slow, medium, fast
     printDensity: 'normal', // light, normal, dark
     thermalAdjustment: 0, // -3 to +3
-    labelLength: 66, // mm
+    labelLength: 65, // mm (updated to 85mm x 65mm)
     labelWidth: 85, // mm
     cutAfterPrint: true,
     backfeedAdjustment: 0 // -9.9 to +9.9mm
+  });
+
+  // Zebra printer settings
+  const [zebraSettings, setZebraSettings] = useState({
+    printerIP: '',
+    printerPort: 9100,
+    printerModel: 'GK420d'
   });
 
   useEffect(() => {
@@ -202,7 +212,7 @@ export function ThermalPassDesigner() {
   };
 
 
-  const handleNativeTecPrint = async () => {
+  const handleThermalPrint = async () => {
     setIsPrinting(true);
     
     try {
@@ -216,31 +226,69 @@ export function ThermalPassDesigner() {
         qrCode: `VG-${Date.now()}`
       };
 
-      const response = await fetch('/api/thermal-passes/print-tec-native', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          data: visitorData,
-          printerSettings
-        })
-      });
+      let response;
+      
+      if (selectedPrinter === 'tec') {
+        // TEC thermal printing
+        response = await fetch('/api/thermal-passes/print-tec-native', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            data: visitorData,
+            printerSettings
+          })
+        });
+      } else {
+        // Zebra ZPL printing
+        response = await fetch('/api/thermal-passes/print-zebra', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            elements: passElements,
+            data: {
+              visitor: {
+                id: 'temp-id',
+                firstName: 'John',
+                lastName: 'Smith',
+                company: 'Tech Corp Ltd',
+                email: 'john@techcorp.com',
+                phone: '+44 1234 567890',
+                checkedIn: true,
+                checkedOut: false,
+                checkinTime: new Date().toISOString(),
+                host: 'Sarah Johnson',
+                purpose: 'Meeting'
+              },
+              passType: passType,
+              host: 'Sarah Johnson'
+            },
+            printerSettings: {
+              zebraPrinterIP: zebraSettings.printerIP,
+              zebraPrinterPort: zebraSettings.printerPort,
+              zebraPrinterModel: zebraSettings.printerModel
+            }
+          })
+        });
+      }
 
       if (response.ok) {
         const result = await response.json();
         toast({
-          title: "🚀 TEC Native Print Success",
+          title: selectedPrinter === 'tec' ? "🚀 TEC Print Success" : "🦓 Zebra Print Success",
           description: `${result.message} (${result.method})`,
         });
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Native TEC printing failed');
+        throw new Error(error.error || `${selectedPrinter.toUpperCase()} printing failed`);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to print with native TEC commands";
+      const errorMessage = error instanceof Error ? error.message : `Failed to print with ${selectedPrinter.toUpperCase()}`;
       toast({
-        title: "Native TEC Print Error",
+        title: `${selectedPrinter.toUpperCase()} Print Error`,
         description: errorMessage,
         variant: "destructive"
       });
@@ -296,16 +344,16 @@ export function ThermalPassDesigner() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Thermal Pass Designer</h2>
-          <p className="text-muted-foreground">Design passes for B-FV4D thermal printer (85mm × 65mm)</p>
+          <p className="text-muted-foreground">Design passes for TEC/Toshiba or Zebra thermal printers (85mm × 65mm)</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={saveDesign} variant="outline">
             <Save className="h-4 w-4 mr-2" />
             Save Design
           </Button>
-          <Button onClick={handleNativeTecPrint} disabled={isPrinting} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={handleThermalPrint} disabled={isPrinting} className={selectedPrinter === 'tec' ? "bg-blue-600 hover:bg-blue-700" : "bg-purple-600 hover:bg-purple-700"}>
             <Zap className="h-4 w-4 mr-2" />
-            🚀 Native TEC Print
+            {selectedPrinter === 'tec' ? '🚀 TEC Print' : '🦓 Zebra Print'}
           </Button>
         </div>
       </div>
@@ -505,11 +553,95 @@ export function ThermalPassDesigner() {
                 </Card>
               )}
 
-              {/* Printer Settings */}
+              {/* Printer Selection */}
               <Card>
                 <CardHeader>
-                  <CardTitle>B-FV4D Settings</CardTitle>
+                  <CardTitle>Thermal Printer Selection</CardTitle>
                 </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Choose Printer Type</Label>
+                    <Select value={selectedPrinter} onValueChange={(value: 'tec' | 'zebra') => setSelectedPrinter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tec">
+                          <div className="flex items-center gap-2">
+                            <Printer className="h-4 w-4 text-blue-600" />
+                            <span>TEC/Toshiba Thermal (B-FV4D)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="zebra">
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-purple-600" />
+                            <span>Zebra ZPL Printers</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedPrinter === 'tec' 
+                        ? 'Uses ESC/POS commands for TEC thermal printers'
+                        : 'Uses ZPL commands for Zebra thermal printers'
+                      }
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Zebra Settings */}
+              {selectedPrinter === 'zebra' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Zebra Printer Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Printer IP Address</Label>
+                      <Input
+                        value={zebraSettings.printerIP}
+                        onChange={(e) => setZebraSettings(prev => ({ ...prev, printerIP: e.target.value }))}
+                        placeholder="192.168.1.100"
+                      />
+                      <p className="text-xs text-muted-foreground">Network IP for direct ZPL printing</p>
+                    </div>
+                    <div>
+                      <Label>Printer Port</Label>
+                      <Input
+                        type="number"
+                        value={zebraSettings.printerPort}
+                        onChange={(e) => setZebraSettings(prev => ({ ...prev, printerPort: parseInt(e.target.value) || 9100 }))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Printer Model</Label>
+                      <Select 
+                        value={zebraSettings.printerModel} 
+                        onValueChange={(value) => setZebraSettings(prev => ({ ...prev, printerModel: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="GK420d">GK420d (Desktop)</SelectItem>
+                          <SelectItem value="ZD420">ZD420 (Desktop)</SelectItem>
+                          <SelectItem value="ZD620">ZD620 (Premium)</SelectItem>
+                          <SelectItem value="ZT410">ZT410 (Industrial)</SelectItem>
+                          <SelectItem value="LP2824">LP2824 (Legacy)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* TEC Printer Settings */}
+              {selectedPrinter === 'tec' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>TEC B-FV4D Settings</CardTitle>
+                  </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -583,6 +715,7 @@ export function ThermalPassDesigner() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </div>
           </div>
         </TabsContent>
