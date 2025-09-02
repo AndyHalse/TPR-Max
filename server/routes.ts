@@ -2453,20 +2453,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         0x1D, 0x56, 0x42, 0x00   // GS V B 0 - Cut paper (if supported)
       ]);
 
-      // Simple test: just send "TEST PRINT" in ASCII
+      // Optimized test for USB TEC B-EV4 with Toshiba driver
+      const usbTecTest = Buffer.from([
+        0x1B, 0x40,                    // ESC @ - Initialize printer  
+        0x1B, 0x61, 0x01,              // ESC a 1 - Center alignment
+        0x1B, 0x21, 0x10,              // ESC ! 16 - Double width
+        ...Buffer.from('USB TEC TEST\n'),
+        0x1B, 0x21, 0x00,              // ESC ! 0 - Normal font
+        0x1B, 0x61, 0x00,              // ESC a 0 - Left alignment  
+        ...Buffer.from('VisiGate Pro System\n'),
+        ...Buffer.from('Toshiba Driver OK\n'),
+        ...Buffer.from(`Time: ${new Date().toLocaleTimeString()}\n`),
+        0x0A, 0x0A, 0x0A,              // Feed paper
+        0x1D, 0x56, 0x42, 0x00         // Cut paper if supported
+      ]).toString('binary');
+      
+      // Also simple ASCII fallback
       const simpleTest = 'TEST PRINT\nFrom VisiGate Pro\nThermal Test\n\n\n\n';
 
       if (process.platform === 'win32') {
         const { directPrintService } = await import('./directPrintService');
-        const result = await directPrintService.sendRawThermalCommands(simpleTest, printerName);
         
-        console.log(`🧪 Raw test result:`, result);
+        console.log('🔌 Testing USB TEC B-EV4 with Toshiba driver...');
+        
+        // Try optimized TEC commands first
+        let result = await directPrintService.sendRawThermalCommands(usbTecTest, printerName);
+        
+        if (!result.success) {
+          console.log('🔄 Optimized test failed, trying simple ASCII...');
+          result = await directPrintService.sendRawThermalCommands(simpleTest, printerName);
+        }
+        
+        console.log(`🧪 USB TEC test result:`, result);
         res.json({
           success: result.success,
           message: result.message,
-          testData: 'Simple ASCII test sent to printer',
+          testData: 'USB TEC B-EV4 optimized test with Toshiba driver',
           printerName,
-          platform: 'Windows'
+          platform: 'Windows',
+          connection: 'USB with Toshiba driver'
         });
       } else {
         res.json({

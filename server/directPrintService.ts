@@ -229,20 +229,22 @@ export class DirectPrintService {
     
     console.log(`🔍 Searching for TEC B-EV4 among ${printers.length} detected printers...`);
     
-    // Enhanced keywords for TEC B-EV4 and similar thermal printers
+    // Enhanced keywords for TEC B-EV4 with Toshiba driver
     const tecKeywords = [
       'tec b-ev4', 'tec b-fv4', 'tec desktop', 'b-ev4', 'b-fv4',
       'thermal transfer', 'thermal', 'label printer', 'desktop printer',
-      'toshiba tec', 'tec', 'barcode printer', 'receipt printer'
+      'toshiba tec', 'tec', 'barcode printer', 'receipt printer',
+      'toshiba', 'usb002', 'usb thermal'
     ];
     
-    // First priority: Look for exact TEC B-EV4 matches
+    // First priority: Look for exact TEC B-EV4 matches with Toshiba
     for (const printer of printers) {
       const printerLower = printer.toLowerCase();
       console.log(`🖨️ Checking printer: "${printer}"`);
       
-      if (printerLower.includes('tec') && (printerLower.includes('b-ev4') || printerLower.includes('b-fv4'))) {
-        console.log('🎯 Found exact TEC B-EV4 printer:', printer);
+      if ((printerLower.includes('tec') && (printerLower.includes('b-ev4') || printerLower.includes('b-fv4'))) ||
+          (printerLower.includes('toshiba') && printerLower.includes('tec'))) {
+        console.log('🎯 Found TEC B-EV4 with Toshiba driver:', printer);
         return printer;
       }
     }
