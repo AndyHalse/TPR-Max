@@ -1515,20 +1515,72 @@ export default function Settings() {
             </div>
 
             <div className="space-y-4">
-              <div className="text-center py-12" data-testid="empty-departments-state">
-                <Building className="mx-auto mb-4 text-slate-400" size={48} />
-                <p className="text-slate-600 mb-4">No departments configured</p>
-                <p className="text-sm text-slate-500 mb-6">
-                  Create departments to organize your staff and improve visitor management
-                </p>
-                <Button
-                  className="gradient-blue text-white"
-                  data-testid="button-add-first-department"
-                >
-                  <Building className="mr-2" size={16} />
-                  Add Your First Department
-                </Button>
-              </div>
+              {departments && departments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {departments.map((department) => (
+                    <div
+                      key={department.id}
+                      className={`p-4 rounded-xl border border-white/30 bg-white/50 backdrop-blur-sm`}
+                      style={{ backgroundColor: `${department.color || '#3b82f6'}20` }}
+                      data-testid={`card-department-${department.id}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold text-slate-800" data-testid={`text-department-name-${department.id}`}>
+                          {department.name}
+                        </h4>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-800"
+                            data-testid={`button-edit-department-${department.id}`}
+                          >
+                            <Edit size={14} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-800"
+                            data-testid={`button-delete-department-${department.id}`}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                      {department.description && (
+                        <p className="text-sm text-slate-600 mb-3" data-testid={`text-department-description-${department.id}`}>
+                          {department.description}
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded-full border border-slate-300"
+                          style={{ backgroundColor: department.color || '#3b82f6' }}
+                          data-testid={`color-indicator-${department.id}`}
+                        />
+                        <span className="text-xs text-slate-500 capitalize">
+                          {department.color?.replace('bg-', '').replace('-500', '') || 'blue'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12" data-testid="empty-departments-state">
+                  <Building className="mx-auto mb-4 text-slate-400" size={48} />
+                  <p className="text-slate-600 mb-4">No departments configured</p>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Create departments to organize your staff and improve visitor management
+                  </p>
+                  <Button
+                    className="gradient-blue text-white"
+                    data-testid="button-add-first-department"
+                  >
+                    <Building className="mr-2" size={16} />
+                    Add Your First Department
+                  </Button>
+                </div>
+              )}
             </div>
           </GlassCard>
         </TabsContent>
