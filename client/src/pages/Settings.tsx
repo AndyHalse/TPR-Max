@@ -1178,10 +1178,213 @@ export default function Settings() {
               <ThermalPassDesigner />
             </TabsContent>
 
-            <TabsContent value="qr-readers">
-              <div className="text-center py-8">
-                <p className="text-slate-600">QR Reader configuration will be restored next...</p>
+            <TabsContent value="qr-readers" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <QrCode className="mr-3 text-blue-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">QR Reader Detection</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <Button
+                      className="gradient-blue text-white w-full"
+                      data-testid="button-scan-qr-readers"
+                    >
+                      <Scan className="mr-2" size={16} />
+                      Scan for QR Readers
+                    </Button>
+                    
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Supported Devices:</h4>
+                      <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                        <li>• USB QR/Barcode scanners (HID mode)</li>
+                        <li>• Serial port QR readers (COM/TTY)</li>
+                        <li>• Ethernet-enabled QR scanners</li>
+                        <li>• Keyboard wedge scanners</li>
+                      </ul>
+                    </div>
+                  </div>
+                </GlassCard>
+
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <Settings2 className="mr-3 text-blue-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">Reader Configuration</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Default Reader Mode
+                      </Label>
+                      <Select 
+                        value={currentSettings?.qrReaderMode || "auto"} 
+                        onValueChange={(value) => handleInputChange("qrReaderMode", value)}
+                      >
+                        <SelectTrigger data-testid="select-qr-reader-mode">
+                          <SelectValue placeholder="Select reader mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto-detect</SelectItem>
+                          <SelectItem value="usb">USB Only</SelectItem>
+                          <SelectItem value="serial">Serial Port Only</SelectItem>
+                          <SelectItem value="ethernet">Ethernet Only</SelectItem>
+                          <SelectItem value="keyboard">Keyboard Wedge</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Scan Timeout (seconds)
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={currentSettings?.qrScanTimeout || "5"}
+                        onChange={(e) => handleInputChange("qrScanTimeout", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        data-testid="input-qr-scan-timeout"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700">
+                          Audio Feedback
+                        </Label>
+                        <p className="text-xs text-slate-500">Play sound on successful scan</p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.qrAudioFeedback || false}
+                        onCheckedChange={(checked) => handleInputChange("qrAudioFeedback", checked)}
+                        data-testid="switch-qr-audio-feedback"
+                      />
+                    </div>
+                  </div>
+                </GlassCard>
               </div>
+
+              <GlassCard>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <QrCode className="mr-3 text-blue-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">Connected QR Readers</h3>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="text-blue-600 border-blue-300"
+                    data-testid="button-refresh-readers"
+                  >
+                    <RefreshCw className="mr-2" size={16} />
+                    Refresh
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Mock connected readers - will be populated from API */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <h4 className="font-semibold text-green-800 dark:text-green-200">USB QR Scanner</h4>
+                        </div>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800">USB</Badge>
+                      </div>
+                      <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                        <p><strong>Port:</strong> COM3</p>
+                        <p><strong>Status:</strong> Connected</p>
+                        <p><strong>Last Scan:</strong> 2 minutes ago</p>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" variant="outline" className="text-blue-600 border-blue-300">
+                          <Settings2 size={14} className="mr-1" />
+                          Configure
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-slate-600 border-slate-300">
+                          <TestTube size={14} className="mr-1" />
+                          Test
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                          <h4 className="font-semibold text-blue-800 dark:text-blue-200">Ethernet Scanner</h4>
+                        </div>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">Ethernet</Badge>
+                      </div>
+                      <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                        <p><strong>IP:</strong> 192.168.1.100</p>
+                        <p><strong>Status:</strong> Connected</p>
+                        <p><strong>Last Scan:</strong> 5 minutes ago</p>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" variant="outline" className="text-blue-600 border-blue-300">
+                          <Settings2 size={14} className="mr-1" />
+                          Configure
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-slate-600 border-slate-300">
+                          <TestTube size={14} className="mr-1" />
+                          Test
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
+                    <QrCode className="mx-auto mb-4 text-slate-400" size={48} />
+                    <p className="text-slate-600 mb-4">Add Additional QR Reader</p>
+                    <div className="flex gap-3 justify-center">
+                      <Button variant="outline" className="text-blue-600 border-blue-300">
+                        <Plus className="mr-2" size={16} />
+                        Add USB Reader
+                      </Button>
+                      <Button variant="outline" className="text-purple-600 border-purple-300">
+                        <Globe className="mr-2" size={16} />
+                        Add Ethernet Reader
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+
+              <GlassCard>
+                <div className="flex items-center mb-6">
+                  <TestTube className="mr-3 text-blue-600" size={24} />
+                  <h3 className="text-lg font-semibold text-slate-800">QR Reader Testing</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Test Mode Active</h4>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                      Scan any QR code or barcode to test your readers. Results will appear below.
+                    </p>
+                    <Button className="gradient-blue text-white">
+                      <Scan className="mr-2" size={16} />
+                      Start Test Scan
+                    </Button>
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                    <h4 className="font-medium text-slate-800 dark:text-slate-200 mb-3">Recent Scan Results</h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      <div className="text-sm text-slate-600 dark:text-slate-400 p-2 bg-white dark:bg-slate-700 rounded">
+                        <span className="font-mono">VIS-2025-001234</span> - <span className="text-green-600">USB Scanner</span> - <span className="text-xs">2 minutes ago</span>
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 p-2 bg-white dark:bg-slate-700 rounded">
+                        <span className="font-mono">STAFF-ENG-456</span> - <span className="text-blue-600">Ethernet Scanner</span> - <span className="text-xs">5 minutes ago</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
             </TabsContent>
           </Tabs>
         </TabsContent>
