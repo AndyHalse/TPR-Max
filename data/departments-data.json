@@ -11,11 +11,11 @@
   {
     "id": "db52f365-4015-41a9-8840-6d8b19dcea83",
     "name": "Sales",
-    "description": "Sales Department",
+    "description": "Sales Department.",
     "color": "bg-green-500",
     "isActive": true,
     "createdAt": "2025-08-31T15:47:44.882Z",
-    "updatedAt": "2025-08-31T15:47:44.882Z"
+    "updatedAt": "2025-09-02T23:44:28.908Z"
   },
   {
     "id": "42cb600b-e4a6-486b-a124-e60fcbc7a5eb",

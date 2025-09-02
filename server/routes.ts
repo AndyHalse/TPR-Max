@@ -2057,7 +2057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ID Card Design API endpoints
+  // ID Card Design API endpoints - TEMPORARILY USING OLD STORAGE UNTIL MIGRATION IS COMPLETE
   app.put("/api/idcard/design", async (req, res) => {
     try {
       const { elements, background, cardSize } = req.body;
@@ -2067,7 +2067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid design elements" });
       }
       
-      // Save the design to company settings
+      // Save the design to company settings - TEMPORARY: OLD STORAGE SYSTEM
       const designData = JSON.stringify({
         elements,
         background: background || 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
@@ -2094,6 +2094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/idcard/design", async (req, res) => {
     try {
+      // TEMPORARY: Use old storage until we complete the customer database migration
       const settings = await storage.getCompanySettings();
       const designData = settings?.idCardDesign || '[]';
       
