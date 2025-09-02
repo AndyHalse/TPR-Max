@@ -24,9 +24,9 @@ interface ZPLPrintData {
 
 export class ZebraPrintService {
   /**
-   * Generate ZPL commands for thermal pass printing (85mm x 65mm)
+   * Generate ZPL commands for thermal pass printing (95mm x 65mm)
    * Standard DPI for Zebra printers: 203 DPI
-   * 85mm = 679 dots, 65mm = 520 dots
+   * 95mm = 759 dots, 65mm = 520 dots
    */
   async generateZPL(elements: ZPLElement[], data: ZPLPrintData): Promise<string> {
     console.log('🦓 Generating ZPL for Zebra printer...');
@@ -36,8 +36,8 @@ export class ZebraPrintService {
     // Start ZPL sequence
     zpl += '^XA\n'; // Start of format
     
-    // Set label dimensions (85mm x 65mm at 203 DPI)
-    zpl += '^PW679\n'; // Print width in dots (85mm * 8 dots/mm)
+    // Set label dimensions (95mm x 65mm at 203 DPI)
+    zpl += '^PW759\n'; // Print width in dots (95mm * 8 dots/mm)
     zpl += '^LL520\n'; // Label length in dots (65mm * 8 dots/mm)
     
     // Set print density and speed
@@ -62,8 +62,8 @@ export class ZebraPrintService {
   private generateElementZPL(element: ZPLElement, data: ZPLPrintData): string {
     let zpl = '';
     
-    // Convert coordinates from designer (323x247) to Zebra dots (679x520)
-    const x = Math.round((element.x / 323) * 679);
+    // Convert coordinates from designer (361x247) to Zebra dots (759x520)
+    const x = Math.round((element.x / 361) * 759);
     const y = Math.round((element.y / 247) * 520);
     
     switch (element.type) {
@@ -152,7 +152,7 @@ export class ZebraPrintService {
    * Generate ZPL for line elements
    */
   private generateLineZPL(element: ZPLElement, x: number, y: number): string {
-    const width = Math.round((element.width || 100) / 323 * 679);
+    const width = Math.round((element.width || 100) / 361 * 759);
     const thickness = 3; // Line thickness in dots
     
     // Horizontal line
@@ -163,7 +163,7 @@ export class ZebraPrintService {
    * Generate ZPL for logo placeholder
    */
   private generateLogoZPL(element: ZPLElement, x: number, y: number): string {
-    const width = Math.round((element.width || 80) / 323 * 679);
+    const width = Math.round((element.width || 80) / 361 * 759);
     const height = Math.round((element.height || 30) / 247 * 520);
     
     // For now, create a placeholder box (in production, you'd load actual logo graphic)

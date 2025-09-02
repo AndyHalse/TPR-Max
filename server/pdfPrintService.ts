@@ -115,8 +115,8 @@ export class PDFPrintService {
    * Generate HTML for the thermal pass
    */
   private generateHTML(elements: PDFElement[], data: PDFPrintData): string {
-    // Thermal pass dimensions: 85mm x 65mm
-    const passWidth = 323; // 85mm at 96dpi
+    // Thermal pass dimensions: 95mm x 65mm
+    const passWidth = 361; // 95mm at 96dpi
     const passHeight = 247; // 65mm at 96dpi
 
     let elementsHTML = '';
@@ -237,7 +237,7 @@ export class PDFPrintService {
     const pdf = new jsPDF({
       orientation: 'landscape', 
       unit: 'mm',
-      format: [85, 65]
+      format: [95, 65]
     });
     
     // Set default font
@@ -245,7 +245,7 @@ export class PDFPrintService {
     
     // Process each element from the designer
     for (const element of elements) {
-      // Convert from designer canvas coordinates (323x247) to PDF mm (85x65)
+      // Convert from designer canvas coordinates (361x247) to PDF mm (95x65)
       const x = (element.x / 323) * 85;
       const y = (element.y / 247) * 65;
       const width = ((element.width || 100) / 323) * 85;
@@ -365,7 +365,7 @@ export class PDFPrintService {
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
-      format: [85, 65]
+      format: [95, 65]
     });
     
     // Set font and basic styling

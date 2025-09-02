@@ -11,8 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap } from "lucide-react";
 
-// Thermal pass constraints for B-FV4D (85mm x 65mm)
-const THERMAL_PASS_WIDTH = 323; // 85mm at 96dpi
+// Thermal pass constraints for B-FV4D (95mm x 65mm)
+const THERMAL_PASS_WIDTH = 361; // 95mm at 96dpi
 const THERMAL_PASS_HEIGHT = 247; // 65mm at 96dpi
 
 interface ThermalElement {
@@ -113,18 +113,12 @@ export function ThermalPassDesigner() {
     printSpeed: 'medium', // slow, medium, fast
     printDensity: 'normal', // light, normal, dark
     thermalAdjustment: 0, // -3 to +3
-    labelLength: 65, // mm (updated to 85mm x 65mm)
-    labelWidth: 85, // mm
+    labelLength: 65, // mm (updated to 95mm x 65mm)
+    labelWidth: 95, // mm
     cutAfterPrint: true,
     backfeedAdjustment: 0 // -9.9 to +9.9mm
   });
 
-  // Zebra printer settings
-  const [zebraSettings, setZebraSettings] = useState({
-    printerIP: '',
-    printerPort: 9100,
-    printerModel: 'GK420d'
-  });
 
   useEffect(() => {
     loadSavedDesign();
@@ -241,7 +235,7 @@ export function ThermalPassDesigner() {
           })
         });
       } else {
-        // Zebra ZPL printing
+        // Zebra ZPL printing - uses main printer settings
         response = await fetch('/api/thermal-passes/print-zebra', {
           method: 'POST',
           headers: {
@@ -265,11 +259,6 @@ export function ThermalPassDesigner() {
               },
               passType: passType,
               host: 'Sarah Johnson'
-            },
-            printerSettings: {
-              zebraPrinterIP: zebraSettings.printerIP,
-              zebraPrinterPort: zebraSettings.printerPort,
-              zebraPrinterModel: zebraSettings.printerModel
             }
           })
         });
@@ -344,7 +333,7 @@ export function ThermalPassDesigner() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Thermal Pass Designer</h2>
-          <p className="text-muted-foreground">Design passes for TEC/Toshiba or Zebra thermal printers (85mm × 65mm)</p>
+          <p className="text-muted-foreground">Design passes for TEC/Toshiba or Zebra thermal printers (95mm × 65mm)</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={saveDesign} variant="outline">
@@ -370,7 +359,7 @@ export function ThermalPassDesigner() {
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pass Preview (85mm × 65mm)</CardTitle>
+                  <CardTitle>Pass Preview (95mm × 65mm)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div 
@@ -590,47 +579,19 @@ export function ThermalPassDesigner() {
                 </CardContent>
               </Card>
 
-              {/* Zebra Settings */}
+              {/* Zebra Settings Note */}
               {selectedPrinter === 'zebra' && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Zebra Printer Settings</CardTitle>
+                    <CardTitle>Zebra Printer Configuration</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label>Printer IP Address</Label>
-                      <Input
-                        value={zebraSettings.printerIP}
-                        onChange={(e) => setZebraSettings(prev => ({ ...prev, printerIP: e.target.value }))}
-                        placeholder="192.168.1.100"
-                      />
-                      <p className="text-xs text-muted-foreground">Network IP for direct ZPL printing</p>
-                    </div>
-                    <div>
-                      <Label>Printer Port</Label>
-                      <Input
-                        type="number"
-                        value={zebraSettings.printerPort}
-                        onChange={(e) => setZebraSettings(prev => ({ ...prev, printerPort: parseInt(e.target.value) || 9100 }))}
-                      />
-                    </div>
-                    <div>
-                      <Label>Printer Model</Label>
-                      <Select 
-                        value={zebraSettings.printerModel} 
-                        onValueChange={(value) => setZebraSettings(prev => ({ ...prev, printerModel: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="GK420d">GK420d (Desktop)</SelectItem>
-                          <SelectItem value="ZD420">ZD420 (Desktop)</SelectItem>
-                          <SelectItem value="ZD620">ZD620 (Premium)</SelectItem>
-                          <SelectItem value="ZT410">ZT410 (Industrial)</SelectItem>
-                          <SelectItem value="LP2824">LP2824 (Legacy)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <CardContent>
+                    <div className="flex items-center gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <Zap className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <p className="text-sm font-medium text-purple-800">Configure Zebra printer in main settings</p>
+                        <p className="text-xs text-purple-600">Go to Printer Settings tab to set up IP address, port, and model</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
