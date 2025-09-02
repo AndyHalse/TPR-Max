@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { ThermalPassDesigner } from "@/components/ThermalPassDesigner";
+import { IdCardDesignSystem } from "@/components/IdCardDesignSystem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
