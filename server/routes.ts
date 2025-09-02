@@ -7056,9 +7056,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         .container {
             padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: block;
             min-height: 100vh;
         }
         
@@ -7089,12 +7087,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         .instructions {
-            margin: 20px;
-            padding: 15px;
-            background: #e3f2fd;
-            border-radius: 8px;
+            margin: 0 auto 30px auto;
+            padding: 30px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 12px;
             text-align: center;
             color: #1976d2;
+            box-shadow: 0 4px 12px rgba(25, 118, 210, 0.15);
+            max-width: 600px;
+        }
+        
+        .instructions h3 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .instructions p {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        
+        .instructions ul {
+            text-align: left;
+            margin: 20px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            font-size: 14px;
+        }
+        
+        .instructions li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4caf50;
+            font-weight: bold;
+        }
+        
+        .pass-preview-container {
+            text-align: center;
+            margin-top: 30px;
         }
         
         .print-button {
@@ -7117,20 +7155,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     <div class="container">
         <div class="no-print instructions">
             <h3>🖨️ VisiGate Pro - Visitor Pass Ready to Print</h3>
-            <p>Click the button below to open your browser's print dialog, then:</p>
-            <ul style="text-align: left; display: inline-block;">
+            <p>Click the button below to open your browser's print dialog, then configure your thermal printer:</p>
+            <ul>
                 <li>Select your thermal printer (TEC B-FV4D or Zebra)</li>
                 <li>Choose "More settings" → Paper size: Custom (95mm x 65mm)</li>
                 <li>Set margins to "None" or "Minimum"</li>
                 <li>Enable "Background graphics"</li>
             </ul>
-            <button class="print-button" onclick="window.print()">🖨️ Print Visitor Pass</button>
-            <button class="print-button" onclick="window.close()" style="background: #666;">✕ Close</button>
+            <div style="margin-top: 25px;">
+                <button class="print-button" onclick="window.print()">🖨️ Print Visitor Pass</button>
+                <button class="print-button" onclick="window.close()" style="background: #666; margin-left: 15px;">✕ Close</button>
+            </div>
         </div>
 
-        <div class="pass-container">
-            <div class="pass">
-                ${elementsHTML}
+        <div class="pass-preview-container">
+            <h4 style="color: #666; margin-bottom: 15px; font-size: 16px;">Preview:</h4>
+            <div class="pass-container" style="margin: 0 auto;">
+                <div class="pass">
+                    ${elementsHTML}
+                </div>
             </div>
         </div>
     </div>
