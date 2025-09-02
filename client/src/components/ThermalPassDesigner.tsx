@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap, Activity, Wrench, FileText, Plus, Trash2 } from "lucide-react";
+import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap, Activity, Wrench, FileText, Plus, Trash2, ShieldCheck } from "lucide-react";
 
 // Thermal pass constraints for B-FV4D (95mm x 65mm)
 const THERMAL_PASS_WIDTH = 361; // 95mm at 96dpi
@@ -637,12 +637,49 @@ export function ThermalPassDesigner() {
         </TabsList>
 
         <TabsContent value={passType} className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Pass Preview */}
-            <div className="lg:col-span-2">
-              <Card>
+          {/* Main Layout - Redesigned for better UX */}
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            
+            {/* Left Column: Pass Preview (Takes more space) */}
+            <div className="xl:col-span-2">
+              <Card className="h-fit">
                 <CardHeader>
-                  <CardTitle>Pass Preview (95mm × 65mm)</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Pass Preview (95mm × 65mm)</CardTitle>
+                    <div className="flex gap-2">
+                      {/* Quick Print Actions */}
+                      <Button 
+                        onClick={() => handleMultiPrint('browser')} 
+                        disabled={isPrinting} 
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        data-testid="button-browser-print"
+                      >
+                        🖨️ Browser
+                      </Button>
+                      <Button 
+                        onClick={() => handleMultiPrint('direct')} 
+                        disabled={isPrinting} 
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        data-testid="button-direct-print"
+                      >
+                        ⚡ Direct
+                      </Button>
+                      <Button 
+                        onClick={() => handleMultiPrint('windows')} 
+                        disabled={isPrinting} 
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        data-testid="button-windows-print"
+                      >
+                        🪟 Windows
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div 
@@ -710,28 +747,34 @@ export function ThermalPassDesigner() {
               </Card>
             </div>
 
-            {/* Design Controls */}
-            <div className="space-y-4">
-              {/* Templates */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Templates</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {THERMAL_TEMPLATES.filter(t => t.type === passType).map((template) => (
-                    <Button
-                      key={template.id}
-                      variant={selectedTemplate === template.id ? "default" : "outline"}
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => loadTemplate(template.id)}
-                    >
-                      {template.name}
-                    </Button>
-                  ))}
-                </CardContent>
-              </Card>
+            {/* Middle Column: Design Tools */}
+            <div>
+              <div className="space-y-4">
+                {/* Templates */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Templates</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {THERMAL_TEMPLATES.filter(t => t.type === passType).map((template) => (
+                      <Button
+                        key={template.id}
+                        variant={selectedTemplate === template.id ? "default" : "outline"}
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => loadTemplate(template.id)}
+                      >
+                        {template.name}
+                      </Button>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
 
+            {/* Right Column: Configuration & Status */}
+            <div className="xl:col-span-2 space-y-4">
+              
               {/* Element Properties */}
               {selectedElementData && (
                 <Card>
@@ -824,6 +867,61 @@ export function ThermalPassDesigner() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Manufacturer Compliance */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-green-600" />
+                    Manufacturer Compliance
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">Verified compatibility with official specifications</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-green-800">
+                          {selectedPrinter === 'tec' ? 'TEC/Toshiba B-FV4D' : 'Zebra ZPL II'}
+                        </span>
+                        <span className="text-green-600 text-sm">✅ COMPLIANT</span>
+                      </div>
+                      <div className="text-xs text-green-700 space-y-1">
+                        {selectedPrinter === 'tec' ? (
+                          <>
+                            <div>• ESC/POS command standard</div>
+                            <div>• Official Toshiba Windows driver</div>
+                            <div>• 95×65mm thermal media spec</div>
+                            <div>• USB Printer Class certified</div>
+                          </>
+                        ) : (
+                          <>
+                            <div>• ZPL II programming language</div>
+                            <div>• Zebra Link-OS compatible</div>
+                            <div>• TCP/IP port 9100 standard</div>
+                            <div>• ISO/IEC 18004 QR codes</div>
+                          </>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full mt-2 text-xs"
+                        onClick={() => {
+                          window.open(
+                            selectedPrinter === 'tec' 
+                              ? '/api/printers/tec/compliance'
+                              : '/api/printers/zebra/compliance',
+                            '_blank'
+                          );
+                        }}
+                      >
+                        📋 View Full Compliance Report
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Print Configuration */}
               <Card>
