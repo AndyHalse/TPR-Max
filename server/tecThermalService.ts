@@ -45,32 +45,38 @@ export class TecThermalService {
     commands.push(...[0x1B, 0x45]); // ESC E - Bold on
     commands.push(...[0x1B, 0x57, 0x01]); // ESC W 1 - Double width on
     commands.push(...[0x0A, 0x0A]); // Two line feeds for spacing
-    commands.push(...Buffer.from('    VISITOR PASS', 'ascii'));
+    const visitorPassBytes = Buffer.from('    VISITOR PASS', 'ascii');
+    commands.push(...Array.from(visitorPassBytes));
     commands.push(...[0x0D, 0x0A]); // Carriage return + line feed
     commands.push(...[0x1B, 0x46]); // ESC F - Bold off
     commands.push(...[0x1B, 0x57, 0x00]); // ESC W 0 - Double width off
     
     // Horizontal line using dash characters
     commands.push(...[0x0A]); // Line feed
-    commands.push(...Buffer.from('----------------------------------------', 'ascii'));
+    const lineBytes = Buffer.from('----------------------------------------', 'ascii');
+    commands.push(...Array.from(lineBytes));
     commands.push(...[0x0D, 0x0A, 0x0A]); // CR+LF + spacing
     
     // Visitor Name - Bold, normal size
     commands.push(...[0x1B, 0x45]); // Bold on
-    commands.push(...Buffer.from(`Name: ${passData.name}`, 'ascii'));
+    const nameBytes = Buffer.from(`Name: ${passData.name}`, 'ascii');
+    commands.push(...Array.from(nameBytes));
     commands.push(...[0x1B, 0x46]); // Bold off
     commands.push(...[0x0D, 0x0A, 0x0A]); // CR+LF + spacing
     
     // Company
-    commands.push(...Buffer.from(`Company: ${passData.company}`, 'ascii'));
+    const companyBytes = Buffer.from(`Company: ${passData.company}`, 'ascii');
+    commands.push(...Array.from(companyBytes));
     commands.push(...[0x0D, 0x0A, 0x0A]);
     
     // Date and Time on same line
-    commands.push(...Buffer.from(`Date: ${passData.date}    Time: ${passData.time}`, 'ascii'));
+    const dateTimeBytes = Buffer.from(`Date: ${passData.date}    Time: ${passData.time}`, 'ascii');
+    commands.push(...Array.from(dateTimeBytes));
     commands.push(...[0x0D, 0x0A, 0x0A]);
     
     // Host
-    commands.push(...Buffer.from(`Host: ${passData.host}`, 'ascii'));
+    const hostBytes = Buffer.from(`Host: ${passData.host}`, 'ascii');
+    commands.push(...Array.from(hostBytes));
     commands.push(...[0x0D, 0x0A, 0x0A]);
     
     // QR Code using TEC B-EV4's internal QR code generation (if supported)
@@ -79,22 +85,26 @@ export class TecThermalService {
       // QR Code command sequence for TEC printers (model-specific)
       commands.push(...[0x1B, 0x1D]); // Start graphics/barcode mode
       commands.push(...[0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]); // QR setup
-      commands.push(...Buffer.from(passData.qrCode, 'ascii')); // QR data
+      const qrDataBytes = Buffer.from(passData.qrCode, 'ascii');
+      commands.push(...Array.from(qrDataBytes)); // QR data
       commands.push(...[0x1B, 0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]); // Print QR
     } catch (error) {
       // Fallback: Print QR code as text if native QR not supported
-      commands.push(...Buffer.from(`QR: ${passData.qrCode}`, 'ascii'));
+      const qrFallbackBytes = Buffer.from(`QR: ${passData.qrCode}`, 'ascii');
+      commands.push(...Array.from(qrFallbackBytes));
       commands.push(...[0x0D, 0x0A]);
     }
     
     // Footer spacing and instructions
     commands.push(...[0x0A, 0x0A]); // Extra spacing
-    commands.push(...Buffer.from('Return to Reception', 'ascii'));
+    const footerBytes = Buffer.from('Return to Reception', 'ascii');
+    commands.push(...Array.from(footerBytes));
     commands.push(...[0x0D, 0x0A]);
     
     // Pass ID in small font
     commands.push(...[0x1B, 0x4D, 0x01]); // ESC M 1 - Select small font
-    commands.push(...Buffer.from(`Pass ID: ${passData.passId}`, 'ascii'));
+    const passIdBytes = Buffer.from(`Pass ID: ${passData.passId}`, 'ascii');
+    commands.push(...Array.from(passIdBytes));
     commands.push(...[0x1B, 0x4D, 0x00]); // ESC M 0 - Back to normal font
     commands.push(...[0x0D, 0x0A, 0x0A, 0x0A]); // Extra spacing before cut
     
@@ -182,7 +192,7 @@ export class TecThermalService {
         // Send a simple test command
         const testCommands = Buffer.from([
           0x1B, 0x40, // Initialize
-          ...Buffer.from('TEC B-EV4 Test Print', 'ascii'),
+          ...Array.from(Buffer.from('TEC B-EV4 Test Print', 'ascii')),
           0x0D, 0x0A, 0x0A,
           0x1D, 0x56, 0x41, 0x03 // Cut
         ]);
