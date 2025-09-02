@@ -6912,14 +6912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { elements, data } = req.body;
       const passElements = elements || [];
       
-      console.log(`📊 Received ${passElements.length} pass elements:`, passElements.slice(0, 2));
-      console.log(`📝 Visitor data:`, data);
-      
-      // Test specific element content
-      const testElement = passElements.find(el => el.type === 'text');
-      if (testElement) {
-        console.log(`🧪 Test element content: "${testElement.content}" text: "${testElement.text}"`);
-      }
+      console.log(`📊 Received ${passElements.length} pass elements for browser printing`);
       const visitorData = data || {
         name: 'John Smith',
         company: 'Tech Corp Ltd',
@@ -7130,9 +7123,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             font-weight: bold;
         }
         
-        .pass-preview-container {
-            text-align: center;
-            margin-top: 30px;
+        .pass-container {
+            margin: 0 auto;
         }
         
         .print-button {
@@ -7168,12 +7160,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             </div>
         </div>
 
-        <div class="pass-preview-container">
-            <h4 style="color: #666; margin-bottom: 15px; font-size: 16px;">Preview:</h4>
-            <div class="pass-container" style="margin: 0 auto;">
-                <div class="pass">
-                    ${elementsHTML}
-                </div>
+        <!-- Pass for printing only (hidden on screen) -->
+        <div class="pass-container" style="margin: 0 auto;">
+            <div class="pass">
+                ${elementsHTML}
             </div>
         </div>
     </div>
