@@ -6679,55 +6679,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Direct thermal printing using raw ESC/POS commands
-  // WINDOWS: Simple Windows printing endpoint (Crystal Reports Alternative)
-  app.post("/api/thermal-passes/print-windows", async (req, res) => {
-    try {
-      const { WindowsPrintService } = await import('./windowsPrintService');
-      const { elements, data, printerSettings } = req.body;
-
-      const printService = new WindowsPrintService();
-      
-      // Convert existing elements to Windows format
-      const windowsElements = elements.map((el: any) => ({
-        type: el.type,
-        x: el.x / 3.779527559, // Convert pixels to mm
-        y: el.y / 3.779527559,
-        width: el.width ? el.width / 3.779527559 : undefined,
-        height: el.height ? el.height / 3.779527559 : undefined,
-        content: el.content,
-        fontSize: el.fontSize,
-        fontWeight: el.fontWeight,
-        alignment: el.alignment
-      }));
-
-      const printerName = printerSettings.selectedPrinter || 'TEC B-EV4 Desktop Printer';
-      
-      console.log(`🪟 Windows Print: ${windowsElements.length} elements to "${printerName}"`);
-      
-      const result = await printService.print(windowsElements, data, printerName);
-      
-      if (result.success) {
-        res.json({
-          success: true,
-          message: result.message,
-          method: result.method,
-          file: result.file
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          error: result.message
-        });
-      }
-    } catch (error) {
-      console.error('❌ Windows printing failed:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
 
   // SaaS: Universal PDF printing endpoint for browser-based printing
   app.post("/api/thermal-passes/pdf", async (req, res) => {
@@ -6807,51 +6758,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DIRECT PRINTING: True server-side printing to thermal printer using Windows drivers
-  app.post("/api/thermal-passes/print-direct", async (req, res) => {
-    try {
-      const { elements, type, data, printerSettings } = req.body;
-      
-      if (!elements || !Array.isArray(elements)) {
-        return res.status(400).json({ error: 'Invalid elements data' });
-      }
-      
-      // Generate PDF first
-      const { PDFPrintService } = await import('./pdfPrintService');
-      const pdfService = new PDFPrintService();
-      const pdfBuffer = await pdfService.generatePDF(elements, data);
-      
-      // Send directly to thermal printer using Windows drivers (no user interaction)
-      const { directPrintService } = await import('./directPrintService');
-      const printResult = await directPrintService.printPdfToThermalPrinter(pdfBuffer, {
-        printerName: printerSettings?.printerName,
-        copies: 1
-      });
-      
-      if (printResult.success) {
-        console.log(`🖨️ Successfully sent ${type} pass directly to thermal printer: ${printResult.message}`);
-        res.json({ 
-          success: true, 
-          message: printResult.message,
-          method: 'Windows Driver Direct Print'
-        });
-      } else {
-        console.error('❌ Direct thermal printing failed:', printResult.message);
-        res.status(500).json({ 
-          success: false, 
-          error: 'Failed to print to thermal printer',
-          details: printResult.message 
-        });
-      }
-    } catch (error) {
-      console.error('Error in direct thermal printing:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Failed to print to thermal printer',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
 
   // Print emergency muster list
   app.post("/api/thermal-passes/print-muster", async (req, res) => {

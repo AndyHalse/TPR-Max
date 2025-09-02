@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download } from "lucide-react";
+import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap } from "lucide-react";
 
 // Thermal pass constraints for B-FV4D (85mm x 66mm)
 const THERMAL_PASS_WIDTH = 323; // 85mm at 96dpi
@@ -199,57 +199,6 @@ export function ThermalPassDesigner() {
     }
   };
 
-  const handleDirectPrint = async () => {
-    setIsPrinting(true);
-    
-    try {
-      const visitorData = {
-        fullName: 'John Smith',
-        company: 'Tech Corp Ltd',
-        date: new Date().toLocaleDateString('en-GB'),
-        time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        host: 'Sarah Johnson',
-        qrCode: '#SEVKQLUS'
-      };
-
-      const response = await fetch('/api/thermal-passes/print-direct', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          elements: passElements,
-          type: passType,
-          data: visitorData,
-          printerSettings
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          toast({
-            title: "🖨️ Print Job Sent!",
-            description: `${result.message} - Pass printed directly to your thermal printer without any windows or dialogs!`
-          });
-        } else {
-          throw new Error(result.details || result.error);
-        }
-      } else {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Direct printing failed');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to print directly to thermal printer";
-      toast({
-        title: "Direct Print Error",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    } finally {
-      setIsPrinting(false);
-    }
-  };
 
   const handleNativeTecPrint = async () => {
     setIsPrinting(true);
@@ -298,84 +247,7 @@ export function ThermalPassDesigner() {
     }
   };
 
-  const printBrowser = async () => {
-    try {
-      const response = await fetch('/api/thermal-passes/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          elements: passElements,
-          data: previewData,
-          settings: printerSettings
-        })
-      });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        
-        // For direct thermal printing, we'll use a download approach
-        // This is the most reliable method across all browsers and platforms
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `thermal-pass-${new Date().toISOString().slice(0,10)}.pdf`;
-        link.style.display = 'none';
-        
-        // Add to DOM, click, and remove
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up URL
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 1000);
-
-        toast({
-          title: "📄 PDF Ready for Thermal Printing",
-          description: "Download complete! Open the PDF and print to your B-FV4 thermal printer."
-        });
-      } else {
-        throw new Error('PDF generation failed');
-      }
-    } catch (error) {
-      toast({
-        title: "PDF Generation Error",
-        description: "Failed to generate printable PDF",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const printDirect = async () => {
-    try {
-      const response = await fetch('/api/thermal-passes/print-direct', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          elements: passElements,
-          type: passType,
-          data: previewData,
-          printerSettings
-        })
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Printing...",
-          description: "Pass sent directly to thermal printer"
-        });
-      } else {
-        throw new Error('Print failed');
-      }
-    } catch (error) {
-      toast({
-        title: "Print Failed",
-        description: "Could not send to thermal printer",
-        variant: "destructive"
-      });
-    }
-  };
 
   const loadTemplate = (templateId: string) => {
     const template = THERMAL_TEMPLATES.find(t => t.id === templateId);
@@ -429,25 +301,9 @@ export function ThermalPassDesigner() {
             <Save className="h-4 w-4 mr-2" />
             Save Design
           </Button>
-          <Button onClick={printDirect} variant="outline">
-            <Printer className="h-4 w-4 mr-2" />
-            Legacy Print
-          </Button>
-          <Button onClick={printWindows} className="bg-green-600 hover:bg-green-700">
-            <Printer className="h-4 w-4 mr-2" />
-            🚀 Windows Print (New)
-          </Button>
-          <Button onClick={handleDirectPrint} className="bg-green-600 hover:bg-green-700">
-            <Printer className="h-4 w-4 mr-2" />
-            🖨️ Direct Print to B-FV4
-          </Button>
           <Button onClick={handleNativeTecPrint} disabled={isPrinting} className="bg-blue-600 hover:bg-blue-700">
-            <Printer className="h-4 w-4 mr-2" />
+            <Zap className="h-4 w-4 mr-2" />
             🚀 Native TEC Print
-          </Button>
-          <Button onClick={printBrowser} variant="outline" className="border-purple-300 hover:bg-purple-50">
-            <Download className="h-4 w-4 mr-2" />
-            📄 Download PDF
           </Button>
         </div>
       </div>
