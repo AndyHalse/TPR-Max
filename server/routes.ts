@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { databaseService } from "./databaseService";
 import { 
   insertStaffSchema, 
   insertVisitorSchema, 
@@ -2114,12 +2115,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Company Settings endpoints
+  // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION
   app.get("/api/settings", async (req, res) => {
     try {
-      const settings = await storage.getCompanySettings();
+      // TODO: Get customer context from authentication
+      // For now, use development customer context
+      const context = databaseService.createDevelopmentContext();
+      
+      const settings = await databaseService.getCompanySettings(context);
       res.json(settings);
     } catch (error) {
+      console.error('Settings fetch error:', error);
       res.status(500).json({ error: "Failed to fetch company settings" });
     }
   });
@@ -2190,9 +2196,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/settings", async (req, res) => {
     try {
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
-      const settings = await storage.updateCompanySettings(updates);
+      
+      // TODO: Get customer context from authentication
+      // For now, use development customer context
+      const context = databaseService.createDevelopmentContext();
+      
+      const settings = await databaseService.updateCompanySettings(context, updates);
       res.json(settings);
     } catch (error) {
+      console.error('Settings update error:', error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid settings data", details: error.errors });
       } else {

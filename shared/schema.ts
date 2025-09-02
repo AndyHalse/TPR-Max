@@ -3,8 +3,37 @@ import { pgTable, text, varchar, timestamp, boolean, integer } from "drizzle-orm
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// CUSTOMER ISOLATION: Each customer gets their own database instance
+// This table tracks customer metadata for onboarding and management
+export const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull().unique(),
+  slug: text("slug").notNull().unique(), // For subdomain routing: customer.visigate.app
+  contactEmail: text("contact_email").notNull(),
+  // Database connection for this customer
+  databaseUrl: text("database_url").notNull(), // Each customer gets own PostgreSQL database
+  // Subscription & Status
+  isActive: boolean("is_active").default(true).notNull(),
+  subscriptionTier: text("subscription_tier").default("basic"), // basic, premium, enterprise
+  subscriptionExpires: timestamp("subscription_expires"),
+  // Billing & limits
+  maxTenants: integer("max_tenants").default(10), // How many building tenants this customer can have
+  maxUsersPerTenant: integer("max_users_per_tenant").default(50),
+  maxVisitorsPerMonth: integer("max_visitors_per_month").default(1000),
+  // Onboarding & Support
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  supportContactEmail: text("support_contact_email"),
+  // Security & API
+  apiKeyEnabled: boolean("api_key_enabled").default(false),
+  apiKey: text("api_key"), // For customer integrations
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const staff = pgTable("staff", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each staff member belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
@@ -40,6 +69,8 @@ export const staff = pgTable("staff", {
 // Staff sessions table for historical tracking of all check-ins/outs
 export const staffSessions = pgTable("staff_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each staff session belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   staffId: varchar("staff_id").notNull().references(() => staff.id),
   checkInTime: timestamp("check_in_time").notNull(),
   checkOutTime: timestamp("check_out_time"),
@@ -52,6 +83,8 @@ export const staffSessions = pgTable("staff_sessions", {
 
 export const visitors = pgTable("visitors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each visitor belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email"),
@@ -86,6 +119,8 @@ export const visitors = pgTable("visitors", {
 // Pre-bookings table for visitor appointments
 export const preBookings = pgTable("pre_bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each pre-booking belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   visitorFirstName: text("visitor_first_name").notNull(),
   visitorLastName: text("visitor_last_name").notNull(),
   visitorEmail: text("visitor_email").notNull(),
@@ -108,6 +143,13 @@ export const preBookings = pgTable("pre_bookings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Customer schema exports
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertStaffSchema = createInsertSchema(staff).omit({
   id: true,
   createdAt: true,
@@ -125,6 +167,10 @@ export const insertStaffSessionSchema = createInsertSchema(staffSessions).omit({
   createdAt: true,
 });
 
+// Customer types
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+
 export type Staff = typeof staff.$inferSelect;
 export type InsertStaff = z.infer<typeof insertStaffSchema>;
 export type StaffSession = typeof staffSessions.$inferSelect;
@@ -135,6 +181,8 @@ export type InsertVisitor = z.infer<typeof insertVisitorSchema>;
 // Departments table for dynamic department management
 export const departments = pgTable("departments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each department belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   name: text("name").notNull().unique(),
   description: text("description"),
   color: text("color").notNull().default("bg-blue-500"), // CSS color class for UI
@@ -145,6 +193,8 @@ export const departments = pgTable("departments", {
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each user belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
@@ -163,6 +213,8 @@ export const users = pgTable("users", {
 // Tenant Companies - Each company renting space in the building
 export const tenantCompanies = pgTable("tenant_companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each tenant company belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   companyName: text("company_name").notNull().unique(),
   slug: text("slug").notNull().unique(), // For URL routing: acme.replit.app or /acme/login
   logoUrl: text("logo_url"),
@@ -199,6 +251,8 @@ export const tenantCompanies = pgTable("tenant_companies", {
 // Building/Super Admin Settings (replaces single companySettings)
 export const buildingSettings = pgTable("building_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each building setting belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   buildingName: text("building_name").notNull().default("Serviced Office Building"),
   buildingAddress: text("building_address"),
   managementCompany: text("management_company").notNull().default("Building Management Ltd"),
@@ -220,9 +274,11 @@ export const buildingSettings = pgTable("building_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Legacy Company Settings (for single-tenant backward compatibility)
+// Company Settings - Now with CUSTOMER ISOLATION for SaaS
 export const companySettings = pgTable("company_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: CRITICAL - Each customer gets their own settings
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   companyName: text("company_name").notNull().default("TechCorp Ltd"),
   logoUrl: text("logo_url"),
   // Company contact information
