@@ -1664,7 +1664,7 @@ export default function Settings() {
 
         <TabsContent value="printing" className="space-y-6 mt-6">
           <Tabs value={printingSubTab} onValueChange={setPrintingSubTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
               <TabsTrigger value="printer" className="flex items-center gap-2">
                 <Printer size={16} />
                 Printer Settings
@@ -1676,6 +1676,10 @@ export default function Settings() {
               <TabsTrigger value="thermal-passes" className="flex items-center gap-2">
                 <FileText size={16} />
                 Thermal Passes
+              </TabsTrigger>
+              <TabsTrigger value="qr-readers" className="flex items-center gap-2">
+                <Scan size={16} />
+                QR Readers
               </TabsTrigger>
             </TabsList>
 
@@ -2623,10 +2627,8 @@ export default function Settings() {
             <TabsContent value="thermal-passes" className="space-y-6">
               <ThermalPassDesigner />
             </TabsContent>
-          </Tabs>
-        </TabsContent>
 
-        <TabsContent value="qr-readers" className="space-y-6 mt-6">
+            <TabsContent value="qr-readers" className="space-y-6">
           <GlassCard>
             <div className="flex items-center mb-6">
               <Scan className="mr-3 text-blue-600" size={24} />
@@ -2760,6 +2762,8 @@ export default function Settings() {
               </div>
             </div>
           </GlassCard>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="departments" className="space-y-6 mt-6">
