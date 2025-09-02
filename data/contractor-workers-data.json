@@ -10,11 +10,11 @@
     "isActive": true,
     "inductionCompleted": true,
     "inductionCompletedAt": "2025-08-25T03:36:08.013Z",
-    "isCheckedIn": true,
+    "isCheckedIn": false,
     "checkedInAt": "2025-08-31T15:01:18.899Z",
-    "checkedOutAt": null,
+    "checkedOutAt": "2025-09-01T23:15:00.011Z",
     "createdAt": "2025-08-31T14:28:11.558Z",
-    "updatedAt": "2025-08-31T15:01:18.899Z",
+    "updatedAt": "2025-09-01T23:15:00.059Z",
     "qrCode": "CONTRACTOR-3949d7bc-ac26-4400-8a21-bca8099ab741-1756652478899"
   },
   {
@@ -28,11 +28,11 @@
     "isActive": true,
     "inductionCompleted": true,
     "inductionCompletedAt": "2025-08-23T20:00:00.442Z",
-    "isCheckedIn": true,
+    "isCheckedIn": false,
     "checkedInAt": "2025-09-01T12:27:51.761Z",
-    "checkedOutAt": null,
+    "checkedOutAt": "2025-09-01T23:15:00.011Z",
     "createdAt": "2025-08-31T14:28:11.559Z",
-    "updatedAt": "2025-09-01T12:27:51.761Z",
+    "updatedAt": "2025-09-01T23:15:00.059Z",
     "qrCode": "CONTRACTOR-4ae8c9ad-c6c3-4b9d-910a-19710a0dac4e-1756729671761"
   },
   {
@@ -46,11 +46,11 @@
     "isActive": true,
     "inductionCompleted": true,
     "inductionCompletedAt": "2025-08-03T15:55:50.135Z",
-    "isCheckedIn": true,
+    "isCheckedIn": false,
     "checkedInAt": "2025-08-31T15:01:32.834Z",
-    "checkedOutAt": null,
+    "checkedOutAt": "2025-09-01T23:15:00.011Z",
     "createdAt": "2025-08-31T14:28:11.560Z",
-    "updatedAt": "2025-08-31T15:01:32.834Z",
+    "updatedAt": "2025-09-01T23:15:00.067Z",
     "qrCode": "CONTRACTOR-354a951f-3886-4487-9176-f0b12f6bee49-1756652492834"
   },
   {

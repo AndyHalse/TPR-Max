@@ -51,8 +51,8 @@
     "hostStaffId": "c3b38630-e6a0-4d6f-8f0f-dbd2dec0175b",
     "qrCode": "VIS-1756650739758-fxh6rxiuz",
     "checkedInAt": "2025-08-31T15:21:54.490Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true,
+    "checkedOutAt": "2025-09-01T23:15:00.011Z",
+    "isCheckedIn": false,
     "email": "andy@acsltd.eu",
     "phoneNumber": "",
     "mobileNumber": "",
@@ -87,8 +87,8 @@
     "hostStaffId": "784910e9-513c-4a96-a62a-d96f57f8b4a3",
     "qrCode": "VIS-1756650739767-q30urim5o",
     "checkedInAt": "2025-09-01T11:25:04.811Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true,
+    "checkedOutAt": "2025-09-01T23:15:00.011Z",
+    "isCheckedIn": false,
     "email": "andy@acsltd.eu",
     "phoneNumber": "",
     "mobileNumber": "",
@@ -105,8 +105,8 @@
     "hostStaffId": "c3b38630-e6a0-4d6f-8f0f-dbd2dec0175b",
     "qrCode": "VIS-1756650739769-yk48wi5zi",
     "checkedInAt": "2025-09-01T12:37:06.715Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-09-01T23:15:00.011Z",
+    "isCheckedIn": false
   },
   {
     "id": "355bc1b5-aa56-4ce6-b279-6e70034f79f5",
