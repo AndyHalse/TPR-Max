@@ -2125,6 +2125,35 @@ export default function Settings() {
                   <>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-slate-700">
+                        Primary Report Type
+                      </Label>
+                      <Select 
+                        value={currentSettings?.reportType || "weekly"} 
+                        onValueChange={(value) => handleInputChange("reportType", value)}
+                      >
+                        <SelectTrigger data-testid="select-report-type">
+                          <SelectValue placeholder="Select report type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily Report</SelectItem>
+                          <SelectItem value="weekly">Weekly Report</SelectItem>
+                          <SelectItem value="monthly">Monthly Report</SelectItem>
+                          <SelectItem value="quarterly">Quarterly Report</SelectItem>
+                          <SelectItem value="yearly">Yearly Report</SelectItem>
+                          <SelectItem value="visitor_analysis">Visitor Analysis Report</SelectItem>
+                          <SelectItem value="staff_attendance">Staff Attendance Report</SelectItem>
+                          <SelectItem value="staff_by_department">Staff by Department Report</SelectItem>
+                          <SelectItem value="contractor_summary">Contractor Summary Report</SelectItem>
+                          <SelectItem value="contractor_safety">Contractor Safety Report</SelectItem>
+                          <SelectItem value="contractor_attendance">Contractor Attendance Report</SelectItem>
+                          <SelectItem value="contractor_compliance">Contractor Compliance Report</SelectItem>
+                          <SelectItem value="custom_range">Custom Date Range</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
                         Report Frequency
                       </Label>
                       <Select 
@@ -2135,62 +2164,214 @@ export default function Settings() {
                           <SelectValue placeholder="Select frequency" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="daily">Daily Summary</SelectItem>
-                          <SelectItem value="weekly">Weekly Report</SelectItem>
-                          <SelectItem value="monthly">Monthly Analytics</SelectItem>
+                          <SelectItem value="daily">Daily (Every Day)</SelectItem>
+                          <SelectItem value="weekly">Weekly (Every Monday)</SelectItem>
+                          <SelectItem value="biweekly">Bi-weekly (Every 2 Weeks)</SelectItem>
+                          <SelectItem value="monthly">Monthly (1st of Month)</SelectItem>
+                          <SelectItem value="quarterly">Quarterly (End of Quarter)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-slate-700">
-                        Report Recipients
+                        Primary Recipients
                       </Label>
                       <Input
                         type="email"
-                        placeholder="recipient1@company.com, recipient2@company.com"
-                        value={currentSettings?.reportRecipients || ""}
+                        placeholder="admin@techcorp.com"
+                        value={currentSettings?.reportRecipients || "admin@techcorp.com"}
                         onChange={(e) => handleInputChange("reportRecipients", e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                         data-testid="input-report-recipients"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Additional Recipients (Optional)
+                      </Label>
+                      <Input
+                        type="email"
+                        placeholder="Enter email addresses separated by commas"
+                        value={currentSettings?.additionalRecipients || ""}
+                        onChange={(e) => handleInputChange("additionalRecipients", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        data-testid="input-additional-recipients"
                       />
                       <p className="text-xs text-slate-500">Separate multiple emails with commas</p>
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-slate-700">
-                        Report Time
+                        Delivery Time
                       </Label>
                       <Select 
                         value={currentSettings?.reportTime || "09:00"} 
                         onValueChange={(value) => handleInputChange("reportTime", value)}
                       >
                         <SelectTrigger data-testid="select-report-time">
-                          <SelectValue placeholder="Select time" />
+                          <SelectValue placeholder="Select delivery time" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="06:00">6:00 AM</SelectItem>
-                          <SelectItem value="08:00">8:00 AM</SelectItem>
+                          <SelectItem value="06:00">6:00 AM (Early Morning)</SelectItem>
+                          <SelectItem value="07:00">7:00 AM (Before Work)</SelectItem>
+                          <SelectItem value="08:00">8:00 AM (Start of Day)</SelectItem>
                           <SelectItem value="09:00">9:00 AM (Recommended)</SelectItem>
-                          <SelectItem value="12:00">12:00 PM</SelectItem>
-                          <SelectItem value="17:00">5:00 PM</SelectItem>
+                          <SelectItem value="10:00">10:00 AM (Mid Morning)</SelectItem>
+                          <SelectItem value="12:00">12:00 PM (Lunch Time)</SelectItem>
+                          <SelectItem value="14:00">2:00 PM (Afternoon)</SelectItem>
+                          <SelectItem value="17:00">5:00 PM (End of Day)</SelectItem>
+                          <SelectItem value="18:00">6:00 PM (Evening)</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Report Customization
+                      </Label>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium text-slate-600">Include Charts</Label>
+                          <Switch
+                            checked={currentSettings?.includeCharts !== false}
+                            onCheckedChange={(checked) => handleInputChange("includeCharts", checked)}
+                            data-testid="switch-include-charts"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium text-slate-600">Include Photos</Label>
+                          <Switch
+                            checked={currentSettings?.includePhotos || false}
+                            onCheckedChange={(checked) => handleInputChange("includePhotos", checked)}
+                            data-testid="switch-include-photos"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium text-slate-600">Export Excel</Label>
+                          <Switch
+                            checked={currentSettings?.exportExcel || false}
+                            onCheckedChange={(checked) => handleInputChange("exportExcel", checked)}
+                            data-testid="switch-export-excel"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium text-slate-600">Export PDF</Label>
+                          <Switch
+                            checked={currentSettings?.exportPdf !== false}
+                            onCheckedChange={(checked) => handleInputChange("exportPdf", checked)}
+                            data-testid="switch-export-pdf"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Report Branding
+                      </Label>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs font-medium text-slate-600">Include Company Logo</Label>
+                          <p className="text-xs text-slate-500">Add your company logo to reports</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.includeLogo !== false}
+                          onCheckedChange={(checked) => handleInputChange("includeLogo", checked)}
+                          data-testid="switch-include-logo"
+                        />
+                      </div>
                     </div>
                   </>
                 )}
 
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-slate-700">Quick Stats</h4>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-blue-600 border-blue-300"
+                      data-testid="button-send-test-report"
+                    >
+                      <Send className="mr-2" size={14} />
+                      Send Test Report
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
+                      <div className="text-2xl font-bold text-blue-600" data-testid="text-total-reports">
+                        {/* This would be populated from API */}
+                        2
+                      </div>
+                      <div className="text-xs text-slate-600">Total Reports</div>
+                    </div>
+                    
+                    <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
+                      <div className="text-2xl font-bold text-green-600" data-testid="text-reports-emailed">
+                        0
+                      </div>
+                      <div className="text-xs text-slate-600">Reports Emailed</div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                   <p className="text-sm text-green-800 dark:text-green-200 mb-2">
-                    <strong>📊 Report Contents:</strong>
+                    <strong>📊 Automated Report Contents:</strong>
                   </p>
-                  <ul className="text-xs text-green-700 dark:text-green-300 ml-4 list-disc space-y-1">
-                    <li>Visitor check-in/check-out statistics</li>
-                    <li>Staff attendance summary</li>
-                    <li>Department-wise visitor analytics</li>
-                    <li>Security and compliance reports</li>
-                    <li>System usage metrics</li>
-                  </ul>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="text-xs text-green-700 dark:text-green-300">
+                      <ul className="ml-4 list-disc space-y-1">
+                        <li>✅ Visitor check-in/check-out statistics</li>
+                        <li>✅ Staff attendance summary</li>
+                        <li>✅ Department-wise visitor analytics</li>
+                        <li>✅ Security and compliance reports</li>
+                        <li>✅ System usage metrics</li>
+                      </ul>
+                    </div>
+                    <div className="text-xs text-green-700 dark:text-green-300">
+                      <ul className="ml-4 list-disc space-y-1">
+                        <li>✅ Contractor safety assessments</li>
+                        <li>✅ Emergency evacuation data</li>
+                        <li>✅ Access control logs</li>
+                        <li>✅ Induction completion status</li>
+                        <li>✅ Custom date range analysis</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                      📅 Next Scheduled Report:
+                    </p>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      {currentSettings?.reportFrequency === 'daily' ? 'Tomorrow 9:00 AM' :
+                       currentSettings?.reportFrequency === 'weekly' ? 'Next Monday 9:00 AM' :
+                       currentSettings?.reportFrequency === 'monthly' ? '1st of Next Month' :
+                       'Not Scheduled'}
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                    <p><strong>Report Type:</strong> {currentSettings?.reportType || 'Weekly Report'}</p>
+                    <p><strong>Recipients:</strong> {currentSettings?.reportRecipients || 'admin@techcorp.com'}</p>
+                    <p><strong>Delivery Time:</strong> {currentSettings?.reportTime || '9:00 AM'}</p>
+                    <p><strong>Format:</strong> {
+                      [
+                        currentSettings?.exportPdf !== false ? 'PDF' : null,
+                        currentSettings?.exportExcel ? 'Excel' : null,
+                        'HTML Email'
+                      ].filter(Boolean).join(', ')
+                    }</p>
+                  </div>
                 </div>
               </div>
             </GlassCard>
