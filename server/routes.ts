@@ -6907,17 +6907,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SaaS: Browser-compatible print page endpoint 
   app.post("/api/thermal-passes/pdf", async (req, res) => {
     try {
-      console.log('📄 Generating browser-printable HTML page...');
+      console.log('📄 Generating browser-printable HTML page with actual design...');
       
       const { elements, data } = req.body;
+      const passElements = elements || [];
       const visitorData = data || {
         name: 'John Smith',
         company: 'Tech Corp Ltd',
         date: new Date().toLocaleDateString(),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        host: 'Reception',
-        id: '#' + Math.random().toString(36).substr(2, 8).toUpperCase()
+        host: 'Sarah Johnson',
+        id: 'VS00' + Math.random().toString(36).substr(2, 3).toUpperCase()
       };
+      
+      // Generate dynamic element styles based on the actual pass design
+      let elementsHTML = '';
+      if (passElements.length > 0) {
+        elementsHTML = passElements.map(element => {
+          let content = '';
+          
+          switch(element.type) {
+            case 'text':
+              // Replace placeholders with actual visitor data
+              let text = element.text || '';
+              text = text.replace('{{name}}', visitorData.name);
+              text = text.replace('{{company}}', visitorData.company);
+              text = text.replace('{{date}}', visitorData.date);
+              text = text.replace('{{time}}', visitorData.time);
+              text = text.replace('{{host}}', visitorData.host);
+              text = text.replace('{{id}}', visitorData.id);
+              
+              content = `<div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                font-size: ${element.fontSize || 12}px;
+                font-weight: ${element.fontWeight || 'normal'};
+                text-align: ${element.alignment || 'left'};
+                color: ${element.color || '#000'};
+                transform: ${element.rotation ? `rotate(${element.rotation}deg)` : 'none'};
+                display: flex;
+                align-items: center;
+                font-family: Arial, sans-serif;
+                line-height: 1.2;
+                overflow: hidden;
+              ">${text}</div>`;
+              break;
+              
+            case 'qr':
+              content = `<div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                border: 1px solid #333;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 8px;
+                background: #f9f9f9;
+                transform: ${element.rotation ? `rotate(${element.rotation}deg)` : 'none'};
+              ">QR<br>CODE</div>`;
+              break;
+              
+            case 'image':
+              content = `<div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                border: 1px solid #ccc;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 8px;
+                background: #f5f5f5;
+                transform: ${element.rotation ? `rotate(${element.rotation}deg)` : 'none'};
+              ">📷<br>IMG</div>`;
+              break;
+              
+            case 'line':
+              content = `<div style="
+                position: absolute;
+                left: ${element.x}px;
+                top: ${element.y}px;
+                width: ${element.width}px;
+                height: ${element.height}px;
+                background: ${element.color || '#000'};
+                transform: ${element.rotation ? `rotate(${element.rotation}deg)` : 'none'};
+              "></div>`;
+              break;
+          }
+          
+          return content;
+        }).join('');
+      }
       
       // Generate HTML page optimized for thermal printer dimensions
       const html = `
@@ -6938,7 +7026,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 print-color-adjust: exact;
             }
             .no-print { display: none; }
-            .pass { 
+            .pass-container { 
                 page-break-inside: avoid; 
                 box-shadow: none;
             }
@@ -6955,65 +7043,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             min-height: 100vh;
         }
         
-        .pass {
+        .pass-container {
             width: 95mm;
             height: 65mm;
             background: white;
-            border: 2px solid #333;
+            border: 2px dashed #ccc;
             position: relative;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            padding: 8mm;
             box-sizing: border-box;
         }
         
-        .header {
-            font-size: 14px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 6mm;
-            color: #333;
-        }
-        
-        .content {
-            font-size: 11px;
-            line-height: 1.4;
-            color: #333;
-        }
-        
-        .field {
-            margin-bottom: 2mm;
-        }
-        
-        .field strong {
-            display: inline-block;
-            width: 20mm;
-            font-weight: bold;
-        }
-        
-        .qr-placeholder {
-            position: absolute;
-            right: 8mm;
-            top: 15mm;
-            width: 20mm;
-            height: 20mm;
-            border: 1px solid #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 6px;
-            background: #f9f9f9;
-        }
-        
-        .footer {
-            position: absolute;
-            bottom: 5mm;
-            left: 8mm;
-            right: 8mm;
-            font-size: 8px;
-            color: #666;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .pass {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: white;
         }
         
         .instructions {
@@ -7043,10 +7087,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </head>
 <body>
     <div class="no-print instructions">
-        <h3>🖨️ Visitor Pass Ready to Print</h3>
+        <h3>🖨️ VisiGate Pro - Visitor Pass Ready to Print</h3>
         <p>Click the button below to open your browser's print dialog, then:</p>
         <ul style="text-align: left; display: inline-block;">
-            <li>Select your thermal printer (or any printer)</li>
+            <li>Select your thermal printer (TEC B-FV4D or Zebra)</li>
             <li>Choose "More settings" → Paper size: Custom (95mm x 65mm)</li>
             <li>Set margins to "None" or "Minimum"</li>
             <li>Enable "Background graphics"</li>
@@ -7055,42 +7099,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <button class="print-button" onclick="window.close()" style="background: #666;">✕ Close</button>
     </div>
 
-    <div class="pass">
-        <div class="header">VISITOR PASS</div>
-        
-        <div class="content">
-            <div class="field"><strong>Name:</strong> ${visitorData.name}</div>
-            <div class="field"><strong>Company:</strong> ${visitorData.company}</div>
-            <div class="field"><strong>Date:</strong> ${visitorData.date}</div>
-            <div class="field"><strong>Time:</strong> ${visitorData.time}</div>
-            <div class="field"><strong>Host:</strong> ${visitorData.host}</div>
-        </div>
-        
-        <div class="qr-placeholder">
-            QR CODE
-        </div>
-        
-        <div class="footer">
-            <span>Return to Reception</span>
-            <span>${visitorData.id}</span>
+    <div class="pass-container">
+        <div class="pass">
+            ${elementsHTML}
         </div>
     </div>
 
     <script>
-        // Auto-trigger print dialog when page loads
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                // Only auto-print if opened in new window/tab
-                if (window.opener || window.history.length === 1) {
-                    window.print();
-                }
-            }, 500);
-        });
+        // Show branded loading screen first
+        setTimeout(function() {
+            // Auto-trigger print dialog after showing the design
+            if (window.opener || window.history.length === 1) {
+                window.print();
+            }
+        }, 2000); // Give user 2 seconds to see the design
         
-        // Close window after printing
+        // Close window after printing (optional)
         window.addEventListener('afterprint', function() {
             setTimeout(function() {
-                window.close();
+                if (confirm('Print completed! Close this window?')) {
+                    window.close();
+                }
             }, 1000);
         });
     </script>
