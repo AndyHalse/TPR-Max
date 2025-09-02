@@ -260,11 +260,8 @@ export class PDFPrintService {
             pdf.setFontSize(fontSize);
             pdf.setFont('helvetica', element.fontWeight === 'bold' ? 'bold' : 'normal');
             
-            // Handle text color if specified
-            if (element.color) {
-              const color = this.parseColor(element.color);
-              pdf.setTextColor(color.r, color.g, color.b);
-            }
+            // Set black text color for thermal printing
+            pdf.setTextColor(0, 0, 0);
             
             pdf.text(element.content, x, y + fontSize * 0.3);
             
@@ -300,16 +297,13 @@ export class PDFPrintService {
           break;
           
         case 'line':
-          pdf.setLineWidth(element.strokeWidth || 1);
-          if (element.color) {
-            const color = this.parseColor(element.color);
-            pdf.setDrawColor(color.r, color.g, color.b);
-          }
+          pdf.setLineWidth(1);
+          pdf.setDrawColor(0, 0, 0);
           pdf.line(x, y, x + width, y);
           pdf.setDrawColor(0, 0, 0); // Reset color
           break;
           
-        case 'image':
+        case 'logo':
           // Image placeholder
           pdf.setLineWidth(0.5);
           pdf.rect(x, y, width, height);

@@ -529,14 +529,101 @@ export function ThermalPassDesigner() {
     await handleMultiPrint(printMethod);
   };
 
+  // Add new element to the pass design
+  const addNewElement = (type: 'text' | 'qr_code' | 'logo' | 'line') => {
+    const newElement: ThermalElement = {
+      id: `element-${Date.now()}`,
+      type,
+      x: 50,
+      y: 50,
+      width: type === 'line' ? 200 : type === 'qr_code' ? 50 : 100,
+      height: type === 'line' ? 2 : type === 'qr_code' ? 50 : 20,
+      content: type === 'text' ? 'New Text' : undefined,
+      fontSize: 12,
+      fontWeight: 'normal',
+      alignment: 'left',
+      isVariable: false
+    };
 
+    setPassElements(prev => [...prev, newElement]);
+    setSelectedElement(newElement.id);
+    
+    toast({
+      title: "Element Added",
+      description: `New ${type.replace('_', ' ')} element added to pass design`
+    });
+  };
+
+  // Remove selected element
+  const removeElement = () => {
+    if (selectedElement) {
+      setPassElements(prev => prev.filter(el => el.id !== selectedElement));
+      setSelectedElement(null);
+      
+      toast({
+        title: "Element Removed",
+        description: "Element removed from pass design"
+      });
+    }
+  };
+
+  // Make element a database variable
+  const makeElementVariable = (variableType: 'name' | 'company' | 'date' | 'time' | 'host' | 'purpose' | 'id' | 'phone' | 'email') => {
+    if (selectedElement) {
+      updateElement(selectedElement, {
+        isVariable: true,
+        variableType,
+        content: `{{${variableType}}}`
+      });
+      
+      toast({
+        title: "Variable Created",
+        description: `Element now shows ${variableType} from database`
+      });
+    }
+  };
+
+  // Auto-save functionality
+  useEffect(() => {
+    const autoSave = setTimeout(() => {
+      if (passElements.length > 0) {
+        localStorage.setItem(`thermal-pass-design-${passType}`, JSON.stringify({
+          elements: passElements,
+          template: selectedTemplate,
+          timestamp: Date.now()
+        }));
+        console.log('🎯 Auto-saved design');
+      }
+    }, 2000); // Auto-save after 2 seconds of inactivity
+
+    return () => clearTimeout(autoSave);
+  }, [passElements, selectedTemplate, passType]);
+
+  // Load saved design on component mount
+  useEffect(() => {
+    const savedDesign = localStorage.getItem(`thermal-pass-design-${passType}`);
+    if (savedDesign) {
+      try {
+        const parsed = JSON.parse(savedDesign);
+        if (parsed.elements && Array.isArray(parsed.elements)) {
+          setPassElements(parsed.elements);
+          if (parsed.template) {
+            setSelectedTemplate(parsed.template);
+          }
+          console.log('🎯 Loaded saved design');
+        }
+      } catch (error) {
+        console.warn('Failed to load saved design:', error);
+      }
+    }
+  }, [passType]);
 
   const loadTemplate = (templateId: string) => {
     const template = THERMAL_TEMPLATES.find(t => t.id === templateId);
     if (template) {
       setSelectedTemplate(templateId);
       setPassElements([...template.elements]);
-      setPassType(template.type);
+      // Don't change pass type - let the user control that via tabs
       setSelectedElement(null);
       toast({
         title: "Template Loaded",
@@ -763,10 +850,63 @@ export function ThermalPassDesigner() {
                         size="sm"
                         className="w-full justify-start"
                         onClick={() => loadTemplate(template.id)}
+                        data-testid={`button-template-${template.id}`}
                       >
                         {template.name}
                       </Button>
                     ))}
+                  </CardContent>
+                </Card>
+
+                {/* Add Elements */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Add Elements</CardTitle>
+                    <p className="text-sm text-muted-foreground">Click to add new elements to your pass</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button
+                      onClick={() => addNewElement('text')}
+                      size="sm"
+                      variant="outline"
+                      className="w-full justify-start"
+                      data-testid="button-add-text"
+                    >
+                      <Type className="h-4 w-4 mr-2" />
+                      Add Text
+                    </Button>
+                    
+                    <Button
+                      onClick={() => addNewElement('qr_code')}
+                      size="sm"
+                      variant="outline"
+                      className="w-full justify-start"
+                      data-testid="button-add-qr"
+                    >
+                      <QrCode className="h-4 w-4 mr-2" />
+                      Add QR Code
+                    </Button>
+                    
+                    <Button
+                      onClick={() => addNewElement('logo')}
+                      size="sm"
+                      variant="outline"
+                      className="w-full justify-start"
+                      data-testid="button-add-logo"
+                    >
+                      <Image className="h-4 w-4 mr-2" />
+                      Add Logo
+                    </Button>
+                    
+                    <Button
+                      onClick={() => addNewElement('line')}
+                      size="sm"
+                      variant="outline"
+                      className="w-full justify-start"
+                      data-testid="button-add-line"
+                    >
+                      ━ Add Line
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
@@ -779,7 +919,17 @@ export function ThermalPassDesigner() {
               {selectedElementData && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Element Properties</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Element Properties</CardTitle>
+                      <Button
+                        onClick={removeElement}
+                        size="sm"
+                        variant="destructive"
+                        data-testid="button-remove-element"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-2">
@@ -861,6 +1011,73 @@ export function ThermalPassDesigner() {
                             }
                           />
                           <Label>Bold</Label>
+                        </div>
+                        
+                        {/* Database Variables */}
+                        <div>
+                          <Label className="text-sm font-medium">Make Database Variable</Label>
+                          <div className="grid grid-cols-2 gap-1 mt-2">
+                            <Button
+                              onClick={() => makeElementVariable('name')}
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                              data-testid="button-var-name"
+                            >
+                              👤 Name
+                            </Button>
+                            <Button
+                              onClick={() => makeElementVariable('company')}
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                              data-testid="button-var-company"
+                            >
+                              🏢 Company
+                            </Button>
+                            <Button
+                              onClick={() => makeElementVariable('host')}
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                              data-testid="button-var-host"
+                            >
+                              🤝 Host
+                            </Button>
+                            <Button
+                              onClick={() => makeElementVariable('date')}
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                              data-testid="button-var-date"
+                            >
+                              📅 Date
+                            </Button>
+                            <Button
+                              onClick={() => makeElementVariable('time')}
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                              data-testid="button-var-time"
+                            >
+                              🕐 Time
+                            </Button>
+                            <Button
+                              onClick={() => makeElementVariable('id')}
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                              data-testid="button-var-id"
+                            >
+                              🔖 Pass ID
+                            </Button>
+                          </div>
+                          
+                          {selectedElementData.isVariable && (
+                            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                              📊 This element shows <strong>{selectedElementData.variableType}</strong> from the database
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
