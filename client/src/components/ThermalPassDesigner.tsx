@@ -153,34 +153,60 @@ export function ThermalPassDesigner() {
     }
   };
 
-  const loadSavedPrinterSettings = () => {
+  const loadSavedPrinterSettings = async () => {
     try {
-      const saved = localStorage.getItem('thermal-printer-settings');
-      if (saved) {
-        const settings = JSON.parse(saved);
-        if (settings.selectedPrinter) setSelectedPrinter(settings.selectedPrinter);
-        if (settings.printMethod) setPrintMethod(settings.printMethod);
-        if (settings.printQuality) setPrintQuality(settings.printQuality);
-        if (settings.printerSettings) setPrinterSettings(settings.printerSettings);
-        console.log(`🎯 Loaded saved printer settings`);
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        const settings = data.settings;
+        if (settings) {
+          if (settings.thermalSelectedPrinter) setSelectedPrinter(settings.thermalSelectedPrinter);
+          if (settings.thermalPrintMethod) setPrintMethod(settings.thermalPrintMethod);
+          if (settings.thermalPrintQuality) setPrintQuality(settings.thermalPrintQuality);
+          if (settings.thermalPrinterSettings) {
+            const parsedSettings = JSON.parse(settings.thermalPrinterSettings);
+            setPrinterSettings(parsedSettings);
+          }
+          console.log(`🎯 Loaded saved printer settings`);
+        }
       }
     } catch (error) {
       console.error('Error loading saved printer settings:', error);
     }
   };
 
-  const savePrinterSettings = () => {
+  const savePrinterSettings = async () => {
     try {
-      const settings = {
-        selectedPrinter,
-        printMethod,
-        printQuality,
-        printerSettings
+      const updates = {
+        thermalSelectedPrinter: selectedPrinter,
+        thermalPrintMethod: printMethod,
+        thermalPrintQuality: printQuality,
+        thermalPrinterSettings: JSON.stringify(printerSettings)
       };
-      localStorage.setItem('thermal-printer-settings', JSON.stringify(settings));
-      console.log(`🎯 Auto-saved printer settings`);
+
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+
+      if (response.ok) {
+        console.log(`🎯 Auto-saved printer settings`);
+        toast({
+          title: "Auto-saved",
+          description: "Thermal printer settings updated automatically",
+          className: "bg-green-50 border-green-200"
+        });
+      } else {
+        throw new Error('Failed to save settings');
+      }
     } catch (error) {
       console.error('Error saving printer settings:', error);
+      toast({
+        title: "Auto-save failed",
+        description: "Please try saving manually",
+        variant: "destructive",
+      });
     }
   };
 
