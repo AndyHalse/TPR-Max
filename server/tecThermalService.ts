@@ -127,35 +127,60 @@ export class TecThermalService {
       fs.writeFileSync(tempFile, tecCommands);
       console.log(`🖨️ Generated TEC B-EV4 commands: ${tecCommands.length} bytes`);
       
-      // Check platform and use appropriate printing method
+      // Check if we're in production Windows environment or development
       const platform = os.platform();
+      const isActualWindows = platform === 'win32';
+      const isWindowsDeployment = process.env.WINDOWS_PRINTING === 'true' || isActualWindows;
       
-      if (platform === 'win32') {
-        // Windows methods
+      if (isWindowsDeployment) {
+        // Windows 11 methods for real deployment
         try {
-          await execAsync(`copy "${tempFile}" "${this.printerName}"`);
-          console.log('✅ TEC B-EV4 native printing successful (Windows raw copy)');
+          // Method 1: Direct copy to printer (most reliable for thermal printers)
+          await execAsync(`copy "${tempFile}" "\\\\localhost\\${this.printerName}"`);
+          console.log('✅ TEC B-EV4 native printing successful (Windows UNC copy)');
           return { 
             success: true, 
             message: `Printed to ${this.printerName} using native TEC commands`,
-            method: 'windows_raw_copy'
+            method: 'windows_unc_copy'
           };
         } catch (error1) {
           try {
-            const psCommand = `$content = [System.IO.File]::ReadAllBytes('${tempFile}'); $printer = Get-Printer -Name '${this.printerName}'; Add-Type -AssemblyName System.Drawing; [System.IO.File]::WriteAllBytes('\\\\localhost\\${this.printerName}', $content)`;
-            await execAsync(`powershell.exe -Command "${psCommand}"`);
-            console.log('✅ TEC B-EV4 native printing successful (PowerShell raw)');
+            // Method 2: Print command with /D flag
+            await execAsync(`print /D:"${this.printerName}" "${tempFile}"`);
+            console.log('✅ TEC B-EV4 native printing successful (print command)');
             return { 
               success: true, 
-              message: `Printed to ${this.printerName} using PowerShell raw commands`,
-              method: 'powershell_raw'
+              message: `Printed to ${this.printerName} using Windows print command`,
+              method: 'windows_print_command'
             };
           } catch (error2) {
-            console.error('❌ All Windows TEC thermal printing methods failed:', { error1, error2 });
-            return { 
-              success: false, 
-              message: `Failed to print to ${this.printerName}: Windows methods not available` 
-            };
+            try {
+              // Method 3: PowerShell with proper Windows paths
+              const psCommand = `
+                $content = [System.IO.File]::ReadAllBytes('${tempFile.replace(/\//g, '\\')}')
+                $printer = Get-Printer -Name '${this.printerName}'
+                if ($printer.PrinterStatus -eq 'Normal') {
+                  $printerPath = '\\\\localhost\\${this.printerName}'
+                  [System.IO.File]::WriteAllBytes($printerPath, $content)
+                  Write-Host 'Print job sent successfully'
+                } else {
+                  throw 'Printer not ready'
+                }
+              `;
+              await execAsync(`powershell.exe -Command "${psCommand}"`);
+              console.log('✅ TEC B-EV4 native printing successful (PowerShell)');
+              return { 
+                success: true, 
+                message: `Printed to ${this.printerName} using PowerShell`,
+                method: 'windows_powershell'
+              };
+            } catch (error3) {
+              console.error('❌ All Windows TEC thermal printing methods failed:', { error1, error2, error3 });
+              return { 
+                success: false, 
+                message: `Failed to print to ${this.printerName} on Windows 11: ${error3}` 
+              };
+            }
           }
         }
       } else {

@@ -6779,6 +6779,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       console.log(`🖨️ Printing native TEC thermal pass for ${passData.name} to ${printerName}`);
+      console.log('🔧 Windows 11 deployment mode - forcing Windows printing methods');
+      process.env.WINDOWS_PRINTING = 'true'; // Enable Windows printing for testing
       const result = await tecService.printVisitorPass(passData);
       
       if (result.success) {
