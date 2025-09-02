@@ -2115,14 +2115,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION
+  // Company Settings endpoints - TEMPORARILY USING OLD STORAGE UNTIL MIGRATION IS COMPLETE
   app.get("/api/settings", async (req, res) => {
     try {
-      // TODO: Get customer context from authentication
-      // For now, use development customer context
-      const context = databaseService.createDevelopmentContext();
-      
-      const settings = await databaseService.getCompanySettings(context);
+      // TEMPORARY: Use old storage until we complete the customer database migration
+      const settings = await storage.getCompanySettings();
       res.json(settings);
     } catch (error) {
       console.error('Settings fetch error:', error);
@@ -2197,11 +2194,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
       
-      // TODO: Get customer context from authentication
-      // For now, use development customer context
-      const context = databaseService.createDevelopmentContext();
-      
-      const settings = await databaseService.updateCompanySettings(context, updates);
+      // TEMPORARY: Use old storage until we complete the customer database migration
+      const settings = await storage.updateCompanySettings(updates);
       res.json(settings);
     } catch (error) {
       console.error('Settings update error:', error);

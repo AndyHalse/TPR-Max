@@ -403,7 +403,7 @@ export class DatabaseService {
   /**
    * DEVELOPMENT HELPER: Create temporary customer context for current development setup
    */
-  static createDevelopmentContext(): CustomerContext {
+  createDevelopmentContext(): CustomerContext {
     return {
       customerId: 'dev-customer-001',
       // No tenant specified - gets all data for this customer
