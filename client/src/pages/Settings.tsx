@@ -474,7 +474,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -486,14 +486,6 @@ export default function Settings() {
           <TabsTrigger value="printing" className="flex items-center gap-2">
             <Printer size={16} />
             Printing & ID
-          </TabsTrigger>
-          <TabsTrigger value="display" className="flex items-center gap-2">
-            <Monitor size={16} />
-            Display
-          </TabsTrigger>
-          <TabsTrigger value="biostar" className="flex items-center gap-2">
-            <Shield size={16} />
-            Biostar
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users size={16} />
@@ -1589,8 +1581,20 @@ export default function Settings() {
                   {departments.map((department) => (
                     <div
                       key={department.id}
-                      className={`p-4 rounded-xl border border-white/30 bg-white/50 backdrop-blur-sm`}
-                      style={{ backgroundColor: `${department.color || '#3b82f6'}20` }}
+                      className="p-4 rounded-xl border border-white/30 bg-white/50 backdrop-blur-sm"
+                      style={{ 
+                        backgroundColor: department.color ? 
+                          (department.color.startsWith('#') ? `${department.color}20` : 
+                           department.color.includes('blue') ? '#3b82f620' :
+                           department.color.includes('green') ? '#10b98120' :
+                           department.color.includes('purple') ? '#a855f720' :
+                           department.color.includes('red') ? '#ef444420' :
+                           department.color.includes('yellow') ? '#eab30820' :
+                           department.color.includes('pink') ? '#ec489920' :
+                           department.color.includes('orange') ? '#f9731620' :
+                           department.color.includes('indigo') ? '#6366f120' :
+                           '#3b82f620') : '#3b82f620'
+                      }}
                       data-testid={`card-department-${department.id}`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -1635,11 +1639,23 @@ export default function Settings() {
                         <div className="flex items-center gap-2">
                           <div
                             className="w-4 h-4 rounded-full border border-slate-300"
-                            style={{ backgroundColor: department.color || '#3b82f6' }}
+                            style={{ 
+                              backgroundColor: department.color ? 
+                                (department.color.startsWith('#') ? department.color : 
+                                 department.color.includes('blue') ? '#3b82f6' :
+                                 department.color.includes('green') ? '#10b981' :
+                                 department.color.includes('purple') ? '#a855f7' :
+                                 department.color.includes('red') ? '#ef4444' :
+                                 department.color.includes('yellow') ? '#eab308' :
+                                 department.color.includes('pink') ? '#ec4899' :
+                                 department.color.includes('orange') ? '#f97316' :
+                                 department.color.includes('indigo') ? '#6366f1' :
+                                 '#3b82f6') : '#3b82f6'
+                            }}
                             data-testid={`color-indicator-${department.id}`}
                           />
                           <span className="text-xs text-slate-500 capitalize">
-                            {department.color?.replace('bg-', '').replace('-500', '') || 'blue'}
+                            {department.color || 'blue'}
                           </span>
                         </div>
                         <div className="text-xs text-slate-500">
