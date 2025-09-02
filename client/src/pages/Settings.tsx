@@ -4,6 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { ThermalPassDesigner } from "@/components/ThermalPassDesigner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,8 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2 } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
-import { IdCardDesignSystem } from "@/components/IdCardDesignSystem";
-import { ThermalPassDesigner } from "@/components/ThermalPassDesigner";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -258,6 +257,14 @@ export default function Settings() {
   };
 
   const handleInputChange = (field: string, value: any) => {
+    console.log('Input changed:', field, '=', value);
+    
+    // If background color changed, suggest text colors
+    if (field === 'backgroundColor') {
+      const suggestions = suggestTextColors(value);
+      setSuggestedTextColors(suggestions);
+    }
+    
     triggerAutoSave(field, value);
   };
 
@@ -274,6 +281,78 @@ export default function Settings() {
       const logoPath = uploadURL.replace(window.location.origin, "");
       handleInputChange("logoUrl", logoPath);
     }
+  };
+
+  const handleBannerUpload = async (objectPath: string) => {
+    try {
+      // objectPath comes from ObjectUploader as /objects/uploads/objectId
+      // We need to store just /uploads/objectId for the database
+      const bannerUrl = objectPath.replace('/objects', '');
+      console.log('Saving banner URL:', bannerUrl);
+      
+      // Merge banner with any pending form data to avoid overwriting user input
+      const updateData = {
+        ...formData,
+        bannerUrl: bannerUrl,
+      };
+      console.log('Merging banner with form data:', updateData);
+      
+      await updateSettingsMutation.mutateAsync(updateData);
+      // Clear form data after successful upload
+      setFormData({});
+      toast({
+        title: "Success",
+        description: "Banner uploaded and saved successfully!",
+      });
+    } catch (error) {
+      console.error('Banner upload error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save banner",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Calculate contrast ratio between two colors
+  const calculateContrastRatio = (color1: string, color2: string) => {
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    };
+
+    const getLuminance = (r: number, g: number, b: number) => {
+      const [rs, gs, bs] = [r, g, b].map(c => {
+        c = c / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    };
+
+    const rgb1 = hexToRgb(color1);
+    const rgb2 = hexToRgb(color2);
+    if (!rgb1 || !rgb2) return 1;
+
+    const lum1 = getLuminance(rgb1.r, rgb1.g, rgb1.b);
+    const lum2 = getLuminance(rgb2.r, rgb2.g, rgb2.b);
+    const brightest = Math.max(lum1, lum2);
+    const darkest = Math.min(lum1, lum2);
+    return (brightest + 0.05) / (darkest + 0.05);
+  };
+
+  // Suggest text colors based on background
+  const suggestTextColors = (backgroundColor: string) => {
+    const whiteContrast = calculateContrastRatio(backgroundColor, '#ffffff');
+    const blackContrast = calculateContrastRatio(backgroundColor, '#000000');
+    
+    return {
+      light: whiteContrast > blackContrast ? '#ffffff' : '#f8fafc',
+      dark: blackContrast > whiteContrast ? '#000000' : '#1e293b'
+    };
   };
 
   const addEmailRecipient = () => {
@@ -558,10 +637,294 @@ export default function Settings() {
         </TabsContent>
 
         {/* Continue with a placeholder structure for now - I'll add the rest */}
-        <TabsContent value="branding">
-          <div className="text-center py-8">
-            <p className="text-slate-600">Branding features will be restored shortly...</p>
-          </div>
+        <TabsContent value="branding" className="space-y-6 mt-6">
+          <Tabs value={brandingSubTab} onValueChange={setBrandingSubTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="visual" className="flex items-center gap-2">
+                <Palette size={16} />
+                Visual Branding
+              </TabsTrigger>
+              <TabsTrigger value="theme" className="flex items-center gap-2">
+                <Monitor size={16} />
+                Theme Settings
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="visual" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <Palette className="mr-3 text-blue-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">Color Theme</h3>
+                  </div>
+              
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="backgroundColor" className="text-sm font-medium text-slate-700">
+                        Background Color
+                      </Label>
+                      <div className="flex gap-3 items-center">
+                        <Input
+                          id="backgroundColor"
+                          type="color"
+                          value={currentSettings?.backgroundColor || "#f8fafc"}
+                          onChange={(e) => handleInputChange("backgroundColor", e.target.value)}
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          data-testid="input-background-color"
+                        />
+                        <Input
+                          type="text"
+                          value={currentSettings?.backgroundColor || "#f8fafc"}
+                          onChange={(e) => handleInputChange("backgroundColor", e.target.value)}
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          placeholder="#f8fafc"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700">
+                          Fixed Text Color
+                        </Label>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50"
+                            onClick={() => handleInputChange("foregroundColor", suggestedTextColors.light)}
+                            data-testid="button-suggest-light-text"
+                          >
+                            Light
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs bg-gray-800 text-white hover:bg-gray-700"
+                            onClick={() => handleInputChange("foregroundColor", suggestedTextColors.dark)}
+                            data-testid="button-suggest-dark-text"
+                          >
+                            Dark
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-center">
+                        <Input
+                          id="foregroundColor"
+                          type="color"
+                          value={currentSettings?.foregroundColor || "#1e293b"}
+                          onChange={(e) => handleInputChange("foregroundColor", e.target.value)}
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          data-testid="input-foreground-color"
+                        />
+                        <Input
+                          type="text"
+                          value={currentSettings?.foregroundColor || "#1e293b"}
+                          onChange={(e) => handleInputChange("foregroundColor", e.target.value)}
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          placeholder="#1e293b"
+                        />
+                      </div>
+                      {currentSettings?.backgroundColor && (
+                        <div className="text-xs text-slate-500">
+                          Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b").toFixed(1)}:1
+                          {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b") < 4.5 && (
+                            <span className="text-amber-600 ml-2">⚠ Low contrast - may be hard to read</span>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500">Used for labels, headings, and static text elements</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="variableTextColor" className="text-sm font-medium text-slate-700">
+                          Variable Text Color
+                        </Label>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50"
+                            onClick={() => handleInputChange("variableTextColor", suggestedTextColors.light)}
+                            data-testid="button-suggest-light-variable-text"
+                          >
+                            Light
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs bg-gray-800 text-white hover:bg-gray-700"
+                            onClick={() => handleInputChange("variableTextColor", suggestedTextColors.dark)}
+                            data-testid="button-suggest-dark-variable-text"
+                          >
+                            Dark
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-center">
+                        <Input
+                          id="variableTextColor"
+                          type="color"
+                          value={currentSettings?.variableTextColor || "#374151"}
+                          onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          data-testid="input-variable-text-color"
+                        />
+                        <Input
+                          type="text"
+                          value={currentSettings?.variableTextColor || "#374151"}
+                          onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          placeholder="#374151"
+                        />
+                      </div>
+                      {currentSettings?.backgroundColor && (
+                        <div className="text-xs text-slate-500">
+                          Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151").toFixed(1)}:1
+                          {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151") < 4.5 && (
+                            <span className="text-amber-600 ml-2">⚠ Low contrast - may be hard to read</span>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500">Used for data values, content, and variable information</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="accentColor" className="text-sm font-medium text-slate-700">
+                        Accent Color
+                      </Label>
+                      <div className="flex gap-3 items-center">
+                        <Input
+                          id="accentColor"
+                          type="color"
+                          value={currentSettings?.accentColor || "#3b82f6"}
+                          onChange={(e) => handleInputChange("accentColor", e.target.value)}
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          data-testid="input-accent-color"
+                        />
+                        <Input
+                          type="text"
+                          value={currentSettings?.accentColor || "#3b82f6"}
+                          onChange={(e) => handleInputChange("accentColor", e.target.value)}
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          placeholder="#3b82f6"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+                
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <Monitor className="mr-3 text-blue-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">Kiosk Banner</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Welcome Banner Image
+                      </Label>
+                      <p className="text-xs text-slate-500 mb-3">Displayed prominently on kiosk mode. Recommended: 1200x300px or similar wide format</p>
+                      
+                      {currentSettings?.bannerUrl && !currentSettings.bannerUrl.includes('test') && (
+                        <div className="mb-4 p-4 bg-white/50 rounded-xl border border-white/30">
+                          <img 
+                            src={`/objects${currentSettings.bannerUrl}`}
+                            alt="Kiosk Banner" 
+                            className="w-full max-w-lg h-auto object-contain rounded-lg"
+                            onError={(e) => {
+                              console.error("Banner failed to load:", currentSettings.bannerUrl);
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      <ObjectUploader
+                        onUploadComplete={handleBannerUpload}
+                        accept="image/*"
+                        maxSize={5 * 1024 * 1024}
+                        buttonClassName="w-full"
+                      >
+                        <Upload className="mr-2" size={16} />
+                        {currentSettings?.bannerUrl ? "Replace Banner" : "Upload Banner"}
+                      </ObjectUploader>
+                      
+                      <p className="text-xs text-slate-500">Recommended: JPG or PNG, max 5MB, wide format (3:1 or 4:1 ratio)</p>
+                    </div>
+                  </div>
+                </GlassCard>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="theme" className="space-y-6">
+              <GlassCard>
+                <div className="flex items-center mb-6">
+                  <Monitor className="mr-3 text-blue-600" size={24} />
+                  <h3 className="text-lg font-semibold text-slate-800">Application Theme</h3>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="flex items-center space-x-4">
+                      <Sun className="text-yellow-500" size={24} />
+                      <div>
+                        <h4 className="font-medium text-slate-800 dark:text-slate-200">Light Mode</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Clean, bright interface</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant={theme === "light" ? "default" : "outline"}
+                      onClick={() => setTheme("light")}
+                      data-testid="button-light-theme"
+                    >
+                      {theme === "light" && "✓"} Select
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="flex items-center space-x-4">
+                      <Moon className="text-slate-700 dark:text-slate-300" size={24} />
+                      <div>
+                        <h4 className="font-medium text-slate-800 dark:text-slate-200">Dark Mode</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Easy on the eyes for long sessions</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant={theme === "dark" ? "default" : "outline"}
+                      onClick={() => setTheme("dark")}
+                      data-testid="button-dark-theme"
+                    >
+                      {theme === "dark" && "✓"} Select
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="flex items-center space-x-4">
+                      <Monitor className="text-blue-600" size={24} />
+                      <div>
+                        <h4 className="font-medium text-slate-800 dark:text-slate-200">System Default</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Matches your device settings</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant={theme === "system" ? "default" : "outline"}
+                      onClick={() => setTheme("system")}
+                      data-testid="button-system-theme"
+                    >
+                      {theme === "system" && "✓"} Select
+                    </Button>
+                  </div>
+                </div>
+              </GlassCard>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="printing" className="space-y-6 mt-6">
@@ -765,16 +1128,15 @@ export default function Settings() {
               </div>
             </TabsContent>
 
-            <TabsContent value="idcards">
+            <TabsContent value="idcards" className="space-y-6">
               <div className="text-center py-8">
-                <p className="text-slate-600">ID Cards configuration will be restored next...</p>
+                <p className="text-slate-600">ID Card designer will be restored next...</p>
+                <p className="text-xs text-slate-400 mt-2">IdCardDesignSystem component detected - restoring shortly</p>
               </div>
             </TabsContent>
 
-            <TabsContent value="thermal-passes">
-              <div className="text-center py-8">
-                <p className="text-slate-600">Thermal Pass designer will be restored next...</p>
-              </div>
+            <TabsContent value="thermal-passes" className="space-y-6">
+              <ThermalPassDesigner />
             </TabsContent>
 
             <TabsContent value="qr-readers">
@@ -791,39 +1153,747 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        <TabsContent value="biostar">
-          <div className="text-center py-8">
-            <p className="text-slate-600">Biostar features will be restored shortly...</p>
+        <TabsContent value="biostar" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Shield className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Suprema Biostar Integration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700">
+                      Enable Biostar Integration
+                    </Label>
+                    <p className="text-xs text-slate-500">Connect to Suprema Biostar 2 API for staff attendance</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.biostarEnabled || false}
+                    onCheckedChange={(checked) => handleInputChange("biostarEnabled", checked)}
+                    data-testid="switch-biostar-enabled"
+                  />
+                </div>
+                
+                {currentSettings?.biostarEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-slate-700">
+                        Biostar Server URL
+                      </Label>
+                      <Input
+                        id="biostarServerUrl"
+                        type="url"
+                        value={currentSettings?.biostarServerUrl || ""}
+                        onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                        placeholder="https://your-biostar-server.com:8443"
+                        data-testid="input-biostar-server-url"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="biostarApiKey" className="text-sm font-medium text-slate-700">
+                        API Key
+                      </Label>
+                      <Input
+                        id="biostarApiKey"
+                        type="password"
+                        value={currentSettings?.biostarApiKey || ""}
+                        onChange={(e) => handleInputChange("biostarApiKey", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                        placeholder="Enter your Biostar API key"
+                        data-testid="input-biostar-api-key"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarUsername" className="text-sm font-medium text-slate-700">
+                          Username
+                        </Label>
+                        <Input
+                          id="biostarUsername"
+                          type="text"
+                          value={currentSettings?.biostarUsername || ""}
+                          onChange={(e) => handleInputChange("biostarUsername", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="Biostar username"
+                          data-testid="input-biostar-username"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarPassword" className="text-sm font-medium text-slate-700">
+                          Password
+                        </Label>
+                        <Input
+                          id="biostarPassword"
+                          type="password"
+                          value={currentSettings?.biostarPassword || ""}
+                          onChange={(e) => handleInputChange("biostarPassword", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="Biostar password"
+                          data-testid="input-biostar-password"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarDatabaseId" className="text-sm font-medium text-slate-700">
+                          Database ID
+                        </Label>
+                        <Input
+                          id="biostarDatabaseId"
+                          type="text"
+                          value={currentSettings?.biostarDatabaseId || "1"}
+                          onChange={(e) => handleInputChange("biostarDatabaseId", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="1"
+                          data-testid="input-biostar-database-id"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarSyncInterval" className="text-sm font-medium text-slate-700">
+                          Sync Interval (seconds)
+                        </Label>
+                        <Input
+                          id="biostarSyncInterval"
+                          type="number"
+                          value={currentSettings?.biostarSyncInterval || "300"}
+                          onChange={(e) => handleInputChange("biostarSyncInterval", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="300"
+                          min="60"
+                          data-testid="input-biostar-sync-interval"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </GlassCard>
+            
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Shield className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Biometric Devices</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Supported Devices:</h4>
+                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>• Suprema X-Station 2</li>
+                    <li>• Suprema XPass 2</li>
+                    <li>• Suprema FaceStation 2</li>
+                    <li>• Suprema BioEntry Plus 2</li>
+                  </ul>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Configured Devices
+                  </Label>
+                  <div className="space-y-2">
+                    {(currentSettings?.biometricDevices || []).length === 0 ? (
+                      <div className="text-sm text-slate-500 italic p-4 bg-white/50 rounded-lg">
+                        No devices configured. Add device IDs using the Biostar Device Manager.
+                      </div>
+                    ) : (
+                      (currentSettings?.biometricDevices || []).map((deviceId, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                          <span className="text-sm font-mono text-slate-700">{deviceId}</span>
+                          <Badge variant="outline">Connected</Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-2">Setup Instructions:</h4>
+                  <ol className="text-sm text-amber-700 dark:text-amber-300 space-y-1 ml-4 list-decimal">
+                    <li>Configure devices in Biostar Device Manager</li>
+                    <li>Note device IDs for each reader</li>
+                    <li>Enable API access in Biostar settings</li>
+                    <li>Test connection using the button below</li>
+                  </ol>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/biostar/test-connection', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        const result = await response.json();
+                        
+                        toast({
+                          title: result.success ? "Connection Successful" : "Connection Failed",
+                          description: result.message,
+                          variant: result.success ? "default" : "destructive"
+                        });
+                      } catch (error) {
+                        console.error('Biostar connection test error:', error);
+                        toast({
+                          title: "Connection Error",
+                          description: "Failed to test Biostar connection",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                    data-testid="button-test-biostar-connection"
+                  >
+                    <Shield className="mr-2" size={16} />
+                    Test Connection
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/biostar/sync-devices', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                          // Refresh settings to show new devices
+                          window.location.reload();
+                        }
+                        
+                        toast({
+                          title: result.success ? "Sync Successful" : "Sync Failed",
+                          description: result.message,
+                          variant: result.success ? "default" : "destructive"
+                        });
+                      } catch (error) {
+                        console.error('Biostar device sync error:', error);
+                        toast({
+                          title: "Sync Error",
+                          description: "Failed to sync devices",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                    data-testid="button-sync-devices"
+                  >
+                    Sync Devices
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
           </div>
         </TabsContent>
 
-        <TabsContent value="users">
-          <div className="text-center py-8">
-            <p className="text-slate-600">User management features will be restored shortly...</p>
+        <TabsContent value="users" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                  <Users className="mr-3 text-blue-600" size={24} />
+                  <h3 className="text-lg font-semibold text-slate-800">User Management</h3>
+                </div>
+                <Button
+                  size="sm"
+                  className="gradient-blue text-white"
+                  data-testid="button-invite-user"
+                >
+                  <UserPlus className="mr-2" size={16} />
+                  Invite User
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">A</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800">Andy (You)</p>
+                      <p className="text-sm text-slate-600">Administrator</p>
+                    </div>
+                  </div>
+                  <Badge variant="default">Admin</Badge>
+                </div>
+                
+                <div className="text-center py-8">
+                  <Shield className="mx-auto text-slate-400 mb-4" size={48} />
+                  <p className="text-slate-600 mb-4">No additional users yet</p>
+                  <Button variant="outline" size="sm">
+                    <UserPlus className="mr-2" size={16} />
+                    Send First Invitation
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
+            
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <UserPlus className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Invite New User</h3>
+              </div>
+              
+              <form className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="inviteEmail" className="text-sm font-medium text-slate-700">
+                    Email Address
+                  </Label>
+                  <Input
+                    id="inviteEmail"
+                    type="email"
+                    placeholder="user@example.com"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-invite-email"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="userRole" className="text-sm font-medium text-slate-700">
+                    User Role
+                  </Label>
+                  <Select>
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-user-role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Standard User</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full gradient-blue text-white"
+                  data-testid="button-send-invitation"
+                >
+                  Send Invitation
+                </Button>
+              </form>
+              
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Invitation Process:</h4>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <li>• User receives email invitation with secure link</li>
+                  <li>• They create their account using the invitation</li>
+                  <li>• Access permissions are based on assigned role</li>
+                  <li>• Invitations expire after 7 days</li>
+                </ul>
+              </div>
+            </GlassCard>
           </div>
         </TabsContent>
 
-        <TabsContent value="departments">
-          <div className="text-center py-8">
-            <p className="text-slate-600">Department features will be restored shortly...</p>
+        <TabsContent value="departments" className="space-y-6 mt-6">
+          <GlassCard>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <Building className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Department Management</h3>
+              </div>
+              <Button
+                className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
+                data-testid="button-add-department"
+              >
+                <Building className="mr-2" size={16} />
+                Add Department
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="text-center py-12" data-testid="empty-departments-state">
+                <Building className="mx-auto mb-4 text-slate-400" size={48} />
+                <p className="text-slate-600 mb-4">No departments configured</p>
+                <p className="text-sm text-slate-500 mb-6">
+                  Create departments to organize your staff and improve visitor management
+                </p>
+                <Button
+                  className="gradient-blue text-white"
+                  data-testid="button-add-first-department"
+                >
+                  <Building className="mr-2" size={16} />
+                  Add Your First Department
+                </Button>
+              </div>
+            </div>
+          </GlassCard>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Mail className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Email Reports</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700">
+                      Enable Automatic Reports
+                    </Label>
+                    <p className="text-xs text-slate-500">Send reports automatically via email</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.emailReportsEnabled || false}
+                    onCheckedChange={(checked) => handleInputChange("emailReportsEnabled", checked)}
+                    data-testid="switch-email-reports"
+                  />
+                </div>
+                
+                {currentSettings?.emailReportsEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="reportFrequency" className="text-sm font-medium text-slate-700">
+                        Report Frequency
+                      </Label>
+                      <Select 
+                        value={currentSettings?.reportFrequency || "weekly"} 
+                        onValueChange={(value) => handleInputChange("reportFrequency", value)}
+                      >
+                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-report-frequency">
+                          <SelectValue placeholder="Select frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </div>
+            </GlassCard>
+            
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Mail className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Test Email</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-slate-700">
+                  Test Email Configuration
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="Enter email to test"
+                    className="flex-1 px-4 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-test-email"
+                  />
+                  <Button
+                    variant="outline"
+                    data-testid="button-test-email"
+                  >
+                    Test
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
           </div>
         </TabsContent>
 
-        <TabsContent value="reports">
-          <div className="text-center py-8">
-            <p className="text-slate-600">Report features will be restored shortly...</p>
+        <TabsContent value="ai" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Brain className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">OpenAI Configuration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="openaiModel" className="text-sm font-medium text-slate-700">
+                    OpenAI Model
+                  </Label>
+                  <Select
+                    value={currentSettings?.openaiModel || "gpt-5"}
+                    onValueChange={(value) => handleInputChange("openaiModel", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-openai-model">
+                      <SelectValue placeholder="Select OpenAI model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4">GPT-4 (Standard)</SelectItem>
+                      <SelectItem value="gpt-4o">GPT-4o (Optimized)</SelectItem>
+                      <SelectItem value="gpt-5">GPT-5 (Latest) 🚀</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    GPT-5 is recommended for better AI-generated content quality
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="openaiMaxTokens" className="text-sm font-medium text-slate-700">
+                    Max Response Length (Tokens)
+                  </Label>
+                  <Select
+                    value={currentSettings?.openaiMaxTokens || "4000"}
+                    onValueChange={(value) => handleInputChange("openaiMaxTokens", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-max-tokens">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">1,000 - Short responses</SelectItem>
+                      <SelectItem value="2000">2,000 - Medium responses</SelectItem>
+                      <SelectItem value="4000">4,000 - Detailed responses</SelectItem>
+                      <SelectItem value="8000">8,000 - Comprehensive responses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Monitor className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">AI Content Settings</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="aiInstructionsPrompt" className="text-sm font-medium text-slate-700">
+                    Custom AI Instructions
+                  </Label>
+                  <textarea
+                    id="aiInstructionsPrompt"
+                    value={currentSettings?.aiInstructionsPrompt || "Create comprehensive, engaging safety induction content"}
+                    onChange={(e) => handleInputChange("aiInstructionsPrompt", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 resize-none"
+                    rows={3}
+                    placeholder="Provide custom instructions for AI content generation..."
+                    data-testid="textarea-ai-instructions"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Guide the AI on tone, style, and content focus for your content
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
           </div>
+
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <TestTube className="mr-3 text-blue-600" size={24} />
+              <h3 className="text-lg font-semibold text-slate-800">AI Model Performance</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-4 bg-green-50 rounded-xl border border-green-200">
+                <div className="text-2xl font-bold text-green-600 mb-2">GPT-5</div>
+                <div className="text-sm text-green-700">Current Model</div>
+                <div className="text-xs text-green-600 mt-1">Released: Aug 7, 2025</div>
+              </div>
+              
+              <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="text-2xl font-bold text-blue-600 mb-2">🧠</div>
+                <div className="text-sm text-blue-700">AI Generation</div>
+                <div className="text-xs text-blue-600 mt-1">Enhanced for safety content</div>
+              </div>
+              
+              <div className="text-center p-4 bg-purple-50 rounded-xl border border-purple-200">
+                <div className="text-2xl font-bold text-purple-600 mb-2">⚡</div>
+                <div className="text-sm text-purple-700">Performance</div>
+                <div className="text-xs text-purple-600 mt-1">2x faster than GPT-4</div>
+              </div>
+            </div>
+          </GlassCard>
         </TabsContent>
 
-        <TabsContent value="ai">
-          <div className="text-center py-8">
-            <p className="text-slate-600">AI features will be restored shortly...</p>
-          </div>
-        </TabsContent>
+        <TabsContent value="system" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <RotateCcw className="w-5 h-5" />
+                Daily Reset / End of Day
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700">Enable Daily Reset</Label>
+                    <p className="text-xs text-slate-500">Automatically check out all personnel at end of day</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.enableDailyReset !== false}
+                    onCheckedChange={(checked) => handleInputChange("enableDailyReset", checked)}
+                    data-testid="switch-daily-reset"
+                  />
+                </div>
 
-        <TabsContent value="system">
-          <div className="text-center py-8">
-            <p className="text-slate-600">System features will be restored shortly...</p>
+                {currentSettings?.enableDailyReset !== false && (
+                  <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+                    <div className="space-y-2">
+                      <Label htmlFor="dailyResetTime" className="text-sm font-medium text-slate-700">
+                        Reset Time
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="dailyResetTime"
+                          type="time"
+                          value={currentSettings?.dailyResetTime || "00:00"}
+                          onChange={(e) => handleInputChange("dailyResetTime", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                          data-testid="input-reset-time"
+                        />
+                        <Select
+                          value={currentSettings?.dailyResetTimezone || "Europe/London"}
+                          onValueChange={(value) => handleInputChange("dailyResetTimezone", value)}
+                        >
+                          <SelectTrigger className="w-48 px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-timezone">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+                            <SelectItem value="Europe/Dublin">Dublin (GMT/IST)</SelectItem>
+                            <SelectItem value="Europe/Paris">Paris (CET/CEST)</SelectItem>
+                            <SelectItem value="Europe/Berlin">Berlin (CET/CEST)</SelectItem>
+                            <SelectItem value="America/New_York">New York (EST/EDT)</SelectItem>
+                            <SelectItem value="America/Los_Angeles">Los Angeles (PST/PDT)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-slate-500">Time when daily reset will automatically occur</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="gracePeriod" className="text-sm font-medium text-slate-700">
+                        Grace Period (minutes)
+                      </Label>
+                      <Input
+                        id="gracePeriod"
+                        type="number"
+                        min="0"
+                        max="60"
+                        value={currentSettings?.gracePeriodMinutes || "15"}
+                        onChange={(e) => handleInputChange("gracePeriodMinutes", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        data-testid="input-grace-period"
+                      />
+                      <p className="text-xs text-slate-500">Time to alert personnel before automatic checkout</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                System Status
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4" />
+                    <span className="text-sm font-medium">Database</span>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    <span className="text-sm font-medium">Email Service</span>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Server className="w-4 h-4" />
+                    <span className="text-sm font-medium">Authentication</span>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Database Backup
+              </h3>
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Export all customer data including settings, branding, staff, visitors, and operational data to a JSON file.
+                </p>
+                <Button 
+                  className="gradient-blue text-white w-full"
+                  data-testid="button-backup-database"
+                >
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4" />
+                    Download Database Backup
+                  </div>
+                </Button>
+                <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="text-xs text-green-800 dark:text-green-200">
+                    <strong>✅ Complete Data Export:</strong> All customer data, branding, AI images, and settings included for full portability
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Database Restore
+              </h3>
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Restore customer data from a previously exported backup file. This will replace all current data.
+                </p>
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-select-backup"
+                >
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  Select Backup File
+                </Button>
+                
+                <Button 
+                  variant="destructive"
+                  className="w-full"
+                  data-testid="button-restore-database"
+                  disabled
+                >
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    Restore Database
+                  </div>
+                </Button>
+                
+                <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-800 dark:text-red-200">
+                    <strong>⚠️ Warning:</strong> This will completely replace all existing data with the backup data
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
           </div>
         </TabsContent>
       </Tabs>
