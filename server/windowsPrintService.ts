@@ -88,7 +88,7 @@ export class WindowsPrintService {
         console.log(`⚠️ ${method} failed: ${result.message}`);
       } catch (error) {
         // Windows environment: Method error
-        console.log(`❌ ${method} error:`, error.message);
+        console.log(`❌ ${method} error:`, error instanceof Error ? error.message : 'Unknown error');
       }
     }
 
@@ -259,7 +259,7 @@ export class WindowsPrintService {
             if (fs.existsSync(textFile)) fs.unlinkSync(textFile);
             if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
           } catch (e) {
-            console.log('Cleanup warning:', e.message);
+            console.log('Cleanup warning:', e instanceof Error ? e.message : 'Unknown error');
           }
         }, 5000);
 
@@ -487,6 +487,195 @@ export class WindowsPrintService {
       .replace(/\{id\}/g, data.id || '')
       .replace(/\{phone\}/g, data.phone || '')
       .replace(/\{email\}/g, data.email || '');
+  }
+
+  /**
+   * Generate HTML optimized for thermal printers (method expected by routes.ts)
+   */
+  async generateThermalHTML(elements: any[], data: any, printerSettings: any): Promise<string> {
+    const convertedElements: WindowsPrintElement[] = elements.map(el => ({
+      type: el.type,
+      x: el.x,
+      y: el.y,
+      width: el.width,
+      height: el.height,
+      content: el.content,
+      fontSize: el.fontSize,
+      fontWeight: el.fontWeight,
+      alignment: el.alignment
+    }));
+    
+    const convertedData: PrintData = {
+      fullName: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+      company: data.company,
+      purpose: data.purpose,
+      date: data.date,
+      time: data.time,
+      hostName: data.host,
+      id: data.passId,
+      phone: data.phone,
+      email: data.email
+    };
+    
+    return this.generateHTML(convertedElements, convertedData);
+  }
+
+  /**
+   * Print to Windows printer (method expected by routes.ts)
+   */
+  async printToWindowsPrinter(htmlContent: string, printerSettings: any): Promise<{
+    success: boolean;
+    message: string;
+    printer?: string;
+  }> {
+    const printerName = printerSettings?.printerName || 'TEC B-EV4 Desktop Printer';
+    
+    try {
+      // Create a temporary HTML file
+      const htmlFile = path.join(this.tempDir, `thermal_pass_${Date.now()}.html`);
+      fs.writeFileSync(htmlFile, htmlContent);
+      
+      console.log(`🪟 Windows printing to: ${printerName}`);
+      console.log(`📄 HTML file: ${htmlFile}`);
+      
+      if (process.platform !== 'win32') {
+        // Development mode - simulate Windows printing
+        return {
+          success: true,
+          message: 'Windows printing simulated (Linux development environment)',
+          printer: printerName
+        };
+      }
+      
+      // Try multiple Windows printing methods
+      const methods = [
+        () => this.printWithPowerShell(htmlFile, printerName),
+        () => this.printWithPrintCommand(htmlFile, printerName),
+        () => this.printWithEdgeHeadless(htmlFile, printerName)
+      ];
+      
+      for (const method of methods) {
+        try {
+          const result = await method();
+          if (result.success) {
+            // Cleanup after successful print
+            setTimeout(() => {
+              try {
+                if (fs.existsSync(htmlFile)) fs.unlinkSync(htmlFile);
+              } catch (e) {
+                console.log('Cleanup warning:', e.message);
+              }
+            }, 5000);
+            
+            return {
+              success: true,
+              message: result.message,
+              printer: printerName
+            };
+          }
+        } catch (error) {
+          console.log(`⚠️ Print method failed:`, error.message);
+        }
+      }
+      
+      return {
+        success: false,
+        message: 'All Windows printing methods failed. Check printer connection and drivers.'
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        message: `Windows printing error: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Print using PowerShell with IE print automation
+   */
+  private async printWithPowerShell(htmlFile: string, printerName: string): Promise<{ success: boolean; message: string }> {
+    const psScript = `
+      $ie = New-Object -ComObject InternetExplorer.Application
+      $ie.Visible = $false
+      $ie.Navigate("file:///${htmlFile.replace(/\\/g, '/')}")
+      while($ie.Busy) { Start-Sleep -Milliseconds 100 }
+      while($ie.Document.ReadyState -ne "complete") { Start-Sleep -Milliseconds 100 }
+      $ie.ExecWB(6, 2)
+      $ie.Quit()
+    `;
+    
+    const psFile = path.join(this.tempDir, `print_${Date.now()}.ps1`);
+    fs.writeFileSync(psFile, psScript);
+    
+    try {
+      await execAsync(`powershell -ExecutionPolicy Bypass -File "${psFile}"`);
+      
+      // Cleanup PowerShell file
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
+        } catch (e) {}
+      }, 2000);
+      
+      return {
+        success: true,
+        message: `✅ PowerShell print completed to ${printerName}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `PowerShell print failed: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Print using Windows print command
+   */
+  private async printWithPrintCommand(htmlFile: string, printerName: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const printCmd = `print /D:"${printerName}" "${htmlFile}"`;
+      await execAsync(printCmd);
+      
+      return {
+        success: true,
+        message: `✅ Windows print command completed to ${printerName}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Print command failed: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Print using Edge headless mode
+   */
+  private async printWithEdgeHeadless(htmlFile: string, printerName: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const edgeCmd = `"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --headless --disable-gpu --print-to-pdf --no-margins "${htmlFile}"`;
+      await execAsync(edgeCmd);
+      
+      const pdfFile = htmlFile.replace('.html', '.pdf');
+      if (fs.existsSync(pdfFile)) {
+        const printPdfCmd = `powershell -Command "Start-Process -FilePath '${pdfFile}' -Verb Print -WindowStyle Hidden"`;
+        await execAsync(printPdfCmd);
+        
+        return {
+          success: true,
+          message: `✅ Edge headless print completed to ${printerName}`
+        };
+      } else {
+        throw new Error('PDF generation failed');
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `Edge headless failed: ${error.message}`
+      };
+    }
   }
 
   /**

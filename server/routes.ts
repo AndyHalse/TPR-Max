@@ -7040,6 +7040,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // WINDOWS: Windows-specific thermal printing using Windows print spooler
+  app.post("/api/thermal-passes/print-windows", async (req, res) => {
+    try {
+      const { elements, data, printerSettings } = req.body;
+      
+      if (!elements || !data) {
+        return res.status(400).json({ error: 'Missing elements or data' });
+      }
+      
+      console.log('🪟 Windows thermal printing request received');
+      
+      const windowsPrintService = new (await import('./windowsPrintService')).WindowsPrintService();
+      
+      // Generate HTML content optimized for thermal printing
+      const htmlContent = await windowsPrintService.generateThermalHTML(elements, data, printerSettings);
+      
+      // Attempt Windows printing with fallback methods
+      const printResult = await windowsPrintService.printToWindowsPrinter(htmlContent, printerSettings);
+      
+      if (printResult.success) {
+        console.log(`✅ Windows thermal print successful: ${printResult.message}`);
+        res.json({
+          success: true,
+          message: printResult.message,
+          method: 'Windows Print Spooler',
+          printer: printResult.printer || 'Default thermal printer',
+          size: htmlContent.length
+        });
+      } else {
+        console.log(`❌ Windows thermal print failed: ${printResult.message}`);
+        res.status(500).json({
+          success: false,
+          error: printResult.message || 'Windows printing failed'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Windows thermal printing error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Windows thermal printing failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Get Zebra printer capabilities
   app.get("/api/printers/zebra/capabilities", async (req, res) => {
     try {
