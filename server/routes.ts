@@ -2292,6 +2292,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Comprehensive printer diagnostics for troubleshooting Windows deployment
+  app.get("/api/printers/diagnostics", async (req, res) => {
+    try {
+      const { execSync } = await import("child_process");
+      const platform = process.platform;
+      
+      const diagnostics = {
+        timestamp: new Date().toISOString(),
+        platform: platform,
+        isWindows: platform === 'win32',
+        results: {} as any
+      };
+
+      if (platform === 'win32') {
+        // Real Windows diagnostics
+        diagnostics.results.windowsVersion = await getWindowsVersion();
+        diagnostics.results.printerDetection = await runPrinterDetection();
+        diagnostics.results.tecPrinterSearch = await searchForTecPrinter();
+        diagnostics.results.printSpoolerStatus = await checkPrintSpooler();
+        diagnostics.results.usbDevices = await checkUsbDevices();
+      } else {
+        // Development environment - show what will happen on Windows
+        diagnostics.results = {
+          message: "Development environment detected. Here's what will run on Windows:",
+          windowsCommands: [
+            "powershell.exe -Command \"Get-Printer | Select-Object Name, DriverName, PortName, PrinterStatus | ConvertTo-Json\"",
+            "wmic printer get name /format:csv",
+            "Get-Service Spooler",
+            "Get-PnpDevice -Class Printer"
+          ],
+          expectedTecPrinter: "TEC B-EV4 Desktop Printer",
+          deploymentReady: true
+        };
+      }
+
+      res.json({
+        success: true,
+        diagnostics
+      });
+
+      async function getWindowsVersion() {
+        try {
+          const output = execSync('ver', { encoding: 'utf8', timeout: 5000 });
+          return { success: true, version: output.trim() };
+        } catch (error) {
+          return { success: false, error: error.message };
+        }
+      }
+
+      async function runPrinterDetection() {
+        try {
+          console.log('🔍 Running comprehensive printer detection...');
+          const { directPrintService } = await import('./directPrintService');
+          const printers = await directPrintService.getAvailablePrinters();
+          const thermalPrinter = await directPrintService.findThermalPrinter();
+          
+          return {
+            success: true,
+            allPrinters: printers,
+            detectedThermalPrinter: thermalPrinter,
+            printerCount: printers.length
+          };
+        } catch (error) {
+          return { success: false, error: error.message };
+        }
+      }
+
+      async function searchForTecPrinter() {
+        try {
+          const output = execSync('powershell.exe -Command "Get-Printer | Where-Object {$_.Name -like \'*TEC*\' -or $_.Name -like \'*B-EV4*\'} | Select-Object Name, DriverName, PortName, PrinterStatus | ConvertTo-Json"', 
+            { encoding: 'utf8', timeout: 10000 });
+          
+          if (output.trim()) {
+            const tecPrinters = JSON.parse(output);
+            return {
+              success: true,
+              found: true,
+              tecPrinters: Array.isArray(tecPrinters) ? tecPrinters : [tecPrinters]
+            };
+          } else {
+            return { success: true, found: false, message: 'No TEC printers found' };
+          }
+        } catch (error) {
+          return { success: false, error: error.message };
+        }
+      }
+
+      async function checkPrintSpooler() {
+        try {
+          const output = execSync('powershell.exe -Command "Get-Service Spooler | Select-Object Name, Status | ConvertTo-Json"', 
+            { encoding: 'utf8', timeout: 5000 });
+          
+          const spooler = JSON.parse(output);
+          return {
+            success: true,
+            spoolerRunning: spooler.Status === 'Running',
+            status: spooler.Status
+          };
+        } catch (error) {
+          return { success: false, error: error.message };
+        }
+      }
+
+      async function checkUsbDevices() {
+        try {
+          const output = execSync('powershell.exe -Command "Get-PnpDevice -Class Printer | Where-Object {$_.Status -eq \'OK\'} | Select-Object FriendlyName, Status | ConvertTo-Json"', 
+            { encoding: 'utf8', timeout: 10000 });
+          
+          if (output.trim()) {
+            const devices = JSON.parse(output);
+            return {
+              success: true,
+              usbPrinters: Array.isArray(devices) ? devices : [devices]
+            };
+          } else {
+            return { success: true, usbPrinters: [] };
+          }
+        } catch (error) {
+          return { success: false, error: error.message };
+        }
+      }
+
+    } catch (error) {
+      console.error('Printer diagnostics error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to run printer diagnostics',
+        details: error.message
+      });
+    }
+  });
+
   // Printer Configuration endpoints
   app.get("/api/printers/configurations", async (req, res) => {
     try {

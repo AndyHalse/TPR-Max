@@ -40,44 +40,106 @@ export class DirectPrintService {
         return [];
       }
 
-      const { stdout } = await execAsync('wmic printer get name /format:csv');
-      const lines = stdout.split('\n').filter(line => line.trim() && !line.startsWith('Node,Name'));
-      const printers = lines.map(line => {
-        const parts = line.split(',');
-        return parts[1]?.trim() || '';
-      }).filter(name => name && name !== 'Name');
-
-      console.log('🖨️ Available printers:', printers);
+      console.log('🔍 Detecting Windows printers using multiple methods...');
+      let printers: string[] = [];
+      
+      // Method 1: PowerShell Get-Printer (most reliable for installed printers)
+      try {
+        const { stdout: psOutput } = await execAsync('powershell.exe -Command "Get-Printer | Select-Object Name | ConvertTo-Json"', { timeout: 15000 });
+        const psResult = JSON.parse(psOutput);
+        const psPrinters = Array.isArray(psResult) ? psResult.map(p => p.Name) : [psResult.Name];
+        printers.push(...psPrinters.filter(Boolean));
+        console.log('✅ PowerShell detected printers:', psPrinters);
+      } catch (psError) {
+        console.log('⚠️ PowerShell printer detection failed:', psError.message);
+      }
+      
+      // Method 2: WMIC (fallback method)
+      try {
+        const { stdout } = await execAsync('wmic printer get name /format:csv');
+        const lines = stdout.split('\n').filter(line => line.trim() && !line.startsWith('Node,Name'));
+        const wmicPrinters = lines.map(line => {
+          const parts = line.split(',');
+          return parts[1]?.trim() || '';
+        }).filter(name => name && name !== 'Name');
+        
+        // Add any new printers not found by PowerShell
+        wmicPrinters.forEach(printer => {
+          if (!printers.includes(printer)) {
+            printers.push(printer);
+          }
+        });
+        console.log('✅ WMIC detected additional printers:', wmicPrinters);
+      } catch (wmicError) {
+        console.log('⚠️ WMIC printer detection failed:', wmicError.message);
+      }
+      
+      // Remove duplicates and empty entries
+      printers = [...new Set(printers)].filter(Boolean);
+      
+      console.log(`🖨️ Final printer list (${printers.length} total):`);
+      printers.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+      
       return printers;
     } catch (error) {
-      console.error('Error getting printers:', error);
+      console.error('❌ Error getting printers:', error);
       return [];
     }
   }
 
   /**
-   * Find B-FV4 thermal printer or similar thermal printer
+   * Find TEC B-EV4 thermal printer or similar thermal printer
    */
   async findThermalPrinter(): Promise<string | null> {
     const printers = await this.getAvailablePrinters();
     
-    // Look for B-FV4 or thermal printer keywords
-    const thermalKeywords = ['b-fv4', 'thermal', 'label', 'bixolon', 'thermal transfer'];
+    console.log(`🔍 Searching for TEC B-EV4 among ${printers.length} detected printers...`);
     
+    // Enhanced keywords for TEC B-EV4 and similar thermal printers
+    const tecKeywords = [
+      'tec b-ev4', 'tec b-fv4', 'tec desktop', 'b-ev4', 'b-fv4',
+      'thermal transfer', 'thermal', 'label printer', 'desktop printer',
+      'toshiba tec', 'tec', 'barcode printer', 'receipt printer'
+    ];
+    
+    // First priority: Look for exact TEC B-EV4 matches
     for (const printer of printers) {
       const printerLower = printer.toLowerCase();
-      if (thermalKeywords.some(keyword => printerLower.includes(keyword))) {
+      console.log(`🖨️ Checking printer: "${printer}"`);
+      
+      if (printerLower.includes('tec') && (printerLower.includes('b-ev4') || printerLower.includes('b-fv4'))) {
+        console.log('🎯 Found exact TEC B-EV4 printer:', printer);
+        return printer;
+      }
+    }
+    
+    // Second priority: Look for TEC printers
+    for (const printer of printers) {
+      const printerLower = printer.toLowerCase();
+      if (printerLower.includes('tec') && (printerLower.includes('desktop') || printerLower.includes('thermal'))) {
+        console.log('🎯 Found TEC thermal printer:', printer);
+        return printer;
+      }
+    }
+    
+    // Third priority: Look for any thermal printer
+    for (const printer of printers) {
+      const printerLower = printer.toLowerCase();
+      if (tecKeywords.some(keyword => printerLower.includes(keyword))) {
         console.log('🎯 Found thermal printer:', printer);
         return printer;
       }
     }
 
-    // If no thermal printer found, return the first available printer
+    // If no thermal printer found, show available options
     if (printers.length > 0) {
-      console.log('⚠️ No thermal printer found, using default:', printers[0]);
+      console.log('⚠️ No thermal printer detected. Available printers:');
+      printers.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+      console.log('⚠️ Using first available printer as fallback:', printers[0]);
       return printers[0];
     }
 
+    console.error('❌ No printers detected on system');
     return null;
   }
 

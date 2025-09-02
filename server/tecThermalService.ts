@@ -131,6 +131,15 @@ export class TecThermalService {
       const platform = os.platform();
       
       if (platform === 'win32') {
+        // Use enhanced printer detection from DirectPrintService
+        console.log('🔍 Detecting TEC B-EV4 printer using enhanced detection...');
+        const { directPrintService } = await import('./directPrintService');
+        const detectedPrinter = await directPrintService.findThermalPrinter();
+        
+        if (detectedPrinter) {
+          console.log(`🎯 Using detected TEC printer: ${detectedPrinter}`);
+          this.printerName = detectedPrinter;
+        }
         // Windows 11 methods for real deployment
         try {
           // Method 1: Direct copy to printer (most reliable for thermal printers)
