@@ -6907,38 +6907,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SaaS: Universal PDF printing endpoint for browser-based printing
   app.post("/api/thermal-passes/pdf", async (req, res) => {
     try {
-      console.log('📄 Starting PDF generation...');
+      console.log('📄 Starting PDF generation with pdf-lib...');
       
-      // Import jsPDF directly for testing
-      const { jsPDF } = await import('jspdf');
+      // Import pdf-lib for reliable PDF generation
+      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
       
-      // Create a minimal test PDF
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm', 
-        format: [95, 65]
+      // Create new PDF document
+      const pdfDoc = await PDFDocument.create();
+      
+      // Add a page with thermal pass dimensions (95mm x 65mm)
+      const page = pdfDoc.addPage([269, 184]); // 95mm = 269pts, 65mm = 184pts at 72dpi
+      
+      // Embed font
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      
+      // Get page dimensions
+      const { width, height } = page.getSize();
+      
+      // Add pass content
+      page.drawText('VISITOR PASS', {
+        x: 20,
+        y: height - 40,
+        size: 16,
+        font: boldFont,
+        color: rgb(0, 0, 0),
       });
       
-      // Add simple content
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(14);
-      pdf.text('VISITOR PASS', 10, 15);
+      page.drawText('Name: John Smith', {
+        x: 20,
+        y: height - 65,
+        size: 12,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
       
-      pdf.setFontSize(12);
-      pdf.text('Name: John Smith', 10, 25);
-      pdf.text('Company: Tech Corp', 10, 32);
-      pdf.text('Date: ' + new Date().toLocaleDateString(), 10, 39);
-      pdf.text('Host: Reception', 10, 46);
+      page.drawText('Company: Tech Corp Ltd', {
+        x: 20,
+        y: height - 85,
+        size: 12,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+      
+      page.drawText('Date: ' + new Date().toLocaleDateString(), {
+        x: 20,
+        y: height - 105,
+        size: 10,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+      
+      page.drawText('Host: Reception', {
+        x: 20,
+        y: height - 125,
+        size: 10,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
       
       // Add border
-      pdf.setLineWidth(0.5);
-      pdf.rect(5, 5, 85, 55);
+      page.drawRectangle({
+        x: 10,
+        y: 10,
+        width: width - 20,
+        height: height - 20,
+        borderColor: rgb(0, 0, 0),
+        borderWidth: 1,
+      });
       
-      // Generate as array buffer
-      const arrayBuffer = pdf.output('arraybuffer');
-      const buffer = Buffer.from(arrayBuffer);
+      // Generate PDF bytes
+      const pdfBytes = await pdfDoc.save();
+      const buffer = Buffer.from(pdfBytes);
       
-      console.log(`📄 Minimal PDF created: ${buffer.length} bytes`);
+      console.log(`📄 PDF created with pdf-lib: ${buffer.length} bytes`);
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=visitor-pass.pdf');
