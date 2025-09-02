@@ -6904,95 +6904,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // SaaS: Universal PDF printing endpoint for browser-based printing
+  // SaaS: Browser-compatible print page endpoint 
   app.post("/api/thermal-passes/pdf", async (req, res) => {
     try {
-      console.log('📄 Starting PDF generation with pdf-lib...');
+      console.log('📄 Generating browser-printable HTML page...');
       
-      // Import pdf-lib for reliable PDF generation
-      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+      const { elements, data } = req.body;
+      const visitorData = data || {
+        name: 'John Smith',
+        company: 'Tech Corp Ltd',
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        host: 'Reception',
+        id: '#' + Math.random().toString(36).substr(2, 8).toUpperCase()
+      };
       
-      // Create new PDF document
-      const pdfDoc = await PDFDocument.create();
+      // Generate HTML page optimized for thermal printer dimensions
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Visitor Pass - Print</title>
+    <style>
+        @page {
+            size: 95mm 65mm;
+            margin: 0;
+        }
+        @media print {
+            body { 
+                margin: 0; 
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print { display: none; }
+            .pass { 
+                page-break-inside: avoid; 
+                box-shadow: none;
+            }
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .pass {
+            width: 95mm;
+            height: 65mm;
+            background: white;
+            border: 2px solid #333;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 8mm;
+            box-sizing: border-box;
+        }
+        
+        .header {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 6mm;
+            color: #333;
+        }
+        
+        .content {
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .field {
+            margin-bottom: 2mm;
+        }
+        
+        .field strong {
+            display: inline-block;
+            width: 20mm;
+            font-weight: bold;
+        }
+        
+        .qr-placeholder {
+            position: absolute;
+            right: 8mm;
+            top: 15mm;
+            width: 20mm;
+            height: 20mm;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6px;
+            background: #f9f9f9;
+        }
+        
+        .footer {
+            position: absolute;
+            bottom: 5mm;
+            left: 8mm;
+            right: 8mm;
+            font-size: 8px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .instructions {
+            margin: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            text-align: center;
+            color: #1976d2;
+        }
+        
+        .print-button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px;
+        }
+        
+        .print-button:hover {
+            background: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print instructions">
+        <h3>🖨️ Visitor Pass Ready to Print</h3>
+        <p>Click the button below to open your browser's print dialog, then:</p>
+        <ul style="text-align: left; display: inline-block;">
+            <li>Select your thermal printer (or any printer)</li>
+            <li>Choose "More settings" → Paper size: Custom (95mm x 65mm)</li>
+            <li>Set margins to "None" or "Minimum"</li>
+            <li>Enable "Background graphics"</li>
+        </ul>
+        <button class="print-button" onclick="window.print()">🖨️ Print Visitor Pass</button>
+        <button class="print-button" onclick="window.close()" style="background: #666;">✕ Close</button>
+    </div>
+
+    <div class="pass">
+        <div class="header">VISITOR PASS</div>
+        
+        <div class="content">
+            <div class="field"><strong>Name:</strong> ${visitorData.name}</div>
+            <div class="field"><strong>Company:</strong> ${visitorData.company}</div>
+            <div class="field"><strong>Date:</strong> ${visitorData.date}</div>
+            <div class="field"><strong>Time:</strong> ${visitorData.time}</div>
+            <div class="field"><strong>Host:</strong> ${visitorData.host}</div>
+        </div>
+        
+        <div class="qr-placeholder">
+            QR CODE
+        </div>
+        
+        <div class="footer">
+            <span>Return to Reception</span>
+            <span>${visitorData.id}</span>
+        </div>
+    </div>
+
+    <script>
+        // Auto-trigger print dialog when page loads
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                // Only auto-print if opened in new window/tab
+                if (window.opener || window.history.length === 1) {
+                    window.print();
+                }
+            }, 500);
+        });
+        
+        // Close window after printing
+        window.addEventListener('afterprint', function() {
+            setTimeout(function() {
+                window.close();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>`;
       
-      // Add a page with thermal pass dimensions (95mm x 65mm)
-      const page = pdfDoc.addPage([269, 184]); // 95mm = 269pts, 65mm = 184pts at 72dpi
+      console.log(`📄 HTML print page generated: ${html.length} characters`);
       
-      // Embed font
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
       
-      // Get page dimensions
-      const { width, height } = page.getSize();
-      
-      // Add pass content
-      page.drawText('VISITOR PASS', {
-        x: 20,
-        y: height - 40,
-        size: 16,
-        font: boldFont,
-        color: rgb(0, 0, 0),
-      });
-      
-      page.drawText('Name: John Smith', {
-        x: 20,
-        y: height - 65,
-        size: 12,
-        font: font,
-        color: rgb(0, 0, 0),
-      });
-      
-      page.drawText('Company: Tech Corp Ltd', {
-        x: 20,
-        y: height - 85,
-        size: 12,
-        font: font,
-        color: rgb(0, 0, 0),
-      });
-      
-      page.drawText('Date: ' + new Date().toLocaleDateString(), {
-        x: 20,
-        y: height - 105,
-        size: 10,
-        font: font,
-        color: rgb(0, 0, 0),
-      });
-      
-      page.drawText('Host: Reception', {
-        x: 20,
-        y: height - 125,
-        size: 10,
-        font: font,
-        color: rgb(0, 0, 0),
-      });
-      
-      // Add border
-      page.drawRectangle({
-        x: 10,
-        y: 10,
-        width: width - 20,
-        height: height - 20,
-        borderColor: rgb(0, 0, 0),
-        borderWidth: 1,
-      });
-      
-      // Generate PDF bytes
-      const pdfBytes = await pdfDoc.save();
-      const buffer = Buffer.from(pdfBytes);
-      
-      console.log(`📄 PDF created with pdf-lib: ${buffer.length} bytes`);
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename=visitor-pass.pdf');
-      res.setHeader('Content-Length', buffer.length.toString());
-      
-      res.end(buffer);
-      
-      console.log(`📄 PDF sent to browser successfully`);
+      console.log(`📄 Print page sent to browser successfully`);
     } catch (error) {
-      console.error("PDF Generation Error:", error);
+      console.error("Print Page Generation Error:", error);
       res.status(500).json({ 
-        error: 'Failed to generate PDF',
+        error: 'Failed to generate print page',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

@@ -326,23 +326,34 @@ export function ThermalPassDesigner() {
           });
           
           if (response.ok) {
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `thermal-pass-${Date.now()}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            const html = await response.text();
             
-            // Update job as completed
-            setPrintJobs(prev => prev.map(job => 
-              job.id === jobId ? { ...job, status: 'completed' } : job
-            ));
-            setLastPrintStatus('PDF downloaded successfully');
+            // Open print page in new window
+            const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+            if (printWindow) {
+              printWindow.document.write(html);
+              printWindow.document.close();
+              printWindow.focus();
+              
+              // Update job as completed
+              setPrintJobs(prev => prev.map(job => 
+                job.id === jobId ? { ...job, status: 'completed' } : job
+              ));
+              setLastPrintStatus('Print page opened - use browser print dialog');
+            } else {
+              // Fallback: create data URL and navigate
+              const dataUrl = 'data:text/html,' + encodeURIComponent(html);
+              window.open(dataUrl, '_blank');
+              
+              setPrintJobs(prev => prev.map(job => 
+                job.id === jobId ? { ...job, status: 'completed' } : job
+              ));
+              setLastPrintStatus('Print page opened (fallback method)');
+            }
             
             toast({
-              title: "🖨️ PDF Downloaded",
-              description: "Open the PDF and use your browser's print dialog"
+              title: "🖨️ Print Page Opened",
+              description: "Use the browser's print dialog to print to your thermal printer"
             });
             return;
           }
