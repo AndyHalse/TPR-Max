@@ -240,6 +240,55 @@ export default function Settings() {
     },
   });
 
+  const deleteDepartmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/departments/${id}`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      toast({
+        title: "Success",
+        description: "Department deleted successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete department",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteDepartment = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this department? This action cannot be undone.")) {
+      deleteDepartmentMutation.mutate(id);
+    }
+  };
+
+  const handleDepartmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!departmentForm.name?.trim()) {
+      toast({
+        title: "Error",
+        description: "Department name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    departmentMutation.mutate({
+      department: {
+        name: departmentForm.name.trim(),
+        description: departmentForm.description?.trim() || "",
+        color: departmentForm.color || "bg-blue-500"
+      },
+      isEdit: !!departmentToEdit,
+      id: departmentToEdit?.id
+    });
+  };
+
   // Auto-save functionality
   const triggerAutoSave = (field: string, value: any) => {
     if (autoSaveTimeoutRef.current) {
@@ -1503,15 +1552,35 @@ export default function Settings() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Building className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Department Management</h3>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Department Management</h3>
+                  <p className="text-sm text-slate-600">
+                    Organize your workforce and improve visitor experiences with department-based routing
+                  </p>
+                </div>
               </div>
-              <Button
-                className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
-                data-testid="button-add-department"
-              >
-                <Building className="mr-2" size={16} />
-                Add Department
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="text-slate-600 border-slate-300"
+                  data-testid="button-export-departments"
+                >
+                  <Download className="mr-2" size={16} />
+                  Export
+                </Button>
+                <Button
+                  onClick={() => {
+                    setDepartmentToEdit(null);
+                    setDepartmentForm({ name: "", description: "", color: "bg-blue-500" });
+                    setShowDepartmentDialog(true);
+                  }}
+                  className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
+                  data-testid="button-add-department"
+                >
+                  <Building className="mr-2" size={16} />
+                  Add Department
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -1530,6 +1599,15 @@ export default function Settings() {
                         </h4>
                         <div className="flex gap-2">
                           <Button
+                            onClick={() => {
+                              setDepartmentToEdit(department);
+                              setDepartmentForm({
+                                name: department.name,
+                                description: department.description || "",
+                                color: department.color || "bg-blue-500"
+                              });
+                              setShowDepartmentDialog(true);
+                            }}
                             variant="ghost"
                             size="sm"
                             className="text-blue-600 hover:text-blue-800"
@@ -1538,6 +1616,7 @@ export default function Settings() {
                             <Edit size={14} />
                           </Button>
                           <Button
+                            onClick={() => handleDeleteDepartment(department.id)}
                             variant="ghost"
                             size="sm"
                             className="text-red-600 hover:text-red-800"
@@ -1552,15 +1631,22 @@ export default function Settings() {
                           {department.description}
                         </p>
                       )}
-                      <div className="mt-3 flex items-center gap-2">
-                        <div
-                          className="w-4 h-4 rounded-full border border-slate-300"
-                          style={{ backgroundColor: department.color || '#3b82f6' }}
-                          data-testid={`color-indicator-${department.id}`}
-                        />
-                        <span className="text-xs text-slate-500 capitalize">
-                          {department.color?.replace('bg-', '').replace('-500', '') || 'blue'}
-                        </span>
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-4 h-4 rounded-full border border-slate-300"
+                            style={{ backgroundColor: department.color || '#3b82f6' }}
+                            data-testid={`color-indicator-${department.id}`}
+                          />
+                          <span className="text-xs text-slate-500 capitalize">
+                            {department.color?.replace('bg-', '').replace('-500', '') || 'blue'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          <Users size={12} className="inline mr-1" />
+                          {/* Staff count would be populated from database */}
+                          0 staff
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1948,7 +2034,97 @@ export default function Settings() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialogs and modals will be added as we restore each tab */}
+      {/* Department Dialog */}
+      <Dialog open={showDepartmentDialog} onOpenChange={setShowDepartmentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {departmentToEdit ? "Edit Department" : "Add Department"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleDepartmentSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="departmentName">Department Name *</Label>
+              <Input
+                id="departmentName"
+                value={departmentForm.name || ""}
+                onChange={(e) => setDepartmentForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Engineering, Sales, Marketing"
+                required
+                data-testid="input-department-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="departmentDescription">Description</Label>
+              <Input
+                id="departmentDescription"
+                value={departmentForm.description || ""}
+                onChange={(e) => setDepartmentForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of the department"
+                data-testid="input-department-description"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="departmentColor">Department Color</Label>
+              <Select 
+                value={departmentForm.color || "bg-blue-500"} 
+                onValueChange={(value) => setDepartmentForm(prev => ({ ...prev, color: value }))}
+              >
+                <SelectTrigger data-testid="select-department-color">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bg-blue-500">🔵 Blue</SelectItem>
+                  <SelectItem value="bg-green-500">🟢 Green</SelectItem>
+                  <SelectItem value="bg-purple-500">🟣 Purple</SelectItem>
+                  <SelectItem value="bg-red-500">🔴 Red</SelectItem>
+                  <SelectItem value="bg-yellow-500">🟡 Yellow</SelectItem>
+                  <SelectItem value="bg-pink-500">🩷 Pink</SelectItem>
+                  <SelectItem value="bg-indigo-500">🟦 Indigo</SelectItem>
+                  <SelectItem value="bg-orange-500">🟠 Orange</SelectItem>
+                  <SelectItem value="bg-cyan-500">🔷 Cyan</SelectItem>
+                  <SelectItem value="bg-emerald-500">💎 Emerald</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">
+                Color coding helps staff and visitors quickly identify departments
+              </p>
+            </div>
+
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Department Benefits:</h4>
+              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                <li>• Route visitors directly to correct departments</li>
+                <li>• Generate department-specific ID badges</li>
+                <li>• Track visitor analytics per department</li>
+                <li>• Enable department-based access controls</li>
+              </ul>
+            </div>
+
+            <DialogFooter className="gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDepartmentDialog(false)}
+                data-testid="button-cancel-department"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="gradient-blue text-white"
+                disabled={departmentMutation.isPending}
+                data-testid="button-save-department"
+              >
+                {departmentMutation.isPending ? "Saving..." : departmentToEdit ? "Update" : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
