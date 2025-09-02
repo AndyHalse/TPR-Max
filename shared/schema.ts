@@ -282,7 +282,7 @@ export const companySettings = pgTable("company_settings", {
   idCardPaperSize: text("id_card_paper_size").default("cr80"), // cr80 (standard card size), cr79, custom
   idCardOrientation: text("id_card_orientation").default("landscape"), // portrait, landscape
   idCardDesign: text("id_card_design").default("[]"), // JSON string storing card element positions and styles
-  // Thermal Pass Designs for B-FV4D Printer (85mm x 66mm)
+  // Thermal Pass Designs for B-FV4D Printer (85mm x 65mm)
   visitorPassDesign: text("visitor_pass_design").default("[]"), // JSON string storing visitor thermal pass layout
   contractorPassDesign: text("contractor_pass_design").default("[]"), // JSON string storing contractor thermal pass layout
   // Suprema Biostar integration settings

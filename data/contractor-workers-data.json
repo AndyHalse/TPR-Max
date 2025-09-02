@@ -46,12 +46,12 @@
     "isActive": true,
     "inductionCompleted": true,
     "inductionCompletedAt": "2025-08-03T15:55:50.135Z",
-    "isCheckedIn": false,
-    "checkedInAt": "2025-08-31T15:01:32.834Z",
+    "isCheckedIn": true,
+    "checkedInAt": "2025-09-02T17:28:18.600Z",
     "checkedOutAt": "2025-09-01T23:15:00.011Z",
     "createdAt": "2025-08-31T14:28:11.560Z",
-    "updatedAt": "2025-09-01T23:15:00.067Z",
-    "qrCode": "CONTRACTOR-354a951f-3886-4487-9176-f0b12f6bee49-1756652492834"
+    "updatedAt": "2025-09-02T17:28:18.600Z",
+    "qrCode": "CONTRACTOR-354a951f-3886-4487-9176-f0b12f6bee49-1756834098600"
   },
   {
     "id": "3c58d5d8-8e13-4a61-9f41-c6ada55eecc4",

@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 
 export default function Settings() {
@@ -1273,7 +1273,7 @@ export default function Settings() {
             </TabsList>
 
             <TabsContent value="printer" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <GlassCard>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
@@ -1447,6 +1447,103 @@ export default function Settings() {
                         </p>
                       </div>
                     </div>
+                  </div>
+                </GlassCard>
+
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <Zap className="mr-3 text-purple-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">Zebra Printer Settings</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Enable Zebra ZPL Printing
+                      </Label>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-slate-600">Use Zebra printers with ZPL commands</p>
+                          <p className="text-xs text-slate-500">Supports network and USB Zebra printers</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.zebraEnabled || false}
+                          onCheckedChange={(checked) => handleInputChange("zebraEnabled", checked)}
+                          data-testid="switch-zebra-enabled"
+                        />
+                      </div>
+                    </div>
+
+                    {currentSettings?.zebraEnabled && (
+                      <>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Zebra Printer IP Address
+                          </Label>
+                          <Input
+                            type="text"
+                            value={currentSettings?.zebraPrinterIP || ""}
+                            onChange={(e) => handleInputChange("zebraPrinterIP", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            placeholder="192.168.1.100"
+                            data-testid="input-zebra-ip"
+                          />
+                          <p className="text-xs text-slate-500">Network IP address for direct printing (leave blank for USB)</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Zebra Printer Port
+                          </Label>
+                          <Input
+                            type="number"
+                            value={currentSettings?.zebraPrinterPort || "9100"}
+                            onChange={(e) => handleInputChange("zebraPrinterPort", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            placeholder="9100"
+                            data-testid="input-zebra-port"
+                          />
+                          <p className="text-xs text-slate-500">Default: 9100 (standard Zebra network port)</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Zebra Printer Model
+                          </Label>
+                          <Select
+                            value={currentSettings?.zebraPrinterModel || "GK420d"}
+                            onValueChange={(value) => handleInputChange("zebraPrinterModel", value)}
+                          >
+                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-zebra-model">
+                              <SelectValue placeholder="Select Zebra model" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="GK420d">GK420d (Desktop)</SelectItem>
+                              <SelectItem value="GK420t">GK420t (Desktop Thermal Transfer)</SelectItem>
+                              <SelectItem value="ZD420">ZD420 (Desktop)</SelectItem>
+                              <SelectItem value="ZD421">ZD421 (Healthcare)</SelectItem>
+                              <SelectItem value="ZD620">ZD620 (Premium Desktop)</SelectItem>
+                              <SelectItem value="ZT410">ZT410 (Industrial)</SelectItem>
+                              <SelectItem value="ZT420">ZT420 (Industrial)</SelectItem>
+                              <SelectItem value="LP2824">LP2824 (Legacy)</SelectItem>
+                              <SelectItem value="LP2844">LP2844 (Legacy)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-slate-500">Select your Zebra printer model for optimal ZPL generation</p>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Zap className="h-4 w-4 text-purple-600" />
+                            <span className="text-sm font-medium text-purple-800">Zebra DNA Support</span>
+                          </div>
+                          <p className="text-xs text-purple-600">
+                            Full ZPL (Zebra Programming Language) support with QR codes, barcodes, and custom layouts.
+                            Perfect for thermal pass printing with professional quality.
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </GlassCard>
               </div>

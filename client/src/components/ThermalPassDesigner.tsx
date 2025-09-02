@@ -11,9 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap } from "lucide-react";
 
-// Thermal pass constraints for B-FV4D (85mm x 66mm)
+// Thermal pass constraints for B-FV4D (85mm x 65mm)
 const THERMAL_PASS_WIDTH = 323; // 85mm at 96dpi
-const THERMAL_PASS_HEIGHT = 251; // 66mm at 96dpi
+const THERMAL_PASS_HEIGHT = 247; // 65mm at 96dpi
 
 interface ThermalElement {
   id: string;
@@ -39,7 +39,7 @@ interface ThermalTemplate {
   description: string;
 }
 
-// Predefined thermal templates optimized for 85mm x 66mm
+// Predefined thermal templates optimized for 85mm x 65mm
 const THERMAL_TEMPLATES: ThermalTemplate[] = [
   {
     id: 'visitor-minimal',
@@ -296,7 +296,7 @@ export function ThermalPassDesigner() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Thermal Pass Designer</h2>
-          <p className="text-muted-foreground">Design passes for B-FV4D thermal printer (85mm × 66mm)</p>
+          <p className="text-muted-foreground">Design passes for B-FV4D thermal printer (85mm × 65mm)</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={saveDesign} variant="outline">
@@ -322,7 +322,7 @@ export function ThermalPassDesigner() {
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pass Preview (85mm × 66mm)</CardTitle>
+                  <CardTitle>Pass Preview (85mm × 65mm)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div 

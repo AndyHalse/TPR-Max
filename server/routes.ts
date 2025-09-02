@@ -6839,6 +6839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===========================
   
   const { thermalPrintService } = await import("./thermalPrintService");
+  const { ZebraPrintService } = await import("./zebraPrintService");
 
   // Get thermal pass design
   app.get("/api/thermal-passes/design/:type", async (req, res) => {
@@ -6977,6 +6978,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: 'Native TEC thermal printing failed',
         details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ZEBRA ZPL: Direct Zebra printing using ZPL commands
+  app.post("/api/thermal-passes/print-zebra", async (req, res) => {
+    try {
+      const { elements, data, printerSettings } = req.body;
+      
+      if (!elements || !data) {
+        return res.status(400).json({ error: 'Missing elements or data' });
+      }
+      
+      const zebraService = new ZebraPrintService();
+      
+      // Generate ZPL from design elements
+      const zpl = await zebraService.generateZPL(elements, data);
+      
+      console.log(`🦓 Generated ZPL for Zebra printer: ${zpl.length} characters`);
+      
+      // If printer IP is provided, send directly to network printer
+      if (printerSettings?.zebraPrinterIP) {
+        const printResult = await zebraService.printToZebraPrinter(
+          zpl, 
+          printerSettings.zebraPrinterIP, 
+          printerSettings.zebraPrinterPort || 9100
+        );
+        
+        if (printResult) {
+          res.json({
+            success: true,
+            message: 'ZPL sent to Zebra printer successfully',
+            method: 'Zebra Network',
+            printer: `${printerSettings.zebraPrinterIP}:${printerSettings.zebraPrinterPort || 9100}`,
+            zplLength: zpl.length
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            error: 'Failed to send ZPL to Zebra printer'
+          });
+        }
+      } else {
+        // Return ZPL for local processing or USB printing
+        res.json({
+          success: true,
+          zpl: zpl,
+          message: 'ZPL generated successfully',
+          method: 'Zebra ZPL Generation',
+          zplLength: zpl.length
+        });
+      }
+    } catch (error) {
+      console.error('❌ Zebra ZPL printing failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Zebra ZPL printing failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get Zebra printer capabilities
+  app.get("/api/printers/zebra/capabilities", async (req, res) => {
+    try {
+      const zebraService = new ZebraPrintService();
+      const capabilities = zebraService.getZebraCapabilities();
+      
+      res.json({
+        success: true,
+        capabilities
+      });
+    } catch (error) {
+      console.error('❌ Failed to get Zebra capabilities:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get Zebra capabilities'
       });
     }
   });

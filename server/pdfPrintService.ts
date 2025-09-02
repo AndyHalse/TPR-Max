@@ -115,9 +115,9 @@ export class PDFPrintService {
    * Generate HTML for the thermal pass
    */
   private generateHTML(elements: PDFElement[], data: PDFPrintData): string {
-    // Thermal pass dimensions: 85mm x 66mm
+    // Thermal pass dimensions: 85mm x 65mm
     const passWidth = 323; // 85mm at 96dpi
-    const passHeight = 251; // 66mm at 96dpi
+    const passHeight = 247; // 65mm at 96dpi
 
     let elementsHTML = '';
 
@@ -233,11 +233,11 @@ export class PDFPrintService {
     
     console.log('📄 Creating PDF with jsPDF using', elements.length, 'design elements');
     
-    // Create PDF with thermal pass dimensions (85mm x 66mm)
+    // Create PDF with thermal pass dimensions (85mm x 65mm)
     const pdf = new jsPDF({
       orientation: 'landscape', 
       unit: 'mm',
-      format: [85, 66]
+      format: [85, 65]
     });
     
     // Set default font
@@ -245,11 +245,11 @@ export class PDFPrintService {
     
     // Process each element from the designer
     for (const element of elements) {
-      // Convert from designer canvas coordinates (323x251) to PDF mm (85x66)
+      // Convert from designer canvas coordinates (323x247) to PDF mm (85x65)
       const x = (element.x / 323) * 85;
-      const y = (element.y / 251) * 66;
+      const y = (element.y / 247) * 65;
       const width = ((element.width || 100) / 323) * 85;
-      const height = ((element.height || 20) / 251) * 66;
+      const height = ((element.height || 20) / 247) * 65;
       
       console.log(`Processing ${element.type}: x=${x.toFixed(1)}, y=${y.toFixed(1)}, content="${element.content}"`);
       
@@ -361,11 +361,11 @@ export class PDFPrintService {
     
     console.log('📄 Creating PDF with jsPDF...');
     
-    // Create PDF with thermal pass dimensions (85mm x 66mm)
+    // Create PDF with thermal pass dimensions (85mm x 65mm)
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
-      format: [85, 66]
+      format: [85, 65]
     });
     
     // Set font and basic styling
@@ -386,7 +386,7 @@ export class PDFPrintService {
     pdf.text('Host: Sarah Johnson', 5, 48);
     
     // Add border
-    pdf.rect(2, 2, 81, 62);
+    pdf.rect(2, 2, 81, 61);
     
     // Add QR code placeholder
     pdf.rect(55, 15, 25, 25);
@@ -395,8 +395,8 @@ export class PDFPrintService {
     
     // Add footer
     pdf.setFontSize(7);
-    pdf.text('Return to Reception', 5, 58);
-    pdf.text('ID: #' + Math.random().toString(36).substr(2, 6).toUpperCase(), 45, 58);
+    pdf.text('Return to Reception', 5, 57);
+    pdf.text('ID: #' + Math.random().toString(36).substr(2, 6).toUpperCase(), 45, 57);
     
     // Convert to buffer
     const pdfArrayBuffer = pdf.output('arraybuffer');
