@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap, Activity, Wrench, FileText, Plus, Trash2, ShieldCheck } from "lucide-react";
 
@@ -131,6 +132,10 @@ export function ThermalPassDesigner() {
     cutAfterPrint: true,
     backfeedAdjustment: 0 // -9.9 to +9.9mm
   });
+  
+  // Compliance dialog state
+  const [complianceDialogOpen, setComplianceDialogOpen] = useState(false);
+  const [complianceData, setComplianceData] = useState<any>(null);
 
 
   useEffect(() => {
@@ -579,6 +584,35 @@ export function ThermalPassDesigner() {
       toast({
         title: "Variable Created",
         description: `Element now shows ${variableType} from database`
+      });
+    }
+  };
+
+  // Show compliance information in dialog
+  const showComplianceDialog = async () => {
+    try {
+      const endpoint = selectedPrinter === 'tec' 
+        ? '/api/printers/tec/compliance'
+        : '/api/printers/zebra/compliance';
+      
+      const response = await fetch(endpoint);
+      const result = await response.json();
+      
+      if (result.success) {
+        setComplianceData(result.compliance);
+        setComplianceDialogOpen(true);
+      } else {
+        toast({
+          title: "Error",
+          description: "Could not load compliance information",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch compliance data",
+        variant: "destructive"
       });
     }
   };
@@ -1124,14 +1158,8 @@ export function ThermalPassDesigner() {
                         size="sm"
                         variant="outline"
                         className="w-full mt-2 text-xs"
-                        onClick={() => {
-                          window.open(
-                            selectedPrinter === 'tec' 
-                              ? '/api/printers/tec/compliance'
-                              : '/api/printers/zebra/compliance',
-                            '_blank'
-                          );
-                        }}
+                        onClick={showComplianceDialog}
+                        data-testid="button-show-compliance"
                       >
                         📋 View Full Compliance Report
                       </Button>
@@ -1440,6 +1468,99 @@ export function ThermalPassDesigner() {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Manufacturer Compliance Dialog */}
+      <Dialog open={complianceDialogOpen} onOpenChange={setComplianceDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-green-600" />
+              Manufacturer Compliance Report
+            </DialogTitle>
+          </DialogHeader>
+          
+          {complianceData && (
+            <div className="space-y-6">
+              {/* Printer Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">{complianceData.manufacturer}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{complianceData.model}</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    {Object.entries(complianceData.specifications).map(([key, value]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                        <span className="text-muted-foreground">{value as string}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Supported Commands */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Supported Commands</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Object.entries(complianceData.supportedCommands).map(([command, description]) => (
+                      <div key={command} className="p-2 bg-gray-50 rounded">
+                        <div className="font-mono text-sm font-medium">{command}</div>
+                        <div className="text-xs text-muted-foreground">{description as string}</div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Compliance Status */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Compliance Validation</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="font-medium mb-2">Standards Compliance</h4>
+                      <div className="space-y-1">
+                        {Object.entries(complianceData.compliance).map(([key, value]) => (
+                          <div key={key} className="flex justify-between text-sm">
+                            <span className="capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                            <span className={key === 'status' ? 'font-medium text-green-600' : 'text-muted-foreground'}>
+                              {value as string}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium mb-2">Validation Results</h4>
+                      <div className="space-y-1">
+                        {Object.entries(complianceData.validationResults).map(([key, value]) => (
+                          <div key={key} className="flex justify-between text-sm">
+                            <span className="capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                            <span className="text-green-600 font-medium">{value as string}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="flex justify-end">
+                <Button onClick={() => setComplianceDialogOpen(false)}>
+                  Close Report
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
