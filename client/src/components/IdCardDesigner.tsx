@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Printer, Move, Save, Settings, User, Building2, Hash, Shield } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { Staff } from "@shared/schema";
 
 interface IdCardDesignerProps {
@@ -36,13 +38,13 @@ const defaultElements: CardElement[] = [
 
 export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesignerProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [elements, setElements] = useState<CardElement[]>(defaultElements);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [lastSavedElements, setLastSavedElements] = useState<CardElement[]>([]);
 
   // Load saved design when component opens
   const loadSavedDesign = async () => {
@@ -57,7 +59,6 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
         } else {
           console.log('🎨 No saved design found, using defaults');
           setElements(defaultElements);
-          setLastSavedElements(defaultElements); // Track the initial elements
         }
       }
     } catch (error) {
@@ -76,6 +77,36 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
     }
   }, [isOpen]);
 
+  // Auto-save mutation for ID card design
+  const autoSaveMutation = useMutation({
+    mutationFn: async (designElements: CardElement[]) => {
+      console.log('💾 Auto-saving ID card design with', designElements.length, 'elements...');
+      const response = await apiRequest("PUT", "/api/idcard/design", {
+        elements: designElements,
+        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+        cardSize: 'CR80'
+      });
+      return response;
+    },
+    onSuccess: () => {
+      console.log('✅ ID card design auto-saved successfully');
+      toast({
+        title: "Auto-saved",
+        description: "ID card design saved automatically",
+        duration: 2000,
+      });
+    },
+    onError: (error) => {
+      console.error('❌ Auto-save error:', error);
+      toast({
+        title: "Auto-save failed",
+        description: "Could not save ID card design automatically",
+        variant: "destructive",
+        duration: 3000,
+      });
+    },
+  });
+
   // Mark that initial load is complete after loading is done
   React.useEffect(() => {
     if (isOpen && !isLoading && isInitialLoad) {
@@ -92,26 +123,16 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
     console.log('🔍 Auto-save effect triggered - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
     
     if (!isInitialLoad && isOpen && elements.length > 0) {
-      // Check if elements actually changed
-      const elementsChanged = JSON.stringify(elements) !== JSON.stringify(lastSavedElements);
-      console.log('🔍 Elements changed?', elementsChanged);
-      
-      if (elementsChanged) {
-        console.log('💾 Preparing auto-save for ID card design changes...');
-        const autoSaveTimer = setTimeout(() => {
-          console.log('💾 Auto-saving ID card design with', elements.length, 'elements...');
-          handleAutoSave();
-          setLastSavedElements([...elements]); // Update saved elements reference
-        }, 1000); // Auto-save after 1 second of no changes
+      console.log('💾 Preparing auto-save for ID card design changes...');
+      const autoSaveTimer = setTimeout(() => {
+        autoSaveMutation.mutate(elements);
+      }, 1000); // Auto-save after 1 second of no changes
 
-        return () => clearTimeout(autoSaveTimer);
-      } else {
-        console.log('🚫 No changes detected, skipping auto-save');
-      }
+      return () => clearTimeout(autoSaveTimer);
     } else {
       console.log('🚷 Skipping auto-save - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
     }
-  }, [elements, isInitialLoad, isOpen, lastSavedElements]);
+  }, [elements, isInitialLoad, isOpen, autoSaveMutation]);
 
   const getElementContent = (element: CardElement): string => {
     switch (element.type) {
@@ -175,77 +196,11 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
     setSelectedElement(null);
   };
 
-  const handleAutoSave = async () => {
-    try {
-      const response = await fetch('/api/idcard/design', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          elements: elements,
-          background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-          cardSize: 'CR80'
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to auto-save design');
-      }
-
-      // Show subtle auto-save feedback
-      toast({
-        title: "Auto-saved",
-        description: "ID card design saved automatically",
-        duration: 2000,
-      });
-      
-      console.log('✅ ID card design auto-saved successfully with', elements.length, 'elements');
-    } catch (error) {
-      console.error('❌ Auto-save error:', error);
-      // Show error notification for auto-save failures
-      toast({
-        title: "Auto-save failed",
-        description: "Could not save ID card design automatically",
-        variant: "destructive",
-        duration: 3000,
-      });
-    }
+  // Manual save function for the save button
+  const handleManualSave = async () => {
+    autoSaveMutation.mutate(elements);
   };
 
-  const handleSaveTemplate = async () => {
-    try {
-      const response = await fetch('/api/idcard/design', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          elements: elements,
-          background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-          cardSize: 'CR80'
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save design');
-      }
-
-      toast({
-        title: "✅ Design Saved Successfully",
-        description: "ID card template has been saved to database",
-      });
-      
-      console.log('💾 Design saved successfully to database');
-    } catch (error) {
-      console.error('Save error:', error);
-      toast({
-        title: "Save Failed", 
-        description: "Failed to save ID card design. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handlePrint = async () => {
     try {
@@ -404,11 +359,12 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
           </Button>
           <Button 
             variant="outline"
-            onClick={handleSaveTemplate}
+            onClick={handleManualSave}
             className="flex items-center gap-2"
+            disabled={autoSaveMutation.isPending}
           >
             <Save size={16} />
-            Save Template
+            {autoSaveMutation.isPending ? 'Saving...' : 'Save Template'}
           </Button>
           <Button 
             onClick={handlePrint}
