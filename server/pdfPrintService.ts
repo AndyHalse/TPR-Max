@@ -246,9 +246,9 @@ export class PDFPrintService {
     // Process each element from the designer
     for (const element of elements) {
       // Convert from designer canvas coordinates (361x247) to PDF mm (95x65)
-      const x = (element.x / 323) * 85;
+      const x = (element.x / 361) * 95;
       const y = (element.y / 247) * 65;
-      const width = ((element.width || 100) / 323) * 85;
+      const width = ((element.width || 100) / 361) * 95;
       const height = ((element.height || 20) / 247) * 65;
       
       console.log(`Processing ${element.type}: x=${x.toFixed(1)}, y=${y.toFixed(1)}, content="${element.content}"`);
@@ -301,14 +301,6 @@ export class PDFPrintService {
           pdf.setDrawColor(0, 0, 0);
           pdf.line(x, y, x + width, y);
           pdf.setDrawColor(0, 0, 0); // Reset color
-          break;
-          
-        case 'logo':
-          // Image placeholder
-          pdf.setLineWidth(0.5);
-          pdf.rect(x, y, width, height);
-          pdf.setFontSize(6);
-          pdf.text('IMAGE', x + 1, y + height/2);
           break;
       }
     }
