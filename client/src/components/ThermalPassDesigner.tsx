@@ -946,10 +946,10 @@ export function ThermalPassDesigner() {
               </div>
             </div>
 
-            {/* Right Column: Configuration & Status */}
+            {/* Right Column: Most Important First Approach */}
             <div className="xl:col-span-2 space-y-4">
               
-              {/* Element Properties */}
+              {/* 1. MOST IMPORTANT: Element Properties (when element selected) */}
               {selectedElementData && (
                 <Card>
                   <CardHeader>
@@ -1119,56 +1119,7 @@ export function ThermalPassDesigner() {
                 </Card>
               )}
 
-              {/* Manufacturer Compliance */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-green-600" />
-                    Manufacturer Compliance
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">Verified compatibility with official specifications</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-green-800">
-                          {selectedPrinter === 'tec' ? 'TEC/Toshiba B-FV4D' : 'Zebra ZPL II'}
-                        </span>
-                        <span className="text-green-600 text-sm">✅ COMPLIANT</span>
-                      </div>
-                      <div className="text-xs text-green-700 space-y-1">
-                        {selectedPrinter === 'tec' ? (
-                          <>
-                            <div>• ESC/POS command standard</div>
-                            <div>• Official Toshiba Windows driver</div>
-                            <div>• 95×65mm thermal media spec</div>
-                            <div>• USB Printer Class certified</div>
-                          </>
-                        ) : (
-                          <>
-                            <div>• ZPL II programming language</div>
-                            <div>• Zebra Link-OS compatible</div>
-                            <div>• TCP/IP port 9100 standard</div>
-                            <div>• ISO/IEC 18004 QR codes</div>
-                          </>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full mt-2 text-xs"
-                        onClick={showComplianceDialog}
-                        data-testid="button-show-compliance"
-                      >
-                        📋 View Full Compliance Report
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Print Configuration */}
+              {/* 2. Print Configuration - Essential for Printing */}
               <Card>
                 <CardHeader>
                   <CardTitle>Print Configuration</CardTitle>
@@ -1275,7 +1226,35 @@ export function ThermalPassDesigner() {
                 </CardContent>
               </Card>
 
-              {/* Printer Health Monitoring */}
+              {/* 3. Quick Compliance Status (Essential Info Only) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-green-600" />
+                    Compliance Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 text-sm">✅</span>
+                      <span className="text-sm font-medium text-green-800">
+                        {selectedPrinter === 'tec' ? 'TEC/Toshiba B-FV4D' : 'Zebra ZPL II'} Verified
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={showComplianceDialog}
+                      data-testid="button-show-compliance"
+                    >
+                      📋 View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 4. Printer Health Monitoring */}
               <Card>
                 <CardHeader>
                   <CardTitle>Printer Health</CardTitle>
