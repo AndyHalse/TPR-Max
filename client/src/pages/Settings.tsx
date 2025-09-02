@@ -301,7 +301,7 @@ export default function Settings() {
     // Debounce the auto-save
     autoSaveTimeoutRef.current = setTimeout(() => {
       const updates = { [field]: value };
-      console.log('Auto-saving:', updates);
+      console.log('Auto-saving:', field, '=', value);
       updateSettingsMutation.mutate(updates);
     }, 1500); // 1.5 second delay
   };
@@ -320,7 +320,15 @@ export default function Settings() {
 
   const handleSave = () => {
     if (Object.keys(formData).length > 0) {
+      console.log('Manual save triggered with formData:', formData);
       updateSettingsMutation.mutate(formData);
+      // Clear formData after successful manual save
+      setFormData({});
+    } else {
+      toast({
+        title: "Nothing to Save",
+        description: "All changes have been automatically saved.",
+      });
     }
   };
 
@@ -2577,7 +2585,11 @@ export default function Settings() {
                     <Mail className="w-4 h-4" />
                     <span className="text-sm font-medium">Email Service</span>
                   </div>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  {systemStatus?.services?.email ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
