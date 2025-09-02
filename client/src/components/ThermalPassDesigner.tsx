@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap } from "lucide-react";
+import { QrCode, Type, Image, AlignLeft, AlignCenter, AlignRight, RotateCcw, Save, Printer, Download, Zap, Activity, Wrench, FileText, Plus, Trash2 } from "lucide-react";
 
 // Thermal pass constraints for B-FV4D (95mm x 65mm)
 const THERMAL_PASS_WIDTH = 361; // 95mm at 96dpi
@@ -105,8 +105,21 @@ export function ThermalPassDesigner() {
   });
 
   // Printer settings for B-FV4D
-  // Printer selection
+  // Printer selection and print method
   const [selectedPrinter, setSelectedPrinter] = useState<'tec' | 'zebra'>('tec');
+  const [printMethod, setPrintMethod] = useState<'direct' | 'browser' | 'windows'>('direct');
+  const [printQuality, setPrintQuality] = useState<'reception' | 'security' | 'visitor'>('reception');
+  
+  // Print status tracking
+  const [printJobs, setPrintJobs] = useState<Array<{
+    id: string;
+    status: 'queued' | 'printing' | 'completed' | 'failed';
+    method: string;
+    printer: string;
+    timestamp: string;
+    error?: string;
+  }>>([]);
+  const [lastPrintStatus, setLastPrintStatus] = useState<string>('');
   
   const [printerSettings, setPrinterSettings] = useState({
     blackMarkSensing: true,
@@ -206,8 +219,36 @@ export function ThermalPassDesigner() {
   };
 
 
-  const handleThermalPrint = async () => {
+  // Print quality presets
+  const getQualitySettings = (quality: string) => {
+    switch (quality) {
+      case 'reception':
+        return { printSpeed: 'fast', printDensity: 'normal', thermalAdjustment: 0 };
+      case 'security':
+        return { printSpeed: 'slow', printDensity: 'dark', thermalAdjustment: 1 };
+      case 'visitor':
+        return { printSpeed: 'medium', printDensity: 'normal', thermalAdjustment: 0 };
+      default:
+        return printerSettings;
+    }
+  };
+
+  const handleMultiPrint = async (method: 'direct' | 'browser' | 'windows') => {
     setIsPrinting(true);
+    setPrintMethod(method);
+    
+    // Create print job tracking
+    const jobId = `job-${Date.now()}`;
+    const newJob = {
+      id: jobId,
+      status: 'queued' as const,
+      method,
+      printer: selectedPrinter,
+      timestamp: new Date().toLocaleTimeString('en-GB'),
+    };
+    
+    setPrintJobs(prev => [newJob, ...prev.slice(0, 4)]); // Keep last 5 jobs
+    setLastPrintStatus(`Preparing ${method} print job...`);
     
     try {
       const visitorData = {
@@ -220,70 +261,272 @@ export function ThermalPassDesigner() {
         qrCode: `VG-${Date.now()}`
       };
 
+      // Update job status to printing
+      setPrintJobs(prev => prev.map(job => 
+        job.id === jobId ? { ...job, status: 'printing' } : job
+      ));
+      setLastPrintStatus(`Sending to ${selectedPrinter.toUpperCase()} printer...`);
+
       let response;
+      const qualitySettings = getQualitySettings(printQuality);
       
-      if (selectedPrinter === 'tec') {
-        // TEC thermal printing
-        response = await fetch('/api/thermal-passes/print-tec-native', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            data: visitorData,
-            printerSettings
-          })
-        });
-      } else {
-        // Zebra ZPL printing - uses main printer settings
-        response = await fetch('/api/thermal-passes/print-zebra', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            elements: passElements,
-            data: {
-              visitor: {
-                id: 'temp-id',
-                firstName: 'John',
-                lastName: 'Smith',
-                company: 'Tech Corp Ltd',
-                email: 'john@techcorp.com',
-                phone: '+44 1234 567890',
-                checkedIn: true,
-                checkedOut: false,
-                checkinTime: new Date().toISOString(),
-                host: 'Sarah Johnson',
-                purpose: 'Meeting'
-              },
-              passType: passType,
-              host: 'Sarah Johnson'
-            }
-          })
-        });
+      switch (method) {
+        case 'direct':
+          if (selectedPrinter === 'tec') {
+            response = await fetch('/api/thermal-passes/print-tec-native', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                data: visitorData,
+                printerSettings: { ...printerSettings, ...qualitySettings }
+              })
+            });
+          } else {
+            response = await fetch('/api/thermal-passes/print-zebra', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                elements: passElements,
+                data: {
+                  visitor: {
+                    id: 'temp-id',
+                    firstName: 'John',
+                    lastName: 'Smith',
+                    company: 'Tech Corp Ltd',
+                    email: 'john@techcorp.com',
+                    phone: '+44 1234 567890',
+                    checkedIn: true,
+                    checkedOut: false,
+                    checkinTime: new Date().toISOString(),
+                    host: 'Sarah Johnson',
+                    purpose: 'Meeting'
+                  },
+                  passType: passType,
+                  host: 'Sarah Johnson'
+                }
+              })
+            });
+          }
+          break;
+          
+        case 'browser':
+          response = await fetch('/api/thermal-passes/generate-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              elements: passElements,
+              data: visitorData,
+              printerSettings: { ...printerSettings, ...qualitySettings }
+            })
+          });
+          
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `thermal-pass-${Date.now()}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            // Update job as completed
+            setPrintJobs(prev => prev.map(job => 
+              job.id === jobId ? { ...job, status: 'completed' } : job
+            ));
+            setLastPrintStatus('PDF downloaded successfully');
+            
+            toast({
+              title: "🖨️ PDF Downloaded",
+              description: "Open the PDF and use your browser's print dialog"
+            });
+            return;
+          }
+          break;
+          
+        case 'windows':
+          response = await fetch('/api/thermal-passes/print-windows', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              elements: passElements,
+              data: visitorData,
+              printerSettings: { ...printerSettings, ...qualitySettings }
+            })
+          });
+          break;
       }
 
-      if (response.ok) {
+      if (response && response.ok) {
         const result = await response.json();
+        
+        // Update job as completed
+        setPrintJobs(prev => prev.map(job => 
+          job.id === jobId ? { ...job, status: 'completed' } : job
+        ));
+        setLastPrintStatus(`Print completed via ${method}`);
+        
         toast({
-          title: selectedPrinter === 'tec' ? "🚀 TEC Print Success" : "🦓 Zebra Print Success",
-          description: `${result.message} (${result.method})`,
+          title: `✅ ${method.charAt(0).toUpperCase() + method.slice(1)} Print Success`,
+          description: `${result.message} (${result.method || method})`,
         });
-      } else {
+      } else if (response) {
         const error = await response.json();
-        throw new Error(error.error || `${selectedPrinter.toUpperCase()} printing failed`);
+        
+        // Update job as failed
+        setPrintJobs(prev => prev.map(job => 
+          job.id === jobId ? { ...job, status: 'failed', error: error.error } : job
+        ));
+        setLastPrintStatus(`Print failed: ${error.error}`);
+        
+        throw new Error(error.error || `${method} printing failed`);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to print with ${selectedPrinter.toUpperCase()}`;
+      const errorMessage = error instanceof Error ? error.message : `Failed to print with ${method}`;
+      
+      // Update job as failed
+      setPrintJobs(prev => prev.map(job => 
+        job.id === jobId ? { ...job, status: 'failed', error: errorMessage } : job
+      ));
+      setLastPrintStatus(`Print failed: ${errorMessage}`);
+      
       toast({
-        title: `${selectedPrinter.toUpperCase()} Print Error`,
+        title: `${method.charAt(0).toUpperCase() + method.slice(1)} Print Error`,
         description: errorMessage,
         variant: "destructive"
       });
     } finally {
       setIsPrinting(false);
     }
+  };
+
+  const handleCopyPrintData = async () => {
+    try {
+      const visitorData = {
+        name: 'John Smith',
+        company: 'Tech Corp Ltd',
+        host: 'Sarah Johnson',
+        date: new Date().toLocaleDateString('en-GB'),
+        time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        passId: `#${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+        qrCode: `VG-${Date.now()}`
+      };
+
+      const printData = {
+        printer: selectedPrinter,
+        method: printMethod,
+        quality: printQuality,
+        data: visitorData,
+        elements: passElements,
+        settings: printerSettings
+      };
+
+      await navigator.clipboard.writeText(JSON.stringify(printData, null, 2));
+      
+      toast({
+        title: "📋 Print Data Copied",
+        description: "Print configuration and data copied to clipboard"
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Could not copy print data to clipboard",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const checkPrinterHealth = async () => {
+    setLastPrintStatus('Checking printer health...');
+    
+    try {
+      const response = await fetch('/api/printers/detect');
+      const result = await response.json();
+      
+      if (result.success) {
+        setLastPrintStatus(`Printer health: ${result.printers?.length || 0} printers detected`);
+        toast({
+          title: "✅ Printer Health Check",
+          description: `Found ${result.printers?.length || 0} available printers`,
+        });
+      } else {
+        throw new Error(result.error || 'Health check failed');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Health check failed';
+      setLastPrintStatus(`Health check failed: ${errorMessage}`);
+      toast({
+        title: "❌ Health Check Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const runDiagnostics = async () => {
+    setLastPrintStatus('Running printer diagnostics...');
+    
+    try {
+      const response = await fetch('/api/printers/diagnostics');
+      const result = await response.json();
+      
+      if (result.success) {
+        setLastPrintStatus('Diagnostics completed successfully');
+        toast({
+          title: "🔧 Diagnostics Complete",
+          description: result.message || 'All systems operational',
+        });
+      } else {
+        throw new Error(result.error || 'Diagnostics failed');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Diagnostics failed';
+      setLastPrintStatus(`Diagnostics failed: ${errorMessage}`);
+      toast({
+        title: "❌ Diagnostics Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const testPrint = async () => {
+    setLastPrintStatus('Sending test print...');
+    
+    try {
+      const response = await fetch('/api/printers/test-raw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          printer: selectedPrinter,
+          testType: 'simple'
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setLastPrintStatus('Test print sent successfully');
+        toast({
+          title: "🧪 Test Print Sent",
+          description: result.message || 'Check your printer for test output',
+        });
+      } else {
+        throw new Error(result.error || 'Test print failed');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Test print failed';
+      setLastPrintStatus(`Test print failed: ${errorMessage}`);
+      toast({
+        title: "❌ Test Print Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleThermalPrint = async () => {
+    // Use the multi-print method with current settings
+    await handleMultiPrint(printMethod);
   };
 
 
@@ -340,10 +583,50 @@ export function ThermalPassDesigner() {
             <Save className="h-4 w-4 mr-2" />
             Save Design
           </Button>
-          <Button onClick={handleThermalPrint} disabled={isPrinting} className={selectedPrinter === 'tec' ? "bg-blue-600 hover:bg-blue-700" : "bg-purple-600 hover:bg-purple-700"}>
-            <Zap className="h-4 w-4 mr-2" />
-            {selectedPrinter === 'tec' ? '🚀 TEC Print' : '🦓 Zebra Print'}
-          </Button>
+          
+          {/* Multi-Method Print Options */}
+          <div className="flex gap-1 border rounded-lg p-1 bg-background">
+            <Button 
+              onClick={() => handleMultiPrint('browser')} 
+              disabled={isPrinting} 
+              size="sm"
+              variant="ghost"
+              className="flex-1 text-xs"
+              data-testid="button-browser-print"
+            >
+              🖨️ Browser
+            </Button>
+            <Button 
+              onClick={() => handleMultiPrint('direct')} 
+              disabled={isPrinting} 
+              size="sm"
+              variant="ghost"
+              className="flex-1 text-xs"
+              data-testid="button-direct-print"
+            >
+              ⚡ Direct
+            </Button>
+            <Button 
+              onClick={() => handleMultiPrint('windows')} 
+              disabled={isPrinting} 
+              size="sm"
+              variant="ghost"
+              className="flex-1 text-xs"
+              data-testid="button-windows-print"
+            >
+              🪟 Windows
+            </Button>
+            <Button 
+              onClick={handleCopyPrintData} 
+              disabled={isPrinting} 
+              size="sm"
+              variant="ghost"
+              className="flex-1 text-xs"
+              data-testid="button-copy-data"
+            >
+              📋 Copy
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -542,16 +825,18 @@ export function ThermalPassDesigner() {
                 </Card>
               )}
 
-              {/* Printer Selection */}
+              {/* Print Configuration */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Thermal Printer Selection</CardTitle>
+                  <CardTitle>Print Configuration</CardTitle>
+                  <p className="text-sm text-muted-foreground">Printer & Quality Settings</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Choose Printer Type</Label>
+                  {/* Printer Selection */}
+                  <div>
+                    <Label className="text-sm font-medium">Printer Type</Label>
                     <Select value={selectedPrinter} onValueChange={(value: 'tec' | 'zebra') => setSelectedPrinter(value)}>
-                      <SelectTrigger>
+                      <SelectTrigger data-testid="select-printer-type">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -569,13 +854,129 @@ export function ThermalPassDesigner() {
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedPrinter === 'tec' 
-                        ? 'Uses ESC/POS commands for TEC thermal printers'
-                        : 'Uses ZPL commands for Zebra thermal printers'
-                      }
-                    </p>
                   </div>
+
+                  {/* Print Method */}
+                  <div>
+                    <Label className="text-sm font-medium">Print Method</Label>
+                    <Select value={printMethod} onValueChange={(value: 'direct' | 'browser' | 'windows') => setPrintMethod(value)}>
+                      <SelectTrigger data-testid="select-print-method">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="direct">⚡ Direct Printer (Fastest)</SelectItem>
+                        <SelectItem value="browser">🖨️ Browser Print (Compatible)</SelectItem>
+                        <SelectItem value="windows">🪟 Windows Print (Reliable)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Print Quality Presets */}
+                  <div>
+                    <Label className="text-sm font-medium">Quality Preset</Label>
+                    <Select value={printQuality} onValueChange={(value: 'reception' | 'security' | 'visitor') => setPrintQuality(value)}>
+                      <SelectTrigger data-testid="select-print-quality">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="reception">🏃 Reception Desk (Fast)</SelectItem>
+                        <SelectItem value="visitor">🎫 Visitor Pass (Balanced)</SelectItem>
+                        <SelectItem value="security">🛡️ Security Badge (High Quality)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground bg-slate-50 p-3 rounded-lg space-y-1">
+                    <p><strong>Selected:</strong> {selectedPrinter.toUpperCase()} via {printMethod}</p>
+                    <p><strong>Quality:</strong> {printQuality} preset</p>
+                    <p><strong>Commands:</strong> {selectedPrinter === 'tec' ? 'ESC/POS' : 'ZPL'}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Print Status & Job Queue */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Print Status</CardTitle>
+                  <p className="text-sm text-muted-foreground">Real-time print job tracking</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Current Status */}
+                  <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                    <div className={`w-2 h-2 rounded-full ${isPrinting ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
+                    <span className="text-sm">{lastPrintStatus || 'Ready to print'}</span>
+                  </div>
+
+                  {/* Recent Print Jobs */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Recent Jobs</Label>
+                    {printJobs.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No recent print jobs</p>
+                    ) : (
+                      printJobs.map((job) => (
+                        <div key={job.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-1.5 h-1.5 rounded-full ${
+                              job.status === 'completed' ? 'bg-green-500' :
+                              job.status === 'failed' ? 'bg-red-500' :
+                              job.status === 'printing' ? 'bg-yellow-500 animate-pulse' :
+                              'bg-gray-400'
+                            }`}></div>
+                            <span>{job.method} → {job.printer.toUpperCase()}</span>
+                          </div>
+                          <span className="text-muted-foreground">{job.timestamp}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Printer Health Monitoring */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Printer Health</CardTitle>
+                  <p className="text-sm text-muted-foreground">Diagnostic & monitoring tools</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Health Check Button */}
+                  <Button 
+                    onClick={checkPrinterHealth} 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    disabled={isPrinting}
+                    data-testid="button-health-check"
+                  >
+                    <Activity className="h-4 w-4 mr-2" />
+                    Check Printer Health
+                  </Button>
+
+                  {/* Diagnostics Button */}
+                  <Button 
+                    onClick={runDiagnostics} 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    disabled={isPrinting}
+                    data-testid="button-diagnostics"
+                  >
+                    <Wrench className="h-4 w-4 mr-2" />
+                    Run Diagnostics
+                  </Button>
+
+                  {/* Test Print Button */}
+                  <Button 
+                    onClick={testPrint} 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    disabled={isPrinting}
+                    data-testid="button-test-print"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Test Print Sample
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -677,6 +1078,49 @@ export function ThermalPassDesigner() {
                 </CardContent>
               </Card>
               )}
+
+              {/* Print Method Guide */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Print Method Guide</CardTitle>
+                  <p className="text-sm text-muted-foreground">Choose the best method for your setup</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <span className="text-lg">⚡</span>
+                      <div>
+                        <p className="font-medium text-blue-800">Direct Print</p>
+                        <p className="text-xs text-blue-600">Best for: Network printers, USB printers with drivers</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <span className="text-lg">🖨️</span>
+                      <div>
+                        <p className="font-medium text-green-800">Browser Print</p>
+                        <p className="text-xs text-green-600">Best for: Any printer, works everywhere, manual setup</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <span className="text-lg">🪟</span>
+                      <div>
+                        <p className="font-medium text-purple-800">Windows Print</p>
+                        <p className="text-xs text-purple-600">Best for: Windows systems, local printers</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-lg">📋</span>
+                      <div>
+                        <p className="font-medium text-gray-800">Copy Data</p>
+                        <p className="text-xs text-gray-600">Best for: Troubleshooting, manual processing</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </TabsContent>
