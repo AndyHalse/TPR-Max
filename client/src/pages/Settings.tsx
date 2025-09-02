@@ -739,7 +739,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-10">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 size={16} />
             Company
@@ -751,10 +751,6 @@ export default function Settings() {
           <TabsTrigger value="printing" className="flex items-center gap-2">
             <Settings2 size={16} />
             Printing & ID
-          </TabsTrigger>
-          <TabsTrigger value="qr-readers" className="flex items-center gap-2">
-            <Scan size={16} />
-            QR Readers
           </TabsTrigger>
           <TabsTrigger value="biostar" className="flex items-center gap-2">
             <Shield size={16} />
