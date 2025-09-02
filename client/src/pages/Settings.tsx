@@ -757,7 +757,7 @@ export default function Settings() {
           </TabsTrigger>
           <TabsTrigger value="thermal-passes" className="flex items-center gap-2">
             <Printer size={16} />
-            Thermal Passes
+            Passes
           </TabsTrigger>
           <TabsTrigger value="biostar" className="flex items-center gap-2">
             <Shield size={16} />

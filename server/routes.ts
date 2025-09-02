@@ -6754,6 +6754,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // NATIVE TEC B-EV4: Direct thermal printing using raw ESC/P commands and internal fonts
+  app.post("/api/thermal-passes/print-tec-native", async (req, res) => {
+    try {
+      const { data, printerSettings } = req.body;
+      
+      if (!data) {
+        return res.status(400).json({ error: 'Missing visitor data' });
+      }
+      
+      const { TecThermalService } = await import('./tecThermalService');
+      const printerName = printerSettings?.selectedPrinter || 'TEC B-EV4 Desktop Printer';
+      const tecService = new TecThermalService(printerName);
+      
+      // Convert data to TEC thermal format
+      const passData = {
+        name: data.name || 'Visitor',
+        company: data.company || 'Guest',
+        host: data.host || 'Reception',
+        date: data.date || new Date().toLocaleDateString(),
+        time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        passId: data.passId || `#${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+        qrCode: data.qrCode || `VG-${Date.now()}`
+      };
+      
+      console.log(`🖨️ Printing native TEC thermal pass for ${passData.name} to ${printerName}`);
+      const result = await tecService.printVisitorPass(passData);
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message,
+          method: `TEC Native (${result.method})`,
+          printer: printerName
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: result.message,
+          printer: printerName
+        });
+      }
+    } catch (error) {
+      console.error('❌ Native TEC thermal printing failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Native TEC thermal printing failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // DIRECT PRINTING: True server-side printing to thermal printer using Windows drivers
   app.post("/api/thermal-passes/print-direct", async (req, res) => {
     try {
