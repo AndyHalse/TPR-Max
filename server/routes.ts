@@ -6911,6 +6911,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { elements, data } = req.body;
       const passElements = elements || [];
+      
+      console.log(`📊 Received ${passElements.length} pass elements:`, passElements.slice(0, 2));
+      console.log(`📝 Visitor data:`, data);
       const visitorData = data || {
         name: 'John Smith',
         company: 'Tech Corp Ltd',
@@ -6923,7 +6926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate dynamic element styles based on the actual pass design
       let elementsHTML = '';
       if (passElements.length > 0) {
-        elementsHTML = passElements.map(element => {
+        elementsHTML = passElements.map((element: any) => {
           let content = '';
           
           switch(element.type) {
