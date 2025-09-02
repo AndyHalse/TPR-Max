@@ -2146,7 +2146,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check email service (check if complete SMTP settings exist)
       try {
         const settings = await storage.getCompanySettings();
-        status.email = !!(settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword && settings?.smtpFromEmail);
+        // Check for required SMTP settings: host, username, password, and from name
+        status.email = !!(settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword && settings?.smtpFromName);
       } catch (emailError) {
         console.error("Email status check failed:", emailError);
       }
