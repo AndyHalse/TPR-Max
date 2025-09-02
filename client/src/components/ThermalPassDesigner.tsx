@@ -315,7 +315,7 @@ export function ThermalPassDesigner() {
           break;
           
         case 'browser':
-          response = await fetch('/api/thermal-passes/generate-pdf', {
+          response = await fetch('/api/thermal-passes/pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
