@@ -523,12 +523,8 @@ export default function Settings() {
         console.log('Auto-saving setting:', field, '=', value);
         updateSettingsMutation.mutate({ [field]: value }, {
           onSuccess: () => {
-            // Clear the field from form data since it's been saved
-            setFormData(prev => {
-              const newData = { ...prev };
-              delete newData[field];
-              return newData;
-            });
+            // Keep the field in form data to maintain user selections
+            // No need to clear since currentSettings merges both settings and formData
             
             // Show friendly messages for different field types
             let description = `${field} updated automatically`;
