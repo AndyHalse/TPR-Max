@@ -42,6 +42,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [lastSavedElements, setLastSavedElements] = useState<CardElement[]>([]);
 
   // Load saved design when component opens
   const loadSavedDesign = async () => {
@@ -56,6 +57,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
         } else {
           console.log('🎨 No saved design found, using defaults');
           setElements(defaultElements);
+          setLastSavedElements(defaultElements); // Track the initial elements
         }
       }
     } catch (error) {
@@ -87,18 +89,29 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
 
   // Auto-save design when elements change (but skip initial load)
   React.useEffect(() => {
+    console.log('🔍 Auto-save effect triggered - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
+    
     if (!isInitialLoad && isOpen && elements.length > 0) {
-      console.log('💾 Preparing auto-save for ID card design changes...');
-      const autoSaveTimer = setTimeout(() => {
-        console.log('💾 Auto-saving ID card design with', elements.length, 'elements...');
-        handleAutoSave();
-      }, 1000); // Auto-save after 1 second of no changes
+      // Check if elements actually changed
+      const elementsChanged = JSON.stringify(elements) !== JSON.stringify(lastSavedElements);
+      console.log('🔍 Elements changed?', elementsChanged);
+      
+      if (elementsChanged) {
+        console.log('💾 Preparing auto-save for ID card design changes...');
+        const autoSaveTimer = setTimeout(() => {
+          console.log('💾 Auto-saving ID card design with', elements.length, 'elements...');
+          handleAutoSave();
+          setLastSavedElements([...elements]); // Update saved elements reference
+        }, 1000); // Auto-save after 1 second of no changes
 
-      return () => clearTimeout(autoSaveTimer);
+        return () => clearTimeout(autoSaveTimer);
+      } else {
+        console.log('🚫 No changes detected, skipping auto-save');
+      }
     } else {
       console.log('🚷 Skipping auto-save - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
     }
-  }, [elements, isInitialLoad, isOpen]);
+  }, [elements, isInitialLoad, isOpen, lastSavedElements]);
 
   const getElementContent = (element: CardElement): string => {
     switch (element.type) {
