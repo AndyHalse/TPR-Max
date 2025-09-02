@@ -6907,18 +6907,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SaaS: Universal PDF printing endpoint for browser-based printing
   app.post("/api/thermal-passes/pdf", async (req, res) => {
     try {
-      const { PDFPrintService } = await import('./pdfPrintService');
-      const { elements, data, settings } = req.body;
-
-      const pdfService = new PDFPrintService();
-      const pdfBuffer = await pdfService.generatePDF(elements, data);
-
+      console.log('📄 Starting PDF generation...');
+      
+      // Import jsPDF directly for testing
+      const { jsPDF } = await import('jspdf');
+      
+      // Create a minimal test PDF
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm', 
+        format: [95, 65]
+      });
+      
+      // Add simple content
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(14);
+      pdf.text('VISITOR PASS', 10, 15);
+      
+      pdf.setFontSize(12);
+      pdf.text('Name: John Smith', 10, 25);
+      pdf.text('Company: Tech Corp', 10, 32);
+      pdf.text('Date: ' + new Date().toLocaleDateString(), 10, 39);
+      pdf.text('Host: Reception', 10, 46);
+      
+      // Add border
+      pdf.setLineWidth(0.5);
+      pdf.rect(5, 5, 85, 55);
+      
+      // Generate as array buffer
+      const arrayBuffer = pdf.output('arraybuffer');
+      const buffer = Buffer.from(arrayBuffer);
+      
+      console.log(`📄 Minimal PDF created: ${buffer.length} bytes`);
+      
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=visitor-pass.pdf');
+      res.setHeader('Content-Length', buffer.length.toString());
       
-      res.send(pdfBuffer);
+      res.end(buffer);
       
-      console.log(`📄 PDF generated for browser printing: ${pdfBuffer.length} bytes`);
+      console.log(`📄 PDF sent to browser successfully`);
     } catch (error) {
       console.error("PDF Generation Error:", error);
       res.status(500).json({ 
