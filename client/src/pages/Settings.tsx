@@ -2123,52 +2123,6 @@ export default function Settings() {
             </div>
           </GlassCard>
 
-          <GlassCard>
-            <div className="flex items-center mb-6">
-              <FileText className="mr-3 text-blue-600" size={24} />
-              <h3 className="text-lg font-semibold text-slate-800">Print Test & Troubleshooting</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 border-white/30"
-                data-testid="button-test-print"
-              >
-                <Printer size={24} />
-                <span>Test Print</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 border-white/30"
-                data-testid="button-print-to-pdf"
-              >
-                <FileText size={24} />
-                <span>Print to PDF</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center space-y-2 bg-white/50 border-white/30"
-                data-testid="button-printer-status"
-              >
-                <Monitor size={24} />
-                <span>Printer Status</span>
-              </Button>
-            </div>
-
-            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <h4 className="font-semibold text-blue-800 mb-2">Supported Printers</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• B-FV4 Desktop Thermal Printer (95mm x 66mm passes)</li>
-                <li>• Brother QL series label printers</li>
-                <li>• DYMO LabelWriter series</li>
-                <li>• Zebra desktop printers</li>
-                <li>• Any Windows-compatible printer via PDF export</li>
-              </ul>
-            </div>
-          </GlassCard>
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6 mt-6">
