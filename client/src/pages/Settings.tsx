@@ -717,7 +717,7 @@ export default function Settings() {
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-fixed">Settings</h2>
+        <h2 className="text-2xl font-bold text-fixed">Settings - TEST SINGLE RENDER</h2>
         <Button
           onClick={handleSave}
           disabled={updateSettingsMutation.isPending || Object.keys(formData).length === 0}
@@ -734,7 +734,7 @@ export default function Settings() {
       <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
         <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
         <p className="text-sm text-green-800 font-medium">
-          ✨ Auto-save enabled - All changes are automatically saved after 1.5 seconds
+          ✨ Auto-save enabled - All changes are automatically saved after 1.5 seconds (TEST VERSION)
         </p>
       </div>
 
