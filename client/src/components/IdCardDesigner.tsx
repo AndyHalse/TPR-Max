@@ -41,6 +41,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load saved design when component opens
   const loadSavedDesign = async () => {
@@ -69,8 +70,31 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   React.useEffect(() => {
     if (isOpen) {
       loadSavedDesign();
+      setIsInitialLoad(true);
     }
   }, [isOpen]);
+
+  // Auto-save design when elements change (but skip initial load)
+  React.useEffect(() => {
+    if (!isInitialLoad && isOpen && elements.length > 0) {
+      const autoSaveTimer = setTimeout(() => {
+        console.log('💾 Auto-saving ID card design...');
+        handleAutoSave();
+      }, 1000); // Auto-save after 1 second of no changes
+
+      return () => clearTimeout(autoSaveTimer);
+    }
+  }, [elements, isInitialLoad, isOpen]);
+
+  // Mark that initial load is complete when we set elements for the first time
+  React.useEffect(() => {
+    if (isInitialLoad && elements.length > 0) {
+      const timer = setTimeout(() => {
+        setIsInitialLoad(false);
+      }, 500); // Small delay to ensure we don't auto-save immediately after load
+      return () => clearTimeout(timer);
+    }
+  }, [elements, isInitialLoad]);
 
   const getElementContent = (element: CardElement): string => {
     switch (element.type) {
@@ -132,6 +156,38 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   const handleMouseUp = () => {
     setIsDragging(false);
     setSelectedElement(null);
+  };
+
+  const handleAutoSave = async () => {
+    try {
+      const response = await fetch('/api/idcard/design', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          elements: elements,
+          background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+          cardSize: 'CR80'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to auto-save design');
+      }
+
+      // Show subtle auto-save feedback
+      toast({
+        title: "Auto-saved",
+        description: "ID card design saved automatically",
+        duration: 2000,
+      });
+      
+      console.log('💾 ID card design auto-saved successfully');
+    } catch (error) {
+      console.error('Auto-save error:', error);
+      // Don't show error toast for auto-save failures, just log it
+    }
   };
 
   const handleSaveTemplate = async () => {
