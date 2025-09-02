@@ -138,10 +138,6 @@ export function ThermalPassDesigner() {
   const [complianceData, setComplianceData] = useState<any>(null);
 
 
-  useEffect(() => {
-    loadSavedDesign();
-  }, [passType]);
-
   const loadSavedDesign = async () => {
     try {
       const response = await fetch(`/api/thermal-passes/design/${passType}`);
@@ -149,13 +145,54 @@ export function ThermalPassDesigner() {
         const data = await response.json();
         if (data.success && data.design && data.design.elements?.length > 0) {
           setPassElements(data.design.elements);
-          console.log(`✅ Loaded saved ${passType} thermal pass design`);
+          console.log(`🎯 Loaded saved design`);
         }
       }
     } catch (error) {
       console.error('Error loading thermal pass design:', error);
     }
   };
+
+  const loadSavedPrinterSettings = () => {
+    try {
+      const saved = localStorage.getItem('thermal-printer-settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        if (settings.selectedPrinter) setSelectedPrinter(settings.selectedPrinter);
+        if (settings.printMethod) setPrintMethod(settings.printMethod);
+        if (settings.printQuality) setPrintQuality(settings.printQuality);
+        if (settings.printerSettings) setPrinterSettings(settings.printerSettings);
+        console.log(`🎯 Loaded saved printer settings`);
+      }
+    } catch (error) {
+      console.error('Error loading saved printer settings:', error);
+    }
+  };
+
+  const savePrinterSettings = () => {
+    try {
+      const settings = {
+        selectedPrinter,
+        printMethod,
+        printQuality,
+        printerSettings
+      };
+      localStorage.setItem('thermal-printer-settings', JSON.stringify(settings));
+      console.log(`🎯 Auto-saved printer settings`);
+    } catch (error) {
+      console.error('Error saving printer settings:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedDesign();
+    loadSavedPrinterSettings();
+  }, [passType]);
+
+  // Auto-save printer settings when they change
+  useEffect(() => {
+    savePrinterSettings();
+  }, [selectedPrinter, printMethod, printQuality, printerSettings]);
 
   const saveDesign = async () => {
     try {
