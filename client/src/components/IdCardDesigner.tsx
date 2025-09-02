@@ -77,12 +77,15 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   // Auto-save design when elements change (but skip initial load)
   React.useEffect(() => {
     if (!isInitialLoad && isOpen && elements.length > 0) {
+      console.log('💾 Preparing auto-save for ID card design changes...');
       const autoSaveTimer = setTimeout(() => {
-        console.log('💾 Auto-saving ID card design...');
+        console.log('💾 Auto-saving ID card design with', elements.length, 'elements...');
         handleAutoSave();
       }, 1000); // Auto-save after 1 second of no changes
 
       return () => clearTimeout(autoSaveTimer);
+    } else {
+      console.log('🚷 Skipping auto-save - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
     }
   }, [elements, isInitialLoad, isOpen]);
 
@@ -183,10 +186,16 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
         duration: 2000,
       });
       
-      console.log('💾 ID card design auto-saved successfully');
+      console.log('✅ ID card design auto-saved successfully with', elements.length, 'elements');
     } catch (error) {
-      console.error('Auto-save error:', error);
-      // Don't show error toast for auto-save failures, just log it
+      console.error('❌ Auto-save error:', error);
+      // Show error notification for auto-save failures
+      toast({
+        title: "Auto-save failed",
+        description: "Could not save ID card design automatically",
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
 
