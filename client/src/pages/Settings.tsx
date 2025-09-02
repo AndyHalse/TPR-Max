@@ -1891,11 +1891,219 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6 mt-6">
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <Settings2 className="mr-3 text-blue-600" size={24} />
+              <h3 className="text-lg font-semibold text-slate-800">SMTP Email Configuration</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    SMTP Server Host
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., smtp.ionos.co.uk"
+                    value={currentSettings?.smtpHost || "smtp.ionos.co.uk"}
+                    onChange={(e) => handleInputChange("smtpHost", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    data-testid="input-smtp-host"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    SMTP Port
+                  </Label>
+                  <Select 
+                    value={currentSettings?.smtpPort || "587"} 
+                    onValueChange={(value) => handleInputChange("smtpPort", value)}
+                  >
+                    <SelectTrigger data-testid="select-smtp-port">
+                      <SelectValue placeholder="Select SMTP port" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25">25 (Standard, Non-encrypted)</SelectItem>
+                      <SelectItem value="587">587 (STARTTLS - Recommended)</SelectItem>
+                      <SelectItem value="465">465 (SSL/TLS)</SelectItem>
+                      <SelectItem value="2525">2525 (Alternative)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">Port 587 with STARTTLS is recommended for most providers</p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700">
+                      Use SSL/TLS Encryption
+                    </Label>
+                    <p className="text-xs text-slate-500">Secure connection (recommended)</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.smtpSecure || true}
+                    onCheckedChange={(checked) => handleInputChange("smtpSecure", checked)}
+                    data-testid="switch-smtp-secure"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Email Username
+                  </Label>
+                  <Input
+                    type="email"
+                    placeholder="your-email@domain.com"
+                    value={currentSettings?.smtpUsername || ""}
+                    onChange={(e) => handleInputChange("smtpUsername", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    data-testid="input-smtp-username"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Email Password
+                  </Label>
+                  <Input
+                    type="password"
+                    placeholder="Enter your email password"
+                    value={currentSettings?.smtpPassword || ""}
+                    onChange={(e) => handleInputChange("smtpPassword", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    data-testid="input-smtp-password"
+                  />
+                  <p className="text-xs text-slate-500">Use app-specific passwords for Gmail/Outlook</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    From Name (Sender Display Name)
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="VisiGate Pro System"
+                    value={currentSettings?.smtpFromName || "VisiGate Pro System"}
+                    onChange={(e) => handleInputChange("smtpFromName", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    data-testid="input-smtp-from-name"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">📧 Common SMTP Providers:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-700 dark:text-blue-300">
+                <div>
+                  <strong>IONOS (1&1):</strong>
+                  <ul className="ml-4 list-disc">
+                    <li>Host: smtp.ionos.co.uk</li>
+                    <li>Port: 587 (STARTTLS)</li>
+                  </ul>
+                </div>
+                <div>
+                  <strong>Gmail:</strong>
+                  <ul className="ml-4 list-disc">
+                    <li>Host: smtp.gmail.com</li>
+                    <li>Port: 587 (STARTTLS)</li>
+                  </ul>
+                </div>
+                <div>
+                  <strong>Outlook/Hotmail:</strong>
+                  <ul className="ml-4 list-disc">
+                    <li>Host: smtp.live.com</li>
+                    <li>Port: 587 (STARTTLS)</li>
+                  </ul>
+                </div>
+                <div>
+                  <strong>SendGrid:</strong>
+                  <ul className="ml-4 list-disc">
+                    <li>Host: smtp.sendgrid.net</li>
+                    <li>Port: 587 (STARTTLS)</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </GlassCard>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
+                <TestTube className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Test Email Configuration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Test Email Address
+                  </Label>
+                  <Input
+                    type="email"
+                    placeholder="Enter email address to test"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    data-testid="input-test-email"
+                  />
+                </div>
+
+                <Button
+                  onClick={async () => {
+                    const testEmailInput = document.querySelector('[data-testid="input-test-email"]') as HTMLInputElement;
+                    const testEmail = testEmailInput?.value;
+                    
+                    if (!testEmail) {
+                      console.warn('Test email address is required');
+                      return;
+                    }
+
+                    try {
+                      const response = await fetch('/api/test-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: testEmail })
+                      });
+                      
+                      const result = await response.json();
+                      
+                      if (result.success) {
+                        console.log('✅ Test email sent successfully!');
+                        // Could show a toast notification here
+                      } else {
+                        console.error('❌ Failed to send test email:', result.error);
+                      }
+                    } catch (error) {
+                      console.error('❌ Error sending test email:', error);
+                    }
+                  }}
+                  className="gradient-blue text-white w-full"
+                  data-testid="button-send-test-email"
+                >
+                  <Mail className="mr-2" size={16} />
+                  Send Test Email
+                </Button>
+
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    <strong>💡 Test Email Features:</strong>
+                  </p>
+                  <ul className="text-xs text-yellow-700 dark:text-yellow-300 mt-2 ml-4 list-disc space-y-1">
+                    <li>Validates SMTP connection</li>
+                    <li>Tests authentication credentials</li>
+                    <li>Confirms email delivery</li>
+                    <li>Shows detailed error messages</li>
+                  </ul>
+                </div>
+              </div>
+            </GlassCard>
+            
+            <GlassCard>
+              <div className="flex items-center mb-6">
                 <Mail className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Email Reports</h3>
+                <h3 className="text-lg font-semibold text-slate-800">Email Reports Settings</h3>
               </div>
               
               <div className="space-y-4">
@@ -1916,51 +2124,73 @@ export default function Settings() {
                 {currentSettings?.emailReportsEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="reportFrequency" className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-slate-700">
                         Report Frequency
                       </Label>
                       <Select 
                         value={currentSettings?.reportFrequency || "weekly"} 
                         onValueChange={(value) => handleInputChange("reportFrequency", value)}
                       >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-report-frequency">
+                        <SelectTrigger data-testid="select-report-frequency">
                           <SelectValue placeholder="Select frequency" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="daily">Daily Summary</SelectItem>
+                          <SelectItem value="weekly">Weekly Report</SelectItem>
+                          <SelectItem value="monthly">Monthly Analytics</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Report Recipients
+                      </Label>
+                      <Input
+                        type="email"
+                        placeholder="recipient1@company.com, recipient2@company.com"
+                        value={currentSettings?.reportRecipients || ""}
+                        onChange={(e) => handleInputChange("reportRecipients", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        data-testid="input-report-recipients"
+                      />
+                      <p className="text-xs text-slate-500">Separate multiple emails with commas</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Report Time
+                      </Label>
+                      <Select 
+                        value={currentSettings?.reportTime || "09:00"} 
+                        onValueChange={(value) => handleInputChange("reportTime", value)}
+                      >
+                        <SelectTrigger data-testid="select-report-time">
+                          <SelectValue placeholder="Select time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="06:00">6:00 AM</SelectItem>
+                          <SelectItem value="08:00">8:00 AM</SelectItem>
+                          <SelectItem value="09:00">9:00 AM (Recommended)</SelectItem>
+                          <SelectItem value="12:00">12:00 PM</SelectItem>
+                          <SelectItem value="17:00">5:00 PM</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </>
                 )}
-              </div>
-            </GlassCard>
-            
-            <GlassCard>
-              <div className="flex items-center mb-6">
-                <Mail className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Test Email</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-slate-700">
-                  Test Email Configuration
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="email"
-                    placeholder="Enter email to test"
-                    className="flex-1 px-4 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                    data-testid="input-test-email"
-                  />
-                  <Button
-                    variant="outline"
-                    data-testid="button-test-email"
-                  >
-                    Test
-                  </Button>
+
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="text-sm text-green-800 dark:text-green-200 mb-2">
+                    <strong>📊 Report Contents:</strong>
+                  </p>
+                  <ul className="text-xs text-green-700 dark:text-green-300 ml-4 list-disc space-y-1">
+                    <li>Visitor check-in/check-out statistics</li>
+                    <li>Staff attendance summary</li>
+                    <li>Department-wise visitor analytics</li>
+                    <li>Security and compliance reports</li>
+                    <li>System usage metrics</li>
+                  </ul>
                 </div>
               </div>
             </GlassCard>
