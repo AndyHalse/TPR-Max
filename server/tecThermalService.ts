@@ -140,56 +140,115 @@ export class TecThermalService {
           console.log(`🎯 Using detected TEC printer: ${detectedPrinter}`);
           this.printerName = detectedPrinter;
         }
-        // Windows 11 methods for real deployment
+        // Windows 11 methods - use multiple approaches for reliability
+        console.log(`🖨️ Attempting to print to TEC B-EV4: ${this.printerName}`);
+        
+        const errors = [];
+        
+        // Method 1: Raw copy to printer share (best for thermal printers)
         try {
-          // Method 1: Direct copy to printer (most reliable for thermal printers)
-          await execAsync(`copy "${tempFile}" "\\\\localhost\\${this.printerName}"`);
-          console.log('✅ TEC B-EV4 native printing successful (Windows UNC copy)');
+          const copyCmd = `copy /b "${tempFile}" "\\\\localhost\\${this.printerName}"`;
+          console.log(`📤 Trying raw copy: ${copyCmd}`);
+          await execAsync(copyCmd, { timeout: 15000 });
+          console.log('✅ TEC B-EV4 raw copy successful!');
           return { 
             success: true, 
-            message: `Printed to ${this.printerName} using native TEC commands`,
-            method: 'windows_unc_copy'
+            message: `Successfully printed to ${this.printerName} using raw copy method`,
+            method: 'raw_copy'
           };
         } catch (error1) {
-          try {
-            // Method 2: Print command with /D flag
-            await execAsync(`print /D:"${this.printerName}" "${tempFile}"`);
-            console.log('✅ TEC B-EV4 native printing successful (print command)');
+          console.log(`❌ Raw copy failed: ${error1.message}`);
+          errors.push({ method: 'raw_copy', error: error1.message });
+        }
+        
+        // Method 2: Use DirectPrintService raw command sender
+        try {
+          console.log('📤 Trying DirectPrintService raw commands...');
+          const { directPrintService } = await import('./directPrintService');
+          const rawCommands = tecCommands.toString('binary');
+          const result = await directPrintService.sendRawThermalCommands(rawCommands, this.printerName);
+          
+          if (result.success) {
+            console.log('✅ DirectPrintService raw commands successful!');
             return { 
               success: true, 
-              message: `Printed to ${this.printerName} using Windows print command`,
-              method: 'windows_print_command'
+              message: `Successfully sent raw commands to ${this.printerName}`,
+              method: 'direct_raw_commands'
             };
-          } catch (error2) {
-            try {
-              // Method 3: PowerShell with proper Windows paths
-              const psCommand = `
-                $content = [System.IO.File]::ReadAllBytes('${tempFile.replace(/\//g, '\\')}')
-                $printer = Get-Printer -Name '${this.printerName}'
-                if ($printer.PrinterStatus -eq 'Normal') {
-                  $printerPath = '\\\\localhost\\${this.printerName}'
-                  [System.IO.File]::WriteAllBytes($printerPath, $content)
-                  Write-Host 'Print job sent successfully'
-                } else {
-                  throw 'Printer not ready'
-                }
-              `;
-              await execAsync(`powershell.exe -Command "${psCommand}"`);
-              console.log('✅ TEC B-EV4 native printing successful (PowerShell)');
-              return { 
-                success: true, 
-                message: `Printed to ${this.printerName} using PowerShell`,
-                method: 'windows_powershell'
-              };
-            } catch (error3) {
-              console.error('❌ All Windows TEC thermal printing methods failed:', { error1, error2, error3 });
-              return { 
-                success: false, 
-                message: `Failed to print to ${this.printerName} on Windows 11: ${error3}` 
-              };
-            }
+          } else {
+            throw new Error(result.message);
           }
+        } catch (error2) {
+          console.log(`❌ DirectPrintService failed: ${error2.message}`);
+          errors.push({ method: 'direct_raw', error: error2.message });
         }
+        
+        // Method 3: Advanced Windows printer queue
+        try {
+          console.log('📤 Trying Windows printer queue...');
+          const psScript = `
+            $printerName = "${this.printerName}"
+            $filePath = "${tempFile.replace(/\//g, '\\\\')}"
+            
+            # Check if printer exists and is online
+            $printer = Get-Printer -Name $printerName -ErrorAction SilentlyContinue
+            if (-not $printer) {
+              throw "Printer '$printerName' not found"
+            }
+            
+            if ($printer.PrinterStatus -ne 'Normal' -and $printer.PrinterStatus -ne 'Idle') {
+              Write-Host "Warning: Printer status is $($printer.PrinterStatus), attempting anyway..."
+            }
+            
+            # Use .NET printing classes for direct raw printing
+            Add-Type -AssemblyName System.Drawing
+            Add-Type -AssemblyName System.Windows.Forms
+            
+            $rawData = [System.IO.File]::ReadAllBytes($filePath)
+            
+            # Send to printer using Windows API
+            $printDocument = New-Object System.Drawing.Printing.PrintDocument
+            $printDocument.PrinterSettings.PrinterName = $printerName
+            
+            if ($printDocument.PrinterSettings.IsValid) {
+              # Create temp file with .prn extension for Windows
+              $tempPrn = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.prn')
+              [System.IO.File]::WriteAllBytes($tempPrn, $rawData)
+              
+              # Use rundll32 to print raw file
+              $result = Start-Process -FilePath "rundll32.exe" -ArgumentList "msvcrt.dll,system", "copy /b \`"$tempPrn\`" \`"\\\\localhost\\$printerName\`"" -Wait -PassThru
+              
+              Remove-Item $tempPrn -ErrorAction SilentlyContinue
+              
+              if ($result.ExitCode -eq 0) {
+                Write-Host "Print job sent successfully via rundll32"
+              } else {
+                throw "rundll32 print failed with exit code $($result.ExitCode)"
+              }
+            } else {
+              throw "Printer settings invalid for $printerName"
+            }
+          `;
+          
+          await execAsync(`powershell.exe -Command "${psScript}"`, { timeout: 20000 });
+          console.log('✅ Windows printer queue method successful!');
+          return { 
+            success: true, 
+            message: `Successfully queued print job to ${this.printerName}`,
+            method: 'windows_printer_queue'
+          };
+        } catch (error3) {
+          console.log(`❌ Windows printer queue failed: ${error3.message}`);
+          errors.push({ method: 'printer_queue', error: error3.message });
+        }
+        
+        // All methods failed
+        console.error('❌ All TEC B-EV4 printing methods failed:', errors);
+        return { 
+          success: false, 
+          message: `Failed to print to ${this.printerName}. Tried ${errors.length} methods. Check printer connection and drivers.`,
+          errors: errors
+        };
       } else {
         // Linux/Unix methods - simulate successful printing for development
         console.log('📋 Linux environment detected - simulating TEC B-EV4 thermal printing');

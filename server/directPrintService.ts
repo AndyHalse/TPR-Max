@@ -88,6 +88,140 @@ export class DirectPrintService {
   }
 
   /**
+   * Send raw thermal commands directly to printer
+   * This is the critical method that actually sends commands to the physical printer
+   */
+  async sendRawThermalCommands(rawCommands: string, printerName?: string): Promise<{success: boolean, message: string}> {
+    try {
+      if (process.platform !== 'win32') {
+        return { success: false, message: 'Raw printing only supported on Windows' };
+      }
+
+      const targetPrinter = printerName || await this.findThermalPrinter();
+      if (!targetPrinter) {
+        return { success: false, message: 'No thermal printer detected' };
+      }
+
+      console.log(`🖨️ Sending raw commands to: ${targetPrinter}`);
+      console.log(`📋 Command size: ${rawCommands.length} bytes`);
+      
+      // Create temporary file with raw commands
+      const tempFile = path.join(this.tempDir, `thermal_${Date.now()}.prn`);
+      await fs.writeFile(tempFile, rawCommands, 'binary');
+      console.log(`📁 Created temp file: ${tempFile}`);
+      
+      const errors = [];
+      
+      try {
+        // Method 1: Direct UNC path copy with binary flag (best for thermal printers)
+        console.log('📤 Method 1: Trying UNC path copy with binary flag...');
+        const uncCmd = `copy /b "${tempFile}" "\\\\localhost\\${targetPrinter}"`;
+        await execAsync(uncCmd, { timeout: 15000 });
+        
+        console.log('✅ Raw commands sent successfully via UNC path!');
+        await this.cleanupFile(tempFile);
+        return { success: true, message: `Raw commands sent to ${targetPrinter} via UNC path` };
+        
+      } catch (uncError) {
+        console.log(`❌ UNC copy failed: ${uncError.message}`);
+        errors.push({ method: 'unc_copy', error: uncError.message });
+        
+        try {
+          // Method 2: LPT port mapping
+          console.log('📤 Method 2: Trying LPT port mapping...');
+          await execAsync(`net use LPT1: "\\\\localhost\\${targetPrinter}" /persistent:no`, { timeout: 10000 });
+          await execAsync(`copy /b "${tempFile}" LPT1:`, { timeout: 15000 });
+          await execAsync('net use LPT1: /delete', { timeout: 5000 }).catch(() => {}); // Cleanup, ignore errors
+          
+          console.log('✅ Raw commands sent successfully via LPT1 mapping!');
+          await this.cleanupFile(tempFile);
+          return { success: true, message: `Raw commands sent to ${targetPrinter} via LPT1` };
+          
+        } catch (lptError) {
+          console.log(`❌ LPT mapping failed: ${lptError.message}`);
+          errors.push({ method: 'lpt_mapping', error: lptError.message });
+          
+          try {
+            // Method 3: PowerShell with Windows API
+            console.log('📤 Method 3: Trying PowerShell Windows API...');
+            const psScript = `
+              $printerName = "${targetPrinter}"
+              $filePath = "${tempFile.replace(/\//g, '\\\\')}"
+              
+              # Read raw data
+              $rawData = [System.IO.File]::ReadAllBytes($filePath)
+              Write-Host "Read $($rawData.Length) bytes from file"
+              
+              # Method 3a: Direct file stream to printer
+              try {
+                $printerPath = "\\\\localhost\\$printerName"
+                [System.IO.File]::WriteAllBytes($printerPath, $rawData)
+                Write-Host "Successfully wrote to printer via file stream"
+              } catch {
+                # Method 3b: Use .NET PrintDocument for raw printing
+                Add-Type -AssemblyName System.Drawing
+                Add-Type -AssemblyName System.Windows.Forms
+                
+                $printDoc = New-Object System.Drawing.Printing.PrintDocument
+                $printDoc.PrinterSettings.PrinterName = $printerName
+                
+                if ($printDoc.PrinterSettings.IsValid) {
+                  # Write to Windows temp file with .prn extension
+                  $windowsTempFile = [System.IO.Path]::GetTempFileName() + ".prn"
+                  [System.IO.File]::WriteAllBytes($windowsTempFile, $rawData)
+                  
+                  # Send to printer using print command
+                  $result = cmd /c "print /D:\\"$printerName\\" \\"$windowsTempFile\\""
+                  
+                  # Cleanup
+                  if (Test-Path $windowsTempFile) {
+                    Remove-Item $windowsTempFile -Force
+                  }
+                  
+                  Write-Host "Print job sent via Windows print command"
+                } else {
+                  throw "Printer $printerName is not valid or ready"
+                }
+              }
+            `;
+            
+            await execAsync(`powershell.exe -Command "${psScript}"`, { timeout: 20000 });
+            console.log('✅ Raw commands sent successfully via PowerShell!');
+            await this.cleanupFile(tempFile);
+            return { success: true, message: `Raw commands sent to ${targetPrinter} via PowerShell` };
+            
+          } catch (psError) {
+            console.log(`❌ PowerShell method failed: ${psError.message}`);
+            errors.push({ method: 'powershell_api', error: psError.message });
+          }
+        }
+      }
+      
+      // All methods failed
+      await this.cleanupFile(tempFile);
+      console.error('❌ All raw printing methods failed:', errors);
+      return { 
+        success: false, 
+        message: `Failed to send raw commands to ${targetPrinter}. Tried ${errors.length} methods. Check printer status and drivers.`,
+        errors: errors
+      };
+      
+    } catch (error) {
+      console.error('❌ Raw thermal command error:', error);
+      return { success: false, message: `Raw command error: ${error.message}` };
+    }
+  }
+
+  private async cleanupFile(filePath: string): Promise<void> {
+    try {
+      await fs.unlink(filePath);
+      console.log(`🗑️ Cleaned up temp file: ${filePath}`);
+    } catch (error) {
+      console.warn('Could not cleanup temp file:', error);
+    }
+  }
+
+  /**
    * Find TEC B-EV4 thermal printer or similar thermal printer
    */
   async findThermalPrinter(): Promise<string | null> {

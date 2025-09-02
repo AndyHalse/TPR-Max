@@ -2424,6 +2424,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test raw printing directly - critical for Windows deployment troubleshooting
+  app.post("/api/printers/test-raw", async (req, res) => {
+    try {
+      const { printerName } = req.body;
+      
+      if (!printerName) {
+        return res.status(400).json({ error: 'Printer name required' });
+      }
+
+      console.log(`🧪 Testing raw printing to: ${printerName}`);
+      
+      // Create simple test command for TEC B-EV4
+      const testCommands = Buffer.from([
+        0x1B, 0x40,              // ESC @ - Initialize printer
+        0x1B, 0x21, 0x08,        // ESC ! - Select double height font
+        'TEST PRINT\n'.charCodeAt(0), 'TEST PRINT\n'.charCodeAt(1), 'TEST PRINT\n'.charCodeAt(2), 'TEST PRINT\n'.charCodeAt(3), 
+        'TEST PRINT\n'.charCodeAt(4), 'TEST PRINT\n'.charCodeAt(5), 'TEST PRINT\n'.charCodeAt(6), 'TEST PRINT\n'.charCodeAt(7), 
+        'TEST PRINT\n'.charCodeAt(8), 'TEST PRINT\n'.charCodeAt(9), 'TEST PRINT\n'.charCodeAt(10), 
+        0x0A,                    // Line feed
+        'Windows Thermal Test\n'.charCodeAt(0), 'Windows Thermal Test\n'.charCodeAt(1), 'Windows Thermal Test\n'.charCodeAt(2), 'Windows Thermal Test\n'.charCodeAt(3), 
+        'Windows Thermal Test\n'.charCodeAt(4), 'Windows Thermal Test\n'.charCodeAt(5), 'Windows Thermal Test\n'.charCodeAt(6), 'Windows Thermal Test\n'.charCodeAt(7), 
+        'Windows Thermal Test\n'.charCodeAt(8), 'Windows Thermal Test\n'.charCodeAt(9), 'Windows Thermal Test\n'.charCodeAt(10), 
+        'Windows Thermal Test\n'.charCodeAt(11), 'Windows Thermal Test\n'.charCodeAt(12), 'Windows Thermal Test\n'.charCodeAt(13), 
+        'Windows Thermal Test\n'.charCodeAt(14), 'Windows Thermal Test\n'.charCodeAt(15), 'Windows Thermal Test\n'.charCodeAt(16), 
+        'Windows Thermal Test\n'.charCodeAt(17), 'Windows Thermal Test\n'.charCodeAt(18), 'Windows Thermal Test\n'.charCodeAt(19), 'Windows Thermal Test\n'.charCodeAt(20),
+        0x0A, 0x0A,              // Two line feeds
+        0x1D, 0x56, 0x42, 0x00   // GS V B 0 - Cut paper (if supported)
+      ]);
+
+      // Simple test: just send "TEST PRINT" in ASCII
+      const simpleTest = 'TEST PRINT\nFrom VisiGate Pro\nThermal Test\n\n\n\n';
+
+      if (process.platform === 'win32') {
+        const { directPrintService } = await import('./directPrintService');
+        const result = await directPrintService.sendRawThermalCommands(simpleTest, printerName);
+        
+        console.log(`🧪 Raw test result:`, result);
+        res.json({
+          success: result.success,
+          message: result.message,
+          testData: 'Simple ASCII test sent to printer',
+          printerName,
+          platform: 'Windows'
+        });
+      } else {
+        res.json({
+          success: true,
+          message: 'Raw printing test simulated (Linux environment)',
+          testData: simpleTest,
+          printerName,
+          platform: 'Linux (Development)',
+          note: 'Actual printing will work on Windows deployment'
+        });
+      }
+
+    } catch (error) {
+      console.error('Raw printing test failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Raw printing test failed',
+        details: error.message
+      });
+    }
+  });
+
   // Printer Configuration endpoints
   app.get("/api/printers/configurations", async (req, res) => {
     try {
