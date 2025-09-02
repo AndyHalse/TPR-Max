@@ -98,14 +98,19 @@ export default function Settings() {
     onSuccess: (data) => {
       console.log('Mutation success:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      // Only clear form data for manual saves, not uploads
-      // setFormData({}) - REMOVED to prevent clearing typed data
+      
+      // Show auto-save success feedback
+      toast({
+        title: "Auto-saved",
+        description: "Settings saved successfully",
+        duration: 2000, // Show for 2 seconds
+      });
     },
     onError: (error) => {
       console.error('Mutation error:', error);
       toast({
-        title: "Error",
-        description: "Failed to update settings",
+        title: "Auto-save Error",
+        description: "Failed to save settings. Please try again.",
         variant: "destructive",
       });
     },
@@ -2209,22 +2214,38 @@ export default function Settings() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">Include Charts</Label>
-                    <Switch checked={true} data-testid="switch-include-charts" />
+                    <Switch 
+                      checked={currentSettings?.includeCharts !== false} 
+                      onCheckedChange={(checked) => handleInputChange("includeCharts", checked)}
+                      data-testid="switch-include-charts" 
+                    />
                   </div>
                   
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">Include Photos</Label>
-                    <Switch checked={false} data-testid="switch-include-photos" />
+                    <Switch 
+                      checked={currentSettings?.includePhotos === true} 
+                      onCheckedChange={(checked) => handleInputChange("includePhotos", checked)}
+                      data-testid="switch-include-photos" 
+                    />
                   </div>
                   
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">PDF Export</Label>
-                    <Switch checked={true} data-testid="switch-pdf-export" />
+                    <Switch 
+                      checked={currentSettings?.pdfExport !== false} 
+                      onCheckedChange={(checked) => handleInputChange("pdfExport", checked)}
+                      data-testid="switch-pdf-export" 
+                    />
                   </div>
                   
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">Excel Export</Label>
-                    <Switch checked={false} data-testid="switch-excel-export" />
+                    <Switch 
+                      checked={currentSettings?.excelExport === true} 
+                      onCheckedChange={(checked) => handleInputChange("excelExport", checked)}
+                      data-testid="switch-excel-export" 
+                    />
                   </div>
                 </div>
                 
