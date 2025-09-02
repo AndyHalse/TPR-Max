@@ -69,10 +69,21 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   // Load design when dialog opens
   React.useEffect(() => {
     if (isOpen) {
-      loadSavedDesign();
       setIsInitialLoad(true);
+      loadSavedDesign();
     }
   }, [isOpen]);
+
+  // Mark that initial load is complete after loading is done
+  React.useEffect(() => {
+    if (isOpen && !isLoading && isInitialLoad) {
+      const timer = setTimeout(() => {
+        console.log('✅ Initial load complete, enabling auto-save');
+        setIsInitialLoad(false);
+      }, 1000); // Wait 1 second after loading is complete
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isLoading, isInitialLoad]);
 
   // Auto-save design when elements change (but skip initial load)
   React.useEffect(() => {
@@ -88,16 +99,6 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
       console.log('🚷 Skipping auto-save - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
     }
   }, [elements, isInitialLoad, isOpen]);
-
-  // Mark that initial load is complete when we set elements for the first time
-  React.useEffect(() => {
-    if (isInitialLoad && elements.length > 0) {
-      const timer = setTimeout(() => {
-        setIsInitialLoad(false);
-      }, 500); // Small delay to ensure we don't auto-save immediately after load
-      return () => clearTimeout(timer);
-    }
-  }, [elements, isInitialLoad]);
 
   const getElementContent = (element: CardElement): string => {
     switch (element.type) {
