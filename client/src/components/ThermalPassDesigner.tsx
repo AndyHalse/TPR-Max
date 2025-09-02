@@ -765,42 +765,7 @@ export function ThermalPassDesigner() {
             <div className="xl:col-span-2">
               <Card className="h-fit">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Pass Preview (95mm × 65mm)</CardTitle>
-                    <div className="flex gap-2">
-                      {/* Quick Print Actions */}
-                      <Button 
-                        onClick={() => handleMultiPrint('browser')} 
-                        disabled={isPrinting} 
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        data-testid="button-browser-print"
-                      >
-                        🖨️ Browser
-                      </Button>
-                      <Button 
-                        onClick={() => handleMultiPrint('direct')} 
-                        disabled={isPrinting} 
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        data-testid="button-direct-print"
-                      >
-                        ⚡ Direct
-                      </Button>
-                      <Button 
-                        onClick={() => handleMultiPrint('windows')} 
-                        disabled={isPrinting} 
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        data-testid="button-windows-print"
-                      >
-                        🪟 Windows
-                      </Button>
-                    </div>
-                  </div>
+                  <CardTitle>Pass Preview (95mm × 65mm)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div 
