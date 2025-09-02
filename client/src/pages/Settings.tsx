@@ -866,38 +866,27 @@ export default function Settings() {
                 </div>
 
                 <Button
-                  onClick={async () => {
+                  onClick={() => {
                     const testEmailInput = document.querySelector('[data-testid="input-test-email"]') as HTMLInputElement;
                     const testEmail = testEmailInput?.value;
                     
                     if (!testEmail) {
-                      console.warn('Test email address is required');
+                      toast({
+                        title: "Email Required",
+                        description: "Please enter an email address to test",
+                        variant: "destructive",
+                      });
                       return;
                     }
 
-                    try {
-                      const response = await fetch('/api/test-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: testEmail })
-                      });
-                      
-                      const result = await response.json();
-                      
-                      if (result.success) {
-                        console.log('✅ Test email sent successfully!');
-                      } else {
-                        console.error('❌ Failed to send test email:', result.error);
-                      }
-                    } catch (error) {
-                      console.error('❌ Error sending test email:', error);
-                    }
+                    testEmailMutation.mutate(testEmail);
                   }}
+                  disabled={testEmailMutation.isPending}
                   className="gradient-blue text-white w-full"
                   data-testid="button-send-test-email"
                 >
                   <Mail className="mr-2" size={16} />
-                  Send Test Email
+                  {testEmailMutation.isPending ? 'Sending...' : 'Send Test Email'}
                 </Button>
               </div>
             </GlassCard>
