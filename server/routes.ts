@@ -573,6 +573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       
       const stats = await databaseService.getStats(context);
+      console.log(`📊 STATS DEBUG for customer ${context.customerId}:`, stats);
       
       // Get actual number of checked-in contractors with customer isolation
       // For now return 0 until we implement customer-isolated contractor tracking
@@ -583,6 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate total people on-site
       const totalPeopleOnSite = otherStats.currentVisitors + otherStats.staffOnSite + contractorsOnSite;
+      console.log(`🧮 CALCULATION: ${otherStats.currentVisitors} + ${otherStats.staffOnSite} + ${contractorsOnSite} = ${totalPeopleOnSite}`);
       
       // Get total companies count with customer isolation
       const visitors = await databaseService.getAllVisitors(context);
