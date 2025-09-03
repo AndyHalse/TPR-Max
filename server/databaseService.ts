@@ -360,6 +360,33 @@ export class DatabaseService {
     return visitor;
   }
 
+  async checkInExistingVisitor(
+    context: CustomerContext, 
+    id: string, 
+    hostId: string, 
+    reason?: string
+  ): Promise<Visitor | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updated = await db
+      .update(schema.visitors)
+      .set({ 
+        isCheckedIn: true,
+        checkedInAt: new Date(),
+        checkedOutAt: null,
+        hostId,
+        reason: reason || '',
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.id, id)
+      ))
+      .returning();
+    
+    return updated[0];
+  }
+
   /**
    * DEPARTMENT METHODS - Customer Isolated
    */
