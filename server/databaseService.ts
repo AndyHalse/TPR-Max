@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lt, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lt, gt, sql } from "drizzle-orm";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
 import type {
   Staff,
@@ -553,9 +553,176 @@ export class DatabaseService {
     }
   }
 
+  async authenticateStaff(context: CustomerContext, email: string, password: string): Promise<Staff | null> {
+    try {
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const [staff] = await db
+        .select()
+        .from(schema.staff)
+        .where(and(
+          eq(schema.staff.customerId, context.customerId),
+          eq(schema.staff.email, email)
+        ));
+      
+      if (!staff || !staff.password) {
+        return null;
+      }
+
+      const isValid = await this.verifyPassword(password, staff.password);
+      if (!isValid) {
+        return null;
+      }
+
+      return staff;
+    } catch (error) {
+      console.error('Staff authentication error:', error);
+      return null;
+    }
+  }
+
   private async verifyPassword(password: string, hash: string): Promise<boolean> {
     const bcrypt = await import('bcryptjs');
     return bcrypt.compare(password, hash);
+  }
+
+  /**
+   * EMERGENCY SYSTEM METHODS - Customer Isolated
+   */
+  async validateEmergencyToken(context: CustomerContext, token: string): Promise<Staff | null> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [staff] = await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.emergencyToken, token),
+        gt(schema.staff.emergencyTokenExpires, new Date())
+      ));
+    
+    return staff || null;
+  }
+
+  async toggleStaffAccountedStatus(context: CustomerContext, id: string): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [staff] = await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.id, id)
+      ));
+    
+    if (!staff) return false;
+    
+    await db
+      .update(schema.staff)
+      .set({ isAccountedFor: !staff.isAccountedFor })
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.id, id)
+      ));
+    
+    return true;
+  }
+
+  async toggleVisitorAccountedStatus(context: CustomerContext, id: string): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [visitor] = await db
+      .select()
+      .from(schema.visitors)
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.id, id)
+      ));
+    
+    if (!visitor) return false;
+    
+    await db
+      .update(schema.visitors)
+      .set({ isAccountedFor: !visitor.isAccountedFor })
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.id, id)
+      ));
+    
+    return true;
+  }
+
+  async toggleContractorAccountedStatus(context: CustomerContext, id: string): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [worker] = await db
+      .select()
+      .from(schema.contractorWorkers)
+      .where(eq(schema.contractorWorkers.id, id));
+    
+    if (!worker) return false;
+    
+    await db
+      .update(schema.contractorWorkers)
+      .set({ isAccountedFor: !worker.isAccountedFor })
+      .where(eq(schema.contractorWorkers.id, id));
+    
+    return true;
+  }
+
+  async getCurrentVisitors(context: CustomerContext): Promise<Visitor[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.visitors)
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.isCheckedIn, true)
+      ))
+      .orderBy(desc(schema.visitors.checkedInAt));
+  }
+
+  async getCheckedInStaff(context: CustomerContext): Promise<Staff[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.isCheckedIn, true),
+        eq(schema.staff.isActive, true)
+      ))
+      .orderBy(asc(schema.staff.firstName), asc(schema.staff.lastName));
+  }
+
+  async getAllContractorCompanies(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Get all contractor companies
+    const companies = await db
+      .select()
+      .from(schema.contractorCompanies)
+      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+    
+    // For each company, count workers and get document status
+    const companiesWithCounts = await Promise.all(
+      companies.map(async (company) => {
+        const workersCount = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.contractorWorkers)
+          .where(eq(schema.contractorWorkers.companyId, company.id));
+        
+        return {
+          ...company,
+          workersCount: parseInt(String(workersCount[0]?.count)) || 0,
+          documentsStatus: {} // Empty for now since documents system is optional
+        };
+      })
+    );
+    
+    return companiesWithCounts;
   }
 
   /**

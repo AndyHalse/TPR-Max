@@ -934,7 +934,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.params;
       
-      const marshal = await storage.validateEmergencyToken(token);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const marshal = await databaseService.validateEmergencyToken(context, token);
       
       if (!marshal) {
         return res.status(401).json({
@@ -965,16 +969,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.params;
       
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       // Validate Fire Marshal token
-      const marshal = await storage.validateEmergencyToken(token);
+      const marshal = await databaseService.validateEmergencyToken(context, token);
       if (!marshal) {
         return res.status(401).json({ error: "Invalid or expired emergency token" });
       }
       
       const [currentVisitors, checkedInStaff, contractorCompanies] = await Promise.all([
-        storage.getCurrentVisitors(),
-        storage.getCheckedInStaff(),
-        storage.getAllContractorCompanies(),
+        databaseService.getCurrentVisitors(context),
+        databaseService.getCheckedInStaff(context),
+        databaseService.getAllContractorCompanies(context),
       ]);
       
       // Get all checked-in contractors
@@ -1031,8 +1039,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.params;
       const { personId, type } = req.body;
       
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       // Validate Fire Marshal token
-      const marshal = await storage.validateEmergencyToken(token);
+      const marshal = await databaseService.validateEmergencyToken(context, token);
       if (!marshal) {
         return res.status(401).json({ error: "Invalid or expired emergency token" });
       }
@@ -1042,21 +1054,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let accounted = false;
       
       if (type === 'staff') {
-        success = await storage.toggleStaffAccountedStatus(personId);
-        const staff = await storage.getStaffById(personId);
+        success = await databaseService.toggleStaffAccountedStatus(context, personId);
+        const staff = await databaseService.getStaffById(context, personId);
         if (staff) {
           personName = `${staff.firstName} ${staff.lastName}`;
           accounted = staff.isAccountedFor || false;
         }
       } else if (type === 'visitor') {
-        success = await storage.toggleVisitorAccountedStatus(personId);
-        const visitor = await storage.getVisitorById(personId);
+        success = await databaseService.toggleVisitorAccountedStatus(context, personId);
+        const visitor = await databaseService.getVisitorById(context, personId);
         if (visitor) {
           personName = `${visitor.firstName} ${visitor.lastName}`;
           accounted = visitor.isAccountedFor || false;
         }
       } else if (type === 'contractor') {
-        success = await storage.toggleContractorAccountedStatus(personId);
+        success = await databaseService.toggleContractorAccountedStatus(context, personId);
         // Get contractor name when contractor system is fully implemented
       } else {
         return res.status(400).json({ error: "Invalid person type" });
@@ -1199,7 +1211,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/staff/auth", async (req, res) => {
     try {
       const { email, password } = staffAuthSchema.parse(req.body);
-      const staff = await storage.authenticateStaff(email, password);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const staff = await databaseService.authenticateStaff(context, email, password);
       
       if (!staff) {
         return res.status(401).json({ error: "Invalid email or password" });
