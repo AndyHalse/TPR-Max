@@ -17,6 +17,11 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
     queryKey: ["/api/settings"],
   });
 
+  // Load customer's visitor pass design
+  const { data: passDesign } = useQuery<{ success: boolean; design: any[] }>({
+    queryKey: ["/api/thermal-passes/design/visitor"],
+  });
+
   // Fetch tenant company information for the visitor
   const { data: tenantCompany } = useQuery<TenantCompany>({
     queryKey: [`/api/super-admin/tenants/by-id/${visitor.visitingTenantId}`],
@@ -31,7 +36,71 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
     });
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    try {
+      // Get customer's pass design elements
+      const design = passDesign?.design || [];
+      
+      console.log(`🎨 Using customer pass design with ${design.length} elements`);
+      
+      // Prepare visitor data for pass printing
+      const visitorData = {
+        name: `${visitor.firstName} ${visitor.lastName}`,
+        company: visitor.company || 'Guest',
+        host: hostName || 'Reception',
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        passId: visitor.qrCode || visitor.id,
+        qrCode: visitor.qrCode || visitor.id
+      };
+
+      if (design.length > 0) {
+        // Use customer's custom design
+        console.log('🖨️ Printing with customer design');
+        const response = await fetch('/api/thermal-passes/pdf', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            elements: design,
+            data: visitorData
+          }),
+        });
+
+        if (response.ok) {
+          const htmlContent = await response.text();
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 100);
+          }
+        } else {
+          throw new Error('Failed to generate pass with custom design');
+        }
+      } else {
+        // Fallback to default design if no custom design
+        console.log('📄 Using default pass design');
+        printDefaultPass(visitorData, tenantCompany);
+      }
+    } catch (error) {
+      console.error('❌ Print error:', error);
+      // Fallback to default design
+      printDefaultPass({
+        name: `${visitor.firstName} ${visitor.lastName}`,
+        company: visitor.company || 'Guest',
+        host: hostName || 'Reception',
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        passId: visitor.qrCode || visitor.id,
+        qrCode: visitor.qrCode || visitor.id
+      }, tenantCompany);
+    }
+  };
+
+  const printDefaultPass = (visitorData: any, tenantCompany: any) => {
     // Get tenant-specific information
     const companyName = tenantCompany?.companyName || "Company Name";
     const companyAddress = tenantCompany?.address || "Address not provided";
@@ -201,8 +270,8 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               
               <div class="main-content">
                 <div class="visitor-details">
-                  <p class="visitor-name">${visitor.firstName} ${visitor.lastName}</p>
-                  <p class="visitor-company">${visitor.company || 'Business Partners'}</p>
+                  <p class="visitor-name">${visitorData.name}</p>
+                  <p class="visitor-company">${visitorData.company}</p>
                   <p class="visitor-date">${formatDate(visitor.checkedInAt)}</p>
                   <p class="visitor-host">Host: ${hostName || 'Essia Halse'}</p>
                 </div>
