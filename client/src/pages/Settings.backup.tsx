@@ -3300,7 +3300,7 @@ export default function Settings() {
                 </Button>
                 <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
                   <p className="text-xs text-green-800 dark:text-green-200">
-                    <strong>✅ Complete Data Export:</strong> All customer data, branding, AI images, and settings included for full portability
+                    <strong>✅ SQL Server Compatible:</strong> .bak file format compatible with SQL Server Management Studio for database restore
                   </p>
                 </div>
               </div>
@@ -3313,7 +3313,7 @@ export default function Settings() {
               </h3>
               <div className="space-y-4">
                 <p className="text-sm text-slate-600">
-                  Restore customer data from a previously exported backup file. This will replace all current data.
+                  Restore customer data from a previously exported .bak or .sql backup file. This will replace all current data.
                 </p>
                 <div className="space-y-2">
                   <input
