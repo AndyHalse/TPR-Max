@@ -105,6 +105,14 @@ export function ThermalPassDesigner() {
     email: 'john@techcorp.com'
   });
 
+  // Company data from customer database
+  const [companyData, setCompanyData] = useState({
+    companyName: 'Default Company',
+    logoUrl: null,
+    primaryColor: '#0066cc',
+    tenantName: null
+  });
+
   // Drag and drop state
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -170,6 +178,28 @@ export function ThermalPassDesigner() {
     }
   };
 
+  // Load company data from customer database with full isolation
+  const loadCompanyData = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        const settings = data.settings || data;
+        
+        setCompanyData({
+          companyName: settings.companyName || 'Default Company',
+          logoUrl: settings.logoUrl || null,
+          primaryColor: settings.primaryColor || '#0066cc',
+          tenantName: settings.tenantName || null
+        });
+        
+        console.log(`🏢 Loaded company data for customer isolation`);
+      }
+    } catch (error) {
+      console.error('Error loading company data:', error);
+    }
+  };
+
   const loadSavedPrinterSettings = async () => {
     try {
       const response = await fetch('/api/settings');
@@ -231,6 +261,7 @@ export function ThermalPassDesigner() {
   useEffect(() => {
     loadSavedDesign();
     loadSavedPrinterSettings();
+    loadCompanyData();
   }, [passType]);
 
   // Auto-save printer settings when they change
@@ -246,7 +277,14 @@ export function ThermalPassDesigner() {
     const element = passElements.find(el => el.id === elementId);
     if (!element) return;
 
-    setSelectedElement(elementId);
+    // Clear any previous selection first
+    setSelectedElement(null);
+    
+    // Set new selection
+    setTimeout(() => {
+      setSelectedElement(elementId);
+    }, 0);
+    
     setIsDragging(true);
     
     const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
@@ -860,11 +898,19 @@ export function ThermalPassDesigner() {
     passElements.find(el => el.id === selectedElement) : null;
 
   const renderPreviewContent = (element: ThermalElement) => {
-    if (!element.isVariable) return element.content || '';
+    if (!element.isVariable) {
+      // Handle static content that may reference company data
+      if (element.content?.includes('{{company}}')) {
+        return element.content.replace('{{company}}', companyData.companyName);
+      }
+      return element.content || '';
+    }
     
     switch (element.variableType) {
       case 'name': return previewData.name;
-      case 'company': return previewData.company;
+      case 'company': 
+        // Use customer's company name from database or tenant name if multi-tenant
+        return companyData.tenantName || companyData.companyName;
       case 'host': return previewData.host;
       case 'purpose': return previewData.purpose;
       case 'phone': return previewData.phone;
@@ -986,7 +1032,11 @@ export function ThermalPassDesigner() {
                           height: element.height,
                           transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined
                         }}
-                        onClick={() => setSelectedElement(element.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedElement(element.id);
+                        }}
                         onMouseDown={(e) => handleMouseDown(e, element.id)}
                         data-testid={`element-${element.id}`}
                       >
@@ -1009,8 +1059,20 @@ export function ThermalPassDesigner() {
                           </div>
                         )}
                         {element.type === 'logo' && (
-                          <div className="w-full h-full bg-gray-100 border border-gray-300 flex items-center justify-center text-xs">
-                            <Image className="h-6 w-6" />
+                          <div className="w-full h-full bg-gray-100 border border-gray-300 flex items-center justify-center text-xs overflow-hidden">
+                            {companyData.logoUrl ? (
+                              <img 
+                                src={companyData.logoUrl} 
+                                alt="Company Logo" 
+                                className="max-w-full max-h-full object-contain"
+                                style={{ filter: 'grayscale(100%) contrast(1.2)' }}
+                              />
+                            ) : (
+                              <div className="text-center">
+                                <Image className="h-6 w-6 mx-auto mb-1" />
+                                <div className="text-xs font-bold">{companyData.companyName}</div>
+                              </div>
+                            )}
                           </div>
                         )}
                         {element.type === 'line' && (
