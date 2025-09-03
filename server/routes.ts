@@ -6290,8 +6290,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Multi-Tenant Super Admin API Routes
-  app.get("/api/super-admin/tenants", async (req, res) => {
+  app.get("/api/super-admin/tenants", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Only allow super admin access for Andy (dev-customer-001)
+      if (context.customerId !== 'dev-customer-001') {
+        return res.status(403).json({ error: 'Access denied - Super admin only' });
+      }
+      
       const tenants = await storage.getAllTenantCompanies();
       res.json(tenants);
     } catch (error) {
@@ -6325,8 +6334,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/super-admin/stats", async (req, res) => {
+  app.get("/api/super-admin/stats", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Only allow super admin access for Andy (dev-customer-001)
+      if (context.customerId !== 'dev-customer-001') {
+        return res.status(403).json({ error: 'Access denied - Super admin only' });
+      }
+      
       const stats = await storage.getBuildingStats();
       res.json(stats);
     } catch (error) {
