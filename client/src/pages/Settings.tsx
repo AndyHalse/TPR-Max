@@ -770,7 +770,7 @@ export default function Settings() {
                       </div>
                     )}
                     <ObjectUploader
-                      onUpload={handleLogoUpload}
+                      onUploadComplete={handleLogoUpload}
                       accept="image/*"
                       maxSize={2 * 1024 * 1024}
                       buttonClassName="w-full"
