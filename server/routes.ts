@@ -2963,7 +2963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/test-data/visitors", async (req, res) => {
+  app.post("/api/test-data/visitors", requireAuth, async (req, res) => {
     try {
       const staff = await storage.getAllStaff();
       if (staff.length === 0) {
