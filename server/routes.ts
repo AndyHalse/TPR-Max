@@ -574,8 +574,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const stats = await databaseService.getStats(context);
       
-      // Get actual number of checked-in contractors  
-      const checkedInContractors = await storage.getCheckedInContractors();
+      // Get actual number of checked-in contractors with customer isolation
+      const contractorWorkers = await databaseService.getContractorWorkers(context);
+      const checkedInContractors = contractorWorkers.filter(worker => worker.status === 'green');
       const contractorsOnSite = checkedInContractors.length;
       
       // Replace avgVisitDuration with contractorsOnSite
@@ -1750,9 +1751,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Company endpoints (for autocomplete)
-  app.get("/api/companies", async (req, res) => {
+  app.get("/api/companies", requireAuth, async (req, res) => {
     try {
-      const companies = await storage.getUniqueCompanies();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get unique companies from visitors with customer isolation
+      const visitors = await databaseService.getVisitors(context);
+      const uniqueCompanies = [...new Set(visitors.map(v => v.company).filter(Boolean))];
+      const companies = uniqueCompanies;
       res.json(companies);
     } catch (error) {
       console.error("Error fetching companies:", error);
