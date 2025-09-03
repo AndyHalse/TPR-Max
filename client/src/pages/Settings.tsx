@@ -216,8 +216,9 @@ export default function Settings() {
     mutationFn: async (updates: Partial<InsertCompanySettings>) => {
       console.log('Mutation function called with:', updates);
       const response = await apiRequest("PUT", "/api/settings", updates);
-      console.log('Mutation response:', response);
-      return response;
+      const data = await response.json();
+      console.log('Mutation response:', data);
+      return data;
     },
     onSuccess: (data) => {
       console.log('Mutation success:', data);
