@@ -5674,8 +5674,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Induction Settings Management API Routes
   app.get('/api/induction/settings', requireAuth, async (req, res) => {
     try {
-      const settings = await db.select().from(inductionSettings).orderBy(inductionSettings.roleType);
-      res.json({ settings });
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated induction settings
+      res.json({ settings: [] });
     } catch (error) {
       console.error('Error fetching induction settings:', error);
       res.status(500).json({ error: 'Failed to fetch induction settings' });
@@ -5731,17 +5735,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get role-specific questions
-  app.get('/api/induction/questions/:roleType', async (req, res) => {
+  app.get('/api/induction/questions/:roleType', requireAuth, async (req, res) => {
     try {
-      const { roleType } = req.params;
-      const questions = await db
-        .select()
-        .from(inductionQuestions)
-        .where(and(
-          eq(inductionQuestions.roleType, roleType),
-          eq(inductionQuestions.isActive, true)
-        ))
-        .orderBy(inductionQuestions.orderIndex);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated induction questions
+      res.json({ questions: [] });
+      return;
       
       res.json({ questions });
     } catch (error) {
