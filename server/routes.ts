@@ -573,7 +573,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       
       const stats = await databaseService.getStats(context);
-      console.log(`📊 STATS DEBUG for customer ${context.customerId}:`, stats);
       
       // Get actual number of checked-in contractors with customer isolation
       // For now return 0 until we implement customer-isolated contractor tracking
@@ -582,11 +581,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;
       
-      // Calculate total people on-site (convert strings to numbers!)
-      const currentVisitorsNum = parseInt(otherStats.currentVisitors) || 0;
-      const staffOnSiteNum = parseInt(otherStats.staffOnSite) || 0;
-      const totalPeopleOnSite = currentVisitorsNum + staffOnSiteNum + contractorsOnSite;
-      console.log(`🧮 CALCULATION FIXED: ${currentVisitorsNum} + ${staffOnSiteNum} + ${contractorsOnSite} = ${totalPeopleOnSite}`);
+      // Calculate total people on-site (numbers are now properly returned from database)
+      const totalPeopleOnSite = otherStats.currentVisitors + otherStats.staffOnSite + contractorsOnSite;
       
       // Get total companies count with customer isolation
       const visitors = await databaseService.getAllVisitors(context);
@@ -637,7 +633,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics/departments/:department", async (req, res) => {
     try {
       const { department } = req.params;
-      const details = await storage.getDepartmentDetails(department);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for getting department details
+      const details = await databaseService.getDepartmentDetails(context, department);
       res.json(details);
     } catch (error) {
       console.error("Failed to fetch department details:", error);
@@ -648,7 +650,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Department management endpoints
   app.get("/api/departments", async (req, res) => {
     try {
-      const departments = await storage.getAllDepartments();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for getting departments
+      const departments = await databaseService.getAllDepartments(context);
       res.json(departments);
     } catch (error) {
       console.error("Failed to fetch departments:", error);
@@ -720,7 +727,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Peak hours analytics endpoint
   app.get("/api/analytics/peak-hours", async (req, res) => {
     try {
-      const peakHoursData = await storage.getPeakHoursAnalytics();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for peak hours analytics
+      const peakHoursData = await databaseService.getPeakHoursAnalytics(context);
       res.json(peakHoursData);
     } catch (error) {
       console.error("Failed to fetch peak hours analytics:", error);
@@ -730,7 +742,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/departments/names", async (req, res) => {
     try {
-      const names = await storage.getDepartmentNames();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for getting department names
+      const names = await databaseService.getDepartmentNames(context);
       res.json(names);
     } catch (error) {
       console.error("Failed to fetch department names:", error);
