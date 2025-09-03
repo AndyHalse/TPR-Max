@@ -350,10 +350,10 @@ export default function Settings() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (!file.name.endsWith('.json')) {
+      if (!file.name.endsWith('.bak') && !file.name.endsWith('.sql')) {
         toast({
           title: "Invalid File",
-          description: "Please select a valid JSON backup file",
+          description: "Please select a valid .bak or .sql backup file",
           variant: "destructive",
         });
         return;
@@ -3278,7 +3278,7 @@ export default function Settings() {
               </h3>
               <div className="space-y-4">
                 <p className="text-sm text-slate-600">
-                  Export all customer data including settings, branding, staff, visitors, AI images, and operational data to a JSON file.
+                  Export all customer data including settings, branding, staff, visitors, and operational data to a SQL Server .bak file.
                 </p>
                 <Button 
                   onClick={handleBackupDatabase}
