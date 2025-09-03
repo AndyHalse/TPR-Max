@@ -2057,8 +2057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ID Card Design API endpoints - TEMPORARILY REVERTED TO OLD STORAGE
-  // TODO: Switch to customer database when customer infrastructure is ready
+  // ID Card Design API endpoints - NOW WITH CUSTOMER ISOLATION!
   app.put("/api/idcard/design", async (req, res) => {
     try {
       const { elements, background, cardSize } = req.body;
@@ -2068,7 +2067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid design elements" });
       }
       
-      // Save the design to company settings - TEMPORARY: OLD STORAGE SYSTEM
+      // Save the design to CUSTOMER-SPECIFIC company settings
       const designData = JSON.stringify({
         elements,
         background: background || 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
@@ -2076,11 +2075,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastUpdated: new Date().toISOString()
       });
       
-      const settings = await storage.updateCompanySettings({
+      // Get customer context for isolation
+      const context = databaseService.createDevelopmentContext();
+      
+      const settings = await databaseService.updateCompanySettings(context, {
         idCardDesign: designData
       });
       
-      console.log(`💾 ID card design saved with ${elements.length} elements (TEMPORARY: using shared storage until customer DB ready)`);
+      console.log(`💾 ID card design saved with ${elements.length} elements FOR CUSTOMER: ${context.customerId}`);
       
       res.json({
         success: true,
@@ -2095,9 +2097,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/idcard/design", async (req, res) => {
     try {
-      // TEMPORARY: Use old storage until we complete the customer database migration
-      const settings = await storage.getCompanySettings();
+      // Get customer context for isolation
+      const context = databaseService.createDevelopmentContext();
+      
+      const settings = await databaseService.getCompanySettings(context);
       const designData = settings?.idCardDesign || '[]';
+      
+      console.log(`🎨 Loading ID card design FOR CUSTOMER: ${context.customerId}`);
       
       let parsedDesign;
       try {
