@@ -71,6 +71,53 @@ export default function Settings() {
     queryKey: ["/api/departments"],
   });
 
+  // Backup mutation
+  const backupMutation = useMutation({
+    mutationFn: async () => {
+      console.log('🚀 BACKUP MUTATION STARTED - Making API request...');
+      const response = await apiRequest("GET", "/api/system/backup");
+      console.log('📥 BACKUP RESPONSE STATUS:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ BACKUP FAILED:', errorData);
+        throw new Error(errorData.error || "Failed to create backup");
+      }
+      
+      console.log('✅ BACKUP SUCCESS - Creating blob...');
+      return response.blob();
+    },
+    onSuccess: (blob) => {
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      a.href = url;
+      a.download = `visigate-backup-${timestamp}.bak`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Backup Complete",
+        description: "SQL Server .bak file has been downloaded successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Backup Failed",
+        description: error.message || "Failed to create database backup",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBackupDatabase = () => {
+    console.log('🔥 BACKUP BUTTON CLICKED - Starting backup mutation...');
+    backupMutation.mutate();
+  };
+
   const { data: detectedPrinters, refetch: refetchPrinters, isFetching: isDetectingPrinters } = useQuery<{
     success: boolean;
     platform: string;
@@ -2660,13 +2707,22 @@ export default function Settings() {
                   Export all customer data including settings, branding, staff, visitors, and operational data to a SQL Server .bak file.
                 </p>
                 <Button 
+                  onClick={handleBackupDatabase}
+                  disabled={backupMutation.isPending}
                   className="gradient-blue text-white w-full"
                   data-testid="button-backup-database"
                 >
-                  <div className="flex items-center gap-2">
-                    <Download className="w-4 h-4" />
-                    Download Database Backup
-                  </div>
+                  {backupMutation.isPending ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creating Backup...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Download className="w-4 h-4" />
+                      Download Database Backup
+                    </div>
+                  )}
                 </Button>
                 <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
                   <p className="text-xs text-green-800 dark:text-green-200">
