@@ -58,30 +58,41 @@ export class AuthService {
   }
 
   /**
-   * Initialize default developer user
+   * Initialize developer users for testing multi-customer isolation
    */
   static async initializeDeveloperUser(): Promise<void> {
     try {
-      // Check if Andy user already exists
-      const existingUser = await storage.getUserByUsername('Andy');
+      // Initialize Andy (Customer 001)
+      const existingAndy = await storage.getUserByUsername('Andy');
       
-      if (existingUser) {
-        // Update existing user password to ensure it's current (pass raw password, storage will hash it)
+      if (existingAndy) {
         console.log('Developer user "Andy" already exists - updating password');
-        await storage.updateUser(existingUser.id, { password: 'Kubo1966&&' });
+        await storage.updateUser(existingAndy.id, { password: 'Kubo1966&&' });
         console.log('Developer user password updated successfully');
-        return;
+      } else {
+        await storage.createUser({
+          username: 'Andy',
+          password: 'Kubo1966&&'
+        });
+        console.log('Developer user "Andy" created successfully with password: Kubo1966&&');
       }
 
-      // Create the developer user with raw password (storage will hash it)
-      await storage.createUser({
-        username: 'Andy',
-        password: 'Kubo1966&&'
-      });
-
-      console.log('Developer user "Andy" created successfully with password: Kubo1966&&');
+      // Initialize Emma (Customer 002) for testing customer isolation
+      const existingEmma = await storage.getUserByUsername('Emma');
+      
+      if (existingEmma) {
+        console.log('Developer user "Emma" already exists - updating password');
+        await storage.updateUser(existingEmma.id, { password: 'Kubo1976&&' });
+        console.log('Emma user password updated successfully');
+      } else {
+        await storage.createUser({
+          username: 'Emma',
+          password: 'Kubo1976&&'
+        });
+        console.log('✅ Developer user "Emma" created successfully for Customer 002 testing');
+      }
     } catch (error) {
-      console.error('Failed to initialize developer user:', error);
+      console.error('Failed to initialize developer users:', error);
     }
   }
 }

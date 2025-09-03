@@ -773,8 +773,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -1262,8 +1263,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const actualPrinter = settings?.idCardPrinter || "Magicard Enduro+ (V2)";
@@ -1297,8 +1299,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Import the simplified database service
         const { simpleDatabaseService } = await import("./simpleDatabaseService");
         
-        // Get customer context for isolation
-        const context = simpleDatabaseService.createDevelopmentContext();
+        // Get customer context for isolation based on logged-in user
+        const username = req.user?.username || 'Andy';
+        const context = simpleDatabaseService.createCustomerContext(username);
         
         const settings = await simpleDatabaseService.getCompanySettings(context);
         const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
@@ -2096,8 +2099,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.updateCompanySettings(context, {
         idCardDesign: designData
@@ -2121,8 +2125,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const designData = settings?.idCardDesign || '[]';
@@ -2153,8 +2158,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -2182,8 +2188,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Import the simplified database service
         const { simpleDatabaseService } = await import("./simpleDatabaseService");
         
-        // Get customer context for isolation
-        const context = simpleDatabaseService.createDevelopmentContext();
+        // Get customer context for isolation based on logged-in user
+        const username = req.user?.username || 'Andy';
+        const context = simpleDatabaseService.createCustomerContext(username);
         
         await simpleDatabaseService.getCompanySettings(context);
         status.database = true;
@@ -2196,8 +2203,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Import the simplified database service
         const { simpleDatabaseService } = await import("./simpleDatabaseService");
         
-        // Get customer context for isolation
-        const context = simpleDatabaseService.createDevelopmentContext();
+        // Get customer context for isolation based on logged-in user
+        const username = req.user?.username || 'Andy';
+        const context = simpleDatabaseService.createCustomerContext(username);
         
         const settings = await simpleDatabaseService.getCompanySettings(context);
         // Check for required SMTP settings: host, username, password, and from name
@@ -2217,8 +2225,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Import the simplified database service
         const { simpleDatabaseService } = await import("./simpleDatabaseService");
         
-        // Get customer context for isolation
-        const context = simpleDatabaseService.createDevelopmentContext();
+        // Get customer context for isolation based on logged-in user
+        const username = req.user?.username || 'Andy';
+        const context = simpleDatabaseService.createCustomerContext(username);
         
         await simpleDatabaseService.getCompanySettings(context);
         status.storage = true;
@@ -2254,8 +2263,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.updateCompanySettings(context, updates);
       
@@ -3062,8 +3072,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -3127,8 +3138,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -3181,8 +3193,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       // Get current SMTP settings and create dynamic email service
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -3211,7 +3224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
+      // Use default context for startup (no req available)
       const context = simpleDatabaseService.createDevelopmentContext();
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -3630,8 +3643,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -3692,8 +3706,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const visitors = await storage.getCurrentVisitors();
       const staff = await storage.getAllStaff();
@@ -4090,8 +4105,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.biostarEnabled) {
@@ -4128,8 +4144,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.biostarEnabled) {
@@ -4165,8 +4182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.biostarEnabled) {
@@ -4215,8 +4233,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       if (companySettings) {
@@ -4428,8 +4447,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
           
@@ -5140,8 +5160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       if (settings?.notifyForgottenCheckouts !== false && settings?.emailReportsEnabled) {
@@ -5225,7 +5246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
+      // Use default context for startup (no req available)
       const context = simpleDatabaseService.createDevelopmentContext();
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -5330,7 +5351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
+      // Use default context for startup (no req available)
       const context = simpleDatabaseService.createDevelopmentContext();
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -5365,8 +5386,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.emailReportsEnabled || !settings?.reportRecipients?.length) {
@@ -5477,8 +5499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.notifyForgottenCheckouts || !settings?.emailReportsEnabled) {
@@ -5693,8 +5716,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
@@ -5794,8 +5818,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
@@ -5888,8 +5913,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
@@ -5945,8 +5971,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
@@ -5990,8 +6017,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
         const videoService = new VideoGenerationService(settings);
@@ -7047,8 +7075,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -7082,8 +7111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const designData = {
         elements,
@@ -7703,8 +7733,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get customer context for isolation
-      const context = simpleDatabaseService.createDevelopmentContext();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const printerSettings = {

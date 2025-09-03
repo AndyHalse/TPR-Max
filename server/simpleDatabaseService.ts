@@ -31,6 +31,23 @@ export class SimpleDatabaseService {
   }
 
   /**
+   * Create customer context based on username
+   */
+  createCustomerContext(username: string): CustomerContext {
+    // Map usernames to customer IDs for proper isolation
+    const customerMapping: { [key: string]: string } = {
+      "Andy": "dev-customer-001",
+      "Emma": "dev-customer-002"
+    };
+    
+    const customerId = customerMapping[username] || "dev-customer-001";
+    
+    return {
+      customerId
+    };
+  }
+
+  /**
    * COMPANY SETTINGS METHODS - Customer Isolated
    */
   async getCompanySettings(context: CustomerContext): Promise<CompanySettings | undefined> {
