@@ -1949,11 +1949,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`🔍 Checking for duplicate: ${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'no company'}`);
       
-      // Use customer-isolated database service for creating visitor
-      const visitor = await databaseService.createVisitor(context, visitorData);
-      console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
+      // Check if visitor already exists
+      const existingVisitor = await databaseService.findExistingVisitor(context, visitorData.firstName, visitorData.lastName, visitorData.company || undefined);
       
-      res.json(visitor);
+      if (existingVisitor) {
+        // If visitor exists but is checked out, check them in again
+        if (!existingVisitor.isCheckedIn) {
+          console.log(`🔄 Checking in existing visitor: ${visitorData.firstName} ${visitorData.lastName}`);
+          const visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
+            hostStaffId: visitorData.hostStaffId,
+            purpose: visitorData.purpose,
+            carRegistration: visitorData.carRegistration
+          });
+          res.json(visitor);
+        } else {
+          // Visitor is already checked in
+          console.log(`⚠️ Visitor already checked in: ${visitorData.firstName} ${visitorData.lastName}`);
+          res.status(409).json({ 
+            error: "Visitor already checked in", 
+            visitor: existingVisitor,
+            message: `${visitorData.firstName} ${visitorData.lastName} is already on site.`
+          });
+        }
+      } else {
+        // Create new visitor
+        const visitor = await databaseService.createVisitor(context, visitorData);
+        console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
+        res.json(visitor);
+      }
     } catch (error) {
       console.error("❌ Error during visitor check-in:", error);
       if (error instanceof z.ZodError) {

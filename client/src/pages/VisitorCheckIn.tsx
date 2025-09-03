@@ -280,12 +280,23 @@ export default function VisitorCheckIn() {
         description: "Visitor checked in successfully! Pass is printing...",
       });
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to check in visitor",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      console.error('Check-in error:', error);
+      
+      // Handle specific duplicate visitor error
+      if (error.message?.includes("409") || error.message?.includes("already checked in")) {
+        toast({
+          title: "Visitor Already On Site",
+          description: "This visitor is already checked in. Please check them out first if needed.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to check in visitor. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
