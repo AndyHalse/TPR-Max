@@ -255,12 +255,21 @@ export class ThermalPrintService {
    */
   private generateQRData(data: PassData): string {
     const timestamp = new Date().toISOString();
+    const customerId = process.env.CUSTOMER_ID || 'dev-customer-001'; // Customer isolation
+    const uniqueId = data.id || this.generatePassID();
+    
     const qrData = {
-      id: data.id || this.generatePassID(),
-      name: data.name,
+      id: `VG-${customerId.substring(0, 4)}-${uniqueId}`,
+      visitor: data.name,
       company: data.company,
       timestamp,
-      type: 'visigate_pass'
+      checkInTime: timestamp,
+      customerId,
+      type: 'visitor_pass',
+      // Additional tracking data for security
+      issueDate: new Date().toLocaleDateString('en-GB'),
+      issueTime: new Date().toLocaleTimeString('en-GB'),
+      validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Valid for 24 hours
     };
     return JSON.stringify(qrData);
   }

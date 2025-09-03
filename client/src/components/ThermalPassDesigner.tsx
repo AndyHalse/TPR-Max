@@ -897,6 +897,25 @@ export function ThermalPassDesigner() {
   const selectedElementData = selectedElement ? 
     passElements.find(el => el.id === selectedElement) : null;
 
+  // Generate unique visitor QR code with customer isolation
+  const generateUniqueVisitorQR = () => {
+    const timestamp = new Date().toISOString();
+    const randomId = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const customerId = 'dev-customer-001'; // In production, this comes from session context
+    
+    const qrData = {
+      id: `VG-${customerId.substring(0, 4)}-${randomId}`,
+      visitor: previewData.name,
+      company: companyData.tenantName || companyData.companyName,
+      timestamp,
+      checkInTime: new Date().toISOString(),
+      customerId,
+      type: 'visitor_pass'
+    };
+    
+    return JSON.stringify(qrData);
+  };
+
   const renderPreviewContent = (element: ThermalElement) => {
     if (!element.isVariable) {
       // Handle static content that may reference company data
@@ -917,7 +936,11 @@ export function ThermalPassDesigner() {
       case 'email': return previewData.email;
       case 'date': return new Date().toLocaleDateString('en-GB');
       case 'time': return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      case 'id': return 'VS001234';
+      case 'id': 
+        // Generate unique visitor ID with customer isolation
+        const timestamp = Date.now().toString().slice(-6);
+        const customerId = 'dev-customer-001';
+        return `${customerId.substring(4, 8).toUpperCase()}-${timestamp}`;
       default: return element.content || '';
     }
   };
@@ -1054,8 +1077,13 @@ export function ThermalPassDesigner() {
                           </div>
                         )}
                         {element.type === 'qr_code' && (
-                          <div className="w-full h-full bg-white border border-gray-300 flex items-center justify-center text-xs">
-                            <QrCode className="h-8 w-8" />
+                          <div className="w-full h-full bg-white border border-gray-300 flex items-center justify-center text-xs overflow-hidden">
+                            <div className="text-center">
+                              <QrCode className="h-6 w-6 mx-auto mb-1" />
+                              <div className="text-xs font-mono break-all">
+                                {generateUniqueVisitorQR().substring(0, 20)}...
+                              </div>
+                            </div>
                           </div>
                         )}
                         {element.type === 'logo' && (
