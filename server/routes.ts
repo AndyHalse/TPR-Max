@@ -3946,19 +3946,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🗄️ Creating customer-specific database backup FOR CUSTOMER: ${context.customerId}`);
       
       // Get all customer-specific data tables with proper isolation
-      const tables = [
-        'company_settings', 'staff', 'visitors', 'departments', 'users', 'pre_bookings', 
-        'meeting_rooms', 'room_bookings', 'room_booking_attendees', 'induction_settings', 
-        'induction_questions', 'reports', 'printer_configurations'
+      // Only query tables that have customer_id columns for proper isolation
+      const tablesWithCustomerId = [
+        'staff', 'visitors', 'pre_bookings', 'staff_sessions'
+      ];
+      
+      // For tables that use customer context but don't have customer_id column
+      const companySpecificTables = [
+        'company_settings', 'departments', 'meeting_rooms', 'printer_configurations', 'reports'
       ];
 
       const backupData = {};
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       
-      // Export data from each table with customer isolation
-      for (const table of tables) {
+      // Export data from tables with customer_id column
+      for (const table of tablesWithCustomerId) {
         try {
           const result = await db.execute(sql.raw(`SELECT * FROM ${table} WHERE customer_id = ?`, [context.customerId]));
+          backupData[table] = result.rows;
+          console.log(`📋 Exported ${result.rows.length} records from ${table} for customer ${context.customerId}`);
+        } catch (error) {
+          console.warn(`⚠️ Warning: Could not export table ${table} for customer ${context.customerId}:`, error.message);
+          backupData[table] = [];
+        }
+      }
+      
+      // Export data from company-specific tables (use context-based filtering)
+      for (const table of companySpecificTables) {
+        try {
+          // These tables might not have customer_id, so just get all records 
+          // (they're already customer-isolated via database connections)
+          const result = await db.execute(sql.raw(`SELECT * FROM ${table}`));
           backupData[table] = result.rows;
           console.log(`📋 Exported ${result.rows.length} records from ${table} for customer ${context.customerId}`);
         } catch (error) {
@@ -4029,9 +4047,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🗑️ Clearing existing data for customer ${context.customerId}...`);
         const tablesToClear = Object.keys(backupData.data);
         
+        // Tables with customer_id column
+        const tablesWithCustomerId = ['staff', 'visitors', 'pre_bookings', 'staff_sessions'];
+        
         for (const table of tablesToClear) {
           try {
-            await db.execute(sql.raw(`DELETE FROM ${table} WHERE customer_id = ?`, [context.customerId]));
+            if (tablesWithCustomerId.includes(table)) {
+              // Clear by customer_id
+              await db.execute(sql.raw(`DELETE FROM ${table} WHERE customer_id = ?`, [context.customerId]));
+            } else {
+              // Clear all records (these tables are customer-isolated by database connection)
+              await db.execute(sql.raw(`DELETE FROM ${table}`));
+            }
             console.log(`🧹 Cleared customer data from table: ${table}`);
           } catch (error) {
             console.warn(`⚠️ Warning: Could not clear customer data from table ${table}:`, error.message);
@@ -4050,14 +4077,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sampleRecord = records[0];
           const columns = Object.keys(sampleRecord);
           
+          // Tables with customer_id column
+          const tablesWithCustomerId = ['staff', 'visitors', 'pre_bookings', 'staff_sessions'];
+          
           // Insert records in batches to avoid memory issues
           const batchSize = 100;
           for (let i = 0; i < records.length; i += batchSize) {
             const batch = records.slice(i, i + batchSize);
             
             for (const record of batch) {
-              // Ensure customer_id is set correctly
-              record.customer_id = context.customerId;
+              // Ensure customer_id is set correctly for tables that have it
+              if (tablesWithCustomerId.includes(table)) {
+                record.customer_id = context.customerId;
+              }
               const values = columns.map(col => record[col]);
               await db.execute(sql.raw(
                 `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
