@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lt, gt, sql } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lt, gt, sql } from "drizzle-orm";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
 import type {
   Staff,
@@ -735,6 +735,20 @@ export class DatabaseService {
     return companiesWithCounts;
   }
 
+  async getVisitorById(context: CustomerContext, id: string): Promise<Visitor | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [visitor] = await db
+      .select()
+      .from(schema.visitors)
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.id, id)
+      ));
+    
+    return visitor || undefined;
+  }
+
   async getVisitorByQrCode(context: CustomerContext, qrCode: string): Promise<Visitor | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
@@ -774,7 +788,7 @@ export class DatabaseService {
       .select()
       .from(schema.reports)
       .where(eq(schema.reports.customerId, context.customerId))
-      .orderBy(desc(schema.reports.generatedAt));
+      .orderBy(desc(schema.reports.createdAt));
   }
 
   /**
