@@ -2986,8 +2986,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate 30 test visitors as requested
       const existingVisitors = await storage.getAllVisitors();
+      console.log(`Found ${existingVisitors.length} existing visitors`);
       const targetCount = 30;
       const toGenerate = Math.max(0, targetCount - existingVisitors.length);
+      console.log(`Need to generate ${toGenerate} visitors to reach target of ${targetCount}`);
 
       if (toGenerate > 0) {
         const testVisitorNames = [
@@ -3057,13 +3059,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         console.log(`Generated ${generated} test visitors`);
+      } else {
+        console.log(`Skipping generation - already have ${existingVisitors.length} visitors, target is ${targetCount}`);
       }
 
       const allVisitors = await storage.getAllVisitors();
+      const actualGenerated = toGenerate > 0 ? toGenerate : 0;
       res.json({ 
         success: true, 
-        message: `Generated ${toGenerate} new test visitors. Total visitors: ${allVisitors.length}`,
-        visitors: allVisitors 
+        message: `Generated ${actualGenerated} new test visitors. Total visitors: ${allVisitors.length}`,
+        visitors: allVisitors,
+        existingCount: existingVisitors.length,
+        targetCount: targetCount,
+        generated: actualGenerated
       });
     } catch (error) {
       console.error("Error generating test visitors:", error);
