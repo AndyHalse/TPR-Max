@@ -173,6 +173,45 @@ export class DatabaseService {
     return deleted.length > 0;
   }
 
+  async checkInStaff(context: CustomerContext, id: string, manual: boolean = false): Promise<Staff | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updated = await db
+      .update(schema.staff)
+      .set({ 
+        isCheckedIn: true,
+        checkedInAt: new Date(),
+        manualCheckIn: manual,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.id, id)
+      ))
+      .returning();
+    
+    return updated[0];
+  }
+
+  async checkOutStaff(context: CustomerContext, id: string): Promise<Staff | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updated = await db
+      .update(schema.staff)
+      .set({ 
+        isCheckedIn: false,
+        checkedOutAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.id, id)
+      ))
+      .returning();
+    
+    return updated[0];
+  }
+
   /**
    * VISITOR METHODS - Customer & Tenant Isolated
    */
