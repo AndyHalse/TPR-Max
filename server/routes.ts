@@ -2977,9 +2977,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (staff.length === 0) {
         console.log('No staff found, creating test staff first for customer:', context.customerId);
         const testStaff = [
-          { firstName: 'Reception', lastName: 'Team', email: 'reception@company.com', department: 'Reception', phoneNumber: '01234 567890' },
-          { firstName: 'John', lastName: 'Manager', email: 'john.manager@company.com', department: 'Operations', phoneNumber: '01234 567891' },
-          { firstName: 'Sarah', lastName: 'Director', email: 'sarah.director@company.com', department: 'Management', phoneNumber: '01234 567892' }
+          { firstName: 'Reception', lastName: 'Team', email: 'reception@company.com', department: 'Reception', phoneNumber: '01234 567890', employeeId: 'REC001' },
+          { firstName: 'John', lastName: 'Manager', email: 'john.manager@company.com', department: 'Operations', phoneNumber: '01234 567891', employeeId: 'MGR001' },
+          { firstName: 'Sarah', lastName: 'Director', email: 'sarah.director@company.com', department: 'Management', phoneNumber: '01234 567892', employeeId: 'DIR001' }
         ];
         
         for (const staffMember of testStaff) {
