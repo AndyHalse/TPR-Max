@@ -269,6 +269,19 @@ export function ThermalPassDesigner() {
     savePrinterSettings();
   }, [selectedPrinter, printMethod, printQuality, printerSettings, zebraSettings]);
 
+  // Handle element selection only
+  const handleElementClick = (e: React.MouseEvent, elementId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Clear selection if clicking the same element, otherwise select the new one
+    if (selectedElement === elementId) {
+      setSelectedElement(null);
+    } else {
+      setSelectedElement(elementId);
+    }
+  };
+
   // Drag and drop handlers for element movement
   const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
     e.preventDefault();
@@ -277,13 +290,10 @@ export function ThermalPassDesigner() {
     const element = passElements.find(el => el.id === elementId);
     if (!element) return;
 
-    // Clear any previous selection first
-    setSelectedElement(null);
-    
-    // Set new selection
-    setTimeout(() => {
+    // Select the element if not already selected
+    if (selectedElement !== elementId) {
       setSelectedElement(elementId);
-    }, 0);
+    }
     
     setIsDragging(true);
     
@@ -1026,6 +1036,12 @@ export function ThermalPassDesigner() {
                     style={{ width: THERMAL_PASS_WIDTH, height: THERMAL_PASS_HEIGHT }}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
+                    onClick={(e) => {
+                      // Clear selection when clicking background
+                      if (e.target === e.currentTarget) {
+                        setSelectedElement(null);
+                      }
+                    }}
                   >
                     {/* Grid overlay */}
                     <div className="absolute inset-0 opacity-10 pointer-events-none">
@@ -1055,11 +1071,7 @@ export function ThermalPassDesigner() {
                           height: element.height,
                           transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined
                         }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setSelectedElement(element.id);
-                        }}
+                        onClick={(e) => handleElementClick(e, element.id)}
                         onMouseDown={(e) => handleMouseDown(e, element.id)}
                         data-testid={`element-${element.id}`}
                       >
