@@ -342,6 +342,82 @@ export class DatabaseService {
     return departments.map(dept => dept.name);
   }
 
+  /**
+   * STAFF TIME & ATTENDANCE METHODS - Customer Isolated
+   */
+  async getStaffTimeAndAttendance(context: CustomerContext, dateFrom?: Date, dateTo?: Date): Promise<Array<{
+    staffId: string;
+    staffName: string;
+    department: string;
+    sessions: Array<{
+      checkInTime: Date;
+      checkOutTime: Date | null;
+      hoursWorked: number;
+      isManual: boolean;
+    }>;
+    totalHours: number;
+  }>> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const fromDate = dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default to last 30 days
+    const toDate = dateTo || new Date();
+    
+    // Get all staff for the customer
+    const staff = await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.isActive, true)
+      ));
+    
+    return staff.map(staffMember => {
+      const sessions: Array<{
+        checkInTime: Date;
+        checkOutTime: Date | null;
+        hoursWorked: number;
+        isManual: boolean;
+      }> = [];
+      
+      // For current session if checked in
+      if (staffMember.isCheckedIn && staffMember.checkedInAt && 
+          staffMember.checkedInAt >= fromDate && staffMember.checkedInAt <= toDate) {
+        const currentSession = {
+          checkInTime: staffMember.checkedInAt,
+          checkOutTime: null,
+          hoursWorked: (Date.now() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60), // Hours since check-in
+          isManual: staffMember.manualCheckIn || false,
+        };
+        sessions.push(currentSession);
+      }
+      
+      // For completed sessions - if we have both check-in and check-out times
+      if (staffMember.checkedOutAt && staffMember.checkedInAt && 
+          staffMember.checkedInAt >= fromDate && staffMember.checkedInAt <= toDate &&
+          !staffMember.isCheckedIn) { // Only show completed sessions when not currently checked in
+        const completedSession = {
+          checkInTime: staffMember.checkedInAt,
+          checkOutTime: staffMember.checkedOutAt,
+          hoursWorked: (staffMember.checkedOutAt.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60),
+          isManual: staffMember.manualCheckIn || false,
+        };
+        sessions.push(completedSession);
+      }
+      
+      const totalHours = sessions.reduce((sum, session) => sum + session.hoursWorked, 0);
+      
+      return {
+        staffId: staffMember.id,
+        staffName: `${staffMember.firstName} ${staffMember.lastName}`,
+        department: staffMember.department,
+        sessions,
+        totalHours,
+      };
+    })
+    .filter(record => record.sessions.length > 0) // Only return staff with time records
+    .sort((a, b) => a.staffName.localeCompare(b.staffName));
+  }
+
   async createDepartment(context: CustomerContext, insertDepartment: InsertDepartment): Promise<Department> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     

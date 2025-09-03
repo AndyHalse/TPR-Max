@@ -1846,6 +1846,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Time & Attendance report endpoint
   app.get("/api/staff/time-attendance", async (req, res) => {
     try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       const { dateFrom, dateTo } = req.query;
       let fromDate = dateFrom ? new Date(dateFrom as string) : undefined;
       let toDate = dateTo ? new Date(dateTo as string) : undefined;
@@ -1860,9 +1864,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fromDate.setHours(0, 0, 0, 0);
       }
       
-      const timeAttendance = await storage.getStaffTimeAndAttendance(fromDate, toDate);
+      // Use customer-isolated database service instead of file storage
+      const timeAttendance = await databaseService.getStaffTimeAndAttendance(context, fromDate, toDate);
       res.json(timeAttendance);
     } catch (error) {
+      console.error("Failed to fetch time and attendance data:", error);
       res.status(500).json({ error: "Failed to fetch time and attendance data" });
     }
   });
