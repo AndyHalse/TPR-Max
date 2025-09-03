@@ -1920,7 +1920,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/visitors/:id/checkout", async (req, res) => {
     try {
       const { id } = req.params;
-      const visitor = await storage.checkOutVisitor(id);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for visitor checkout
+      const visitor = await databaseService.checkOutVisitor(context, id);
       
       if (!visitor) {
         return res.status(404).json({ error: "Visitor not found or already checked out" });
@@ -1928,6 +1934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(visitor);
     } catch (error) {
+      console.error("Error checking out visitor:", error);
       res.status(500).json({ error: "Failed to check out visitor" });
     }
   });
