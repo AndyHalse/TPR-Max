@@ -2657,7 +2657,7 @@ export default function Settings() {
               </h3>
               <div className="space-y-4">
                 <p className="text-sm text-slate-600">
-                  Export all customer data including settings, branding, staff, visitors, and operational data to a JSON file.
+                  Export all customer data including settings, branding, staff, visitors, and operational data to a SQL Server .bak file.
                 </p>
                 <Button 
                   className="gradient-blue text-white w-full"
@@ -2670,7 +2670,7 @@ export default function Settings() {
                 </Button>
                 <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
                   <p className="text-xs text-green-800 dark:text-green-200">
-                    <strong>✅ Complete Data Export:</strong> All customer data, branding, AI images, and settings included for full portability
+                    <strong>✅ SQL Server Compatible:</strong> .bak file format compatible with SQL Server Management Studio for database restore
                   </p>
                 </div>
               </div>
