@@ -473,10 +473,10 @@ export class DatabaseService {
       ));
     
     return {
-      currentVisitors: currentVisitorsResult[0]?.count || 0,
-      todayCheckins: todayCheckinsResult[0]?.count || 0,
-      staffOnSite: staffOnSiteResult[0]?.count || 0,
-      totalStaff: totalStaffResult[0]?.count || 0,
+      currentVisitors: parseInt(currentVisitorsResult[0]?.count) || 0,
+      todayCheckins: parseInt(todayCheckinsResult[0]?.count) || 0,
+      staffOnSite: parseInt(staffOnSiteResult[0]?.count) || 0,
+      totalStaff: parseInt(totalStaffResult[0]?.count) || 0,
     };
   }
 

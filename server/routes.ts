@@ -582,9 +582,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;
       
-      // Calculate total people on-site
-      const totalPeopleOnSite = otherStats.currentVisitors + otherStats.staffOnSite + contractorsOnSite;
-      console.log(`🧮 CALCULATION: ${otherStats.currentVisitors} + ${otherStats.staffOnSite} + ${contractorsOnSite} = ${totalPeopleOnSite}`);
+      // Calculate total people on-site (convert strings to numbers!)
+      const currentVisitorsNum = parseInt(otherStats.currentVisitors) || 0;
+      const staffOnSiteNum = parseInt(otherStats.staffOnSite) || 0;
+      const totalPeopleOnSite = currentVisitorsNum + staffOnSiteNum + contractorsOnSite;
+      console.log(`🧮 CALCULATION FIXED: ${currentVisitorsNum} + ${staffOnSiteNum} + ${contractorsOnSite} = ${totalPeopleOnSite}`);
       
       // Get total companies count with customer isolation
       const visitors = await databaseService.getAllVisitors(context);
