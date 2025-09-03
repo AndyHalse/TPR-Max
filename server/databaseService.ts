@@ -513,6 +513,52 @@ export class DatabaseService {
   }
 
   /**
+   * USER AUTHENTICATION METHODS - Customer Isolated
+   */
+  async getUser(context: CustomerContext, userId: string): Promise<User | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [user] = await db
+      .select()
+      .from(schema.users)
+      .where(and(
+        eq(schema.users.customerId, context.customerId),
+        eq(schema.users.id, userId)
+      ));
+    
+    return user || undefined;
+  }
+
+  async authenticateTenantUser(context: CustomerContext, username: string, password: string, tenantId?: string): Promise<User | null> {
+    try {
+      const user = await this.getUserByUsername(context, username);
+      if (!user) {
+        return null;
+      }
+
+      // Verify tenant access if specified
+      if (tenantId && user.tenantCompanyId !== tenantId) {
+        return null;
+      }
+
+      const isValid = await this.verifyPassword(password, user.password);
+      if (!isValid) {
+        return null;
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Tenant authentication error:', error);
+      return null;
+    }
+  }
+
+  private async verifyPassword(password: string, hash: string): Promise<boolean> {
+    const bcrypt = await import('bcryptjs');
+    return bcrypt.compare(password, hash);
+  }
+
+  /**
    * DEVELOPMENT HELPER: Create temporary customer context for current development setup
    */
   createDevelopmentContext(): CustomerContext {

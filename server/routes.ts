@@ -411,7 +411,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "Not authenticated" });
     }
     
-    const user = await storage.getUser(req.session.userId);
+    // Get customer context for isolation based on logged-in user
+    const username = req.user?.username || 'Andy';
+    const context = simpleDatabaseService.createCustomerContext(username);
+    
+    const user = await databaseService.getUser(context, req.session.userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -428,7 +432,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
-      const user = await storage.authenticateTenantUser(username, password, tenantId);
+      // Get customer context for isolation based on login attempt
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const user = await databaseService.authenticateTenantUser(context, username, password, tenantId);
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials or unauthorized tenant access" });
       }

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Building2, Plus, Users, Eye, Settings, AlertTriangle, CheckCircle, Calendar, DollarSign, Zap, Database } from "lucide-react";
+import { Building2, Plus, Users, Eye, Settings, AlertTriangle, CheckCircle, Calendar, Zap, Database } from "lucide-react";
 import type { TenantCompany, InsertTenantCompany } from "@/../../shared/schema";
 
 interface TenantStats {
@@ -370,7 +370,7 @@ export default function SuperAdmin() {
         <Card data-testid="card-monthly-revenue">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-active-tenants">
@@ -437,7 +437,7 @@ export default function SuperAdmin() {
                           📧 {tenant.contactEmail} | 🏢 /{tenant.slug}
                         </p>
                         <p data-testid={`text-info-${tenant.slug}`}>
-                          👥 Max {tenant.maxUsers} users
+                          👥 {tenant.maxUsers} user capacity
                         </p>
                       </div>
                     </div>
