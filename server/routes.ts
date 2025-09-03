@@ -3067,26 +3067,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clear duplicate visitors endpoint
   app.delete("/api/test-data/visitors/duplicates", async (req, res) => {
     try {
-      const allVisitors = await storage.getAllVisitors();
+      // Get customer context for proper data isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      console.log(`🧹 Removing duplicate visitors for customer: ${context.customerId}`);
+      
+      // Use customer-isolated database service
+      const allVisitors = await databaseService.getAllVisitors(context);
       const uniqueVisitors = new Map();
       const duplicatesToRemove = [];
 
-      // Find duplicates based on firstName + lastName combination
+      // Find duplicates based on firstName + lastName + company combination
       for (const visitor of allVisitors) {
         // Skip visitors with missing name data
         if (!visitor.firstName || !visitor.lastName) {
           continue;
         }
         
-        const nameKey = `${visitor.firstName.toLowerCase()}_${visitor.lastName.toLowerCase()}`;
+        const nameKey = `${visitor.firstName.toLowerCase()}_${visitor.lastName.toLowerCase()}_${(visitor.company || '').toLowerCase()}`;
         if (uniqueVisitors.has(nameKey)) {
           // Keep the newest visitor, mark older ones for removal
           const existing = uniqueVisitors.get(nameKey);
           if (new Date(visitor.checkedInAt) > new Date(existing.checkedInAt)) {
             duplicatesToRemove.push(existing.id);
             uniqueVisitors.set(nameKey, visitor);
+            console.log(`📋 Marking older duplicate for removal: ${existing.firstName} ${existing.lastName} (${existing.id})`);
           } else {
             duplicatesToRemove.push(visitor.id);
+            console.log(`📋 Marking newer duplicate for removal: ${visitor.firstName} ${visitor.lastName} (${visitor.id})`);
           }
         } else {
           uniqueVisitors.set(nameKey, visitor);
@@ -3096,9 +3104,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Remove duplicates
       let removedCount = 0;
       for (const visitorId of duplicatesToRemove) {
-        await storage.deleteVisitor(visitorId);
-        removedCount++;
+        const success = await databaseService.deleteVisitor(context, visitorId);
+        if (success) {
+          removedCount++;
+          console.log(`🗑️ Removed duplicate visitor: ${visitorId}`);
+        }
       }
+
+      console.log(`✅ Duplicate cleanup complete: ${removedCount} duplicates removed, ${uniqueVisitors.size} unique visitors remaining`);
 
       res.json({ 
         success: true,
