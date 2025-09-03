@@ -3590,9 +3590,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/prebookings", async (req, res) => {
     try {
-      // Transform the request body to ensure proper date handling
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Transform the request body to ensure proper date handling and add customerId
       const transformedData = {
         ...req.body,
+        customerId: context.customerId,
         visitDate: new Date(req.body.visitDate)
       };
       
