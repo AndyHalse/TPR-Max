@@ -105,11 +105,28 @@ export function ThermalPassDesigner() {
     email: 'john@techcorp.com'
   });
 
+  // Drag and drop state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
   // Printer settings for B-FV4D
   // Printer selection and print method
   const [selectedPrinter, setSelectedPrinter] = useState<'tec' | 'zebra'>('tec');
   const [printMethod, setPrintMethod] = useState<'direct' | 'browser' | 'windows'>('direct');
   const [printQuality, setPrintQuality] = useState<'reception' | 'security' | 'visitor'>('reception');
+
+  // Enhanced printer settings for Zebra compatibility
+  const [zebraSettings, setZebraSettings] = useState({
+    darkness: 10, // 0-15 (Zebra darkness setting)
+    printSpeed: 4, // 1-14 (1=slowest, 14=fastest)
+    mediaType: 'thermal_direct', // thermal_direct or thermal_transfer
+    printWidth: 759, // dots at 203 DPI for 95mm
+    labelLength: 520, // dots at 203 DPI for 65mm  
+    heatingTime: 'auto', // auto, short, medium, long
+    cutter: true,
+    calibration: 'auto' // auto, manual, disabled
+  });
   
   // Print status tracking
   const [printJobs, setPrintJobs] = useState<Array<{
@@ -181,7 +198,8 @@ export function ThermalPassDesigner() {
         thermalSelectedPrinter: selectedPrinter,
         thermalPrintMethod: printMethod,
         thermalPrintQuality: printQuality,
-        thermalPrinterSettings: JSON.stringify(printerSettings)
+        thermalPrinterSettings: JSON.stringify(printerSettings),
+        thermalZebraSettings: JSON.stringify(zebraSettings)
       };
 
       const response = await fetch('/api/settings', {
@@ -218,7 +236,83 @@ export function ThermalPassDesigner() {
   // Auto-save printer settings when they change
   useEffect(() => {
     savePrinterSettings();
-  }, [selectedPrinter, printMethod, printQuality, printerSettings]);
+  }, [selectedPrinter, printMethod, printQuality, printerSettings, zebraSettings]);
+
+  // Drag and drop handlers for element movement
+  const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const element = passElements.find(el => el.id === elementId);
+    if (!element) return;
+
+    setSelectedElement(elementId);
+    setIsDragging(true);
+    
+    const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    setDragStart({ x: mouseX, y: mouseY });
+    setDragOffset({ x: mouseX - element.x, y: mouseY - element.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !selectedElement) return;
+    
+    e.preventDefault();
+    
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const newX = Math.max(0, Math.min(THERMAL_PASS_WIDTH - 20, mouseX - dragOffset.x));
+    const newY = Math.max(0, Math.min(THERMAL_PASS_HEIGHT - 20, mouseY - dragOffset.y));
+    
+    updateElement(selectedElement, { x: newX, y: newY });
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      setDragStart({ x: 0, y: 0 });
+      setDragOffset({ x: 0, y: 0 });
+      
+      // Auto-save design after drag
+      autoSaveDesign();
+    }
+  };
+
+  // Auto-save design functionality
+  const autoSaveDesign = async () => {
+    try {
+      const designData = {
+        elements: passElements,
+        type: passType,
+        printerSettings
+      };
+
+      await fetch(`/api/thermal-passes/design/${passType}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(designData)
+      });
+      
+      console.log(`🎯 Auto-saved design`);
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    }
+  };
+
+  // Mouse event cleanup
+  useEffect(() => {
+    const handleGlobalMouseUp = () => setIsDragging(false);
+    
+    if (isDragging) {
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+      return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
+    }
+  }, [isDragging]);
 
   const saveDesign = async () => {
     try {
@@ -289,15 +383,31 @@ export function ThermalPassDesigner() {
 
   // Print quality presets
   const getQualitySettings = (quality: string) => {
-    switch (quality) {
-      case 'reception':
-        return { printSpeed: 'fast', printDensity: 'normal', thermalAdjustment: 0 };
-      case 'security':
-        return { printSpeed: 'slow', printDensity: 'dark', thermalAdjustment: 1 };
-      case 'visitor':
-        return { printSpeed: 'medium', printDensity: 'normal', thermalAdjustment: 0 };
-      default:
-        return printerSettings;
+    // Printer-specific quality settings
+    const baseSettings: Record<string, any> = {
+      reception: { printSpeed: 'fast', printDensity: 'normal', thermalAdjustment: 0 },
+      security: { printSpeed: 'slow', printDensity: 'dark', thermalAdjustment: 1 },
+      visitor: { printSpeed: 'medium', printDensity: 'normal', thermalAdjustment: 0 }
+    };
+
+    const settings = baseSettings[quality] || printerSettings;
+
+    // Apply printer-specific adjustments
+    if (selectedPrinter === 'zebra') {
+      // Zebra printers prefer slightly different settings for optimal output
+      return {
+        ...settings,
+        zebraDarkness: quality === 'security' ? 15 : quality === 'reception' ? 8 : 10,
+        zebraPrintSpeed: quality === 'security' ? 2 : quality === 'reception' ? 6 : 4,
+        zebraMediaType: 'thermal_direct' // or 'thermal_transfer' for ribbon
+      };
+    } else {
+      // TEC/Toshiba B-FV4D specific settings
+      return {
+        ...settings,
+        blackMarkSensing: true,
+        cutAfterPrint: true
+      };
     }
   };
 
@@ -843,8 +953,10 @@ export function ThermalPassDesigner() {
                 </CardHeader>
                 <CardContent>
                   <div 
-                    className="relative border-2 border-dashed border-gray-300 bg-white mx-auto"
+                    className="relative border-2 border-dashed border-gray-300 bg-white mx-auto select-none"
                     style={{ width: THERMAL_PASS_WIDTH, height: THERMAL_PASS_HEIGHT }}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
                   >
                     {/* Grid overlay */}
                     <div className="absolute inset-0 opacity-10 pointer-events-none">
@@ -862,9 +974,11 @@ export function ThermalPassDesigner() {
                     {passElements.map((element) => (
                       <div
                         key={element.id}
-                        className={`absolute cursor-pointer border ${
-                          selectedElement === element.id ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-gray-400'
-                        }`}
+                        className={`absolute cursor-move border-2 transition-all duration-200 ${
+                          selectedElement === element.id 
+                            ? 'border-blue-500 bg-blue-50 shadow-lg z-10' 
+                            : 'border-transparent hover:border-gray-400 hover:shadow-md'
+                        } ${isDragging && selectedElement === element.id ? 'cursor-grabbing' : 'cursor-grab'}`}
                         style={{
                           left: element.x,
                           top: element.y,
@@ -873,6 +987,8 @@ export function ThermalPassDesigner() {
                           transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined
                         }}
                         onClick={() => setSelectedElement(element.id)}
+                        onMouseDown={(e) => handleMouseDown(e, element.id)}
+                        data-testid={`element-${element.id}`}
                       >
                         {element.type === 'text' && (
                           <div 
@@ -1438,6 +1554,120 @@ export function ThermalPassDesigner() {
                   </div>
                 </CardContent>
               </Card>
+              )}
+
+              {/* Zebra Printer Settings */}
+              {selectedPrinter === 'zebra' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Zebra Printer Settings</CardTitle>
+                    <p className="text-sm text-muted-foreground">ZPL-compatible thermal printers</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Darkness Level ({zebraSettings.darkness})</Label>
+                      <Slider
+                        value={[zebraSettings.darkness]}
+                        onValueChange={([value]) => 
+                          setZebraSettings(prev => ({ ...prev, darkness: value }))
+                        }
+                        min={0}
+                        max={15}
+                        step={1}
+                        className="mt-2"
+                      />
+                      <p className="text-xs text-muted-foreground">0 = Lightest, 15 = Darkest</p>
+                    </div>
+
+                    <div>
+                      <Label>Print Speed ({zebraSettings.printSpeed})</Label>
+                      <Slider
+                        value={[zebraSettings.printSpeed]}
+                        onValueChange={([value]) => 
+                          setZebraSettings(prev => ({ ...prev, printSpeed: value }))
+                        }
+                        min={1}
+                        max={14}
+                        step={1}
+                        className="mt-2"
+                      />
+                      <p className="text-xs text-muted-foreground">1 = Slowest (Best Quality), 14 = Fastest</p>
+                    </div>
+
+                    <div>
+                      <Label>Media Type</Label>
+                      <Select
+                        value={zebraSettings.mediaType}
+                        onValueChange={(value) => 
+                          setZebraSettings(prev => ({ ...prev, mediaType: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="thermal_direct">Direct Thermal</SelectItem>
+                          <SelectItem value="thermal_transfer">Thermal Transfer (Ribbon)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Heating Time</Label>
+                      <Select
+                        value={zebraSettings.heatingTime}
+                        onValueChange={(value) => 
+                          setZebraSettings(prev => ({ ...prev, heatingTime: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto</SelectItem>
+                          <SelectItem value="short">Short</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="long">Long</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={zebraSettings.cutter}
+                        onCheckedChange={(checked) => 
+                          setZebraSettings(prev => ({ ...prev, cutter: checked }))
+                        }
+                      />
+                      <Label>Auto Cutter</Label>
+                    </div>
+
+                    <div>
+                      <Label>Calibration</Label>
+                      <Select
+                        value={zebraSettings.calibration}
+                        onValueChange={(value) => 
+                          setZebraSettings(prev => ({ ...prev, calibration: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto Calibrate</SelectItem>
+                          <SelectItem value="manual">Manual</SelectItem>
+                          <SelectItem value="disabled">Disabled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-xs text-amber-700">
+                        <strong>Supported Models:</strong> GK420d, GX420d, ZD410, ZD420, ZD620, ZT410, ZT420, LP2824, LP2844 and other ZPL-compatible printers
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Print Method Guide */}
