@@ -3075,16 +3075,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const duplicatesToRemove = [];
 
       // Find duplicates based on firstName + lastName + company combination
+      console.log(`🔍 Checking ${allVisitors.length} visitors for duplicates...`);
+      
       for (const visitor of allVisitors) {
         // Skip visitors with missing name data
         if (!visitor.firstName || !visitor.lastName) {
+          console.log(`⚠️ Skipping visitor with missing name data: ${visitor.id}`);
           continue;
         }
         
         const nameKey = `${visitor.firstName.toLowerCase()}_${visitor.lastName.toLowerCase()}_${(visitor.company || '').toLowerCase()}`;
+        console.log(`🔍 Processing visitor: ${visitor.firstName} ${visitor.lastName} (${visitor.company || 'no company'}) - Key: "${nameKey}"`);
+        
         if (uniqueVisitors.has(nameKey)) {
           // Keep the newest visitor, mark older ones for removal
           const existing = uniqueVisitors.get(nameKey);
+          console.log(`🔍 Found duplicate! Existing: ${existing.checkedInAt}, Current: ${visitor.checkedInAt}`);
+          
           if (new Date(visitor.checkedInAt) > new Date(existing.checkedInAt)) {
             duplicatesToRemove.push(existing.id);
             uniqueVisitors.set(nameKey, visitor);
@@ -3095,8 +3102,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } else {
           uniqueVisitors.set(nameKey, visitor);
+          console.log(`✅ Added unique visitor: ${visitor.firstName} ${visitor.lastName}`);
         }
       }
+      
+      console.log(`🔍 Found ${duplicatesToRemove.length} duplicates to remove`);
 
       // Remove duplicates using the same storage service
       let removedCount = 0;
