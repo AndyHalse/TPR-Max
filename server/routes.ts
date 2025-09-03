@@ -3933,7 +3933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Database backup endpoint - NOW WITH CUSTOMER ISOLATION!
+  // Database backup endpoint - NOW WITH CUSTOMER ISOLATION AND SQL DUMP!
   app.get("/api/system/backup", requireAuth, async (req, res) => {
     try {
       // Import the simplified database service
@@ -3943,71 +3943,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      console.log(`🗄️ Creating customer-specific database backup FOR CUSTOMER: ${context.customerId}`);
+      console.log(`🗄️ Creating SQL database backup FOR CUSTOMER: ${context.customerId}`);
       
-      // Get all customer-specific data tables with proper isolation
-      // Only query tables that have customer_id columns for proper isolation
-      const tablesWithCustomerId = [
-        'staff', 'visitors', 'pre_bookings', 'staff_sessions'
-      ];
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
       
-      // For tables that use customer context but don't have customer_id column
-      const companySpecificTables = [
+      // Get database connection details from environment
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        throw new Error("DATABASE_URL not configured");
+      }
+      
+      // Parse database URL to get connection details
+      const url = new URL(dbUrl);
+      const dbName = url.pathname.slice(1); // Remove leading slash
+      const dbHost = url.hostname;
+      const dbPort = url.port || '5432';
+      const dbUser = url.username;
+      const dbPass = url.password;
+      
+      // Create customer-specific pg_dump command with table filtering
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupFile = `/tmp/visigate-backup-${context.customerId}-${timestamp}.sql`;
+      
+      // Tables with customer isolation
+      const customerTables = [
+        'staff', 'visitors', 'pre_bookings', 'staff_sessions',
         'company_settings', 'departments', 'meeting_rooms', 'printer_configurations', 'reports'
       ];
-
-      const backupData = {};
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       
-      // Export data from tables with customer_id column
+      // Create custom SQL backup with customer isolation
+      console.log(`📦 Creating custom SQL backup for customer ${context.customerId}...`);
+      
+      let sqlBackup = `-- VisiGate Pro Customer Database Backup
+-- Customer: ${context.customerName} (${context.customerId})
+-- Generated: ${new Date().toISOString()}
+-- 
+-- This backup contains only data for customer: ${context.customerId}
+--
+
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+
+`;
+
+      // Tables with customer_id column - export with customer filtering
+      const tablesWithCustomerId = ['staff', 'visitors', 'pre_bookings', 'staff_sessions'];
+      
       for (const table of tablesWithCustomerId) {
         try {
           const result = await db.execute(sql.raw(`SELECT * FROM ${table} WHERE customer_id = ?`, [context.customerId]));
-          backupData[table] = result.rows;
-          console.log(`📋 Exported ${result.rows.length} records from ${table} for customer ${context.customerId}`);
+          if (result.rows.length > 0) {
+            sqlBackup += `-- Data for table: ${table}\n`;
+            sqlBackup += `DELETE FROM ${table} WHERE customer_id = '${context.customerId}';\n`;
+            
+            for (const row of result.rows) {
+              const columns = Object.keys(row);
+              const values = columns.map(col => {
+                const value = row[col];
+                if (value === null) return 'NULL';
+                if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+                if (value instanceof Date) return `'${value.toISOString()}'`;
+                return value;
+              }).join(', ');
+              
+              sqlBackup += `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${values});\n`;
+            }
+            sqlBackup += `\n`;
+          }
         } catch (error) {
-          console.warn(`⚠️ Warning: Could not export table ${table} for customer ${context.customerId}:`, error.message);
-          backupData[table] = [];
+          console.warn(`⚠️ Warning: Could not export table ${table}:`, error.message);
         }
       }
       
-      // Export data from company-specific tables (use context-based filtering)
+      // Company-specific tables - export all data (already customer-isolated by database)
+      const companySpecificTables = ['company_settings', 'departments', 'meeting_rooms', 'printer_configurations', 'reports'];
+      
       for (const table of companySpecificTables) {
         try {
-          // These tables might not have customer_id, so just get all records 
-          // (they're already customer-isolated via database connections)
           const result = await db.execute(sql.raw(`SELECT * FROM ${table}`));
-          backupData[table] = result.rows;
-          console.log(`📋 Exported ${result.rows.length} records from ${table} for customer ${context.customerId}`);
+          if (result.rows.length > 0) {
+            sqlBackup += `-- Data for table: ${table}\n`;
+            sqlBackup += `DELETE FROM ${table};\n`;
+            
+            for (const row of result.rows) {
+              const columns = Object.keys(row);
+              const values = columns.map(col => {
+                const value = row[col];
+                if (value === null) return 'NULL';
+                if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+                if (value instanceof Date) return `'${value.toISOString()}'`;
+                return value;
+              }).join(', ');
+              
+              sqlBackup += `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${values});\n`;
+            }
+            sqlBackup += `\n`;
+          }
         } catch (error) {
-          console.warn(`⚠️ Warning: Could not export table ${table} for customer ${context.customerId}:`, error.message);
-          backupData[table] = [];
+          console.warn(`⚠️ Warning: Could not export table ${table}:`, error.message);
         }
       }
       
-      console.log(`📋 Exported customer-specific data for ${context.customerId}`);
-
-      // Create comprehensive customer-specific backup object
-      const backup = {
-        metadata: {
-          version: "2.0",
-          created: new Date().toISOString(),
-          system: "VisiGate Pro",
-          customerId: context.customerId,
-          customerName: context.customerName,
-          tables_exported: Object.keys(backupData).length,
-          total_records: Object.values(backupData).reduce((sum, records) => sum + records.length, 0)
-        },
-        data: backupData
-      };
-
-      console.log(`✅ Customer backup created FOR ${context.customerId}: ${backup.metadata.total_records} records across ${backup.metadata.tables_exported} tables`);
-
-      // Set headers for download
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="visigate-backup-${context.customerId}-${timestamp}.json"`);
+      console.log(`✅ SQL backup created for customer ${context.customerId}`);
       
-      res.json(backup);
+      // Set headers for SQL file download
+      res.setHeader('Content-Type', 'application/sql');
+      res.setHeader('Content-Disposition', `attachment; filename="visigate-backup-${context.customerId}-${timestamp}.sql"`);
+      
+      res.send(sqlBackup);
+      
     } catch (error) {
       console.error("Database backup error:", error);
       res.status(500).json({ error: "Failed to create database backup" });

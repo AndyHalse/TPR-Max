@@ -266,11 +266,7 @@ export default function Settings() {
   // Backup mutation
   const backupMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/system/backup", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include"
-      });
+      const response = await apiRequest("GET", "/api/system/backup");
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -285,7 +281,7 @@ export default function Settings() {
       const a = document.createElement('a');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       a.href = url;
-      a.download = `visigate-backup-${timestamp}.json`;
+      a.download = `visigate-backup-${timestamp}.sql`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
