@@ -2965,9 +2965,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/test-data/visitors", requireAuth, async (req, res) => {
     try {
-      const staff = await storage.getAllStaff();
+      let staff = await storage.getAllStaff();
+      
+      // If no staff exists, create some test staff first
       if (staff.length === 0) {
-        return res.status(400).json({ error: "No staff members found to assign as hosts" });
+        console.log('No staff found, creating test staff first...');
+        const testStaff = [
+          { firstName: 'Reception', lastName: 'Team', email: 'reception@company.com', department: 'Reception', phoneNumber: '01234 567890' },
+          { firstName: 'John', lastName: 'Manager', email: 'john.manager@company.com', department: 'Operations', phoneNumber: '01234 567891' },
+          { firstName: 'Sarah', lastName: 'Director', email: 'sarah.director@company.com', department: 'Management', phoneNumber: '01234 567892' }
+        ];
+        
+        for (const staffMember of testStaff) {
+          await storage.createStaff(staffMember);
+        }
+        
+        staff = await storage.getAllStaff();
+        console.log(`Created ${staff.length} test staff members`);
       }
 
       // Generate 30 test visitors as requested
