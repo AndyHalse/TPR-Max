@@ -340,6 +340,47 @@ export class DatabaseService {
   }
 
   /**
+   * STAFF HELPER METHODS - Customer Isolated
+   */
+  async getCheckedInStaff(context: CustomerContext): Promise<Staff[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.isCheckedIn, true)
+      ))
+      .orderBy(desc(schema.staff.checkedInAt));
+  }
+
+  /**
+   * ANALYTICS METHODS - Customer Isolated  
+   */
+  async getDepartmentAnalytics(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Get department analytics with visitor counts
+    const results = await db
+      .select({
+        department: schema.staff.department,
+        visitorCount: sql<number>`COUNT(DISTINCT ${schema.visitors.id})`,
+        staffCount: sql<number>`COUNT(DISTINCT ${schema.staff.id})`
+      })
+      .from(schema.staff)
+      .leftJoin(schema.visitors, and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.hostStaffId, schema.staff.id)
+      ))
+      .where(eq(schema.staff.customerId, context.customerId))
+      .groupBy(schema.staff.department)
+      .orderBy(sql`COUNT(DISTINCT ${schema.visitors.id}) DESC`);
+
+    return results;
+  }
+
+  /**
    * STATISTICS METHODS - Customer Isolated
    */
   async getStats(context: CustomerContext): Promise<{

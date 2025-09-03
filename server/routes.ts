@@ -565,11 +565,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stats endpoint
-  app.get("/api/stats", async (req, res) => {
+  app.get("/api/stats", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getVisitorStats();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get actual number of checked-in contractors
+      const stats = await databaseService.getStats(context);
+      
+      // Get actual number of checked-in contractors  
       const checkedInContractors = await storage.getCheckedInContractors();
       const contractorsOnSite = checkedInContractors.length;
       
@@ -601,9 +605,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Department analytics endpoint
-  app.get("/api/analytics/departments", async (req, res) => {
+  app.get("/api/analytics/departments", requireAuth, async (req, res) => {
     try {
-      const departmentData = await storage.getDepartmentAnalytics();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const departmentData = await databaseService.getDepartmentAnalytics(context);
       res.json(departmentData);
     } catch (error) {
       console.error("Failed to fetch department analytics:", error);
@@ -1007,11 +1015,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Staff endpoints
-  app.get("/api/staff", async (req, res) => {
+  app.get("/api/staff", requireAuth, async (req, res) => {
     try {
-      // GDPR WARNING: This endpoint returns ALL staff from ALL companies
-      // Only use for building-wide administration, not for tenant-specific operations
-      const staff = await storage.getAllStaff();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const staff = await databaseService.getAllStaff(context);
       res.json(staff);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch staff" });
@@ -1695,9 +1705,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Get checked-in staff endpoint
-  app.get("/api/staff/checked-in", async (req, res) => {
+  app.get("/api/staff/checked-in", requireAuth, async (req, res) => {
     try {
-      const checkedInStaff = await storage.getCheckedInStaff();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
       res.json(checkedInStaff);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch checked-in staff" });
@@ -1749,9 +1763,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/visitors/current", async (req, res) => {
+  app.get("/api/visitors/current", requireAuth, async (req, res) => {
     try {
-      const visitors = await storage.getCurrentVisitors();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const visitors = await databaseService.getCurrentVisitors(context);
       res.json(visitors);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch current visitors" });
