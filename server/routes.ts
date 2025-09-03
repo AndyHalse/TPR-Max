@@ -2057,7 +2057,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ID Card Design API endpoints - NOW WITH CUSTOMER ISOLATION!
+  // ID Card Design API endpoints - REVERTED TO WORKING STORAGE
+  // TODO: Fix customer database connection issues before implementing isolation
   app.put("/api/idcard/design", async (req, res) => {
     try {
       const { elements, background, cardSize } = req.body;
@@ -2067,7 +2068,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid design elements" });
       }
       
-      // Save the design to CUSTOMER-SPECIFIC company settings
+      // Save the design to company settings - USING WORKING STORAGE
       const designData = JSON.stringify({
         elements,
         background: background || 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
@@ -2075,14 +2076,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastUpdated: new Date().toISOString()
       });
       
-      // Get customer context for isolation
-      const context = databaseService.createDevelopmentContext();
-      
-      const settings = await databaseService.updateCompanySettings(context, {
+      const settings = await storage.updateCompanySettings({
         idCardDesign: designData
       });
       
-      console.log(`💾 ID card design saved with ${elements.length} elements FOR CUSTOMER: ${context.customerId}`);
+      console.log(`💾 ID card design saved with ${elements.length} elements (using working storage until customer DB connection fixed)`);
       
       res.json({
         success: true,
@@ -2097,13 +2095,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/idcard/design", async (req, res) => {
     try {
-      // Get customer context for isolation
-      const context = databaseService.createDevelopmentContext();
-      
-      const settings = await databaseService.getCompanySettings(context);
+      // USING WORKING STORAGE until customer DB connection is fixed
+      const settings = await storage.getCompanySettings();
       const designData = settings?.idCardDesign || '[]';
-      
-      console.log(`🎨 Loading ID card design FOR CUSTOMER: ${context.customerId}`);
       
       let parsedDesign;
       try {
