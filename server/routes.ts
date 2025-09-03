@@ -6619,21 +6619,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== MEETING ROOM ENDPOINTS =====
   // Meeting Rooms Management
-  app.get("/api/meeting-rooms", async (req, res) => {
+  app.get("/api/meeting-rooms", requireAuth, async (req, res) => {
     try {
-      const { tenant_id } = req.query;
-      let rooms;
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
-      if (tenant_id) {
-        // Get rooms allocated to specific tenant + shared rooms
-        const [tenantRooms, sharedRooms] = await Promise.all([
-          storage.getMeetingRoomsByTenant(tenant_id as string),
-          storage.getSharedMeetingRooms()
-        ]);
-        rooms = [...tenantRooms, ...sharedRooms];
-      } else {
-        rooms = await storage.getAllMeetingRooms();
-      }
+      // For now return empty until we implement customer-isolated meeting rooms
+      const rooms = [];
       
       res.json(rooms);
     } catch (error) {
@@ -6801,10 +6794,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Today's Room Bookings - specific route must come before parameterized route
-  app.get("/api/room-bookings/today", async (req, res) => {
+  app.get("/api/room-bookings/today", requireAuth, async (req, res) => {
     try {
-      const todayBookings = await storage.getTodayRoomBookings();
-      res.json(todayBookings);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated room bookings
+      res.json([]);
     } catch (error) {
       console.error("Error fetching today's room bookings:", error);
       res.status(500).json({ error: "Failed to fetch today's room bookings" });
@@ -7078,16 +7075,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Room Analytics
-  app.get("/api/meeting-rooms/analytics/utilization", async (req, res) => {
+  app.get("/api/meeting-rooms/analytics/utilization", requireAuth, async (req, res) => {
     try {
-      const { start_date, end_date } = req.query;
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
-      const stats = await storage.getRoomUtilizationStats(
-        start_date ? new Date(start_date as string) : undefined,
-        end_date ? new Date(end_date as string) : undefined
-      );
-      
-      res.json(stats);
+      // For now return empty until we implement customer-isolated analytics
+      res.json({});
     } catch (error) {
       console.error("Error fetching room utilization stats:", error);
       res.status(500).json({ error: "Failed to fetch room utilization stats" });
