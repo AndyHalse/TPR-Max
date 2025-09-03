@@ -2179,7 +2179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check database connection
       try {
-        await storage.getCompanySettings();
+        // Import the simplified database service
+        const { simpleDatabaseService } = await import("./simpleDatabaseService");
+        
+        // Get customer context for isolation
+        const context = simpleDatabaseService.createDevelopmentContext();
+        
+        await simpleDatabaseService.getCompanySettings(context);
         status.database = true;
       } catch (dbError) {
         console.error("Database status check failed:", dbError);
@@ -2208,7 +2214,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check storage (test if we can access storage methods)
       try {
-        await storage.getCompanySettings();
+        // Import the simplified database service
+        const { simpleDatabaseService } = await import("./simpleDatabaseService");
+        
+        // Get customer context for isolation
+        const context = simpleDatabaseService.createDevelopmentContext();
+        
+        await simpleDatabaseService.getCompanySettings(context);
         status.storage = true;
       } catch (storageError) {
         console.error("Storage status check failed:", storageError);
@@ -3047,7 +3059,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get report and settings
       const reports = await storage.getAllReports();
       const report = reports.find(r => r.id === id);
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (!report) {
         return res.status(404).json({ error: "Report not found" });
@@ -3106,7 +3124,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get report and settings
       const reports = await storage.getAllReports();
       const report = reports.find(r => r.id === id);
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (!report) {
         return res.status(404).send("<h1>Report Not Found</h1><p>The requested report could not be found.</p>");
@@ -3184,7 +3208,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Setup automatic email reports
   const setupAutomaticReports = async () => {
-    const settings = await storage.getCompanySettings();
+    // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
     if (!settings?.emailReportsEnabled) return;
     
     let cronExpression = "0 9 * * 1"; // Weekly on Monday at 9 AM
@@ -3597,7 +3627,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getVisitorStats();
       const currentVisitors = await storage.getCurrentVisitors();
       const staff = await storage.getAllStaff();
-      const companySettings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
       // Create manual report data
       const reportData = {
@@ -4051,7 +4087,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Biostar integration endpoints
   app.post("/api/biostar/test-connection", async (req, res) => {
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.biostarEnabled) {
         console.log("Biostar integration not enabled in settings");
         return res.status(400).json({ error: "Biostar integration is not enabled" });
@@ -4083,7 +4125,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('🔄 Starting Biostar device sync...');
       
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.biostarEnabled) {
         console.log('❌ Biostar integration not enabled');
         return res.status(400).json({ error: "Biostar integration is not enabled" });
@@ -4114,7 +4162,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/biostar/staff-status", async (req, res) => {
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.biostarEnabled) {
         return res.status(400).json({ error: "Biostar integration is not enabled" });
       }
@@ -4158,7 +4212,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Get company settings and send email
-      const companySettings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
       if (companySettings) {
         const emailSent = await emailService.sendUserInvitation(
           invitation.email,
@@ -4365,7 +4425,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const offence = await storage.getCardOffenceById(req.body.offenceId);
           
           // Get company settings for email
-          const companySettings = await storage.getCompanySettings();
+          // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
           
           if (contractor && contractor.email && offence && companySettings) {
             const emailService = new EmailService(companySettings);
@@ -5071,7 +5137,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Send notification emails if configured
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       if (settings?.notifyForgottenCheckouts !== false && settings?.emailReportsEnabled) {
         const totalCheckedOut = resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut;
         if (totalCheckedOut > 0) {
@@ -5150,7 +5222,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup automatic daily reset
   async function setupAutomaticDailyReset() {
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (settings?.enableDailyReset !== false) {
         const resetTime = settings?.dailyResetTime || "00:00";
@@ -5249,7 +5327,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup overnight check-out notifications
   async function setupOvernightNotifications() {
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (settings?.emailReportsEnabled) {
         console.log("📧 Setting up overnight check-out notifications (daily at 6:00 AM)");
@@ -5278,7 +5362,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to send overnight report
   async function sendOvernightReport() {
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.emailReportsEnabled || !settings?.reportRecipients?.length) {
         return;
       }
@@ -5384,7 +5474,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to send grace period notification
   async function sendGracePeriodNotification(gracePeriodMinutes: number) {
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       if (!settings?.notifyForgottenCheckouts || !settings?.emailReportsEnabled) {
         return;
       }
@@ -5594,7 +5690,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get company settings for AI configuration
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
 
       // Generate script to base questions on
@@ -5689,7 +5791,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
 
       // Get company settings for AI configuration
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
 
       // Generate the video content with format and model selection
@@ -5777,7 +5885,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { VideoGenerationService } = await import('./videoGenerationService');
       
       // Get company settings for AI configuration
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
       
       const content = await videoService.generateInductionScript(roleType);
@@ -5828,7 +5942,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If no existing content, generate new content
       console.log('🚨 No existing video found for', roleType, '- generating new content');
       const { VideoGenerationService } = await import('./videoGenerationService');
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
       
       const content = await videoService.generateVideoPresentation(roleType);
@@ -5867,7 +5987,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingSettings.length === 0 || !existingSettings[0].videoUrl) {
         // Generate new content if none exists
         const { VideoGenerationService } = await import('./videoGenerationService');
-        const settings = await storage.getCompanySettings();
+        // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
         const videoService = new VideoGenerationService(settings);
         
         const content = await videoService.generateVideoPresentation(roleType);
@@ -7574,7 +7700,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Print emergency muster list
   app.post("/api/thermal-passes/print-muster", async (req, res) => {
     try {
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       const printerSettings = {
         blackMarkSensing: true,
         printSpeed: 'medium' as const,
