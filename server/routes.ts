@@ -2965,6 +2965,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/test-data/visitors", requireAuth, async (req, res) => {
     try {
+      // Get customer context for proper data isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      console.log(`🧪 Generating test visitors for customer: ${context.customerId}`);
+      
       let staff = await storage.getAllStaff();
       
       // If no staff exists, create some test staff first
@@ -2984,12 +2989,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Created ${staff.length} test staff members`);
       }
 
-      // Generate 30 test visitors as requested
+      // Generate 30 test visitors as requested (always generate some for testing)
       const existingVisitors = await storage.getAllVisitors();
-      console.log(`Found ${existingVisitors.length} existing visitors`);
+      console.log(`Found ${existingVisitors.length} existing visitors for customer ${context.customerId}`);
+      
+      // For testing purposes, always generate visitors when button is clicked
       const targetCount = 30;
-      const toGenerate = Math.max(0, targetCount - existingVisitors.length);
-      console.log(`Need to generate ${toGenerate} visitors to reach target of ${targetCount}`);
+      const toGenerate = targetCount; // Always generate 30 fresh test visitors
+      console.log(`Will generate ${toGenerate} fresh test visitors for testing`);
 
       if (toGenerate > 0) {
         const testVisitorNames = [
