@@ -3101,10 +3101,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Remove duplicates
+      // Remove duplicates using the legacy storage service since databaseService doesn't have deleteVisitor
       let removedCount = 0;
       for (const visitorId of duplicatesToRemove) {
-        const success = await databaseService.deleteVisitor(context, visitorId);
+        const success = await storage.deleteVisitor(visitorId);
         if (success) {
           removedCount++;
           console.log(`🗑️ Removed duplicate visitor: ${visitorId}`);

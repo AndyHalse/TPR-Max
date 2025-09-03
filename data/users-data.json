@@ -2,7 +2,7 @@
   {
     "id": "aea47885-0257-4b8b-a4ee-a1791d1d5655",
     "username": "Andy",
-    "password": "$2b$10$9iu8D2Mcp0paGqHtkTeLHehApypibGCOPOhfQaMsOgQLzjQg1IHEm",
+    "password": "$2b$10$JP90EZN7OBrnqJB7Igc/IuYGRzJ9/fzEFYb9Vlc6HJrX2lWAijPLu",
     "email": null,
     "role": "user",
     "isActive": true,
@@ -11,7 +11,7 @@
   {
     "id": "9a09df1c-f6e3-4de2-aa13-8d6ebdb53480",
     "username": "Emma",
-    "password": "$2b$10$9Xd3jX16G1SqmsxMdmje6O6UowdCyO3eobalP9X./lH9PIOdMiRga",
+    "password": "$2b$10$vfBR9iFZX3tkL/J33.GQZOY7ZZvbWfj6Bc3PbG/MKu32AHKabLQwy",
     "email": null,
     "role": "user",
     "isActive": true,
