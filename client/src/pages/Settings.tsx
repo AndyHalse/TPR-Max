@@ -644,67 +644,6 @@ export default function Settings() {
               </div>
             </GlassCard>
 
-            <GlassCard>
-              <div className="flex items-center mb-4">
-                <SettingsIcon className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Configuration Status</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="text-green-600" size={20} />
-                    <span className="text-green-800 font-medium">SQL Online</span>
-                  </div>
-                  <Badge variant="secondary" className="bg-green-100 text-green-700">
-                    Database
-                  </Badge>
-                </div>
-
-                {/* Dynamic SMTP Status based on configuration */}
-                {currentSettings?.smtpHost && currentSettings?.smtpUsername && currentSettings?.smtpPassword ? (
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle className="text-green-600" size={20} />
-                      <span className="text-green-800 font-medium">SMTP Configured</span>
-                    </div>
-                    <Badge variant="secondary" className="bg-green-100 text-green-700">
-                      Email Service
-                    </Badge>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="flex items-center gap-3">
-                      <XCircle className="text-red-600" size={20} />
-                      <span className="text-red-800 font-medium">No SMTP</span>
-                    </div>
-                    <Badge variant="secondary" className="bg-red-100 text-red-700">
-                      Email Service
-                    </Badge>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="text-green-600" size={20} />
-                    <span className="text-green-800 font-medium">Server Online</span>
-                  </div>
-                  <Badge variant="secondary" className="bg-green-100 text-green-700">
-                    Server Status
-                  </Badge>
-                </div>
-
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="text-center">
-                    <p className="text-sm text-blue-800 font-medium mb-2">Server Uptime</p>
-                    <p className="text-xs text-blue-600">
-                      0h 1m • Last Check: {new Date().toLocaleTimeString()}
-                    </p>
-                    <p className="text-xs text-blue-500 mt-1">All Settings Auto-Saved</p>
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
           </div>
         </TabsContent>
 
