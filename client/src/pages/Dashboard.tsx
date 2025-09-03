@@ -707,8 +707,8 @@ export default function Dashboard() {
                     <span className="text-slate-600 dark:text-slate-400">
                       {dept.totalCount} people ({dept.visitorCount} visitors, {dept.staffCount} staff)
                     </span>
-                    <Badge variant={dept.trend.startsWith('+') ? 'default' : 'secondary'} className="text-xs">
-                      {dept.trend}
+                    <Badge variant={dept.trend?.startsWith('+') ? 'default' : 'secondary'} className="text-xs">
+                      {dept.trend || 'No trend'}
                     </Badge>
                   </div>
                 </div>
