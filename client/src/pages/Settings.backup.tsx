@@ -266,13 +266,17 @@ export default function Settings() {
   // Backup mutation
   const backupMutation = useMutation({
     mutationFn: async () => {
+      console.log('🚀 BACKUP MUTATION STARTED - Making API request...');
       const response = await apiRequest("GET", "/api/system/backup");
+      console.log('📥 BACKUP RESPONSE STATUS:', response.status);
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ BACKUP FAILED:', errorData);
         throw new Error(errorData.error || "Failed to create backup");
       }
       
+      console.log('✅ BACKUP SUCCESS - Creating blob...');
       return response.blob();
     },
     onSuccess: (blob) => {
@@ -339,6 +343,7 @@ export default function Settings() {
   });
 
   const handleBackupDatabase = () => {
+    console.log('🔥 BACKUP BUTTON CLICKED - Starting backup mutation...');
     backupMutation.mutate();
   };
 

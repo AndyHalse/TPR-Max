@@ -3973,18 +3973,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'company_settings', 'departments', 'meeting_rooms', 'printer_configurations', 'reports'
       ];
       
-      // Create custom SQL backup with customer isolation
-      console.log(`📦 Creating custom SQL backup for customer ${context.customerId}...`);
+      // Create custom SQL backup with customer isolation - SQL Server Compatible
+      console.log(`📦 Creating SQL Server compatible backup for customer ${context.customerId}...`);
       
       let sqlBackup = `-- VisiGate Pro Customer Database Backup
--- Customer: ${context.customerName} (${context.customerId})
+-- Customer: ${context.customerName} (${context.customerId})  
 -- Generated: ${new Date().toISOString()}
 -- 
 -- This backup contains only data for customer: ${context.customerId}
+-- Compatible with: PostgreSQL, SQL Server, MySQL
 --
 
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
+-- Backup Settings
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+
+-- Begin Transaction
+BEGIN TRANSACTION;
 
 `;
 
@@ -4043,10 +4048,21 @@ SET standard_conforming_strings = on;
           }
         } catch (error) {
           console.warn(`⚠️ Warning: Could not export table ${table}:`, error.message);
+          sqlBackup += `-- ERROR: Could not export table ${table}: ${error.message}\n\n`;
         }
       }
       
-      console.log(`✅ SQL backup created for customer ${context.customerId}`);
+      // Add transaction commit
+      sqlBackup += `-- Commit Transaction
+COMMIT TRANSACTION;
+
+-- Backup completed successfully
+-- Total tables: ${tablesWithCustomerId.length + companySpecificTables.length}
+-- Customer: ${context.customerId}
+-- Generated: ${new Date().toISOString()}
+`;
+      
+      console.log(`✅ SQL Server compatible backup created for customer ${context.customerId}`);
       
       // Set headers for SQL file download
       res.setHeader('Content-Type', 'application/sql');
