@@ -3933,56 +3933,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Database backup endpoint
-  app.get("/api/system/backup", async (req, res) => {
+  // Database backup endpoint - NOW WITH CUSTOMER ISOLATION!
+  app.get("/api/system/backup", requireAuth, async (req, res) => {
     try {
-      console.log("🗄️ Creating full database backup...");
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
-      // Get all customer data tables
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      console.log(`🗄️ Creating customer-specific database backup FOR CUSTOMER: ${context.customerId}`);
+      
+      // Get all customer-specific data tables with proper isolation
       const tables = [
-        'company_settings', 'building_settings', 'enhanced_company_details',
-        'staff', 'visitors', 'departments', 'users', 'user_invitations',
-        'pre_bookings', 'meeting_rooms', 'room_bookings', 'room_booking_attendees', 'room_booking_waitlist',
-        'contractor_companies', 'contractor_workers', 'contractor_visits', 'contractor_prebookings',
-        'induction_settings', 'induction_questions', 'induction_answers', 'induction_tokens',
-        'ai_generated_images', 'compliance_documents', 'document_approvals', 'document_types',
-        'rams_documents', 'nvq_qualifications', 'worker_certifications', 'worker_competencies',
-        'co2_records', 'local_labour_records', 'card_issues', 'card_offences',
-        'printer_configurations', 'reports', 'staff_sessions', 'tenant_companies'
+        'company_settings', 'staff', 'visitors', 'departments', 'users', 'pre_bookings', 
+        'meeting_rooms', 'room_bookings', 'room_booking_attendees', 'induction_settings', 
+        'induction_questions', 'reports', 'printer_configurations'
       ];
 
       const backupData = {};
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       
-      // Export data from each table
+      // Export data from each table with customer isolation
       for (const table of tables) {
         try {
-          const result = await db.execute(sql.raw(`SELECT * FROM ${table}`));
+          const result = await db.execute(sql.raw(`SELECT * FROM ${table} WHERE customer_id = ?`, [context.customerId]));
           backupData[table] = result.rows;
-          console.log(`📋 Exported ${result.rows.length} records from ${table}`);
+          console.log(`📋 Exported ${result.rows.length} records from ${table} for customer ${context.customerId}`);
         } catch (error) {
-          console.warn(`⚠️ Warning: Could not export table ${table}:`, error.message);
+          console.warn(`⚠️ Warning: Could not export table ${table} for customer ${context.customerId}:`, error.message);
           backupData[table] = [];
         }
       }
+      
+      console.log(`📋 Exported customer-specific data for ${context.customerId}`);
 
-      // Create comprehensive backup object
+      // Create comprehensive customer-specific backup object
       const backup = {
         metadata: {
-          version: "1.0",
+          version: "2.0",
           created: new Date().toISOString(),
           system: "VisiGate Pro",
+          customerId: context.customerId,
+          customerName: context.customerName,
           tables_exported: Object.keys(backupData).length,
           total_records: Object.values(backupData).reduce((sum, records) => sum + records.length, 0)
         },
         data: backupData
       };
 
-      console.log(`✅ Backup created: ${backup.metadata.total_records} records across ${backup.metadata.tables_exported} tables`);
+      console.log(`✅ Customer backup created FOR ${context.customerId}: ${backup.metadata.total_records} records across ${backup.metadata.tables_exported} tables`);
 
       // Set headers for download
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="visigate-backup-${timestamp}.json"`);
+      res.setHeader('Content-Disposition', `attachment; filename="visigate-backup-${context.customerId}-${timestamp}.json"`);
       
       res.json(backup);
     } catch (error) {
@@ -3991,8 +3996,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Database restore endpoint
-  app.post("/api/system/restore", async (req, res) => {
+  // Database restore endpoint - NOW WITH CUSTOMER ISOLATION!
+  app.post("/api/system/restore", requireAuth, async (req, res) => {
     try {
       const { backupData, clearExisting = true } = req.body;
       
@@ -4000,41 +4005,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid backup data format" });
       }
 
-      console.log("🔄 Starting database restore...");
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      // Verify backup is for this customer (security check)
+      if (backupData.metadata.customerId && backupData.metadata.customerId !== context.customerId) {
+        return res.status(403).json({ error: "Cannot restore backup from different customer" });
+      }
+
+      console.log(`🔄 Starting customer-specific database restore FOR CUSTOMER: ${context.customerId}`);
       console.log(`📊 Backup contains: ${backupData.metadata.total_records} records across ${backupData.metadata.tables_exported} tables`);
 
       let restoredTables = 0;
       let restoredRecords = 0;
       const errors = [];
 
-      // Clear existing data if requested
+      // Clear existing customer data if requested
       if (clearExisting) {
-        console.log("🗑️ Clearing existing data...");
+        console.log(`🗑️ Clearing existing data for customer ${context.customerId}...`);
         const tablesToClear = Object.keys(backupData.data);
         
-        // Clear in reverse dependency order to avoid foreign key conflicts
-        const clearOrder = tablesToClear.reverse();
-        for (const table of clearOrder) {
+        for (const table of tablesToClear) {
           try {
-            await db.execute(sql.raw(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`));
-            console.log(`🧹 Cleared table: ${table}`);
+            await db.execute(sql.raw(`DELETE FROM ${table} WHERE customer_id = ?`, [context.customerId]));
+            console.log(`🧹 Cleared customer data from table: ${table}`);
           } catch (error) {
-            console.warn(`⚠️ Warning: Could not clear table ${table}:`, error.message);
+            console.warn(`⚠️ Warning: Could not clear customer data from table ${table}:`, error.message);
           }
         }
       }
 
-      // Restore data to each table
+      // Restore data to each table with customer isolation
       for (const [table, records] of Object.entries(backupData.data)) {
         if (!records || records.length === 0) continue;
 
         try {
-          console.log(`📥 Restoring ${records.length} records to ${table}...`);
+          console.log(`📥 Restoring ${records.length} records to ${table} for customer ${context.customerId}...`);
           
           // Get table schema to build proper insert
           const sampleRecord = records[0];
           const columns = Object.keys(sampleRecord);
-          const placeholders = columns.map(() => '?').join(', ');
           
           // Insert records in batches to avoid memory issues
           const batchSize = 100;
@@ -4042,6 +4056,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const batch = records.slice(i, i + batchSize);
             
             for (const record of batch) {
+              // Ensure customer_id is set correctly
+              record.customer_id = context.customerId;
               const values = columns.map(col => record[col]);
               await db.execute(sql.raw(
                 `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
@@ -4052,24 +4068,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           restoredTables++;
           restoredRecords += records.length;
-          console.log(`✅ Restored ${records.length} records to ${table}`);
+          console.log(`✅ Restored ${records.length} records to ${table} for customer ${context.customerId}`);
           
         } catch (error) {
-          console.error(`❌ Error restoring table ${table}:`, error);
+          console.error(`❌ Error restoring table ${table} for customer ${context.customerId}:`, error);
           errors.push({ table, error: error.message });
         }
       }
 
-      console.log(`🎉 Restore completed: ${restoredRecords} records across ${restoredTables} tables`);
+      console.log(`🎉 Customer restore completed FOR ${context.customerId}: ${restoredRecords} records across ${restoredTables} tables`);
 
       res.json({
         success: true,
-        message: "Database restore completed",
+        message: `Customer database restore completed for ${context.customerName}`,
         restored: {
           tables: restoredTables,
           records: restoredRecords,
           errors: errors.length
         },
+        customerId: context.customerId,
         errors: errors
       });
 
