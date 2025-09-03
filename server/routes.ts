@@ -2251,16 +2251,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check email service (check if complete SMTP settings exist)
       try {
-        // Import the simplified database service
-        const { simpleDatabaseService } = await import("./simpleDatabaseService");
+        // Check for environment-based SMTP configuration first (system-level)
+        const envSmtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
         
-        // Get customer context for isolation based on logged-in user
-        const username = req.user?.username || 'Andy';
-        const context = simpleDatabaseService.createCustomerContext(username);
-        
-        const settings = await simpleDatabaseService.getCompanySettings(context);
-        // Check for required SMTP settings: host, username, password, and from name
-        status.email = !!(settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword && settings?.smtpFromName);
+        if (envSmtpConfigured) {
+          status.email = true;
+        } else {
+          // Fallback to customer-specific SMTP settings
+          const { simpleDatabaseService } = await import("./simpleDatabaseService");
+          const username = req.user?.username || 'Andy';
+          const context = simpleDatabaseService.createCustomerContext(username);
+          const settings = await simpleDatabaseService.getCompanySettings(context);
+          // Check for required SMTP settings: host, username, password, and from name
+          status.email = !!(settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword && settings?.smtpFromName);
+        }
       } catch (emailError) {
         console.error("Email status check failed:", emailError);
       }
