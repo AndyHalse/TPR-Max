@@ -461,12 +461,28 @@ export default function Settings() {
     }
   };
 
-  const handleLogoUpload = (result: any) => {
-    if (result.successful && result.successful[0]) {
-      const uploadURL = result.successful[0].uploadURL;
-      console.log("Logo upload URL:", uploadURL);
-      const logoPath = uploadURL.replace(window.location.origin, "");
-      handleInputChange("logoUrl", logoPath);
+  const handleLogoUpload = (objectPath: string) => {
+    try {
+      // objectPath comes from ObjectUploader as /objects/uploads/objectId
+      // We need to store just /uploads/objectId for the database
+      const logoUrl = objectPath.replace('/objects', '');
+      console.log('Logo upload - objectPath:', objectPath);
+      console.log('Logo upload - saving logoUrl:', logoUrl);
+      
+      // Use handleInputChange to trigger auto-save
+      handleInputChange("logoUrl", logoUrl);
+      
+      toast({
+        title: "Success",
+        description: "Logo uploaded successfully!",
+      });
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save logo",
+        variant: "destructive",
+      });
     }
   };
 
@@ -754,7 +770,7 @@ export default function Settings() {
                       </div>
                     )}
                     <ObjectUploader
-                      onUploadComplete={handleLogoUpload}
+                      onUpload={handleLogoUpload}
                       accept="image/*"
                       maxSize={2 * 1024 * 1024}
                       buttonClassName="w-full"
