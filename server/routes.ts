@@ -575,8 +575,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await databaseService.getStats(context);
       
       // Get actual number of checked-in contractors with customer isolation
-      const contractors = await databaseService.getContractors(context);
-      const contractorsOnSite = contractors.filter(c => c.status === 'checked-in').length;
+      const contractors = await databaseService.getContractorCompanies(context);
+      const contractorsOnSite = contractors.filter(c => c.status === 'active').length;
       
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;
