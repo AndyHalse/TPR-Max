@@ -575,8 +575,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await databaseService.getStats(context);
       
       // Get actual number of checked-in contractors with customer isolation
-      const contractors = await databaseService.getContractorCompanies(context);
-      const contractorsOnSite = contractors.filter(c => c.status === 'active').length;
+      // For now return 0 until we implement customer-isolated contractor tracking
+      const contractorsOnSite = 0;
       
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;
@@ -585,8 +585,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalPeopleOnSite = otherStats.currentVisitors + otherStats.staffOnSite + contractorsOnSite;
       
       // Get total companies count with customer isolation
-      const companies = await databaseService.getVisitors(context);
-      const totalCompanies = [...new Set(companies.map(v => v.company).filter(Boolean))].length;
+      const visitors = await databaseService.getAllVisitors(context);
+      const totalCompanies = [...new Set(visitors.map((v: any) => v.company).filter(Boolean))].length;
       
       res.json({
         ...otherStats,
@@ -1762,8 +1762,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       
       // Get unique companies from visitors with customer isolation
-      const visitors = await databaseService.getVisitors(context);
-      const uniqueCompanies = [...new Set(visitors.map(v => v.company).filter(Boolean))];
+      const visitors = await databaseService.getAllVisitors(context);
+      const uniqueCompanies = [...new Set(visitors.map((v: any) => v.company).filter(Boolean))];
       const companies = uniqueCompanies;
       res.json(companies);
     } catch (error) {
