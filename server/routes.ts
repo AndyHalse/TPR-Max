@@ -1183,12 +1183,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { manual = true } = req.body;
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      // Use customer-isolated database service for staff check-in
-      const staff = await databaseService.checkInStaff(context, id, manual);
+      // Use storage service for staff check-in (until customer isolation is fully implemented)
+      const staff = await storage.checkInStaff(id, manual);
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
@@ -1206,12 +1202,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      // Use customer-isolated database service for staff check-out
-      const staff = await databaseService.checkOutStaff(context, id);
+      // Use storage service for staff check-out (until customer isolation is fully implemented)
+      const staff = await storage.checkOutStaff(id);
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found or not checked in" });
