@@ -492,21 +492,17 @@ export default function Settings() {
             <Building2 size={16} />
             Company
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users size={16} />
-            Users
+          <TabsTrigger value="branding" className="flex items-center gap-2">
+            <Palette size={16} />
+            Branding
           </TabsTrigger>
           <TabsTrigger value="email" className="flex items-center gap-2">
             <Mail size={16} />
             Email
           </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-2">
-            <Palette size={16} />
-            Branding
-          </TabsTrigger>
-          <TabsTrigger value="printing" className="flex items-center gap-2">
-            <Printer size={16} />
-            Printing & ID
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users size={16} />
+            Users
           </TabsTrigger>
           <TabsTrigger value="departments" className="flex items-center gap-2">
             <Building size={16} />
@@ -515,6 +511,10 @@ export default function Settings() {
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <FileText size={16} />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="printing" className="flex items-center gap-2">
+            <Printer size={16} />
+            Printing & ID
           </TabsTrigger>
           <TabsTrigger value="ai" className="flex items-center gap-2">
             <Brain size={16} />
