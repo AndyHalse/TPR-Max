@@ -313,6 +313,25 @@ export class DatabaseService {
     return updated[0];
   }
 
+  async deleteVisitor(context: CustomerContext, id: string): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      const result = await db
+        .delete(schema.visitors)
+        .where(and(
+          eq(schema.visitors.customerId, context.customerId),
+          eq(schema.visitors.id, id)
+        ))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error(`❌ Failed to delete visitor ${id}:`, error);
+      return false;
+    }
+  }
+
   /**
    * DEPARTMENT METHODS - Customer Isolated
    */
