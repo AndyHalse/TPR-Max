@@ -185,32 +185,24 @@ export function ProfessionalThermalDesigner() {
   // Windows service management functions
   const downloadWindowsService = async () => {
     try {
-      const response = await fetch('/api/windows-service/download', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        }
+      // Create a direct download link for better browser compatibility
+      const downloadLink = document.createElement('a');
+      downloadLink.href = '/api/windows-service/download';
+      downloadLink.download = 'VisiGatePrintService-Setup.msi';
+      downloadLink.style.display = 'none';
+      
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      toast({
+        title: "Service Download Started",
+        description: "VisiGate Print Service installer download started. This is a demo placeholder - in production it would be a real MSI installer."
       });
       
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'VisiGatePrintService-Setup.msi';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        toast({
-          title: "Service Downloaded",
-          description: "VisiGate Print Service installer downloaded. Run as Administrator to install."
-        });
-      } else {
-        throw new Error('Download failed');
-      }
+      console.log('📦 Windows service download initiated');
     } catch (error) {
+      console.error('Download error:', error);
       toast({
         title: "Download Failed",
         description: "Failed to download Windows service. Please try again.",

@@ -8765,47 +8765,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Windows service download endpoint
   app.get('/api/windows-service/download', async (req, res) => {
     try {
-      // In production, this would serve the actual Windows service installer
-      // For demo purposes, we'll create a placeholder response
-      const serviceInfo = {
-        name: 'VisiGate Print Service',
-        version: '1.0.0',
-        description: 'Windows service for polling VisiGate SaaS and printing to local thermal printers',
-        requirements: [
-          'Windows 10 or Windows Server 2016+',
-          '.NET Framework 4.8+',
-          'Administrator privileges for installation',
-          'Network access to VisiGate SaaS'
-        ],
-        features: [
-          'Polls VisiGate cloud every 30 seconds',
-          'Supports TEC/Toshiba B-FV4D printers (TPL)',
-          'Supports Zebra thermal printers (ZPL)',
-          'Direct USB printing bypassing Windows spooler',
-          'Automatic retry and error handling',
-          'Service health monitoring and logging'
-        ]
-      };
+      // Create a placeholder MSI file content for demonstration
+      // In production, this would serve an actual compiled Windows service installer
+      
+      const msiHeader = Buffer.from([
+        0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, // MSI file signature
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3E,
+        0x00, 0x03, 0x00, 0xFE, 0xFF, 0x09, 0x00, 0x06
+      ]);
 
-      // In production, you would serve the actual .msi installer file:
-      // const filePath = path.join(__dirname, 'installers', 'VisiGatePrintService-Setup.msi');
-      // res.download(filePath, 'VisiGatePrintService-Setup.msi');
+      // Generate placeholder installer content
+      const placeholderContent = Buffer.concat([
+        msiHeader,
+        Buffer.from('VisiGate Print Service Installer\n'),
+        Buffer.from('This is a placeholder MSI installer.\n'),
+        Buffer.from('In production, this would be a real Windows service installer.\n'),
+        Buffer.from('\n--- Service Information ---\n'),
+        Buffer.from('Name: VisiGate Print Service\n'),
+        Buffer.from('Version: 1.0.0\n'),
+        Buffer.from('Description: Thermal printer polling service\n'),
+        Buffer.from('\n--- Installation Requirements ---\n'),
+        Buffer.from('- Windows 10 or Server 2016+\n'),
+        Buffer.from('- .NET Framework 4.8+\n'),
+        Buffer.from('- Administrator privileges\n'),
+        Buffer.from('- USB thermal printer connectivity\n'),
+        Buffer.from('\n--- Configuration ---\n'),
+        Buffer.from('After installation, configure with API token from VisiGate thermal designer.\n'),
+        Buffer.alloc(1024 * 50) // Pad to reasonable file size
+      ]);
+
+      // Set proper headers for file download
+      res.setHeader('Content-Type', 'application/x-msi');
+      res.setHeader('Content-Disposition', 'attachment; filename="VisiGatePrintService-Setup.msi"');
+      res.setHeader('Content-Length', placeholderContent.length);
+      res.setHeader('Cache-Control', 'no-cache');
       
-      // For demo, return service information
-      res.json({
-        success: true,
-        message: 'Windows service installer would be downloaded here',
-        serviceInfo,
-        downloadUrl: '/installers/VisiGatePrintService-Setup.msi',
-        installationGuide: '/service-installation-guide'
-      });
+      // Send the file content
+      res.send(placeholderContent);
       
-      console.log('📦 Windows service download requested');
+      console.log('📦 Windows service installer downloaded (placeholder MSI)');
     } catch (error) {
       console.error('Windows service download error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to download Windows service'
+        error: 'Failed to download Windows service installer'
       });
     }
   });
