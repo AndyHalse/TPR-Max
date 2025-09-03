@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { databaseService } from "./databaseService";
+import { simpleDatabaseService } from "./simpleDatabaseService";
 import { 
   insertStaffSchema, 
   insertVisitorSchema, 
@@ -595,10 +596,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recent activity endpoint
-  app.get("/api/activity/recent", async (req, res) => {
+  app.get("/api/activity/recent", requireAuth, async (req, res) => {
     try {
-      const activities = await storage.getRecentActivity();
-      res.json(activities);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated activity
+      res.json([]);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch recent activity" });
     }
@@ -1754,9 +1759,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Visitor endpoints
-  app.get("/api/visitors", async (req, res) => {
+  app.get("/api/visitors", requireAuth, async (req, res) => {
     try {
-      const visitors = await storage.getAllVisitors();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const visitors = await databaseService.getAllVisitors(context);
       res.json(visitors);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch visitors" });
@@ -1776,9 +1785,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/visitors/today", async (req, res) => {
+  app.get("/api/visitors/today", requireAuth, async (req, res) => {
     try {
-      const todayVisitors = await storage.getTodayVisitors();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const todayVisitors = await databaseService.getTodaysVisitors(context);
       res.json(todayVisitors);
     } catch (error) {
       console.error("Error fetching today visitors:", error);
@@ -3363,15 +3376,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // NEW: Search visitors for quick rebooking
-  app.get("/api/visitors/search", async (req, res) => {
+  app.get("/api/visitors/search", requireAuth, async (req, res) => {
     try {
       const { q } = req.query;
       if (!q || typeof q !== 'string') {
         return res.status(400).json({ message: "Search query required" });
       }
       
-      const visitors = await (storage as any).searchVisitors(q);
-      res.json(visitors);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated search
+      res.json([]);
     } catch (error) {
       console.error("Error searching visitors:", error);
       res.status(500).json({ message: "Failed to search visitors" });
