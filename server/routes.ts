@@ -1071,15 +1071,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Company name is required" });
       }
       
-      // Find the tenant company by name (case-insensitive)
-      const tenant = await storage.getTenantByCompanyName(companyName);
-      if (!tenant) {
-        return res.status(404).json({ error: "Company not found" });
-      }
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get only staff from that specific company
-      const staff = await storage.getStaffByTenant(tenant.id);
-      res.json(staff);
+      // Get staff from customer's isolated database
+      const allStaff = await databaseService.getAllStaff(context);
+      
+      // Filter staff by company name (case-insensitive)
+      const filteredStaff = allStaff.filter(staff => 
+        staff.department?.toLowerCase().includes(companyName.toLowerCase()) ||
+        staff.employeeId?.toLowerCase().includes(companyName.toLowerCase())
+      );
+      
+      res.json(filteredStaff);
     } catch (error) {
       console.error("Error fetching staff by company:", error);
       res.status(500).json({ error: "Failed to fetch staff for company" });
