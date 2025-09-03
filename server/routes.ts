@@ -2971,7 +2971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🧪 Generating test visitors for customer: ${context.customerId}`);
       
       // Use customer-isolated database service instead of global storage
-      let staff = await simpleDatabaseService.getAllStaff(context);
+      let staff = await databaseService.getAllStaff(context);
       
       // If no staff exists, create some test staff first
       if (staff.length === 0) {
@@ -2983,15 +2983,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ];
         
         for (const staffMember of testStaff) {
-          await simpleDatabaseService.createStaff(context, staffMember);
+          await databaseService.createStaff(context, staffMember);
         }
         
-        staff = await simpleDatabaseService.getAllStaff(context);
+        staff = await databaseService.getAllStaff(context);
         console.log(`Created ${staff.length} test staff members for customer ${context.customerId}`);
       }
 
       // Generate 30 test visitors using customer-isolated service
-      const existingVisitors = await simpleDatabaseService.getAllVisitors(context);
+      const existingVisitors = await databaseService.getAllVisitors(context);
       console.log(`Found ${existingVisitors.length} existing visitors for customer ${context.customerId}`);
       
       // For testing purposes, always generate visitors when button is clicked
@@ -3062,7 +3062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: 'active'
           };
 
-          await simpleDatabaseService.createVisitor(context, newVisitor);
+          await databaseService.createVisitor(context, newVisitor);
           generated++;
         }
 
@@ -3071,7 +3071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Skipping generation - already have ${existingVisitors.length} visitors, target is ${targetCount}`);
       }
 
-      const allVisitors = await simpleDatabaseService.getAllVisitors(context);
+      const allVisitors = await databaseService.getAllVisitors(context);
       const actualGenerated = toGenerate > 0 ? toGenerate : 0;
       res.json({ 
         success: true, 
