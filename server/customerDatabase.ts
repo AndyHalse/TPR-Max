@@ -40,6 +40,9 @@ export class CustomerDatabaseService {
       return this.customerConnections.get(customerId)!;
     }
 
+    // Ensure customer exists (auto-create for dev customers)
+    await this.ensureCustomerExists(customerId);
+
     // Get customer info from main management database
     const customer = await this.getCustomerInfo(customerId);
     if (!customer) {
@@ -201,6 +204,43 @@ export class CustomerDatabaseService {
 
     console.log(`✅ Connected to development customer database: ${DEV_CUSTOMER_ID}`);
     return db;
+  }
+
+  /**
+   * TEMPORARY: Auto-create missing development customers
+   */
+  async ensureCustomerExists(customerId: string): Promise<void> {
+    try {
+      // Check if customer exists
+      const customer = await this.getCustomerInfo(customerId);
+      if (customer) {
+        return; // Customer already exists
+      }
+
+      // Auto-create missing development customers
+      if (customerId === 'dev-customer-001') {
+        await this.createCustomer({
+          companyName: "VisiGate Demo (Andy)",
+          slug: "visigate-demo-andy",
+          contactEmail: "andy@visigate.pro",
+          databaseUrl: process.env.DATABASE_URL!,
+        });
+        console.log(`✅ Auto-created customer: ${customerId}`);
+      } else if (customerId === 'dev-customer-002') {
+        await this.createCustomer({
+          companyName: "VisiGate Demo (Emma)",
+          slug: "visigate-demo-emma",
+          contactEmail: "emma@visigate.pro",
+          databaseUrl: process.env.DATABASE_URL!,
+        });
+        console.log(`✅ Auto-created customer: ${customerId}`);
+      } else {
+        throw new Error(`Unknown development customer: ${customerId}`);
+      }
+    } catch (error) {
+      console.error(`Failed to ensure customer exists: ${customerId}`, error);
+      throw error;
+    }
   }
 }
 

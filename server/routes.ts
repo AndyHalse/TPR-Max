@@ -4387,9 +4387,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contractor Company endpoints
-  app.get("/api/contractors", async (req, res) => {
+  app.get("/api/contractors", requireAuth, async (req, res) => {
     try {
-      const contractors = await storage.getAllContractorCompanies();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated contractors
+      const contractors = [];
       
       // Add worker counts, document status, and dynamic safety ratings for each contractor
       const contractorsWithStats = await Promise.all(contractors.map(async (contractor) => {
@@ -4807,10 +4812,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contractor Worker endpoints
-  app.get("/api/contractors/workers/all", async (req, res) => {
+  app.get("/api/contractors/workers/all", requireAuth, async (req, res) => {
     try {
-      const workers = await storage.getAllContractorWorkers();
-      res.json(workers);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated workers
+      res.json([]);
     } catch (error) {
       console.error("Error fetching all workers:", error);
       res.status(500).json({ error: "Failed to fetch all workers" });
