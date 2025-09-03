@@ -1067,8 +1067,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/staff", async (req, res) => {
     try {
-      const staffData = insertStaffSchema.parse(req.body);
-      const staff = await storage.createStaff(staffData);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Add customerId to request data for proper customer isolation
+      const staffData = insertStaffSchema.parse({ ...req.body, customerId: context.customerId });
+      
+      // Use customer-isolated database service for creating staff
+      const staff = await databaseService.createStaff(context, staffData);
       res.json(staff);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1084,8 +1091,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/staff/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = insertStaffSchema.partial().parse(req.body);
-      const staff = await storage.updateStaff(id, updates);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Add customerId to updates for proper customer isolation
+      const updates = insertStaffSchema.partial().parse({ ...req.body, customerId: context.customerId });
+      
+      // Use customer-isolated database service for updating staff
+      const staff = await databaseService.updateStaff(context, id, updates);
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
@@ -1106,7 +1121,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/staff/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const success = await storage.deleteStaff(id);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for deleting staff
+      const success = await databaseService.deleteStaff(context, id);
       
       if (!success) {
         return res.status(404).json({ error: "Staff member not found" });
