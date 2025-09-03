@@ -3319,7 +3319,7 @@ export default function Settings() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".json"
+                    accept=".bak,.sql"
                     onChange={handleFileSelect}
                     className="hidden"
                     data-testid="input-backup-file"
