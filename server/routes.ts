@@ -2970,11 +2970,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       console.log(`🧪 Generating test visitors for customer: ${context.customerId}`);
       
-      let staff = await storage.getAllStaff();
+      // Use customer-isolated database service instead of global storage
+      let staff = await simpleDatabaseService.getAllStaff(context);
       
       // If no staff exists, create some test staff first
       if (staff.length === 0) {
-        console.log('No staff found, creating test staff first...');
+        console.log('No staff found, creating test staff first for customer:', context.customerId);
         const testStaff = [
           { firstName: 'Reception', lastName: 'Team', email: 'reception@company.com', department: 'Reception', phoneNumber: '01234 567890' },
           { firstName: 'John', lastName: 'Manager', email: 'john.manager@company.com', department: 'Operations', phoneNumber: '01234 567891' },
@@ -2982,21 +2983,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ];
         
         for (const staffMember of testStaff) {
-          await storage.createStaff(staffMember);
+          await simpleDatabaseService.createStaff(context, staffMember);
         }
         
-        staff = await storage.getAllStaff();
-        console.log(`Created ${staff.length} test staff members`);
+        staff = await simpleDatabaseService.getAllStaff(context);
+        console.log(`Created ${staff.length} test staff members for customer ${context.customerId}`);
       }
 
-      // Generate 30 test visitors as requested (always generate some for testing)
-      const existingVisitors = await storage.getAllVisitors();
+      // Generate 30 test visitors using customer-isolated service
+      const existingVisitors = await simpleDatabaseService.getAllVisitors(context);
       console.log(`Found ${existingVisitors.length} existing visitors for customer ${context.customerId}`);
       
       // For testing purposes, always generate visitors when button is clicked
       const targetCount = 30;
       const toGenerate = targetCount; // Always generate 30 fresh test visitors
-      console.log(`Will generate ${toGenerate} fresh test visitors for testing`);
+      console.log(`Will generate ${toGenerate} fresh test visitors for customer ${context.customerId}`);
 
       if (toGenerate > 0) {
         const testVisitorNames = [
@@ -3061,24 +3062,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: 'active'
           };
 
-          await storage.createVisitor(newVisitor);
+          await simpleDatabaseService.createVisitor(context, newVisitor);
           generated++;
         }
 
-        console.log(`Generated ${generated} test visitors`);
+        console.log(`Generated ${generated} test visitors for customer ${context.customerId}`);
       } else {
         console.log(`Skipping generation - already have ${existingVisitors.length} visitors, target is ${targetCount}`);
       }
 
-      const allVisitors = await storage.getAllVisitors();
+      const allVisitors = await simpleDatabaseService.getAllVisitors(context);
       const actualGenerated = toGenerate > 0 ? toGenerate : 0;
       res.json({ 
         success: true, 
-        message: `Generated ${actualGenerated} new test visitors. Total visitors: ${allVisitors.length}`,
+        message: `Generated ${actualGenerated} new test visitors for customer ${context.customerId}. Total visitors: ${allVisitors.length}`,
         visitors: allVisitors,
         existingCount: existingVisitors.length,
         targetCount: targetCount,
-        generated: actualGenerated
+        generated: actualGenerated,
+        customerId: context.customerId
       });
     } catch (error) {
       console.error("Error generating test visitors:", error);
