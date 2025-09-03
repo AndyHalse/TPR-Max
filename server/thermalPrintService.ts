@@ -810,6 +810,102 @@ export class ThermalPrintService {
     const rtfContent = this.generateMusterListRTF(peopleOnSite, settings);
     return await this.printDirect(rtfContent, 'B-FV4D');
   }
+
+  /**
+   * Generate TPL code for professional thermal designer
+   */
+  async generateTPL(elements: any[], data: any, settings: any): Promise<string> {
+    // Convert professional designer elements to TPL format
+    const defaultSettings: PrinterSettings = {
+      blackMarkSensing: true,
+      printSpeed: settings.printSpeed || 'medium',
+      printDensity: settings.printDensity || 'normal',
+      thermalAdjustment: settings.thermalAdjustment || 0,
+      labelLength: 65,
+      labelWidth: 95,
+      cutAfterPrint: settings.cutAfterPrint ?? true,
+      backfeedAdjustment: 0
+    };
+
+    // Convert elements to legacy format for existing RTF generator
+    const convertedElements: ThermalElement[] = elements.map(el => ({
+      id: el.id,
+      type: el.type,
+      x: el.x,
+      y: el.y,
+      width: el.width,
+      height: el.height,
+      content: el.fixedContent || el.content || '',
+      fontSize: el.fontSize || 12,
+      fontWeight: el.fontWeight || 'normal',
+      alignment: el.alignment || 'left',
+      rotation: el.rotation || 0,
+      isVariable: el.contentType === 'variable',
+      variableType: el.variableSource || 'visitor_name'
+    }));
+
+    // Convert data format
+    const convertedData: PassData = {
+      name: data.visitor_name,
+      company: data.visitor_company,
+      host: data.host_name,
+      purpose: data.purpose,
+      phone: data.visitor_phone,
+      email: data.visitor_email,
+      date: data.check_in_time?.split(' ')[0] || new Date().toLocaleDateString(),
+      time: data.check_in_time?.split(' ')[1] || new Date().toLocaleTimeString(),
+      id: data.visitor_id
+    };
+
+    // Generate TPL code using existing RTF generator as base
+    const rtfCode = this.generateRTF(convertedElements, convertedData, defaultSettings);
+    
+    // Convert RTF to TPL format (simplified TPL commands)
+    let tplCode = '';
+    tplCode += 'SIZE 95mm,65mm\n';
+    tplCode += 'SPEED ' + (defaultSettings.printSpeed === 'slow' ? '2' : defaultSettings.printSpeed === 'fast' ? '6' : '4') + '\n';
+    tplCode += 'DENSITY ' + (defaultSettings.printDensity === 'light' ? '8' : defaultSettings.printDensity === 'dark' ? '15' : '12') + '\n';
+    tplCode += 'DIRECTION 1\n';
+    tplCode += 'CLS\n';
+    
+    // Add elements as TPL commands
+    convertedElements.forEach(el => {
+      const content = el.isVariable ? (convertedData[el.variableType as keyof PassData] || '') : el.content;
+      
+      if (el.type === 'text' && content) {
+        const x = Math.round(el.x * 8 / 96); // Convert to dots
+        const y = Math.round(el.y * 8 / 96);
+        const fontSize = Math.max(1, Math.min(8, Math.round((el.fontSize || 12) / 3)));
+        tplCode += `TEXT ${x},${y},"FONT00${fontSize}",${el.rotation || 0},1,1,"${content}"\n`;
+      } else if (el.type === 'qr_code') {
+        const x = Math.round(el.x * 8 / 96);
+        const y = Math.round(el.y * 8 / 96);
+        const size = Math.max(2, Math.min(10, Math.round(el.width / 10)));
+        const qrData = `VG-${data.visitor_id || 'TEMP'}-${Date.now()}`;
+        tplCode += `QRCODE ${x},${y},M,${size},A,0,"${qrData}"\n`;
+      }
+    });
+    
+    tplCode += 'PRINT 1\n';
+    
+    return tplCode;
+  }
+
+  /**
+   * Test print for professional thermal designer
+   */
+  async testPrint(elements: any[], data: any, settings: any): Promise<boolean> {
+    try {
+      // Generate TPL code
+      const tplCode = await this.generateTPL(elements, data, settings);
+      
+      // Send to printer (use existing print method)
+      return await this.printDirect(tplCode, 'B-FV4D');
+    } catch (error) {
+      console.error('TPL test print failed:', error);
+      return false;
+    }
+  }
 }
 
 export const thermalPrintService = new ThermalPrintService();

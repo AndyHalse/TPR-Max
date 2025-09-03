@@ -30,6 +30,16 @@ export function ProfessionalThermalDesigner() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
+  // Printer state
+  const [selectedPrinter, setSelectedPrinter] = useState<'tec' | 'zebra'>('tec');
+  const [printerSettings, setPrinterSettings] = useState({
+    printSpeed: 'medium' as 'slow' | 'medium' | 'fast',
+    printDensity: 'normal' as 'light' | 'normal' | 'dark',
+    thermalAdjustment: 0,
+    blackMarkSensing: true,
+    cutAfterPrint: true
+  });
+  
   // Company data (would come from API in real app)
   const [companyData] = useState({
     companyName: 'Default Company',
@@ -51,6 +61,87 @@ export function ProfessionalThermalDesigner() {
     check_in_time: new Date().toLocaleString('en-GB'),
     expiry_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')
   });
+
+  // Print code generation
+  const generatePrintCode = async () => {
+    try {
+      const response = await fetch('/api/thermal/generate-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          printerType: selectedPrinter,
+          elements: elements,
+          data: previewData,
+          settings: printerSettings,
+          customerId: 'dev-customer-001'
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Download the generated code
+        const blob = new Blob([result.code], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `thermal-pass-${selectedPrinter}-${Date.now()}.${selectedPrinter === 'tec' ? 'tpl' : 'zpl'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Print Code Generated",
+          description: `${selectedPrinter === 'tec' ? 'TPL' : 'ZPL'} code generated and downloaded successfully.`
+        });
+      } else {
+        throw new Error('Failed to generate print code');
+      }
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate printer code. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Test print function
+  const testPrint = async () => {
+    try {
+      const response = await fetch('/api/thermal/test-print', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          printerType: selectedPrinter,
+          elements: elements,
+          data: previewData,
+          settings: printerSettings,
+          customerId: 'dev-customer-001'
+        })
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Test Print Sent",
+          description: `Test print job sent to ${selectedPrinter === 'tec' ? 'TEC/Toshiba' : 'Zebra'} printer.`
+        });
+      } else {
+        throw new Error('Test print failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Print Failed",
+        description: "Test print failed. Check printer connection.",
+        variant: "destructive"
+      });
+    }
+  };
 
   // Load template
   const loadTemplate = (templateId: string) => {
@@ -449,6 +540,83 @@ export function ProfessionalThermalDesigner() {
                     <SelectItem value="preview">Preview</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Printer className="h-4 w-4" />
+                Printer Setup
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Printer Type</Label>
+                <Select value={selectedPrinter} onValueChange={(value: any) => setSelectedPrinter(value)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tec">TEC/Toshiba B-FV4D</SelectItem>
+                    <SelectItem value="zebra">Zebra Thermal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-xs">Print Quality</Label>
+                <Select 
+                  value={printerSettings.printDensity} 
+                  onValueChange={(value: any) => setPrinterSettings({...printerSettings, printDensity: value})}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-xs">Print Speed</Label>
+                <Select 
+                  value={printerSettings.printSpeed} 
+                  onValueChange={(value: any) => setPrinterSettings({...printerSettings, printSpeed: value})}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="slow">Slow</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="fast">Fast</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="pt-3 space-y-2">
+                <Button 
+                  onClick={generatePrintCode}
+                  className="w-full h-8 text-xs"
+                  size="sm"
+                >
+                  <Download className="h-3 w-3 mr-2" />
+                  Generate {selectedPrinter === 'tec' ? 'TPL' : 'ZPL'} Code
+                </Button>
+                <Button 
+                  onClick={testPrint}
+                  variant="outline"
+                  className="w-full h-8 text-xs"
+                  size="sm"
+                >
+                  <Printer className="h-3 w-3 mr-2" />
+                  Test Print
+                </Button>
               </div>
             </CardContent>
           </Card>

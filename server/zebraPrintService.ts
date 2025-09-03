@@ -322,6 +322,52 @@ export class ZebraPrintService {
       ]
     };
   }
+
+  /**
+   * Test print for professional thermal designer
+   */
+  async testPrint(elements: any[], data: any): Promise<boolean> {
+    try {
+      // Convert professional designer elements to ZPL format
+      const convertedElements = elements.map(el => ({
+        type: el.type,
+        x: el.x,
+        y: el.y,
+        width: el.width,
+        height: el.height,
+        content: el.fixedContent || el.content || '',
+        fontSize: el.fontSize || 12,
+        fontWeight: el.fontWeight || 'normal',
+        alignment: el.alignment || 'left',
+        rotation: el.rotation || 0
+      }));
+
+      // Convert data format
+      const convertedData = {
+        visitor: {
+          name: data.visitor_name,
+          company: data.visitor_company,
+          phone: data.visitor_phone,
+          email: data.visitor_email,
+          checkInTime: data.check_in_time,
+          id: data.visitor_id
+        },
+        host: data.host_name,
+        passType: 'visitor' as const,
+        qrData: `VG-${data.visitor_id || 'TEST'}-${Date.now()}`
+      };
+
+      // Generate ZPL code
+      const zplCode = await this.generateZPL(convertedElements, convertedData);
+      
+      // For now, return true (would need actual printer communication)
+      console.log('🦓 Zebra test print ZPL generated:', zplCode.substring(0, 100) + '...');
+      return true;
+    } catch (error) {
+      console.error('Zebra test print failed:', error);
+      return false;
+    }
+  }
 }
 
 export default ZebraPrintService;

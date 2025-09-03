@@ -8265,6 +8265,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===========================
+  // PROFESSIONAL THERMAL DESIGNER API
+  // ===========================
+
+  // Generate thermal printer code (TPL/ZPL)
+  app.post('/api/thermal/generate-code', async (req, res) => {
+    try {
+      const { printerType, elements, data, settings, customerId } = req.body;
+      
+      if (!printerType || !elements || !data) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Missing required parameters' 
+        });
+      }
+
+      let generatedCode = '';
+      
+      if (printerType === 'tec') {
+        // Generate TPL code for TEC/Toshiba
+        generatedCode = await thermalPrintService.generateTPL(elements, data, settings || {});
+      } else if (printerType === 'zebra') {
+        // Generate ZPL code for Zebra
+        const zebraService = new ZebraPrintService();
+        generatedCode = await zebraService.generateZPL(elements, data);
+      } else {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Unsupported printer type' 
+        });
+      }
+
+      console.log(`🖨️ Generated ${printerType.toUpperCase()} code (${generatedCode.length} chars) for customer: ${customerId}`);
+      
+      res.json({
+        success: true,
+        code: generatedCode,
+        printerType,
+        codeLength: generatedCode.length
+      });
+    } catch (error) {
+      console.error('Thermal code generation error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate thermal code',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Test print with thermal printer
+  app.post('/api/thermal/test-print', async (req, res) => {
+    try {
+      const { printerType, elements, data, settings, customerId } = req.body;
+      
+      if (!printerType || !elements || !data) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Missing required parameters' 
+        });
+      }
+
+      let printResult = false;
+      
+      if (printerType === 'tec') {
+        // Test print with TEC/Toshiba
+        printResult = await thermalPrintService.testPrint(elements, data, settings || {});
+      } else if (printerType === 'zebra') {
+        // Test print with Zebra
+        const zebraService = new ZebraPrintService();
+        printResult = await zebraService.testPrint(elements, data);
+      } else {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Unsupported printer type' 
+        });
+      }
+
+      console.log(`🖨️ Test print ${printResult ? 'successful' : 'failed'} for ${printerType.toUpperCase()} printer (customer: ${customerId})`);
+      
+      res.json({
+        success: printResult,
+        printerType,
+        message: printResult ? 'Test print sent successfully' : 'Test print failed'
+      });
+    } catch (error) {
+      console.error('Thermal test print error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send test print',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
