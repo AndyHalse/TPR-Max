@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { ThermalPassDesigner } from "@/components/ThermalPassDesigner";
+import { ProfessionalThermalDesigner } from "@/components/professional-thermal-designer/ProfessionalThermalDesigner";
 import { IdCardDesignSystem } from "@/components/IdCardDesignSystem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1643,7 +1643,7 @@ export default function Settings() {
             </TabsContent>
 
             <TabsContent value="thermal-passes" className="space-y-6">
-              <ThermalPassDesigner />
+              <ProfessionalThermalDesigner />
             </TabsContent>
 
             <TabsContent value="qr-readers" className="space-y-6">
