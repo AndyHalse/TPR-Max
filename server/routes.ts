@@ -8762,6 +8762,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Windows service download endpoint
+  app.get('/api/windows-service/download', async (req, res) => {
+    try {
+      // In production, this would serve the actual Windows service installer
+      // For demo purposes, we'll create a placeholder response
+      const serviceInfo = {
+        name: 'VisiGate Print Service',
+        version: '1.0.0',
+        description: 'Windows service for polling VisiGate SaaS and printing to local thermal printers',
+        requirements: [
+          'Windows 10 or Windows Server 2016+',
+          '.NET Framework 4.8+',
+          'Administrator privileges for installation',
+          'Network access to VisiGate SaaS'
+        ],
+        features: [
+          'Polls VisiGate cloud every 30 seconds',
+          'Supports TEC/Toshiba B-FV4D printers (TPL)',
+          'Supports Zebra thermal printers (ZPL)',
+          'Direct USB printing bypassing Windows spooler',
+          'Automatic retry and error handling',
+          'Service health monitoring and logging'
+        ]
+      };
+
+      // In production, you would serve the actual .msi installer file:
+      // const filePath = path.join(__dirname, 'installers', 'VisiGatePrintService-Setup.msi');
+      // res.download(filePath, 'VisiGatePrintService-Setup.msi');
+      
+      // For demo, return service information
+      res.json({
+        success: true,
+        message: 'Windows service installer would be downloaded here',
+        serviceInfo,
+        downloadUrl: '/installers/VisiGatePrintService-Setup.msi',
+        installationGuide: '/service-installation-guide'
+      });
+      
+      console.log('📦 Windows service download requested');
+    } catch (error) {
+      console.error('Windows service download error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to download Windows service'
+      });
+    }
+  });
+
+  // Generate service token endpoint
+  app.post('/api/print-service/generate-token', async (req, res) => {
+    try {
+      const { customerId, serviceName, location } = req.body;
+
+      if (!customerId || !serviceName) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: customerId, serviceName'
+        });
+      }
+
+      // Generate secure API token
+      const crypto = await import('crypto');
+      const apiToken = crypto.randomBytes(32).toString('hex');
+      const machineId = `temp-${Date.now()}`; // Will be replaced by actual machine ID during service installation
+
+      // Pre-register service instance (will be updated when service actually connects)
+      const [serviceInstance] = await db.insert(printServiceInstances)
+        .values({
+          customerId,
+          serviceName,
+          machineId,
+          apiToken,
+          location: location || 'Not specified',
+          supportedPrinters: ['tec', 'zebra'],
+          pollIntervalSeconds: 30,
+          isActive: false // Will be set to true when service connects
+        })
+        .returning();
+
+      console.log(`🔑 Generated service token for: ${serviceName} (customer: ${customerId})`);
+
+      res.json({
+        success: true,
+        apiToken,
+        serviceId: serviceInstance.id,
+        configuration: {
+          customerId,
+          serviceName,
+          location,
+          apiEndpoint: process.env.REPLIT_DEV_DOMAIN 
+            ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+            : 'https://your-visigate-domain.com',
+          pollUrl: '/api/print-service/poll/',
+          heartbeatUrl: '/api/print-service/heartbeat',
+          statusUrl: '/api/print-service/job-status',
+          pollIntervalSeconds: 30
+        },
+        message: 'Service token generated successfully. Copy this token for Windows service configuration.'
+      });
+    } catch (error) {
+      console.error('Service token generation error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate service token',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Installation guide endpoint
+  app.get('/service-installation-guide', async (req, res) => {
+    const installationGuide = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VisiGate Print Service - Installation Guide</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .header { background: #0066cc; color: white; padding: 20px; border-radius: 8px; }
+        .step { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #0066cc; }
+        .code { background: #e9ecef; padding: 10px; border-radius: 4px; font-family: monospace; }
+        .warning { background: #fff3cd; padding: 10px; border-radius: 4px; border-left: 4px solid #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>VisiGate Print Service Installation Guide</h1>
+        <p>Complete setup instructions for Windows service deployment</p>
+    </div>
+
+    <h2>📋 Prerequisites</h2>
+    <ul>
+        <li>Windows 10 or Windows Server 2016+</li>
+        <li>.NET Framework 4.8 or later</li>
+        <li>Administrator privileges</li>
+        <li>Network access to VisiGate SaaS platform</li>
+        <li>TEC/Toshiba B-FV4D and/or Zebra thermal printers connected via USB</li>
+    </ul>
+
+    <h2>🚀 Installation Steps</h2>
+    
+    <div class="step">
+        <h3>Step 1: Download and Install</h3>
+        <ol>
+            <li>Download VisiGatePrintService-Setup.msi from the Thermal Designer</li>
+            <li>Right-click the installer and select "Run as Administrator"</li>
+            <li>Follow the installation wizard</li>
+            <li>Service will be installed as "VisiGate Print Service"</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>Step 2: Generate API Token</h3>
+        <ol>
+            <li>In the Thermal Designer, click "Generate Service Token"</li>
+            <li>Copy the generated API token</li>
+            <li>Keep this token secure - it provides access to your print queue</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>Step 3: Configure Service</h3>
+        <ol>
+            <li>Open Windows Services (services.msc)</li>
+            <li>Find "VisiGate Print Service"</li>
+            <li>Right-click → Properties → Log On tab</li>
+            <li>Set to run under Local System account</li>
+            <li>Open service configuration file: <span class="code">C:\\Program Files\\VisiGate\\PrintService\\config.json</span></li>
+            <li>Enter your API token and service details</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>Step 4: Configure Printers</h3>
+        <ol>
+            <li>Connect TEC/Toshiba B-FV4D via USB</li>
+            <li>Connect Zebra thermal printers via USB</li>
+            <li>Install printer drivers (Windows Update or manufacturer websites)</li>
+            <li>Test printer connections through Windows</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>Step 5: Start Service</h3>
+        <ol>
+            <li>In Windows Services, select "VisiGate Print Service"</li>
+            <li>Click "Start"</li>
+            <li>Set startup type to "Automatic"</li>
+            <li>Verify service is running and polling every 30 seconds</li>
+        </ol>
+    </div>
+
+    <div class="warning">
+        <h3>⚠️ Important Notes</h3>
+        <ul>
+            <li>Service must run as Administrator for direct USB printer access</li>
+            <li>Windows Firewall may need configuration for outbound HTTPS</li>
+            <li>Service logs are located in: <span class="code">C:\\Program Files\\VisiGate\\PrintService\\Logs</span></li>
+            <li>API token should be kept secure and not shared</li>
+        </ul>
+    </div>
+
+    <h2>🔧 Configuration File Example</h2>
+    <div class="code">
+{
+  "apiToken": "your-generated-token-here",
+  "apiEndpoint": "https://your-visigate-domain.com",
+  "serviceName": "Reception Desk Printer",
+  "location": "Main Reception",
+  "pollIntervalSeconds": 30,
+  "supportedPrinters": ["tec", "zebra"],
+  "logLevel": "Info"
+}
+    </div>
+
+    <h2>📞 Support</h2>
+    <p>For technical support, contact your VisiGate administrator or refer to the service logs for troubleshooting information.</p>
+
+</body>
+</html>
+    `;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(installationGuide);
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

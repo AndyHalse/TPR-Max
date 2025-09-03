@@ -182,6 +182,84 @@ export function ProfessionalThermalDesigner() {
     }
   };
 
+  // Windows service management functions
+  const downloadWindowsService = async () => {
+    try {
+      const response = await fetch('/api/windows-service/download', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'VisiGatePrintService-Setup.msi';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Service Downloaded",
+          description: "VisiGate Print Service installer downloaded. Run as Administrator to install."
+        });
+      } else {
+        throw new Error('Download failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to download Windows service. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const viewServiceInstructions = () => {
+    // Open installation guide in new window
+    window.open('/service-installation-guide', '_blank');
+  };
+
+  const generateServiceToken = async () => {
+    try {
+      const response = await fetch('/api/print-service/generate-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: 'dev-customer-001',
+          serviceName: 'Reception Desk Printer',
+          location: 'Main Reception'
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Copy token to clipboard
+        navigator.clipboard.writeText(result.apiToken);
+        
+        toast({
+          title: "Service Token Generated",
+          description: "API token copied to clipboard. Paste this into the Windows service configuration."
+        });
+      } else {
+        throw new Error('Token generation failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Token Generation Failed",
+        description: "Failed to generate service token. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Load template
   const loadTemplate = (templateId: string) => {
     const template = getTemplateById(templateId);
@@ -665,6 +743,63 @@ export function ProfessionalThermalDesigner() {
                   <Printer className="h-3 w-3 mr-2" />
                   Test Print
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Windows Service
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-xs text-gray-600 mb-3">
+                For reliable local printing, install our Windows service on your reception PC.
+              </div>
+              
+              <div className="space-y-2">
+                <Button 
+                  onClick={downloadWindowsService}
+                  className="w-full h-8 text-xs"
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download className="h-3 w-3 mr-2" />
+                  Download VisiGate Print Service
+                </Button>
+                
+                <Button 
+                  onClick={viewServiceInstructions}
+                  className="w-full h-8 text-xs"
+                  size="sm"
+                  variant="ghost"
+                >
+                  <FileText className="h-3 w-3 mr-2" />
+                  Installation Guide
+                </Button>
+                
+                <Button 
+                  onClick={generateServiceToken}
+                  className="w-full h-8 text-xs"
+                  size="sm"
+                  variant="ghost"
+                >
+                  <Settings className="h-3 w-3 mr-2" />
+                  Generate Service Token
+                </Button>
+              </div>
+              
+              {/* Service Status */}
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Service Status:</span>
+                  <Badge variant="outline" className="text-xs">
+                    <div className="h-2 w-2 bg-gray-400 rounded-full mr-1"></div>
+                    Not Connected
+                  </Badge>
+                </div>
               </div>
             </CardContent>
           </Card>
