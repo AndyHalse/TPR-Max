@@ -328,6 +328,20 @@ export class DatabaseService {
       ));
   }
 
+  async getDepartmentNames(context: CustomerContext): Promise<string[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const departments = await db
+      .select({ name: schema.departments.name })
+      .from(schema.departments)
+      .where(and(
+        eq(schema.departments.customerId, context.customerId),
+        eq(schema.departments.isActive, true)
+      ));
+      
+    return departments.map(dept => dept.name);
+  }
+
   async createDepartment(context: CustomerContext, insertDepartment: InsertDepartment): Promise<Department> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
