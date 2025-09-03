@@ -697,6 +697,16 @@ export class DatabaseService {
       .orderBy(asc(schema.staff.firstName), asc(schema.staff.lastName));
   }
 
+  async getCheckedInContractors(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.contractorWorkers)
+      .where(eq(schema.contractorWorkers.isCheckedIn, true))
+      .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
+  }
+
   async getAllContractorCompanies(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
@@ -723,6 +733,48 @@ export class DatabaseService {
     );
     
     return companiesWithCounts;
+  }
+
+  async getVisitorByQrCode(context: CustomerContext, qrCode: string): Promise<Visitor | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [visitor] = await db
+      .select()
+      .from(schema.visitors)
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.qrCode, qrCode)
+      ));
+    
+    return visitor || undefined;
+  }
+
+  async checkOutVisitor(context: CustomerContext, id: string): Promise<Visitor | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [visitor] = await db
+      .update(schema.visitors)
+      .set({ 
+        isCheckedIn: false,
+        checkedOutAt: new Date()
+      })
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.id, id)
+      ))
+      .returning();
+    
+    return visitor || undefined;
+  }
+
+  async getAllReports(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.reports)
+      .where(eq(schema.reports.customerId, context.customerId))
+      .orderBy(desc(schema.reports.generatedAt));
   }
 
   /**

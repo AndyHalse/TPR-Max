@@ -828,8 +828,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { urgencyReason } = req.body;
       
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       // Get visitor details
-      const visitor = await storage.getVisitorById(id);
+      const visitor = await databaseService.getVisitorById(context, id);
       if (!visitor) {
         return res.status(404).json({ error: "Visitor not found" });
       }
@@ -837,16 +841,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get host staff details
       let hostStaff = null;
       if (visitor.hostStaffId) {
-        hostStaff = await storage.getStaffById(visitor.hostStaffId);
+        hostStaff = await databaseService.getStaffById(context, visitor.hostStaffId);
       }
       
       // Get company settings for reception email and company details
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -1238,7 +1236,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/staff/:id/access", async (req, res) => {
     try {
       const { id } = req.params;
-      const staff = await storage.getStaffById(id);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const staff = await databaseService.getStaffById(context, id);
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
@@ -1303,7 +1306,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { design } = req.body;
       
-      const staff = await storage.getStaffById(id);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const staff = await databaseService.getStaffById(context, id);
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
       }
@@ -1381,7 +1388,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Staff ID is required for test printing" });
       }
       
-      const staff = await storage.getStaffById(staffId);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const staff = await databaseService.getStaffById(context, staffId);
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
       }
@@ -1390,12 +1401,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🎨 Using design with ${design?.length || 0} elements`);
       
       // Get the actual selected printer from settings
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const actualPrinter = settings?.idCardPrinter || "Magicard Enduro+ (V2)";
@@ -2001,12 +2006,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "QR code is required" });
       }
       
-      const visitor = await storage.getVisitorByQrCode(qrCode);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const visitor = await databaseService.getVisitorByQrCode(context, qrCode);
       if (!visitor) {
         return res.status(404).json({ error: "Visitor not found" });
       }
       
-      const checkedOutVisitor = await storage.checkOutVisitor(visitor.id);
+      const checkedOutVisitor = await databaseService.checkOutVisitor(context, visitor.id);
       res.json(checkedOutVisitor);
     } catch (error) {
       res.status(500).json({ error: "Failed to check out visitor" });
@@ -2046,11 +2055,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark all personnel as safe endpoint
   app.post("/api/muster/mark-all-safe", async (req, res) => {
     try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       // Get all current on-site personnel
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
-        storage.getCurrentVisitors(),
-        storage.getCheckedInStaff(),
-        storage.getCheckedInContractors(),
+        databaseService.getCurrentVisitors(context),
+        databaseService.getCheckedInStaff(context),
+        databaseService.getCheckedInContractors(context),
       ]);
 
       let updatedCount = 0;
@@ -2158,11 +2171,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Subject and message are required" });
       }
       
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       // Get all on-site personnel
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
-        storage.getCurrentVisitors(),
-        storage.getCheckedInStaff(),
-        storage.getCheckedInContractors(),
+        databaseService.getCurrentVisitors(context),
+        databaseService.getCheckedInStaff(context),
+        databaseService.getCheckedInContractors(context),
       ]);
       
       // Collect all unique email addresses
