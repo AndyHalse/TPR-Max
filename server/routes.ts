@@ -19,7 +19,13 @@ import {
   inductionQuestions,
   insertNvqQualificationSchema,
   aiGeneratedImages,
-  insertAiGeneratedImageSchema
+  insertAiGeneratedImageSchema,
+  printServiceInstances,
+  insertPrintServiceInstanceSchema,
+  printQueue,
+  insertPrintQueueSchema,
+  printJobHistory,
+  insertPrintJobHistorySchema
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -8355,6 +8361,402 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to send test print',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ===========================
+  // WINDOWS SERVICE PRINT QUEUE API
+  // ===========================
+
+  // Register a new Windows service instance
+  app.post('/api/print-service/register', async (req, res) => {
+    try {
+      const {
+        customerId,
+        serviceName,
+        machineId,
+        location,
+        supportedPrinters,
+        pollIntervalSeconds,
+        computerName,
+        ipAddress,
+        serviceVersion
+      } = req.body;
+
+      if (!customerId || !serviceName || !machineId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: customerId, serviceName, machineId'
+        });
+      }
+
+      // Generate secure API token for this service instance
+      const crypto = await import('crypto');
+      const apiToken = crypto.randomBytes(32).toString('hex');
+
+      // Check if service already exists for this machine
+      const existingService = await db.select()
+        .from(printServiceInstances)
+        .where(and(
+          eq(printServiceInstances.customerId, customerId),
+          eq(printServiceInstances.machineId, machineId)
+        ));
+
+      let serviceInstance;
+      if (existingService.length > 0) {
+        // Update existing service
+        [serviceInstance] = await db.update(printServiceInstances)
+          .set({
+            serviceName,
+            location,
+            supportedPrinters,
+            pollIntervalSeconds: pollIntervalSeconds || 30,
+            computerName,
+            ipAddress,
+            serviceVersion,
+            apiToken,
+            isActive: true,
+            lastHeartbeat: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(printServiceInstances.id, existingService[0].id))
+          .returning();
+
+        console.log(`🔄 Updated Windows service: ${serviceName} (${machineId}) for customer: ${customerId}`);
+      } else {
+        // Create new service instance
+        [serviceInstance] = await db.insert(printServiceInstances)
+          .values({
+            customerId,
+            serviceName,
+            machineId,
+            apiToken,
+            location,
+            supportedPrinters,
+            pollIntervalSeconds: pollIntervalSeconds || 30,
+            computerName,
+            ipAddress,
+            serviceVersion,
+            isActive: true,
+            lastHeartbeat: new Date()
+          })
+          .returning();
+
+        console.log(`✅ Registered new Windows service: ${serviceName} (${machineId}) for customer: ${customerId}`);
+      }
+
+      res.json({
+        success: true,
+        serviceInstance: {
+          id: serviceInstance.id,
+          apiToken: serviceInstance.apiToken,
+          pollIntervalSeconds: serviceInstance.pollIntervalSeconds,
+          supportedPrinters: serviceInstance.supportedPrinters
+        },
+        message: 'Windows service registered successfully'
+      });
+    } catch (error) {
+      console.error('Windows service registration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to register Windows service',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Service heartbeat endpoint
+  app.post('/api/print-service/heartbeat', async (req, res) => {
+    try {
+      const { apiToken, status, printerStatus } = req.body;
+
+      if (!apiToken) {
+        return res.status(401).json({
+          success: false,
+          error: 'API token required'
+        });
+      }
+
+      // Find service instance by token
+      const [serviceInstance] = await db.select()
+        .from(printServiceInstances)
+        .where(eq(printServiceInstances.apiToken, apiToken));
+
+      if (!serviceInstance) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid API token'
+        });
+      }
+
+      // Update heartbeat
+      await db.update(printServiceInstances)
+        .set({
+          lastHeartbeat: new Date(),
+          isActive: true,
+          updatedAt: new Date()
+        })
+        .where(eq(printServiceInstances.id, serviceInstance.id));
+
+      res.json({
+        success: true,
+        message: 'Heartbeat received',
+        serviceId: serviceInstance.id
+      });
+    } catch (error) {
+      console.error('Service heartbeat error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to process heartbeat'
+      });
+    }
+  });
+
+  // Poll for print jobs (main Windows service endpoint)
+  app.get('/api/print-service/poll/:apiToken', async (req, res) => {
+    try {
+      const { apiToken } = req.params;
+      const { limit = 10 } = req.query;
+
+      if (!apiToken) {
+        return res.status(401).json({
+          success: false,
+          error: 'API token required'
+        });
+      }
+
+      // Find service instance by token
+      const [serviceInstance] = await db.select()
+        .from(printServiceInstances)
+        .where(eq(printServiceInstances.apiToken, apiToken));
+
+      if (!serviceInstance) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid API token'
+        });
+      }
+
+      // Update heartbeat
+      await db.update(printServiceInstances)
+        .set({
+          lastHeartbeat: new Date(),
+          isActive: true
+        })
+        .where(eq(printServiceInstances.id, serviceInstance.id));
+
+      // Get pending print jobs for this customer
+      const pendingJobs = await db.select()
+        .from(printQueue)
+        .where(and(
+          eq(printQueue.customerId, serviceInstance.customerId),
+          eq(printQueue.status, 'pending')
+        ))
+        .orderBy(printQueue.priority, printQueue.createdAt)
+        .limit(parseInt(limit as string));
+
+      // Mark jobs as assigned to this service
+      if (pendingJobs.length > 0) {
+        const jobIds = pendingJobs.map(j => j.id);
+        await db.update(printQueue)
+          .set({
+            status: 'processing',
+            serviceInstanceId: serviceInstance.id,
+            assignedAt: new Date(),
+            startedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(sql`${printQueue.id} = ANY(${jobIds})`);
+      }
+
+      console.log(`📥 Service ${serviceInstance.serviceName} polled: ${pendingJobs.length} jobs assigned`);
+
+      res.json({
+        success: true,
+        jobs: pendingJobs.map(job => ({
+          id: job.id,
+          jobType: job.jobType,
+          printerType: job.printerType,
+          priority: job.priority,
+          visitorData: job.visitorData ? JSON.parse(job.visitorData) : null,
+          passElements: job.passElements ? JSON.parse(job.passElements) : null,
+          printerSettings: job.printerSettings ? JSON.parse(job.printerSettings) : null,
+          createdAt: job.createdAt
+        })),
+        serviceInfo: {
+          id: serviceInstance.id,
+          serviceName: serviceInstance.serviceName,
+          pollIntervalSeconds: serviceInstance.pollIntervalSeconds
+        }
+      });
+    } catch (error) {
+      console.error('Print service poll error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to poll for print jobs',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Update print job status
+  app.post('/api/print-service/job-status', async (req, res) => {
+    try {
+      const {
+        apiToken,
+        jobId,
+        status,
+        errorMessage,
+        generatedCode,
+        printerResponse,
+        processingTimeMs
+      } = req.body;
+
+      if (!apiToken || !jobId || !status) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: apiToken, jobId, status'
+        });
+      }
+
+      // Verify service token
+      const [serviceInstance] = await db.select()
+        .from(printServiceInstances)
+        .where(eq(printServiceInstances.apiToken, apiToken));
+
+      if (!serviceInstance) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid API token'
+        });
+      }
+
+      // Update job status
+      const updateData: any = {
+        status,
+        updatedAt: new Date()
+      };
+
+      if (status === 'completed' || status === 'failed') {
+        updateData.completedAt = new Date();
+      }
+
+      if (errorMessage) {
+        updateData.errorMessage = errorMessage;
+        updateData.retryCount = sql`${printQueue.retryCount} + 1`;
+      }
+
+      const [updatedJob] = await db.update(printQueue)
+        .set(updateData)
+        .where(eq(printQueue.id, jobId))
+        .returning();
+
+      if (!updatedJob) {
+        return res.status(404).json({
+          success: false,
+          error: 'Print job not found'
+        });
+      }
+
+      // Create history record
+      const queueTime = updatedJob.assignedAt && updatedJob.createdAt 
+        ? updatedJob.assignedAt.getTime() - updatedJob.createdAt.getTime()
+        : null;
+      
+      const totalTime = updatedJob.completedAt && updatedJob.createdAt
+        ? updatedJob.completedAt.getTime() - updatedJob.createdAt.getTime()
+        : null;
+
+      await db.insert(printJobHistory)
+        .values({
+          customerId: serviceInstance.customerId,
+          printQueueId: jobId,
+          serviceInstanceId: serviceInstance.id,
+          queueTimeMs: queueTime,
+          processingTimeMs: processingTimeMs || null,
+          totalTimeMs: totalTime,
+          generatedCode,
+          codeLength: generatedCode ? generatedCode.length : null,
+          printerResponse,
+          wasSuccessful: status === 'completed',
+          finalStatus: status,
+          errorDetails: errorMessage
+        });
+
+      console.log(`📋 Job ${jobId} status updated to: ${status} by service: ${serviceInstance.serviceName}`);
+
+      res.json({
+        success: true,
+        message: 'Job status updated successfully',
+        jobId,
+        newStatus: status
+      });
+    } catch (error) {
+      console.error('Job status update error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update job status',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Add print job to queue (called from web app)
+  app.post('/api/print-queue/add', async (req, res) => {
+    try {
+      const {
+        customerId,
+        jobType,
+        printerType,
+        priority = 1,
+        visitorData,
+        passElements,
+        printerSettings,
+        createdBy,
+        requestSource = 'web_app'
+      } = req.body;
+
+      if (!customerId || !jobType || !printerType) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: customerId, jobType, printerType'
+        });
+      }
+
+      // Add job to queue
+      const [newJob] = await db.insert(printQueue)
+        .values({
+          customerId,
+          jobType,
+          printerType,
+          priority,
+          visitorData: visitorData ? JSON.stringify(visitorData) : null,
+          passElements: passElements ? JSON.stringify(passElements) : null,
+          printerSettings: printerSettings ? JSON.stringify(printerSettings) : null,
+          createdBy,
+          requestSource,
+          status: 'pending'
+        })
+        .returning();
+
+      console.log(`➕ Print job added to queue: ${jobType} (${printerType}) for customer: ${customerId}`);
+
+      res.json({
+        success: true,
+        job: {
+          id: newJob.id,
+          status: newJob.status,
+          createdAt: newJob.createdAt
+        },
+        message: 'Print job added to queue successfully'
+      });
+    } catch (error) {
+      console.error('Add print job error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to add print job to queue',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

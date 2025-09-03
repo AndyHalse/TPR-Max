@@ -109,6 +109,45 @@ export function ProfessionalThermalDesigner() {
     }
   };
 
+  // Queue print function for Windows service
+  const queuePrint = async () => {
+    try {
+      const response = await fetch('/api/print-queue/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: 'dev-customer-001',
+          jobType: 'visitor_pass',
+          printerType: selectedPrinter,
+          priority: 1,
+          visitorData: previewData,
+          passElements: elements,
+          printerSettings: printerSettings,
+          createdBy: 'designer-preview',
+          requestSource: 'thermal_designer'
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        toast({
+          title: "Print Job Queued",
+          description: `${selectedPrinter === 'tec' ? 'TEC/Toshiba' : 'Zebra'} print job added to queue. Windows service will process it automatically.`
+        });
+      } else {
+        throw new Error('Failed to queue print job');
+      }
+    } catch (error) {
+      toast({
+        title: "Queue Failed",
+        description: "Failed to add print job to queue. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Test print function
   const testPrint = async () => {
     try {
@@ -607,6 +646,15 @@ export function ProfessionalThermalDesigner() {
                 >
                   <Download className="h-3 w-3 mr-2" />
                   Generate {selectedPrinter === 'tec' ? 'TPL' : 'ZPL'} Code
+                </Button>
+                <Button 
+                  onClick={queuePrint}
+                  className="w-full h-8 text-xs"
+                  size="sm"
+                  variant="default"
+                >
+                  <Plus className="h-3 w-3 mr-2" />
+                  Queue Print Job
                 </Button>
                 <Button 
                   onClick={testPrint}

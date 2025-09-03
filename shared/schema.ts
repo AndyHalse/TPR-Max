@@ -1243,3 +1243,121 @@ export type RoomBookingAttendee = typeof roomBookingAttendees.$inferSelect;
 export type InsertRoomBookingAttendee = z.infer<typeof insertRoomBookingAttendeeSchema>;
 export type RoomBookingWaitlist = typeof roomBookingWaitlist.$inferSelect;
 export type InsertRoomBookingWaitlist = z.infer<typeof insertRoomBookingWaitlistSchema>;
+
+// ===========================
+// WINDOWS SERVICE PRINT QUEUE
+// ===========================
+
+// Service instances registered for each customer location
+export const printServiceInstances = pgTable("print_service_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  
+  // Service identification
+  serviceName: text("service_name").notNull(), // User-friendly name like "Reception Desk"
+  machineId: text("machine_id").notNull(), // Windows machine identifier
+  apiToken: text("api_token").notNull().unique(), // Authentication token for this service
+  
+  // Service configuration
+  location: text("location"), // Physical location description
+  supportedPrinters: text("supported_printers").array(), // ['tec', 'zebra']
+  pollIntervalSeconds: integer("poll_interval_seconds").default(30).notNull(),
+  
+  // Status tracking
+  isActive: boolean("is_active").default(true).notNull(),
+  lastHeartbeat: timestamp("last_heartbeat"),
+  serviceVersion: text("service_version"),
+  
+  // Connection info
+  ipAddress: text("ip_address"),
+  computerName: text("computer_name"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Print job queue for Windows services to poll
+export const printQueue = pgTable("print_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  serviceInstanceId: varchar("service_instance_id").references(() => printServiceInstances.id),
+  
+  // Job details
+  jobType: text("job_type").notNull(), // 'visitor_pass', 'contractor_pass', 'muster_list', 'test_print'
+  printerType: text("printer_type").notNull(), // 'tec', 'zebra'
+  priority: integer("priority").default(1).notNull(), // 1=normal, 2=high, 3=urgent
+  
+  // Pass data (JSON)
+  visitorData: text("visitor_data"), // JSON string of visitor/contractor data
+  passElements: text("pass_elements"), // JSON string of design elements
+  printerSettings: text("printer_settings"), // JSON string of printer configuration
+  
+  // Job status
+  status: text("status").default("pending").notNull(), // pending, processing, completed, failed, cancelled
+  assignedAt: timestamp("assigned_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0).notNull(),
+  maxRetries: integer("max_retries").default(3).notNull(),
+  
+  // Audit trail
+  createdBy: varchar("created_by"), // User who initiated the print
+  requestSource: text("request_source").default("web_app").notNull(), // 'web_app', 'api', 'kiosk'
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Print job history for audit and monitoring
+export const printJobHistory = pgTable("print_job_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  printQueueId: varchar("print_queue_id").notNull().references(() => printQueue.id),
+  serviceInstanceId: varchar("service_instance_id").references(() => printServiceInstances.id),
+  
+  // Performance metrics
+  queueTimeMs: integer("queue_time_ms"), // Time from creation to assignment
+  processingTimeMs: integer("processing_time_ms"), // Time from start to completion
+  totalTimeMs: integer("total_time_ms"), // Total time from creation to completion
+  
+  // Technical details
+  generatedCode: text("generated_code"), // The TPL/ZPL code that was generated
+  codeLength: integer("code_length"), // Length of generated code
+  printerResponse: text("printer_response"), // Any response from printer
+  
+  // Results
+  wasSuccessful: boolean("was_successful").default(false).notNull(),
+  finalStatus: text("final_status").notNull(), // completed, failed, cancelled
+  errorDetails: text("error_details"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for print queue
+export const insertPrintServiceInstanceSchema = createInsertSchema(printServiceInstances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPrintQueueSchema = createInsertSchema(printQueue).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPrintJobHistorySchema = createInsertSchema(printJobHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for print queue
+export type PrintServiceInstance = typeof printServiceInstances.$inferSelect;
+export type InsertPrintServiceInstance = z.infer<typeof insertPrintServiceInstanceSchema>;
+export type PrintQueue = typeof printQueue.$inferSelect;
+export type InsertPrintQueue = z.infer<typeof insertPrintQueueSchema>;
+export type PrintJobHistory = typeof printJobHistory.$inferSelect;
+export type InsertPrintJobHistory = z.infer<typeof insertPrintJobHistorySchema>;
