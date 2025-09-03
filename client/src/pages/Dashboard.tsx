@@ -549,7 +549,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-variable text-sm font-medium">Total Companies</p>
                 <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-total-companies">
-                  10
+                  {stats?.totalCompanies || 0}
                 </p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                   Active tenants in building

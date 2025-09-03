@@ -575,9 +575,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await databaseService.getStats(context);
       
       // Get actual number of checked-in contractors with customer isolation
-      const contractorWorkers = await databaseService.getContractorWorkers(context);
-      const checkedInContractors = contractorWorkers.filter(worker => worker.status === 'green');
-      const contractorsOnSite = checkedInContractors.length;
+      const contractors = await databaseService.getContractors(context);
+      const contractorsOnSite = contractors.filter(c => c.status === 'checked-in').length;
       
       // Replace avgVisitDuration with contractorsOnSite
       const { avgVisitDuration, ...otherStats } = stats;
@@ -585,10 +584,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate total people on-site
       const totalPeopleOnSite = otherStats.currentVisitors + otherStats.staffOnSite + contractorsOnSite;
       
+      // Get total companies count with customer isolation
+      const companies = await databaseService.getVisitors(context);
+      const totalCompanies = [...new Set(companies.map(v => v.company).filter(Boolean))].length;
+      
       res.json({
         ...otherStats,
         contractorsOnSite,
-        totalPeopleOnSite
+        totalPeopleOnSite,
+        totalCompanies
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
