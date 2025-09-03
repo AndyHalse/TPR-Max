@@ -3067,10 +3067,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clear duplicate visitors endpoint
   app.delete("/api/test-data/visitors/duplicates", async (req, res) => {
     try {
-      console.log(`🧹 Removing duplicate visitors from legacy storage`);
+      // Get customer context for proper data isolation - same as UI
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      console.log(`🧹 Removing duplicate visitors for customer: ${context.customerId}`);
       
-      // Use legacy storage service for both reading and deleting to ensure consistency
-      const allVisitors = await storage.getAllVisitors();
+      // Use customer-isolated database service - same as UI
+      const allVisitors = await databaseService.getAllVisitors(context);
       const uniqueVisitors = new Map();
       const duplicatesToRemove = [];
 
@@ -3108,13 +3111,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`🔍 Found ${duplicatesToRemove.length} duplicates to remove`);
 
-      // Remove duplicates using the same storage service
+      // Remove duplicates using the same customer-isolated database service
       let removedCount = 0;
       for (const visitorId of duplicatesToRemove) {
-        const success = await storage.deleteVisitor(visitorId);
-        if (success) {
+        try {
+          await databaseService.deleteVisitor(context, visitorId);
           removedCount++;
-          console.log(`🗑️ Removed duplicate visitor: ${visitorId}`);
+          console.log(`🗑️ Deleted duplicate visitor: ${visitorId}`);
+        } catch (error) {
+          console.error(`❌ Failed to delete visitor ${visitorId}:`, error);
         }
       }
 
