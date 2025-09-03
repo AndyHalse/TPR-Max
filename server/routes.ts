@@ -2129,11 +2129,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Company Settings endpoints - TEMPORARILY USING OLD STORAGE UNTIL MIGRATION IS COMPLETE
+  // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION!
   app.get("/api/settings", async (req, res) => {
     try {
-      // TEMPORARY: Use old storage until we complete the customer database migration
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      
+      console.log(`🎨 Loading company settings FOR CUSTOMER: ${context.customerId}`);
       res.json(settings);
     } catch (error) {
       console.error('Settings fetch error:', error);
@@ -2208,8 +2215,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
       
-      // TEMPORARY: Use old storage until we complete the customer database migration
-      const settings = await storage.updateCompanySettings(updates);
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.updateCompanySettings(context, updates);
+      
+      console.log(`💾 Updated company settings FOR CUSTOMER: ${context.customerId}`);
       res.json(settings);
     } catch (error) {
       console.error('Settings update error:', error);
@@ -3116,20 +3130,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email address is required" });
       }
       
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
       // Get current SMTP settings and create dynamic email service
-      const settings = await storage.getCompanySettings();
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       const dynamicEmailService = new EmailService(settings);
       
       const success = await dynamicEmailService.sendTestEmail(email);
       
       if (success) {
         // Update last tested timestamp in settings
-        await storage.updateCompanySettings({
+        await simpleDatabaseService.updateCompanySettings(context, {
           smtpLastTested: new Date(),
           smtpTestEmailSent: true
         });
       }
       
+      console.log(`📧 Test email sent FOR CUSTOMER: ${context.customerId}`);
       res.json({ success });
     } catch (error) {
       console.error("Error sending test email:", error);
@@ -3605,15 +3626,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI-powered visitor insights endpoint
+  // AI-powered visitor insights endpoint - NOW WITH CUSTOMER ISOLATION!
   app.get("/api/ai/insights", async (req, res) => {
     try {
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
       const visitors = await storage.getCurrentVisitors();
       const staff = await storage.getAllStaff();
       const stats = await storage.getVisitorStats();
       
       const insights = await aiService.generateVisitorInsights(visitors, staff, stats);
       
+      console.log(`🤖 Generated AI insights FOR CUSTOMER: ${context.customerId}`);
       res.json({
         success: true,
         timestamp: new Date().toISOString(),
@@ -6861,21 +6889,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { thermalPrintService } = await import("./thermalPrintService");
   const { ZebraPrintService } = await import("./zebraPrintService");
 
-  // Get thermal pass design
+  // Get thermal pass design - NOW WITH CUSTOMER ISOLATION!
   app.get("/api/thermal-passes/design/:type", async (req, res) => {
     try {
       const { type } = req.params; // visitor or contractor
-      const settings = await storage.getCompanySettings();
+      
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       
       let design;
       if (type === 'visitor') {
-        design = settings.visitorPassDesign ? JSON.parse(settings.visitorPassDesign) : [];
+        design = settings?.visitorPassDesign ? JSON.parse(settings.visitorPassDesign) : [];
       } else if (type === 'contractor') {
-        design = settings.contractorPassDesign ? JSON.parse(settings.contractorPassDesign) : [];
+        design = settings?.contractorPassDesign ? JSON.parse(settings.contractorPassDesign) : [];
       } else {
         return res.status(400).json({ error: 'Invalid pass type' });
       }
       
+      console.log(`🎨 Loading ${type} pass design FOR CUSTOMER: ${context.customerId}`);
       res.json({ success: true, design });
     } catch (error) {
       console.error('Error loading thermal pass design:', error);
@@ -6883,7 +6919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save thermal pass design
+  // Save thermal pass design - NOW WITH CUSTOMER ISOLATION!
   app.put("/api/thermal-passes/design/:type", async (req, res) => {
     try {
       const { type } = req.params;
@@ -6892,6 +6928,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!elements || !Array.isArray(elements)) {
         return res.status(400).json({ error: 'Invalid elements data' });
       }
+      
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
       
       const designData = {
         elements,
@@ -6908,9 +6950,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid pass type' });
       }
       
-      await storage.updateCompanySettings(updateData);
+      await simpleDatabaseService.updateCompanySettings(context, updateData);
       
-      console.log(`💾 ${type} thermal pass design saved with ${elements.length} elements`);
+      console.log(`💾 ${type} thermal pass design saved with ${elements.length} elements FOR CUSTOMER: ${context.customerId}`);
       res.json({ 
         success: true, 
         message: `${type} thermal pass design saved successfully`,
