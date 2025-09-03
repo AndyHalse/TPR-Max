@@ -6613,7 +6613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           adminFirstName: "Sarah",
           adminLastName: "Chen",
           adminEmail: "sarah.chen@techventure.com",
-          subscriptionTier: "premium",
+
           maxUsers: 25,
           primaryColor: "#3b82f6",
           secondaryColor: "#64748b"
@@ -6628,7 +6628,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           adminFirstName: "Marcus",
           adminLastName: "Rivera",
           adminEmail: "marcus.rivera@creativestudio.com",
-          subscriptionTier: "basic",
           maxUsers: 15,
           primaryColor: "#8b5cf6",
           secondaryColor: "#64748b"
@@ -6643,7 +6642,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           adminFirstName: "Emma",
           adminLastName: "Thompson",
           adminEmail: "emma.thompson@financefirst.com",
-          subscriptionTier: "enterprise",
           maxUsers: 50,
           primaryColor: "#059669",
           secondaryColor: "#64748b"
@@ -6658,7 +6656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           adminFirstName: "James",
           adminLastName: "Wilson",
           adminEmail: "james.wilson@digitalmarketing.com",
-          subscriptionTier: "premium",
+
           maxUsers: 30,
           primaryColor: "#dc2626",
           secondaryColor: "#64748b"
@@ -6673,7 +6671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           adminFirstName: "Priya",
           adminLastName: "Patel",
           adminEmail: "priya.patel@cloudsoft.com",
-          subscriptionTier: "premium",
+
           maxUsers: 40,
           primaryColor: "#f59e0b",
           secondaryColor: "#64748b"

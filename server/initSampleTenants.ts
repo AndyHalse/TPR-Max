@@ -7,7 +7,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "TechFlow Solutions",
       slug: "techflow",
-      subscriptionTier: "premium" as const,
       description: "Cutting-edge software development and digital transformation consultancy",
       industry: "Technology",
       contactEmail: "admin@techflow.com",
@@ -18,7 +17,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "Green Energy Innovations",
       slug: "green-energy",
-      subscriptionTier: "premium" as const,
       description: "Renewable energy solutions and sustainability consulting",
       industry: "Energy",
       contactEmail: "contact@greenenergy.co.uk",
@@ -29,7 +27,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "Legal Advisors LLP",
       slug: "legal-advisors",
-      subscriptionTier: "business" as const,
       description: "Full-service law firm specializing in corporate and commercial law",
       industry: "Legal",
       contactEmail: "info@legaladvisors.co.uk",
@@ -40,7 +37,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "Digital Marketing Hub",
       slug: "digital-marketing",
-      subscriptionTier: "business" as const,
       description: "Performance-driven digital marketing and brand strategy agency",
       industry: "Marketing",
       contactEmail: "hello@digitalmarketing.agency",
@@ -51,7 +47,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "FinTech Dynamics",
       slug: "fintech-dynamics",
-      subscriptionTier: "premium" as const,
       description: "Financial technology solutions for modern banking and payments",
       industry: "Financial Services",
       contactEmail: "team@fintechdynamics.com",
@@ -62,7 +57,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "Creative Design Studio",
       slug: "creative-design",
-      subscriptionTier: "standard" as const,
       description: "Award-winning design agency for branding, web, and product design",
       industry: "Design",
       contactEmail: "studio@creativedesign.co.uk",
@@ -73,7 +67,7 @@ export async function initializeSampleTenants() {
     {
       companyName: "BioMed Research Ltd",
       slug: "biomed-research",
-      subscriptionTier: "business" as const,
+
       description: "Biomedical research and pharmaceutical development company",
       industry: "Healthcare",
       contactEmail: "research@biomedltd.com",
@@ -84,7 +78,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "Quantum Consulting",
       slug: "quantum-consulting",
-      subscriptionTier: "standard" as const,
       description: "Strategic business consulting for emerging technologies",
       industry: "Consulting",
       contactEmail: "info@quantumconsulting.co.uk",
@@ -95,7 +88,7 @@ export async function initializeSampleTenants() {
     {
       companyName: "Urban Architecture Firm",
       slug: "urban-architecture",
-      subscriptionTier: "business" as const,
+
       description: "Sustainable urban planning and architectural design specialists",
       industry: "Architecture",
       contactEmail: "contact@urbanarch.co.uk",
@@ -106,7 +99,6 @@ export async function initializeSampleTenants() {
     {
       companyName: "DataVision Analytics",
       slug: "datavision",
-      subscriptionTier: "premium" as const,
       description: "Big data analytics and business intelligence solutions",
       industry: "Technology",
       contactEmail: "analytics@datavision.com",

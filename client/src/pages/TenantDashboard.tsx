@@ -26,7 +26,6 @@ interface TenantCompany {
   industry: string;
   employeeCount: number;
   isActive: boolean;
-  subscriptionTier: string;
 }
 
 const visitorSchema = z.object({
@@ -158,7 +157,6 @@ export default function TenantDashboard() {
           <Badge variant={tenant.isActive ? "default" : "secondary"}>
             {tenant.isActive ? "Active" : "Inactive"}
           </Badge>
-          <Badge variant="outline">{tenant.subscriptionTier}</Badge>
         </div>
       </div>
 

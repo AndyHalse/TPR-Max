@@ -473,11 +473,43 @@ export class DatabaseService {
       ));
     
     return {
-      currentVisitors: parseInt(currentVisitorsResult[0]?.count) || 0,
-      todayCheckins: parseInt(todayCheckinsResult[0]?.count) || 0,
-      staffOnSite: parseInt(staffOnSiteResult[0]?.count) || 0,
-      totalStaff: parseInt(totalStaffResult[0]?.count) || 0,
+      currentVisitors: parseInt(String(currentVisitorsResult[0]?.count)) || 0,
+      todayCheckins: parseInt(String(todayCheckinsResult[0]?.count)) || 0,
+      staffOnSite: parseInt(String(staffOnSiteResult[0]?.count)) || 0,
+      totalStaff: parseInt(String(totalStaffResult[0]?.count)) || 0,
     };
+  }
+
+  /**
+   * Get peak hours analytics for visitor patterns - Customer Isolated
+   */
+  async getPeakHoursAnalytics(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Get hourly visitor check-in patterns for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const hourlyData = await db
+      .select({
+        hour: sql<number>`EXTRACT(HOUR FROM ${schema.visitors.checkedInAt})`,
+        count: sql<number>`COUNT(*)`
+      })
+      .from(schema.visitors)
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        gte(schema.visitors.checkedInAt, today),
+        lt(schema.visitors.checkedInAt, tomorrow)
+      ))
+      .groupBy(sql`EXTRACT(HOUR FROM ${schema.visitors.checkedInAt})`)
+      .orderBy(sql`EXTRACT(HOUR FROM ${schema.visitors.checkedInAt})`);
+
+    return hourlyData.map(item => ({
+      hour: parseInt(String(item.hour)),
+      count: parseInt(String(item.count))
+    }));
   }
 
   /**

@@ -12,11 +12,9 @@ export const customers = pgTable("customers", {
   contactEmail: text("contact_email").notNull(),
   // Database connection for this customer
   databaseUrl: text("database_url").notNull(), // Each customer gets own PostgreSQL database
-  // Subscription & Status
+  // Status
   isActive: boolean("is_active").default(true).notNull(),
-  subscriptionTier: text("subscription_tier").default("basic"), // basic, premium, enterprise
-  subscriptionExpires: timestamp("subscription_expires"),
-  // Billing & limits
+  // System limits  
   maxTenants: integer("max_tenants").default(10), // How many building tenants this customer can have
   maxUsersPerTenant: integer("max_users_per_tenant").default(50),
   maxVisitorsPerMonth: integer("max_visitors_per_month").default(1000),

@@ -140,7 +140,6 @@ export default function SuperAdmin() {
       adminFirstName: formData.get("adminFirstName") as string,
       adminLastName: formData.get("adminLastName") as string,
       adminEmail: formData.get("adminEmail") as string,
-      subscriptionTier: formData.get("subscriptionTier") as string,
       maxUsers: parseInt(formData.get("maxUsers") as string) || 50,
       maxVisitorsPerMonth: parseInt(formData.get("maxVisitorsPerMonth") as string) || 1000,
     };
@@ -278,24 +277,8 @@ export default function SuperAdmin() {
                   data-testid="input-admin-email"
                 />
               </div>
-
-              <Separator />
-              <h3 className="text-lg font-semibold">Subscription Settings</h3>
               
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="subscriptionTier">Subscription Tier</Label>
-                  <Select name="subscriptionTier" defaultValue="basic">
-                    <SelectTrigger data-testid="select-subscription-tier">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="maxUsers">Max Users</Label>
                   <Input 
@@ -386,14 +369,14 @@ export default function SuperAdmin() {
         
         <Card data-testid="card-monthly-revenue">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-active-subscriptions">
+            <div className="text-2xl font-bold" data-testid="text-active-tenants">
               {tenants.filter(t => t.isActive).length}
             </div>
-            <p className="text-xs text-muted-foreground">Paying tenants</p>
+            <p className="text-xs text-muted-foreground">Active tenants</p>
           </CardContent>
         </Card>
       </div>
@@ -448,16 +431,13 @@ export default function SuperAdmin() {
                         >
                           {tenant.isActive ? "Active" : "Inactive"}
                         </Badge>
-                        <Badge variant="outline" data-testid={`badge-tier-${tenant.slug}`}>
-                          {tenant.subscriptionTier}
-                        </Badge>
                       </div>
                       <div className="text-sm text-gray-600 space-y-1">
                         <p data-testid={`text-contact-${tenant.slug}`}>
                           📧 {tenant.contactEmail} | 🏢 /{tenant.slug}
                         </p>
                         <p data-testid={`text-info-${tenant.slug}`}>
-                          👥 Max {tenant.maxUsers} users | 📊 {tenant.subscriptionTier}
+                          👥 Max {tenant.maxUsers} users
                         </p>
                       </div>
                     </div>
