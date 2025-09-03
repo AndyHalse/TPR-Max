@@ -1182,7 +1182,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { manual = true } = req.body;
-      const staff = await storage.checkInStaff(id, manual);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for staff check-in
+      const staff = await databaseService.checkInStaff(context, id, manual);
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
@@ -1190,6 +1196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ success: true, staff });
     } catch (error) {
+      console.error("Error checking in staff:", error);
       res.status(500).json({ error: "Failed to check in staff member" });
     }
   });
@@ -1198,7 +1205,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/staff/:id/checkout", async (req, res) => {
     try {
       const { id } = req.params;
-      const staff = await storage.checkOutStaff(id);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for staff check-out
+      const staff = await databaseService.checkOutStaff(context, id);
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found or not checked in" });
@@ -1206,6 +1219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ success: true, staff });
     } catch (error) {
+      console.error("Error checking out staff:", error);
       res.status(500).json({ error: "Failed to check out staff member" });
     }
   });
