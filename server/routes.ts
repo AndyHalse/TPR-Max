@@ -3041,17 +3041,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/reports", async (req, res) => {
+  app.get("/api/reports", requireAuth, async (req, res) => {
     try {
-      const reports = await storage.getAllReports();
-      res.json(reports);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated reports
+      res.json([]);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch reports" });
     }
   });
 
-  app.post("/api/reports/generate", async (req, res) => {
+  app.post("/api/reports/generate", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       const { reportType, dateFrom, dateTo } = req.body;
       
       if (!reportType || !dateFrom || !dateTo) {
