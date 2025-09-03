@@ -3067,13 +3067,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clear duplicate visitors endpoint
   app.delete("/api/test-data/visitors/duplicates", async (req, res) => {
     try {
-      // Get customer context for proper data isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      console.log(`🧹 Removing duplicate visitors for customer: ${context.customerId}`);
+      console.log(`🧹 Removing duplicate visitors from legacy storage`);
       
-      // Use customer-isolated database service
-      const allVisitors = await databaseService.getAllVisitors(context);
+      // Use legacy storage service for both reading and deleting to ensure consistency
+      const allVisitors = await storage.getAllVisitors();
       const uniqueVisitors = new Map();
       const duplicatesToRemove = [];
 
@@ -3101,7 +3098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Remove duplicates using the legacy storage service since databaseService doesn't have deleteVisitor
+      // Remove duplicates using the same storage service
       let removedCount = 0;
       for (const visitorId of duplicatesToRemove) {
         const success = await storage.deleteVisitor(visitorId);
