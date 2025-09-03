@@ -770,7 +770,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get company settings for reception email and company details
-      const companySettings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
       // Use company email as reception email (could be enhanced to have separate reception email in settings)
       const receptionEmail = companySettings.email;
@@ -1253,7 +1259,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🎨 Using design with ${design?.length || 0} elements`);
       
       // Get the actual selected printer from settings
-      const settings = await storage.getCompanySettings();
+      // Import the simplified database service
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      
+      // Get customer context for isolation
+      const context = simpleDatabaseService.createDevelopmentContext();
+      
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       const actualPrinter = settings?.idCardPrinter || "Magicard Enduro+ (V2)";
       console.log(`🖨️ Sending to ID Card Staff Printer: ${actualPrinter} (CR80 Format)`);
       
@@ -1282,7 +1294,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`📄 Generated HTML file: ${tempFile}`);
         
         // Get the selected ID card printer from settings
-        const settings = await storage.getCompanySettings();
+        // Import the simplified database service
+        const { simpleDatabaseService } = await import("./simpleDatabaseService");
+        
+        // Get customer context for isolation
+        const context = simpleDatabaseService.createDevelopmentContext();
+        
+        const settings = await simpleDatabaseService.getCompanySettings(context);
         const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
         
         // REAL Windows printing - Force execution on actual Windows PC
@@ -2169,7 +2187,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check email service (check if complete SMTP settings exist)
       try {
-        const settings = await storage.getCompanySettings();
+        // Import the simplified database service
+        const { simpleDatabaseService } = await import("./simpleDatabaseService");
+        
+        // Get customer context for isolation
+        const context = simpleDatabaseService.createDevelopmentContext();
+        
+        const settings = await simpleDatabaseService.getCompanySettings(context);
         // Check for required SMTP settings: host, username, password, and from name
         status.email = !!(settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword && settings?.smtpFromName);
       } catch (emailError) {
@@ -3246,7 +3270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             emailSentAt: new Date(),
           });
           
-          await storage.updateCompanySettings({
+          await simpleDatabaseService.updateCompanySettings(context, {
             lastReportSent: new Date(),
           });
         }
@@ -4072,7 +4096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Found ${syncResult.devices.length} devices:`, syncResult.devices);
       
       // Update settings with discovered devices
-      await storage.updateCompanySettings({
+      await simpleDatabaseService.updateCompanySettings(context, {
         biometricDevices: syncResult.devices,
         readerSettings: JSON.stringify(syncResult.deviceSettings)
       });
@@ -5038,7 +5062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Update settings with last reset time
     try {
-      await storage.updateCompanySettings({
+      await simpleDatabaseService.updateCompanySettings(context, {
         lastDailyReset: resetTime.toISOString()
       });
     } catch (error) {
