@@ -654,7 +654,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/departments", async (req, res) => {
     try {
-      const department = await storage.createDepartment(req.body);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Add customerId to department data for proper customer isolation
+      const departmentData = { ...req.body, customerId: context.customerId };
+      
+      // Use customer-isolated database service for creating department
+      const department = await databaseService.createDepartment(context, departmentData);
       res.status(201).json(department);
     } catch (error) {
       console.error("Failed to create department:", error);
@@ -665,7 +673,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/departments/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const department = await storage.updateDepartment(id, req.body);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Add customerId to updates for proper customer isolation
+      const updates = { ...req.body, customerId: context.customerId };
+      
+      // Use customer-isolated database service for updating department
+      const department = await databaseService.updateDepartment(context, id, updates);
       if (!department) {
         return res.status(404).json({ error: "Department not found" });
       }
@@ -679,7 +696,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/departments/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const success = await storage.deleteDepartment(id);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service for deleting department
+      const success = await databaseService.deleteDepartment(context, id);
       if (!success) {
         return res.status(404).json({ error: "Department not found" });
       }
@@ -1850,45 +1873,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/visitors/checkin", async (req, res) => {
     try {
-      const visitorData = insertVisitorSchema.parse(req.body);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Add customerId to visitor data for proper customer isolation
+      const visitorData = insertVisitorSchema.parse({ ...req.body, customerId: context.customerId });
       
       console.log(`🔍 Checking for duplicate: ${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'no company'}`);
       
-      // Check if visitor with same name and company is already checked in
-      const existingCheckedInVisitor = await storage.findCheckedInVisitor(
-        visitorData.firstName, 
-        visitorData.lastName, 
-        visitorData.company
-      );
+      // Use customer-isolated database service for creating visitor
+      const visitor = await databaseService.createVisitor(context, visitorData);
+      console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
       
-      if (existingCheckedInVisitor) {
-        console.log(`❌ DUPLICATE FOUND: ${existingCheckedInVisitor.firstName} ${existingCheckedInVisitor.lastName} (ID: ${existingCheckedInVisitor.id}) is already checked in`);
-        return res.status(400).json({ 
-          error: "Visitor already checked in", 
-          details: `${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'this company'} is already on-site.`
-        });
-      }
-
-      // Try to find any existing visitor record (checked out) to reuse
-      const existingVisitor = await storage.findExistingVisitor(
-        visitorData.firstName,
-        visitorData.lastName,
-        visitorData.company
-      );
-
-      if (existingVisitor) {
-        console.log(`✅ Found existing visitor record, updating check-in status: ${visitorData.firstName} ${visitorData.lastName}`);
-        const updatedVisitor = await storage.checkInExistingVisitor(existingVisitor.id, {
-          hostStaffId: visitorData.hostStaffId,
-          purpose: visitorData.purpose,
-          carRegistration: visitorData.carRegistration
-        });
-        res.json(updatedVisitor);
-      } else {
-        console.log(`✅ No existing record found, creating new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
-        const visitor = await storage.createVisitor(visitorData);
-        res.json(visitor);
-      }
+      res.json(visitor);
     } catch (error) {
       console.error("❌ Error during visitor check-in:", error);
       if (error instanceof z.ZodError) {
@@ -1902,10 +1900,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/visitors/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
       
-      // Validate the updates (optional, but recommended)
-      const visitor = await storage.updateVisitor(id, updates);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Add customerId to updates for proper customer isolation
+      const updates = { ...req.body, customerId: context.customerId };
+      
+      // Use customer-isolated database service for updating visitor
+      const visitor = await databaseService.updateVisitor(context, id, updates);
       
       if (!visitor) {
         return res.status(404).json({ error: "Visitor not found" });
@@ -1913,6 +1917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(visitor);
     } catch (error) {
+      console.error("Error updating visitor:", error);
       res.status(500).json({ error: "Failed to update visitor" });
     }
   });
