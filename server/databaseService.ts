@@ -332,6 +332,34 @@ export class DatabaseService {
     }
   }
 
+  async findExistingVisitor(
+    context: CustomerContext, 
+    firstName: string, 
+    lastName: string, 
+    company?: string
+  ): Promise<Visitor | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const whereConditions = [
+      eq(schema.visitors.customerId, context.customerId),
+      eq(schema.visitors.firstName, firstName),
+      eq(schema.visitors.lastName, lastName)
+    ];
+    
+    if (company) {
+      whereConditions.push(eq(schema.visitors.company, company));
+    }
+    
+    const [visitor] = await db
+      .select()
+      .from(schema.visitors)
+      .where(and(...whereConditions))
+      .orderBy(desc(schema.visitors.checkedInAt))
+      .limit(1);
+    
+    return visitor;
+  }
+
   /**
    * DEPARTMENT METHODS - Customer Isolated
    */
