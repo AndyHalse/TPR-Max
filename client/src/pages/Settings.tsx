@@ -1027,8 +1027,18 @@ export default function Settings() {
                       <Input
                         type="email"
                         placeholder="admin@company.com, manager@company.com"
-                        value={currentSettings?.reportRecipients || ""}
-                        onChange={(e) => handleInputChange("reportRecipients", e.target.value)}
+                        value={Array.isArray(currentSettings?.reportRecipients) 
+                          ? currentSettings.reportRecipients.join(", ") 
+                          : currentSettings?.reportRecipients || ""
+                        }
+                        onChange={(e) => {
+                          // Convert comma-separated string to array
+                          const emails = e.target.value
+                            .split(",")
+                            .map(email => email.trim())
+                            .filter(email => email.length > 0);
+                          handleInputChange("reportRecipients", emails);
+                        }}
                         className="w-full"
                         data-testid="input-report-recipients"
                       />
