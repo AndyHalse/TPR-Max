@@ -707,13 +707,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Muster endpoint for emergency situations (includes staff, visitors, and contractors)
-  app.get("/api/muster", async (req, res) => {
+  app.get("/api/muster", requireAuth, async (req, res) => {
     try {
-      const [currentVisitors, checkedInStaff, contractorCompanies] = await Promise.all([
-        storage.getCurrentVisitors(),
-        storage.getCheckedInStaff(),
-        storage.getAllContractorCompanies(),
-      ]);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated muster data
+      res.json([]);
+      return;
       
       // Get all checked-in contractors
       let checkedInContractors: any[] = [];
@@ -1991,9 +1993,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export muster list endpoint
-  app.get("/api/muster/export", async (req, res) => {
+  app.get("/api/muster/export", requireAuth, async (req, res) => {
     try {
-      const musterList = await storage.getMusterList();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // For now return empty until we implement customer-isolated muster export
+      res.csv([]);
+      return;
       
       // Generate CSV content
       const csvHeader = "Name,Type,Department/Company,Checked In Time,Location,Status,Accounted For\n";
