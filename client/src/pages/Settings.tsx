@@ -118,6 +118,83 @@ export default function Settings() {
     backupMutation.mutate();
   };
 
+  // Restore mutation
+  const restoreMutation = useMutation({
+    mutationFn: async (backupData: any) => {
+      const response = await apiRequest("POST", "/api/system/restore", {
+        backup: backupData
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Invalidate all queries to refresh the entire app
+      queryClient.invalidateQueries();
+      
+      toast({
+        title: "Restore Complete",
+        description: `Successfully restored ${data.recordsRestored || 0} records`,
+      });
+      
+      setSelectedBackupFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Refresh page after short delay to ensure all data is updated
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Restore Failed",
+        description: error.message || "Failed to restore database",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.bak') && !file.name.endsWith('.sql')) {
+        toast({
+          title: "Invalid File",
+          description: "Please select a valid .bak or .sql backup file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedBackupFile(file);
+    }
+  };
+
+  const handleRestoreDatabase = () => {
+    if (!selectedBackupFile) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a backup file first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const backupContent = e.target?.result as string;
+        restoreMutation.mutate(backupContent);
+      } catch (error) {
+        toast({
+          title: "Invalid File",
+          description: "Failed to read backup file",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(selectedBackupFile);
+  };
+
   const { data: detectedPrinters, refetch: refetchPrinters, isFetching: isDetectingPrinters } = useQuery<{
     success: boolean;
     platform: string;
@@ -2739,27 +2816,57 @@ export default function Settings() {
               </h3>
               <div className="space-y-4">
                 <p className="text-sm text-slate-600">
-                  Restore customer data from a previously exported backup file. This will replace all current data.
+                  Restore customer data from a previously exported .bak or .sql backup file. This will replace all current data.
                 </p>
-                <Button 
-                  variant="outline"
-                  className="w-full"
-                  data-testid="button-select-backup"
-                >
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  Select Backup File
-                </Button>
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".bak,.sql"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    data-testid="input-backup-file"
+                  />
+                  <Button 
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full"
+                    data-testid="button-select-backup"
+                  >
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Select Backup File
+                  </Button>
+                  
+                  {selectedBackupFile && (
+                    <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                        📄 {selectedBackupFile.name}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">
+                        {(selectedBackupFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  )}
+                </div>
                 
                 <Button 
                   variant="destructive"
+                  onClick={handleRestoreDatabase}
+                  disabled={!selectedBackupFile || restoreMutation.isPending}
                   className="w-full"
                   data-testid="button-restore-database"
-                  disabled
                 >
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className="w-4 h-4" />
-                    Restore Database
-                  </div>
+                  {restoreMutation.isPending ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Restoring Database...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4" />
+                      Restore Database
+                    </div>
+                  )}
                 </Button>
                 
                 <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800">
