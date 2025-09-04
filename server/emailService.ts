@@ -595,22 +595,38 @@ For questions about this report, please contact the administrator.
     });
   }
 
-  // Helper function to get logo for email
-  // For now, we'll use a fallback approach since logos in cloud storage
-  // may not be accessible externally
+  // Helper function to get logo for email as base64 data URL
   async getLogoForEmail(settings: CompanySettings): Promise<string | null> {
     try {
-      // If a public logo URL is provided, use it
-      if (settings?.publicLogoUrl) {
-        return settings.publicLogoUrl;
+      // If no logo URL is set, return null
+      if (!settings?.logoUrl) {
+        return null;
       }
+
+      // Try to fetch the logo from internal storage and convert to base64
+      // The logoUrl is stored as /uploads/... but needs to be accessed as /objects/uploads/...
+      const logoPath = settings.logoUrl.startsWith('/objects') 
+        ? settings.logoUrl 
+        : `/objects${settings.logoUrl}`;
+      const logoUrl = `http://localhost:5000${logoPath}`;
       
-      // For customer isolation, each customer's logo would be stored
-      // with their customer ID and served from a public CDN
-      // For now, return null to use the fallback initial design
-      return null;
+      console.log('Fetching logo from:', logoUrl);
+      
+      const response = await fetch(logoUrl);
+      if (!response.ok) {
+        console.log('Failed to fetch logo:', response.status);
+        return null;
+      }
+
+      // Convert to buffer then to base64
+      const buffer = await response.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString('base64');
+      const contentType = response.headers.get('content-type') || 'image/png';
+      
+      // Return as data URL for embedding in email
+      return `data:${contentType};base64,${base64}`;
     } catch (error) {
-      console.error('Error getting logo for email:', error);
+      console.error('Error converting logo to base64:', error);
       return null;
     }
   }
@@ -682,9 +698,9 @@ For questions about this report, please contact the administrator.
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
                         <!-- Company Logo -->
-                        ${settings?.logoUrl ? `
-                        <!-- Using fallback for now as logo needs public URL -->
-                        ` : ''}
+                        ${logoDataUrl ? `
+                        <img src="${logoDataUrl}" alt="${companyName}" style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; border-radius: 12px; background: white; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        ` : `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                           <tr>
                             <td align="center" valign="middle" style="width: 80px; height: 80px; font-size: 28px; font-weight: bold; color: ${primaryColor}; letter-spacing: 1px; font-family: Arial, sans-serif;">
@@ -692,6 +708,7 @@ For questions about this report, please contact the administrator.
                             </td>
                           </tr>
                         </table>
+                        `}
                         <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                           Digital Visitor Pass
                         </h1>
