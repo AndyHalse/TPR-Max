@@ -444,11 +444,26 @@ export default function Visitors() {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
       return response.json();
     },
-    onSuccess: (visitor: Visitor) => {
-      // Auto-print the pass after a short delay
-      setTimeout(() => {
-        printVisitorPass({ visitor, staff, toast });
-      }, 500);
+    onSuccess: (visitor: any) => {
+      // Check if e-Pass was sent
+      if (visitor.ePassSent) {
+        // Show e-Pass confirmation instead of printing
+        toast({
+          title: "✅ Digital Pass Sent",
+          description: `E-Pass has been sent to ${visitor.email || 'visitor'}. They can use it to check out.`,
+          variant: "default",
+          duration: 5000
+        });
+        // Don't show pass preview for e-Pass
+        setShowPassPreview(false);
+      } else {
+        // Auto-print the pass after a short delay
+        setTimeout(() => {
+          printVisitorPass({ visitor, staff, toast });
+        }, 500);
+        // Show visitor pass preview (same as previous visitors)
+        setShowPassPreview(true);
+      }
       
       // GDPR FIX: Invalidate tenant-specific cache when in tenant view
       if (isTenantView) {
@@ -458,9 +473,7 @@ export default function Visitors() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       
-      // Show visitor pass preview (same as previous visitors)
       setCheckedInVisitor(visitor);
-      setShowPassPreview(true);
       
       // Clear the form after successful check-in
       setWalkInData({
@@ -478,10 +491,12 @@ export default function Visitors() {
       });
       setWalkInValidationErrors({});
       
-      toast({
-        title: "Success",
-        description: "Visitor checked in successfully! Pass is printing...",
-      });
+      if (!visitor.ePassSent) {
+        toast({
+          title: "Success",
+          description: "Visitor checked in successfully! Pass is printing...",
+        });
+      }
     },
     onError: (error: any) => {
       if (error?.message?.includes("Visitor already checked in")) {
@@ -529,11 +544,29 @@ export default function Visitors() {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
       return response.json();
     },
-    onSuccess: (visitor: Visitor) => {
-      // Auto-print the pass after a short delay
-      setTimeout(() => {
-        printVisitorPass({ visitor, staff, toast });
-      }, 500);
+    onSuccess: (visitor: any) => {
+      // Check if e-Pass was sent
+      if (visitor.ePassSent) {
+        // Show e-Pass confirmation instead of printing
+        toast({
+          title: "✅ Digital Pass Sent",
+          description: `E-Pass has been sent to ${visitor.email || 'visitor'}. They can use it to check out.`,
+          variant: "default",
+          duration: 5000
+        });
+        // Don't show pass preview for e-Pass
+        setShowPassPreview(false);
+      } else {
+        // Auto-print the pass after a short delay
+        setTimeout(() => {
+          printVisitorPass({ visitor, staff, toast });
+        }, 500);
+        setShowPassPreview(true);
+        toast({
+          title: "Success",
+          description: "Previous visitor checked in successfully! Pass is printing...",
+        });
+      }
       
       // GDPR FIX: Invalidate tenant-specific cache when in tenant view
       if (isTenantView) {
@@ -543,14 +576,9 @@ export default function Visitors() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       setCheckedInVisitor(visitor);
-      setShowPassPreview(true);
       setShowHostSelection(false);
       setSelectedPreviousVisitor(null);
       setSelectedHostForPrevious("");
-      toast({
-        title: "Success",
-        description: "Previous visitor checked in successfully! Pass is printing...",
-      });
     },
     onError: (error: any) => {
       console.log("🔥 Previous Visitor Check-in Error:", error);
