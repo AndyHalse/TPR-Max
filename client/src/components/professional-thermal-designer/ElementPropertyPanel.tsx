@@ -652,14 +652,79 @@ function TextStyleContent({ element, updateElement }: { element: TextElement; up
 
       <div>
         <Label className="text-xs font-medium">Font Size: {element.fontSize}px</Label>
-        <Slider
-          value={[element.fontSize]}
-          onValueChange={(value) => updateElement({ fontSize: value[0] })}
-          max={72}
-          min={6}
-          step={1}
-          className="mt-2"
-        />
+        <div className="flex gap-2 items-center mt-2">
+          <Slider
+            value={[element.fontSize]}
+            onValueChange={(value) => updateElement({ fontSize: value[0] })}
+            max={72}
+            min={6}
+            step={1}
+            className="flex-1"
+          />
+          <Input
+            type="number"
+            value={element.fontSize}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              if (!isNaN(value) && value >= 6 && value <= 72) {
+                updateElement({ fontSize: value });
+              }
+            }}
+            min={6}
+            max={72}
+            className="w-16 h-8 text-xs"
+          />
+        </div>
+        <div className="flex gap-1 mt-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={element.fontSize === 10 ? "default" : "outline"}
+            className="h-6 text-xs px-2"
+            onClick={() => updateElement({ fontSize: 10 })}
+          >
+            10px
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={element.fontSize === 12 ? "default" : "outline"}
+            className="h-6 text-xs px-2"
+            onClick={() => updateElement({ fontSize: 12 })}
+          >
+            12px
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={element.fontSize === 14 ? "default" : "outline"}
+            className="h-6 text-xs px-2"
+            onClick={() => updateElement({ fontSize: 14 })}
+          >
+            14px
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={element.fontSize === 18 ? "default" : "outline"}
+            className="h-6 text-xs px-2"
+            onClick={() => updateElement({ fontSize: 18 })}
+          >
+            18px
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={element.fontSize === 24 ? "default" : "outline"}
+            className="h-6 text-xs px-2"
+            onClick={() => updateElement({ fontSize: 24 })}
+          >
+            24px
+          </Button>
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">
+          Adjust text size for both fixed and variable content (6-72px)
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -711,6 +776,62 @@ function TextStyleContent({ element, updateElement }: { element: TextElement; up
             <SelectItem value="justify">Justify</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs font-medium">Line Height: {element.lineHeight || 1.2}</Label>
+        <div className="flex gap-2 items-center mt-2">
+          <Slider
+            value={[element.lineHeight || 1.2]}
+            onValueChange={(value) => updateElement({ lineHeight: value[0] })}
+            max={3}
+            min={0.8}
+            step={0.1}
+            className="flex-1"
+          />
+          <Input
+            type="number"
+            value={element.lineHeight || 1.2}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value) && value >= 0.8 && value <= 3) {
+                updateElement({ lineHeight: value });
+              }
+            }}
+            min={0.8}
+            max={3}
+            step={0.1}
+            className="w-16 h-8 text-xs"
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-xs font-medium">Letter Spacing: {element.letterSpacing || 0}px</Label>
+        <div className="flex gap-2 items-center mt-2">
+          <Slider
+            value={[element.letterSpacing || 0]}
+            onValueChange={(value) => updateElement({ letterSpacing: value[0] })}
+            max={10}
+            min={-2}
+            step={0.5}
+            className="flex-1"
+          />
+          <Input
+            type="number"
+            value={element.letterSpacing || 0}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value) && value >= -2 && value <= 10) {
+                updateElement({ letterSpacing: value });
+              }
+            }}
+            min={-2}
+            max={10}
+            step={0.5}
+            className="w-16 h-8 text-xs"
+          />
+        </div>
       </div>
     </div>
   );
