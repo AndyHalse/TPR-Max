@@ -32,7 +32,14 @@ class EmailService {
         subject: options.subject,
         html: options.html,
         text: options.text,
-        attachments: options.attachments || []
+        attachments: options.attachments || [],
+        headers: {
+          'X-Priority': '3',
+          'X-Mailer': 'VisiGate Pro Visitor Management',
+          'List-Unsubscribe': `<mailto:${process.env.SMTP_USER}?subject=Unsubscribe>`,
+          'Precedence': 'bulk',
+          'Auto-Submitted': 'auto-generated'
+        }
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -587,7 +594,8 @@ For questions about this report, please contact the administrator.
       const backgroundColor = settings?.backgroundColor || '#f8fafc';
       const textColor = settings?.foregroundColor || '#1e293b';
       const variableTextColor = settings?.variableTextColor || '#374151';
-      const logoUrl = settings?.logoUrl ? `${process.env.PUBLIC_URL || 'https://visigate.pro'}/objects${settings.logoUrl}` : null;
+      // Fix logo URL - remove /objects prefix as logoUrl already contains full path
+      const logoUrl = settings?.logoUrl ? `${process.env.PUBLIC_URL || 'http://localhost:5000'}${settings.logoUrl}` : null;
       
       const subject = `Your Digital Visitor Pass - ${companyName}`;
       
@@ -629,9 +637,9 @@ For questions about this report, please contact the administrator.
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
                         ${logoUrl ? `
-                        <img src="${logoUrl}" alt="${companyName} Logo" style="max-height: 60px; max-width: 250px; margin: 0 auto 15px; display: block;">
+                        <img src="${logoUrl}" alt="${companyName} Logo" style="max-height: 80px; max-width: 280px; margin: 0 auto 15px; display: block; background: white; padding: 10px; border-radius: 8px;">
                         ` : `
-                        <div style="width: 60px; height: 60px; background: white; border-radius: 12px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: ${primaryColor};">
+                        <div style="width: 60px; height: 60px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; text-align: center; line-height: 60px; font-size: 28px; font-weight: bold; color: ${primaryColor};">
                           ${companyName.charAt(0).toUpperCase()}
                         </div>
                         `}

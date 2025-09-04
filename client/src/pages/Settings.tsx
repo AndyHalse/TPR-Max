@@ -983,6 +983,30 @@ export default function Settings() {
 
             <GlassCard>
               <div className="flex items-center mb-6">
+                <Shield className="mr-3 text-amber-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Prevent Emails Going to Junk</h3>
+              </div>
+              
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <h4 className="font-semibold text-amber-900">Important: Email Deliverability Tips</h4>
+                <div className="text-sm text-amber-800 space-y-2">
+                  <p className="font-medium">To prevent e-Pass emails going to junk/spam folders:</p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li><strong>SPF Record:</strong> Add VisiGate server IP to your domain's SPF record</li>
+                    <li><strong>DKIM Signing:</strong> Enable DKIM authentication in your email provider</li>
+                    <li><strong>From Address:</strong> Use an email from your verified domain (not generic providers)</li>
+                    <li><strong>Whitelist:</strong> Ask recipients to add {currentSettings?.smtpUsername || 'your email'} to contacts</li>
+                    <li><strong>Reply-To:</strong> Set a monitored reply-to address below</li>
+                  </ol>
+                  <div className="mt-3 p-2 bg-white rounded border border-amber-200">
+                    <p className="text-xs font-mono">SPF Example: v=spf1 include:_spf.ionos.com ~all</p>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
                 <Send className="mr-3 text-green-600" size={24} />
                 <h3 className="text-lg font-semibold text-slate-800">📊 Email Reports Settings</h3>
               </div>
