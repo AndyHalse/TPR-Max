@@ -3217,9 +3217,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const randomDepartment = departments[Math.floor(Math.random() * departments.length)];
           const randomPurpose = purposes[Math.floor(Math.random() * purposes.length)];
           
-          // Random check-in time within last 4 hours
-          const checkedInAt = new Date();
-          checkedInAt.setHours(checkedInAt.getHours() - Math.floor(Math.random() * 4));
+          // Create visitor WITHOUT checking them in - for testing purposes only
+          // They will appear in Previous Visitors list but NOT checked in
+          const lastVisitDate = new Date();
+          lastVisitDate.setDate(lastVisitDate.getDate() - Math.floor(Math.random() * 30)); // Random date within last 30 days
+          lastVisitDate.setHours(9 + Math.floor(Math.random() * 8)); // Random time between 9am-5pm
           
           const newVisitor: InsertVisitor = {
             firstName: visitor.firstName,
@@ -3227,20 +3229,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             company: visitor.company,
             email: `${visitor.firstName.toLowerCase()}.${visitor.lastName.toLowerCase()}@${visitor.company.toLowerCase().replace(/\s+/g, '')}.com`,
             hostName: `${randomStaff.firstName} ${randomStaff.lastName}`,
+            hostId: randomStaff.id,
             department: randomDepartment,
             purpose: randomPurpose,
-            checkedInAt,
-            checkedOutAt: null, // Still checked in
+            reason: randomPurpose,
+            checkedInAt: lastVisitDate,
+            checkedOutAt: new Date(lastVisitDate.getTime() + (2 + Math.random() * 6) * 60 * 60 * 1000), // Checked out 2-8 hours later
+            isCheckedIn: false, // NOT currently checked in
             badgeNumber: `V${String(1000 + i).padStart(4, '0')}`,
             accessLevel: 'Visitor',
-            status: 'active'
+            status: 'inactive', // Not active since they're checked out
+            customerId: context.customerId // Ensure customer isolation
           };
 
           await databaseService.createVisitor(context, newVisitor);
           generated++;
         }
 
-        console.log(`Generated ${generated} test visitors for customer ${context.customerId}`);
+        console.log(`✅ Added ${generated} test visitors (not checked in) for customer ${context.customerId}`);
       } else {
         console.log(`Skipping generation - already have ${existingVisitors.length} visitors, target is ${targetCount}`);
       }
@@ -3249,7 +3255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const actualGenerated = toGenerate > 0 ? toGenerate : 0;
       res.json({ 
         success: true, 
-        message: `Generated ${actualGenerated} new test visitors for customer ${context.customerId}. Total visitors: ${allVisitors.length}`,
+        message: `Added ${actualGenerated} test visitors to Previous Visitors list (not checked in). Total visitors: ${allVisitors.length}`,
         visitors: allVisitors,
         existingCount: existingVisitors.length,
         targetCount: targetCount,
