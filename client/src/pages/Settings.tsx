@@ -629,46 +629,53 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
-          <TabsTrigger value="company" className="flex items-center gap-2">
-            <Building2 size={16} />
-            Company
+        <TabsList className="grid w-full grid-cols-10">
+          <TabsTrigger value="company" className="flex items-center gap-1 px-2 text-xs">
+            <Building2 size={14} />
+            <span className="hidden xl:inline">Company</span>
+            <span className="xl:hidden">Co.</span>
           </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-2">
-            <Palette size={16} />
-            Branding
+          <TabsTrigger value="branding" className="flex items-center gap-1 px-2 text-xs">
+            <Palette size={14} />
+            <span className="hidden xl:inline">Branding</span>
+            <span className="xl:hidden">Brand</span>
           </TabsTrigger>
-          <TabsTrigger value="email" className="flex items-center gap-2">
-            <Mail size={16} />
+          <TabsTrigger value="email" className="flex items-center gap-1 px-2 text-xs">
+            <Mail size={14} />
             Email
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users size={16} />
+          <TabsTrigger value="users" className="flex items-center gap-1 px-2 text-xs">
+            <Users size={14} />
             Users
           </TabsTrigger>
-          <TabsTrigger value="departments" className="flex items-center gap-2">
-            <Building size={16} />
-            Departments
+          <TabsTrigger value="departments" className="flex items-center gap-1 px-2 text-xs">
+            <Building size={14} />
+            <span className="hidden xl:inline">Departments</span>
+            <span className="xl:hidden">Depts</span>
           </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <FileText size={16} />
-            Reports
+          <TabsTrigger value="reports" className="flex items-center gap-1 px-2 text-xs">
+            <FileText size={14} />
+            <span className="hidden xl:inline">Reports</span>
+            <span className="xl:hidden">Rpts</span>
           </TabsTrigger>
-          <TabsTrigger value="printing" className="flex items-center gap-2">
-            <Printer size={16} />
-            Printing & ID
+          <TabsTrigger value="printing" className="flex items-center gap-1 px-2 text-xs">
+            <Printer size={14} />
+            <span className="hidden xl:inline">Printing & ID</span>
+            <span className="xl:hidden">Print</span>
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex items-center gap-2">
-            <Brain size={16} />
+          <TabsTrigger value="ai" className="flex items-center gap-1 px-2 text-xs">
+            <Brain size={14} />
             AI
           </TabsTrigger>
-          <TabsTrigger value="hsrules" className="flex items-center gap-2">
-            <Shield size={16} />
-            H&S Rules
+          <TabsTrigger value="hsrules" className="flex items-center gap-1 px-2 text-xs">
+            <Shield size={14} />
+            <span className="hidden xl:inline">H&S Rules</span>
+            <span className="xl:hidden">H&S</span>
           </TabsTrigger>
-          <TabsTrigger value="system" className="flex items-center gap-2">
-            <SettingsIcon size={16} />
-            System
+          <TabsTrigger value="system" className="flex items-center gap-1 px-2 text-xs">
+            <SettingsIcon size={14} />
+            <span className="hidden xl:inline">System</span>
+            <span className="xl:hidden">Sys</span>
           </TabsTrigger>
         </TabsList>
 
