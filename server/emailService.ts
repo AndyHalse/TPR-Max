@@ -161,7 +161,7 @@ class EmailService {
                   : null;
                 return `
                   <tr>
-                    <td>${visitor.name}</td>
+                    <td>${visitor.firstName} ${visitor.lastName}</td>
                     <td>${visitor.company || 'N/A'}</td>
                     <td>${visitor.hostName || 'N/A'}</td>
                     <td>${new Date(visitor.checkedInAt).toLocaleString()}</td>
@@ -208,7 +208,7 @@ ${visitors.map(visitor => {
     ? Math.round((new Date(visitor.checkedOutAt).getTime() - new Date(visitor.checkedInAt).getTime()) / (1000 * 60)) 
     : null;
   return `
-- ${visitor.name} (${visitor.company || 'N/A'})
+- ${visitor.firstName} ${visitor.lastName} (${visitor.company || 'N/A'})
   Host: ${visitor.hostName || 'N/A'}
   Check-in: ${new Date(visitor.checkedInAt).toLocaleString()}
   Check-out: ${visitor.checkedOutAt ? new Date(visitor.checkedOutAt).toLocaleString() : 'Still on-site'}
@@ -629,8 +629,12 @@ For questions about this report, please contact the administrator.
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
                         ${logoUrl ? `
-                        <img src="${logoUrl}" alt="${companyName} Logo" style="max-height: 50px; max-width: 200px; margin: 0 auto 15px; display: block;">
-                        ` : ''}
+                        <img src="${logoUrl}" alt="${companyName} Logo" style="max-height: 60px; max-width: 250px; margin: 0 auto 15px; display: block;">
+                        ` : `
+                        <div style="width: 60px; height: 60px; background: white; border-radius: 12px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: ${primaryColor};">
+                          ${companyName.charAt(0).toUpperCase()}
+                        </div>
+                        `}
                         <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                           Digital Visitor Pass
                         </h1>
@@ -650,7 +654,7 @@ For questions about this report, please contact the administrator.
                           <tr>
                             <td>
                               <h2 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 22px; font-weight: 600;">
-                                Welcome, ${visitor.name}!
+                                Welcome, ${visitor.firstName} ${visitor.lastName}!
                               </h2>
                               <p style="margin: 0 0 20px 0; color: ${variableTextColor}; font-size: 15px; line-height: 1.5;">
                                 Your digital pass has been created for your visit${visitor.company ? ` to ${companyName}` : ''}.
@@ -685,7 +689,7 @@ For questions about this report, please contact the administrator.
                               <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
                                 <tr>
                                   <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px; width: 40%;">Visitor:</td>
-                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${visitor.name}</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${visitor.firstName} ${visitor.lastName}</td>
                                 </tr>
                                 ${visitor.company ? `
                                 <tr>
@@ -746,6 +750,7 @@ For questions about this report, please contact the administrator.
                                 <li>Keep this pass accessible on your phone</li>
                                 <li>Contact reception for assistance</li>
                                 ${settings?.geofencingEnabled ? '<li>✅ Auto check-out enabled via geofencing</li>' : ''}
+                                ${settings?.hsRulesEnabled && (settings?.hsRulesUrl || settings?.hsRulesContent) ? `<li>📋 <a href="${settings.hsRulesUrl || `${process.env.PUBLIC_URL || 'https://visigate.pro'}/hs-rules`}" style="color: #92400e; text-decoration: underline;">Review Health & Safety Rules</a></li>` : ''}
                               </ul>
                             </td>
                           </tr>
@@ -774,7 +779,7 @@ For questions about this report, please contact the administrator.
       
       const text = `Digital Visitor Pass - ${companyName}
 
-Welcome ${visitor.name}!
+Welcome ${visitor.firstName} ${visitor.lastName}!
 
 Your digital pass has been created for your visit.
 ${host ? `Your host ${host.firstName} ${host.lastName} has been notified.` : ''}
@@ -793,6 +798,7 @@ Important:
 - Please check out when leaving the building
 - Keep this pass accessible on your phone
 ${settings?.geofencingEnabled ? '- Auto check-out enabled when you leave the premises' : ''}
+${settings?.hsRulesEnabled && (settings?.hsRulesUrl || settings?.hsRulesContent) ? `\n- Health & Safety Rules: ${settings.hsRulesUrl || `${process.env.PUBLIC_URL || 'https://visigate.pro'}/hs-rules`}` : ''}
 
 Powered by VisiGate Pro`;
 
@@ -820,7 +826,7 @@ Powered by VisiGate Pro`;
         </div>
         
         <div style="padding: 20px; background: #fffbeb; border-left: 4px solid #f59e0b;">
-          <h2 style="color: #333; margin-top: 0;">Hello ${visitor.name},</h2>
+          <h2 style="color: #333; margin-top: 0;">Hello ${visitor.firstName} ${visitor.lastName},</h2>
           <p>Your visit is coming to an end. Please remember to check out before leaving the building.</p>
           
           <div style="text-align: center; margin: 20px 0;">
@@ -837,7 +843,7 @@ Powered by VisiGate Pro`;
       </div>
     `;
     
-    const text = `Check-out Reminder\n\nHello ${visitor.name},\n\nYour visit is coming to an end. Please remember to check out before leaving the building.\n\nCheck out at: ${process.env.PUBLIC_URL || 'https://visigate.pro'}/checkout/${visitor.id}\n\nYou can also use the QR scanners at the exit.\n\nThank you for visiting ${companyName}.`;
+    const text = `Check-out Reminder\n\nHello ${visitor.firstName} ${visitor.lastName},\n\nYour visit is coming to an end. Please remember to check out before leaving the building.\n\nCheck out at: ${process.env.PUBLIC_URL || 'https://visigate.pro'}/checkout/${visitor.id}\n\nYou can also use the QR scanners at the exit.\n\nThank you for visiting ${companyName}.`;
     
     return await this.sendEmail({
       to: visitor.email || '',
@@ -852,7 +858,7 @@ Powered by VisiGate Pro`;
     const companyName = settings?.companyName || 'VisiGate Pro';
     const overdueMinutes = Math.round((Date.now() - new Date(visitor.expectedDepartureTime || visitor.checkedInAt).getTime()) / 60000);
     
-    const subject = `Alert: Your visitor has not checked out - ${visitor.name}`;
+    const subject = `Alert: Your visitor has not checked out - ${visitor.firstName} ${visitor.lastName}`;
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -867,7 +873,7 @@ Powered by VisiGate Pro`;
           
           <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
             <h3 style="color: #ef4444; margin-top: 0;">Visitor Details</h3>
-            <p><strong>Name:</strong> ${visitor.name}</p>
+            <p><strong>Name:</strong> ${visitor.firstName} ${visitor.lastName}</p>
             <p><strong>Company:</strong> ${visitor.company || 'N/A'}</p>
             <p><strong>Check-in Time:</strong> ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}</p>
             <p><strong>Expected Departure:</strong> ${visitor.expectedDepartureTime ? new Date(visitor.expectedDepartureTime).toLocaleString('en-GB') : 'Not specified'}</p>
@@ -888,7 +894,7 @@ Powered by VisiGate Pro`;
       </div>
     `;
     
-    const text = `Visitor Not Checked Out Alert\n\nHello ${host.firstName},\n\nYour visitor has not checked out:\n\nName: ${visitor.name}\nCompany: ${visitor.company || 'N/A'}\nCheck-in: ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}\nOverdue by: ${overdueMinutes} minutes\n\nPlease check if they are still on premises or forgot to check out.\n\nView details at: ${process.env.PUBLIC_URL || 'https://visigate.pro'}/visitors`;
+    const text = `Visitor Not Checked Out Alert\n\nHello ${host.firstName},\n\nYour visitor has not checked out:\n\nName: ${visitor.firstName} ${visitor.lastName}\nCompany: ${visitor.company || 'N/A'}\nCheck-in: ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}\nOverdue by: ${overdueMinutes} minutes\n\nPlease check if they are still on premises or forgot to check out.\n\nView details at: ${process.env.PUBLIC_URL || 'https://visigate.pro'}/visitors`;
     
     return await this.sendEmail({
       to: host.email,

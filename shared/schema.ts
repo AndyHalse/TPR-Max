@@ -406,6 +406,12 @@ export const companySettings = pgTable("company_settings", {
   xStationCheckoutMode: text("x_station_checkout_mode").default("qr"), // qr, face, both
   xStationApiEndpoint: text("x_station_api_endpoint").default(""),
   
+  // Health & Safety Rules
+  hsRulesEnabled: boolean("hs_rules_enabled").default(true),
+  hsRulesContent: text("hs_rules_content").default(""),
+  hsRulesUrl: text("hs_rules_url").default(""), // External URL for H&S rules if not using internal content
+  hsRulesRequireAcceptance: boolean("hs_rules_require_acceptance").default(false),
+  
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
