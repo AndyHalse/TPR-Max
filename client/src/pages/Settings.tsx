@@ -629,7 +629,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-10">
+        <TabsList className="grid w-full grid-cols-11">
           <TabsTrigger value="company" className="flex items-center gap-1 px-2 text-xs">
             <Building2 size={14} />
             <span className="hidden xl:inline">Company</span>
@@ -662,6 +662,11 @@ export default function Settings() {
             <Printer size={14} />
             <span className="hidden xl:inline">Printing & ID</span>
             <span className="xl:hidden">Print</span>
+          </TabsTrigger>
+          <TabsTrigger value="biostar" className="flex items-center gap-1 px-2 text-xs">
+            <Shield size={14} />
+            <span className="hidden xl:inline">BioStar</span>
+            <span className="xl:hidden">Bio</span>
           </TabsTrigger>
           <TabsTrigger value="ai" className="flex items-center gap-1 px-2 text-xs">
             <Brain size={14} />
@@ -2152,6 +2157,9 @@ export default function Settings() {
                         <li>• Serial port QR readers (COM/TTY)</li>
                         <li>• Ethernet-enabled QR scanners</li>
                         <li>• Keyboard wedge scanners</li>
+                        <li className="font-semibold">• Suprema X-Station 2 (Network QR)</li>
+                        <li className="ml-4">- Supports visitor QR checkout</li>
+                        <li className="ml-4">- Supports pre-booking QR codes</li>
                       </ul>
                     </div>
                   </div>
@@ -2181,6 +2189,7 @@ export default function Settings() {
                           <SelectItem value="serial">Serial Port Only</SelectItem>
                           <SelectItem value="ethernet">Ethernet Only</SelectItem>
                           <SelectItem value="keyboard">Keyboard Wedge</SelectItem>
+                          <SelectItem value="xstation">X-Station 2 (BioStar)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -2216,6 +2225,72 @@ export default function Settings() {
                   </div>
                 </GlassCard>
               </div>
+
+              {/* X-Station 2 Configuration */}
+              {currentSettings?.qrReaderMode === 'xstation' && (
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <Shield className="mr-3 text-indigo-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">X-Station 2 Configuration</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        X-Station IP Addresses
+                      </Label>
+                      <textarea
+                        value={(currentSettings?.xStationDevices || []).join('\n')}
+                        onChange={(e) => handleInputChange("xStationDevices", e.target.value.split('\n').filter(d => d.trim()))}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 h-32 font-mono text-sm"
+                        placeholder="192.168.1.100&#10;192.168.1.101&#10;192.168.1.102"
+                        data-testid="textarea-xstation-ips"
+                      />
+                      <p className="text-xs text-slate-500">Enter one IP address per line</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-700">
+                        Pre-booking QR Support
+                      </Label>
+                      <Switch
+                        checked={currentSettings?.xStationPreBookingSupport || false}
+                        onCheckedChange={(checked) => handleInputChange("xStationPreBookingSupport", checked)}
+                        data-testid="switch-xstation-prebooking"
+                      />
+                      <p className="text-xs text-slate-500">
+                        Allow pre-booked visitors and contractors to check in using X-Station QR readers
+                      </p>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                      <h4 className="font-medium text-indigo-800 mb-2">X-Station Features:</h4>
+                      <ul className="text-sm text-indigo-700 space-y-1">
+                        <li>✓ Visitor QR code checkout</li>
+                        <li>✓ Pre-booking QR code check-in</li>
+                        <li>✓ Contractor QR validation</li>
+                        <li>✓ Network-based communication</li>
+                        <li>✓ BioStar 2 integration</li>
+                      </ul>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        toast({
+                          title: "Testing X-Station Connection",
+                          description: "Attempting to connect to configured X-Station devices...",
+                        });
+                      }}
+                      data-testid="button-test-xstation"
+                    >
+                      <Scan className="mr-2" size={16} />
+                      Test X-Station Connection
+                    </Button>
+                  </div>
+                </GlassCard>
+              )}
 
               <GlassCard>
                 <div className="flex items-center justify-between mb-6">

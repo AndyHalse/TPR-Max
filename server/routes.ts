@@ -1958,10 +1958,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // If visitor exists but is checked out, check them in again
         if (!existingVisitor.isCheckedIn) {
           console.log(`🔄 Checking in existing visitor: ${visitorData.firstName} ${visitorData.lastName}`);
+          // Generate H&S token for existing visitors if they don't have one
+          const hsToken = existingVisitor.hsRulesAcceptanceToken || 
+            (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
           visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
             hostStaffId: visitorData.hostStaffId,
             purpose: visitorData.purpose,
-            carRegistration: visitorData.carRegistration
+            carRegistration: visitorData.carRegistration,
+            hsRulesAcceptanceToken: hsToken
           });
         } else {
           // Visitor is already checked in
@@ -2194,7 +2198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify token if provided (for email link validation)
-      if (token && visitor.hsRulesAcceptanceToken !== token) {
+      // Skip token validation if visitor has no token (existing visitors before H&S was added)
+      if (token && visitor.hsRulesAcceptanceToken && visitor.hsRulesAcceptanceToken !== token) {
         return res.status(401).send(`
           <html>
             <body style="font-family: Arial; text-align: center; padding: 50px;">
@@ -4024,9 +4029,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/prebookings/checkin", async (req, res) => {
     try {
-      const { qrCode } = req.body;
+      const { qrCode, deviceType, deviceIp } = req.body;
       if (!qrCode) {
         return res.status(400).json({ error: "QR code is required" });
+      }
+      
+      // Log X-Station scan event if applicable
+      if (deviceType === 'xstation' && deviceIp) {
+        console.log(`X-Station QR scan from ${deviceIp}: ${qrCode}`);
       }
       
       // Check if it's a pre-booking QR code
@@ -4147,6 +4157,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Manual pre-booking check-in error:", error);
       res.status(500).json({ error: "Failed to manually check in visitor" });
+    }
+  });
+
+  // X-Station QR Reader webhook endpoint for visitor/contractor check-in/out
+  app.post("/api/xstation/qr-scan", async (req, res) => {
+    try {
+      const { qrCode, deviceIp, action = 'checkin', timestamp } = req.body;
+      
+      console.log(`X-Station QR scan event:`, { deviceIp, action, qrCode, timestamp });
+      
+      if (!qrCode) {
+        return res.status(400).json({ error: "QR code is required" });
+      }
+      
+      // Try to find pre-booking first
+      const preBooking = await storage.getPreBookingByQrCode(qrCode);
+      if (preBooking) {
+        // Handle pre-booking check-in
+        if (action === 'checkin' && !preBooking.isCheckedIn) {
+          const visitor = await storage.createVisitor({
+            firstName: preBooking.visitorFirstName,
+            lastName: preBooking.visitorLastName,
+            email: preBooking.visitorEmail,
+            company: preBooking.company,
+            purpose: preBooking.purpose,
+            carRegistration: null,
+            hostStaffId: preBooking.hostStaffId,
+            visitingTenantId: preBooking.tenantCompanyId,
+            isPreBooked: true,
+            expectedDateTime: preBooking.visitDate,
+            visitPurpose: preBooking.purpose,
+          });
+          
+          await storage.updatePreBooking(preBooking.id, {
+            isCheckedIn: true,
+            checkedInAt: new Date(),
+            visitorId: visitor.id,
+          });
+          
+          return res.json({
+            success: true,
+            type: 'pre-booking',
+            action: 'checked-in',
+            visitor,
+            deviceIp
+          });
+        }
+        return res.status(400).json({ error: "Pre-booking already checked in" });
+      }
+      
+      // Try to find visitor by QR code for checkout
+      const visitor = await storage.getVisitorByQrCode(qrCode);
+      if (visitor) {
+        if (action === 'checkout' && visitor.checkIn && !visitor.checkOut) {
+          await storage.checkOutVisitor(visitor.id);
+          return res.json({
+            success: true,
+            type: 'visitor',
+            action: 'checked-out',
+            visitor,
+            deviceIp
+          });
+        }
+        return res.status(400).json({ error: "Visitor already checked out or not checked in" });
+      }
+      
+      return res.status(404).json({ error: "QR code not recognized" });
+    } catch (error) {
+      console.error("X-Station QR scan error:", error);
+      res.status(500).json({ error: "Failed to process X-Station QR scan" });
     }
   });
 
