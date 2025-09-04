@@ -644,7 +644,7 @@ For questions about this report, please contact the administrator.
     visitor: Visitor, 
     host: Staff | null, 
     settings: CompanySettings,
-    checkoutUrl?: string
+    ePassUrl?: string
   ): Promise<boolean> {
     try {
       const companyName = settings?.companyName || 'VisiGate Pro';
@@ -656,7 +656,8 @@ For questions about this report, please contact the administrator.
         }) : 'End of day';
       
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(visitor.qrCode || visitor.id)}`;
-      const ePassUrl = checkoutUrl || `${process.env.PUBLIC_URL || 'https://visigate.pro'}/epass/${visitor.id}`;
+      const baseUrl = ePassUrl ? ePassUrl.replace(/\/epass\/.*$/, '') : (process.env.PUBLIC_URL || 'https://visigate.pro');
+      const passUrl = ePassUrl || `${baseUrl}/epass/${visitor.id}`;
       
       // Extract branding colors from settings
       const primaryColor = settings?.accentColor || '#3b82f6';
@@ -810,16 +811,56 @@ For questions about this report, please contact the administrator.
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 25px 0;">
                           <tr>
                             <td align="center">
-                              <a href="${ePassUrl}" class="mobile-button" 
+                              <a href="${passUrl}" class="mobile-button" 
                                  style="display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); text-align: center;">
                                 📱 View Digital Pass
                               </a>
                               <p style="margin: 12px 0 0 0; color: ${variableTextColor}; font-size: 13px;">
-                                Can't see the button? Open: <a href="${ePassUrl}" style="color: ${primaryColor}; word-break: break-all;">${ePassUrl}</a>
+                                Can't see the button? Open: <a href="${passUrl}" style="color: ${primaryColor}; word-break: break-all;">${passUrl}</a>
                               </p>
                             </td>
                           </tr>
                         </table>
+                        
+                        <!-- Health & Safety Rules Section -->
+                        ${settings?.hsRulesEnabled && (settings?.hsRulesContent || settings?.hsRulesUrl) && !visitor.hsRulesAccepted ? `
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td style="background: linear-gradient(to right, #fee2e220, #fecaca40); border: 2px solid #ef4444; border-radius: 10px; padding: 20px;">
+                              <h3 style="margin: 0 0 15px 0; color: #dc2626; font-size: 18px; font-weight: 700; text-align: center;">
+                                🛡️ Health & Safety Rules - Action Required
+                              </h3>
+                              <div style="background: white; border-radius: 8px; padding: 15px; margin: 0 0 15px 0;">
+                                ${settings.hsRulesContent ? `
+                                <div style="color: ${textColor}; font-size: 14px; line-height: 1.8; max-height: 300px; overflow-y: auto;">
+                                  ${settings.hsRulesContent.split('\n').map(line => `<p style="margin: 8px 0;">${line}</p>`).join('')}
+                                </div>
+                                ` : `
+                                <p style="color: ${textColor}; font-size: 14px; text-align: center; margin: 10px 0;">
+                                  Please review our complete Health & Safety Rules before entering the premises.
+                                </p>
+                                `}
+                              </div>
+                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                  <td align="center">
+                                    <a href="${baseUrl}/api/visitors/${visitor.id}/accept-hs-rules?token=${visitor.hsRulesAcceptanceToken}" 
+                                       class="mobile-button"
+                                       style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); text-align: center;">
+                                      ✅ I Accept Health & Safety Rules
+                                    </a>
+                                    ${settings.hsRulesUrl ? `
+                                    <p style="margin: 12px 0 0 0; color: ${variableTextColor}; font-size: 13px;">
+                                      <a href="${settings.hsRulesUrl}" style="color: ${primaryColor};">📄 View Full H&S Document</a>
+                                    </p>
+                                    ` : ''}
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                        ` : ''}
                         
                         <!-- Important Information -->
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
@@ -833,7 +874,7 @@ For questions about this report, please contact the administrator.
                                 <li>Keep this pass accessible on your phone</li>
                                 <li>Contact reception for assistance</li>
                                 ${settings?.geofencingEnabled ? '<li>✅ Auto check-out enabled via geofencing</li>' : ''}
-                                ${settings?.hsRulesEnabled && (settings?.hsRulesUrl || settings?.hsRulesContent) ? `<li>📋 <a href="${settings.hsRulesUrl || `${process.env.PUBLIC_URL || 'https://visigate.pro'}/hs-rules`}" style="color: #92400e; text-decoration: underline;">Review Health & Safety Rules</a></li>` : ''}
+                                ${visitor.hsRulesAccepted ? '<li>✅ Health & Safety Rules accepted</li>' : ''}
                               </ul>
                             </td>
                           </tr>
@@ -875,7 +916,7 @@ Visit Details:
 ${visitor.company ? `- Company: ${visitor.company}` : ''}
 ${host ? `- Host: ${host.firstName} ${host.lastName}` : ''}
 
-View your digital pass: ${ePassUrl}
+View your digital pass: ${passUrl}
 
 Important:
 - Please check out when leaving the building

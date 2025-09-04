@@ -118,6 +118,10 @@ export const visitors = pgTable("visitors", {
   expectedDepartureTime: timestamp("expected_departure_time"),
   reminderSent: boolean("reminder_sent").default(false).notNull(),
   hostNotificationSent: boolean("host_notification_sent").default(false).notNull(),
+  // H&S Rules acceptance tracking
+  hsRulesAccepted: boolean("hs_rules_accepted").default(false).notNull(),
+  hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
+  hsRulesAcceptanceToken: text("hs_rules_acceptance_token"), // Token for verification
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

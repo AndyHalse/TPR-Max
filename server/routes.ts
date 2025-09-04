@@ -1974,8 +1974,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
       } else {
-        // Create new visitor
-        visitor = await databaseService.createVisitor(context, visitorData);
+        // Create new visitor with H&S token
+        const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        visitor = await databaseService.createVisitor(context, {
+          ...visitorData,
+          hsRulesAcceptanceToken: hsToken
+        });
         console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
       }
       
@@ -2163,6 +2167,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending e-Pass:", error);
       res.status(500).json({ error: "Failed to send e-Pass" });
+    }
+  });
+
+  // H&S Rules acceptance endpoint (supports both GET for email links and POST for API)
+  app.get("/api/visitors/:id/accept-hs-rules", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { token } = req.query;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get visitor
+      const visitor = await databaseService.getVisitorById(context, id);
+      if (!visitor) {
+        return res.status(404).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Visitor Not Found</h1>
+              <p>The visitor record could not be found.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Verify token if provided (for email link validation)
+      if (token && visitor.hsRulesAcceptanceToken !== token) {
+        return res.status(401).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Invalid Link</h1>
+              <p>This acceptance link is invalid or has expired.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Check if already accepted
+      if (visitor.hsRulesAccepted) {
+        return res.send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #10b981;">✅ Already Accepted</h1>
+              <p>You have already accepted the Health & Safety Rules on ${visitor.hsRulesAcceptedAt ? new Date(visitor.hsRulesAcceptedAt).toLocaleString('en-GB') : 'a previous visit'}.</p>
+              <p style="margin-top: 20px;">You may close this window.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Update visitor with H&S acceptance
+      const updatedVisitor = await databaseService.updateVisitor(context, id, {
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: new Date()
+      });
+      
+      if (!updatedVisitor) {
+        return res.status(500).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Error</h1>
+              <p>Failed to record your acceptance. Please try again or contact reception.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      console.log(`✅ H&S Rules accepted by visitor: ${visitor.firstName} ${visitor.lastName}`);
+      res.send(`
+        <html>
+          <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h1 style="color: #10b981;">✅ Thank You!</h1>
+            <h2>Health & Safety Rules Accepted</h2>
+            <p>Thank you ${visitor.firstName} ${visitor.lastName} for accepting our Health & Safety Rules.</p>
+            <p>Your acceptance has been recorded at ${new Date(updatedVisitor.hsRulesAcceptedAt).toLocaleString('en-GB')}.</p>
+            <p style="margin-top: 20px;">You may now close this window and proceed with your visit.</p>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Error accepting H&S rules:", error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h1 style="color: #ef4444;">❌ System Error</h1>
+            <p>An unexpected error occurred. Please contact reception for assistance.</p>
+          </body>
+        </html>
+      `);
+    }
+  });
+  
+  // POST endpoint for API-based H&S acceptance
+  app.post("/api/visitors/:id/accept-hs-rules", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { token } = req.body;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get visitor
+      const visitor = await databaseService.getVisitorById(context, id);
+      if (!visitor) {
+        return res.status(404).json({ error: "Visitor not found" });
+      }
+      
+      // Verify token if provided (for email link validation)
+      if (token && visitor.hsRulesAcceptanceToken !== token) {
+        return res.status(401).json({ error: "Invalid acceptance token" });
+      }
+      
+      // Update visitor with H&S acceptance
+      const updatedVisitor = await databaseService.updateVisitor(context, id, {
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: new Date()
+      });
+      
+      if (!updatedVisitor) {
+        return res.status(500).json({ error: "Failed to update H&S acceptance" });
+      }
+      
+      console.log(`✅ H&S Rules accepted by visitor: ${visitor.firstName} ${visitor.lastName}`);
+      res.json({ 
+        success: true, 
+        message: "Health & Safety Rules accepted successfully",
+        acceptedAt: updatedVisitor.hsRulesAcceptedAt
+      });
+    } catch (error) {
+      console.error("Error accepting H&S rules:", error);
+      res.status(500).json({ error: "Failed to accept H&S rules" });
     }
   });
 
