@@ -579,34 +579,22 @@ For questions about this report, please contact the administrator.
     });
   }
 
-  // Helper function to fetch logo as base64
-  async fetchLogoAsBase64(logoUrl: string): Promise<string | null> {
+  // Helper function to get logo for email
+  // For now, we'll use a fallback approach since logos in cloud storage
+  // may not be accessible externally
+  async getLogoForEmail(settings: CompanySettings): Promise<string | null> {
     try {
-      if (!logoUrl) return null;
+      // If a public logo URL is provided, use it
+      if (settings?.publicLogoUrl) {
+        return settings.publicLogoUrl;
+      }
       
-      // Import necessary modules using dynamic import
-      const { ObjectStorageService } = await import('./objectStorage');
-      const objectStorageService = new ObjectStorageService();
-      
-      // Get the file from object storage
-      const objectFile = await objectStorageService.getObjectEntityFile(logoUrl);
-      
-      if (!objectFile) return null;
-      
-      // Download the file as a buffer
-      const [buffer] = await objectFile.download();
-      
-      // Convert to base64
-      const base64 = buffer.toString('base64');
-      
-      // Get content type from file metadata
-      const [metadata] = await objectFile.getMetadata();
-      const contentType = metadata.contentType || 'image/png';
-      
-      // Return as data URL
-      return `data:${contentType};base64,${base64}`;
+      // For customer isolation, each customer's logo would be stored
+      // with their customer ID and served from a public CDN
+      // For now, return null to use the fallback initial design
+      return null;
     } catch (error) {
-      console.error('Error fetching logo as base64:', error);
+      console.error('Error getting logo for email:', error);
       return null;
     }
   }
@@ -635,11 +623,8 @@ For questions about this report, please contact the administrator.
       const backgroundColor = settings?.backgroundColor || '#f8fafc';
       const textColor = settings?.foregroundColor || '#1e293b';
       const variableTextColor = settings?.variableTextColor || '#374151';
-      // Fetch logo as base64 for embedding in email
-      let logoDataUrl: string | null = null;
-      if (settings?.logoUrl) {
-        logoDataUrl = await this.fetchLogoAsBase64(settings.logoUrl);
-      }
+      // Get logo URL for email (will use fallback if not available)
+      const logoDataUrl = await this.getLogoForEmail(settings);
       
       const subject = `Your Digital Visitor Pass - ${companyName}`;
       
@@ -680,13 +665,10 @@ For questions about this report, please contact the administrator.
                     <!-- Header with Company Branding -->
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
-                        ${logoDataUrl ? `
-                        <img src="${logoDataUrl}" alt="${companyName} Logo" style="max-height: 80px; max-width: 280px; margin: 0 auto 15px; display: block; background: white; padding: 10px; border-radius: 8px;">
-                        ` : `
-                        <div style="width: 60px; height: 60px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; text-align: center; line-height: 60px; font-size: 28px; font-weight: bold; color: ${primaryColor};">
-                          ${companyName.charAt(0).toUpperCase()}
+                        <!-- Company Logo or Initial -->
+                        <div style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; text-align: center; line-height: 80px; font-size: 36px; font-weight: bold; color: ${primaryColor}; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                          ${companyName.substring(0, 2).toUpperCase()}
                         </div>
-                        `}
                         <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                           Digital Visitor Pass
                         </h1>
