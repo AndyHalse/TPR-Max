@@ -1979,34 +1979,113 @@ export default function Settings() {
                   </div>
                   <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg">
                     <div className="max-w-md mx-auto">
-                      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
+                      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                        {/* Header with Company Branding */}
+                        <div 
+                          className="p-5 text-white text-center relative overflow-hidden"
+                          style={{
+                            background: `linear-gradient(135deg, ${currentSettings?.accentColor || '#3b82f6'} 0%, ${currentSettings?.accentColor || '#3b82f6'}ee 100%)`
+                          }}
+                        >
+                          {currentSettings?.logoUrl && (
+                            <img 
+                              src={`/objects${currentSettings.logoUrl}`}
+                              alt="Company Logo" 
+                              className="h-10 mx-auto mb-2 filter brightness-0 invert"
+                              onError={(e) => e.currentTarget.style.display = 'none'}
+                            />
+                          )}
                           <h4 className="text-lg font-bold">Digital Visitor Pass</h4>
-                          <p className="text-sm opacity-90">VisiGate Pro</p>
+                          {!currentSettings?.logoUrl && (
+                            <p className="text-sm opacity-95 mt-1">{currentSettings?.companyName || "VisiGate Pro"}</p>
+                          )}
                         </div>
-                        <div className="p-6 space-y-4">
-                          <div className="flex justify-center">
-                            <QrCode size={120} className="text-slate-700" />
+                        
+                        {/* Pass Content */}
+                        <div className="p-6 space-y-5" style={{ backgroundColor: currentSettings?.backgroundColor || '#ffffff' }}>
+                          {/* QR Code */}
+                          <div className="bg-gradient-to-b from-white to-gray-50 dark:from-slate-700 dark:to-slate-800 p-5 rounded-xl border-2 border-gray-100 dark:border-slate-600 text-center">
+                            <div className="inline-block p-3 bg-white dark:bg-slate-900 rounded-lg shadow-lg">
+                              <QrCode size={100} style={{ color: currentSettings?.foregroundColor || '#1e293b' }} />
+                            </div>
+                            <p className="font-bold text-base mt-3" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>
+                              PASS ID: VIS-2025-001
+                            </p>
+                            <p className="text-xs opacity-75 mt-1" style={{ color: currentSettings?.variableTextColor || '#374151' }}>
+                              Show this at exit scanners
+                            </p>
                           </div>
-                          <div className="text-center space-y-2">
-                            <p className="font-semibold text-lg">John Doe</p>
-                            <p className="text-sm text-slate-600">Acme Corp</p>
-                            <p className="text-xs text-slate-500">Valid: Today 10:00 AM - 5:00 PM</p>
-                            <p className="text-xs text-slate-500">Host: Jane Smith</p>
+                          
+                          {/* Visitor Details */}
+                          <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600 p-4">
+                            <h5 className="font-semibold text-sm mb-3 pb-2 border-b flex items-center gap-2" 
+                                style={{ 
+                                  color: currentSettings?.foregroundColor || '#1e293b',
+                                  borderColor: `${currentSettings?.accentColor || '#3b82f6'}30`
+                                }}>
+                              📋 Visit Details
+                            </h5>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span style={{ color: currentSettings?.variableTextColor || '#374151' }}>Visitor:</span>
+                                <span className="font-semibold" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>John Doe</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span style={{ color: currentSettings?.variableTextColor || '#374151' }}>Company:</span>
+                                <span className="font-semibold" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>Acme Corp</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span style={{ color: currentSettings?.variableTextColor || '#374151' }}>Host:</span>
+                                <span className="font-semibold" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>Jane Smith</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span style={{ color: currentSettings?.variableTextColor || '#374151' }}>Check-in:</span>
+                                <span className="font-semibold" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>10:00 AM</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span style={{ color: currentSettings?.variableTextColor || '#374151' }}>Valid Until:</span>
+                                <span className="font-semibold" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>5:00 PM</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex justify-center gap-4 pt-4">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                              Check Out
+                          
+                          {/* Action Buttons */}
+                          <div className="flex gap-3">
+                            <Button className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg">
+                              📱 View Digital Pass
                             </Button>
-                            <Button size="sm" variant="outline">
-                              Extend Visit
-                            </Button>
                           </div>
+                          
+                          {/* Important Notes */}
+                          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg p-3 border-l-4 border-amber-500">
+                            <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1">⚠️ Important Reminders</p>
+                            <ul className="text-xs text-amber-800 dark:text-amber-300 space-y-0.5 ml-4 list-disc">
+                              <li>Check out when leaving</li>
+                              <li>Keep pass on your phone</li>
+                              {currentSettings?.geofencingEnabled && <li>✅ Auto check-out enabled</li>}
+                            </ul>
+                          </div>
+                        </div>
+                        
+                        {/* Footer */}
+                        <div className="px-5 py-3 text-center border-t" style={{ backgroundColor: currentSettings?.backgroundColor || '#f9fafb' }}>
+                          <p className="text-xs opacity-60" style={{ color: currentSettings?.variableTextColor || '#374151' }}>
+                            {currentSettings?.companyName || "Your Company"} • {currentSettings?.address || "Your Address"}
+                          </p>
+                          <p className="text-xs opacity-40 mt-1">Powered by VisiGate Pro</p>
                         </div>
                       </div>
-                      <p className="text-xs text-center text-slate-500 mt-4">
-                        This e-Pass will be sent via {currentSettings?.ePassDeliveryMethod === "both" ? "email and SMS" : currentSettings?.ePassDeliveryMethod}
-                      </p>
+                      
+                      <div className="mt-4 text-center">
+                        <Badge variant="secondary" className="text-xs">
+                          Delivery Method: {currentSettings?.ePassDeliveryMethod === "both" ? "Email & SMS" : 
+                                          currentSettings?.ePassDeliveryMethod === "email" ? "Email Only" : 
+                                          currentSettings?.ePassDeliveryMethod === "sms" ? "SMS Only" : "Visitor Choice"}
+                        </Badge>
+                        <p className="text-xs text-slate-500 mt-2">
+                          This preview shows how the e-Pass will appear on mobile devices
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </GlassCard>

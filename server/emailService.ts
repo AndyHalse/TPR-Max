@@ -582,6 +582,13 @@ For questions about this report, please contact the administrator.
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(visitor.qrCode || visitor.id)}`;
       const ePassUrl = checkoutUrl || `${process.env.PUBLIC_URL || 'https://visigate.pro'}/epass/${visitor.id}`;
       
+      // Extract branding colors from settings
+      const primaryColor = settings?.accentColor || '#3b82f6';
+      const backgroundColor = settings?.backgroundColor || '#f8fafc';
+      const textColor = settings?.foregroundColor || '#1e293b';
+      const variableTextColor = settings?.variableTextColor || '#374151';
+      const logoUrl = settings?.logoUrl ? `${process.env.PUBLIC_URL || 'https://visigate.pro'}/objects${settings.logoUrl}` : null;
+      
       const subject = `Your Digital Visitor Pass - ${companyName}`;
       
       const html = `
@@ -589,112 +596,178 @@ For questions about this report, please contact the administrator.
         <html>
           <head>
             <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Digital Visitor Pass</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>Digital Visitor Pass - ${companyName}</title>
+            <!--[if mso]>
+            <noscript>
+              <xml>
+                <o:OfficeDocumentSettings>
+                  <o:PixelsPerInch>96</o:PixelsPerInch>
+                </o:OfficeDocumentSettings>
+              </xml>
+            </noscript>
+            <![endif]-->
+            <style>
+              @media only screen and (max-width: 600px) {
+                .mobile-padding { padding: 15px !important; }
+                .mobile-text-center { text-align: center !important; }
+                .mobile-full-width { width: 100% !important; }
+                .mobile-button { width: 100% !important; display: block !important; padding: 16px !important; }
+                h1 { font-size: 22px !important; }
+                h2 { font-size: 18px !important; }
+                .qr-container { padding: 20px !important; }
+                .qr-code { width: 150px !important; height: 150px !important; }
+              }
+            </style>
           </head>
-          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f3f4f6;">
-            <div style="max-width: 600px; margin: 0 auto; background: white;">
-              <!-- Header -->
-              <div style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); padding: 30px; text-align: center;">
-                <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 600;">
-                  Digital Visitor Pass
-                </h1>
-                <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">
-                  ${companyName}
-                </p>
-              </div>
-              
-              <!-- Welcome Section -->
-              <div style="padding: 30px;">
-                <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 24px;">
-                  Welcome, ${visitor.name}!
-                </h2>
-                <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 16px; line-height: 1.5;">
-                  Your digital pass has been created for your visit today.
-                  ${host ? `Your host ${host.firstName} ${host.lastName} has been notified of your arrival.` : ''}
-                </p>
-                
-                <!-- QR Code Section -->
-                <div style="background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
-                  <img src="${qrCodeUrl}" alt="Visitor QR Code" style="width: 200px; height: 200px; margin: 0 auto 20px;">
-                  <p style="margin: 0 0 5px 0; color: #1f2937; font-weight: 600; font-size: 18px;">
-                    Pass ID: ${visitor.qrCode || visitor.id.slice(0,8).toUpperCase()}
-                  </p>
-                  <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                    Show this QR code at exit scanners to check out
-                  </p>
-                </div>
-                
-                <!-- Visit Details -->
-                <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
-                  <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 18px; font-weight: 600;">
-                    Visit Details
-                  </h3>
-                  <table style="width: 100%; border-collapse: collapse;">
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: ${backgroundColor}; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td align="center" style="padding: 0;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; border-collapse: collapse; background: white; margin: 0 auto;">
+                    <!-- Header with Company Branding -->
                     <tr>
-                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Visitor:</td>
-                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${visitor.name}</td>
-                    </tr>
-                    ${visitor.company ? `
-                    <tr>
-                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Company:</td>
-                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${visitor.company}</td>
-                    </tr>
-                    ` : ''}
-                    ${host ? `
-                    <tr>
-                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Host:</td>
-                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${host.firstName} ${host.lastName}</td>
-                    </tr>
-                    ` : ''}
-                    <tr>
-                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Check-in Time:</td>
-                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">
-                        ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}
+                      <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
+                        ${logoUrl ? `
+                        <img src="${logoUrl}" alt="${companyName} Logo" style="max-height: 50px; max-width: 200px; margin: 0 auto 15px; display: block;">
+                        ` : ''}
+                        <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                          Digital Visitor Pass
+                        </h1>
+                        ${!logoUrl ? `
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.95); font-size: 15px; font-weight: 500;">
+                          ${companyName}
+                        </p>
+                        ` : ''}
                       </td>
                     </tr>
+                    
+                    <!-- Main Content -->
                     <tr>
-                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Valid Until:</td>
-                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${validUntil}</td>
+                      <td class="mobile-padding" style="padding: 25px;">
+                        <!-- Welcome Message -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td>
+                              <h2 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 22px; font-weight: 600;">
+                                Welcome, ${visitor.name}!
+                              </h2>
+                              <p style="margin: 0 0 20px 0; color: ${variableTextColor}; font-size: 15px; line-height: 1.5;">
+                                Your digital pass has been created for your visit${visitor.company ? ` to ${companyName}` : ''}.
+                                ${host ? `Your host <strong>${host.firstName} ${host.lastName}</strong> has been notified.` : ''}
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- QR Code Section -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td class="qr-container" style="background: linear-gradient(to bottom, #ffffff, #fafafa); border: 2px solid ${primaryColor}20; border-radius: 12px; padding: 25px; text-align: center;">
+                              <img src="${qrCodeUrl}" alt="Visitor QR Code" class="qr-code" style="width: 180px; height: 180px; margin: 0 auto 15px; display: block; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px;">
+                              <p style="margin: 0 0 5px 0; color: ${textColor}; font-weight: 700; font-size: 17px;">
+                                Pass ID: ${visitor.qrCode || visitor.id.slice(0,8).toUpperCase()}
+                              </p>
+                              <p style="margin: 0; color: ${variableTextColor}; font-size: 13px;">
+                                Show this QR code at exit scanners
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Visit Details Card -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                              <h3 style="margin: 0 0 12px 0; color: ${textColor}; font-size: 17px; font-weight: 600; border-bottom: 2px solid ${primaryColor}20; padding-bottom: 8px;">
+                                📋 Visit Details
+                              </h3>
+                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px; width: 40%;">Visitor:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${visitor.name}</td>
+                                </tr>
+                                ${visitor.company ? `
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Company:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${visitor.company}</td>
+                                </tr>
+                                ` : ''}
+                                ${host ? `
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Host:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${host.firstName} ${host.lastName}</td>
+                                </tr>
+                                ` : ''}
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Check-in:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">
+                                    ${new Date(visitor.checkedInAt).toLocaleString('en-GB', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      day: 'numeric',
+                                      month: 'short'
+                                    })}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Valid Until:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${validUntil}</td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Action Buttons -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 25px 0;">
+                          <tr>
+                            <td align="center">
+                              <a href="${ePassUrl}" class="mobile-button" 
+                                 style="display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); text-align: center;">
+                                📱 View Digital Pass
+                              </a>
+                              <p style="margin: 12px 0 0 0; color: ${variableTextColor}; font-size: 13px;">
+                                Can't see the button? Open: <a href="${ePassUrl}" style="color: ${primaryColor}; word-break: break-all;">${ePassUrl}</a>
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Important Information -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td style="background: linear-gradient(to right, #fef3c720, #fef3c740); border-left: 4px solid #f59e0b; border-radius: 6px; padding: 14px;">
+                              <h4 style="margin: 0 0 8px 0; color: #92400e; font-size: 14px; font-weight: 600;">
+                                ⚠️ Important Reminders
+                              </h4>
+                              <ul style="margin: 0; padding: 0 0 0 18px; color: #92400e; font-size: 13px; line-height: 1.7;">
+                                <li>Check out when leaving the building</li>
+                                <li>Keep this pass accessible on your phone</li>
+                                <li>Contact reception for assistance</li>
+                                ${settings?.geofencingEnabled ? '<li>✅ Auto check-out enabled via geofencing</li>' : ''}
+                              </ul>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background: ${backgroundColor}; padding: 18px; text-align: center; border-top: 1px solid #e5e7eb;">
+                        <p style="margin: 0 0 4px 0; color: ${variableTextColor}; font-size: 11px;">
+                          ${companyName} • ${settings?.address || ''} ${settings?.phone ? `• ${settings.phone}` : ''}
+                        </p>
+                        <p style="margin: 0; color: #9ca3af; font-size: 10px;">
+                          Powered by VisiGate Pro Visitor Management System
+                        </p>
+                      </td>
                     </tr>
                   </table>
-                </div>
-                
-                <!-- Actions -->
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${ePassUrl}" 
-                     style="display: inline-block; padding: 14px 32px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                    View Digital Pass
-                  </a>
-                  <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 14px;">
-                    Or open in browser: <a href="${ePassUrl}" style="color: #3b82f6;">${ePassUrl}</a>
-                  </p>
-                </div>
-                
-                <!-- Important Notes -->
-                <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                  <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px; font-weight: 600;">
-                    Important Information
-                  </h4>
-                  <ul style="margin: 0; padding: 0 0 0 20px; color: #92400e; font-size: 13px; line-height: 1.6;">
-                    <li>Please check out when leaving the building</li>
-                    <li>Keep this pass accessible on your phone</li>
-                    <li>For assistance, contact reception</li>
-                    ${settings?.geofencingEnabled ? '<li>Auto check-out enabled when you leave the premises</li>' : ''}
-                  </ul>
-                </div>
-              </div>
-              
-              <!-- Footer -->
-              <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 5px 0; color: #6b7280; font-size: 12px;">
-                  Powered by VisiGate Pro - Modern Visitor Management
-                </p>
-                <p style="margin: 0; color: #9ca3af; font-size: 11px;">
-                  This is an automated message. Please do not reply to this email.
-                </p>
-              </div>
-            </div>
+                </td>
+              </tr>
+            </table>
           </body>
         </html>
       `;
