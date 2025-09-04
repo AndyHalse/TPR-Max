@@ -14,6 +14,12 @@ import { useToast } from "@/hooks/use-toast";
 import { generateQRCode } from "@/lib/qr-generator";
 import type { Staff, InsertVisitor, Visitor, TenantCompany } from "@shared/schema";
 
+// Extend Visitor type to include e-Pass properties from backend
+interface VisitorWithEPass extends Visitor {
+  ePassSent?: boolean;
+  ePassUrl?: string;
+}
+
 export default function VisitorCheckIn() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -25,7 +31,7 @@ export default function VisitorCheckIn() {
     purpose: "",
     carRegistration: "",
   });
-  const [createdVisitor, setCreatedVisitor] = useState<Visitor | null>(null);
+  const [createdVisitor, setCreatedVisitor] = useState<VisitorWithEPass | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
 
   const { data: staff } = useQuery<Staff[]>({
@@ -265,7 +271,7 @@ export default function VisitorCheckIn() {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
       return response.json();
     },
-    onSuccess: (visitor: Visitor) => {
+    onSuccess: (visitor: VisitorWithEPass) => {
       setCreatedVisitor(visitor);
       
       // Check if e-Pass was sent (visitor has ePassSent property set by backend)
@@ -491,7 +497,7 @@ export default function VisitorCheckIn() {
         </form>
       </GlassCard>
 
-      {createdVisitor && (
+      {createdVisitor && !createdVisitor.ePassSent && (
         <PassPreviewModal
           isOpen={showPassPreview}
           onClose={() => {
