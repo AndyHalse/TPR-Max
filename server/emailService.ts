@@ -12,6 +12,22 @@ interface EmailOptions {
 class EmailService {
   private transporter;
 
+  // Helper function to convert HTML to plain text
+  private generatePlainTextFromHtml(html: string): string {
+    // Basic HTML to plain text conversion
+    return html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style tags
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script tags
+      .replace(/<[^>]+>/g, ' ') // Remove HTML tags
+      .replace(/\s+/g, ' ') // Multiple spaces to single
+      .replace(/&nbsp;/g, ' ') // Non-breaking spaces
+      .replace(/&amp;/g, '&') // Ampersands
+      .replace(/&lt;/g, '<') // Less than
+      .replace(/&gt;/g, '>') // Greater than
+      .replace(/&quot;/g, '"') // Quotes
+      .trim();
+  }
+
   constructor() {
     // Use SMTP configuration from environment variables
     this.transporter = nodemailer.createTransport({
@@ -34,19 +50,19 @@ class EmailService {
       const fromAddress = process.env.SMTP_USER || 'noreply@visigate.pro';
       
       const mailOptions = {
-        from: fromAddress, // Simpler format to avoid spam filters
+        from: `${companyName} <${fromAddress}>`, // Include company name
         to: options.to,
         subject: options.subject,
         html: options.html,
-        text: options.text,
+        text: options.text || this.generatePlainTextFromHtml(options.html), // Always provide text version
         attachments: options.attachments || [],
         headers: {
-          // Essential headers only to avoid spam filters
+          // Essential headers for proper HTML display
           'X-Mailer': 'VisiGate Pro',
-          'MIME-Version': '1.0',
-          'Content-Type': 'text/html; charset=UTF-8',
-          'Message-ID': `<${Date.now()}@visigate.pro>`,
-          'Date': new Date().toUTCString()
+          'Message-ID': `<${Date.now()}.${Math.random().toString(36).substring(2)}@visigate.pro>`,
+          'Date': new Date().toUTCString(),
+          'X-Priority': '3',
+          'Importance': 'normal'
         },
         replyTo: process.env.SMTP_REPLY_TO || process.env.SMTP_USER
       };
@@ -669,11 +685,13 @@ For questions about this report, please contact the administrator.
                         ${settings?.logoUrl ? `
                         <!-- Using fallback for now as logo needs public URL -->
                         ` : ''}
-                        <div style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                          <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; color: ${primaryColor}; letter-spacing: 1px;">
-                            ${companyName === 'Andy Test Company' ? 'ACS' : companyName.substring(0, 3).toUpperCase()}
-                          </div>
-                        </div>
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                          <tr>
+                            <td align="center" valign="middle" style="width: 80px; height: 80px; font-size: 28px; font-weight: bold; color: ${primaryColor}; letter-spacing: 1px; font-family: Arial, sans-serif;">
+                              ${companyName.includes('ACS') || companyName === 'Andy Test Company' ? 'ACS' : companyName.substring(0, 3).toUpperCase()}
+                            </td>
+                          </tr>
+                        </table>
                         <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                           Digital Visitor Pass
                         </h1>
