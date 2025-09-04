@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 
 export default function Settings() {
@@ -1644,7 +1644,373 @@ export default function Settings() {
             </TabsContent>
 
             <TabsContent value="thermal-passes" className="space-y-6">
-              <ProfessionalThermalDesigner />
+              {/* E-Pass Configuration Section */}
+              <GlassCard>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <Mail className="mr-3 text-green-600" size={24} />
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">Digital E-Pass Configuration</h3>
+                      <p className="text-sm text-slate-600">Send digital passes via email or SMS instead of printing</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant="outline" 
+                      className={currentSettings?.ePassEnabled ? "bg-green-100 text-green-800 border-green-300" : "bg-gray-100 text-gray-600"}
+                    >
+                      {currentSettings?.ePassEnabled ? "E-Pass Active" : "Physical Pass Active"}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  {/* Main E-Pass Toggle */}
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                          Enable Digital E-Pass System
+                        </Label>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Switch from physical pass printing to digital delivery via email/SMS
+                        </p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.ePassEnabled || false}
+                        onCheckedChange={(checked) => handleInputChange("ePassEnabled", checked)}
+                        className="data-[state=checked]:bg-green-600"
+                        data-testid="switch-e-pass-enabled"
+                      />
+                    </div>
+                  </div>
+
+                  {currentSettings?.ePassEnabled && (
+                    <>
+                      {/* Delivery Method */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            E-Pass Delivery Method
+                          </Label>
+                          <Select
+                            value={currentSettings?.ePassDeliveryMethod || "both"}
+                            onValueChange={(value) => handleInputChange("ePassDeliveryMethod", value)}
+                          >
+                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-epass-delivery">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="email">Email Only</SelectItem>
+                              <SelectItem value="sms">SMS Only</SelectItem>
+                              <SelectItem value="both">Email & SMS</SelectItem>
+                              <SelectItem value="choice">Let Visitor Choose</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-slate-500">How e-Passes are delivered to visitors</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Check-out Reminder (minutes)
+                          </Label>
+                          <Input
+                            type="number"
+                            min="5"
+                            max="120"
+                            value={currentSettings?.ePassCheckoutReminderMinutes || "30"}
+                            onChange={(e) => handleInputChange("ePassCheckoutReminderMinutes", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            data-testid="input-checkout-reminder"
+                          />
+                          <p className="text-xs text-slate-500">Minutes before expected departure to send reminder</p>
+                        </div>
+                      </div>
+
+                      {/* Auto Check-out & Host Notifications */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-4 bg-white/50 rounded-lg border border-white/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <Label className="text-sm font-medium text-slate-700">
+                                Auto Check-out
+                              </Label>
+                              <p className="text-xs text-slate-500 mt-1">
+                                Automatically check out visitors after expected time
+                              </p>
+                            </div>
+                            <Switch
+                              checked={currentSettings?.ePassAutoCheckout !== false}
+                              onCheckedChange={(checked) => handleInputChange("ePassAutoCheckout", checked)}
+                              data-testid="switch-auto-checkout"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-white/50 rounded-lg border border-white/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <Label className="text-sm font-medium text-slate-700">
+                                Host Notifications
+                              </Label>
+                              <p className="text-xs text-slate-500 mt-1">
+                                Notify host if visitor hasn't checked out
+                              </p>
+                            </div>
+                            <Switch
+                              checked={currentSettings?.ePassHostNotificationEnabled !== false}
+                              onCheckedChange={(checked) => handleInputChange("ePassHostNotificationEnabled", checked)}
+                              data-testid="switch-host-notification"
+                            />
+                          </div>
+                          {currentSettings?.ePassHostNotificationEnabled && (
+                            <div className="mt-3">
+                              <Label className="text-xs text-slate-600">Notification Delay (min)</Label>
+                              <Input
+                                type="number"
+                                min="15"
+                                max="180"
+                                value={currentSettings?.ePassHostNotificationDelay || "60"}
+                                onChange={(e) => handleInputChange("ePassHostNotificationDelay", e.target.value)}
+                                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-white/30 bg-white/50"
+                                data-testid="input-host-delay"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* SMS Configuration with Twilio */}
+                      {(currentSettings?.ePassDeliveryMethod === "sms" || currentSettings?.ePassDeliveryMethod === "both" || currentSettings?.ePassDeliveryMethod === "choice") && (
+                        <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-purple-800 dark:text-purple-200 flex items-center gap-2">
+                              <Phone size={18} />
+                              Twilio SMS Configuration
+                            </h4>
+                            <Switch
+                              checked={currentSettings?.twilioEnabled || false}
+                              onCheckedChange={(checked) => handleInputChange("twilioEnabled", checked)}
+                              data-testid="switch-twilio-enabled"
+                            />
+                          </div>
+                          
+                          {currentSettings?.twilioEnabled && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                              <div className="space-y-2">
+                                <Label className="text-xs font-medium text-purple-700">Account SID</Label>
+                                <Input
+                                  type="text"
+                                  value={currentSettings?.twilioAccountSid || ""}
+                                  onChange={(e) => handleInputChange("twilioAccountSid", e.target.value)}
+                                  className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
+                                  placeholder="ACxxxxxxxxxxxxxxxxxx"
+                                  data-testid="input-twilio-sid"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs font-medium text-purple-700">Auth Token</Label>
+                                <Input
+                                  type="password"
+                                  value={currentSettings?.twilioAuthToken || ""}
+                                  onChange={(e) => handleInputChange("twilioAuthToken", e.target.value)}
+                                  className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
+                                  placeholder="Your Twilio Auth Token"
+                                  data-testid="input-twilio-token"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs font-medium text-purple-700">Phone Number</Label>
+                                <Input
+                                  type="tel"
+                                  value={currentSettings?.twilioPhoneNumber || ""}
+                                  onChange={(e) => handleInputChange("twilioPhoneNumber", e.target.value)}
+                                  className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
+                                  placeholder="+1234567890"
+                                  data-testid="input-twilio-phone"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs font-medium text-purple-700">Messaging Service SID (Optional)</Label>
+                                <Input
+                                  type="text"
+                                  value={currentSettings?.twilioMessagingServiceSid || ""}
+                                  onChange={(e) => handleInputChange("twilioMessagingServiceSid", e.target.value)}
+                                  className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
+                                  placeholder="MGxxxxxxxxxxxxxxxxxx"
+                                  data-testid="input-twilio-messaging-sid"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Geofencing Configuration */}
+                      <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-orange-800 dark:text-orange-200 flex items-center gap-2">
+                            <Globe size={18} />
+                            Geofencing Auto Check-out
+                          </h4>
+                          <Switch
+                            checked={currentSettings?.geofencingEnabled || false}
+                            onCheckedChange={(checked) => handleInputChange("geofencingEnabled", checked)}
+                            data-testid="switch-geofencing"
+                          />
+                        </div>
+                        
+                        {currentSettings?.geofencingEnabled && (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-orange-700">Radius (meters)</Label>
+                              <Input
+                                type="number"
+                                min="50"
+                                max="500"
+                                value={currentSettings?.geofenceRadius || "100"}
+                                onChange={(e) => handleInputChange("geofenceRadius", e.target.value)}
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-orange-200 bg-white"
+                                data-testid="input-geofence-radius"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-orange-700">Latitude</Label>
+                              <Input
+                                type="text"
+                                value={currentSettings?.geofenceLat || ""}
+                                onChange={(e) => handleInputChange("geofenceLat", e.target.value)}
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-orange-200 bg-white"
+                                placeholder="51.5074"
+                                data-testid="input-geofence-lat"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-orange-700">Longitude</Label>
+                              <Input
+                                type="text"
+                                value={currentSettings?.geofenceLng || ""}
+                                onChange={(e) => handleInputChange("geofenceLng", e.target.value)}
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-orange-200 bg-white"
+                                placeholder="-0.1278"
+                                data-testid="input-geofence-lng"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* X-Station 2 Integration */}
+                      <div className="space-y-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-indigo-800 dark:text-indigo-200 flex items-center gap-2">
+                            <Scan size={18} />
+                            BioStar X-Station 2 QR Check-out
+                          </h4>
+                          <Switch
+                            checked={currentSettings?.xStationEnabled || false}
+                            onCheckedChange={(checked) => handleInputChange("xStationEnabled", checked)}
+                            data-testid="switch-xstation"
+                          />
+                        </div>
+                        
+                        {currentSettings?.xStationEnabled && (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                              <div className="space-y-2">
+                                <Label className="text-xs font-medium text-indigo-700">X-Station API Endpoint</Label>
+                                <Input
+                                  type="url"
+                                  value={currentSettings?.xStationApiEndpoint || ""}
+                                  onChange={(e) => handleInputChange("xStationApiEndpoint", e.target.value)}
+                                  className="w-full px-3 py-2 text-sm rounded-lg border border-indigo-200 bg-white"
+                                  placeholder="https://biostar.local:8443/api"
+                                  data-testid="input-xstation-api"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs font-medium text-indigo-700">Check-out Mode</Label>
+                                <Select
+                                  value={currentSettings?.xStationCheckoutMode || "qr"}
+                                  onValueChange={(value) => handleInputChange("xStationCheckoutMode", value)}
+                                >
+                                  <SelectTrigger className="w-full px-3 py-2 text-sm rounded-lg border border-indigo-200 bg-white" data-testid="select-xstation-mode">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="qr">QR Code Only</SelectItem>
+                                    <SelectItem value="face">Face Recognition Only</SelectItem>
+                                    <SelectItem value="both">QR + Face Recognition</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-indigo-700">X-Station Device IPs/IDs</Label>
+                              <p className="text-xs text-indigo-600 mb-2">Add IP addresses or device IDs, one per line</p>
+                              <textarea
+                                value={(currentSettings?.xStationDevices || []).join('\n')}
+                                onChange={(e) => handleInputChange("xStationDevices", e.target.value.split('\n').filter(d => d.trim()))}
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-indigo-200 bg-white h-20 font-mono"
+                                placeholder="192.168.1.100&#10;192.168.1.101&#10;DEVICE-001"
+                                data-testid="textarea-xstation-devices"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </GlassCard>
+
+              {/* Show Physical Pass Designer only when e-Pass is disabled */}
+              {!currentSettings?.ePassEnabled && (
+                <ProfessionalThermalDesigner />
+              )}
+              
+              {/* Show e-Pass preview when enabled */}
+              {currentSettings?.ePassEnabled && (
+                <GlassCard>
+                  <div className="flex items-center mb-6">
+                    <Eye className="mr-3 text-blue-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">E-Pass Preview</h3>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg">
+                    <div className="max-w-md mx-auto">
+                      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg overflow-hidden">
+                        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
+                          <h4 className="text-lg font-bold">Digital Visitor Pass</h4>
+                          <p className="text-sm opacity-90">VisiGate Pro</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                          <div className="flex justify-center">
+                            <QrCode size={120} className="text-slate-700" />
+                          </div>
+                          <div className="text-center space-y-2">
+                            <p className="font-semibold text-lg">John Doe</p>
+                            <p className="text-sm text-slate-600">Acme Corp</p>
+                            <p className="text-xs text-slate-500">Valid: Today 10:00 AM - 5:00 PM</p>
+                            <p className="text-xs text-slate-500">Host: Jane Smith</p>
+                          </div>
+                          <div className="flex justify-center gap-4 pt-4">
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                              Check Out
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              Extend Visit
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-center text-slate-500 mt-4">
+                        This e-Pass will be sent via {currentSettings?.ePassDeliveryMethod === "both" ? "email and SMS" : currentSettings?.ePassDeliveryMethod}
+                      </p>
+                    </div>
+                  </div>
+                </GlassCard>
+              )}
             </TabsContent>
 
             <TabsContent value="qr-readers" className="space-y-6">

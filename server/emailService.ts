@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import type { RoomBooking, MeetingRoom, Staff } from '@shared/schema';
+import type { RoomBooking, MeetingRoom, Staff, Visitor, CompanySettings } from '@shared/schema';
 
 interface EmailOptions {
   to: string;
@@ -557,6 +557,268 @@ For questions about this report, please contact the administrator.
 
     return await this.sendEmail({
       to: preBooking.visitorEmail,
+      subject,
+      html,
+      text
+    });
+  }
+
+  // Send Digital E-Pass to visitor
+  async sendDigitalEPass(
+    visitor: Visitor, 
+    host: Staff | null, 
+    settings: CompanySettings,
+    checkoutUrl?: string
+  ): Promise<boolean> {
+    try {
+      const companyName = settings?.companyName || 'VisiGate Pro';
+      const validUntil = visitor.expectedDepartureTime ? 
+        new Date(visitor.expectedDepartureTime).toLocaleString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Europe/London'
+        }) : 'End of day';
+      
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(visitor.qrCode || visitor.id)}`;
+      const ePassUrl = checkoutUrl || `${process.env.PUBLIC_URL || 'https://visigate.pro'}/epass/${visitor.id}`;
+      
+      const subject = `Your Digital Visitor Pass - ${companyName}`;
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Digital Visitor Pass</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f3f4f6;">
+            <div style="max-width: 600px; margin: 0 auto; background: white;">
+              <!-- Header -->
+              <div style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); padding: 30px; text-align: center;">
+                <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 600;">
+                  Digital Visitor Pass
+                </h1>
+                <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">
+                  ${companyName}
+                </p>
+              </div>
+              
+              <!-- Welcome Section -->
+              <div style="padding: 30px;">
+                <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 24px;">
+                  Welcome, ${visitor.name}!
+                </h2>
+                <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 16px; line-height: 1.5;">
+                  Your digital pass has been created for your visit today.
+                  ${host ? `Your host ${host.firstName} ${host.lastName} has been notified of your arrival.` : ''}
+                </p>
+                
+                <!-- QR Code Section -->
+                <div style="background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
+                  <img src="${qrCodeUrl}" alt="Visitor QR Code" style="width: 200px; height: 200px; margin: 0 auto 20px;">
+                  <p style="margin: 0 0 5px 0; color: #1f2937; font-weight: 600; font-size: 18px;">
+                    Pass ID: ${visitor.qrCode || visitor.id.slice(0,8).toUpperCase()}
+                  </p>
+                  <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                    Show this QR code at exit scanners to check out
+                  </p>
+                </div>
+                
+                <!-- Visit Details -->
+                <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                  <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 18px; font-weight: 600;">
+                    Visit Details
+                  </h3>
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Visitor:</td>
+                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${visitor.name}</td>
+                    </tr>
+                    ${visitor.company ? `
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Company:</td>
+                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${visitor.company}</td>
+                    </tr>
+                    ` : ''}
+                    ${host ? `
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Host:</td>
+                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${host.firstName} ${host.lastName}</td>
+                    </tr>
+                    ` : ''}
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Check-in Time:</td>
+                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">
+                        ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Valid Until:</td>
+                      <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 500;">${validUntil}</td>
+                    </tr>
+                  </table>
+                </div>
+                
+                <!-- Actions -->
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${ePassUrl}" 
+                     style="display: inline-block; padding: 14px 32px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                    View Digital Pass
+                  </a>
+                  <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 14px;">
+                    Or open in browser: <a href="${ePassUrl}" style="color: #3b82f6;">${ePassUrl}</a>
+                  </p>
+                </div>
+                
+                <!-- Important Notes -->
+                <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                  <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px; font-weight: 600;">
+                    Important Information
+                  </h4>
+                  <ul style="margin: 0; padding: 0 0 0 20px; color: #92400e; font-size: 13px; line-height: 1.6;">
+                    <li>Please check out when leaving the building</li>
+                    <li>Keep this pass accessible on your phone</li>
+                    <li>For assistance, contact reception</li>
+                    ${settings?.geofencingEnabled ? '<li>Auto check-out enabled when you leave the premises</li>' : ''}
+                  </ul>
+                </div>
+              </div>
+              
+              <!-- Footer -->
+              <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 5px 0; color: #6b7280; font-size: 12px;">
+                  Powered by VisiGate Pro - Modern Visitor Management
+                </p>
+                <p style="margin: 0; color: #9ca3af; font-size: 11px;">
+                  This is an automated message. Please do not reply to this email.
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+      
+      const text = `Digital Visitor Pass - ${companyName}
+
+Welcome ${visitor.name}!
+
+Your digital pass has been created for your visit.
+${host ? `Your host ${host.firstName} ${host.lastName} has been notified.` : ''}
+
+PASS ID: ${visitor.qrCode || visitor.id.slice(0,8).toUpperCase()}
+
+Visit Details:
+- Check-in: ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}
+- Valid Until: ${validUntil}
+${visitor.company ? `- Company: ${visitor.company}` : ''}
+${host ? `- Host: ${host.firstName} ${host.lastName}` : ''}
+
+View your digital pass: ${ePassUrl}
+
+Important:
+- Please check out when leaving the building
+- Keep this pass accessible on your phone
+${settings?.geofencingEnabled ? '- Auto check-out enabled when you leave the premises' : ''}
+
+Powered by VisiGate Pro`;
+
+      return await this.sendEmail({
+        to: visitor.email || '',
+        subject,
+        html,
+        text
+      });
+    } catch (error) {
+      console.error('Failed to send e-Pass:', error);
+      return false;
+    }
+  }
+
+  // Send check-out reminder to visitor
+  async sendCheckoutReminder(visitor: Visitor, settings: CompanySettings): Promise<boolean> {
+    const companyName = settings?.companyName || 'VisiGate Pro';
+    const subject = `Reminder: Please check out - ${companyName}`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 20px;">⏰ Check-out Reminder</h1>
+        </div>
+        
+        <div style="padding: 20px; background: #fffbeb; border-left: 4px solid #f59e0b;">
+          <h2 style="color: #333; margin-top: 0;">Hello ${visitor.name},</h2>
+          <p>Your visit is coming to an end. Please remember to check out before leaving the building.</p>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${process.env.PUBLIC_URL || 'https://visigate.pro'}/checkout/${visitor.id}" 
+               style="display: inline-block; padding: 12px 24px; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Check Out Now
+            </a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 20px;">
+            You can also check out using the QR scanners at the exit.
+          </p>
+        </div>
+      </div>
+    `;
+    
+    const text = `Check-out Reminder\n\nHello ${visitor.name},\n\nYour visit is coming to an end. Please remember to check out before leaving the building.\n\nCheck out at: ${process.env.PUBLIC_URL || 'https://visigate.pro'}/checkout/${visitor.id}\n\nYou can also use the QR scanners at the exit.\n\nThank you for visiting ${companyName}.`;
+    
+    return await this.sendEmail({
+      to: visitor.email || '',
+      subject,
+      html,
+      text
+    });
+  }
+
+  // Send notification to host about unchecked-out visitor
+  async sendHostNotification(visitor: Visitor, host: Staff, settings: CompanySettings): Promise<boolean> {
+    const companyName = settings?.companyName || 'VisiGate Pro';
+    const overdueMinutes = Math.round((Date.now() - new Date(visitor.expectedDepartureTime || visitor.checkedInAt).getTime()) / 60000);
+    
+    const subject = `Alert: Your visitor has not checked out - ${visitor.name}`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 20px;">⚠️ Visitor Not Checked Out</h1>
+        </div>
+        
+        <div style="padding: 20px; background: #fef2f2; border-left: 4px solid #ef4444;">
+          <h2 style="color: #333; margin-top: 0;">Hello ${host.firstName},</h2>
+          
+          <p>Your visitor has not checked out and their expected departure time has passed.</p>
+          
+          <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+            <h3 style="color: #ef4444; margin-top: 0;">Visitor Details</h3>
+            <p><strong>Name:</strong> ${visitor.name}</p>
+            <p><strong>Company:</strong> ${visitor.company || 'N/A'}</p>
+            <p><strong>Check-in Time:</strong> ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}</p>
+            <p><strong>Expected Departure:</strong> ${visitor.expectedDepartureTime ? new Date(visitor.expectedDepartureTime).toLocaleString('en-GB') : 'Not specified'}</p>
+            <p><strong>Overdue by:</strong> ${overdueMinutes} minutes</p>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">
+            Please check if your visitor is still on premises or if they forgot to check out.
+          </p>
+          
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="${process.env.PUBLIC_URL || 'https://visigate.pro'}/visitors" 
+               style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px;">
+              View Visitor Management
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const text = `Visitor Not Checked Out Alert\n\nHello ${host.firstName},\n\nYour visitor has not checked out:\n\nName: ${visitor.name}\nCompany: ${visitor.company || 'N/A'}\nCheck-in: ${new Date(visitor.checkedInAt).toLocaleString('en-GB')}\nOverdue by: ${overdueMinutes} minutes\n\nPlease check if they are still on premises or forgot to check out.\n\nView details at: ${process.env.PUBLIC_URL || 'https://visigate.pro'}/visitors`;
+    
+    return await this.sendEmail({
+      to: host.email,
       subject,
       html,
       text

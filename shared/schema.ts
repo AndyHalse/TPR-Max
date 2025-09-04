@@ -110,6 +110,14 @@ export const visitors = pgTable("visitors", {
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),
   qrCode: text("qr_code").notNull(),
+  // E-Pass tracking
+  ePassSent: boolean("e_pass_sent").default(false).notNull(),
+  ePassDeliveryType: text("e_pass_delivery_type"), // email, sms, both
+  ePassSentAt: timestamp("e_pass_sent_at"),
+  ePassUrl: text("e_pass_url"), // Unique URL for viewing the e-Pass
+  expectedDepartureTime: timestamp("expected_departure_time"),
+  reminderSent: boolean("reminder_sent").default(false).notNull(),
+  hostNotificationSent: boolean("host_notification_sent").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -368,6 +376,36 @@ export const companySettings = pgTable("company_settings", {
   qrReaderDevice: text("qr_reader_device").default("auto"), // auto, hid, serial, usb
   qrCodeFormat: text("qr_code_format").default("visigate"), // visigate, uuid, custom
   qrReaderSettings: text("qr_reader_settings").default("{}"), // JSON string for device-specific settings
+  
+  // E-Pass Configuration Settings
+  ePassEnabled: boolean("e_pass_enabled").default(false),
+  ePassDeliveryMethod: text("e_pass_delivery_method").default("both"), // email, sms, both, choice
+  ePassEmailTemplate: text("e_pass_email_template").default("default"), // default, custom
+  ePassSmsTemplate: text("e_pass_sms_template").default("default"), // default, custom
+  ePassAutoCheckout: boolean("e_pass_auto_checkout").default(true),
+  ePassCheckoutReminderMinutes: text("e_pass_checkout_reminder_minutes").default("30"), // Minutes before expected departure
+  ePassHostNotificationEnabled: boolean("e_pass_host_notification_enabled").default(true),
+  ePassHostNotificationDelay: text("e_pass_host_notification_delay").default("60"), // Minutes after expected departure
+  
+  // Twilio SMS Configuration
+  twilioEnabled: boolean("twilio_enabled").default(false),
+  twilioAccountSid: text("twilio_account_sid").default(""),
+  twilioAuthToken: text("twilio_auth_token").default(""),
+  twilioPhoneNumber: text("twilio_phone_number").default(""),
+  twilioMessagingServiceSid: text("twilio_messaging_service_sid").default(""),
+  
+  // Geofencing Configuration
+  geofencingEnabled: boolean("geofencing_enabled").default(false),
+  geofenceRadius: text("geofence_radius").default("100"), // meters
+  geofenceLat: text("geofence_lat").default(""),
+  geofenceLng: text("geofence_lng").default(""),
+  
+  // BioStar X-Station 2 Integration
+  xStationEnabled: boolean("x_station_enabled").default(false),
+  xStationDevices: text("x_station_devices").array().default([]), // Array of X-Station device IDs/IPs
+  xStationCheckoutMode: text("x_station_checkout_mode").default("qr"), // qr, face, both
+  xStationApiEndpoint: text("x_station_api_endpoint").default(""),
+  
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
