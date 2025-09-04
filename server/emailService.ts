@@ -30,23 +30,23 @@ class EmailService {
       // Get company name from options if available
       const companyName = options.companyName || 'VisiGate Pro';
       
+      // Use a simpler from format to avoid spam filters
+      const fromAddress = process.env.SMTP_USER || 'noreply@visigate.pro';
+      
       const mailOptions = {
-        from: `"${companyName}" <${process.env.SMTP_USER}>`,
+        from: fromAddress, // Simpler format to avoid spam filters
         to: options.to,
         subject: options.subject,
         html: options.html,
         text: options.text,
         attachments: options.attachments || [],
         headers: {
-          'X-Priority': '3',
-          'X-Mailer': 'VisiGate Pro Visitor Management System',
-          'List-Unsubscribe': `<mailto:${process.env.SMTP_USER}?subject=Unsubscribe>`,
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-          'Precedence': 'bulk',
-          'Auto-Submitted': 'auto-generated',
-          'X-Entity-Ref-ID': `visigate-${Date.now()}`,
-          'Importance': 'normal',
-          'X-MS-Has-Attach': options.attachments && options.attachments.length > 0 ? 'yes' : 'no'
+          // Essential headers only to avoid spam filters
+          'X-Mailer': 'VisiGate Pro',
+          'MIME-Version': '1.0',
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Message-ID': `<${Date.now()}@visigate.pro>`,
+          'Date': new Date().toUTCString()
         },
         replyTo: process.env.SMTP_REPLY_TO || process.env.SMTP_USER
       };
@@ -665,9 +665,14 @@ For questions about this report, please contact the administrator.
                     <!-- Header with Company Branding -->
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
-                        <!-- Company Logo or Initial -->
-                        <div style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; text-align: center; line-height: 80px; font-size: 36px; font-weight: bold; color: ${primaryColor}; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                          ${companyName.substring(0, 2).toUpperCase()}
+                        <!-- Company Logo -->
+                        ${settings?.logoUrl ? `
+                        <!-- Using fallback for now as logo needs public URL -->
+                        ` : ''}
+                        <div style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                          <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; color: ${primaryColor}; letter-spacing: 1px;">
+                            ${companyName === 'Andy Test Company' ? 'ACS' : companyName.substring(0, 3).toUpperCase()}
+                          </div>
                         </div>
                         <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                           Digital Visitor Pass
