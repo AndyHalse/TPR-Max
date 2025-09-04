@@ -1952,16 +1952,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if visitor already exists
       const existingVisitor = await databaseService.findExistingVisitor(context, visitorData.firstName, visitorData.lastName, visitorData.company || undefined);
       
+      let visitor;
+      
       if (existingVisitor) {
         // If visitor exists but is checked out, check them in again
         if (!existingVisitor.isCheckedIn) {
           console.log(`🔄 Checking in existing visitor: ${visitorData.firstName} ${visitorData.lastName}`);
-          const visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
+          visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
             hostStaffId: visitorData.hostStaffId,
             purpose: visitorData.purpose,
             carRegistration: visitorData.carRegistration
           });
-          res.json(visitor);
         } else {
           // Visitor is already checked in
           console.log(`⚠️ Visitor already checked in: ${visitorData.firstName} ${visitorData.lastName}`);
@@ -1970,13 +1971,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
             visitor: existingVisitor,
             message: `${visitorData.firstName} ${visitorData.lastName} is already on site.`
           });
+          return;
         }
       } else {
         // Create new visitor
-        const visitor = await databaseService.createVisitor(context, visitorData);
+        visitor = await databaseService.createVisitor(context, visitorData);
         console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
-        res.json(visitor);
       }
+      
+      // Get company settings to check if e-Pass is enabled
+      const settings = await databaseService.getCompanySettings(context);
+      
+      // Send e-Pass if enabled
+      if (settings?.ePassEnabled) {
+        console.log(`📧 E-Pass is enabled, sending digital pass to ${visitor.email || 'no email'}`);
+        
+        // Get host information if available
+        let host = null;
+        if (visitor.hostStaffId) {
+          host = await databaseService.getStaffById(context, visitor.hostStaffId);
+        }
+        
+        // Generate e-Pass URL
+        const ePassUrl = `${process.env.PUBLIC_URL || req.protocol + '://' + req.get('host')}/epass/${visitor.id}`;
+        
+        // Update visitor with e-Pass URL
+        await databaseService.updateVisitor(context, visitor.id, {
+          ePassUrl: ePassUrl,
+          ePassDeliveryType: settings.ePassDeliveryMethod || 'email'
+        });
+        
+        // Send e-Pass via email
+        if (visitor.email && (settings.ePassDeliveryMethod === 'email' || settings.ePassDeliveryMethod === 'both' || settings.ePassDeliveryMethod === 'choice')) {
+          try {
+            const emailSent = await emailService.sendDigitalEPass(
+              visitor,
+              host,
+              settings,
+              ePassUrl
+            );
+            
+            if (emailSent) {
+              await databaseService.updateVisitor(context, visitor.id, {
+                ePassSent: true,
+                ePassSentAt: new Date()
+              });
+              console.log(`✅ E-Pass sent successfully to ${visitor.email}`);
+            }
+          } catch (emailError) {
+            console.error('Failed to send e-Pass email:', emailError);
+          }
+        }
+        
+        // Send host notification if enabled
+        if (settings.hostNotificationsEnabled && host?.email) {
+          try {
+            await emailService.sendHostNotification(visitor, host, settings);
+            await databaseService.updateVisitor(context, visitor.id, {
+              hostNotificationSent: true
+            });
+          } catch (notifyError) {
+            console.error('Failed to send host notification:', notifyError);
+          }
+        }
+        
+        // Add e-Pass info to response
+        visitor.ePassSent = true;
+        visitor.ePassUrl = ePassUrl;
+      }
+      
+      res.json(visitor);
     } catch (error) {
       console.error("❌ Error during visitor check-in:", error);
       if (error instanceof z.ZodError) {
@@ -2031,6 +2095,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking out visitor:", error);
       res.status(500).json({ error: "Failed to check out visitor" });
+    }
+  });
+
+  // Send e-Pass endpoint for testing or re-sending
+  app.post("/api/visitors/:id/send-epass", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { email } = req.body;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get visitor
+      const visitor = await databaseService.getVisitorById(context, id);
+      if (!visitor) {
+        return res.status(404).json({ error: "Visitor not found" });
+      }
+      
+      // Get company settings
+      const settings = await databaseService.getCompanySettings(context);
+      
+      // Get host information if available
+      let host = null;
+      if (visitor.hostStaffId) {
+        host = await databaseService.getStaffById(context, visitor.hostStaffId);
+      }
+      
+      // Generate e-Pass URL
+      const ePassUrl = `${process.env.PUBLIC_URL || req.protocol + '://' + req.get('host')}/epass/${visitor.id}`;
+      
+      // Update visitor email if provided
+      if (email) {
+        visitor.email = email;
+        await databaseService.updateVisitor(context, visitor.id, { email });
+      }
+      
+      // Send e-Pass via email
+      if (visitor.email) {
+        try {
+          const emailSent = await emailService.sendDigitalEPass(
+            visitor,
+            host,
+            settings,
+            ePassUrl
+          );
+          
+          if (emailSent) {
+            await databaseService.updateVisitor(context, visitor.id, {
+              ePassSent: true,
+              ePassSentAt: new Date(),
+              ePassUrl: ePassUrl
+            });
+            console.log(`✅ E-Pass sent successfully to ${visitor.email}`);
+            res.json({ success: true, message: `E-Pass sent to ${visitor.email}` });
+          } else {
+            res.status(500).json({ error: "Failed to send e-Pass email" });
+          }
+        } catch (emailError) {
+          console.error('Failed to send e-Pass email:', emailError);
+          res.status(500).json({ error: "Failed to send e-Pass email", details: emailError.message });
+        }
+      } else {
+        res.status(400).json({ error: "No email address available for visitor" });
+      }
+    } catch (error) {
+      console.error("Error sending e-Pass:", error);
+      res.status(500).json({ error: "Failed to send e-Pass" });
     }
   });
 

@@ -20,6 +20,7 @@ export default function VisitorCheckIn() {
   const [formData, setFormData] = useState({
     name: "",
     company: "",
+    email: "",
     hostStaffId: "",
     purpose: "",
     carRegistration: "",
@@ -266,19 +267,34 @@ export default function VisitorCheckIn() {
     },
     onSuccess: (visitor: Visitor) => {
       setCreatedVisitor(visitor);
-      setShowPassPreview(true);
       
-      // Auto-print the pass after a short delay
-      setTimeout(() => {
-        printVisitorPass(visitor);
-      }, 500);
+      // Check if e-Pass was sent (visitor has ePassSent property set by backend)
+      if (visitor.ePassSent) {
+        // Show e-Pass confirmation instead of printing
+        toast({
+          title: "✅ Digital Pass Sent",
+          description: `E-Pass has been sent to ${visitor.email || 'visitor'}. They can use it to check out.`,
+          variant: "default",
+          duration: 5000
+        });
+        // Navigate back after showing the toast
+        setTimeout(() => {
+          setLocation("/kiosk");
+        }, 3000);
+      } else {
+        // Show pass preview and auto-print physical pass
+        setShowPassPreview(true);
+        setTimeout(() => {
+          printVisitorPass(visitor);
+        }, 500);
+        toast({
+          title: "Success",
+          description: "Visitor checked in successfully! Pass is printing...",
+        });
+      }
       
       queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({
-        title: "Success",
-        description: "Visitor checked in successfully! Pass is printing...",
-      });
     },
     onError: (error: any) => {
       console.error('Check-in error:', error);
@@ -329,6 +345,7 @@ export default function VisitorCheckIn() {
       firstName,
       lastName,
       company: formData.company.trim() || null,
+      email: formData.email.trim() || null,
       hostStaffId: formData.hostStaffId,
       purpose: formData.purpose.trim() || null,
       carRegistration: formData.carRegistration.trim() || null,
@@ -379,6 +396,21 @@ export default function VisitorCheckIn() {
                 data-testid="input-visitor-company"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+              Email Address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              placeholder="Your email for digital pass"
+              data-testid="input-visitor-email"
+            />
           </div>
 
           <div className="space-y-2">
@@ -451,7 +483,7 @@ export default function VisitorCheckIn() {
               ) : (
                 <>
                   <Check className="mr-2" size={16} />
-                  Check In & Print Pass
+                  Check In
                 </>
               )}
             </Button>
