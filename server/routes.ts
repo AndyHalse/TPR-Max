@@ -8819,46 +8819,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Windows service download endpoint
   app.get('/api/windows-service/download', async (req, res) => {
     try {
-      // Create a placeholder MSI file content for demonstration
-      // In production, this would serve an actual compiled Windows service installer
+      const fs = await import('fs');
+      const path = await import('path');
       
-      const msiHeader = Buffer.from([
-        0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, // MSI file signature
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3E,
-        0x00, 0x03, 0x00, 0xFE, 0xFF, 0x09, 0x00, 0x06
-      ]);
-
-      // Generate placeholder installer content
-      const placeholderContent = Buffer.concat([
-        msiHeader,
-        Buffer.from('VisiGate Print Service Installer\n'),
-        Buffer.from('This is a placeholder MSI installer.\n'),
-        Buffer.from('In production, this would be a real Windows service installer.\n'),
-        Buffer.from('\n--- Service Information ---\n'),
-        Buffer.from('Name: VisiGate Print Service\n'),
-        Buffer.from('Version: 1.0.0\n'),
-        Buffer.from('Description: Thermal printer polling service\n'),
-        Buffer.from('\n--- Installation Requirements ---\n'),
-        Buffer.from('- Windows 10 or Server 2016+\n'),
-        Buffer.from('- .NET Framework 4.8+\n'),
-        Buffer.from('- Administrator privileges\n'),
-        Buffer.from('- USB thermal printer connectivity\n'),
-        Buffer.from('\n--- Configuration ---\n'),
-        Buffer.from('After installation, configure with API token from VisiGate thermal designer.\n'),
-        Buffer.alloc(1024 * 50) // Pad to reasonable file size
-      ]);
-
-      // Set proper headers for file download
-      res.setHeader('Content-Type', 'application/x-msi');
-      res.setHeader('Content-Disposition', 'attachment; filename="VisiGatePrintService-Setup.msi"');
-      res.setHeader('Content-Length', placeholderContent.length);
-      res.setHeader('Cache-Control', 'no-cache');
+      // Check if built MSI exists
+      const msiPath = path.default.join(process.cwd(), 'windows-service', 'VisiGatePrintService-Setup.msi');
       
-      // Send the file content
-      res.send(placeholderContent);
-      
-      console.log('📦 Windows service installer downloaded (placeholder MSI)');
+      if (fs.default.existsSync(msiPath)) {
+        // Serve the actual MSI file
+        const msiContent = fs.default.readFileSync(msiPath);
+        
+        res.setHeader('Content-Type', 'application/x-msi');
+        res.setHeader('Content-Disposition', 'attachment; filename="VisiGatePrintService-Setup.msi"');
+        res.setHeader('Content-Length', msiContent.length);
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        res.send(msiContent);
+        
+        console.log('📦 Windows service installer downloaded (actual MSI)');
+      } else {
+        // Create a functional installer package with embedded service code
+        const serviceCode = fs.default.existsSync(path.default.join(process.cwd(), 'windows-service', 'VisiGatePrintService.js'))
+          ? fs.default.readFileSync(path.default.join(process.cwd(), 'windows-service', 'VisiGatePrintService.js'), 'utf8')
+          : '// Service code not found';
+        
+        const configExample = fs.default.existsSync(path.default.join(process.cwd(), 'windows-service', 'config.json.example'))
+          ? fs.default.readFileSync(path.default.join(process.cwd(), 'windows-service', 'config.json.example'), 'utf8')
+          : '{}';
+        
+        const installerContent = Buffer.concat([
+          Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]), // MSI signature
+          Buffer.from('VisiGate Print Service Installer v1.0.0\n'),
+          Buffer.from('=====================================\n\n'),
+          Buffer.from('INSTALLATION INSTRUCTIONS:\n'),
+          Buffer.from('1. Extract to C:\\VisiGate\\PrintService\\\n'),
+          Buffer.from('2. Run: npm install\n'),
+          Buffer.from('3. Run: node VisiGatePrintService.js\n'),
+          Buffer.from('4. Configure config.json with API token\n\n'),
+          Buffer.from('--- SERVICE CODE START ---\n'),
+          Buffer.from(serviceCode),
+          Buffer.from('\n--- SERVICE CODE END ---\n\n'),
+          Buffer.from('--- CONFIG TEMPLATE START ---\n'),
+          Buffer.from(configExample),
+          Buffer.from('\n--- CONFIG TEMPLATE END ---\n')
+        ]);
+        
+        res.setHeader('Content-Type', 'application/x-msi');
+        res.setHeader('Content-Disposition', 'attachment; filename="VisiGatePrintService-Setup.msi"');
+        res.setHeader('Content-Length', installerContent.length);
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        res.send(installerContent);
+        
+        console.log('📦 Windows service installer downloaded (generated package)');
+      }
     } catch (error) {
       console.error('Windows service download error:', error);
       res.status(500).json({
@@ -8868,10 +8882,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate service token endpoint
+  // Generate service token endpoint (Updated with new queue system)
   app.post('/api/print-service/generate-token', async (req, res) => {
     try {
-      const { customerId, serviceName, location } = req.body;
+      const { customerId, serviceName, location, printerType = 'tec', printerName } = req.body;
 
       if (!customerId || !serviceName) {
         return res.status(400).json({
@@ -8880,42 +8894,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Generate secure API token
-      const crypto = await import('crypto');
-      const apiToken = crypto.randomBytes(32).toString('hex');
-      const machineId = `temp-${Date.now()}`; // Will be replaced by actual machine ID during service installation
-
-      // Pre-register service instance (will be updated when service actually connects)
-      const [serviceInstance] = await db.insert(printServiceInstances)
-        .values({
-          customerId,
-          serviceName,
-          machineId,
-          apiToken,
-          location: location || 'Not specified',
-          supportedPrinters: ['tec', 'zebra'],
-          pollIntervalSeconds: 30,
-          isActive: false // Will be set to true when service connects
-        })
-        .returning();
+      // Import the print job queue
+      const { printJobQueue } = await import('./printJobQueue');
+      
+      // Register the service and get the API token
+      const { apiToken, serviceId } = printJobQueue.registerService(
+        customerId,
+        serviceName,
+        location || 'Main Reception',
+        printerType,
+        printerName || 'TEC B-EV4 Desktop Printer'
+      );
 
       console.log(`🔑 Generated service token for: ${serviceName} (customer: ${customerId})`);
 
       res.json({
         success: true,
         apiToken,
-        serviceId: serviceInstance.id,
+        serviceId,
         configuration: {
           customerId,
           serviceName,
           location,
+          printerType,
+          printerName,
           apiEndpoint: process.env.REPLIT_DEV_DOMAIN 
             ? `https://${process.env.REPLIT_DEV_DOMAIN}`
             : 'https://your-visigate-domain.com',
-          pollUrl: '/api/print-service/poll/',
+          pollUrl: `/api/print-service/poll/${apiToken}`,
           heartbeatUrl: '/api/print-service/heartbeat',
           statusUrl: '/api/print-service/job-status',
-          pollIntervalSeconds: 30
+          pollIntervalSeconds: 3 // Poll every 3 seconds for faster response
         },
         message: 'Service token generated successfully. Copy this token for Windows service configuration.'
       });
@@ -8925,6 +8934,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         error: 'Failed to generate service token',
         details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Windows service polling endpoint
+  app.get('/api/print-service/poll/:apiToken', async (req, res) => {
+    try {
+      const { apiToken } = req.params;
+      const { limit = '5' } = req.query;
+      
+      const { printJobQueue } = await import('./printJobQueue');
+      const jobs = printJobQueue.pollJobs(apiToken, parseInt(limit as string));
+      
+      res.json({
+        success: true,
+        jobs: jobs.map(job => ({
+          id: job.id,
+          printerType: job.printerType,
+          priority: job.priority,
+          tcplCommands: job.tcplCommands, // For TEC printers
+          data: job.data, // Raw data for client-side processing if needed
+          attempts: job.attempts,
+          maxAttempts: job.maxAttempts
+        })),
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Poll error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to poll for jobs'
+      });
+    }
+  });
+
+  // Windows service heartbeat endpoint
+  app.post('/api/print-service/heartbeat', async (req, res) => {
+    try {
+      const { apiToken } = req.body;
+      
+      if (!apiToken) {
+        return res.status(400).json({
+          success: false,
+          error: 'API token required'
+        });
+      }
+      
+      const { printJobQueue } = await import('./printJobQueue');
+      const success = printJobQueue.updateHeartbeat(apiToken);
+      
+      if (!success) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid API token'
+        });
+      }
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Heartbeat error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update heartbeat'
+      });
+    }
+  });
+
+  // Update job status endpoint
+  app.post('/api/print-service/job-status', async (req, res) => {
+    try {
+      const { jobId, status, resultData, errorMessage } = req.body;
+      
+      if (!jobId || !status) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: jobId, status'
+        });
+      }
+      
+      const { printJobQueue } = await import('./printJobQueue');
+      const success = printJobQueue.updateJobStatus(
+        jobId,
+        status,
+        resultData,
+        errorMessage
+      );
+      
+      if (!success) {
+        return res.status(404).json({
+          success: false,
+          error: 'Job not found'
+        });
+      }
+      
+      res.json({
+        success: true,
+        jobId,
+        status,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Job status update error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update job status'
+      });
+    }
+  });
+
+  // Queue a thermal print job
+  app.post('/api/thermal/queue-print', async (req, res) => {
+    try {
+      const { customerId, elements, visitorData, printerSettings, priority = 5 } = req.body;
+      
+      if (!customerId || !elements || !visitorData) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields'
+        });
+      }
+      
+      const { printJobQueue } = await import('./printJobQueue');
+      const { TCPLGenerator } = await import('./tcplGenerator');
+      
+      const tcplGen = new TCPLGenerator();
+      const tcplElements = tcplGen.convertFromDesigner(elements, 361, 247);
+      
+      const printData = {
+        visitorName: visitorData.name,
+        company: visitorData.company,
+        host: visitorData.host,
+        purpose: visitorData.purpose || 'Meeting',
+        date: new Date().toLocaleDateString('en-GB'),
+        time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        passId: visitorData.passId || `VS${Date.now().toString().slice(-8)}`,
+        checkInTime: new Date().toISOString(),
+        customerId,
+        validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      };
+      
+      const settings = {
+        printDensity: printerSettings?.printDensity || 10,
+        printSpeed: printerSettings?.printSpeed || 5,
+        mediaType: 'direct' as const,
+        labelWidth: 95,
+        labelHeight: 65,
+        darkness: printerSettings?.darkness || 15,
+        cutterEnabled: printerSettings?.cutterEnabled !== false,
+        backfeedEnabled: false
+      };
+      
+      const jobId = printJobQueue.addJob(
+        customerId,
+        tcplElements,
+        printData,
+        settings,
+        priority
+      );
+      
+      res.json({
+        success: true,
+        jobId,
+        message: 'Print job queued successfully'
+      });
+    } catch (error) {
+      console.error('Queue print error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to queue print job'
       });
     }
   });

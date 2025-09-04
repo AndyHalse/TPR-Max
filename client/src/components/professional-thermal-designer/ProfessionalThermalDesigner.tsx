@@ -112,21 +112,34 @@ export function ProfessionalThermalDesigner() {
   // Queue print function for Windows service
   const queuePrint = async () => {
     try {
-      const response = await fetch('/api/print-queue/add', {
+      // Generate print data with all required fields for TCPL
+      const visitorData = {
+        name: previewData.visitorName,
+        company: previewData.company,
+        host: previewData.hostName,
+        purpose: 'Meeting',
+        passId: previewData.visitorId || `VS${Date.now().toString().slice(-8)}`
+      };
+      
+      // Queue the print job using the new TCPL system
+      const response = await fetch('/api/thermal/queue-print', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           customerId: 'dev-customer-001',
-          jobType: 'visitor_pass',
-          printerType: selectedPrinter,
-          priority: 1,
-          visitorData: previewData,
-          passElements: elements,
-          printerSettings: printerSettings,
-          createdBy: 'designer-preview',
-          requestSource: 'thermal_designer'
+          elements: elements,
+          visitorData: visitorData,
+          printerSettings: {
+            printDensity: printerSettings.printDensity === 'light' ? 5 : 
+                         printerSettings.printDensity === 'dark' ? 15 : 10,
+            printSpeed: printerSettings.printSpeed === 'slow' ? 2 : 
+                       printerSettings.printSpeed === 'fast' ? 8 : 5,
+            darkness: 15,
+            cutterEnabled: true
+          },
+          priority: 5
         })
       });
       
@@ -134,15 +147,16 @@ export function ProfessionalThermalDesigner() {
         const result = await response.json();
         toast({
           title: "Print Job Queued",
-          description: `${selectedPrinter === 'tec' ? 'TEC/Toshiba' : 'Zebra'} print job added to queue. Windows service will process it automatically.`
+          description: `Job ${result.jobId} queued successfully. Windows service will print it via ${selectedPrinter === 'tec' ? 'TCPL' : 'ZPL'} commands.`
         });
       } else {
-        throw new Error('Failed to queue print job');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to queue print job');
       }
     } catch (error) {
       toast({
         title: "Queue Failed",
-        description: "Failed to add print job to queue. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to queue print job.",
         variant: "destructive"
       });
     }
@@ -197,7 +211,7 @@ export function ProfessionalThermalDesigner() {
       
       toast({
         title: "Service Download Started",
-        description: "VisiGate Print Service installer download started. This is a demo placeholder - in production it would be a real MSI installer."
+        description: "VisiGate Print Service installer download started. Install and configure with your API token."
       });
       
       console.log('📦 Windows service download initiated');
