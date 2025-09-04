@@ -433,16 +433,85 @@ export function ProfessionalThermalDesigner() {
     setIsDragging(false);
   };
 
+  // Save design to database
+  const saveDesign = async () => {
+    try {
+      const response = await fetch('/api/thermal/designs/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: 'dev-customer-001',
+          templateId: currentTemplate.id,
+          templateName: currentTemplate.name,
+          elements: elements,
+          printerSettings: printerSettings,
+          metadata: {
+            width: PASS_WIDTH,
+            height: PASS_HEIGHT,
+            printerType: selectedPrinter,
+            backgroundColor: currentTemplate.backgroundColor,
+            borderEnabled: currentTemplate.borderEnabled,
+            borderWidth: currentTemplate.borderWidth,
+            borderColor: currentTemplate.borderColor
+          }
+        })
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Design Saved",
+          description: "Your pass design has been saved successfully."
+        });
+      } else {
+        throw new Error('Failed to save design');
+      }
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Failed to save the design. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Render element content based on type and data
   const renderElementContent = (element: ThermalElement) => {
     switch (element.type) {
       case 'text':
         const textEl = element as any;
+        let content = '';
         if (textEl.contentType === 'variable' && textEl.variableSource) {
           const value = previewData[textEl.variableSource as keyof typeof previewData] || textEl.variableSource;
-          return String(value);
+          content = String(value);
+        } else {
+          content = textEl.fixedContent || 'Text';
         }
-        return textEl.fixedContent || 'Text';
+        return (
+          <div 
+            className="w-full h-full flex items-center"
+            style={{
+              fontSize: `${textEl.fontSize || 12}px`,
+              fontWeight: textEl.fontWeight || 'normal',
+              fontStyle: textEl.fontStyle || 'normal',
+              fontFamily: textEl.fontFamily === 'thermal_default' ? 'monospace' : textEl.fontFamily || 'sans-serif',
+              textAlign: textEl.alignment || 'left',
+              justifyContent: textEl.alignment === 'center' ? 'center' : textEl.alignment === 'right' ? 'flex-end' : 'flex-start',
+              lineHeight: textEl.lineHeight || 1.2,
+              letterSpacing: `${textEl.letterSpacing || 0}px`,
+              color: textEl.textColor || '#000000',
+              backgroundColor: textEl.backgroundColor || 'transparent',
+              padding: '2px',
+              overflow: textEl.wordWrap ? 'visible' : 'hidden',
+              wordBreak: textEl.wordWrap ? 'break-word' : 'normal',
+              whiteSpace: textEl.wordWrap ? 'normal' : 'nowrap',
+              textOverflow: textEl.textOverflow || 'clip'
+            }}
+          >
+            {content}
+          </div>
+        );
       
       case 'qr_code':
         return (
@@ -516,7 +585,7 @@ export function ProfessionalThermalDesigner() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={saveDesign}>
             <Save className="h-4 w-4 mr-2" />
             Save Design
           </Button>
