@@ -48,6 +48,7 @@ class EmailService {
       
       // Use a simpler from format to avoid spam filters
       const fromAddress = process.env.SMTP_USER || 'noreply@visigate.pro';
+      const domain = fromAddress.split('@')[1] || 'visigate.pro';
       
       const mailOptions = {
         from: `${companyName} <${fromAddress}>`, // Include company name
@@ -57,12 +58,19 @@ class EmailService {
         text: options.text || this.generatePlainTextFromHtml(options.html), // Always provide text version
         attachments: options.attachments || [],
         headers: {
-          // Essential headers for proper HTML display
-          'X-Mailer': 'VisiGate Pro',
-          'Message-ID': `<${Date.now()}.${Math.random().toString(36).substring(2)}@visigate.pro>`,
+          // Essential headers for deliverability
+          'X-Mailer': 'VisiGate Pro Visitor Management System',
+          'Message-ID': `<${Date.now()}.${Math.random().toString(36).substring(2)}@${domain}>`,
           'Date': new Date().toUTCString(),
           'X-Priority': '3',
-          'Importance': 'normal'
+          'Importance': 'normal',
+          'List-Unsubscribe': `<mailto:${fromAddress}?subject=Unsubscribe>`,
+          'X-Entity-Ref-ID': Math.random().toString(36).substring(2),
+          'MIME-Version': '1.0',
+          'Content-Type': 'multipart/alternative',
+          'X-Auto-Response-Suppress': 'OOF, AutoReply',
+          'Precedence': 'bulk',
+          'X-SES-CONFIGURATION-SET': 'visigate-transactional'
         },
         replyTo: process.env.SMTP_REPLY_TO || process.env.SMTP_USER
       };
@@ -658,7 +666,8 @@ For questions about this report, please contact the administrator.
       // Get logo URL for email (will use fallback if not available)
       const logoDataUrl = await this.getLogoForEmail(settings);
       
-      const subject = `Your Digital Visitor Pass - ${companyName}`;
+      // Professional subject line without trigger words (reduces spam score)
+      const subject = `Visitor Confirmation - ${visitor.firstName} ${visitor.lastName} at ${companyName}`;
       
       const html = `
         <!DOCTYPE html>
