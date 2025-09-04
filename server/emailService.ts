@@ -6,6 +6,7 @@ interface EmailOptions {
   subject: string;
   html: string;
   text: string;
+  companyName?: string;
 }
 
 class EmailService {
@@ -26,8 +27,11 @@ class EmailService {
 
   async sendEmail(options: EmailOptions & { attachments?: any[] }): Promise<boolean> {
     try {
+      // Get company name from options if available
+      const companyName = options.companyName || 'VisiGate Pro';
+      
       const mailOptions = {
-        from: process.env.SMTP_USER,
+        from: `"${companyName}" <${process.env.SMTP_USER}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,
@@ -35,11 +39,16 @@ class EmailService {
         attachments: options.attachments || [],
         headers: {
           'X-Priority': '3',
-          'X-Mailer': 'VisiGate Pro Visitor Management',
+          'X-Mailer': 'VisiGate Pro Visitor Management System',
           'List-Unsubscribe': `<mailto:${process.env.SMTP_USER}?subject=Unsubscribe>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           'Precedence': 'bulk',
-          'Auto-Submitted': 'auto-generated'
-        }
+          'Auto-Submitted': 'auto-generated',
+          'X-Entity-Ref-ID': `visigate-${Date.now()}`,
+          'Importance': 'normal',
+          'X-MS-Has-Attach': options.attachments && options.attachments.length > 0 ? 'yes' : 'no'
+        },
+        replyTo: process.env.SMTP_REPLY_TO || process.env.SMTP_USER
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -570,6 +579,38 @@ For questions about this report, please contact the administrator.
     });
   }
 
+  // Helper function to fetch logo as base64
+  async fetchLogoAsBase64(logoUrl: string): Promise<string | null> {
+    try {
+      if (!logoUrl) return null;
+      
+      // Import necessary modules using dynamic import
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      
+      // Get the file from object storage
+      const objectFile = await objectStorageService.getObjectEntityFile(logoUrl);
+      
+      if (!objectFile) return null;
+      
+      // Download the file as a buffer
+      const [buffer] = await objectFile.download();
+      
+      // Convert to base64
+      const base64 = buffer.toString('base64');
+      
+      // Get content type from file metadata
+      const [metadata] = await objectFile.getMetadata();
+      const contentType = metadata.contentType || 'image/png';
+      
+      // Return as data URL
+      return `data:${contentType};base64,${base64}`;
+    } catch (error) {
+      console.error('Error fetching logo as base64:', error);
+      return null;
+    }
+  }
+
   // Send Digital E-Pass to visitor
   async sendDigitalEPass(
     visitor: Visitor, 
@@ -594,8 +635,11 @@ For questions about this report, please contact the administrator.
       const backgroundColor = settings?.backgroundColor || '#f8fafc';
       const textColor = settings?.foregroundColor || '#1e293b';
       const variableTextColor = settings?.variableTextColor || '#374151';
-      // Fix logo URL - remove /objects prefix as logoUrl already contains full path
-      const logoUrl = settings?.logoUrl ? `${process.env.PUBLIC_URL || 'http://localhost:5000'}${settings.logoUrl}` : null;
+      // Fetch logo as base64 for embedding in email
+      let logoDataUrl: string | null = null;
+      if (settings?.logoUrl) {
+        logoDataUrl = await this.fetchLogoAsBase64(settings.logoUrl);
+      }
       
       const subject = `Your Digital Visitor Pass - ${companyName}`;
       
@@ -636,8 +680,8 @@ For questions about this report, please contact the administrator.
                     <!-- Header with Company Branding -->
                     <tr>
                       <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
-                        ${logoUrl ? `
-                        <img src="${logoUrl}" alt="${companyName} Logo" style="max-height: 80px; max-width: 280px; margin: 0 auto 15px; display: block; background: white; padding: 10px; border-radius: 8px;">
+                        ${logoDataUrl ? `
+                        <img src="${logoDataUrl}" alt="${companyName} Logo" style="max-height: 80px; max-width: 280px; margin: 0 auto 15px; display: block; background: white; padding: 10px; border-radius: 8px;">
                         ` : `
                         <div style="width: 60px; height: 60px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; text-align: center; line-height: 60px; font-size: 28px; font-weight: bold; color: ${primaryColor};">
                           ${companyName.charAt(0).toUpperCase()}
@@ -646,7 +690,7 @@ For questions about this report, please contact the administrator.
                         <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                           Digital Visitor Pass
                         </h1>
-                        ${!logoUrl ? `
+                        ${!logoDataUrl ? `
                         <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.95); font-size: 15px; font-weight: 500;">
                           ${companyName}
                         </p>
@@ -814,7 +858,8 @@ Powered by VisiGate Pro`;
         to: visitor.email || '',
         subject,
         html,
-        text
+        text,
+        companyName
       });
     } catch (error) {
       console.error('Failed to send e-Pass:', error);
