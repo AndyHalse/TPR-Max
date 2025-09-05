@@ -962,34 +962,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Fire Marshal Emergency System Endpoints
   
-  // Emergency activation - Notify all Fire Marshals
+  // Emergency activation - Notify all people on site and Fire Marshals
   app.post("/api/emergency/activate", requireAuth, async (req, res) => {
     try {
       const activatedBy = req.user?.username || 'System Administrator';
       
-      const result = await EmergencyEmailService.notifyAllFireMarshals(activatedBy);
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
-      if (result.total === 0) {
+      // Get all people currently on site
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      
+      if (checkedInStaff.length === 0 && currentVisitors.length === 0) {
         return res.status(400).json({
-          error: "No Fire Marshals found",
-          message: "Please assign Fire Marshal status to staff members before activating emergency."
+          error: "No people on site",
+          message: "There are no staff or visitors currently on site."
         });
       }
       
-      if (result.sent === 0) {
-        return res.status(500).json({
-          error: "Emergency notification failed",
-          message: "Unable to send notifications to any Fire Marshals",
-          details: result.errors
-        });
+      // Prepare evacuation data
+      const evacuationData = {
+        timestamp: new Date().toISOString(),
+        totalPeople: checkedInStaff.length + currentVisitors.length,
+        staff: checkedInStaff.length,
+        visitors: currentVisitors.length,
+        musterPoints: ['Main Car Park', 'Side Entrance', 'Rear Assembly'],
+        message: '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
+        notificationsSent: 0,
+        activatedBy
+      };
+      
+      const emailService = new EmailService(companySettings);
+      const errors = [];
+      
+      // Send to all staff
+      for (const staff of checkedInStaff) {
+        if (staff.email) {
+          try {
+            const sent = await emailService.sendEvacuationAlert(
+              staff.email,
+              `${staff.firstName} ${staff.lastName}`,
+              evacuationData.message,
+              evacuationData.musterPoints,
+              companySettings
+            );
+            if (sent) evacuationData.notificationsSent++;
+          } catch (error) {
+            errors.push(`Failed to notify ${staff.firstName} ${staff.lastName}`);
+          }
+        }
+      }
+      
+      // Send to all visitors
+      for (const visitor of currentVisitors) {
+        if (visitor.email) {
+          try {
+            const sent = await emailService.sendEvacuationAlert(
+              visitor.email,
+              `${visitor.firstName} ${visitor.lastName}`,
+              evacuationData.message,
+              evacuationData.musterPoints,
+              companySettings
+            );
+            if (sent) evacuationData.notificationsSent++;
+          } catch (error) {
+            errors.push(`Failed to notify visitor ${visitor.firstName} ${visitor.lastName}`);
+          }
+        }
+      }
+      
+      // Find and notify Fire Marshals with special alert
+      const fireMarshals = checkedInStaff.filter(s => 
+        s.department?.toLowerCase().includes('safety') || 
+        s.department?.toLowerCase().includes('security') ||
+        s.isFireMarshal === true
+      );
+      
+      for (const marshal of fireMarshals) {
+        if (marshal.email) {
+          try {
+            await emailService.sendFireMarshalAlert(
+              marshal.email,
+              `${marshal.firstName} ${marshal.lastName}`,
+              evacuationData,
+              [...checkedInStaff, ...currentVisitors],
+              companySettings
+            );
+          } catch (error) {
+            console.error(`Failed to send Fire Marshal alert to ${marshal.firstName}:`, error);
+          }
+        }
       }
       
       res.json({
         success: true,
-        message: `Emergency activated successfully. Notified ${result.sent} of ${result.total} Fire Marshals.`,
-        sent: result.sent,
-        total: result.total,
-        errors: result.errors.length > 0 ? result.errors : undefined
+        message: `Emergency activated! Sent ${evacuationData.notificationsSent} evacuation alerts.`,
+        evacuationData,
+        fireMarshals: fireMarshals.length,
+        errors: errors.length > 0 ? errors : undefined
       });
     } catch (error) {
       console.error("Error activating emergency:", error);
