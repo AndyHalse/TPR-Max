@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Users, AlertTriangle, Search, MapPin, RefreshCw, Send } from "lucide-react";
+import { CheckCircle2, XCircle, Users, AlertTriangle, Search, MapPin, RefreshCw, Send, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,7 +51,7 @@ export default function FireMarshalPanel() {
   const { data: evacuationData, isLoading, refetch } = useQuery<EvacuationData>({
     queryKey: [`/api/emergency/accountability/${activeEvacuationId || ''}`],
     enabled: !!activeEvacuationId,
-    refetchInterval: 5000 // Auto-refresh every 5 seconds
+    refetchInterval: 3000 // Auto-refresh every 3 seconds for better real-time sync
   });
 
   // Check for active evacuation
@@ -247,6 +247,14 @@ export default function FireMarshalPanel() {
             <Button onClick={() => refetch()} variant="outline" data-testid="button-refresh">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
+            </Button>
+            <Button 
+              onClick={() => window.open('/fire-marshal-mobile', '_blank')} 
+              variant="outline"
+              data-testid="button-mobile-view"
+            >
+              <Smartphone className="h-4 w-4 mr-2" />
+              Mobile View
             </Button>
             <Button 
               onClick={() => sendUpdateMutation.mutate()} 

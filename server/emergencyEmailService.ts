@@ -239,15 +239,27 @@ export class EmergencyEmailService {
                 <a href="${marshalUrl}" class="cta-button" style="color: white;">
                     🛡️ ACCESS FIRE MARSHAL CONTROL PANEL
                 </a>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <p style="color: #6b7280; margin: 10px 0;">Or access directly:</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <a href="${baseUrl}/fire-marshal-mobile" style="display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold;">
+                            📱 Mobile Panel
+                        </a>
+                        <a href="${baseUrl}/fire-marshal-panel" style="display: inline-block; background: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold;">
+                            💻 Desktop Panel
+                        </a>
+                    </div>
+                </div>
 
                 <div class="instructions">
                     <h3>🎯 Your Fire Marshal Responsibilities:</h3>
                     <ul>
-                        <li><strong>Immediate Access:</strong> Click the button above for instant mobile access</li>
-                        <li><strong>No Login Required:</strong> Secure token provides direct emergency access</li>
-                        <li><strong>Real-Time Updates:</strong> All changes sync automatically with other Fire Marshals</li>
-                        <li><strong>Mark Personnel Safe:</strong> Use large touch-friendly buttons to update status</li>
-                        <li><strong>Mobile Optimized:</strong> Works perfectly on phones and tablets</li>
+                        <li><strong>Immediate Access:</strong> Click any button above for instant access</li>
+                        <li><strong>Mobile Optimized:</strong> Use the Mobile Panel on phones/tablets for best experience</li>
+                        <li><strong>Real-Time Sync:</strong> All changes update instantly across ALL Fire Marshal devices</li>
+                        <li><strong>Mark Personnel Safe:</strong> Large touch-friendly buttons for easy status updates</li>
+                        <li><strong>Multiple Marshals:</strong> Work simultaneously with other Fire Marshals - all lists stay synchronized</li>
                     </ul>
                 </div>
 

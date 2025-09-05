@@ -2640,20 +2640,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { personId } = req.params;
       const { type } = req.body;
       
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      console.log('Toggle endpoint - personId:', personId, 'type:', type, 'username:', username);
+      
       let updated = false;
       
       if (type === 'staff') {
-        const result = await storage.toggleStaffAccountedStatus(personId);
-        updated = result;
+        const staff = await databaseService.getStaff(context);
+        console.log('Staff list:', staff.map(s => ({ id: s.id, name: `${s.firstName} ${s.lastName}` })));
+        const staffMember = staff.find(s => s.id === personId);
+        if (staffMember) {
+          // Toggle the isAccountedFor status
+          await databaseService.updateStaff(context, personId, {
+            ...staffMember,
+            isAccountedFor: !staffMember.isAccountedFor
+          });
+          updated = true;
+        }
       } else if (type === 'visitor') {
-        const result = await storage.toggleVisitorAccountedStatus(personId);
-        updated = result;
+        const visitors = await databaseService.getCurrentVisitors(context);
+        console.log('Visitor list:', visitors.map(v => ({ id: v.id, name: `${v.firstName} ${v.lastName}` })));
+        const visitor = visitors.find(v => v.id === personId);
+        if (visitor) {
+          // Toggle the isAccountedFor status
+          await databaseService.updateVisitor(context, personId, {
+            ...visitor,
+            isAccountedFor: !visitor.isAccountedFor
+          });
+          updated = true;
+        }
       } else if (type === 'contractor') {
+        // TODO: Implement contractor toggle with customer isolation
         const result = await storage.toggleContractorAccountedStatus(personId);
         updated = result;
       }
       
       if (!updated) {
+        console.log('Person not found - personId:', personId, 'type:', type);
         return res.status(404).json({ error: "Person not found" });
       }
       
