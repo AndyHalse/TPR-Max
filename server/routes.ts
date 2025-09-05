@@ -3951,6 +3951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (hostStaff) {
         // Send visitor invitation email with meeting room details
         try {
+          console.log(`📧 Attempting to send pre-booking invitation email to ${preBooking.visitorEmail}`);
           const { EmailService } = await import("./emailService");
           const emailService = new EmailService();
           const emailSent = await emailService.sendVisitorInvitation(
@@ -3960,15 +3961,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           if (emailSent) {
+            console.log(`✅ Pre-booking invitation email sent successfully to ${preBooking.visitorEmail}`);
             await storage.updatePreBooking(preBooking.id, {
               emailSent: true,
               emailSentAt: new Date(),
             });
+          } else {
+            console.log(`⚠️ Pre-booking invitation email failed to send to ${preBooking.visitorEmail}`);
           }
         } catch (emailError) {
           console.error("Failed to send visitor invitation email:", emailError);
           // Don't fail the pre-booking if email fails
         }
+      } else {
+        console.log("⚠️ No host staff found, skipping pre-booking email");
       }
       
       res.json(preBooking);
