@@ -401,6 +401,22 @@ export const companySettings = pgTable("company_settings", {
   qrCodeFormat: text("qr_code_format").default("visigate"), // visigate, uuid, custom
   qrReaderSettings: text("qr_reader_settings").default("{}"), // JSON string for device-specific settings
   
+  // Suprema CLUe Cloud Platform Integration
+  clueEnabled: boolean("clue_enabled").default(false),
+  clueApiUrl: text("clue_api_url").default("https://api.suprema-clue.com"), // CLUe API endpoint
+  clueApiKey: text("clue_api_key").default(""), // CLUe API key for authentication
+  clueApiSecret: text("clue_api_secret").default(""), // CLUe API secret
+  clueOrganizationId: text("clue_organization_id").default(""), // Organization ID in CLUe
+  clueWebhookSecret: text("clue_webhook_secret").default(""), // Secret for webhook verification
+  clueDynamicQrEnabled: boolean("clue_dynamic_qr_enabled").default(true), // Enable dynamic QR codes
+  clueQrValidityMinutes: text("clue_qr_validity_minutes").default("60"), // QR code validity period
+  clueDeviceGroups: text("clue_device_groups").array().default([]), // X-Station 2 device group IDs
+  clueSyncInterval: text("clue_sync_interval").default("300"), // Sync every 5 minutes (300 seconds)
+  clueAutoRegisterVisitors: boolean("clue_auto_register_visitors").default(true), // Auto-register visitors in CLUe
+  clueAutoDeleteExpired: boolean("clue_auto_delete_expired").default(true), // Auto-delete expired QR codes
+  clueTestMode: boolean("clue_test_mode").default(false), // Test mode for development
+  clueLastSync: timestamp("clue_last_sync"), // Last successful sync timestamp
+  
   // E-Pass Configuration Settings
   ePassEnabled: boolean("e_pass_enabled").default(false),
   ePassDeliveryMethod: text("e_pass_delivery_method").default("both"), // email, sms, both, choice

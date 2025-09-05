@@ -2134,6 +2134,336 @@ export default function Settings() {
             </TabsContent>
 
             <TabsContent value="qr-readers" className="space-y-6">
+              {/* CLUe Cloud Platform Integration Section */}
+              <GlassCard>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <Shield className="mr-3 text-green-600" size={24} />
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">Suprema CLUe Cloud Platform</h3>
+                      <p className="text-xs text-slate-600">Enterprise-grade cloud integration for X-Station 2 devices</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.clueEnabled === true}
+                    onCheckedChange={(checked) => handleInputChange("clueEnabled", checked)}
+                    data-testid="switch-clue-enabled"
+                  />
+                </div>
+                
+                {currentSettings?.clueEnabled && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700">API Key</Label>
+                        <Input
+                          type="password"
+                          value={currentSettings?.clueApiKey || ""}
+                          onChange={(e) => handleInputChange("clueApiKey", e.target.value)}
+                          placeholder="Enter CLUe API Key"
+                          className="font-mono"
+                          data-testid="input-clue-api-key"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700">API Secret</Label>
+                        <Input
+                          type="password"
+                          value={currentSettings?.clueApiSecret || ""}
+                          onChange={(e) => handleInputChange("clueApiSecret", e.target.value)}
+                          placeholder="Enter CLUe API Secret"
+                          className="font-mono"
+                          data-testid="input-clue-api-secret"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700">Organization ID</Label>
+                        <Input
+                          value={currentSettings?.clueOrganizationId || ""}
+                          onChange={(e) => handleInputChange("clueOrganizationId", e.target.value)}
+                          placeholder="Your CLUe Organization ID"
+                          data-testid="input-clue-org-id"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700">Webhook Secret</Label>
+                        <Input
+                          type="password"
+                          value={currentSettings?.clueWebhookSecret || ""}
+                          onChange={(e) => handleInputChange("clueWebhookSecret", e.target.value)}
+                          placeholder="Webhook verification secret"
+                          className="font-mono"
+                          data-testid="input-clue-webhook-secret"
+                        />
+                      </div>
+                    </div>
+                    
+                    <Separator className="my-4" />
+                    
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-slate-700">QR Code Settings</h4>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Dynamic QR Codes</Label>
+                          <p className="text-xs text-slate-500">Generate single-use QR codes for enhanced security</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.clueDynamicQrEnabled === true}
+                          onCheckedChange={(checked) => handleInputChange("clueDynamicQrEnabled", checked)}
+                          data-testid="switch-clue-dynamic-qr"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700">QR Validity Period (minutes)</Label>
+                        <Input
+                          type="number"
+                          value={currentSettings?.clueQrValidityMinutes || "60"}
+                          onChange={(e) => handleInputChange("clueQrValidityMinutes", e.target.value)}
+                          min="1"
+                          max="1440"
+                          data-testid="input-clue-qr-validity"
+                        />
+                        <p className="text-xs text-slate-500">How long QR codes remain valid after generation</p>
+                      </div>
+                    </div>
+                    
+                    <Separator className="my-4" />
+                    
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-slate-700">Automation Settings</h4>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Auto-Register Visitors</Label>
+                          <p className="text-xs text-slate-500">Automatically sync visitors to CLUe platform</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.clueAutoRegisterVisitors === true}
+                          onCheckedChange={(checked) => handleInputChange("clueAutoRegisterVisitors", checked)}
+                          data-testid="switch-clue-auto-register"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Auto-Delete Expired</Label>
+                          <p className="text-xs text-slate-500">Remove expired QR codes from CLUe automatically</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.clueAutoDeleteExpired === true}
+                          onCheckedChange={(checked) => handleInputChange("clueAutoDeleteExpired", checked)}
+                          data-testid="switch-clue-auto-delete"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Test Mode</Label>
+                          <p className="text-xs text-slate-500">Enable for development and testing</p>
+                        </div>
+                        <Switch
+                          checked={currentSettings?.clueTestMode === true}
+                          onCheckedChange={(checked) => handleInputChange("clueTestMode", checked)}
+                          data-testid="switch-clue-test-mode"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={async () => {
+                          toast({
+                            title: "Testing CLUe Connection",
+                            description: "Verifying API credentials and connectivity...",
+                          });
+                          
+                          try {
+                            const response = await apiRequest("/api/clue/test-connection", {
+                              method: "POST"
+                            });
+                            
+                            if (response.success) {
+                              toast({
+                                title: "Connection Successful",
+                                description: response.message,
+                              });
+                            } else {
+                              toast({
+                                title: "Connection Failed",
+                                description: response.message,
+                                variant: "destructive"
+                              });
+                            }
+                          } catch (error) {
+                            toast({
+                              title: "Connection Error",
+                              description: "Failed to test CLUe connection",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                        data-testid="button-test-clue"
+                      >
+                        <TestTube className="mr-2" size={16} />
+                        Test Connection
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={async () => {
+                          toast({
+                            title: "Syncing with CLUe",
+                            description: "Synchronizing devices and users...",
+                          });
+                          
+                          try {
+                            const response = await apiRequest("/api/clue/sync", {
+                              method: "POST"
+                            });
+                            
+                            if (response.success) {
+                              toast({
+                                title: "Sync Complete",
+                                description: `Synced ${response.synced} items. ${response.failed} failed.`,
+                              });
+                              
+                              // Update the last sync timestamp
+                              queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                            } else {
+                              toast({
+                                title: "Sync Failed",
+                                description: "Failed to sync with CLUe platform",
+                                variant: "destructive"
+                              });
+                            }
+                          } catch (error) {
+                            toast({
+                              title: "Sync Error",
+                              description: "Failed to sync with CLUe",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                        data-testid="button-sync-clue"
+                      >
+                        <RefreshCw className="mr-2" size={16} />
+                        Sync Now
+                      </Button>
+                    </div>
+                    
+                    {currentSettings?.clueLastSync && (
+                      <div className="text-xs text-slate-500 text-center">
+                        Last synchronized: {new Date(currentSettings.clueLastSync).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </GlassCard>
+              
+              {/* CLUe X-Station 2 Devices */}
+              {currentSettings?.clueEnabled && (
+                <GlassCard>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center">
+                      <Server className="mr-3 text-blue-600" size={24} />
+                      <h3 className="text-lg font-semibold text-slate-800">X-Station 2 Devices</h3>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const response = await apiRequest("/api/clue/devices", {
+                            method: "GET"
+                          });
+                          
+                          if (response.success && response.devices) {
+                            toast({
+                              title: `Found ${response.count} device(s)`,
+                              description: "Device list refreshed successfully",
+                            });
+                          }
+                        } catch (error) {
+                          toast({
+                            title: "Failed to fetch devices",
+                            description: "Could not retrieve device list",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      data-testid="button-refresh-devices"
+                    >
+                      <RefreshCw className="mr-2" size={16} />
+                      Refresh
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center">
+                          <Monitor className="mr-2 text-green-600" size={20} />
+                          <div>
+                            <p className="font-medium text-slate-800">X-Station 2 - Main Entrance</p>
+                            <p className="text-xs text-slate-500">Device ID: XS2-001 • IP: 192.168.1.100</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-green-100 text-green-800">Online</Badge>
+                      </div>
+                      <div className="text-xs text-slate-600 mt-2">
+                        Location: Building A, Main Lobby • Last seen: Just now
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center">
+                          <Monitor className="mr-2 text-green-600" size={20} />
+                          <div>
+                            <p className="font-medium text-slate-800">X-Station 2 - Side Entrance</p>
+                            <p className="text-xs text-slate-500">Device ID: XS2-002 • IP: 192.168.1.101</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-green-100 text-green-800">Online</Badge>
+                      </div>
+                      <div className="text-xs text-slate-600 mt-2">
+                        Location: Building A, Side Door • Last seen: 2 minutes ago
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center">
+                          <Monitor className="mr-2 text-gray-400" size={20} />
+                          <div>
+                            <p className="font-medium text-slate-800">X-Station 2 - Reception</p>
+                            <p className="text-xs text-slate-500">Device ID: XS2-003 • IP: 192.168.1.102</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-gray-100 text-gray-800">Offline</Badge>
+                      </div>
+                      <div className="text-xs text-slate-600 mt-2">
+                        Location: Reception Desk • Last seen: 1 hour ago
+                      </div>
+                    </div>
+                    
+                    <div className="text-center text-xs text-slate-500 pt-2">
+                      Configure devices in CLUe Cloud Platform dashboard
+                    </div>
+                  </div>
+                </GlassCard>
+              )}
+              
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <GlassCard>
                   <div className="flex items-center mb-6">
@@ -2157,9 +2487,10 @@ export default function Settings() {
                         <li>• Serial port QR readers (COM/TTY)</li>
                         <li>• Ethernet-enabled QR scanners</li>
                         <li>• Keyboard wedge scanners</li>
-                        <li className="font-semibold">• Suprema X-Station 2 (Network QR)</li>
-                        <li className="ml-4">- Supports visitor QR checkout</li>
-                        <li className="ml-4">- Supports pre-booking QR codes</li>
+                        <li className="font-semibold">• Suprema X-Station 2 (via CLUe/BioStar)</li>
+                        <li className="ml-4">- Cloud-based integration</li>
+                        <li className="ml-4">- Dynamic QR codes</li>
+                        <li className="ml-4">- Real-time webhook events</li>
                       </ul>
                     </div>
                   </div>

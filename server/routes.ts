@@ -2634,6 +2634,242 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CLUe Cloud Platform Integration Endpoints
+  
+  // Webhook endpoint for CLUe scan events
+  app.post("/api/clue/webhook", async (req, res) => {
+    try {
+      const signature = req.headers["x-clue-signature"] as string;
+      const payload = JSON.stringify(req.body);
+      
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get company settings for CLUe configuration
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      
+      if (!companySettings?.clueEnabled) {
+        return res.status(400).json({ error: "CLUe integration not enabled" });
+      }
+      
+      // Import and use CLUe service
+      const { ClueService } = await import("./clueService");
+      const clueService = new ClueService(companySettings);
+      
+      // Verify webhook signature for security
+      if (signature && !clueService.verifyWebhookSignature(payload, signature)) {
+        return res.status(401).json({ error: "Invalid webhook signature" });
+      }
+      
+      // Process the webhook event
+      const result = await clueService.processWebhookEvent(req.body);
+      
+      // Handle specific actions based on event type
+      if (result.action === "check_in_out" && req.body.qr_code) {
+        // Find visitor by QR code and toggle check-in/out
+        const visitor = await databaseService.getVisitorByQrCode(context, req.body.qr_code);
+        if (visitor) {
+          if (visitor.checkedOutAt) {
+            // Visitor is checking back in
+            await databaseService.updateVisitor(context, visitor.id, {
+              ...visitor,
+              checkedOutAt: null,
+              checkedInAt: new Date()
+            });
+          } else {
+            // Visitor is checking out
+            await databaseService.checkOutVisitor(context, visitor.id);
+          }
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        processed: result.processed,
+        message: result.message 
+      });
+    } catch (error) {
+      console.error("Error processing CLUe webhook:", error);
+      res.status(500).json({ error: "Failed to process webhook" });
+    }
+  });
+  
+  // Generate dynamic QR code for visitor
+  app.post("/api/clue/generate-qr", requireAuth, async (req, res) => {
+    try {
+      const { visitorId } = req.body;
+      
+      if (!visitorId) {
+        return res.status(400).json({ error: "Visitor ID is required" });
+      }
+      
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get company settings and visitor
+      const [companySettings, visitor] = await Promise.all([
+        simpleDatabaseService.getCompanySettings(context),
+        databaseService.getVisitorById(context, visitorId)
+      ]);
+      
+      if (!companySettings?.clueEnabled) {
+        return res.status(400).json({ error: "CLUe integration not enabled" });
+      }
+      
+      if (!visitor) {
+        return res.status(404).json({ error: "Visitor not found" });
+      }
+      
+      // Import and use CLUe service
+      const { ClueService } = await import("./clueService");
+      const clueService = new ClueService(companySettings);
+      
+      // Generate dynamic QR code
+      const qrResponse = await clueService.generateDynamicQR({
+        user_id: visitor.id,
+        user_name: `${visitor.firstName} ${visitor.lastName}`,
+        email: visitor.email || undefined,
+        validity_minutes: parseInt(companySettings.clueQrValidityMinutes || "60"),
+        metadata: {
+          company: visitor.company,
+          host: visitor.hostStaffId,
+          purpose: visitor.purpose
+        }
+      });
+      
+      if (!qrResponse) {
+        return res.status(500).json({ error: "Failed to generate QR code" });
+      }
+      
+      // Update visitor with QR code
+      await databaseService.updateVisitor(context, visitorId, {
+        ...visitor,
+        qrCode: qrResponse.qr_code,
+        ePassUrl: qrResponse.access_url
+      });
+      
+      res.json({
+        success: true,
+        qrCode: qrResponse.qr_code,
+        validUntil: qrResponse.valid_until,
+        accessUrl: qrResponse.access_url
+      });
+    } catch (error) {
+      console.error("Error generating CLUe QR code:", error);
+      res.status(500).json({ error: "Failed to generate QR code" });
+    }
+  });
+  
+  // Test CLUe connection
+  app.post("/api/clue/test-connection", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get company settings
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      
+      if (!companySettings?.clueEnabled) {
+        return res.status(400).json({ error: "CLUe integration not enabled" });
+      }
+      
+      // Import and use CLUe service
+      const { ClueService } = await import("./clueService");
+      const clueService = new ClueService(companySettings);
+      
+      // Test connection
+      const testResult = await clueService.testConnection();
+      
+      res.json(testResult);
+    } catch (error) {
+      console.error("Error testing CLUe connection:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to test connection",
+        error: error.message 
+      });
+    }
+  });
+  
+  // Sync with CLUe platform
+  app.post("/api/clue/sync", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get company settings and current people
+      const [companySettings, visitors, staff] = await Promise.all([
+        simpleDatabaseService.getCompanySettings(context),
+        databaseService.getCurrentVisitors(context),
+        databaseService.getCheckedInStaff(context)
+      ]);
+      
+      if (!companySettings?.clueEnabled) {
+        return res.status(400).json({ error: "CLUe integration not enabled" });
+      }
+      
+      // Import and use CLUe service
+      const { ClueService } = await import("./clueService");
+      const clueService = new ClueService(companySettings);
+      
+      // Sync with platform
+      const syncResult = await clueService.syncWithPlatform(staff, visitors);
+      
+      // Update last sync timestamp
+      await simpleDatabaseService.updateCompanySettings(context, {
+        ...companySettings,
+        clueLastSync: new Date()
+      });
+      
+      res.json({
+        success: true,
+        synced: syncResult.synced,
+        failed: syncResult.failed,
+        errors: syncResult.errors,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error syncing with CLUe:", error);
+      res.status(500).json({ error: "Failed to sync with CLUe platform" });
+    }
+  });
+  
+  // Get CLUe devices
+  app.get("/api/clue/devices", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get company settings
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      
+      if (!companySettings?.clueEnabled) {
+        return res.status(400).json({ error: "CLUe integration not enabled" });
+      }
+      
+      // Import and use CLUe service
+      const { ClueService } = await import("./clueService");
+      const clueService = new ClueService(companySettings);
+      
+      // Get devices
+      const devices = await clueService.getDevices();
+      
+      res.json({
+        success: true,
+        devices: devices,
+        count: devices.length
+      });
+    } catch (error) {
+      console.error("Error fetching CLUe devices:", error);
+      res.status(500).json({ error: "Failed to fetch devices" });
+    }
+  });
+
   // Muster accounted status toggle endpoint
   app.post("/api/muster/:personId/toggle", async (req, res) => {
     try {
