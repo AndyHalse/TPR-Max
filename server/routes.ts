@@ -3945,15 +3945,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const preBooking = await storage.createPreBooking(preBookingData);
       
       // Get host staff and meeting room details for email - with customer isolation
-      console.log(`🔍 Looking for host staff with ID: ${preBooking.hostStaffId} for customer: ${context.customerId}`);
+      console.log(`🔍 Looking for host staff with ID: ${preBooking.hostStaffId}`);
       
-      // Use the database service with customer context for proper isolation
-      const { DatabaseService } = await import("./databaseService");
-      const databaseService = new DatabaseService();
-      const hostStaff = preBooking.hostStaffId ? await databaseService.getStaffById(context, preBooking.hostStaffId) : undefined;
+      let hostStaff;
+      try {
+        // Try to get staff with customer isolation using database service
+        const { DatabaseService } = await import("./databaseService");
+        const databaseService = new DatabaseService();
+        console.log(`🔎 Attempting to fetch staff with customer context: ${context.customerId}`);
+        hostStaff = preBooking.hostStaffId ? await databaseService.getStaffById(context, preBooking.hostStaffId) : undefined;
+        console.log(`✅ Database service returned: ${hostStaff ? 'Staff found' : 'Staff not found'}`);
+      } catch (dbError) {
+        console.error(`❌ Error using database service:`, dbError);
+        // Fallback to storage (which doesn't have customer isolation)
+        console.log(`⚠️ Falling back to storage.getStaffById (NO customer isolation)`);
+        hostStaff = preBooking.hostStaffId ? await storage.getStaffById(preBooking.hostStaffId) : undefined;
+      }
       
       const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
-      console.log(`👤 Host staff found: ${hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName} (${hostStaff.email})` : 'NO - Staff may belong to different customer'}`);
+      console.log(`👤 Host staff found: ${hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'NO'}`);
       
       if (hostStaff) {
         // Send visitor invitation email with meeting room details
