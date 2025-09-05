@@ -775,28 +775,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // For now return empty until we implement customer-isolated muster data
-      res.json([]);
-      return;
+      // Get all checked-in staff using customer-isolated database service
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
       
-      // Get all checked-in contractors
+      // Get all current visitors using customer-isolated database service
+      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      
+      // Get all checked-in contractors - TODO: implement customer-isolated contractor tracking
       let checkedInContractors: any[] = [];
-      for (const company of contractorCompanies) {
-        const workers = await storage.getWorkersByCompanyId(company.id);
-        checkedInContractors.push(
-          ...workers
-            .filter(worker => worker.isCheckedIn)
-            .map(worker => ({
-              id: worker.id,
-              name: `${worker.firstName} ${worker.lastName}`,
-              type: 'contractor' as const,
-              company: company.name,
-              checkedInAt: worker.checkedInAt || worker.createdAt,
-              location: 'Building A',
-              accounted: worker.isAccountedFor || false
-            }))
-        );
-      }
       
       // Combine all personnel for muster list
       const musterList = [
@@ -825,6 +811,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to fetch muster list:", error);
       res.status(500).json({ error: "Failed to fetch muster list" });
+    }
+  });
+
+  // Emergency Evacuation - Send evacuation alert to all people on site
+  app.post("/api/emergency/evacuate", requireAuth, async (req, res) => {
+    try {
+      const { musterPoints, message, sendEmail, sendSMS } = req.body;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get all people currently on site
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      
+      // Prepare evacuation data
+      const evacuationData = {
+        timestamp: new Date().toISOString(),
+        totalPeople: checkedInStaff.length + currentVisitors.length,
+        staff: checkedInStaff.length,
+        visitors: currentVisitors.length,
+        musterPoints: musterPoints || ['Main Car Park', 'Side Entrance', 'Rear Assembly'],
+        message: message || 'Emergency evacuation in progress. Please proceed to your nearest muster point immediately.',
+        notificationsSent: 0
+      };
+      
+      // Send email notifications if requested
+      if (sendEmail) {
+        const emailService = new EmailService(companySettings);
+        
+        // Send to all staff
+        for (const staff of checkedInStaff) {
+          if (staff.email) {
+            await emailService.sendEvacuationAlert(
+              staff.email,
+              `${staff.firstName} ${staff.lastName}`,
+              evacuationData.message,
+              evacuationData.musterPoints,
+              companySettings
+            );
+            evacuationData.notificationsSent++;
+          }
+        }
+        
+        // Send to all visitors
+        for (const visitor of currentVisitors) {
+          if (visitor.email) {
+            await emailService.sendEvacuationAlert(
+              visitor.email,
+              `${visitor.firstName} ${visitor.lastName}`,
+              evacuationData.message,
+              evacuationData.musterPoints,
+              companySettings
+            );
+            evacuationData.notificationsSent++;
+          }
+        }
+        
+        // Send to Fire Marshal if configured
+        const fireMarshal = checkedInStaff.find(s => s.isFireMarshal);
+        if (fireMarshal && fireMarshal.email) {
+          await emailService.sendFireMarshalAlert(
+            fireMarshal.email,
+            `${fireMarshal.firstName} ${fireMarshal.lastName}`,
+            evacuationData,
+            [...checkedInStaff, ...currentVisitors],
+            companySettings
+          );
+        }
+      }
+      
+      res.json({
+        success: true,
+        evacuationData,
+        message: `Emergency evacuation initiated. ${evacuationData.notificationsSent} notifications sent.`
+      });
+    } catch (error) {
+      console.error("Failed to initiate emergency evacuation:", error);
+      res.status(500).json({ error: "Failed to initiate emergency evacuation" });
     }
   });
 

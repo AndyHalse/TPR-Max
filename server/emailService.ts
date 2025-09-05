@@ -624,6 +624,183 @@ For questions about this report, please contact the administrator.
     });
   }
 
+  // Send evacuation alert email
+  async sendEvacuationAlert(
+    toEmail: string,
+    recipientName: string,
+    message: string,
+    musterPoints: string[],
+    companySettings: CompanySettings
+  ): Promise<boolean> {
+    const subject = '🚨 EMERGENCY EVACUATION - IMMEDIATE ACTION REQUIRED';
+    const primaryColor = companySettings?.accentColor || '#dc2626';
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 3px solid ${primaryColor};">
+        <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 28px;">🚨 EMERGENCY EVACUATION 🚨</h1>
+        </div>
+        
+        <div style="padding: 20px; background: #fee2e2;">
+          <h2 style="color: #991b1b; margin-top: 0;">Dear ${recipientName},</h2>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid ${primaryColor};">
+            <p style="font-size: 18px; font-weight: bold; color: #991b1b; margin: 0;">
+              ${message}
+            </p>
+          </div>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="color: #991b1b; margin-top: 0;">📍 Muster Points:</h3>
+            <ul style="font-size: 16px;">
+              ${musterPoints.map(point => `<li><strong>${point}</strong></li>`).join('')}
+            </ul>
+          </div>
+          
+          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="color: #92400e; margin-top: 0;">⚠️ Important Instructions:</h3>
+            <ul style="margin: 0;">
+              <li>Leave the building immediately via the nearest exit</li>
+              <li>Do NOT use elevators</li>
+              <li>Do NOT collect personal belongings</li>
+              <li>Report to your designated muster point</li>
+              <li>Remain at the muster point until given the all-clear</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px;">
+            <p style="color: #666; font-size: 14px;">
+              ${companySettings.companyName}<br>
+              Emergency Contact: ${companySettings.phoneNumber || '999'}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const text = `EMERGENCY EVACUATION - IMMEDIATE ACTION REQUIRED
+
+Dear ${recipientName},
+
+${message}
+
+Muster Points:
+${musterPoints.map(point => `- ${point}`).join('\n')}
+
+Important Instructions:
+- Leave the building immediately via the nearest exit
+- Do NOT use elevators
+- Do NOT collect personal belongings
+- Report to your designated muster point
+- Remain at the muster point until given the all-clear
+
+${companySettings.companyName}
+Emergency Contact: ${companySettings.phoneNumber || '999'}`;
+    
+    return await this.sendEmail({
+      to: toEmail,
+      subject,
+      html,
+      text
+    });
+  }
+
+  // Send Fire Marshal alert with full muster list
+  async sendFireMarshalAlert(
+    toEmail: string,
+    marshalName: string,
+    evacuationData: any,
+    peopleOnSite: any[],
+    companySettings: CompanySettings
+  ): Promise<boolean> {
+    const subject = '🚨 FIRE MARSHAL ALERT - Evacuation Muster List';
+    const primaryColor = companySettings?.accentColor || '#dc2626';
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 3px solid ${primaryColor};">
+        <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0;">🚨 FIRE MARSHAL EVACUATION ALERT</h1>
+        </div>
+        
+        <div style="padding: 20px;">
+          <h2 style="color: #991b1b;">Fire Marshal: ${marshalName}</h2>
+          
+          <div style="background: #fee2e2; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="margin-top: 0;">📊 Evacuation Summary:</h3>
+            <p><strong>Total People on Site:</strong> ${evacuationData.totalPeople}</p>
+            <p><strong>Staff:</strong> ${evacuationData.staff}</p>
+            <p><strong>Visitors:</strong> ${evacuationData.visitors}</p>
+            <p><strong>Time:</strong> ${new Date(evacuationData.timestamp).toLocaleString()}</p>
+          </div>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+            <h3 style="margin-top: 0;">👥 Complete Muster List:</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f3f4f6;">
+                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Name</th>
+                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Type</th>
+                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Department/Company</th>
+                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${peopleOnSite.map(person => `
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${person.firstName} ${person.lastName}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${person.isVisitor ? 'Visitor' : 'Staff'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${person.department || person.company || '-'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                      <span style="color: ${person.isAccountedFor ? 'green' : 'red'};">
+                        ${person.isAccountedFor ? '✓ Accounted' : '✗ Not Accounted'}
+                      </span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="color: #92400e; margin-top: 0;">📍 Active Muster Points:</h3>
+            <ul>
+              ${evacuationData.musterPoints.map(point => `<li>${point}</li>`).join('')}
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #666;">
+            <p>This is an automated emergency notification from ${companySettings.companyName}</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const text = `FIRE MARSHAL EVACUATION ALERT
+
+Fire Marshal: ${marshalName}
+
+Evacuation Summary:
+- Total People on Site: ${evacuationData.totalPeople}
+- Staff: ${evacuationData.staff}
+- Visitors: ${evacuationData.visitors}
+- Time: ${new Date(evacuationData.timestamp).toLocaleString()}
+
+Complete Muster List:
+${peopleOnSite.map(p => `- ${p.firstName} ${p.lastName} (${p.isVisitor ? 'Visitor' : 'Staff'}) - ${p.isAccountedFor ? 'Accounted' : 'NOT ACCOUNTED'}`).join('\n')}
+
+Active Muster Points:
+${evacuationData.musterPoints.map(point => `- ${point}`).join('\n')}
+
+This is an automated emergency notification from ${companySettings.companyName}`;
+    
+    return await this.sendEmail({
+      to: toEmail,
+      subject,
+      html,
+      text
+    });
+  }
+
   // Helper function to get logo for email as base64 data URL
   async getLogoForEmail(settings: CompanySettings): Promise<string | null> {
     try {
