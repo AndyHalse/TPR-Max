@@ -521,7 +521,7 @@ For questions about this report, please contact the administrator.
   }
 
   // Send visitor invitation with meeting room details
-  async sendVisitorInvitation(preBooking: any, hostStaff: Staff, meetingRoom?: any): Promise<boolean> {
+  async sendVisitorInvitation(preBooking: any, hostStaff: Staff, meetingRoom?: any, companySettings?: CompanySettings): Promise<boolean> {
     const formatDateTime = (date: Date) => {
       return new Intl.DateTimeFormat('en-GB', {
         weekday: 'long',
@@ -537,10 +537,22 @@ For questions about this report, please contact the administrator.
     const visitDateTime = formatDateTime(new Date(preBooking.visitDate));
     const subject = `You're Invited to Visit - ${preBooking.purpose || 'Business Meeting'}`;
     
+    // Get company logo as base64 if available
+    const logoBase64 = companySettings ? await this.getLogoForEmail(companySettings) : null;
+    
+    // Generate QR code as base64 image
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(preBooking.qrCode)}`;
+    
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center;">
+          ${logoBase64 ? `
+            <div style="margin-bottom: 20px;">
+              <img src="${logoBase64}" alt="${companySettings?.companyName || 'Company'} Logo" style="max-height: 60px; max-width: 200px;">
+            </div>
+          ` : ''}
           <h1 style="margin: 0; font-size: 24px;">🎯 You're Invited to Visit</h1>
+          ${companySettings?.companyName ? `<p style="margin: 10px 0 0 0; opacity: 0.95;">${companySettings.companyName}</p>` : ''}
         </div>
         
         <div style="padding: 30px; background: #f8f9fa; border-left: 4px solid #10b981;">
@@ -578,8 +590,13 @@ For questions about this report, please contact the administrator.
               <h4 style="color: #92400e; margin: 0 0 10px 0;">📋 Important Information</h4>
               <p style="margin: 5px 0;">• Please bring a valid photo ID for security</p>
               <p style="margin: 5px 0;">• Arrive 5-10 minutes early for check-in</p>
-              <p style="margin: 5px 0;">• Your QR code: <strong>${preBooking.qrCode}</strong></p>
+              <p style="margin: 5px 0;">• Your QR code: <strong>PRE-${preBooking.qrCode}</strong></p>
               <p style="margin: 5px 0;">• Show this email at reception for quick check-in</p>
+              
+              <div style="text-align: center; margin-top: 15px; padding: 20px; background: white; border-radius: 8px;">
+                <img src="${qrCodeUrl}" alt="QR Code for Check-in" style="width: 200px; height: 200px;">
+                <p style="margin-top: 10px; font-size: 12px; color: #666;">Scan this QR code at reception for express check-in</p>
+              </div>
             </div>
           </div>
 

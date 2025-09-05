@@ -1543,7 +1543,7 @@ export default function Visitors() {
                 </div>
               </div>
 
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {upcomingBookings && upcomingBookings.length > 0 ? (
                   upcomingBookings.map((booking) => (
                     <div key={booking.id} className="p-4 bg-white/50 rounded-xl border border-white/30">
