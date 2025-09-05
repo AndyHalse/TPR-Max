@@ -540,8 +540,9 @@ For questions about this report, please contact the administrator.
     // Get company logo as base64 if available
     const logoBase64 = companySettings ? await this.getLogoForEmail(companySettings) : null;
     
-    // Generate QR code as base64 image
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(preBooking.qrCode)}`;
+    // Generate QR code URL - prepend PRE- to the QR code for pre-bookings
+    const qrCodeData = `PRE-${preBooking.qrCode}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData)}`;
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
