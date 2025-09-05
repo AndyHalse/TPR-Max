@@ -1072,6 +1072,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Get active evacuation status
+  app.get("/api/emergency/active", async (req, res) => {
+    try {
+      // Check if there's an active evacuation
+      const activeEvacuation = await storage.getActiveEvacuation?.();
+      if (!activeEvacuation) {
+        return res.json({ active: false });
+      }
+      res.json({ 
+        active: true, 
+        evacuationId: activeEvacuation.id,
+        startedAt: activeEvacuation.startedAt 
+      });
+    } catch (error) {
+      console.error("Error checking active evacuation:", error);
+      res.status(500).json({ error: "Failed to check evacuation status" });
+    }
+  });
+
+  // Get evacuation accountability list
+  app.get("/api/emergency/accountability/:evacuationId?", requireAuth, async (req, res) => {
+    try {
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const evacuationId = req.params.evacuationId || await storage.getActiveEvacuation?.()?.id;
+      
+      if (!evacuationId) {
+        return res.status(400).json({ error: "No active evacuation" });
+      }
+
+      // Get all people on site
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      
+      // Combine and format for accountability tracking
+      const people = [
+        ...checkedInStaff.map(s => ({
+          id: s.id,
+          name: `${s.firstName} ${s.lastName}`,
+          type: 'staff' as const,
+          department: s.department,
+          isAccountedFor: s.isAccountedFor || false,
+          accountedBy: s.accountedBy,
+          accountedAt: s.accountedAt,
+          musterPoint: s.musterPoint
+        })),
+        ...currentVisitors.map(v => ({
+          id: v.id,
+          name: `${v.firstName} ${v.lastName}`,
+          type: 'visitor' as const,
+          company: v.company,
+          isAccountedFor: v.isAccountedFor || false,
+          accountedBy: v.accountedBy,
+          accountedAt: v.accountedAt,
+          musterPoint: v.musterPoint
+        }))
+      ];
+
+      res.json({ 
+        evacuationId,
+        people,
+        totalOnSite: people.length,
+        accountedFor: people.filter(p => p.isAccountedFor).length,
+        unaccounted: people.filter(p => !p.isAccountedFor).length
+      });
+    } catch (error) {
+      console.error("Error fetching accountability list:", error);
+      res.status(500).json({ error: "Failed to fetch accountability list" });
+    }
+  });
+
+  // Mark person as safe/accounted for
+  app.post("/api/emergency/mark-safe/:personId", requireAuth, async (req, res) => {
+    try {
+      const { personId } = req.params;
+      const { musterPoint, evacuationId } = req.body;
+      const marshalName = req.user?.username || 'Fire Marshal';
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Update person's accountability status
+      const updated = await databaseService.markPersonAccountedFor(context, personId, {
+        isAccountedFor: true,
+        accountedBy: marshalName,
+        accountedAt: new Date(),
+        musterPoint
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Person not found" });
+      }
+
+      // Broadcast update to all Fire Marshal panels
+      // In a real system, you'd use WebSockets or Server-Sent Events
+      
+      res.json({ 
+        success: true,
+        message: `Person marked as safe at ${musterPoint}`,
+        personId,
+        marshalName
+      });
+    } catch (error) {
+      console.error("Error marking person safe:", error);
+      res.status(500).json({ error: "Failed to update accountability" });
+    }
+  });
+
+  // Send update to all Fire Marshals
+  app.post("/api/emergency/send-update", requireAuth, async (req, res) => {
+    try {
+      const { evacuationId } = req.body;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get all Fire Marshals
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      const fireMarshals = checkedInStaff.filter(s => 
+        s.department?.toLowerCase().includes('safety') || 
+        s.department?.toLowerCase().includes('security') ||
+        s.isFireMarshal === true
+      );
+
+      // Get updated accountability data
+      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      const emailService = new EmailService(companySettings);
+
+      const evacuationData = {
+        timestamp: new Date().toISOString(),
+        totalPeople: checkedInStaff.length + currentVisitors.length,
+        staff: checkedInStaff.length,
+        visitors: currentVisitors.length,
+        accountedFor: [...checkedInStaff, ...currentVisitors].filter(p => p.isAccountedFor).length
+      };
+
+      // Send update emails to all Fire Marshals
+      let sent = 0;
+      for (const marshal of fireMarshals) {
+        if (marshal.email) {
+          try {
+            await emailService.sendFireMarshalAlert(
+              marshal.email,
+              `${marshal.firstName} ${marshal.lastName}`,
+              evacuationData,
+              [...checkedInStaff, ...currentVisitors],
+              companySettings
+            );
+            sent++;
+          } catch (error) {
+            console.error(`Failed to send update to ${marshal.firstName}:`, error);
+          }
+        }
+      }
+
+      res.json({ 
+        success: true,
+        message: `Update sent to ${sent} Fire Marshals`,
+        sent,
+        total: fireMarshals.length
+      });
+    } catch (error) {
+      console.error("Error sending Fire Marshal update:", error);
+      res.status(500).json({ error: "Failed to send update" });
+    }
+  });
   
   // Validate Fire Marshal emergency token
   app.get("/api/emergency/validate-token/:token", async (req, res) => {

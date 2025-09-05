@@ -863,6 +863,52 @@ export class DatabaseService {
     return true;
   }
 
+  // Mark person as accounted for during evacuation - updates staff or visitor
+  async markPersonAccountedFor(
+    context: CustomerContext,
+    personId: string,
+    data: {
+      isAccountedFor: boolean;
+      accountedBy: string;
+      accountedAt: Date;
+      musterPoint: string;
+    }
+  ): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Try to update as staff first
+    const [updatedStaff] = await db
+      .update(schema.staff)
+      .set({
+        isAccountedFor: data.isAccountedFor,
+        // Note: staff table doesn't have accountedBy, accountedAt, musterPoint columns
+        // These would need to be added to the schema if you want to track them
+      })
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.id, personId)
+      ))
+      .returning();
+    
+    if (updatedStaff) return true;
+    
+    // Try to update as visitor
+    const [updatedVisitor] = await db
+      .update(schema.visitors)
+      .set({
+        isAccountedFor: data.isAccountedFor,
+        // Note: visitors table doesn't have accountedBy, accountedAt, musterPoint columns
+        // These would need to be added to the schema if you want to track them
+      })
+      .where(and(
+        eq(schema.visitors.customerId, context.customerId),
+        eq(schema.visitors.id, personId)
+      ))
+      .returning();
+    
+    return !!updatedVisitor;
+  }
+
   async getCurrentVisitors(context: CustomerContext): Promise<Visitor[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     

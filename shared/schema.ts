@@ -79,6 +79,26 @@ export const staffSessions = pgTable("staff_sessions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Evacuation Accountability table for tracking people during emergency
+export const evacuationAccountability = pgTable("evacuation_accountability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  evacuationId: text("evacuation_id").notNull(),
+  personId: text("person_id").notNull(),
+  personType: text("person_type").notNull(), // 'staff' or 'visitor'
+  personName: text("person_name").notNull(),
+  department: text("department"),
+  company: text("company"),
+  lastKnownLocation: text("last_known_location"),
+  isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  accountedBy: text("accounted_by"), // Fire Marshal who marked them safe
+  accountedAt: timestamp("accounted_at"),
+  musterPoint: text("muster_point"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 export const visitors = pgTable("visitors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // CUSTOMER ISOLATION: Each visitor belongs to a specific customer
@@ -523,9 +543,17 @@ export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   createdAt: true,
 });
 
+export const insertEvacuationAccountabilitySchema = createInsertSchema(evacuationAccountability).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertUserInvitation = z.infer<typeof insertUserInvitationSchema>;
+export type InsertEvacuationAccountability = z.infer<typeof insertEvacuationAccountabilitySchema>;
 export type User = typeof users.$inferSelect;
+export type SelectEvacuationAccountability = typeof evacuationAccountability.$inferSelect;
 export type UserInvitation = typeof userInvitations.$inferSelect;
 export type CompanySettings = typeof companySettings.$inferSelect;
 export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;

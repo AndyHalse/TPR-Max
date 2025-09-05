@@ -26,6 +26,7 @@ import ContractorDetails from "@/pages/ContractorDetails";
 import ContractorKiosk from "@/pages/ContractorKiosk";
 import ContractorManagement from "@/pages/ContractorManagement";
 import FireMarshalMuster from "@/pages/FireMarshalMuster";
+import FireMarshalPanel from "@/pages/FireMarshalPanel";
 import InductionSettings from "@/pages/InductionSettings";
 import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
@@ -121,6 +122,7 @@ function Router() {
             <Route path="/contractor" component={ContractorKiosk} />
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
+            <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
             <Route path="/reports" component={Reports} />
             <Route path="/time-attendance" component={TimeAttendance} />
             <Route path="/settings" component={Settings} />
