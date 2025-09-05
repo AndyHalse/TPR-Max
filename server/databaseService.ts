@@ -506,6 +506,35 @@ export class DatabaseService {
     return created[0];
   }
 
+  async updateDepartment(context: CustomerContext, id: string, updates: Partial<InsertDepartment>): Promise<Department | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updated = await db
+      .update(schema.departments)
+      .set(updates)
+      .where(and(
+        eq(schema.departments.id, id),
+        eq(schema.departments.customerId, context.customerId)
+      ))
+      .returning();
+    
+    return updated[0];
+  }
+
+  async deleteDepartment(context: CustomerContext, id: string): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const result = await db
+      .delete(schema.departments)
+      .where(and(
+        eq(schema.departments.id, id),
+        eq(schema.departments.customerId, context.customerId)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
   /**
    * USER METHODS - Customer Isolated
    */
