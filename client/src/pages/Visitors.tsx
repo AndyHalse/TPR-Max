@@ -293,6 +293,10 @@ export default function Visitors() {
   const [duplicateMessage, setDuplicateMessage] = useState("");
   const [checkedInVisitor, setCheckedInVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
+  
+  // Pre-booking visitor search state
+  const [preBookSearchTerm, setPreBookSearchTerm] = useState("");
+  const [showVisitorSearch, setShowVisitorSearch] = useState(false);
 
   // Test data generation mutation
   const generateTestDataMutation = useMutation({
@@ -440,7 +444,7 @@ export default function Visitors() {
   });
 
   const checkInWalkInMutation = useMutation({
-    mutationFn: async (visitor: InsertVisitor) => {
+    mutationFn: async (visitor: Omit<InsertVisitor, 'customerId'>) => {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
       return response.json();
     },
@@ -540,7 +544,7 @@ export default function Visitors() {
   });
 
   const checkInPreviousVisitorMutation = useMutation({
-    mutationFn: async (visitor: InsertVisitor) => {
+    mutationFn: async (visitor: Omit<InsertVisitor, 'customerId'>) => {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
       return response.json();
     },
@@ -717,6 +721,34 @@ export default function Visitors() {
   const handleEditVisitor = (visitor: Visitor) => {
     setEditingVisitor(visitor);
     setShowEditModal(true);
+  };
+  
+  const handlePreBookVisitor = (visitor: Visitor) => {
+    // Pre-populate the pre-booking form with visitor details
+    setPreBookingData(prev => ({
+      ...prev,
+      visitorFirstName: visitor.firstName,
+      visitorLastName: visitor.lastName,
+      visitorEmail: visitor.email || '',
+      company: visitor.company || '',
+    }));
+    // Switch to pre-booking tab
+    setActiveTab("prebook");
+    // Scroll to top to show the form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  
+  const handleSelectVisitorForPreBooking = (visitor: Visitor) => {
+    // Pre-populate the pre-booking form with visitor details
+    setPreBookingData(prev => ({
+      ...prev,
+      visitorFirstName: visitor.firstName,
+      visitorLastName: visitor.lastName,
+      visitorEmail: visitor.email || '',
+      company: visitor.company || '',
+    }));
+    setShowVisitorSearch(false);
+    setPreBookSearchTerm("");
   };
 
   const handleHostSelectionConfirm = () => {
@@ -955,6 +987,16 @@ export default function Visitors() {
                             title="Edit visitor details"
                           >
                             <Edit size={14} />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handlePreBookVisitor(visitor)}
+                            data-testid={`button-prebook-visitor-${visitor.id}`}
+                            className="p-2"
+                            title="Pre-book this visitor"
+                          >
+                            <CalendarPlus size={14} />
                           </Button>
                           {visitor.isCheckedIn ? (
                             <button
@@ -1258,6 +1300,80 @@ export default function Visitors() {
                 <div>
                   <h2 className="text-xl font-semibold text-slate-800">Create Pre-booking</h2>
                   <p className="text-slate-600">Schedule a future visitor</p>
+                </div>
+              </div>
+              
+              {/* Search Previous Visitors Section */}
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <div className="mb-3">
+                  <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Quick Select Previous Visitor
+                  </Label>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    Start typing to search for a previous visitor and auto-fill their details
+                  </p>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 text-blue-600" size={18} />
+                  <Input
+                    placeholder="Search by name or company..."
+                    value={preBookSearchTerm}
+                    onChange={(e) => {
+                      setPreBookSearchTerm(e.target.value);
+                      setShowVisitorSearch(e.target.value.length >= 2);
+                    }}
+                    onFocus={() => {
+                      if (preBookSearchTerm.length >= 2) {
+                        setShowVisitorSearch(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Small delay to allow click on dropdown item
+                      setTimeout(() => setShowVisitorSearch(false), 200);
+                    }}
+                    className="pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-blue-300"
+                    data-testid="input-prebook-search"
+                  />
+                  
+                  {/* Search Results Dropdown */}
+                  {showVisitorSearch && preBookSearchTerm.length >= 2 && (
+                    <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-h-60 overflow-auto">
+                      {allVisitors?.filter((v: Visitor) => 
+                        (v.firstName?.toLowerCase().includes(preBookSearchTerm.toLowerCase()) ||
+                         v.lastName?.toLowerCase().includes(preBookSearchTerm.toLowerCase()) ||
+                         v.company?.toLowerCase().includes(preBookSearchTerm.toLowerCase())) &&
+                        !v.isCheckedIn
+                      ).slice(0, 5).map((visitor: Visitor) => (
+                        <button
+                          key={visitor.id}
+                          type="button"
+                          onClick={() => handleSelectVisitorForPreBooking(visitor)}
+                          className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-slate-100 dark:border-slate-700 last:border-0 flex items-center justify-between group"
+                          data-testid={`button-select-prebookvisitor-${visitor.id}`}
+                        >
+                          <div>
+                            <div className="font-medium text-slate-800 dark:text-slate-200">
+                              {visitor.firstName} {visitor.lastName}
+                            </div>
+                            <div className="text-sm text-slate-600 dark:text-slate-400">
+                              {visitor.company || 'No company'} • {visitor.email || 'No email'}
+                            </div>
+                          </div>
+                          <UserCheck className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" size={18} />
+                        </button>
+                      ))}
+                      {allVisitors?.filter((v: Visitor) => 
+                        (v.firstName?.toLowerCase().includes(preBookSearchTerm.toLowerCase()) ||
+                         v.lastName?.toLowerCase().includes(preBookSearchTerm.toLowerCase()) ||
+                         v.company?.toLowerCase().includes(preBookSearchTerm.toLowerCase())) &&
+                        !v.isCheckedIn
+                      ).length === 0 && (
+                        <div className="px-4 py-3 text-center text-slate-500">
+                          No visitors found matching "{preBookSearchTerm}"
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               
