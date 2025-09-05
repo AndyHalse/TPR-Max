@@ -43,18 +43,6 @@ class EmailService {
 
   async sendEmail(options: EmailOptions & { attachments?: any[] }): Promise<boolean> {
     try {
-      // Check if SMTP is configured
-      const isSmtpConfigured = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
-      
-      if (!isSmtpConfigured) {
-        console.log('📧 EMAIL SIMULATION (SMTP not configured):');
-        console.log(`  To: ${options.to}`);
-        console.log(`  Subject: ${options.subject}`);
-        console.log('  (Configure SMTP_HOST, SMTP_USER, SMTP_PASS to send real emails)');
-        // Return true to simulate successful send in development
-        return true;
-      }
-      
       // Get company name from options if available
       const companyName = options.companyName || 'VisiGate Pro';
       
@@ -534,7 +522,6 @@ For questions about this report, please contact the administrator.
 
   // Send visitor invitation with meeting room details
   async sendVisitorInvitation(preBooking: any, hostStaff: Staff, meetingRoom?: any): Promise<boolean> {
-    console.log(`📨 EmailService: Preparing pre-booking invitation for ${preBooking.visitorEmail}`);
     const formatDateTime = (date: Date) => {
       return new Intl.DateTimeFormat('en-GB', {
         weekday: 'long',
@@ -608,15 +595,12 @@ For questions about this report, please contact the administrator.
 
     const text = `You're Invited to Visit\n\nHello ${preBooking.visitorFirstName},\n\nYou have been invited for a visit:\n\nDate & Time: ${visitDateTime}\nPurpose: ${preBooking.purpose || 'Business meeting'}\nYour Host: ${hostStaff.firstName} ${hostStaff.lastName}\nHost Email: ${hostStaff.email}\n\n${meetingRoom ? `Meeting Room: ${meetingRoom.name}\nLocation: ${meetingRoom.location}\nCapacity: ${meetingRoom.capacity} people\n\n` : ''}Important Information:\n• Please bring a valid photo ID for security\n• Arrive 5-10 minutes early for check-in\n• Your QR code: ${preBooking.qrCode}\n• Show this email at reception for quick check-in\n\nQuestions? Contact your host: ${hostStaff.email}\n\nThis invitation was sent automatically by VisiGate Pro.`;
 
-    console.log(`🚀 EmailService: Calling sendEmail for pre-booking invitation to: ${preBooking.visitorEmail}`);
-    const result = await this.sendEmail({
+    return await this.sendEmail({
       to: preBooking.visitorEmail,
       subject,
       html,
       text
     });
-    console.log(`📮 EmailService: Pre-booking invitation email result: ${result ? 'SUCCESS' : 'FAILED'}`);
-    return result;
   }
 
   // Helper function to get logo for email as base64 data URL

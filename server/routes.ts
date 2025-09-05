@@ -3945,8 +3945,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const preBooking = await storage.createPreBooking(preBookingData);
       
       // Get host staff and meeting room details for email
+      console.log(`🔍 Looking for host staff with ID: ${preBooking.hostStaffId}`);
       const hostStaff = await storage.getStaffById(preBooking.hostStaffId!);
       const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
+      console.log(`👤 Host staff found: ${hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'NO'}`);
       
       if (hostStaff) {
         // Send visitor invitation email with meeting room details
