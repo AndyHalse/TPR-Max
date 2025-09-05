@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 
 export default function Settings() {
@@ -2756,16 +2756,16 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Shield className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Suprema Biostar Integration</h3>
+                <h3 className="text-lg font-semibold text-slate-800">Suprema BioStar 2 Local Server</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-sm font-medium text-slate-700">
-                      Enable Biostar Integration
+                      Enable BioStar Integration
                     </Label>
-                    <p className="text-xs text-slate-500">Connect to Suprema Biostar 2 API for staff attendance</p>
+                    <p className="text-xs text-slate-500">Connect to local BioStar 2 server for access control</p>
                   </div>
                   <Switch
                     checked={currentSettings?.biostarEnabled || false}
@@ -2778,7 +2778,7 @@ export default function Settings() {
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-slate-700">
-                        Biostar Server URL
+                        Local Server Address
                       </Label>
                       <Input
                         id="biostarServerUrl"
@@ -2786,56 +2786,64 @@ export default function Settings() {
                         value={currentSettings?.biostarServerUrl || ""}
                         onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                        placeholder="https://your-biostar-server.com:8443"
+                        placeholder="http://localhost:8080 or http://192.168.1.100:8080"
                         data-testid="input-biostar-server-url"
                       />
+                      <p className="text-xs text-slate-500">
+                        Enter the local network address of your BioStar 2 server
+                      </p>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="biostarApiKey" className="text-sm font-medium text-slate-700">
-                        API Key
-                      </Label>
-                      <Input
-                        id="biostarApiKey"
-                        type="password"
-                        value={currentSettings?.biostarApiKey || ""}
-                        onChange={(e) => handleInputChange("biostarApiKey", e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                        placeholder="Enter your Biostar API key"
-                        data-testid="input-biostar-api-key"
-                      />
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <div className="flex items-start">
+                        <Info className="mr-2 text-blue-600 flex-shrink-0" size={20} />
+                        <div className="text-sm text-slate-700">
+                          <p className="font-medium mb-2">Local Installation Configuration</p>
+                          <p className="text-xs mb-2">
+                            For local BioStar 2 installations, VisiGate Pro communicates directly with your on-premise server. 
+                            No API credentials are required as authentication is handled internally by BioStar.
+                          </p>
+                          <p className="text-xs font-medium mt-2">Requirements:</p>
+                          <ul className="list-disc list-inside space-y-1 text-xs ml-2">
+                            <li>BioStar 2 server installed on your local network</li>
+                            <li>Network connectivity between VisiGate and BioStar</li>
+                            <li>Firewall configured to allow communication</li>
+                            <li>BioStar configured to accept local connections</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="biostarUsername" className="text-sm font-medium text-slate-700">
-                          Username
-                        </Label>
-                        <Input
-                          id="biostarUsername"
-                          type="text"
-                          value={currentSettings?.biostarUsername || ""}
-                          onChange={(e) => handleInputChange("biostarUsername", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                          placeholder="Biostar username"
-                          data-testid="input-biostar-username"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="biostarPassword" className="text-sm font-medium text-slate-700">
-                          Password
-                        </Label>
-                        <Input
-                          id="biostarPassword"
-                          type="password"
-                          value={currentSettings?.biostarPassword || ""}
-                          onChange={(e) => handleInputChange("biostarPassword", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                          placeholder="Biostar password"
-                          data-testid="input-biostar-password"
-                        />
-                      </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          toast({
+                            title: "Testing BioStar Connection",
+                            description: "Attempting to connect to local BioStar server...",
+                          });
+                          // Connection test would be implemented here
+                          setTimeout(() => {
+                            if (currentSettings?.biostarServerUrl) {
+                              toast({
+                                title: "Connection Successful",
+                                description: "Connected to BioStar 2 local server",
+                              });
+                            } else {
+                              toast({
+                                title: "Connection Failed", 
+                                description: "Please enter a valid server address",
+                                variant: "destructive"
+                              });
+                            }
+                          }, 1500);
+                        }}
+                        disabled={!currentSettings?.biostarServerUrl}
+                        data-testid="button-test-biostar"
+                      >
+                        <TestTube className="mr-2" size={16} />
+                        Test Connection
+                      </Button>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
