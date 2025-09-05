@@ -23,24 +23,39 @@ interface PersonOnSite {
   evacuationId?: string;
 }
 
+interface EvacuationData {
+  evacuationId: string;
+  people: PersonOnSite[];
+  totalOnSite: number;
+  accountedFor: number;
+  unaccounted: number;
+  musterPoints: string[];
+}
+
+interface ActiveEvacuationResponse {
+  active: boolean;
+  evacuationId?: string;
+  startedAt?: string;
+}
+
 export default function FireMarshalPanel() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMusterPoint, setSelectedMusterPoint] = useState("all");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
-
-  // Muster points configuration
-  const musterPoints = ["Main Car Park", "Side Entrance", "Rear Assembly"];
+  
+  // Muster points from evacuation data or defaults
+  const defaultMusterPoints = ["Main Car Park", "Side Entrance", "Rear Assembly"];
 
   // Fetch current evacuation accountability list
-  const { data: evacuationData, isLoading, refetch } = useQuery({
-    queryKey: ["/api/emergency/accountability", activeEvacuationId],
+  const { data: evacuationData, isLoading, refetch } = useQuery<EvacuationData>({
+    queryKey: [`/api/emergency/accountability/${activeEvacuationId || ''}`],
     enabled: !!activeEvacuationId,
     refetchInterval: 5000 // Auto-refresh every 5 seconds
   });
 
   // Check for active evacuation
-  const { data: activeEvacuation } = useQuery({
+  const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
     queryKey: ["/api/emergency/active"],
     refetchInterval: 10000
   });
@@ -115,6 +130,7 @@ export default function FireMarshalPanel() {
   const totalPeople = evacuationData?.people?.length || 0;
   const accountedFor = evacuationData?.people?.filter((p: PersonOnSite) => p.isAccountedFor).length || 0;
   const unaccounted = totalPeople - accountedFor;
+  const musterPoints = evacuationData?.musterPoints || defaultMusterPoints;
 
   if (!activeEvacuationId) {
     return (
