@@ -544,9 +544,12 @@ For questions about this report, please contact the administrator.
     const qrCodeData = `PRE-${preBooking.qrCode}`;
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData)}`;
     
+    // Get company branding color or use default
+    const primaryColor = companySettings?.accentColor || companySettings?.primaryColor || '#3b82f6';
+    
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center;">
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb;">
+        <div style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); color: white; padding: 30px; text-align: center;">
           ${logoBase64 ? `
             <div style="margin-bottom: 20px;">
               <img src="${logoBase64}" alt="${companySettings?.companyName || 'Company'} Logo" style="max-height: 60px; max-width: 200px;">
@@ -556,11 +559,11 @@ For questions about this report, please contact the administrator.
           ${companySettings?.companyName ? `<p style="margin: 10px 0 0 0; opacity: 0.95;">${companySettings.companyName}</p>` : ''}
         </div>
         
-        <div style="padding: 30px; background: #f8f9fa; border-left: 4px solid #10b981;">
+        <div style="padding: 30px; background: #f8f9fa;">
           <h2 style="color: #333; margin-top: 0;">Welcome ${preBooking.visitorFirstName}!</h2>
           
           <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #10b981; margin-top: 0;">📍 Visit Details</h3>
+            <h3 style="color: ${primaryColor}; margin-top: 0;">📍 Visit Details</h3>
             <p><strong>Date & Time:</strong> ${visitDateTime}</p>
             <p><strong>Purpose:</strong> ${preBooking.purpose || 'Business meeting'}</p>
             <p><strong>Your Host:</strong> ${hostStaff.firstName} ${hostStaff.lastName}</p>
@@ -568,8 +571,8 @@ For questions about this report, please contact the administrator.
             ${preBooking.company ? `<p><strong>Visiting Company:</strong> ${preBooking.company}</p>` : ''}
             
             ${meetingRoom ? `
-              <div style="background: #e6fffa; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid #10b981;">
-                <h4 style="color: #047857; margin: 0 0 10px 0;">🏢 Meeting Room</h4>
+              <div style="background: #f0f9ff; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid ${primaryColor};">
+                <h4 style="color: #1e293b; margin: 0 0 10px 0;">🏢 Meeting Room</h4>
                 <p style="margin: 5px 0;"><strong>Room:</strong> ${meetingRoom.name}</p>
                 <p style="margin: 5px 0;"><strong>Location:</strong> ${meetingRoom.location}</p>
                 <p style="margin: 5px 0;"><strong>Capacity:</strong> ${meetingRoom.capacity} people</p>
@@ -587,7 +590,7 @@ For questions about this report, please contact the administrator.
               </div>
             ` : ''}
             
-            <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid #f59e0b;">
+            <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin-top: 15px;">
               <h4 style="color: #92400e; margin: 0 0 10px 0;">📋 Important Information</h4>
               <p style="margin: 5px 0;">• Please bring a valid photo ID for security</p>
               <p style="margin: 5px 0;">• Arrive 5-10 minutes early for check-in</p>
