@@ -705,7 +705,7 @@ Emergency Contact: ${companySettings.phoneNumber || '999'}`;
     });
   }
 
-  // Send Fire Marshal alert with full muster list
+  // Send Fire Marshal alert with dynamic link to Fire Marshal panel
   async sendFireMarshalAlert(
     toEmail: string,
     marshalName: string,
@@ -713,8 +713,13 @@ Emergency Contact: ${companySettings.phoneNumber || '999'}`;
     peopleOnSite: any[],
     companySettings: CompanySettings
   ): Promise<boolean> {
-    const subject = '🚨 FIRE MARSHAL ALERT - Evacuation Muster List';
+    const subject = '🚨 FIRE MARSHAL ALERT - Emergency Evacuation Active';
     const primaryColor = companySettings?.accentColor || '#dc2626';
+    
+    // Generate the dynamic link to Fire Marshal panel
+    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const fireMarshalPanelUrl = `${baseUrl}/fire-marshal-panel`;
+    const fireMarshalMobileUrl = `${baseUrl}/fire-marshal-mobile`;
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 3px solid ${primaryColor};">
@@ -726,49 +731,75 @@ Emergency Contact: ${companySettings.phoneNumber || '999'}`;
           <h2 style="color: #991b1b;">Fire Marshal: ${marshalName}</h2>
           
           <div style="background: #fee2e2; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <h3 style="margin-top: 0;">📊 Evacuation Summary:</h3>
-            <p><strong>Total People on Site:</strong> ${evacuationData.totalPeople}</p>
-            <p><strong>Staff:</strong> ${evacuationData.staff}</p>
-            <p><strong>Visitors:</strong> ${evacuationData.visitors}</p>
-            <p><strong>Time:</strong> ${new Date(evacuationData.timestamp).toLocaleString()}</p>
+            <h3 style="margin-top: 0;">⚡ IMMEDIATE ACTION REQUIRED</h3>
+            <p style="font-size: 16px; margin: 10px 0;">
+              <strong>An emergency evacuation is in progress!</strong>
+            </p>
+            <p>Click the button below to access the live Fire Marshal panel and mark people as safe:</p>
           </div>
           
-          <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
-            <h3 style="margin-top: 0;">👥 Complete Muster List:</h3>
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="${fireMarshalPanelUrl}" style="display: inline-block; background: ${primaryColor}; color: white; text-decoration: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              📋 ACCESS FIRE MARSHAL PANEL
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <p style="color: #666; margin: 5px 0;">For mobile devices:</p>
+            <a href="${fireMarshalMobileUrl}" style="display: inline-block; background: #059669; color: white; text-decoration: none; padding: 12px 25px; font-size: 16px; font-weight: bold; border-radius: 8px;">
+              📱 MOBILE FIRE MARSHAL PANEL
+            </a>
+          </div>
+          
+          <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin: 20px 0;">
+            <h3 style="margin-top: 0;">📊 Current Evacuation Status:</h3>
             <table style="width: 100%; border-collapse: collapse;">
-              <thead>
-                <tr style="background: #f3f4f6;">
-                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Name</th>
-                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Type</th>
-                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Department/Company</th>
-                  <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${peopleOnSite.map(person => `
-                  <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${person.firstName} ${person.lastName}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${person.isVisitor ? 'Visitor' : 'Staff'}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${person.department || person.company || '-'}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">
-                      <span style="color: ${person.isAccountedFor ? 'green' : 'red'};">
-                        ${person.isAccountedFor ? '✓ Accounted' : '✗ Not Accounted'}
-                      </span>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Total People on Site:</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-size: 18px; font-weight: bold;">${evacuationData.totalPeople}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Staff Members:</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${evacuationData.staff}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Visitors:</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${evacuationData.visitors}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px;"><strong>Accounted For:</strong></td>
+                <td style="padding: 8px; text-align: right; color: green; font-weight: bold;">${peopleOnSite.filter(p => p.isAccountedFor).length}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px;"><strong>Unaccounted:</strong></td>
+                <td style="padding: 8px; text-align: right; color: red; font-weight: bold;">${peopleOnSite.filter(p => !p.isAccountedFor).length}</td>
+              </tr>
             </table>
           </div>
           
           <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0;">
             <h3 style="color: #92400e; margin-top: 0;">📍 Active Muster Points:</h3>
-            <ul>
-              ${evacuationData.musterPoints.map(point => `<li>${point}</li>`).join('')}
+            <ul style="margin: 10px 0;">
+              ${evacuationData.musterPoints.map(point => `<li style="padding: 3px 0;">${point}</li>`).join('')}
             </ul>
           </div>
           
-          <div style="text-align: center; margin-top: 20px; color: #666;">
+          <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #0ea5e9;">
+            <h4 style="color: #075985; margin-top: 0;">🔄 Live Updates</h4>
+            <p style="margin: 5px 0; color: #333;">
+              The Fire Marshal panel provides real-time updates and allows multiple Fire Marshals to work simultaneously. 
+              All changes are synchronized instantly across all devices.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${fireMarshalPanelUrl}" style="display: inline-block; background: #dc2626; color: white; text-decoration: none; padding: 12px 25px; font-size: 14px; font-weight: bold; border-radius: 6px;">
+              OPEN FIRE MARSHAL PANEL NOW →
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+            <p>Time: ${new Date(evacuationData.timestamp).toLocaleString()}</p>
             <p>This is an automated emergency notification from ${companySettings.companyName}</p>
           </div>
         </div>
@@ -779,17 +810,26 @@ Emergency Contact: ${companySettings.phoneNumber || '999'}`;
 
 Fire Marshal: ${marshalName}
 
-Evacuation Summary:
+⚡ IMMEDIATE ACTION REQUIRED - An emergency evacuation is in progress!
+
+ACCESS THE LIVE FIRE MARSHAL PANEL:
+Desktop: ${fireMarshalPanelUrl}
+Mobile: ${fireMarshalMobileUrl}
+
+Current Evacuation Status:
 - Total People on Site: ${evacuationData.totalPeople}
 - Staff: ${evacuationData.staff}
 - Visitors: ${evacuationData.visitors}
+- Accounted For: ${peopleOnSite.filter(p => p.isAccountedFor).length}
+- Unaccounted: ${peopleOnSite.filter(p => !p.isAccountedFor).length}
 - Time: ${new Date(evacuationData.timestamp).toLocaleString()}
-
-Complete Muster List:
-${peopleOnSite.map(p => `- ${p.firstName} ${p.lastName} (${p.isVisitor ? 'Visitor' : 'Staff'}) - ${p.isAccountedFor ? 'Accounted' : 'NOT ACCOUNTED'}`).join('\n')}
 
 Active Muster Points:
 ${evacuationData.musterPoints.map(point => `- ${point}`).join('\n')}
+
+The Fire Marshal panel provides real-time updates and allows you to mark people as safe at specific muster points.
+
+OPEN THE PANEL NOW: ${fireMarshalPanelUrl}
 
 This is an automated emergency notification from ${companySettings.companyName}`;
     

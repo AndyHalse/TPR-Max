@@ -2649,7 +2649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updated = false;
       
       if (type === 'staff') {
-        const staff = await databaseService.getStaff(context);
+        const staff = await databaseService.getAllStaff(context);
         console.log('Staff list:', staff.map(s => ({ id: s.id, name: `${s.firstName} ${s.lastName}` })));
         const staffMember = staff.find(s => s.id === personId);
         if (staffMember) {
