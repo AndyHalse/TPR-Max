@@ -911,11 +911,19 @@ export class DatabaseService {
       .orderBy(desc(sql`COALESCE(${schema.staffAttendanceHistory.checkOutTime}, ${schema.staffAttendanceHistory.checkInTime})`))
       .limit(5);
     
+    // Count checked-in staff
+    const checkedInStaff = staff.filter(s => s.isCheckedIn).length;
+    const checkedInVisitors = visitors.filter(v => v.isCheckedIn).length;
+    
     return {
       department: departmentName,
-      staff,
+      staffMembers: staff,
       visitors,
-      totalHours,
+      statistics: {
+        checkedInStaff,
+        visitors: checkedInVisitors,
+        totalHours
+      },
       recentActivity
     };
   }
