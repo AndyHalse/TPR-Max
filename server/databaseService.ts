@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, gte, lt, gt, sql } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lt, gt, sql, isNull } from "drizzle-orm";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
 import type {
   Staff,
@@ -273,7 +273,30 @@ export class DatabaseService {
       })
       .returning();
     
-    return created[0];
+    const visitor = created[0];
+    
+    // Create visitor history record for new check-in
+    if (visitor.isCheckedIn && visitor.checkedInAt) {
+      await this.createVisitorHistory(context, {
+        visitorId: visitor.id,
+        checkInTime: visitor.checkedInAt,
+        checkOutTime: null,
+        purpose: visitor.purpose || '',
+        hostStaffId: visitor.hostStaffId,
+        visitingTenantId: visitor.visitingTenantId,
+        inductionCompleted: visitor.inductionCompleted || false,
+        inductionCompletedAt: visitor.inductionCompletedAt,
+        hsRulesAccepted: visitor.hsRulesAccepted || false,
+        hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
+        ePassSent: visitor.ePassSent || false,
+        ePassSentAt: visitor.ePassSentAt,
+        checkoutType: null,
+        notes: visitor.notes,
+        qrCode: visitor.qrCode
+      });
+    }
+    
+    return visitor;
   }
 
   async updateVisitor(
@@ -302,11 +325,12 @@ export class DatabaseService {
     const visitor = await this.getVisitorById(context, id);
     if (!visitor) return undefined;
     
+    const checkOutTime = new Date();
     const updated = await db
       .update(schema.visitors)
       .set({ 
         isCheckedIn: false, 
-        checkedOutAt: new Date(),
+        checkedOutAt: checkOutTime,
         checkoutType: 'user',
         updatedAt: new Date()
       })
@@ -316,25 +340,54 @@ export class DatabaseService {
       ))
       .returning();
     
-    // Create visitor history record for this visit
+    // Update the existing visitor history record with checkout time
     if (updated[0] && visitor.checkedInAt) {
-      await this.createVisitorHistory(context, {
-        visitorId: id,
-        checkInTime: visitor.checkedInAt,
-        checkOutTime: new Date(),
-        purpose: visitor.purpose || '',
-        hostStaffId: visitor.hostStaffId,
-        visitingTenantId: visitor.visitingTenantId,
-        inductionCompleted: visitor.inductionCompleted || false,
-        inductionCompletedAt: visitor.inductionCompletedAt,
-        hsRulesAccepted: visitor.hsRulesAccepted || false,
-        hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
-        ePassSent: visitor.ePassSent || false,
-        ePassSentAt: visitor.ePassSentAt,
-        checkoutType: 'user',
-        notes: visitor.notes,
-        qrCode: visitor.qrCode
-      });
+      // Find the open history record (one without checkout time)
+      const openHistoryRecord = await db
+        .select()
+        .from(schema.visitorHistory)
+        .where(and(
+          eq(schema.visitorHistory.customerId, context.customerId),
+          eq(schema.visitorHistory.visitorId, id),
+          isNull(schema.visitorHistory.checkOutTime)
+        ))
+        .orderBy(desc(schema.visitorHistory.checkInTime))
+        .limit(1);
+      
+      if (openHistoryRecord.length > 0) {
+        // Update existing history record with checkout time
+        await db
+          .update(schema.visitorHistory)
+          .set({
+            checkOutTime: checkOutTime,
+            checkoutType: 'user',
+            inductionCompleted: visitor.inductionCompleted || false,
+            inductionCompletedAt: visitor.inductionCompletedAt,
+            hsRulesAccepted: visitor.hsRulesAccepted || false,
+            hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
+            notes: visitor.notes
+          })
+          .where(eq(schema.visitorHistory.id, openHistoryRecord[0].id));
+      } else {
+        // If no open history record exists, create one (shouldn't normally happen)
+        await this.createVisitorHistory(context, {
+          visitorId: id,
+          checkInTime: visitor.checkedInAt,
+          checkOutTime: checkOutTime,
+          purpose: visitor.purpose || '',
+          hostStaffId: visitor.hostStaffId,
+          visitingTenantId: visitor.visitingTenantId,
+          inductionCompleted: visitor.inductionCompleted || false,
+          inductionCompletedAt: visitor.inductionCompletedAt,
+          hsRulesAccepted: visitor.hsRulesAccepted || false,
+          hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
+          ePassSent: visitor.ePassSent || false,
+          ePassSentAt: visitor.ePassSentAt,
+          checkoutType: 'user',
+          notes: visitor.notes,
+          qrCode: visitor.qrCode
+        });
+      }
     }
     
     return updated[0];
@@ -452,19 +505,26 @@ export class DatabaseService {
   async checkInExistingVisitor(
     context: CustomerContext, 
     id: string, 
-    hostId: string, 
-    reason?: string
+    updates: {
+      hostStaffId?: string;
+      purpose?: string;
+      carRegistration?: string;
+      hsRulesAcceptanceToken?: string;
+    }
   ): Promise<Visitor | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    const checkInTime = new Date();
     const updated = await db
       .update(schema.visitors)
       .set({ 
         isCheckedIn: true,
-        checkedInAt: new Date(),
+        checkedInAt: checkInTime,
         checkedOutAt: null,
-        hostId,
-        reason: reason || '',
+        hostStaffId: updates.hostStaffId,
+        purpose: updates.purpose || '',
+        carRegistration: updates.carRegistration,
+        hsRulesAcceptanceToken: updates.hsRulesAcceptanceToken,
         updatedAt: new Date()
       })
       .where(and(
@@ -473,7 +533,30 @@ export class DatabaseService {
       ))
       .returning();
     
-    return updated[0];
+    const visitor = updated[0];
+    
+    // Create visitor history record for returning visitor check-in
+    if (visitor) {
+      await this.createVisitorHistory(context, {
+        visitorId: visitor.id,
+        checkInTime: checkInTime,
+        checkOutTime: null,
+        purpose: visitor.purpose || '',
+        hostStaffId: visitor.hostStaffId,
+        visitingTenantId: visitor.visitingTenantId,
+        inductionCompleted: visitor.inductionCompleted || false,
+        inductionCompletedAt: visitor.inductionCompletedAt,
+        hsRulesAccepted: visitor.hsRulesAccepted || false,
+        hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
+        ePassSent: visitor.ePassSent || false,
+        ePassSentAt: visitor.ePassSentAt,
+        checkoutType: null,
+        notes: visitor.notes,
+        qrCode: visitor.qrCode
+      });
+    }
+    
+    return visitor;
   }
 
   /**
@@ -1091,23 +1174,6 @@ export class DatabaseService {
     return visitor || undefined;
   }
 
-  async checkOutVisitor(context: CustomerContext, id: string): Promise<Visitor | undefined> {
-    const db = await customerDbService.getCustomerDatabase(context.customerId);
-    
-    const [visitor] = await db
-      .update(schema.visitors)
-      .set({ 
-        isCheckedIn: false,
-        checkedOutAt: new Date()
-      })
-      .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, id)
-      ))
-      .returning();
-    
-    return visitor || undefined;
-  }
 
   async getAllReports(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
