@@ -332,10 +332,10 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
                         <p className="font-medium">{format(new Date(visit.checkOutTime), 'dd/MM/yyyy HH:mm')}</p>
                       </div>
                     )}
-                    {visit.visitingStaff && (
+                    {visit.hostName && (
                       <div>
                         <p className="text-slate-600">Host:</p>
-                        <p className="font-medium">{visit.visitingStaff}</p>
+                        <p className="font-medium">{visit.hostName}</p>
                       </div>
                     )}
                     {visit.purpose && (
