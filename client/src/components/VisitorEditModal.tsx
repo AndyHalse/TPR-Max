@@ -5,10 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import type { Visitor } from '@shared/schema';
-import { Save, X } from 'lucide-react';
+import type { Visitor, VisitorHistory } from '@shared/schema';
+import { Save, X, Clock, CheckCircle, History } from 'lucide-react';
+import { format } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 interface VisitorEditModalProps {
   visitor: Visitor | null;
@@ -85,18 +89,37 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Fetch visitor history
+  const { data: visitorHistory = [] } = useQuery<VisitorHistory[]>({
+    queryKey: [`/api/visitors/${visitor?.id}/history`],
+    enabled: !!visitor?.id,
+  });
+
   if (!visitor) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-slate-800">
             📝 Edit Visitor Profile
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <Tabs defaultValue="profile" className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History size={16} />
+              Visit History
+              {visitorHistory.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{visitorHistory.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="profile" className="flex-1 overflow-auto">
+            <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-800">Personal Information</h3>
@@ -209,6 +232,46 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
                   data-testid="textarea-edit-address"
                 />
               </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  rows={3}
+                  placeholder="Add any additional notes about this visitor..."
+                  data-testid="textarea-edit-notes"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Compliance Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-800">Compliance & Safety</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50">
+                <CheckCircle size={20} className={visitor.hsRulesAccepted ? 'text-green-600' : 'text-slate-400'} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">H&S Rules</p>
+                  <p className="text-xs text-slate-600">
+                    {visitor.hsRulesAccepted 
+                      ? `Accepted on ${visitor.hsRulesAcceptedAt ? format(new Date(visitor.hsRulesAcceptedAt), 'dd/MM/yyyy HH:mm') : 'N/A'}`
+                      : 'Not accepted'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50">
+                <CheckCircle size={20} className={visitor.inductionCompleted ? 'text-green-600' : 'text-slate-400'} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Induction</p>
+                  <p className="text-xs text-slate-600">
+                    {visitor.inductionCompleted 
+                      ? `Completed on ${visitor.inductionCompletedAt ? format(new Date(visitor.inductionCompletedAt), 'dd/MM/yyyy HH:mm') : 'N/A'}`
+                      : 'Not completed'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -235,6 +298,74 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
             </Button>
           </div>
         </form>
+      </TabsContent>
+
+      <TabsContent value="history" className="flex-1 overflow-auto">
+        <ScrollArea className="h-[500px] pr-4">
+          {visitorHistory.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <History size={48} className="mx-auto mb-3 text-slate-300" />
+              <p className="text-lg font-medium">No visit history</p>
+              <p className="text-sm">This visitor has no recorded visits yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {visitorHistory.map((visit, index) => (
+                <div key={visit.id} className="border rounded-lg p-4 bg-slate-50">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-slate-500" />
+                      <p className="font-medium text-sm">Visit #{visitorHistory.length - index}</p>
+                    </div>
+                    {!visit.checkOutTime && (
+                      <Badge variant="default" className="bg-green-600">Currently On-Site</Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-slate-600">Check-In:</p>
+                      <p className="font-medium">{format(new Date(visit.checkInTime), 'dd/MM/yyyy HH:mm')}</p>
+                    </div>
+                    {visit.checkOutTime && (
+                      <div>
+                        <p className="text-slate-600">Check-Out:</p>
+                        <p className="font-medium">{format(new Date(visit.checkOutTime), 'dd/MM/yyyy HH:mm')}</p>
+                      </div>
+                    )}
+                    {visit.visitingStaff && (
+                      <div>
+                        <p className="text-slate-600">Host:</p>
+                        <p className="font-medium">{visit.visitingStaff}</p>
+                      </div>
+                    )}
+                    {visit.purpose && (
+                      <div>
+                        <p className="text-slate-600">Purpose:</p>
+                        <p className="font-medium">{visit.purpose}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    {visit.inductionCompleted && (
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle size={12} className="mr-1" />
+                        Induction Completed
+                      </Badge>
+                    )}
+                    {visit.hsRulesAccepted && (
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle size={12} className="mr-1" />
+                        H&S Accepted
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </TabsContent>
+    </Tabs>
       </DialogContent>
     </Dialog>
   );
