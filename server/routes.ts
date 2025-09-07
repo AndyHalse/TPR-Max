@@ -5905,9 +5905,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contractors", async (req, res) => {
+  app.post("/api/contractors", requireAuth, async (req, res) => {
     try {
+      // Parse and validate contractor data
       const contractorData = insertContractorCompanySchema.parse(req.body);
+      
+      // TODO: Add customer isolation - for now use storage directly
+      // In production, contractors should be isolated per customer
       const contractor = await storage.createContractorCompany(contractorData);
       res.json(contractor);
     } catch (error) {
@@ -6156,7 +6160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contractors/:companyId/workers", async (req, res) => {
+  app.post("/api/contractors/:companyId/workers", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
       const workerData = insertContractorWorkerSchema.parse({

@@ -54,12 +54,11 @@ export default function ContractorManagement() {
   // Form states for adding contractor
   const [contractorForm, setContractorForm] = useState({
     name: "",
-    contactEmail: "",
-    contactName: "",
-    contactPhone: "",
+    email: "",
+    contactPerson: "",
+    phone: "",
     address: "",
-    status: "pending" as "pending" | "approved" | "suspended",
-    workersCount: 0
+    status: "pending" as "pending" | "approved" | "suspended"
   });
   
   // Form state for adding worker
@@ -133,12 +132,11 @@ export default function ContractorManagement() {
       setShowAddContractorDialog(false);
       setContractorForm({
         name: "",
-        contactEmail: "",
-        contactName: "",
-        contactPhone: "",
+        email: "",
+        contactPerson: "",
+        phone: "",
         address: "",
-        status: "pending",
-        workersCount: 0
+        status: "pending"
       });
     },
     onError: (error: any) => {
@@ -940,8 +938,8 @@ export default function ContractorManagement() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Contact Person *</label>
               <Input
-                value={contractorForm.contactName}
-                onChange={(e) => setContractorForm({ ...contractorForm, contactName: e.target.value })}
+                value={contractorForm.contactPerson}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactPerson: e.target.value })}
                 placeholder="John Smith"
                 data-testid="input-contact-person"
               />
@@ -950,8 +948,8 @@ export default function ContractorManagement() {
               <label className="text-sm font-medium text-slate-700">Email Address *</label>
               <Input
                 type="email"
-                value={contractorForm.contactEmail}
-                onChange={(e) => setContractorForm({ ...contractorForm, contactEmail: e.target.value })}
+                value={contractorForm.email}
+                onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
                 placeholder="admin@company.co.uk"
                 data-testid="input-email"
               />
@@ -960,8 +958,8 @@ export default function ContractorManagement() {
               <label className="text-sm font-medium text-slate-700">Phone Number *</label>
               <Input
                 type="tel"
-                value={contractorForm.contactPhone}
-                onChange={(e) => setContractorForm({ ...contractorForm, contactPhone: e.target.value })}
+                value={contractorForm.phone}
+                onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
                 placeholder="+44 1234 567890"
                 data-testid="input-phone"
               />
@@ -1005,7 +1003,7 @@ export default function ContractorManagement() {
             </Button>
             <Button 
               onClick={handleAddContractor}
-              disabled={!contractorForm.name || !contractorForm.contactEmail || !contractorForm.contactName || !contractorForm.contactPhone || !contractorForm.address || createContractorMutation.isPending}
+              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactPerson || !contractorForm.phone || !contractorForm.address || createContractorMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-save-contractor"
             >
