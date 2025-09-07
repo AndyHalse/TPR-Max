@@ -472,60 +472,94 @@ export default function TimeAttendance() {
                   </div>
                   
                   {/* Daily Breakdown */}
-                  {(() => {
-                    const sessionsByDate = selectedStaff.sessions.reduce((acc, session) => {
-                      const date = formatDate(session.checkInTime);
-                      if (!acc[date]) acc[date] = [];
-                      acc[date].push(session);
-                      return acc;
-                    }, {} as Record<string, typeof selectedStaff.sessions>);
-                    
-                    return (
-                      <div className="mt-4">
-                        <h5 className="font-medium text-slate-700 mb-2">Daily Breakdown</h5>
-                        <div className="space-y-2">
-                          {Object.entries(sessionsByDate).map(([date, sessions]) => {
-                            const dailyHours = sessions.reduce((sum, s) => sum + s.hoursWorked, 0);
-                            const isOvertime = dailyHours > 8;
-                            const breakTime = sessions.length > 1 
-                              ? sessions.reduce((total, session, idx) => {
-                                  if (idx === 0) return 0;
-                                  const prevSession = sessions[idx - 1];
-                                  if (prevSession.checkOutTime) {
-                                    const breakMinutes = (new Date(session.checkInTime).getTime() - 
-                                                         new Date(prevSession.checkOutTime).getTime()) / (1000 * 60);
-                                    return total + Math.max(0, breakMinutes);
-                                  }
-                                  return total;
-                                }, 0) / 60 // Convert to hours
-                              : 0;
+                  <div className="mt-4">
+                    <h5 className="font-medium text-slate-700 mb-2">Daily Breakdown</h5>
+                    <div className="space-y-2">
+                      {(() => {
+                        // Group sessions by date
+                        const sessionsByDate: Record<string, typeof selectedStaff.sessions> = {};
+                        selectedStaff.sessions.forEach(session => {
+                          const date = formatDate(session.checkInTime);
+                          if (!sessionsByDate[date]) {
+                            sessionsByDate[date] = [];
+                          }
+                          sessionsByDate[date].push(session);
+                        });
+                        
+                        // Sort dates
+                        const sortedDates = Object.keys(sessionsByDate).sort((a, b) => {
+                          return new Date(a).getTime() - new Date(b).getTime();
+                        });
+                        
+                        return sortedDates.map(date => {
+                          const sessions = sessionsByDate[date];
+                          const dailyHours = sessions.reduce((sum, s) => sum + s.hoursWorked, 0);
+                          const isOvertime = dailyHours > 8;
+                          
+                          // Calculate break time between sessions
+                          let breakTime = 0;
+                          if (sessions.length > 1) {
+                            // Sort sessions by check-in time
+                            const sortedSessions = [...sessions].sort((a, b) => 
+                              new Date(a.checkInTime).getTime() - new Date(b.checkInTime).getTime()
+                            );
                             
-                            return (
-                              <div key={date} className="bg-white p-3 rounded-lg border border-slate-200">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-medium text-slate-700">{date}</span>
-                                  <div className="flex gap-3">
-                                    <span className="text-slate-600">
-                                      {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+                            for (let i = 1; i < sortedSessions.length; i++) {
+                              const prevSession = sortedSessions[i - 1];
+                              const currentSession = sortedSessions[i];
+                              
+                              if (prevSession.checkOutTime) {
+                                const breakMinutes = (new Date(currentSession.checkInTime).getTime() - 
+                                                     new Date(prevSession.checkOutTime).getTime()) / (1000 * 60);
+                                if (breakMinutes > 0) {
+                                  breakTime += breakMinutes;
+                                }
+                              }
+                            }
+                            breakTime = breakTime / 60; // Convert to hours
+                          }
+                          
+                          return (
+                            <div key={date} className="bg-white p-3 rounded-lg border border-slate-200">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium text-slate-700">{date}</span>
+                                <div className="flex gap-3 items-center">
+                                  <span className="text-slate-600 text-sm">
+                                    {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+                                  </span>
+                                  <span className={`font-medium ${isOvertime ? 'text-orange-600' : 'text-green-600'}`}>
+                                    {formatHours(dailyHours)}
+                                    {isOvertime && ' (OT)'}
+                                  </span>
+                                  {breakTime > 0 && (
+                                    <span className="text-blue-600 text-sm">
+                                      Break: {formatHours(breakTime)}
                                     </span>
-                                    <span className={`font-medium ${isOvertime ? 'text-orange-600' : 'text-green-600'}`}>
-                                      {formatHours(dailyHours)}
-                                      {isOvertime && ' (OT)'}
-                                    </span>
-                                    {breakTime > 0 && (
-                                      <span className="text-blue-600">
-                                        Break: {formatHours(breakTime)}
-                                      </span>
-                                    )}
-                                  </div>
+                                  )}
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                              
+                              {/* Show individual sessions for this day if multiple */}
+                              {sessions.length > 1 && (
+                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                  <div className="space-y-1">
+                                    {sessions.map((session, idx) => (
+                                      <div key={idx} className="flex justify-between text-xs text-slate-600">
+                                        <span>
+                                          Session {idx + 1}: {formatTime(session.checkInTime)} - {session.checkOutTime ? formatTime(session.checkOutTime) : 'Active'}
+                                        </span>
+                                        <span>{formatHours(session.hoursWorked)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
