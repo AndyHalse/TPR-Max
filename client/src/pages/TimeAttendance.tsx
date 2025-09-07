@@ -470,6 +470,62 @@ export default function TimeAttendance() {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Daily Breakdown */}
+                  {(() => {
+                    const sessionsByDate = selectedStaff.sessions.reduce((acc, session) => {
+                      const date = formatDate(session.checkInTime);
+                      if (!acc[date]) acc[date] = [];
+                      acc[date].push(session);
+                      return acc;
+                    }, {} as Record<string, typeof selectedStaff.sessions>);
+                    
+                    return (
+                      <div className="mt-4">
+                        <h5 className="font-medium text-slate-700 mb-2">Daily Breakdown</h5>
+                        <div className="space-y-2">
+                          {Object.entries(sessionsByDate).map(([date, sessions]) => {
+                            const dailyHours = sessions.reduce((sum, s) => sum + s.hoursWorked, 0);
+                            const isOvertime = dailyHours > 8;
+                            const breakTime = sessions.length > 1 
+                              ? sessions.reduce((total, session, idx) => {
+                                  if (idx === 0) return 0;
+                                  const prevSession = sessions[idx - 1];
+                                  if (prevSession.checkOutTime) {
+                                    const breakMinutes = (new Date(session.checkInTime).getTime() - 
+                                                         new Date(prevSession.checkOutTime).getTime()) / (1000 * 60);
+                                    return total + Math.max(0, breakMinutes);
+                                  }
+                                  return total;
+                                }, 0) / 60 // Convert to hours
+                              : 0;
+                            
+                            return (
+                              <div key={date} className="bg-white p-3 rounded-lg border border-slate-200">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium text-slate-700">{date}</span>
+                                  <div className="flex gap-3">
+                                    <span className="text-slate-600">
+                                      {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+                                    </span>
+                                    <span className={`font-medium ${isOvertime ? 'text-orange-600' : 'text-green-600'}`}>
+                                      {formatHours(dailyHours)}
+                                      {isOvertime && ' (OT)'}
+                                    </span>
+                                    {breakTime > 0 && (
+                                      <span className="text-blue-600">
+                                        Break: {formatHours(breakTime)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
