@@ -1495,11 +1495,11 @@ export default function Dashboard() {
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                               <span className="text-blue-600 font-medium text-sm">
-                                {getInitials(visitor.name)}
+                                {getInitials(`${visitor.firstName} ${visitor.lastName}`)}
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800">{visitor.name}</p>
+                              <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
                               <p className="text-sm text-slate-600">{visitor.company || 'No company'}</p>
                               <p className="text-xs text-slate-500">Host: {visitor.hostName}</p>
                             </div>
