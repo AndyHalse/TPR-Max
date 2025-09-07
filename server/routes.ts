@@ -5647,8 +5647,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // For now return empty until we implement customer-isolated contractors
-      const contractors = [];
+      // Get all contractors from storage (TODO: Add customer isolation in future)
+      const contractors = await storage.getAllContractorCompanies();
       
       // Add worker counts, document status, and dynamic safety ratings for each contractor
       const contractorsWithStats = await Promise.all(contractors.map(async (contractor) => {
