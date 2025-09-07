@@ -60,7 +60,8 @@ export default function Contractors() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
+  const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showWorkersModal, setShowWorkersModal] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
@@ -90,11 +91,35 @@ export default function Contractors() {
     inductionCompleted: false,
     isActive: true
   });
-  const [inviteForm, setInviteForm] = useState({
-    companyName: "",
+  const [contractorForm, setContractorForm] = useState({
+    name: "",
     email: "",
     contactPerson: "",
     phone: "",
+    address: "",
+    status: "pending" as "pending" | "approved" | "suspended",
+    complianceScore: 0,
+    publicLiabilityExpiry: "",
+    employersLiabilityExpiry: "",
+    healthSafetyExpiry: "",
+    cisRegistration: ""
+  });
+  
+  const [workerForm, setWorkerForm] = useState({
+    companyId: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    rightToWork: "",
+    cscsCard: "",
+    cscsStatus: "valid" as "valid" | "expired" | "pending",
+    ipafStatus: "none" as "none" | "3a" | "3b" | "1+" | "expired",
+    asbestosAwareness: false,
+    manualHandling: false,
+    workingAtHeight: false,
+    inductionCompleted: false,
+    isActive: true
   });
 
   // Fetch contractor companies from API
@@ -140,14 +165,88 @@ export default function Contractors() {
     return totalDocs > 0 ? Math.round((validDocs / totalDocs) * 100) : 0;
   };
 
-  const handleInviteSubmit = () => {
-    // TODO: Implement invite API call
-    toast({
-      title: "Invitation Sent",
-      description: `Invitation sent to ${inviteForm.companyName}`,
+  // Create contractor mutation
+  const createContractorMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/contractors", data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Contractor company added successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      setShowAddContractorDialog(false);
+      setContractorForm({
+        name: "",
+        email: "",
+        contactPerson: "",
+        phone: "",
+        address: "",
+        status: "pending",
+        complianceScore: 0,
+        publicLiabilityExpiry: "",
+        employersLiabilityExpiry: "",
+        healthSafetyExpiry: "",
+        cisRegistration: ""
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create worker mutation
+  const createWorkerMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", `/api/contractors/${data.companyId}/workers`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Worker added successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      setShowAddWorkerDialog(false);
+      setWorkerForm({
+        companyId: selectedContractor?.id || "",
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        rightToWork: "",
+        cscsCard: "",
+        cscsStatus: "valid",
+        ipafStatus: "none",
+        asbestosAwareness: false,
+        manualHandling: false,
+        workingAtHeight: false,
+        inductionCompleted: false,
+        isActive: true
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add worker",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddContractor = () => {
+    createContractorMutation.mutate(contractorForm);
+  };
+
+  const handleAddWorker = () => {
+    createWorkerMutation.mutate({
+      ...workerForm,
+      companyId: selectedContractor?.id
     });
-    setShowInviteDialog(false);
-    setInviteForm({ companyName: "", email: "", contactPerson: "", phone: "" });
   };
 
   const handleViewWorker = (worker: any) => {
@@ -284,12 +383,12 @@ export default function Contractors() {
           </div>
         </div>
         <Button 
-          onClick={() => setShowInviteDialog(true)}
+          onClick={() => setShowAddContractorDialog(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white"
-          data-testid="button-invite-contractor"
+          data-testid="button-add-contractor"
         >
           <Plus className="mr-2" size={16} />
-          Invite Contractor
+          Add Contractor
         </Button>
       </div>
 
@@ -484,67 +583,139 @@ export default function Contractors() {
         ))}
       </div>
 
-      {/* Invite Contractor Dialog */}
-      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-        <DialogContent className="sm:max-w-md">
+      {/* Add Contractor Dialog */}
+      <Dialog open={showAddContractorDialog} onOpenChange={setShowAddContractorDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Invite Contractor Company</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Add New Contractor Company
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Company Name</label>
+              <label className="text-sm font-medium text-slate-700">Company Name *</label>
               <Input
-                value={inviteForm.companyName}
-                onChange={(e) => setInviteForm({ ...inviteForm, companyName: e.target.value })}
-                placeholder="Enter company name"
+                value={contractorForm.name}
+                onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
+                placeholder="ABC Construction Ltd"
                 data-testid="input-company-name"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email Address</label>
+              <label className="text-sm font-medium text-slate-700">Contact Person *</label>
               <Input
-                type="email"
-                value={inviteForm.email}
-                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                placeholder="admin@company.co.uk"
-                data-testid="input-email"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Contact Person</label>
-              <Input
-                value={inviteForm.contactPerson}
-                onChange={(e) => setInviteForm({ ...inviteForm, contactPerson: e.target.value })}
+                value={contractorForm.contactPerson}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactPerson: e.target.value })}
                 placeholder="John Smith"
                 data-testid="input-contact-person"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Phone Number</label>
+              <label className="text-sm font-medium text-slate-700">Email Address *</label>
+              <Input
+                type="email"
+                value={contractorForm.email}
+                onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
+                placeholder="admin@company.co.uk"
+                data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Phone Number *</label>
               <Input
                 type="tel"
-                value={inviteForm.phone}
-                onChange={(e) => setInviteForm({ ...inviteForm, phone: e.target.value })}
+                value={contractorForm.phone}
+                onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
                 placeholder="+44 1234 567890"
                 data-testid="input-phone"
               />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <label className="text-sm font-medium text-slate-700">Address *</label>
+              <Textarea
+                value={contractorForm.address}
+                onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })}
+                placeholder="123 Main Street, London, UK"
+                data-testid="input-address"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">CIS Registration Number</label>
+              <Input
+                value={contractorForm.cisRegistration}
+                onChange={(e) => setContractorForm({ ...contractorForm, cisRegistration: e.target.value })}
+                placeholder="CIS123456"
+                data-testid="input-cis"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Status</label>
+              <Select
+                value={contractorForm.status}
+                onValueChange={(value: "pending" | "approved" | "suspended") => 
+                  setContractorForm({ ...contractorForm, status: value })
+                }
+              >
+                <SelectTrigger data-testid="select-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending Review</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <h3 className="text-sm font-semibold text-slate-700 mb-2">Compliance Documents Expiry Dates</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-600">Public Liability Insurance</label>
+                  <Input
+                    type="date"
+                    value={contractorForm.publicLiabilityExpiry}
+                    onChange={(e) => setContractorForm({ ...contractorForm, publicLiabilityExpiry: e.target.value })}
+                    data-testid="input-public-liability"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-600">Employers Liability Insurance</label>
+                  <Input
+                    type="date"
+                    value={contractorForm.employersLiabilityExpiry}
+                    onChange={(e) => setContractorForm({ ...contractorForm, employersLiabilityExpiry: e.target.value })}
+                    data-testid="input-employers-liability"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-600">Health & Safety Policy</label>
+                  <Input
+                    type="date"
+                    value={contractorForm.healthSafetyExpiry}
+                    onChange={(e) => setContractorForm({ ...contractorForm, healthSafetyExpiry: e.target.value })}
+                    data-testid="input-health-safety"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setShowInviteDialog(false)}
-              data-testid="button-cancel-invite"
+              onClick={() => setShowAddContractorDialog(false)}
+              data-testid="button-cancel-add"
             >
               Cancel
             </Button>
             <Button 
-              onClick={handleInviteSubmit}
-              disabled={!inviteForm.companyName || !inviteForm.email}
+              onClick={handleAddContractor}
+              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactPerson || !contractorForm.phone || !contractorForm.address || createContractorMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
-              data-testid="button-send-invite"
+              data-testid="button-save-contractor"
             >
-              Send Invitation
+              {createContractorMutation.isPending ? "Adding..." : "Add Contractor"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -712,10 +883,24 @@ export default function Contractors() {
       <Dialog open={showWorkersModal} onOpenChange={setShowWorkersModal}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Manage Workers: {selectedContractor?.name}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Manage Workers: {selectedContractor?.name}
+              </DialogTitle>
+              <Button
+                onClick={() => {
+                  setWorkerForm({ ...workerForm, companyId: selectedContractor?.id || "" });
+                  setShowAddWorkerDialog(true);
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                size="sm"
+                data-testid="button-add-worker"
+              >
+                <Plus className="mr-2" size={16} />
+                Add Worker
+              </Button>
+            </div>
           </DialogHeader>
 
           {selectedContractor && (
@@ -1556,6 +1741,183 @@ export default function Contractors() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUploadModal(false)}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Worker Dialog */}
+      <Dialog open={showAddWorkerDialog} onOpenChange={setShowAddWorkerDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Add New Worker to {selectedContractor?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">First Name *</label>
+              <Input
+                value={workerForm.firstName}
+                onChange={(e) => setWorkerForm({ ...workerForm, firstName: e.target.value })}
+                placeholder="John"
+                data-testid="input-worker-firstname"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Last Name *</label>
+              <Input
+                value={workerForm.lastName}
+                onChange={(e) => setWorkerForm({ ...workerForm, lastName: e.target.value })}
+                placeholder="Smith"
+                data-testid="input-worker-lastname"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Email Address</label>
+              <Input
+                type="email"
+                value={workerForm.email}
+                onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })}
+                placeholder="john.smith@example.com"
+                data-testid="input-worker-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Phone Number</label>
+              <Input
+                type="tel"
+                value={workerForm.phone}
+                onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })}
+                placeholder="+44 1234 567890"
+                data-testid="input-worker-phone"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Right to Work Status</label>
+              <Select
+                value={workerForm.rightToWork}
+                onValueChange={(value) => setWorkerForm({ ...workerForm, rightToWork: value })}
+              >
+                <SelectTrigger data-testid="select-right-to-work">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="valid">Valid</SelectItem>
+                  <SelectItem value="pending">Pending Verification</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">CSCS Card Number</label>
+              <Input
+                value={workerForm.cscsCard}
+                onChange={(e) => setWorkerForm({ ...workerForm, cscsCard: e.target.value })}
+                placeholder="12345678"
+                data-testid="input-cscs-card"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">CSCS Status</label>
+              <Select
+                value={workerForm.cscsStatus}
+                onValueChange={(value: "valid" | "expired" | "pending") => 
+                  setWorkerForm({ ...workerForm, cscsStatus: value })
+                }
+              >
+                <SelectTrigger data-testid="select-cscs-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="valid">Valid</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">IPAF Status</label>
+              <Select
+                value={workerForm.ipafStatus}
+                onValueChange={(value: "none" | "3a" | "3b" | "1+" | "expired") => 
+                  setWorkerForm({ ...workerForm, ipafStatus: value })
+                }
+              >
+                <SelectTrigger data-testid="select-ipaf-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="3a">3a - Mobile Vertical</SelectItem>
+                  <SelectItem value="3b">3b - Mobile Boom</SelectItem>
+                  <SelectItem value="1+">1+ - Static Vertical</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Safety Training & Certifications</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={workerForm.asbestosAwareness}
+                    onChange={(e) => setWorkerForm({ ...workerForm, asbestosAwareness: e.target.checked })}
+                    className="rounded border-gray-300"
+                    data-testid="checkbox-asbestos"
+                  />
+                  <span className="text-sm text-slate-700">Asbestos Awareness</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={workerForm.manualHandling}
+                    onChange={(e) => setWorkerForm({ ...workerForm, manualHandling: e.target.checked })}
+                    className="rounded border-gray-300"
+                    data-testid="checkbox-manual-handling"
+                  />
+                  <span className="text-sm text-slate-700">Manual Handling</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={workerForm.workingAtHeight}
+                    onChange={(e) => setWorkerForm({ ...workerForm, workingAtHeight: e.target.checked })}
+                    className="rounded border-gray-300"
+                    data-testid="checkbox-working-height"
+                  />
+                  <span className="text-sm text-slate-700">Working at Height</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={workerForm.inductionCompleted}
+                    onChange={(e) => setWorkerForm({ ...workerForm, inductionCompleted: e.target.checked })}
+                    className="rounded border-gray-300"
+                    data-testid="checkbox-induction"
+                  />
+                  <span className="text-sm text-slate-700">Site Induction Completed</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAddWorkerDialog(false)}
+              data-testid="button-cancel-add-worker"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddWorker}
+              disabled={!workerForm.firstName || !workerForm.lastName || createWorkerMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-save-worker"
+            >
+              {createWorkerMutation.isPending ? "Adding..." : "Add Worker"}
             </Button>
           </DialogFooter>
         </DialogContent>
