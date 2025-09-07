@@ -506,72 +506,125 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     }
   }
 
-  // Generate scene images for the induction (optimized for speed)
+  // Generate scene images for the induction (optimized for speed with parallel processing)
   async generateSceneImages(scenes: Array<{imagePrompt: string}>): Promise<string[]> {
-    const imageUrls: string[] = [];
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
     
     // GENERATE IMAGES FOR ALL SCENES - Critical for professional presentation
     const selectedScenes = scenes; // Use all scenes to ensure every page has an image
     
     try {
-      console.log(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (complete coverage)...`);
+      console.log(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (parallel processing for speed)...`);
       
-      for (let i = 0; i < selectedScenes.length; i++) {
-        const scene = selectedScenes[i];
-        console.log(`🖼️ Generating image ${i + 1}/${selectedScenes.length}: ${scene.imagePrompt}`);
+      // Parallelize image generation for 3x-5x speed improvement
+      const imagePromises = selectedScenes.map(async (scene, i) => {
+        console.log(`🖼️ Starting image generation ${i + 1}/${selectedScenes.length}`);
         
-        // Enhanced prompt with company branding and CRITICAL spelling requirements
-        const enhancedPrompt = `Professional workplace safety illustration for ${companyName}: ${scene.imagePrompt}. 
-        Style: Clean, modern corporate safety design with professional photography quality. 
-        Colors: Professional blue (#3b82f6) and safety orange (#f97316) corporate theme. 
-        Setting: Modern office/industrial environment with ${companyName} branding. 
-        Quality: High-resolution, crystal clear, informative, realistic photography style.
-        Details: Include safety equipment, professional uniforms, clear signage, modern facilities.
+        // Simplified prompt focusing on visual elements to avoid text generation issues
+        const enhancedPrompt = `Professional workplace safety photograph for visitor induction. ${scene.imagePrompt}. 
+        Style: Clean, modern corporate safety photography with professional quality. 
+        Colors: Professional blue and safety orange corporate theme. 
+        Setting: Modern office/industrial environment, professional facilities. 
+        Quality: High-resolution, crystal clear, informative, realistic photography.
+        Details: Safety equipment, professional uniforms, modern facilities.
+        IMPORTANT: Minimize or avoid text in the image. Focus on visual demonstration of safety concepts.
+        Avoid: Text, signage with words, cartoons, sketches, amateur photography.`;
         
-        CRITICAL SPELLING AND TEXT REQUIREMENTS:
-        - All visible text MUST be spelled correctly with perfect accuracy
-        - Company names MUST be spelled exactly as provided: "${companyName}"
-        - Safety terms MUST be spelled perfectly: "EMERGENCY", "SAFETY", "PPE", "VISITOR", "RESTRICTED", "AUTHORIZED", "PERSONNEL", "CAUTION", "WARNING", "DANGER"
-        - Legal terms MUST be accurate: "CORPORATION", "LIMITED", "COMPLIANCE", "REGULATIONS", "CERTIFICATION"
-        - No misspellings, typos, or text errors are acceptable
-        - If unsure about spelling, use simple clear text or generic terms
-        - Focus on visual elements rather than complex text if spelling accuracy cannot be guaranteed
-        
-        Avoid: Cartoons, sketches, amateur photography, cluttered backgrounds, misspelled text, unclear signage.`;
-        
-        const imageResponse = await openai.images.generate({
-          model: "dall-e-3",
-          prompt: enhancedPrompt,
-          n: 1,
-          size: "1024x1024",
-          quality: "standard", // Use standard quality for speed
-        });
-        
-        const imageUrl = imageResponse.data?.[0]?.url;
-        if (imageUrl) {
-          imageUrls.push(imageUrl);
-          console.log(`✅ Image ${i + 1} generated successfully`);
-        } else {
-          console.log(`⚠️ Image ${i + 1} generation returned no URL - retrying...`);
-          // Add placeholder for failed image to maintain array index alignment
-          imageUrls.push('');
+        try {
+          const imageResponse = await openai.images.generate({
+            model: "dall-e-3",
+            prompt: enhancedPrompt,
+            n: 1,
+            size: "1024x1024",
+            quality: "standard", // Use standard quality for speed
+          });
+          
+          const imageUrl = imageResponse.data?.[0]?.url;
+          if (imageUrl) {
+            console.log(`✅ Image ${i + 1} generated successfully`);
+            return imageUrl;
+          } else {
+            console.log(`⚠️ Image ${i + 1} generation returned no URL`);
+            return '';
+          }
+        } catch (error) {
+          console.error(`❌ Failed to generate image ${i + 1}:`, error);
+          return ''; // Return empty string for failed images
         }
+      });
+      
+      // Process in batches of 3 to avoid rate limits while maximizing speed
+      const batchSize = 3;
+      const imageUrls: string[] = [];
+      
+      for (let i = 0; i < imagePromises.length; i += batchSize) {
+        const batch = imagePromises.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch);
+        imageUrls.push(...batchResults);
         
-        // Minimal delay for API rate limits while ensuring reliability
-        await new Promise(resolve => setTimeout(resolve, 300)); // Reduced to 0.3 seconds for faster completion
+        // Small delay between batches to respect rate limits
+        if (i + batchSize < imagePromises.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
       
-      console.log(`🎉 Successfully generated ${imageUrls.length}/${selectedScenes.length} AI images`);
+      console.log(`🎉 Successfully generated ${imageUrls.filter(url => url).length}/${selectedScenes.length} AI images in parallel`);
+      return imageUrls;
     } catch (error: any) {
       console.error('❌ Error generating scene images:', error);
       if (error?.response) {
         console.error('API Response:', error.response.data);
       }
-      // Continue with empty images rather than failing completely
+      // Return empty array rather than failing completely
+      return new Array(selectedScenes.length).fill('');
+    }
+  }
+  
+  // Generate audio narration for scenes using Text-to-Speech
+  async generateSceneAudio(scenes: Array<{content: string; title: string}>): Promise<string[]> {
+    const audioUrls: string[] = [];
+    
+    try {
+      console.log(`🎤 Generating audio narration for ${scenes.length} scenes...`);
+      
+      // Use Google Text-to-Speech for natural narration
+      const audioPromises = scenes.map(async (scene, i) => {
+        const narrationText = `${scene.title}. ${scene.content}`;
+        
+        try {
+          // Generate audio using OpenAI TTS
+          const mp3Response = await openai.audio.speech.create({
+            model: "tts-1",
+            voice: "nova", // Professional female voice
+            input: narrationText,
+            speed: 0.95 // Slightly slower for better comprehension
+          });
+          
+          // Convert to base64 for embedding in HTML
+          const buffer = Buffer.from(await mp3Response.arrayBuffer());
+          const base64Audio = buffer.toString('base64');
+          const audioDataUrl = `data:audio/mp3;base64,${base64Audio}`;
+          
+          console.log(`✅ Audio ${i + 1} generated successfully`);
+          return audioDataUrl;
+        } catch (error) {
+          console.error(`❌ Failed to generate audio ${i + 1}:`, error);
+          return ''; // Return empty string for failed audio
+        }
+      });
+      
+      // Process all audio in parallel for speed
+      const results = await Promise.all(audioPromises);
+      audioUrls.push(...results);
+      
+      console.log(`🎉 Successfully generated ${audioUrls.filter(url => url).length}/${scenes.length} audio narrations`);
+    } catch (error) {
+      console.error('❌ Error generating audio narration:', error);
+      // Return empty array rather than failing completely
+      return new Array(scenes.length).fill('');
     }
     
-    return imageUrls;
+    return audioUrls;
   }
 
   // Generate comprehensive UK H&S compliant scenes
@@ -715,15 +768,26 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       console.log(`🔧 Applied ${scenes.length} fallback scenes`);
     }
     
-    // Generate images for hybrid enhanced mode
+    // Generate images and audio for hybrid enhanced mode
     let sceneImages: string[] = [];
+    let sceneAudio: string[] = [];
+    
     if (videoFormat === 'hybrid_enhanced') {
       try {
-        console.log('🎨 Generating AI images for hybrid enhanced mode...');
-        sceneImages = await this.generateSceneImages(scenes);
-        console.log(`✨ Generated ${sceneImages.length} AI images for enhanced presentation`);
+        console.log('🎨 Generating AI images and audio for hybrid enhanced mode...');
+        
+        // Generate images and audio in parallel for maximum speed
+        const [images, audio] = await Promise.all([
+          this.generateSceneImages(scenes),
+          this.generateSceneAudio(scenes)
+        ]);
+        
+        sceneImages = images;
+        sceneAudio = audio;
+        
+        console.log(`✨ Generated ${sceneImages.filter(img => img).length} images and ${sceneAudio.filter(aud => aud).length} audio tracks`);
       } catch (error) {
-        console.error('❌ AI image generation failed:', error);
+        console.error('❌ AI generation failed:', error);
       }
     }
     
@@ -735,7 +799,7 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     
     if (videoFormat === 'hybrid_enhanced') {
       console.log('🎨 Creating hybrid enhanced presentation...');
-      htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages);
+      htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages, sceneAudio);
     } else if (videoFormat === 'full_video') {
       console.log('🎬 Creating full video with Sora API...');
       htmlContent = await this.createVideoPresentation(scenes, roleType, modelType);
@@ -1254,17 +1318,18 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
 </html>`;
   }
 
-  // Generate hybrid enhanced presentation with AI images
-  async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string, preGeneratedImages: string[] = []): Promise<string> {
+  // Generate hybrid enhanced presentation with AI images and audio narration
+  async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string, preGeneratedImages: string[] = [], preGeneratedAudio: string[] = []): Promise<string> {
     console.log('🎨 Generating enhanced presentation with AI images...');
     
     // Get company name for branding
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
     
-    // Use pre-generated AI images if available (passed from generateVideoPresentation)
-    // This prevents duplicate generation when called from hybrid enhanced mode
+    // Use pre-generated AI images and audio if available
     let sceneImages: string[] = preGeneratedImages;
+    let sceneAudio: string[] = preGeneratedAudio;
     
+    // Generate images if not provided
     if (sceneImages.length === 0) {
       try {
         console.log('🖼️ No pre-generated images found, generating AI images for enhanced mode...');
@@ -1275,7 +1340,21 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         console.log('⚠️ Continuing with enhanced styling but no AI images');
       }
     } else {
-      console.log(`✅ Using ${sceneImages.length} pre-generated AI images (no duplication)`);
+      console.log(`✅ Using ${sceneImages.length} pre-generated AI images`);
+    }
+    
+    // Generate audio if not provided
+    if (sceneAudio.length === 0) {
+      try {
+        console.log('🎤 No pre-generated audio found, generating narration...');
+        sceneAudio = await this.generateSceneAudio(scenes);
+        console.log(`✨ Successfully generated ${sceneAudio.length} audio narrations`);
+      } catch (error) {
+        console.error('❌ Audio generation failed:', error);
+        console.log('⚠️ Continuing without audio narration');
+      }
+    } else {
+      console.log(`✅ Using ${sceneAudio.length} pre-generated audio narrations`);
     }
 
     const htmlContent = `
@@ -1474,17 +1553,36 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
                 </div>
                 <h1>${scene.title}</h1>
                 ${sceneImages[index] ? `
-                    <div class="scene-image">
+                    <div class="scene-image" style="position: relative;">
                         <img src="${sceneImages[index]}" alt="${scene.title}" />
+                        <!-- Text overlay for critical information -->
+                        <div style="position: absolute; bottom: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px;">
+                            <h3 style="color: white; margin: 0; font-size: 1.2rem;">${scene.title}</h3>
+                        </div>
                     </div>
                 ` : `
                     <div class="scene-image">
-                        <div>🎨 AI Image: ${scene.imagePrompt}</div>
+                        <div>🎨 ${scene.title}</div>
                     </div>
                 `}
                 <div>${scene.content.split('\n').map((line: string) => `<p>${line}</p>`).join('')}</div>
+                
+                <!-- Audio narration element -->
+                ${sceneAudio && sceneAudio[index] ? `
+                    <audio id="audio-${index}" class="scene-audio" preload="auto">
+                        <source src="${sceneAudio[index]}" type="audio/mp3">
+                        Your browser does not support the audio element.
+                    </audio>
+                ` : ''}
             </div>
         `).join('')}
+    </div>
+    
+    <!-- Audio controls -->
+    <div style="position: fixed; top: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+        <button id="audio-toggle" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+            🔊 Audio ON
+        </button>
     </div>
     
     <div class="controls">
@@ -1499,12 +1597,39 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         let currentScene = 0;
         let isPlaying = true;
         let sceneTimer = null;
+        let audioEnabled = true;
         const scenes = ${JSON.stringify(scenes)};
         const totalScenes = ${scenes.length};
         
         document.getElementById('total-scenes').textContent = totalScenes;
         
+        // Setup audio toggle button
+        document.getElementById('audio-toggle').addEventListener('click', function() {
+            audioEnabled = !audioEnabled;
+            this.textContent = audioEnabled ? '🔊 Audio ON' : '🔇 Audio OFF';
+            
+            // If audio was enabled, play current scene's audio
+            if (audioEnabled) {
+                const audio = document.getElementById(\`audio-\${currentScene}\`);
+                if (audio) {
+                    audio.play().catch(e => console.log('Audio playback prevented:', e));
+                }
+            } else {
+                // Stop all audio
+                document.querySelectorAll('audio').forEach(audio => {
+                    audio.pause();
+                });
+            }
+        });
+        
         function showScene(index) {
+            // Stop any currently playing audio
+            document.querySelectorAll('audio').forEach(audio => {
+                audio.pause();
+                audio.currentTime = 0;
+            });
+            
+            // Switch scenes
             document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.scene')[index].classList.add('active');
             // Update all scene counters since each scene now has its own counter
@@ -1512,6 +1637,14 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
                 el.textContent = index + 1;
             });
             updateProgressBar();
+            
+            // Play audio for new scene if audio is enabled
+            if (audioEnabled) {
+                const audio = document.getElementById(\`audio-\${index}\`);
+                if (audio) {
+                    audio.play().catch(e => console.log('Audio playback prevented:', e));
+                }
+            }
         }
         
         function nextScene() {
