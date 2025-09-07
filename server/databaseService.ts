@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, gte, lt, gt, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, lt, gt, sql, isNull } from "drizzle-orm";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
 import type {
   Staff,
@@ -200,7 +200,6 @@ export class DatabaseService {
         staffId: id,
         checkInTime: new Date(),
         department: updated[0].department,
-        role: updated[0].role,
         sessionType: 'work',
         isManualEntry: manual,
       });
@@ -663,38 +662,47 @@ export class DatabaseService {
         eq(schema.staff.isActive, true)
       ));
     
+    // Get attendance history for the date range
+    const attendanceHistory = await db
+      .select()
+      .from(schema.staffAttendanceHistory)
+      .where(and(
+        eq(schema.staffAttendanceHistory.customerId, context.customerId),
+        gte(schema.staffAttendanceHistory.checkInTime, fromDate),
+        lte(schema.staffAttendanceHistory.checkInTime, toDate)
+      ))
+      .orderBy(asc(schema.staffAttendanceHistory.checkInTime));
+    
+    // Group attendance records by staff ID
+    const attendanceByStaff = new Map<string, typeof attendanceHistory>();
+    attendanceHistory.forEach(record => {
+      const staffRecords = attendanceByStaff.get(record.staffId) || [];
+      staffRecords.push(record);
+      attendanceByStaff.set(record.staffId, staffRecords);
+    });
+    
     return staff.map(staffMember => {
+      const staffAttendance = attendanceByStaff.get(staffMember.id) || [];
+      
       const sessions: Array<{
         checkInTime: Date;
         checkOutTime: Date | null;
         hoursWorked: number;
         isManual: boolean;
-      }> = [];
-      
-      // For current session if checked in
-      if (staffMember.isCheckedIn && staffMember.checkedInAt && 
-          staffMember.checkedInAt >= fromDate && staffMember.checkedInAt <= toDate) {
-        const currentSession = {
-          checkInTime: staffMember.checkedInAt,
-          checkOutTime: null,
-          hoursWorked: (Date.now() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60), // Hours since check-in
-          isManual: staffMember.manualCheckIn || false,
+      }> = staffAttendance.map(record => {
+        const hoursWorked = record.durationMinutes 
+          ? record.durationMinutes / 60 
+          : record.checkOutTime 
+            ? (record.checkOutTime.getTime() - record.checkInTime.getTime()) / (1000 * 60 * 60)
+            : (Date.now() - record.checkInTime.getTime()) / (1000 * 60 * 60);
+        
+        return {
+          checkInTime: record.checkInTime,
+          checkOutTime: record.checkOutTime,
+          hoursWorked,
+          isManual: record.isManualEntry,
         };
-        sessions.push(currentSession);
-      }
-      
-      // For completed sessions - if we have both check-in and check-out times
-      if (staffMember.checkedOutAt && staffMember.checkedInAt && 
-          staffMember.checkedInAt >= fromDate && staffMember.checkedInAt <= toDate &&
-          !staffMember.isCheckedIn) { // Only show completed sessions when not currently checked in
-        const completedSession = {
-          checkInTime: staffMember.checkedInAt,
-          checkOutTime: staffMember.checkedOutAt,
-          hoursWorked: (staffMember.checkedOutAt.getTime() - staffMember.checkedInAt.getTime()) / (1000 * 60 * 60),
-          isManual: staffMember.manualCheckIn || false,
-        };
-        sessions.push(completedSession);
-      }
+      });
       
       const totalHours = sessions.reduce((sum, session) => sum + session.hoursWorked, 0);
       
