@@ -178,6 +178,7 @@ export class DatabaseService {
   async checkInStaff(context: CustomerContext, id: string, manual: boolean = false): Promise<Staff | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // Update staff record
     const updated = await db
       .update(schema.staff)
       .set({ 
@@ -192,12 +193,26 @@ export class DatabaseService {
       ))
       .returning();
     
+    if (updated[0]) {
+      // Create attendance history record
+      await db.insert(schema.staffAttendanceHistory).values({
+        customerId: context.customerId,
+        staffId: id,
+        checkInTime: new Date(),
+        department: updated[0].department,
+        role: updated[0].role,
+        sessionType: 'work',
+        isManualEntry: manual,
+      });
+    }
+    
     return updated[0];
   }
 
   async checkOutStaff(context: CustomerContext, id: string): Promise<Staff | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // Update staff record
     const updated = await db
       .update(schema.staff)
       .set({ 
@@ -210,6 +225,37 @@ export class DatabaseService {
         eq(schema.staff.id, id)
       ))
       .returning();
+    
+    if (updated[0]) {
+      // Find the most recent unclosed attendance record
+      const openSession = await db
+        .select()
+        .from(schema.staffAttendanceHistory)
+        .where(and(
+          eq(schema.staffAttendanceHistory.customerId, context.customerId),
+          eq(schema.staffAttendanceHistory.staffId, id),
+          isNull(schema.staffAttendanceHistory.checkOutTime)
+        ))
+        .orderBy(desc(schema.staffAttendanceHistory.checkInTime))
+        .limit(1);
+      
+      if (openSession[0]) {
+        // Calculate duration in minutes
+        const checkOutTime = new Date();
+        const durationMs = checkOutTime.getTime() - openSession[0].checkInTime.getTime();
+        const durationMinutes = Math.round(durationMs / (1000 * 60));
+        
+        // Update the attendance history record
+        await db
+          .update(schema.staffAttendanceHistory)
+          .set({
+            checkOutTime: checkOutTime,
+            durationMinutes: durationMinutes,
+            checkoutType: 'user'
+          })
+          .where(eq(schema.staffAttendanceHistory.id, openSession[0].id));
+      }
+    }
     
     return updated[0];
   }

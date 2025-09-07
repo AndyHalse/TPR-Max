@@ -180,6 +180,30 @@ export const visitorHistory = pgTable("visitor_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Staff attendance history table for tracking all check-in/out events
+export const staffAttendanceHistory = pgTable("staff_attendance_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each attendance record belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  staffId: varchar("staff_id").notNull().references(() => staff.id),
+  // Session details
+  checkInTime: timestamp("check_in_time").notNull(),
+  checkOutTime: timestamp("check_out_time"),
+  // Work details
+  department: text("department"),
+  role: text("role"),
+  // Session type
+  sessionType: text("session_type").default('work').notNull(), // work, break, overtime
+  isManualEntry: boolean("is_manual_entry").default(false).notNull(),
+  // Check-out details
+  checkoutType: text("checkout_type"), // user, manual-reset, auto-reset, emergency
+  // Duration in minutes (calculated on checkout)
+  durationMinutes: integer("duration_minutes"),
+  // Notes for this session
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Pre-bookings table for visitor appointments
 export const preBookings = pgTable("pre_bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -248,6 +272,15 @@ export type Visitor = typeof visitors.$inferSelect;
 export type InsertVisitor = z.infer<typeof insertVisitorSchema>;
 export type VisitorHistory = typeof visitorHistory.$inferSelect;
 export type InsertVisitorHistory = z.infer<typeof insertVisitorHistorySchema>;
+
+export const insertStaffAttendanceHistorySchema = createInsertSchema(staffAttendanceHistory).omit({
+  id: true,
+  createdAt: true,
+  durationMinutes: true,
+});
+
+export type StaffAttendanceHistory = typeof staffAttendanceHistory.$inferSelect;
+export type InsertStaffAttendanceHistory = z.infer<typeof insertStaffAttendanceHistorySchema>;
 
 // Departments table for dynamic department management
 export const departments = pgTable("departments", {
