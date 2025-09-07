@@ -142,8 +142,42 @@ export const visitors = pgTable("visitors", {
   hsRulesAccepted: boolean("hs_rules_accepted").default(false).notNull(),
   hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
   hsRulesAcceptanceToken: text("hs_rules_acceptance_token"), // Token for verification
+  // Notes field for additional visitor information
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Visitor history table for tracking all visits
+export const visitorHistory = pgTable("visitor_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each visitor history belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  visitorId: varchar("visitor_id").notNull().references(() => visitors.id),
+  // Visit details
+  checkInTime: timestamp("check_in_time").notNull(),
+  checkOutTime: timestamp("check_out_time"),
+  purpose: text("purpose"),
+  hostStaffId: varchar("host_staff_id").references(() => staff.id),
+  hostName: text("host_name"), // Store host name for historical reference
+  // Tenant information
+  visitingTenantId: varchar("visiting_tenant_id").references(() => tenantCompanies.id),
+  tenantCompanyName: text("tenant_company_name"), // Store for history even if tenant is deleted
+  // Compliance tracking
+  inductionCompleted: boolean("induction_completed").default(false).notNull(),
+  inductionCompletedAt: timestamp("induction_completed_at"),
+  hsRulesAccepted: boolean("hs_rules_accepted").default(false).notNull(),
+  hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
+  // E-Pass details
+  ePassSent: boolean("e_pass_sent").default(false).notNull(),
+  ePassSentAt: timestamp("e_pass_sent_at"),
+  // Check-out details
+  checkoutType: text("checkout_type"), // user, manual-reset, auto-reset, emergency
+  // Visit notes
+  notes: text("notes"),
+  // QR code for this visit
+  qrCode: text("qr_code"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Pre-bookings table for visitor appointments
@@ -192,6 +226,11 @@ export const insertVisitorSchema = createInsertSchema(visitors).omit({
   qrCode: true,
 });
 
+export const insertVisitorHistorySchema = createInsertSchema(visitorHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertStaffSessionSchema = createInsertSchema(staffSessions).omit({
   id: true,
   createdAt: true,
@@ -207,6 +246,8 @@ export type StaffSession = typeof staffSessions.$inferSelect;
 export type InsertStaffSession = z.infer<typeof insertStaffSessionSchema>;
 export type Visitor = typeof visitors.$inferSelect;
 export type InsertVisitor = z.infer<typeof insertVisitorSchema>;
+export type VisitorHistory = typeof visitorHistory.$inferSelect;
+export type InsertVisitorHistory = z.infer<typeof insertVisitorHistorySchema>;
 
 // Departments table for dynamic department management
 export const departments = pgTable("departments", {
