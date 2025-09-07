@@ -643,7 +643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Department details endpoint
-  app.get("/api/analytics/departments/:department", async (req, res) => {
+  app.get("/api/analytics/departments/:department", requireAuth, async (req, res) => {
     try {
       const { department } = req.params;
       

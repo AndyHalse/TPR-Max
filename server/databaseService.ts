@@ -838,6 +838,88 @@ export class DatabaseService {
     return results;
   }
 
+  async getDepartmentDetails(context: CustomerContext, departmentName: string): Promise<{
+    department: string;
+    staff: any[];
+    visitors: any[];
+    totalHours: number;
+    recentActivity: any[];
+  }> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Get staff in department
+    const staff = await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.customerId, context.customerId),
+        eq(schema.staff.department, departmentName)
+      ));
+    
+    // Get visitors hosted by staff in this department
+    const visitors = await db
+      .select({
+        id: schema.visitors.id,
+        firstName: schema.visitors.firstName,
+        lastName: schema.visitors.lastName,
+        company: schema.visitors.company,
+        checkedInAt: schema.visitors.checkedInAt,
+        isCheckedIn: schema.visitors.isCheckedIn,
+        hostName: sql<string>`${schema.staff.firstName} || ' ' || ${schema.staff.lastName}`
+      })
+      .from(schema.visitors)
+      .innerJoin(schema.staff, and(
+        eq(schema.visitors.hostStaffId, schema.staff.id),
+        eq(schema.staff.department, departmentName)
+      ))
+      .where(eq(schema.visitors.customerId, context.customerId))
+      .orderBy(desc(schema.visitors.checkedInAt))
+      .limit(10);
+    
+    // Calculate total hours worked by department today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const hoursData = await db
+      .select({
+        totalMinutes: sql<number>`SUM(duration_minutes)`
+      })
+      .from(schema.staffAttendanceHistory)
+      .innerJoin(schema.staff, eq(schema.staffAttendanceHistory.staffId, schema.staff.id))
+      .where(and(
+        eq(schema.staffAttendanceHistory.customerId, context.customerId),
+        eq(schema.staff.department, departmentName),
+        gte(schema.staffAttendanceHistory.checkInTime, today)
+      ));
+    
+    const totalHours = hoursData[0]?.totalMinutes ? hoursData[0].totalMinutes / 60 : 0;
+    
+    // Get recent activity (last 5 check-ins/outs)
+    const recentActivity = await db
+      .select({
+        type: sql<string>`'staff'`,
+        name: sql<string>`${schema.staff.firstName} || ' ' || ${schema.staff.lastName}`,
+        action: sql<string>`CASE WHEN ${schema.staffAttendanceHistory.checkOutTime} IS NULL THEN 'Checked In' ELSE 'Checked Out' END`,
+        time: sql<Date>`COALESCE(${schema.staffAttendanceHistory.checkOutTime}, ${schema.staffAttendanceHistory.checkInTime})`
+      })
+      .from(schema.staffAttendanceHistory)
+      .innerJoin(schema.staff, eq(schema.staffAttendanceHistory.staffId, schema.staff.id))
+      .where(and(
+        eq(schema.staffAttendanceHistory.customerId, context.customerId),
+        eq(schema.staff.department, departmentName)
+      ))
+      .orderBy(desc(sql`COALESCE(${schema.staffAttendanceHistory.checkOutTime}, ${schema.staffAttendanceHistory.checkInTime})`))
+      .limit(5);
+    
+    return {
+      department: departmentName,
+      staff,
+      visitors,
+      totalHours,
+      recentActivity
+    };
+  }
+
   /**
    * STATISTICS METHODS - Customer Isolated
    */
