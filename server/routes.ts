@@ -2221,6 +2221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       
       const visitors = await databaseService.getCurrentVisitors(context);
+      console.log(`📊 Current visitors query returned ${visitors.length} visitors:`, visitors.map(v => ({ id: v.id, name: `${v.firstName} ${v.lastName}`, checkedIn: v.isCheckedIn })));
       res.json(visitors);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch current visitors" });
