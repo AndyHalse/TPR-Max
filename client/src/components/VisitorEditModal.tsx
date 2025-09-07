@@ -90,10 +90,26 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
   };
 
   // Fetch visitor history
-  const { data: visitorHistory = [] } = useQuery<VisitorHistory[]>({
+  const { data: visitorHistory = [], refetch: refetchHistory } = useQuery<VisitorHistory[]>({
     queryKey: [`/api/visitors/${visitor?.id}/history`],
     enabled: !!visitor?.id,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+  
+  // Refetch history when visitor changes or modal opens
+  useEffect(() => {
+    if (visitor?.id && open) {
+      refetchHistory();
+    }
+  }, [visitor?.id, open, refetchHistory]);
+  
+  // Debug log the history
+  useEffect(() => {
+    if (visitorHistory.length > 0) {
+      console.log(`📊 Visitor history loaded: ${visitorHistory.length} visits`, visitorHistory);
+    }
+  }, [visitorHistory]);
 
   if (!visitor) return null;
 
