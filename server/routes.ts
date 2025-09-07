@@ -2526,10 +2526,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `);
       }
       
-      // Update visitor with H&S acceptance
+      // Update visitor with H&S acceptance and timestamp
+      const now = new Date();
       const updatedVisitor = await databaseService.updateVisitor(context, id, {
         hsRulesAccepted: true,
-        hsRulesAcceptedAt: new Date()
+        hsRulesAcceptedAt: now
       });
       
       if (!updatedVisitor) {
@@ -2589,10 +2590,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid acceptance token" });
       }
       
-      // Update visitor with H&S acceptance
+      // Update visitor with H&S acceptance and timestamp
+      const now = new Date();
       const updatedVisitor = await databaseService.updateVisitor(context, id, {
         hsRulesAccepted: true,
-        hsRulesAcceptedAt: new Date()
+        hsRulesAcceptedAt: now
       });
       
       if (!updatedVisitor) {
@@ -2631,6 +2633,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(checkedOutVisitor);
     } catch (error) {
       res.status(500).json({ error: "Failed to check out visitor" });
+    }
+  });
+  
+  // Get visitor history
+  app.get("/api/visitors/:id/history", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const history = await databaseService.getVisitorHistory(context, id);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching visitor history:", error);
+      res.status(500).json({ error: "Failed to fetch visitor history" });
     }
   });
 

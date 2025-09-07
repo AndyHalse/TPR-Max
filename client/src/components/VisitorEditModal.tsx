@@ -31,6 +31,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
     address: visitor?.address || '',
     purpose: visitor?.purpose || '',
     carRegistration: visitor?.carRegistration || '',
+    notes: visitor?.notes || '',
   });
 
   // Update form data when visitor changes
@@ -47,6 +48,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
         address: visitor.address || '',
         purpose: visitor.purpose || '',
         carRegistration: visitor.carRegistration || '',
+        notes: visitor.notes || '',
       });
     }
   }, [visitor]);

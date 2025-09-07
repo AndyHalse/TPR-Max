@@ -5,6 +5,8 @@ import type {
   InsertStaff,
   Visitor,
   InsertVisitor,
+  VisitorHistory,
+  InsertVisitorHistory,
   User,
   InsertUser,
   CompanySettings,
@@ -296,6 +298,10 @@ export class DatabaseService {
   async checkOutVisitor(context: CustomerContext, id: string): Promise<Visitor | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // Get visitor details before checkout for history
+    const visitor = await this.getVisitorById(context, id);
+    if (!visitor) return undefined;
+    
     const updated = await db
       .update(schema.visitors)
       .set({ 
@@ -310,7 +316,90 @@ export class DatabaseService {
       ))
       .returning();
     
+    // Create visitor history record for this visit
+    if (updated[0] && visitor.checkedInAt) {
+      await this.createVisitorHistory(context, {
+        visitorId: id,
+        checkInTime: visitor.checkedInAt,
+        checkOutTime: new Date(),
+        purpose: visitor.purpose || '',
+        hostStaffId: visitor.hostStaffId,
+        visitingTenantId: visitor.visitingTenantId,
+        inductionCompleted: visitor.inductionCompleted || false,
+        inductionCompletedAt: visitor.inductionCompletedAt,
+        hsRulesAccepted: visitor.hsRulesAccepted || false,
+        hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
+        ePassSent: visitor.ePassSent || false,
+        ePassSentAt: visitor.ePassSentAt,
+        checkoutType: 'user',
+        notes: visitor.notes,
+        qrCode: visitor.qrCode
+      });
+    }
+    
     return updated[0];
+  }
+  
+  async createVisitorHistory(context: CustomerContext, historyData: Omit<InsertVisitorHistory, 'customerId'>): Promise<VisitorHistory> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Get host name if host ID is provided
+    let hostName = undefined;
+    if (historyData.hostStaffId) {
+      const host = await this.getStaffById(context, historyData.hostStaffId);
+      if (host) {
+        hostName = `${host.firstName} ${host.lastName}`;
+      }
+    }
+    
+    // Get tenant company name if tenant ID is provided
+    let tenantCompanyName = undefined;
+    if (historyData.visitingTenantId) {
+      const tenant = await this.getTenantCompanyById(context, historyData.visitingTenantId);
+      if (tenant) {
+        tenantCompanyName = tenant.companyName;
+      }
+    }
+    
+    const [history] = await db
+      .insert(schema.visitorHistory)
+      .values({
+        ...historyData,
+        customerId: context.customerId,
+        hostName,
+        tenantCompanyName
+      })
+      .returning();
+    
+    return history;
+  }
+  
+  async getVisitorHistory(context: CustomerContext, visitorId: string): Promise<VisitorHistory[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.visitorHistory)
+      .where(and(
+        eq(schema.visitorHistory.customerId, context.customerId),
+        eq(schema.visitorHistory.visitorId, visitorId)
+      ))
+      .orderBy(desc(schema.visitorHistory.checkInTime));
+  }
+  
+  async getTenantCompanyById(context: CustomerContext, id: string): Promise<TenantCompany | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [tenant] = await db
+      .select()
+      .from(schema.tenantCompanies)
+      .where(and(
+        eq(schema.tenantCompanies.customerId, context.customerId),
+        eq(schema.tenantCompanies.id, id)
+      ))
+      .limit(1);
+    
+    return tenant;
   }
 
   async deleteVisitor(context: CustomerContext, id: string): Promise<boolean> {
