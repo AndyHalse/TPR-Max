@@ -23,6 +23,9 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
+import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
+import { ContractorEditModal } from "@/components/ContractorEditModal";
+import ContractorHSModal from "@/components/ContractorHSModal";
 
 // Helper function to get safety rating colors
 const getSafetyRatingColor = (rating: string) => {
@@ -41,6 +44,9 @@ export default function ContractorDetails() {
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
+  const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
+  const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
+  const [selectedWorkerForHS, setSelectedWorkerForHS] = useState<ContractorWorker | null>(null);
 
   // Fetch contractor details
   const { data: contractor, isLoading } = useQuery({
@@ -150,6 +156,65 @@ export default function ContractorDetails() {
     };
     console.log("🎓 Adding certification with data:", certData);
     addCertificationMutation.mutate(certData);
+  };
+
+  // Check-in mutation
+  const checkInMutation = useMutation({
+    mutationFn: async (worker: ContractorWorker) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/checkin`, {
+        purpose: 'Site work',
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: new Date().toISOString(),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Worker checked in successfully" });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      setSelectedWorkerForHS(null);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to check in worker", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Check-out mutation
+  const checkOutMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${workerId}/checkout`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Worker checked out successfully" });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to check out worker", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const handleWorkerCheckIn = (worker: ContractorWorker) => {
+    setSelectedWorkerForHS(worker);
+  };
+
+  const handleWorkerCheckOut = (workerId: string) => {
+    checkOutMutation.mutate(workerId);
+  };
+
+  const handleWorkerEdit = (worker: ContractorWorker) => {
+    setSelectedWorkerForEdit(worker);
+  };
+
+  const handleWorkerPrint = (worker: ContractorWorker) => {
+    setSelectedWorkerForPrint(worker);
   };
 
 
@@ -533,6 +598,10 @@ export default function ContractorDetails() {
                 <WorkerCard
                   key={worker.id}
                   worker={worker}
+                  onCheckIn={handleWorkerCheckIn}
+                  onCheckOut={handleWorkerCheckOut}
+                  onEdit={handleWorkerEdit}
+                  onPrint={handleWorkerPrint}
                   onIssueCard={(workerId) => {
                     cardIssueForm.setValue('workerId', workerId);
                     setIssuingCard(true);
@@ -916,6 +985,39 @@ export default function ContractorDetails() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* H&S Acceptance Modal for Check-in */}
+      {selectedWorkerForHS && (
+        <ContractorHSModal
+          isOpen={!!selectedWorkerForHS}
+          onClose={() => setSelectedWorkerForHS(null)}
+          onAccept={() => {
+            checkInMutation.mutate(selectedWorkerForHS);
+          }}
+          worker={selectedWorkerForHS}
+          companyName={contractorData.name}
+        />
+      )}
+
+      {/* Edit Worker Modal */}
+      {selectedWorkerForEdit && (
+        <ContractorEditModal
+          worker={selectedWorkerForEdit}
+          companyName={contractorData.name}
+          open={!!selectedWorkerForEdit}
+          onOpenChange={(open) => !open && setSelectedWorkerForEdit(null)}
+        />
+      )}
+
+      {/* Print Pass Modal */}
+      {selectedWorkerForPrint && (
+        <ContractorPassPreviewModal
+          isOpen={!!selectedWorkerForPrint}
+          onClose={() => setSelectedWorkerForPrint(null)}
+          worker={selectedWorkerForPrint}
+          companyName={contractorData.name}
+        />
+      )}
     </div>
   );
 }

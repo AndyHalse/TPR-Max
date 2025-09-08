@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 // Note: Avatar component not available in current setup, using placeholder
 import { 
   Shield, AlertTriangle, XCircle, CheckCircle2, 
-  Calendar, Phone, Mail, Award, Clock 
+  Calendar, Phone, Mail, Award, Clock,
+  LogIn, LogOut, Edit, Printer
 } from "lucide-react";
 import type { ContractorWorker } from "@shared/schema";
 
@@ -13,10 +14,24 @@ interface WorkerCardProps {
   onIssueCard?: (workerId: string) => void;
   onResetCard?: (workerId: string) => void;
   onViewDetails?: (worker: ContractorWorker) => void;
+  onCheckIn?: (worker: ContractorWorker) => void;
+  onCheckOut?: (workerId: string) => void;
+  onEdit?: (worker: ContractorWorker) => void;
+  onPrint?: (worker: ContractorWorker) => void;
   canManageCards?: boolean;
 }
 
-export function WorkerCard({ worker, onIssueCard, onResetCard, onViewDetails, canManageCards = false }: WorkerCardProps) {
+export function WorkerCard({ 
+  worker, 
+  onIssueCard, 
+  onResetCard, 
+  onViewDetails, 
+  onCheckIn,
+  onCheckOut,
+  onEdit,
+  onPrint,
+  canManageCards = false 
+}: WorkerCardProps) {
   const getCardStatusColor = (status: string) => {
     switch (status) {
       case 'red': return 'bg-red-500';
@@ -108,11 +123,62 @@ export function WorkerCard({ worker, onIssueCard, onResetCard, onViewDetails, ca
           )}
         </div>
 
-        {/* Status Indicators */}
+        {/* Action Buttons - Same as Visitor Cards */}
+        <div className="flex items-center gap-2">
+          {!worker.isCheckedIn ? (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCheckIn?.(worker);
+              }}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid={`button-checkin-${worker.id}`}
+            >
+              <LogIn className="mr-2 h-4 w-4" />
+              Check In
+            </Button>
+          ) : (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCheckOut?.(worker.id);
+              }}
+              variant="outline"
+              className="flex-1"
+              data-testid={`button-checkout-${worker.id}`}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Check Out
+            </Button>
+          )}
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(worker);
+            }}
+            size="icon"
+            variant="outline"
+            className="shrink-0"
+            data-testid={`button-edit-${worker.id}`}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrint?.(worker);
+            }}
+            size="icon"
+            variant="outline"
+            className="shrink-0"
+            data-testid={`button-print-${worker.id}`}
+          >
+            <Printer className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Status Badges */}
         <div className="flex flex-wrap gap-2">
-          <Badge variant={worker.isCheckedIn ? "default" : "secondary"} className="text-xs">
-            {worker.isCheckedIn ? "Checked In" : "Checked Out"}
-          </Badge>
           <Badge variant={worker.inductionCompleted ? "default" : "destructive"} className="text-xs">
             {worker.inductionCompleted ? "Inducted" : "No Induction"}
           </Badge>
