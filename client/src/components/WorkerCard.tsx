@@ -164,6 +164,24 @@ export function WorkerCard({
               Check Out
             </Button>
           )}
+          
+          {/* Manual H&S Acceptance Button for Testing */}
+          {worker.isCheckedIn && !worker.hsRulesAccepted && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                // Open H&S acceptance in new tab to bypass email security
+                window.open(`/api/contractors/workers/${worker.id}/accept-hs-rules`, '_blank');
+              }}
+              size="sm"
+              variant="outline"
+              className="text-orange-600 border-orange-600 hover:bg-orange-50"
+              data-testid={`button-accept-hs-${worker.id}`}
+            >
+              <Shield className="h-4 w-4 mr-1" />
+              Accept H&S
+            </Button>
+          )}
           <Button
             onClick={(e) => {
               e.stopPropagation();
