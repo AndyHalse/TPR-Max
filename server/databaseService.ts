@@ -938,6 +938,8 @@ export class DatabaseService {
     todayCheckins: number;
     staffOnSite: number;
     totalStaff: number;
+    contractorsOnSite: number;
+    totalPeople: number;
   }> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
@@ -974,6 +976,15 @@ export class DatabaseService {
         eq(schema.staff.isCheckedIn, true)
       ));
     
+    // Get contractors on site (ADDED!)
+    const contractorsOnSiteResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.contractorWorkers)
+      .where(and(
+        eq(schema.contractorWorkers.customerId, context.customerId),
+        eq(schema.contractorWorkers.isCheckedIn, true)
+      ));
+    
     // Get total staff
     const totalStaffResult = await db
       .select({ count: sql<number>`count(*)` })
@@ -983,11 +994,17 @@ export class DatabaseService {
         eq(schema.staff.isActive, true)
       ));
     
+    const currentVisitors = parseInt(String(currentVisitorsResult[0]?.count)) || 0;
+    const staffOnSite = parseInt(String(staffOnSiteResult[0]?.count)) || 0;
+    const contractorsOnSite = parseInt(String(contractorsOnSiteResult[0]?.count)) || 0;
+    
     return {
-      currentVisitors: parseInt(String(currentVisitorsResult[0]?.count)) || 0,
+      currentVisitors,
       todayCheckins: parseInt(String(todayCheckinsResult[0]?.count)) || 0,
-      staffOnSite: parseInt(String(staffOnSiteResult[0]?.count)) || 0,
+      staffOnSite,
       totalStaff: parseInt(String(totalStaffResult[0]?.count)) || 0,
+      contractorsOnSite,
+      totalPeople: currentVisitors + staffOnSite + contractorsOnSite
     };
   }
 
