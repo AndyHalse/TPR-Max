@@ -2569,7 +2569,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Contractor H&S Rules acceptance endpoint (placed with visitor endpoints to avoid auth middleware)
+  // CONTRACTOR H&S ENDPOINTS MOVED TO CORRECT POSITION AFTER VISITOR H&S ENDPOINTS
+  
+  // POST endpoint for API-based H&S acceptance
+  app.post("/api/visitors/:id/accept-hs-rules", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { token } = req.body;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get visitor
+      const visitor = await databaseService.getVisitorById(context, id);
+      if (!visitor) {
+        return res.status(404).json({ error: "Visitor not found" });
+      }
+      
+      // Verify token if provided (for email link validation)
+      if (token && visitor.hsRulesAcceptanceToken !== token) {
+        return res.status(401).json({ error: "Invalid acceptance token" });
+      }
+      
+      // Update visitor with H&S acceptance and timestamp
+      const now = new Date();
+      const updatedVisitor = await databaseService.updateVisitor(context, id, {
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: now
+      });
+      
+      if (!updatedVisitor) {
+        return res.status(500).json({ error: "Failed to update H&S acceptance" });
+      }
+      
+      console.log(`✅ H&S Rules accepted by visitor: ${visitor.firstName} ${visitor.lastName}`);
+      res.json({ 
+        success: true, 
+        message: "Health & Safety Rules accepted successfully",
+        acceptedAt: updatedVisitor.hsRulesAcceptedAt
+      });
+    } catch (error) {
+      console.error("Error accepting H&S rules:", error);
+      res.status(500).json({ error: "Failed to accept H&S rules" });
+    }
+  });
+
+  // Contractor H&S Rules acceptance endpoint (positioned correctly after visitor endpoints)
   app.get("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
@@ -2651,7 +2697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST endpoint for API-based contractor H&S acceptance (same location as visitor for no auth)
+  // POST endpoint for API-based contractor H&S acceptance (positioned correctly after visitor endpoints)
   app.post("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
@@ -2688,50 +2734,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error accepting contractor H&S rules:", error);
-      res.status(500).json({ error: "Failed to accept H&S rules" });
-    }
-  });
-  
-  // POST endpoint for API-based H&S acceptance
-  app.post("/api/visitors/:id/accept-hs-rules", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { token } = req.body;
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      // Get visitor
-      const visitor = await databaseService.getVisitorById(context, id);
-      if (!visitor) {
-        return res.status(404).json({ error: "Visitor not found" });
-      }
-      
-      // Verify token if provided (for email link validation)
-      if (token && visitor.hsRulesAcceptanceToken !== token) {
-        return res.status(401).json({ error: "Invalid acceptance token" });
-      }
-      
-      // Update visitor with H&S acceptance and timestamp
-      const now = new Date();
-      const updatedVisitor = await databaseService.updateVisitor(context, id, {
-        hsRulesAccepted: true,
-        hsRulesAcceptedAt: now
-      });
-      
-      if (!updatedVisitor) {
-        return res.status(500).json({ error: "Failed to update H&S acceptance" });
-      }
-      
-      console.log(`✅ H&S Rules accepted by visitor: ${visitor.firstName} ${visitor.lastName}`);
-      res.json({ 
-        success: true, 
-        message: "Health & Safety Rules accepted successfully",
-        acceptedAt: updatedVisitor.hsRulesAcceptedAt
-      });
-    } catch (error) {
-      console.error("Error accepting H&S rules:", error);
       res.status(500).json({ error: "Failed to accept H&S rules" });
     }
   });
