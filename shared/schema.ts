@@ -760,6 +760,8 @@ export const contractorWorkers = pgTable("contractor_workers", {
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  // CO2 Emissions Tracking
+  postcode: text("postcode"), // Worker's home postcode for distance/CO2 calculations
   // Convenience field for displaying company name
   companyName: text("company_name"),
   qrCode: text("qr_code"),

@@ -44,6 +44,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     lastName: worker?.lastName || '',
     email: worker?.email || '',
     phone: worker?.phone || '',
+    postcode: worker?.postcode || '',
     rightToWork: worker?.rightToWork || 'pending',
     cscsCard: worker?.cscsCard || '',
     cscsStatus: worker?.cscsStatus || 'pending',
@@ -61,6 +62,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         lastName: worker.lastName || '',
         email: worker.email || '',
         phone: worker.phone || '',
+        postcode: worker.postcode || '',
         rightToWork: worker.rightToWork || 'pending',
         cscsCard: worker.cscsCard || '',
         cscsStatus: worker.cscsStatus || 'pending',
@@ -254,6 +256,20 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         onChange={(e) => handleInputChange('phone', e.target.value)}
                         data-testid="input-contractor-phone"
                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="postcode">Home Postcode</Label>
+                      <Input
+                        id="postcode"
+                        value={formData.postcode}
+                        onChange={(e) => handleInputChange('postcode', e.target.value)}
+                        placeholder="e.g. OX28 4BH"
+                        data-testid="input-contractor-postcode"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">For CO2 emissions calculation</p>
                     </div>
                   </div>
                 </div>
