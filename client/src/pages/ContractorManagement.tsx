@@ -15,6 +15,7 @@ import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal"
 import EditContractorWorkerModal from "@/components/EditContractorWorkerModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
 import ContractorPreBooking from "@/components/ContractorPreBooking";
+import ContractorHSModal from "@/components/ContractorHSModal";
 import { 
   HardHat, 
   Clock, 
@@ -55,6 +56,9 @@ export default function ContractorManagement() {
   const [selectedWorkerCompanyName, setSelectedWorkerCompanyName] = useState<string>("");
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
+  const [showHSModal, setShowHSModal] = useState(false);
+  const [workerForCheckIn, setWorkerForCheckIn] = useState<ContractorWorker | null>(null);
+  const [companyForCheckIn, setCompanyForCheckIn] = useState<string>("");
   
   // Form states for adding contractor
   const [contractorForm, setContractorForm] = useState({
@@ -283,7 +287,11 @@ export default function ContractorManagement() {
 
   const checkInMutation = useMutation({
     mutationFn: async (workerId: string) => {
-      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`);
+      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`, {
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: new Date().toISOString(),
+        purpose: "Work"
+      });
       return response.json();
     },
     onSuccess: (data) => {
@@ -607,7 +615,9 @@ export default function ContractorManagement() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            checkInMutation.mutate(contractor.id);
+                            setWorkerForCheckIn(contractor);
+                            setCompanyForCheckIn(contractor.companyName);
+                            setShowHSModal(true);
                           }}
                           disabled={checkInMutation.isPending}
                           className="w-full bg-green-600 hover:bg-green-700 text-white"
@@ -1203,6 +1213,26 @@ export default function ContractorManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* H&S Acceptance Modal */}
+      {workerForCheckIn && (
+        <ContractorHSModal
+          isOpen={showHSModal}
+          onClose={() => {
+            setShowHSModal(false);
+            setWorkerForCheckIn(null);
+            setCompanyForCheckIn("");
+          }}
+          onAccept={(worker) => {
+            checkInMutation.mutate(worker.id);
+            setShowHSModal(false);
+            setWorkerForCheckIn(null);
+            setCompanyForCheckIn("");
+          }}
+          worker={workerForCheckIn}
+          companyName={companyForCheckIn}
+        />
+      )}
     </div>
   );
 }
