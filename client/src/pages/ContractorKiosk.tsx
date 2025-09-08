@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import { 
@@ -46,6 +46,11 @@ export default function ContractorKiosk() {
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [checkedInWorker, setCheckedInWorker] = useState<ContractorWorker | null>(null);
   const [checkedInCompanyName, setCheckedInCompanyName] = useState<string>("");
+  
+  // Host selection state for contractor check-in (same as visitor workflow)
+  const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
+  const [showHostSelection, setShowHostSelection] = useState(false);
+  const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
 
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors"],
@@ -56,9 +61,16 @@ export default function ContractorKiosk() {
     enabled: !!selectedCompany,
   });
 
+  // Staff query for host selection (same as visitor workflow)
+  const { data: staff = [] } = useQuery({
+    queryKey: ["/api/staff"],
+  });
+
   const checkInMutation = useMutation({
-    mutationFn: async (workerId: string) => {
-      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`);
+    mutationFn: async ({ workerId, hostId }: { workerId: string; hostId: string }) => {
+      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`, {
+        hostId: hostId
+      });
       return response.json();
     },
     onSuccess: (data) => {
@@ -72,6 +84,11 @@ export default function ContractorKiosk() {
       setCheckedInWorker(worker);
       setCheckedInCompanyName(company?.name || "Unknown Company");
       setShowPassPreview(true);
+      
+      // Reset host selection state
+      setShowHostSelection(false);
+      setSelectedWorkerForCheckIn(null);
+      setSelectedHostForWorker("");
       
       toast({
         title: "Success",
@@ -123,6 +140,31 @@ export default function ContractorKiosk() {
       });
     },
   });
+
+  // Handler for starting contractor check-in (same pattern as visitors)
+  const handleWorkerCheckIn = (worker: ContractorWorker) => {
+    setSelectedWorkerForCheckIn(worker);
+    setShowHostSelection(true);
+  };
+
+  // Handler for confirming host selection and proceeding with check-in
+  const handleHostSelectionConfirm = () => {
+    if (!selectedHostForWorker) {
+      toast({
+        title: "Error",
+        description: "Please select a host",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedWorkerForCheckIn) {
+      checkInMutation.mutate({
+        workerId: selectedWorkerForCheckIn.id,
+        hostId: selectedHostForWorker
+      });
+    }
+  };
 
   // Show ALL contractors, not just approved ones
   const filteredCompanies = companies.filter(company => 
@@ -420,7 +462,7 @@ export default function ContractorKiosk() {
                         </div>
                       ) : (
                         <Button
-                          onClick={() => checkInMutation.mutate(worker.id)}
+                          onClick={() => handleWorkerCheckIn(worker)}
                           disabled={checkInMutation.isPending}
                           className="bg-green-600 hover:bg-green-700 text-white"
                           data-testid={`button-checkin-${worker.id}`}
@@ -552,6 +594,55 @@ export default function ContractorKiosk() {
           companyName={checkedInCompanyName}
         />
       )}
+
+      {/* Host Selection Dialog (same as visitor workflow) */}
+      <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Select Host for {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Who is {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName} visiting today?
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="host-select" className="text-sm font-medium">
+                Host Staff Member *
+              </Label>
+              <Select value={selectedHostForWorker} onValueChange={setSelectedHostForWorker}>
+                <SelectTrigger data-testid="select-contractor-host">
+                  <SelectValue placeholder="Select host staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff?.map((member: any) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.firstName} {member.lastName} - {member.department}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setShowHostSelection(false)}
+              data-testid="button-cancel-host-selection"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleHostSelectionConfirm}
+              disabled={!selectedHostForWorker || checkInMutation.isPending}
+              data-testid="button-confirm-host-selection"
+            >
+              {checkInMutation.isPending ? "Checking In..." : "Confirm Check-In"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
