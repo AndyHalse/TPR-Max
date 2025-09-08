@@ -1190,10 +1190,19 @@ export const contractorVisits = pgTable("contractor_visits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workerId: varchar("worker_id").references(() => contractorWorkers.id).notNull(),
   companyId: varchar("company_id").references(() => contractorCompanies.id).notNull(),
-  purpose: text("purpose"),
+  purpose: text("purpose").default("Work"),
   checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
   checkedOutAt: timestamp("checked_out_at"),
   duration: text("duration"), // calculated field
+  hostStaffId: varchar("host_staff_id").references(() => staff.id),
+  hostName: text("host_name"),
+  hsRulesAccepted: boolean("hs_rules_accepted").default(false),
+  hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
+  inductionCompleted: boolean("induction_completed").default(false),
+  inductionCompletedAt: timestamp("induction_completed_at"),
+  ePassSent: boolean("e_pass_sent").default(false),
+  ePassSentAt: timestamp("e_pass_sent_at"),
+  checkoutType: text("checkout_type"), // manual, auto, overnight
   qrCode: text("qr_code").unique(),
   passUrl: text("pass_url"), // URL to generated pass
   notes: text("notes"),

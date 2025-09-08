@@ -16,6 +16,8 @@ import type {
   InsertContractorCompany,
   ContractorWorker,
   InsertContractorWorker,
+  ContractorVisit,
+  InsertContractorVisit,
   ComplianceDocument,
   InsertComplianceDocument,
   DocumentType,
@@ -181,6 +183,9 @@ export interface IStorage {
   updateContractorWorker(id: string, updates: Partial<InsertContractorWorker>): Promise<ContractorWorker | undefined>;
   deleteContractorWorker(id: string): Promise<boolean>;
   getContractorVisitHistory(workerId: string, customerId?: string): Promise<ContractorVisit[]>;
+  createContractorVisit(visit: InsertContractorVisit): Promise<ContractorVisit>;
+  updateContractorVisit(id: string, updates: Partial<InsertContractorVisit>): Promise<ContractorVisit | undefined>;
+  getCurrentContractorVisit(workerId: string): Promise<ContractorVisit | undefined>;
   
   // Compliance Document methods
   getDocumentsByCompanyId(companyId: string): Promise<ComplianceDocument[]>;

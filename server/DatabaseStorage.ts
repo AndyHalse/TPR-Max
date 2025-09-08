@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { 
   staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
-  contractorCompanies, contractorWorkers, complianceDocuments, documentTypes, workerCompetencies,
+  contractorCompanies, contractorWorkers, contractorVisits, complianceDocuments, documentTypes, workerCompetencies,
   documentApprovals, departments, cardOffences, cardIssues, workerCertifications, ramsDocuments,
   co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings
 } from "@shared/schema";
@@ -9,7 +9,7 @@ import type {
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation,
   ContractorCompany, InsertContractorCompany, ContractorWorker, InsertContractorWorker,
-  ComplianceDocument, InsertComplianceDocument, DocumentType, InsertDocumentType,
+  ContractorVisit, InsertContractorVisit, ComplianceDocument, InsertComplianceDocument, DocumentType, InsertDocumentType,
   WorkerCompetency, InsertWorkerCompetency, DocumentApproval, InsertDocumentApproval,
   Department, InsertDepartment, CardOffence, InsertCardOffence, CardIssue, InsertCardIssue,
   WorkerCertification, InsertWorkerCertification, RamsDocument, InsertRamsDocument,
@@ -1502,6 +1502,45 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(contractorVisits.checkedInAt));
     
     return await query;
+  }
+
+  async createContractorVisit(visit: InsertContractorVisit): Promise<ContractorVisit> {
+    const id = randomUUID();
+    const [newVisit] = await db
+      .insert(contractorVisits)
+      .values({
+        ...visit,
+        id,
+      })
+      .returning();
+    
+    return newVisit;
+  }
+
+  async updateContractorVisit(id: string, updates: Partial<InsertContractorVisit>): Promise<ContractorVisit | undefined> {
+    const [updatedVisit] = await db
+      .update(contractorVisits)
+      .set(updates)
+      .where(eq(contractorVisits.id, id))
+      .returning();
+    
+    return updatedVisit || undefined;
+  }
+
+  async getCurrentContractorVisit(workerId: string): Promise<ContractorVisit | undefined> {
+    const [visit] = await db
+      .select()
+      .from(contractorVisits)
+      .where(
+        and(
+          eq(contractorVisits.workerId, workerId),
+          isNull(contractorVisits.checkedOutAt)
+        )
+      )
+      .orderBy(desc(contractorVisits.checkedInAt))
+      .limit(1);
+    
+    return visit || undefined;
   }
 
   // Compliance Document methods
