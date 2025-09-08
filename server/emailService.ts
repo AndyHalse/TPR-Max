@@ -1316,63 +1316,304 @@ Powered by VisiGate Pro`;
     passUrl: string,
     companySettings: CompanySettings
   ): Promise<boolean> {
-    const subject = `✅ Contractor E-Pass - ${companySettings.companyName}`;
-    
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #ff6f00 0%, #ff8f00 100%); color: white; padding: 30px; text-align: center;">
-          <h1 style="margin: 0; font-size: 24px;">🏗️ Contractor E-Pass</h1>
-          <p style="margin: 10px 0 0 0;">Welcome to ${companySettings.companyName}</p>
-        </div>
-        
-        <div style="padding: 30px; background: #f8f9fa; border-left: 4px solid #ff6f00;">
-          <h2 style="color: #333; margin-top: 0;">Hello ${name},</h2>
-          
-          <p>You have been successfully checked in as a contractor for <strong>${company}</strong>.</p>
-          
-          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-            <h3 style="color: #ff6f00; margin-top: 0;">Your Check-in Details</h3>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Company:</strong> ${company}</p>
-            <p><strong>QR Code:</strong> ${qrCode}</p>
-            <p style="margin-top: 20px;">
-              <a href="${passUrl}" style="display: inline-block; background: #ff6f00; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Pass</a>
-            </p>
-          </div>
+    try {
+      const companyName = companySettings?.companyName || 'VisiGate Pro';
+      
+      // Generate QR code image URL (same as visitor e-pass)
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+      
+      // Extract branding colors from settings (same as visitor e-pass)
+      const primaryColor = companySettings?.accentColor || '#3b82f6';
+      const backgroundColor = companySettings?.backgroundColor || '#f8fafc';
+      const textColor = companySettings?.foregroundColor || '#1e293b';
+      const variableTextColor = companySettings?.variableTextColor || '#374151';
+      
+      // Get logo URL for email (same as visitor e-pass)
+      const logoDataUrl = await this.getLogoForEmail(companySettings);
+      
+      // Professional subject line
+      const subject = `Contractor E-Pass - ${name} at ${companyName}`;
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>Contractor E-Pass - ${companyName}</title>
+            <!--[if mso]>
+            <noscript>
+              <xml>
+                <o:OfficeDocumentSettings>
+                  <o:PixelsPerInch>96</o:PixelsPerInch>
+                </o:OfficeDocumentSettings>
+              </xml>
+            </noscript>
+            <![endif]-->
+            <style>
+              @media only screen and (max-width: 600px) {
+                .mobile-padding { padding: 15px !important; }
+                .mobile-text-center { text-align: center !important; }
+                .mobile-full-width { width: 100% !important; }
+                .mobile-button { width: 100% !important; display: block !important; padding: 16px !important; }
+                h1 { font-size: 22px !important; }
+                h2 { font-size: 18px !important; }
+                .qr-container { padding: 20px !important; }
+                .qr-code { width: 150px !important; height: 150px !important; }
+              }
+            </style>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: ${backgroundColor}; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td align="center" style="padding: 0;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; border-collapse: collapse; background: white; margin: 0 auto;">
+                    <!-- Header with Company Branding -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
+                        <!-- Company Logo -->
+                        ${logoDataUrl ? `
+                        <img src="${logoDataUrl}" alt="${companyName}" style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; border-radius: 12px; background: white; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        ` : `
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; display: inline-block; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                          <tr>
+                            <td align="center" valign="middle" style="width: 80px; height: 80px; font-size: 28px; font-weight: bold; color: ${primaryColor}; letter-spacing: 1px; font-family: Arial, sans-serif;">
+                              ${companyName.includes('ACS') || companyName === 'Andy Test Company' ? 'ACS' : companyName.substring(0, 3).toUpperCase()}
+                            </td>
+                          </tr>
+                        </table>
+                        `}
+                        <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                          Contractor E-Pass
+                        </h1>
+                        ${!logoDataUrl ? `
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.95); font-size: 15px; font-weight: 500;">
+                          ${companyName}
+                        </p>
+                        ` : ''}
+                      </td>
+                    </tr>
+                    
+                    <!-- Main Content -->
+                    <tr>
+                      <td class="mobile-padding" style="padding: 25px;">
+                        <!-- Welcome Message -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td>
+                              <h2 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 22px; font-weight: 600;">
+                                Hello ${name},
+                              </h2>
+                              <p style="margin: 0 0 20px 0; color: ${variableTextColor}; font-size: 15px; line-height: 1.5;">
+                                You have been successfully checked in as a contractor for <strong>${company}</strong>.
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- QR Code Section -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td class="qr-container" style="background: linear-gradient(to bottom, #ffffff, #fafafa); border: 2px solid ${primaryColor}20; border-radius: 12px; padding: 25px; text-align: center;">
+                              <img src="${qrCodeUrl}" alt="Contractor QR Code" class="qr-code" style="width: 180px; height: 180px; margin: 0 auto 15px; display: block; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px;">
+                              <p style="margin: 0 0 5px 0; color: ${textColor}; font-weight: 700; font-size: 17px;">
+                                Pass ID: ${qrCode}
+                              </p>
+                              <p style="margin: 0; color: ${variableTextColor}; font-size: 13px;">
+                                Show this QR code at exit scanners
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Check-in Details Card -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                              <h3 style="margin: 0 0 12px 0; color: ${textColor}; font-size: 17px; font-weight: 600; border-bottom: 2px solid ${primaryColor}20; padding-bottom: 8px;">
+                                🏗️ Contractor Details
+                              </h3>
+                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px; width: 40%;">Name:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${name}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Company:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${company}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Check-in:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">
+                                    ${new Date().toLocaleString('en-GB', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      day: 'numeric',
+                                      month: 'short'
+                                    })}
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Action Buttons -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 25px 0;">
+                          <tr>
+                            <td align="center">
+                              <a href="${passUrl}" class="mobile-button" 
+                                 style="display: inline-block; padding: 14px 35px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); text-align: center;">
+                                📱 View Your Pass
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Health & Safety Section -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td style="background: #fff3e0; border: 1px solid #ffcc02; border-radius: 10px; padding: 18px;">
+                              <h3 style="margin: 0 0 12px 0; color: #e65100; font-size: 17px; font-weight: 600;">
+                                ✓ Health & Safety Rules - Action Required
+                              </h3>
+                              <div style="background: white; padding: 15px; border-radius: 8px; margin: 12px 0;">
+                                <p style="margin: 0 0 10px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">
+                                  # Health & Safety Rules and Regulations
+                                </p>
+                                <p style="margin: 0 0 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">
+                                  ## General Safety Rules
+                                </p>
+                                <p style="margin: 0 0 5px 0; color: ${variableTextColor}; font-size: 14px;">
+                                  1. <strong>Personal Safety</strong>
+                                </p>
+                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
+                                  - Report to reception upon arrival and departure
+                                </p>
+                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
+                                  - Wear your visitor/contractor pass at all times
+                                </p>
+                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
+                                  - Follow all posted safety signs and instructions
+                                </p>
+                                <p style="margin: 0 0 8px 0; color: ${variableTextColor}; font-size: 14px;">
+                                  - Report any accidents or near misses immediately
+                                </p>
+                                <p style="margin: 0 0 5px 0; color: ${variableTextColor}; font-size: 14px;">
+                                  2. <strong>Emergency Procedures</strong>
+                                </p>
+                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
+                                  - Familiarize yourself with emergency exits
+                                </p>
+                              </div>
+                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                                <tr>
+                                  <td align="center">
+                                    <a href="${passUrl}" 
+                                       style="display: inline-block; padding: 12px 30px; background: #d32f2f; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+                                      ✓ I Accept Health & Safety Rules
+                                    </a>
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Important Reminders -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                          <tr>
+                            <td style="background: #fff8e1; border: 1px solid #ffb300; border-radius: 10px; padding: 18px;">
+                              <h3 style="margin: 0 0 12px 0; color: #f57c00; font-size: 16px; font-weight: 600;">
+                                ⚠️ Important Reminders
+                              </h3>
+                              <ul style="margin: 0; padding-left: 20px; color: ${variableTextColor}; font-size: 14px; line-height: 1.6;">
+                                <li>Check out when leaving the building</li>
+                                <li>Keep this pass accessible on your phone</li>
+                                <li>Contact reception for assistance</li>
+                              </ul>
+                            </td>
+                          </tr>
+                        </table>
+                        
+                        <!-- Footer -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 30px 0 0 0;">
+                          <tr>
+                            <td align="center" style="padding: 20px 0; border-top: 1px solid #e5e7eb;">
+                              <p style="margin: 0; color: ${variableTextColor}; font-size: 13px; line-height: 1.4;">
+                                ${companyName}<br>
+                                Please show this e-pass at reception if requested<br>
+                                <span style="color: #9ca3af; font-size: 12px;">This email was sent automatically by VisiGate Pro</span>
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `;
 
-          <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <h4 style="color: #e65100; margin-top: 0;">✓ Health & Safety Reminder</h4>
-            <p style="margin: 5px 0;">You have confirmed acceptance of our health & safety rules.</p>
-            <p style="margin: 5px 0;">Please ensure you:</p>
-            <ul style="margin: 5px 0;">
-              <li>Wear appropriate PPE at all times</li>
-              <li>Follow site safety procedures</li>
-              <li>Report any incidents immediately</li>
-              <li>Check out when leaving site</li>
-            </ul>
-          </div>
+      const text = `Contractor E-Pass - ${companyName}
 
-          <div style="text-align: center; margin-top: 30px;">
-            <p style="color: #666; font-size: 14px;">
-              Please show this e-pass at reception if requested.<br>
-              Remember to check out when leaving the premises.
-            </p>
-            <p style="color: #666; font-size: 12px; margin-top: 20px;">
-              📧 This e-pass was sent automatically by VisiGate Pro
-            </p>
-          </div>
-        </div>
-      </div>
-    `;
+Hello ${name},
 
-    const text = `Contractor E-Pass - ${companySettings.companyName}\n\nHello ${name},\n\nYou have been successfully checked in as a contractor for ${company}.\n\nCheck-in Details:\nName: ${name}\nCompany: ${company}\nQR Code: ${qrCode}\n\nView your pass: ${passUrl}\n\nHealth & Safety Reminder:\nYou have confirmed acceptance of our health & safety rules.\nPlease ensure you:\n- Wear appropriate PPE at all times\n- Follow site safety procedures\n- Report any incidents immediately\n- Check out when leaving site\n\nPlease show this e-pass at reception if requested.\nRemember to check out when leaving the premises.\n\nThis e-pass was sent automatically by VisiGate Pro`;
+You have been successfully checked in as a contractor for ${company}.
 
-    return await this.sendEmail({ 
-      to: email, 
-      subject, 
-      html, 
-      text 
-    });
+Your Check-in Details:
+Name: ${name}
+Company: ${company}
+Pass ID: ${qrCode}
+Check-in: ${new Date().toLocaleString('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  day: 'numeric',
+  month: 'short'
+})}
+
+View your digital pass: ${passUrl}
+
+Health & Safety Rules - Action Required:
+You must accept our health & safety rules to complete your check-in.
+
+Health & Safety Rules and Regulations:
+
+General Safety Rules:
+1. Personal Safety
+   - Report to reception upon arrival and departure
+   - Wear your visitor/contractor pass at all times
+   - Follow all posted safety signs and instructions
+   - Report any accidents or near misses immediately
+
+2. Emergency Procedures
+   - Familiarize yourself with emergency exits
+
+Accept Health & Safety Rules: ${passUrl}
+
+Important Reminders:
+- Check out when leaving the building
+- Keep this pass accessible on your phone
+- Contact reception for assistance
+
+${companyName}
+Please show this e-pass at reception if requested
+This email was sent automatically by VisiGate Pro`;
+
+      return await this.sendEmail({ 
+        to: email, 
+        subject, 
+        html, 
+        text,
+        companyName
+      });
+    } catch (error) {
+      console.error('Failed to send contractor e-pass:', error);
+      return false;
+    }
   }
 }
 
