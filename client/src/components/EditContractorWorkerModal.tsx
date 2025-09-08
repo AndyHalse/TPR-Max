@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { CalendarIcon, Save, X, User, Mail, Phone, Shield, Award, FileText, Clock, Plus, Video } from "lucide-react";
+import { CalendarIcon, Save, X, User, Mail, Phone, Shield, Award, FileText, Clock, Plus, Video, Leaf } from "lucide-react";
+import { CO2EmissionsTracker } from "./CO2EmissionsTracker";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -46,6 +47,7 @@ const editWorkerSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
+  postcode: z.string().optional().or(z.literal("")),
   
   // Right to Work
   rightToWork: z.enum(["valid", "expired", "pending", "missing"]).default("pending"),
@@ -179,6 +181,7 @@ export default function EditContractorWorkerModal({
         lastName: worker.lastName || "",
         email: worker.email || "",
         phone: worker.phone || "",
+        postcode: worker.postcode || "",
         rightToWork: worker.rightToWork || "pending",
         rightToWorkExpiry: worker.rightToWorkExpiry ? new Date(worker.rightToWorkExpiry) : undefined,
         cscsCard: worker.cscsCard || "",
@@ -348,6 +351,25 @@ export default function EditContractorWorkerModal({
                       </FormLabel>
                       <FormControl>
                         <Input {...field} placeholder="Enter phone number" data-testid="input-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="postcode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Postcode</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          placeholder="e.g., SW1A 1AA" 
+                          data-testid="input-postcode"
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -918,6 +940,27 @@ export default function EditContractorWorkerModal({
                 </div>
               </div>
             </div>
+
+            <Separator />
+
+            {/* CO2 Emissions Tracking Section */}
+            {worker && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Leaf className="w-4 h-4 text-green-600" />
+                  <h3 className="font-semibold text-gray-900">CO2 Emissions Tracking</h3>
+                </div>
+                
+                <CO2EmissionsTracker
+                  workerId={worker.id}
+                  workerName={`${worker.firstName} ${worker.lastName}`}
+                  currentPostcode={form.watch("postcode") || worker.postcode}
+                  onPostcodeUpdate={(postcode) => {
+                    form.setValue("postcode", postcode);
+                  }}
+                />
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-3 pt-6 border-t">
