@@ -19,7 +19,8 @@ import {
   Phone,
   Mail,
   Download,
-  Siren
+  Siren,
+  HardHat
 } from "lucide-react";
 
 interface MusterListItem {
@@ -278,7 +279,7 @@ export default function EmergencyMuster() {
       )}
 
       {/* Emergency Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
@@ -334,6 +335,20 @@ export default function EmergencyMuster() {
             </div>
             <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
               <Users className="text-orange-600 dark:text-orange-400" size={24} />
+            </div>
+          </div>
+        </GlassCard>
+        
+        <GlassCard hover className="dark:glass-dark">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Contractors</p>
+              <p className="text-3xl font-bold text-teal-600 dark:text-teal-400 mt-1" data-testid="stat-contractor-count">
+                {contractorCount}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center">
+              <HardHat className="text-teal-600 dark:text-teal-400" size={24} />
             </div>
           </div>
         </GlassCard>
