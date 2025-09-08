@@ -1392,45 +1392,39 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Build update query dynamically based on updates provided
-      const updateFields = [];
-      const values = [];
+      // Build update object dynamically based on updates provided
+      const updateData: any = { updatedAt: new Date() };
       
       if (updates.hsRulesAccepted !== undefined) {
-        updateFields.push('hs_rules_accepted = $' + (values.length + 2));
-        values.push(updates.hsRulesAccepted);
+        updateData.hsRulesAccepted = updates.hsRulesAccepted;
       }
       
       if (updates.hsRulesAcceptedAt !== undefined) {
-        updateFields.push('hs_rules_accepted_at = $' + (values.length + 2));
-        values.push(updates.hsRulesAcceptedAt);
+        updateData.hsRulesAcceptedAt = updates.hsRulesAcceptedAt;
       }
       
       if (updates.isCheckedIn !== undefined) {
-        updateFields.push('is_checked_in = $' + (values.length + 2));
-        values.push(updates.isCheckedIn);
+        updateData.isCheckedIn = updates.isCheckedIn;
       }
       
       if (updates.checkedInAt !== undefined) {
-        updateFields.push('checked_in_at = $' + (values.length + 2));
-        values.push(updates.checkedInAt);
+        updateData.checkedInAt = updates.checkedInAt;
       }
       
-      updateFields.push('updated_at = $' + (values.length + 2));
-      values.push(new Date());
-      
-      if (updateFields.length === 1) { // Only updated_at was added
+      // If only updatedAt was added, no actual changes to make
+      if (Object.keys(updateData).length === 1) {
         return this.getContractorWorkerById(context, id);
       }
       
-      const updateQuery = `UPDATE contractor_workers SET ${updateFields.join(', ')} WHERE id = $1 RETURNING *`;
-      const result = await db.execute(sql.raw(updateQuery, [id, ...values]));
-      const worker = result.rows[0] as any;
+      const [updated] = await db
+        .update(schema.contractorWorkers)
+        .set(updateData)
+        .where(eq(schema.contractorWorkers.id, id))
+        .returning();
       
-      if (!worker) return undefined;
+      if (!updated) return undefined;
       
-      // Convert to proper format and return
-      return this.getContractorWorkerById(context, id);
+      return updated as ContractorWorker;
     } catch (error) {
       console.error('Error updating contractor worker:', error);
       return undefined;
