@@ -41,7 +41,9 @@ import type {
   RoomBookingAttendee,
   InsertRoomBookingAttendee,
   RoomBookingWaitlist,
-  InsertRoomBookingWaitlist
+  InsertRoomBookingWaitlist,
+  ContractorPreBooking,
+  InsertContractorPreBooking
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -186,6 +188,15 @@ export interface IStorage {
   createContractorVisit(visit: InsertContractorVisit): Promise<ContractorVisit>;
   updateContractorVisit(id: string, updates: Partial<InsertContractorVisit>): Promise<ContractorVisit | undefined>;
   getCurrentContractorVisit(workerId: string): Promise<ContractorVisit | undefined>;
+  
+  // Contractor Pre-booking methods
+  createContractorPreBooking(booking: InsertContractorPreBooking): Promise<ContractorPreBooking>;
+  updateContractorPreBooking(id: string, updates: Partial<InsertContractorPreBooking>): Promise<ContractorPreBooking | undefined>;
+  getContractorPreBookings(): Promise<ContractorPreBooking[]>;
+  getContractorPreBookingById(id: string): Promise<ContractorPreBooking | undefined>;
+  getUpcomingContractorPreBookings(): Promise<ContractorPreBooking[]>;
+  getTodaysContractorPreBookings(): Promise<ContractorPreBooking[]>;
+  deleteContractorPreBooking(id: string): Promise<boolean>;
   
   // Compliance Document methods
   getDocumentsByCompanyId(companyId: string): Promise<ComplianceDocument[]>;
@@ -407,6 +418,8 @@ export class MemStorage implements IStorage {
   private roomBookingWaitlist: Map<string, RoomBookingWaitlist>;
   private contractorCompanies: Map<string, ContractorCompany>;
   private contractorWorkers: Map<string, ContractorWorker>;
+  private contractorPreBookings: Map<string, ContractorPreBooking>;
+  private contractorVisits: Map<string, ContractorVisit>;
   private complianceDocuments: Map<string, ComplianceDocument>;
   private departments: Map<string, Department>;
   private readonly settingsFilePath = path.join(process.cwd(), 'data', 'company-settings.json');
@@ -422,6 +435,8 @@ export class MemStorage implements IStorage {
   private readonly roomBookingWaitlistFilePath = path.join(process.cwd(), 'data', 'room-booking-waitlist-data.json');
   private readonly contractorCompaniesFilePath = path.join(process.cwd(), 'data', 'contractor-companies-data.json');
   private readonly contractorWorkersFilePath = path.join(process.cwd(), 'data', 'contractor-workers-data.json');
+  private readonly contractorPreBookingsFilePath = path.join(process.cwd(), 'data', 'contractor-prebookings-data.json');
+  private readonly contractorVisitsFilePath = path.join(process.cwd(), 'data', 'contractor-visits-data.json');
 
   constructor() {
     this.users = new Map();
@@ -437,6 +452,8 @@ export class MemStorage implements IStorage {
     this.roomBookingWaitlist = new Map();
     this.contractorCompanies = new Map();
     this.contractorWorkers = new Map();
+    this.contractorPreBookings = new Map();
+    this.contractorVisits = new Map();
     this.complianceDocuments = new Map();
     this.departments = new Map();
     this.buildingSettings = undefined;
@@ -458,6 +475,8 @@ export class MemStorage implements IStorage {
     this.loadOrInitializeRoomBookingWaitlist();
     this.loadOrInitializeContractorCompanies();
     this.loadOrInitializeContractorWorkers();
+    this.loadOrInitializeContractorPreBookings();
+    this.loadOrInitializeContractorVisits();
     
     // Initialize sample data only if no existing data
     if (this.staffMembers.size === 0) {
@@ -2255,6 +2274,73 @@ export class MemStorage implements IStorage {
     }
   }
 
+  private loadOrInitializeContractorPreBookings(): void {
+    try {
+      if (fs.existsSync(this.contractorPreBookingsFilePath)) {
+        const preBookingsData = fs.readFileSync(this.contractorPreBookingsFilePath, 'utf8');
+        const preBookings: ContractorPreBooking[] = JSON.parse(preBookingsData);
+        
+        preBookings.forEach(booking => {
+          // Convert date strings back to Date objects
+          booking.createdAt = new Date(booking.createdAt);
+          booking.updatedAt = new Date(booking.updatedAt);
+          booking.scheduledDate = new Date(booking.scheduledDate);
+          this.contractorPreBookings.set(booking.id, booking);
+        });
+        
+        console.log(`✅ Contractor pre-bookings loaded: ${preBookings.length} bookings`);
+      } else {
+        console.log('📂 No contractor pre-bookings data file found - starting fresh');
+      }
+    } catch (error) {
+      console.error('❌ Error loading contractor pre-bookings data:', error);
+    }
+  }
+
+  private saveContractorPreBookingsToFile(): void {
+    try {
+      const preBookings = Array.from(this.contractorPreBookings.values());
+      fs.writeFileSync(this.contractorPreBookingsFilePath, JSON.stringify(preBookings, null, 2), 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving contractor pre-bookings to file:', error);
+    }
+  }
+
+  private loadOrInitializeContractorVisits(): void {
+    try {
+      if (fs.existsSync(this.contractorVisitsFilePath)) {
+        const visitsData = fs.readFileSync(this.contractorVisitsFilePath, 'utf8');
+        const visits: ContractorVisit[] = JSON.parse(visitsData);
+        
+        visits.forEach(visit => {
+          // Convert date strings back to Date objects
+          visit.createdAt = new Date(visit.createdAt);
+          if (visit.checkedInAt) visit.checkedInAt = new Date(visit.checkedInAt);
+          if (visit.checkedOutAt) visit.checkedOutAt = new Date(visit.checkedOutAt);
+          if (visit.hsRulesAcceptedAt) visit.hsRulesAcceptedAt = new Date(visit.hsRulesAcceptedAt);
+          if (visit.inductionCompletedAt) visit.inductionCompletedAt = new Date(visit.inductionCompletedAt);
+          if (visit.ePassSentAt) visit.ePassSentAt = new Date(visit.ePassSentAt);
+          this.contractorVisits.set(visit.id, visit);
+        });
+        
+        console.log(`✅ Contractor visits loaded: ${visits.length} visits`);
+      } else {
+        console.log('📂 No contractor visits data file found - starting fresh');
+      }
+    } catch (error) {
+      console.error('❌ Error loading contractor visits data:', error);
+    }
+  }
+
+  private saveContractorVisitsToFile(): void {
+    try {
+      const visits = Array.from(this.contractorVisits.values());
+      fs.writeFileSync(this.contractorVisitsFilePath, JSON.stringify(visits, null, 2), 'utf8');
+    } catch (error) {
+      console.error('❌ Error saving contractor visits to file:', error);
+    }
+  }
+
   private saveRoomBookingWaitlistToFile(): void {
     try {
       const waitlistArray = Array.from(this.roomBookingWaitlist.values());
@@ -3033,6 +3119,112 @@ export class MemStorage implements IStorage {
     this.contractorCompanies.set(id, updatedCompany);
     this.saveContractorCompaniesToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedCompany;
+  }
+
+  // Contractor Pre-booking methods
+  async createContractorPreBooking(booking: InsertContractorPreBooking): Promise<ContractorPreBooking> {
+    const id = randomUUID();
+    const qrCode = `CPB-${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const preBooking: ContractorPreBooking = {
+      id,
+      ...booking,
+      qrCode,
+      status: booking.status || 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.contractorPreBookings.set(id, preBooking);
+    this.saveContractorPreBookingsToFile();
+    return preBooking;
+  }
+
+  async updateContractorPreBooking(id: string, updates: Partial<InsertContractorPreBooking>): Promise<ContractorPreBooking | undefined> {
+    const preBooking = this.contractorPreBookings.get(id);
+    if (!preBooking) return undefined;
+    
+    const updatedPreBooking = { ...preBooking, ...updates, updatedAt: new Date() };
+    this.contractorPreBookings.set(id, updatedPreBooking);
+    this.saveContractorPreBookingsToFile();
+    return updatedPreBooking;
+  }
+
+  async getContractorPreBookings(): Promise<ContractorPreBooking[]> {
+    return Array.from(this.contractorPreBookings.values()).sort((a, b) => 
+      b.scheduledDate.getTime() - a.scheduledDate.getTime()
+    );
+  }
+
+  async getContractorPreBookingById(id: string): Promise<ContractorPreBooking | undefined> {
+    return this.contractorPreBookings.get(id);
+  }
+
+  async getUpcomingContractorPreBookings(): Promise<ContractorPreBooking[]> {
+    const now = new Date();
+    return Array.from(this.contractorPreBookings.values())
+      .filter(booking => booking.scheduledDate >= now && booking.status === 'pending')
+      .sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime());
+  }
+
+  async getTodaysContractorPreBookings(): Promise<ContractorPreBooking[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    return Array.from(this.contractorPreBookings.values())
+      .filter(booking => 
+        booking.scheduledDate >= today && 
+        booking.scheduledDate < tomorrow &&
+        booking.status === 'pending'
+      )
+      .sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime());
+  }
+
+  async deleteContractorPreBooking(id: string): Promise<boolean> {
+    const result = this.contractorPreBookings.delete(id);
+    if (result) {
+      this.saveContractorPreBookingsToFile();
+    }
+    return result;
+  }
+
+  // Contractor Visit methods
+  async createContractorVisit(visit: InsertContractorVisit): Promise<ContractorVisit> {
+    const id = randomUUID();
+    const contractorVisit: ContractorVisit = {
+      id,
+      ...visit,
+      createdAt: new Date(),
+    };
+    
+    this.contractorVisits.set(id, contractorVisit);
+    this.saveContractorVisitsToFile();
+    return contractorVisit;
+  }
+
+  async updateContractorVisit(id: string, updates: Partial<InsertContractorVisit>): Promise<ContractorVisit | undefined> {
+    const visit = this.contractorVisits.get(id);
+    if (!visit) return undefined;
+    
+    const updatedVisit = { ...visit, ...updates };
+    this.contractorVisits.set(id, updatedVisit);
+    this.saveContractorVisitsToFile();
+    return updatedVisit;
+  }
+
+  async getContractorVisitHistory(workerId: string, customerId?: string): Promise<ContractorVisit[]> {
+    return Array.from(this.contractorVisits.values())
+      .filter(visit => visit.workerId === workerId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getCurrentContractorVisit(workerId: string): Promise<ContractorVisit | undefined> {
+    const visits = Array.from(this.contractorVisits.values())
+      .filter(visit => visit.workerId === workerId && !visit.checkedOutAt)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    return visits[0];
   }
 
   // Department management methods implementation

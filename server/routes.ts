@@ -4860,6 +4860,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contractor Pre-booking endpoints
+  app.get("/api/contractors/prebookings", async (req, res) => {
+    try {
+      const preBookings = await storage.getContractorPreBookings();
+      res.json(preBookings);
+    } catch (error) {
+      console.error("Error fetching contractor pre-bookings:", error);
+      res.status(500).json({ error: "Failed to fetch contractor pre-bookings" });
+    }
+  });
+
+  app.get("/api/contractors/prebookings/upcoming", async (req, res) => {
+    try {
+      const preBookings = await storage.getUpcomingContractorPreBookings();
+      res.json(preBookings);
+    } catch (error) {
+      console.error("Error fetching upcoming contractor pre-bookings:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming contractor pre-bookings" });
+    }
+  });
+
+  app.get("/api/contractors/prebookings/today", async (req, res) => {
+    try {
+      const preBookings = await storage.getTodaysContractorPreBookings();
+      res.json(preBookings);
+    } catch (error) {
+      console.error("Error fetching today's contractor pre-bookings:", error);
+      res.status(500).json({ error: "Failed to fetch today's contractor pre-bookings" });
+    }
+  });
+
+  app.get("/api/contractors/prebookings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const preBooking = await storage.getContractorPreBookingById(id);
+      
+      if (!preBooking) {
+        return res.status(404).json({ error: "Contractor pre-booking not found" });
+      }
+      
+      res.json(preBooking);
+    } catch (error) {
+      console.error("Error fetching contractor pre-booking:", error);
+      res.status(500).json({ error: "Failed to fetch contractor pre-booking" });
+    }
+  });
+
+  app.post("/api/contractors/prebookings", async (req, res) => {
+    try {
+      const preBookingData = {
+        ...req.body,
+        scheduledDate: new Date(req.body.scheduledDate)
+      };
+      
+      const newPreBooking = await storage.createContractorPreBooking(preBookingData);
+      
+      // Send confirmation email if email provided
+      if (newPreBooking.contactEmail) {
+        try {
+          const { simpleDatabaseService } = await import("./simpleDatabaseService");
+          const context = simpleDatabaseService.createCustomerContext('Andy');
+          const companySettings = await simpleDatabaseService.getCompanySettings(context);
+          
+          if (companySettings) {
+            const emailService = new EmailService(companySettings);
+            // Send contractor pre-booking confirmation email
+            const subject = `Contractor Pre-booking Confirmed - ${companySettings.companyName}`;
+            const html = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Contractor Pre-booking Confirmed</h2>
+                <p>Dear ${newPreBooking.workerName},</p>
+                <p>Your contractor visit has been pre-booked for ${new Date(newPreBooking.scheduledDate).toLocaleDateString()} at ${newPreBooking.scheduledTime}.</p>
+                <p><strong>Company:</strong> ${newPreBooking.companyName}</p>
+                <p><strong>Purpose:</strong> ${newPreBooking.purpose}</p>
+                <p><strong>QR Code:</strong> ${newPreBooking.qrCode}</p>
+                <p>Please use this QR code for check-in upon arrival.</p>
+              </div>
+            `;
+            await emailService.sendEmail({
+              to: newPreBooking.contactEmail,
+              subject,
+              html,
+              text: html.replace(/<[^>]*>/g, '')
+            });
+          }
+        } catch (emailError) {
+          console.error("Failed to send contractor pre-booking email:", emailError);
+        }
+      }
+      
+      res.json(newPreBooking);
+    } catch (error) {
+      console.error("Error creating contractor pre-booking:", error);
+      res.status(500).json({ error: "Failed to create contractor pre-booking" });
+    }
+  });
+
+  app.put("/api/contractors/prebookings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = {
+        ...req.body,
+        scheduledDate: req.body.scheduledDate ? new Date(req.body.scheduledDate) : undefined
+      };
+      
+      const updatedPreBooking = await storage.updateContractorPreBooking(id, updates);
+      
+      if (!updatedPreBooking) {
+        return res.status(404).json({ error: "Contractor pre-booking not found" });
+      }
+      
+      res.json(updatedPreBooking);
+    } catch (error) {
+      console.error("Error updating contractor pre-booking:", error);
+      res.status(500).json({ error: "Failed to update contractor pre-booking" });
+    }
+  });
+
+  app.delete("/api/contractors/prebookings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteContractorPreBooking(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Contractor pre-booking not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting contractor pre-booking:", error);
+      res.status(500).json({ error: "Failed to delete contractor pre-booking" });
+    }
+  });
+
+  // Contractor pre-booking check-in
+  app.post("/api/contractors/prebookings/checkin", async (req, res) => {
+    try {
+      const { qrCode } = req.body;
+      
+      if (!qrCode) {
+        return res.status(400).json({ error: "QR code is required" });
+      }
+      
+      // Find pre-booking by QR code
+      const preBookings = await storage.getContractorPreBookings();
+      const preBooking = preBookings.find(pb => pb.qrCode === qrCode);
+      
+      if (!preBooking) {
+        return res.status(404).json({ error: "Invalid QR code" });
+      }
+      
+      // Check if already checked in
+      if (preBooking.status === 'completed') {
+        return res.status(400).json({ error: "Pre-booking already completed" });
+      }
+      
+      // Update pre-booking status
+      await storage.updateContractorPreBooking(preBooking.id, { status: 'completed' });
+      
+      // Create contractor visit record
+      const visit = await storage.createContractorVisit({
+        workerId: preBooking.id, // Use pre-booking ID as temporary worker ID
+        companyId: preBooking.id, // Use pre-booking ID as temporary company ID
+        purpose: preBooking.purpose,
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: new Date(),
+        qrCode: qrCode,
+        checkedInAt: new Date()
+      });
+      
+      res.json({
+        success: true,
+        message: "Contractor checked in successfully",
+        visit: visit
+      });
+    } catch (error) {
+      console.error("Error checking in contractor from pre-booking:", error);
+      res.status(500).json({ error: "Failed to check in contractor" });
+    }
+  });
+
   // Send manual visitor report endpoint
   app.post("/api/reports/send", async (req, res) => {
     try {
