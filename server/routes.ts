@@ -2579,8 +2579,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get contractor worker
-      const worker = await storage.getContractorWorkerById(workerId);
+      // Get contractor worker (using customer-isolated database service like visitors)
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         return res.status(404).send(`
           <html>
