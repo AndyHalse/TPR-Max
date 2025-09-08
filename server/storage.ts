@@ -379,8 +379,10 @@ export interface IStorage {
 import { DatabaseStorage } from "./DatabaseStorage";
 
 export function createStorage(): IStorage {
-  // Using memory storage for development with sample data
-  return new MemStorage();
+  // Using database storage for production with customer isolation
+  // MemStorage can still be used for local development by uncommenting the line below
+  // return new MemStorage();
+  return new DatabaseStorage();
 }
 
 export class MemStorage implements IStorage {
