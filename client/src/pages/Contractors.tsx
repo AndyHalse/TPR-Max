@@ -134,6 +134,11 @@ export default function Contractors() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  // Staff query for host selection (same as visitor workflow)
+  const { data: staff = [] } = useQuery<any[]>({
+    queryKey: ["/api/staff"],
+  });
+
   // Fetch workers for selected contractor
   const { data: workers = [] } = useQuery<any[]>({
     queryKey: ["/api/contractors", selectedContractor?.id, "workers"],
@@ -148,12 +153,6 @@ export default function Contractors() {
     refetchInterval: 30000,
   });
   
-  // Global staff query for host selection (like visitors)
-  const { data: staff } = useQuery<any[]>({
-    queryKey: ["/api/staff"],
-    enabled: true,
-  });
-
   // Fetch document approvals
   const { data: approvals = [] } = useQuery<any[]>({
     queryKey: ["/api/contractors", selectedContractor?.id, "documents", selectedDocument?.id, "approvals"],

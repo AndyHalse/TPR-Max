@@ -62,7 +62,7 @@ export default function ContractorKiosk() {
   });
 
   // Staff query for host selection (same as visitor workflow)
-  const { data: staff = [] } = useQuery({
+  const { data: staff = [] } = useQuery<any[]>({
     queryKey: ["/api/staff"],
   });
 
