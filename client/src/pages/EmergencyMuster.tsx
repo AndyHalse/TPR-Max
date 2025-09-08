@@ -185,7 +185,7 @@ export default function EmergencyMuster() {
   ];
 
   const filteredList = musterList.filter(person => 
-    person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()))
   );
