@@ -238,15 +238,23 @@ export default function ContractorDetails() {
     if (!selectedWorkerForCheckIn || !selectedHostForWorker) return;
     
     try {
-      await checkInMutation.mutateAsync({
-        ...selectedWorkerForCheckIn,
+      // Call the API directly with hostId parameter (same as visitor workflow)
+      await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
         hostId: selectedHostForWorker
+      });
+      
+      toast({
+        title: "Success", 
+        description: `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName} checked in successfully`
       });
       
       // Reset state
       setShowHostSelection(false);
       setSelectedWorkerForCheckIn(null);
       setSelectedHostForWorker("");
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
     } catch (error: any) {
       toast({
         title: "Check-in Failed",
