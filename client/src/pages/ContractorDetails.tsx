@@ -25,7 +25,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
-import ContractorHSModal from "@/components/ContractorHSModal";
+// Removed ContractorHSModal - H&S acceptance now happens via e-pass link
 
 // Helper function to get safety rating colors
 const getSafetyRatingColor = (rating: string) => {
@@ -46,7 +46,7 @@ export default function ContractorDetails() {
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
-  const [selectedWorkerForHS, setSelectedWorkerForHS] = useState<ContractorWorker | null>(null);
+  // Removed H&S modal state - H&S acceptance now happens via e-pass link
 
   // Fetch contractor details
   const { data: contractor, isLoading } = useQuery({
@@ -158,20 +158,22 @@ export default function ContractorDetails() {
     addCertificationMutation.mutate(certData);
   };
 
-  // Check-in mutation
+  // Check-in mutation - sends e-pass directly like visitor flow
   const checkInMutation = useMutation({
     mutationFn: async (worker: ContractorWorker) => {
       const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/checkin`, {
         purpose: 'Site work',
-        hsRulesAccepted: true,
-        hsRulesAcceptedAt: new Date().toISOString(),
+        // H&S rules will be accepted via e-pass link, not in app
+        hsRulesAccepted: false,
       });
       return response.json();
     },
-    onSuccess: () => {
-      toast({ title: "Worker checked in successfully" });
+    onSuccess: (data) => {
+      toast({ 
+        title: "E-Pass sent successfully",
+        description: data.ePassSent ? "Check-in e-pass has been sent to the worker's email" : "Worker checked in (no email on file)"
+      });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
-      setSelectedWorkerForHS(null);
     },
     onError: (error: any) => {
       toast({ 
@@ -202,7 +204,8 @@ export default function ContractorDetails() {
   });
 
   const handleWorkerCheckIn = (worker: ContractorWorker) => {
-    setSelectedWorkerForHS(worker);
+    // Direct check-in without modal - e-pass will be sent
+    checkInMutation.mutate(worker);
   };
 
   const handleWorkerCheckOut = (workerId: string) => {
@@ -986,18 +989,7 @@ export default function ContractorDetails() {
         </DialogContent>
       </Dialog>
 
-      {/* H&S Acceptance Modal for Check-in */}
-      {selectedWorkerForHS && (
-        <ContractorHSModal
-          isOpen={!!selectedWorkerForHS}
-          onClose={() => setSelectedWorkerForHS(null)}
-          onAccept={() => {
-            checkInMutation.mutate(selectedWorkerForHS);
-          }}
-          worker={selectedWorkerForHS}
-          companyName={contractorData.name}
-        />
-      )}
+      {/* H&S acceptance now happens via e-pass link - no modal needed */}
 
       {/* Edit Worker Modal */}
       {selectedWorkerForEdit && (

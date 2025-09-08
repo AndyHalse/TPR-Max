@@ -6593,35 +6593,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Worker is already checked in" });
       }
 
-      console.log(`🔄 Checking in contractor worker: ${worker.firstName} ${worker.lastName} from ${company.name}`);
+      console.log(`🔄 Starting contractor check-in for: ${worker.firstName} ${worker.lastName} from ${company.name}`);
       
       // Generate QR code
       const qrCode = `CONTRACTOR-${workerId}-${Date.now()}`;
       
-      // Create a visit record
+      // Create a visit record (H&S will be accepted via e-pass link)
       const visit = await storage.createContractorVisit({
         workerId,
         companyId: worker.companyId,
         purpose: purpose || "Work",
         hostStaffId: hostStaffId || null,
         hostName: hostName || null,
-        hsRulesAccepted: hsRulesAccepted || false,
-        hsRulesAcceptedAt: hsRulesAccepted ? new Date() : null,
+        hsRulesAccepted: false,  // Will be updated when accepted via e-pass
+        hsRulesAcceptedAt: null,  // Will be updated when accepted via e-pass
         inductionCompleted: worker.inductionCompleted || false,
         inductionCompletedAt: worker.inductionCompletedAt || null,
         qrCode: qrCode,
         checkedInAt: new Date()
       });
       
-      // Update worker status
+      // Don't mark as checked in yet - will be done after H&S acceptance via e-pass
+      // Just store the QR code for now
       const updatedWorker = await storage.updateContractorWorker(workerId, {
-        isCheckedIn: true,
-        checkedInAt: new Date(),
         qrCode: qrCode
       });
 
-      // Send e-pass if email is available and H&S rules accepted
-      if (worker.email && hsRulesAccepted) {
+      // Send e-pass if email is available (H&S will be accepted via e-pass link)
+      if (worker.email) {
         try {
           // Import the simplified database service
           const { simpleDatabaseService } = await import("./simpleDatabaseService");
@@ -6632,7 +6631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Check if e-Pass is enabled in settings
           if (companySettings?.ePassEnabled) {
-            console.log(`📧 E-Pass is enabled, sending contractor digital pass to ${worker.email}`);
+            console.log(`📧 Sending contractor e-pass to ${worker.email} for H&S acceptance and check-in completion`);
             
             const emailService = new EmailService(companySettings);
             const passUrl = `${process.env.APP_URL || 'http://localhost:5000'}/pass/contractor/${visit.id}`;
@@ -6671,7 +6670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         worker: updatedWorker,
         visit: visit,
-        message: "Worker checked in successfully"
+        message: worker.email ? "E-Pass sent to worker's email" : "Check-in initiated"
       });
     } catch (error) {
       console.error("Error checking in worker:", error);

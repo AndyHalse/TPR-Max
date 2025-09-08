@@ -104,6 +104,19 @@ export function WorkerCard({
           {worker.firstName} {worker.lastName}
         </h3>
         <p className="text-muted-foreground">Contractor Worker</p>
+        {/* Show checked-in status like visitor cards */}
+        {worker.isCheckedIn && worker.checkedInAt && (
+          <div className="flex items-center justify-center gap-2 mt-2 text-sm text-green-600">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="font-medium">Checked In</span>
+            <span className="text-muted-foreground">
+              {new Date(worker.checkedInAt).toLocaleTimeString('en-GB', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </span>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
