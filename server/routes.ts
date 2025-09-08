@@ -6729,6 +6729,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contractor H&S Rules acceptance endpoint (similar to visitor H&S acceptance)
+  app.get("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const { token } = req.query;
+      
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get contractor worker
+      const worker = await storage.getContractorWorkerById(workerId);
+      if (!worker) {
+        return res.status(404).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Worker Not Found</h1>
+              <p>The contractor worker could not be found. Please contact reception for assistance.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Check if H&S rules are already accepted
+      if (worker.hsRulesAccepted && worker.hsRulesAcceptedAt) {
+        return res.send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #10b981;">✅ Already Accepted</h1>
+              <h2>Health & Safety Rules Already Accepted</h2>
+              <p>You have already accepted the Health & Safety Rules on ${worker.hsRulesAcceptedAt ? new Date(worker.hsRulesAcceptedAt).toLocaleString('en-GB') : 'a previous visit'}.</p>
+              <p style="margin-top: 20px;">You may now close this window and proceed with your work.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Update contractor worker with H&S acceptance and complete check-in
+      const now = new Date();
+      const updatedWorker = await storage.updateContractorWorker(workerId, {
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: now,
+        isCheckedIn: true,
+        checkedInAt: now
+      });
+      
+      if (!updatedWorker) {
+        return res.status(500).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Update Failed</h1>
+              <p>Failed to update H&S acceptance. Please contact reception for assistance.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      console.log(`✅ H&S Rules accepted by contractor: ${worker.firstName} ${worker.lastName} - Now fully checked in`);
+      res.send(`
+        <html>
+          <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h1 style="color: #10b981;">✅ Thank You!</h1>
+            <h2>Health & Safety Rules Accepted</h2>
+            <p>Thank you ${worker.firstName} ${worker.lastName} for accepting our Health & Safety Rules.</p>
+            <p>Your acceptance has been recorded at ${new Date(updatedWorker.hsRulesAcceptedAt).toLocaleString('en-GB')}.</p>
+            <p><strong>You are now fully checked in and may proceed with your work.</strong></p>
+            <p style="margin-top: 20px;">You may now close this window.</p>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Error accepting contractor H&S rules:", error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h1 style="color: #ef4444;">❌ System Error</h1>
+            <p>An unexpected error occurred. Please contact reception for assistance.</p>
+          </body>
+        </html>
+      `);
+    }
+  });
+
+  // POST endpoint for API-based contractor H&S acceptance
+  app.post("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const { token } = req.body;
+      
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get contractor worker
+      const worker = await storage.getContractorWorkerById(workerId);
+      if (!worker) {
+        return res.status(404).json({ error: "Contractor worker not found" });
+      }
+      
+      // Update contractor worker with H&S acceptance and complete check-in
+      const now = new Date();
+      const updatedWorker = await storage.updateContractorWorker(workerId, {
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: now,
+        isCheckedIn: true,
+        checkedInAt: now
+      });
+      
+      if (!updatedWorker) {
+        return res.status(500).json({ error: "Failed to update H&S acceptance" });
+      }
+      
+      console.log(`✅ H&S Rules accepted by contractor: ${worker.firstName} ${worker.lastName} - Now fully checked in`);
+      res.json({ 
+        success: true, 
+        message: "Health & Safety Rules accepted successfully and contractor checked in",
+        worker: updatedWorker,
+        checkedIn: true
+      });
+    } catch (error) {
+      console.error("Error accepting contractor H&S rules:", error);
+      res.status(500).json({ error: "Failed to accept H&S rules" });
+    }
+  });
+
   // Get contractor worker visit history  
   app.get("/api/contractors/workers/:workerId/history", requireAuth, async (req, res) => {
     try {
