@@ -16,6 +16,7 @@ import EditContractorWorkerModal from "@/components/EditContractorWorkerModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
 import ContractorPreBooking from "@/components/ContractorPreBooking";
 import ContractorHSModal from "@/components/ContractorHSModal";
+import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import { 
   HardHat, 
   Clock, 
@@ -32,7 +33,8 @@ import {
   CalendarPlus,
   Mail,
   Plus,
-  User
+  User,
+  Leaf
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -40,7 +42,8 @@ import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 export default function ContractorManagement() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors">("previous");
+  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2">("previous");
+  const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [showAllWorkers, setShowAllWorkers] = useState(false);
@@ -477,6 +480,16 @@ export default function ContractorManagement() {
         >
           <CalendarPlus className="h-4 w-4" />
           Pre-booking
+        </Button>
+        
+        <Button
+          variant={activeTab === "co2" ? "default" : "outline"}
+          onClick={() => setActiveTab("co2")}
+          className="flex items-center gap-2"
+          data-testid="tab-co2-reports"
+        >
+          <Leaf className="h-4 w-4" />
+          CO2 Reports
         </Button>
       </div>
 
@@ -1213,6 +1226,40 @@ export default function ContractorManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {activeTab === "co2" && (
+        <div className="space-y-6">
+          {/* Company Selection */}
+          <GlassCard className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Leaf className="h-5 w-5 text-green-600" />
+                <span className="font-medium">Select Company:</span>
+              </div>
+              <Select value={selectedCO2CompanyId} onValueChange={setSelectedCO2CompanyId}>
+                <SelectTrigger className="w-64" data-testid="select-co2-company">
+                  <SelectValue placeholder="Choose contractor company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name} ({company.workersCount} workers)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </GlassCard>
+
+          {/* CO2 Reports Component */}
+          {selectedCO2CompanyId && (
+            <CO2SustainabilityReports
+              companyId={selectedCO2CompanyId}
+              companyName={companies.find(c => c.id === selectedCO2CompanyId)?.name}
+            />
+          )}
+        </div>
+      )}
       
       {/* H&S Acceptance Modal */}
       {workerForCheckIn && (
