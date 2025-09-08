@@ -587,22 +587,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const stats = await databaseService.getStats(context);
       
-      // Get actual number of checked-in contractors with customer isolation
-      // For now return 0 until we implement customer-isolated contractor tracking
-      const contractorsOnSite = 0;
+      // Use the contractor count from the updated getStats method
+      const contractorsOnSite = stats.contractorsOnSite || 0;
       
-      // Replace avgVisitDuration with contractorsOnSite
-      const { avgVisitDuration, ...otherStats } = stats;
-      
-      // Calculate total people on-site (numbers are now properly returned from database)
-      const totalPeopleOnSite = otherStats.currentVisitors + otherStats.staffOnSite + contractorsOnSite;
+      // Calculate total people on-site using actual stats
+      const totalPeopleOnSite = stats.currentVisitors + stats.staffOnSite + contractorsOnSite;
       
       // Get total companies count with customer isolation
       const visitors = await databaseService.getAllVisitors(context);
       const totalCompanies = [...new Set(visitors.map((v: any) => v.company).filter(Boolean))].length;
       
       res.json({
-        ...otherStats,
+        currentVisitors: stats.currentVisitors,
+        todayCheckins: stats.todayCheckins,
+        staffOnSite: stats.staffOnSite,
+        totalStaff: stats.totalStaff,
         contractorsOnSite,
         totalPeopleOnSite,
         totalCompanies
@@ -781,8 +780,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all current visitors using customer-isolated database service
       const currentVisitors = await databaseService.getCurrentVisitors(context);
       
-      // Get all checked-in contractors - TODO: implement customer-isolated contractor tracking
-      let checkedInContractors: any[] = [];
+      // Get all checked-in contractors using customer-isolated database service
+      const checkedInContractors = await databaseService.getCheckedInContractors(context);
       
       // Combine all personnel for muster list
       const musterList = [

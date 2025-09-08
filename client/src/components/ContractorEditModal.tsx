@@ -144,6 +144,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/history`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats'] }); // Refresh dashboard stats
       toast({
         title: 'Success',
         description: 'Contractor checked out successfully!',
