@@ -336,6 +336,7 @@ export default function Contractors() {
       
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
     } catch (error: any) {
       toast({
         title: "Check-in Failed",
@@ -357,6 +358,7 @@ export default function Contractors() {
       
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
     } catch (error: any) {
       toast({
         title: "Check-out Failed",
