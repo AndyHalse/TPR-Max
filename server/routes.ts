@@ -803,7 +803,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           location: 'Building A', 
           accounted: visitor.isAccountedFor || false
         })),
-        ...checkedInContractors
+        ...checkedInContractors.map(contractor => ({
+          id: contractor.id,
+          name: `${contractor.firstName} ${contractor.lastName}`,
+          type: 'contractor' as const,
+          company: contractor.companyName || contractor.company,
+          checkedInAt: contractor.checkedInAt || contractor.createdAt,
+          location: 'Site',
+          accounted: contractor.isAccountedFor || false
+        }))
       ];
       
       res.json(musterList);
