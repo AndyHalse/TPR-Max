@@ -169,10 +169,24 @@ export default function ContractorDetails() {
       return response.json();
     },
     onSuccess: (data) => {
-      toast({ 
-        title: "E-Pass sent successfully",
-        description: data.ePassSent ? "Check-in e-pass has been sent to the worker's email" : "Worker checked in (no email on file)"
-      });
+      if (data.hasEmail && data.ePassSent) {
+        toast({ 
+          title: "E-Pass sent successfully",
+          description: "Check-in e-pass has been sent to the worker's email"
+        });
+      } else if (data.hasEmail && !data.ePassSent) {
+        toast({ 
+          title: "Check-in initiated",
+          description: "Failed to send e-pass, but worker is registered",
+          variant: "destructive"
+        });
+      } else {
+        toast({ 
+          title: "Check-in initiated",
+          description: "Worker checked in (no email on file)",
+          variant: "secondary"
+        });
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
     },
     onError: (error: any) => {

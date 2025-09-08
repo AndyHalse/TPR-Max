@@ -6619,6 +6619,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         qrCode: qrCode
       });
 
+      let ePassSent = false;
+      let emailSentSuccessfully = false;
+      
       // Send e-pass if email is available (H&S will be accepted via e-pass link)
       if (worker.email) {
         try {
@@ -6636,7 +6639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const emailService = new EmailService(companySettings);
             const passUrl = `${process.env.APP_URL || 'http://localhost:5000'}/pass/contractor/${visit.id}`;
             
-            const emailSent = await emailService.sendContractorEPass(
+            emailSentSuccessfully = await emailService.sendContractorEPass(
               worker.email,
               `${worker.firstName} ${worker.lastName}`,
               company.name || 'Contractor',  // Use company.name instead of worker.companyName
@@ -6645,14 +6648,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               companySettings
             );
             
-            // Update visit record with e-pass sent status
-            await storage.updateContractorVisit(visit.id, {
-              ePassSent: true,
-              ePassSentAt: new Date(),
-              passUrl: passUrl
-            });
-            
-            if (emailSent) {
+            if (emailSentSuccessfully) {
+              // Update visit record with e-pass sent status
+              await storage.updateContractorVisit(visit.id, {
+                ePassSent: true,
+                ePassSentAt: new Date(),
+                passUrl: passUrl
+              });
+              ePassSent = true;
               console.log(`✅ E-Pass sent successfully to contractor ${worker.email}`);
             } else {
               console.log(`⚠️ Failed to send e-pass to contractor ${worker.email}`);
@@ -6670,7 +6673,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         worker: updatedWorker,
         visit: visit,
-        message: worker.email ? "E-Pass sent to worker's email" : "Check-in initiated"
+        ePassSent: ePassSent,
+        hasEmail: !!worker.email,
+        message: worker.email 
+          ? (ePassSent ? "E-Pass sent to worker's email" : "Check-in initiated (e-pass failed)")
+          : "Check-in initiated (no email on file)"
       });
     } catch (error) {
       console.error("Error checking in worker:", error);
