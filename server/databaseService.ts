@@ -19,6 +19,13 @@ import type {
   InsertPreBooking,
   ContractorWorker,
   InsertContractorWorker,
+  ContractorCompany,
+  CO2EmissionsData,
+  InsertCO2EmissionsData,
+  CO2MonthlySummary,
+  InsertCO2MonthlySummary,
+  CO2SustainabilityReport,
+  InsertCO2SustainabilityReport,
 } from "@shared/schema";
 import * as schema from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -1428,6 +1435,150 @@ export class DatabaseService {
       console.error('Error updating contractor worker:', error);
       return undefined;
     }
+  }
+
+  /**
+   * CO2 EMISSIONS TRACKING METHODS - Customer Isolated
+   */
+  async storeCO2EmissionsData(data: InsertCO2EmissionsData): Promise<CO2EmissionsData> {
+    const db = await customerDbService.getCustomerDatabase(data.customerId);
+    
+    const created = await db
+      .insert(schema.co2EmissionsData)
+      .values(data)
+      .returning();
+    
+    return created[0];
+  }
+
+  async getCO2EmissionsByCompany(customerId: string, companyId: string): Promise<CO2EmissionsData[]> {
+    const db = await customerDbService.getCustomerDatabase(customerId);
+    
+    return await db
+      .select()
+      .from(schema.co2EmissionsData)
+      .where(and(
+        eq(schema.co2EmissionsData.customerId, customerId),
+        eq(schema.co2EmissionsData.companyId, companyId),
+        eq(schema.co2EmissionsData.isActive, true)
+      ))
+      .orderBy(desc(schema.co2EmissionsData.calculatedAt));
+  }
+
+  async getCO2EmissionsByWorker(customerId: string, workerId: string): Promise<CO2EmissionsData[]> {
+    const db = await customerDbService.getCustomerDatabase(customerId);
+    
+    return await db
+      .select()
+      .from(schema.co2EmissionsData)
+      .where(and(
+        eq(schema.co2EmissionsData.customerId, customerId),
+        eq(schema.co2EmissionsData.workerId, workerId),
+        eq(schema.co2EmissionsData.isActive, true)
+      ))
+      .orderBy(desc(schema.co2EmissionsData.calculatedAt));
+  }
+
+  async getWorkersByCompany(companyId: string): Promise<ContractorWorker[]> {
+    // Get the customer ID by finding any worker from this company first
+    const db = await customerDbService.getCustomerDatabase('dev-customer-001'); // Using dev context
+    
+    return await db
+      .select()
+      .from(schema.contractorWorkers)
+      .where(eq(schema.contractorWorkers.companyId, companyId));
+  }
+
+  async getContractorCompany(companyId: string): Promise<ContractorCompany | undefined> {
+    const db = await customerDbService.getCustomerDatabase('dev-customer-001'); // Using dev context
+    
+    const companies = await db
+      .select()
+      .from(schema.contractorCompanies)
+      .where(eq(schema.contractorCompanies.id, companyId))
+      .limit(1);
+    
+    return companies[0];
+  }
+
+  async getMonthlySummary(
+    customerId: string, 
+    companyId: string, 
+    year: number, 
+    month: number
+  ): Promise<CO2MonthlySummary | undefined> {
+    const db = await customerDbService.getCustomerDatabase(customerId);
+    
+    const summaries = await db
+      .select()
+      .from(schema.co2MonthlySummaries)
+      .where(and(
+        eq(schema.co2MonthlySummaries.customerId, customerId),
+        eq(schema.co2MonthlySummaries.companyId, companyId),
+        eq(schema.co2MonthlySummaries.year, year),
+        eq(schema.co2MonthlySummaries.month, month)
+      ))
+      .limit(1);
+    
+    return summaries[0];
+  }
+
+  async upsertMonthlySummary(data: InsertCO2MonthlySummary): Promise<CO2MonthlySummary> {
+    const db = await customerDbService.getCustomerDatabase(data.customerId);
+    
+    // Try to find existing summary
+    const existing = data.companyId 
+      ? await this.getMonthlySummary(data.customerId, data.companyId, data.year, data.month)
+      : undefined;
+    
+    if (existing) {
+      // Update existing
+      const updated = await db
+        .update(schema.co2MonthlySummaries)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(schema.co2MonthlySummaries.id, existing.id))
+        .returning();
+      
+      return updated[0];
+    } else {
+      // Create new
+      const created = await db
+        .insert(schema.co2MonthlySummaries)
+        .values(data)
+        .returning();
+      
+      return created[0];
+    }
+  }
+
+  async storeSustainabilityReport(data: InsertCO2SustainabilityReport): Promise<CO2SustainabilityReport> {
+    const db = await customerDbService.getCustomerDatabase(data.customerId);
+    
+    const created = await db
+      .insert(schema.co2SustainabilityReports)
+      .values(data)
+      .returning();
+    
+    return created[0];
+  }
+
+  async getSustainabilityReports(
+    customerId: string, 
+    companyId?: string
+  ): Promise<CO2SustainabilityReport[]> {
+    const db = await customerDbService.getCustomerDatabase(customerId);
+    
+    const whereConditions = [eq(schema.co2SustainabilityReports.customerId, customerId)];
+    
+    if (companyId) {
+      whereConditions.push(eq(schema.co2SustainabilityReports.companyId, companyId));
+    }
+    
+    return await db
+      .select()
+      .from(schema.co2SustainabilityReports)
+      .where(and(...whereConditions))
+      .orderBy(desc(schema.co2SustainabilityReports.generatedAt));
   }
 
   /**

@@ -30,6 +30,7 @@ import {
 import { z } from "zod";
 import path from "path";
 import express from "express";
+import { CO2CalculationService } from "./co2CalculationService";
 
 // Staff authentication schema
 const staffAuthSchema = z.object({
@@ -6458,6 +6459,229 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching all workers:", error);
       res.status(500).json({ error: "Failed to fetch all workers" });
+    }
+  });
+
+  // ======================================
+  // CO2 EMISSIONS TRACKING ENDPOINTS  
+  // ======================================
+
+  // Initialize CO2 calculation service
+  const co2Calculator = new CO2CalculationService(databaseService);
+
+  // Calculate CO2 emissions for a worker
+  app.post("/api/contractors/workers/:workerId/co2/calculate", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const { postcode, transportMethod, workingDaysPerMonth } = req.body;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get company settings for address
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      if (!companySettings?.address) {
+        return res.status(400).json({ error: "Company address not configured in settings" });
+      }
+
+      // Get worker details
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
+      if (!worker) {
+        return res.status(404).json({ error: "Worker not found" });
+      }
+
+      // Calculate CO2 emissions
+      const co2Data = await co2Calculator.calculateWorkerCO2Emissions(
+        context.customerId,
+        worker.companyId,
+        {
+          workerId,
+          workerPostcode: postcode,
+          companyAddress: companySettings.address,
+          transportMethod,
+          workingDaysPerMonth
+        }
+      );
+
+      res.json({
+        success: true,
+        data: co2Data,
+        message: "CO2 emissions calculated successfully"
+      });
+    } catch (error) {
+      console.error("Error calculating CO2 emissions:", error);
+      res.status(500).json({ error: error.message || "Failed to calculate CO2 emissions" });
+    }
+  });
+
+  // Get CO2 summary for a company
+  app.get("/api/contractors/:companyId/co2/summary", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      const summary = await co2Calculator.getCompanyCO2Summary(context.customerId, companyId);
+
+      res.json({
+        success: true,
+        data: summary
+      });
+    } catch (error) {
+      console.error("Error fetching CO2 summary:", error);
+      res.status(500).json({ error: "Failed to fetch CO2 summary" });
+    }
+  });
+
+  // Get CO2 data for a specific worker
+  app.get("/api/contractors/workers/:workerId/co2", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      const co2Data = await databaseService.getCO2EmissionsByWorker(context.customerId, workerId);
+      const suggestions = await co2Calculator.getReductionSuggestions(context.customerId, workerId);
+
+      res.json({
+        success: true,
+        data: {
+          emissions: co2Data,
+          reductionSuggestions: suggestions
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching worker CO2 data:", error);
+      res.status(500).json({ error: "Failed to fetch worker CO2 data" });
+    }
+  });
+
+  // Generate sustainability report for a company
+  app.post("/api/contractors/:companyId/co2/report", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const { reportType = 'monthly' } = req.body;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      const report = await co2Calculator.generateSustainabilityReport(
+        context.customerId,
+        companyId,
+        reportType
+      );
+
+      res.json({
+        success: true,
+        data: report,
+        message: "Sustainability report generated successfully"
+      });
+    } catch (error) {
+      console.error("Error generating sustainability report:", error);
+      res.status(500).json({ error: "Failed to generate sustainability report" });
+    }
+  });
+
+  // Get all sustainability reports for a company
+  app.get("/api/contractors/:companyId/co2/reports", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      const reports = await databaseService.getSustainabilityReports(context.customerId, companyId);
+
+      res.json({
+        success: true,
+        data: reports
+      });
+    } catch (error) {
+      console.error("Error fetching sustainability reports:", error);
+      res.status(500).json({ error: "Failed to fetch sustainability reports" });
+    }
+  });
+
+  // Get monthly CO2 summary for dashboard
+  app.get("/api/co2/monthly-summary", requireAuth, async (req, res) => {
+    try {
+      const { year, month, companyId } = req.query;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      const summary = await databaseService.getMonthlySummary(
+        context.customerId,
+        companyId as string,
+        parseInt(year as string) || new Date().getFullYear(),
+        parseInt(month as string) || new Date().getMonth() + 1
+      );
+
+      res.json({
+        success: true,
+        data: summary
+      });
+    } catch (error) {
+      console.error("Error fetching monthly CO2 summary:", error);
+      res.status(500).json({ error: "Failed to fetch monthly CO2 summary" });
+    }
+  });
+
+  // Update transport method for a worker
+  app.put("/api/contractors/workers/:workerId/transport", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const { transportMethod, postcode } = req.body;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Update worker postcode if provided
+      if (postcode) {
+        await databaseService.updateContractorWorker(context, workerId, { postcode });
+      }
+
+      // Get company settings for address
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      if (!companySettings?.address) {
+        return res.status(400).json({ error: "Company address not configured" });
+      }
+
+      // Get worker details
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
+      if (!worker) {
+        return res.status(404).json({ error: "Worker not found" });
+      }
+
+      // Recalculate CO2 emissions with new transport method
+      const co2Data = await co2Calculator.calculateWorkerCO2Emissions(
+        context.customerId,
+        worker.companyId,
+        {
+          workerId,
+          workerPostcode: postcode || worker.postcode || '',
+          companyAddress: companySettings.address,
+          transportMethod,
+        }
+      );
+
+      res.json({
+        success: true,
+        data: co2Data,
+        message: "Transport method updated and CO2 emissions recalculated"
+      });
+    } catch (error) {
+      console.error("Error updating transport method:", error);
+      res.status(500).json({ error: "Failed to update transport method" });
     }
   });
 
