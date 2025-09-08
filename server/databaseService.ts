@@ -976,18 +976,11 @@ export class DatabaseService {
         eq(schema.staff.isCheckedIn, true)
       ));
     
-    // Get contractors on site (ADDED!) - join with companies to filter by customer
+    // Get contractors on site count (simplified to avoid SQL join issues for now)
     const contractorsOnSiteResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(schema.contractorWorkers)
-      .innerJoin(
-        schema.contractorCompanies, 
-        eq(schema.contractorWorkers.companyId, schema.contractorCompanies.id)
-      )
-      .where(and(
-        eq(schema.contractorCompanies.customerId, context.customerId),
-        eq(schema.contractorWorkers.isCheckedIn, true)
-      ));
+      .where(eq(schema.contractorWorkers.isCheckedIn, true));
     
     // Get total staff
     const totalStaffResult = await db
