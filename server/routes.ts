@@ -6730,13 +6730,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Contractor H&S Rules acceptance endpoint (similar to visitor H&S acceptance)
+  // Contractor H&S Rules acceptance endpoint (same pattern as visitor H&S acceptance)
   app.get("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
       const { token } = req.query;
       
-      // Get customer context for isolation
+      // Get customer context for isolation based on logged-in user (same as visitor pattern)
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
@@ -6813,13 +6813,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST endpoint for API-based contractor H&S acceptance
+  // POST endpoint for API-based contractor H&S acceptance (same pattern as visitor)
   app.post("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
       const { token } = req.body;
       
-      // Get customer context for isolation
+      // Get customer context for isolation based on logged-in user (same as visitor pattern)
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
