@@ -6645,7 +6645,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               company.name || 'Contractor',  // Use company.name instead of worker.companyName
               qrCode,
               passUrl,
-              companySettings
+              companySettings,
+              workerId  // Pass worker ID for H&S acceptance link
             );
             
             if (emailSentSuccessfully) {

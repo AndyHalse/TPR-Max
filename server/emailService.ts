@@ -1314,7 +1314,8 @@ Powered by VisiGate Pro`;
     company: string,
     qrCode: string,
     passUrl: string,
-    companySettings: CompanySettings
+    companySettings: CompanySettings,
+    workerId?: string
   ): Promise<boolean> {
     try {
       const companyName = companySettings?.companyName || 'VisiGate Pro';
@@ -1509,7 +1510,7 @@ Powered by VisiGate Pro`;
                               <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 15px 0;">
                                 <tr>
                                   <td align="center">
-                                    <a href="${passUrl}" 
+                                    <a href="${workerId ? `${passUrl.replace(/\/epass\/.*$/, '')}/api/contractors/workers/${workerId}/accept-hs-rules` : passUrl}" 
                                        style="display: inline-block; padding: 12px 30px; background: #d32f2f; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
                                       ✓ I Accept Health & Safety Rules
                                     </a>
@@ -1592,7 +1593,7 @@ General Safety Rules:
 2. Emergency Procedures
    - Familiarize yourself with emergency exits
 
-Accept Health & Safety Rules: ${passUrl}
+Accept Health & Safety Rules: ${workerId ? `${passUrl.replace(/\/epass\/.*$/, '')}/api/contractors/workers/${workerId}/accept-hs-rules` : passUrl}
 
 Important Reminders:
 - Check out when leaving the building
