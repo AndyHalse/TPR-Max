@@ -184,7 +184,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[95vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-800">
               <HardHat className="h-5 w-5" />
@@ -204,8 +204,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1">
-            <TabsContent value="profile" className="space-y-4 px-1">
+          <ScrollArea className="flex-1 max-h-[calc(95vh-120px)]">
+            <TabsContent value="profile" className="space-y-4 px-1 pb-6">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Personal Information */}
                 <div className="space-y-4">
