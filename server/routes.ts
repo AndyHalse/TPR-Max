@@ -2575,9 +2575,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       const { token } = req.query;
       
-      // Get customer context for isolation based on logged-in user (same as visitor pattern)
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // Get customer context for isolation (use default for email links - same as visitor pattern)
+      const context = simpleDatabaseService.createCustomerContext('Andy');
       
       // Get contractor worker (using customer-isolated database service like visitors)
       const worker = await databaseService.getContractorWorkerById(context, workerId);
@@ -2658,9 +2657,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       const { token } = req.body;
       
-      // Get customer context for isolation based on logged-in user (same as visitor pattern)
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // Get customer context for isolation (use default for email links - same as visitor pattern)
+      const context = simpleDatabaseService.createCustomerContext('Andy');
       
       // Get contractor worker (using customer-isolated database service like visitors)
       const worker = await databaseService.getContractorWorkerById(context, workerId);
@@ -6771,7 +6769,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               qrCode,
               passUrl,
               companySettings,
-              workerId  // Pass worker ID for H&S acceptance link
+              workerId,  // Pass worker ID for H&S acceptance link
+              hostName   // Pass host name for e-pass display (same as visitors)
             );
             
             if (emailSentSuccessfully) {

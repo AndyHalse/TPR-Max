@@ -1315,7 +1315,8 @@ Powered by VisiGate Pro`;
     qrCode: string,
     passUrl: string,
     companySettings: CompanySettings,
-    workerId?: string
+    workerId?: string,
+    hostName?: string
   ): Promise<boolean> {
     try {
       const companyName = companySettings?.companyName || 'VisiGate Pro';
@@ -1449,6 +1450,12 @@ Powered by VisiGate Pro`;
                                   <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Company:</td>
                                   <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${company}</td>
                                 </tr>
+                                ${hostName ? `
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Host:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${hostName}</td>
+                                </tr>
+                                ` : ''}
                                 <tr>
                                   <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Check-in:</td>
                                   <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">
