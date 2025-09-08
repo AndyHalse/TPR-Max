@@ -6392,6 +6392,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor worker visit history  
+  app.get("/api/contractors/workers/:workerId/history", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const customerId = req.user?.customerId;
+
+      if (!customerId) {
+        return res.status(400).json({ error: "Customer context required" });
+      }
+
+      // Get contractor visits from database
+      const visits = await storage.getContractorVisitHistory(workerId, customerId);
+      
+      // Format visits with duration calculations
+      const formattedVisits = visits.map(visit => ({
+        id: visit.id,
+        workerId: visit.workerId,
+        companyId: visit.companyId,
+        purpose: visit.purpose || "Site work",
+        checkedInAt: visit.checkedInAt,
+        checkedOutAt: visit.checkedOutAt,
+        duration: visit.checkedOutAt 
+          ? calculateDuration(new Date(visit.checkedInAt), new Date(visit.checkedOutAt))
+          : null,
+        qrCode: visit.qrCode,
+        notes: visit.notes
+      }));
+
+      res.json(formattedVisits);
+    } catch (error) {
+      console.error("Error fetching contractor visit history:", error);
+      res.status(500).json({ error: "Failed to fetch visit history" });
+    }
+  });
+
+  // Helper function to calculate duration
+  function calculateDuration(start: Date, end: Date): string {
+    const diff = end.getTime() - start.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  }
+
   // Daily Reset helper function
   async function performDailyReset(isManual: boolean = false) {
     const resetTime = new Date();

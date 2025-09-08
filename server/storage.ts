@@ -180,6 +180,7 @@ export interface IStorage {
   createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker>;
   updateContractorWorker(id: string, updates: Partial<InsertContractorWorker>): Promise<ContractorWorker | undefined>;
   deleteContractorWorker(id: string): Promise<boolean>;
+  getContractorVisitHistory(workerId: string, customerId?: string): Promise<ContractorVisit[]>;
   
   // Compliance Document methods
   getDocumentsByCompanyId(companyId: string): Promise<ComplianceDocument[]>;
@@ -2991,6 +2992,12 @@ export class MemStorage implements IStorage {
       this.saveContractorWorkersToFile(); // 💾 PERSIST IMMEDIATELY
     }
     return existed;
+  }
+
+  async getContractorVisitHistory(workerId: string, customerId?: string): Promise<ContractorVisit[]> {
+    // In MemStorage, return empty array as we don't track visit history in memory
+    // This would be properly implemented in DatabaseStorage
+    return [];
   }
 
   async getAllContractorWorkers(): Promise<ContractorWorker[]> {

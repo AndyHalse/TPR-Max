@@ -1466,6 +1466,16 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
+  async getContractorVisitHistory(workerId: string, customerId?: string): Promise<ContractorVisit[]> {
+    const query = db
+      .select()
+      .from(contractorVisits)
+      .where(eq(contractorVisits.workerId, workerId))
+      .orderBy(desc(contractorVisits.checkedInAt));
+    
+    return await query;
+  }
+
   // Compliance Document methods
   async getDocumentsByCompanyId(companyId: string): Promise<ComplianceDocument[]> {
     return await db.select().from(complianceDocuments).where(eq(complianceDocuments.companyId, companyId));
