@@ -6741,10 +6741,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedInAt: new Date()
       });
       
-      // Don't mark as checked in yet - will be done after H&S acceptance via e-pass
-      // Just store the QR code for now
+      // Mark worker as checked in immediately if H&S already accepted, otherwise wait for e-pass acceptance
+      const shouldCheckInNow = worker.hsRulesAccepted || hsRulesAccepted;
       const updatedWorker = await storage.updateContractorWorker(workerId, {
-        qrCode: qrCode
+        qrCode: qrCode,
+        isCheckedIn: shouldCheckInNow,
+        checkedInAt: shouldCheckInNow ? new Date() : worker.checkedInAt
       });
 
       let ePassSent = false;
@@ -6826,13 +6828,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Worker not found" });
       }
 
-      // Check if worker is currently checked in
-      if (!worker.isCheckedIn) {
+      // Find the current visit record (determines check-in status like the modal does)
+      const currentVisit = await storage.getCurrentContractorVisit(workerId);
+      if (!currentVisit) {
         return res.status(400).json({ error: "Worker is not currently checked in" });
       }
-
-      // Find the current visit record
-      const currentVisit = await storage.getCurrentContractorVisit(workerId);
       if (currentVisit) {
         // Update visit with checkout time
         await storage.updateContractorVisit(currentVisit.id, {
