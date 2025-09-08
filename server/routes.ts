@@ -2477,8 +2477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Contractor H&S Rules acceptance endpoint (NO AUTH - email links from contractors)
-  app.get("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
+  // Contractor H&S Rules acceptance endpoint (NO AUTH - uses worker-hs path to avoid contractor middleware)
+  app.get("/api/worker-hs/:workerId/accept-hs-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
       const { token } = req.query;
@@ -2559,8 +2559,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST endpoint for contractor H&S acceptance (NO AUTH - email links from contractors)
-  app.post("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
+  // POST endpoint for contractor H&S acceptance (NO AUTH - uses worker-hs path to avoid contractor middleware)
+  app.post("/api/worker-hs/:workerId/accept-hs-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
       const { token } = req.body;
