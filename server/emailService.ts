@@ -1337,7 +1337,7 @@ Powered by VisiGate Pro`;
       const subject = `Contractor E-Pass - ${name} at ${companyName}`;
       
       // Debug logging for H&S acceptance URL
-      const hsAcceptanceUrl = workerId ? `${process.env.APP_URL || 'http://localhost:5000'}/api/worker-hs/${workerId}/accept-hs-rules` : passUrl;
+      const hsAcceptanceUrl = workerId ? `${process.env.APP_URL || 'http://localhost:5000'}/hs-contractor/${workerId}/accept-rules` : passUrl;
       console.log(`🔗 DEBUG: Contractor H&S acceptance URL: ${hsAcceptanceUrl}`);
       console.log(`🔗 DEBUG: APP_URL env var: ${process.env.APP_URL}`);
       console.log(`🔗 DEBUG: workerId: ${workerId}`);
@@ -1523,7 +1523,7 @@ Powered by VisiGate Pro`;
                               <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
                                 <tr>
                                   <td align="center">
-                                    <a href="${process.env.APP_URL || 'http://localhost:5000'}/api/worker-hs/${workerId}/accept-hs-rules" 
+                                    <a href="${process.env.APP_URL || 'http://localhost:5000'}/hs-contractor/${workerId}/accept-rules" 
                                        class="mobile-button"
                                        style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); text-align: center;">
                                       ✅ I Accept Health & Safety Rules
