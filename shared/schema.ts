@@ -1102,6 +1102,96 @@ export const localLabourRecords = pgTable("local_labour_records", {
   recordedBy: varchar("recorded_by").references(() => users.id),
 });
 
+// CO2 Emissions Tracking - Worker level emissions data
+export const co2EmissionsData = pgTable("co2_emissions_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  // Distance data
+  workerPostcode: text("worker_postcode").notNull(),
+  companyAddress: text("company_address").notNull(),
+  distanceMiles: integer("distance_miles").notNull(), // One-way distance in miles  
+  distanceKm: integer("distance_km").notNull(), // One-way distance in kilometers
+  routeType: text("route_type").default("mixed"), // motorway, a-roads, mixed
+  estimatedTravelTime: text("estimated_travel_time"), // e.g. "45 minutes"
+  // Transport and emissions
+  transportMethod: text("transport_method").notNull().default("car_diesel"), // car_petrol, car_diesel, electric, public_transport, motorcycle
+  emissionFactor: text("emission_factor").notNull(), // kg CO2 per mile as decimal
+  dailyCO2kg: text("daily_co2_kg").notNull(), // Daily round trip CO2 as decimal
+  monthlyCO2kg: text("monthly_co2_kg").notNull(), // Monthly projection as decimal
+  annualCO2kg: text("annual_co2_kg").notNull(), // Annual projection as decimal
+  // Calculation metadata
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+  calculatedBy: text("calculated_by").default("openai"), // openai, fallback, manual
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  // Working pattern (affects monthly calculations)
+  workingDaysPerMonth: integer("working_days_per_month").default(22).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// CO2 Monthly Summaries - Aggregated data for reporting
+export const co2MonthlySummaries = pgTable("co2_monthly_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  companyId: varchar("company_id").references(() => contractorCompanies.id), // Null for overall customer summary
+  // Time period
+  year: integer("year").notNull(),
+  month: integer("month").notNull(), // 1-12
+  // Aggregated data
+  totalWorkers: integer("total_workers").notNull(),
+  totalMonthlyCO2kg: text("total_monthly_co2_kg").notNull(), // Total emissions as decimal
+  averageCO2PerWorker: text("average_co2_per_worker").notNull(), // Average per worker as decimal
+  // Transport method breakdown
+  transportBreakdown: text("transport_breakdown"), // JSON: {"car_diesel": 15, "electric": 3, "public_transport": 2}
+  // Distance analysis
+  averageDistanceMiles: integer("average_distance_miles"),
+  longestCommuteMiles: integer("longest_commute_miles"),
+  shortestCommuteMiles: integer("shortest_commute_miles"),
+  // Comparison metrics
+  previousMonthCO2kg: text("previous_month_co2_kg"), // For % change calculation
+  percentageChange: text("percentage_change"), // +/- percentage from previous month
+  // Sustainability metrics
+  carbonReductionTarget: text("carbon_reduction_target"), // Monthly target as decimal
+  targetAchieved: boolean("target_achieved").default(false),
+  sustainabilityScore: integer("sustainability_score").default(0), // 0-100 score
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// CO2 Sustainability Reports - AI-generated reports
+export const co2SustainabilityReports = pgTable("co2_sustainability_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  companyId: varchar("company_id").references(() => contractorCompanies.id), // Null for overall customer report
+  // Report metadata
+  reportType: text("report_type").notNull().default("monthly"), // monthly, quarterly, annual, ad-hoc
+  reportPeriod: text("report_period").notNull(), // e.g. "2024-09", "2024-Q3", "2024"
+  reportTitle: text("report_title").notNull(),
+  // Report content (AI generated)
+  executiveSummary: text("executive_summary").notNull(),
+  currentEmissionsStatus: text("current_emissions_status").notNull(),
+  environmentalImpactAnalysis: text("environmental_impact_analysis").notNull(),
+  reductionRecommendations: text("reduction_recommendations").notNull(),
+  industryComparison: text("industry_comparison").notNull(),
+  actionPlan: text("action_plan").notNull(),
+  fullReportContent: text("full_report_content").notNull(), // Complete formatted report
+  // Report statistics
+  totalWorkersCovered: integer("total_workers_covered").notNull(),
+  totalCO2Analyzed: text("total_co2_analyzed").notNull(), // Total CO2 in kg as decimal
+  topRecommendation: text("top_recommendation"),
+  potentialSavings: text("potential_savings"), // Potential CO2 savings in kg as decimal
+  // Generation metadata
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  generatedBy: text("generated_by").default("openai"), // openai, manual
+  aiModel: text("ai_model").default("gpt-4"),
+  generationTimeMs: integer("generation_time_ms"),
+  isPublished: boolean("is_published").default(false),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Enhanced Company/Department Details with RAMs
 export const enhancedCompanyDetails = pgTable("enhanced_company_details", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1535,6 +1625,26 @@ export const insertPrintJobHistorySchema = createInsertSchema(printJobHistory).o
   createdAt: true,
 });
 
+// Insert schemas for CO2 tracking
+export const insertCO2EmissionsDataSchema = createInsertSchema(co2EmissionsData).omit({
+  id: true,
+  calculatedAt: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertCO2MonthlySummarySchema = createInsertSchema(co2MonthlySummaries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCO2SustainabilityReportSchema = createInsertSchema(co2SustainabilityReports).omit({
+  id: true,
+  generatedAt: true,
+  createdAt: true,
+});
+
 // Types for print queue
 export type PrintServiceInstance = typeof printServiceInstances.$inferSelect;
 export type InsertPrintServiceInstance = z.infer<typeof insertPrintServiceInstanceSchema>;
@@ -1542,3 +1652,11 @@ export type PrintQueue = typeof printQueue.$inferSelect;
 export type InsertPrintQueue = z.infer<typeof insertPrintQueueSchema>;
 export type PrintJobHistory = typeof printJobHistory.$inferSelect;
 export type InsertPrintJobHistory = z.infer<typeof insertPrintJobHistorySchema>;
+
+// Types for CO2 tracking
+export type CO2EmissionsData = typeof co2EmissionsData.$inferSelect;
+export type InsertCO2EmissionsData = z.infer<typeof insertCO2EmissionsDataSchema>;
+export type CO2MonthlySummary = typeof co2MonthlySummaries.$inferSelect;
+export type InsertCO2MonthlySummary = z.infer<typeof insertCO2MonthlySummarySchema>;
+export type CO2SustainabilityReport = typeof co2SustainabilityReports.$inferSelect;
+export type InsertCO2SustainabilityReport = z.infer<typeof insertCO2SustainabilityReportSchema>;
