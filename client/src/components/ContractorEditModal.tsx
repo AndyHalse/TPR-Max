@@ -385,6 +385,49 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </div>
                 </div>
 
+                {/* Compliance & Safety */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-slate-700">Compliance & Safety</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* H&S Rules Status */}
+                    <div className="bg-white/50 rounded-lg p-4 flex items-start gap-3">
+                      {worker.hsRulesAccepted ? (
+                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                      ) : (
+                        <div className="h-5 w-5 rounded-full border-2 border-slate-300 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-800">H&S Rules</div>
+                        <div className="text-sm text-slate-600">
+                          {worker.hsRulesAccepted && worker.hsRulesAcceptedAt 
+                            ? `Accepted on ${format(new Date(worker.hsRulesAcceptedAt), 'dd/MM/yyyy HH:mm')}`
+                            : 'Not accepted'
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Induction Status */}
+                    <div className="bg-white/50 rounded-lg p-4 flex items-start gap-3">
+                      {worker.inductionCompleted ? (
+                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                      ) : (
+                        <div className="h-5 w-5 rounded-full border-2 border-slate-300 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-800">Induction</div>
+                        <div className="text-sm text-slate-600">
+                          {worker.inductionCompleted 
+                            ? 'Completed'
+                            : 'Not completed'
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex justify-between items-center pt-4 border-t">
                   <div className="flex gap-2">
