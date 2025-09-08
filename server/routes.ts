@@ -5216,12 +5216,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (worker.rightToWork !== 'valid') {
         issues.push(`Right to work status: ${worker.rightToWork || 'missing'}`);
       }
-      // Check for Red Card (site ban) or Yellow Card (warning)
+      // Check for Red Card (site ban) - Yellow Cards are warnings only, not blockages
       if (worker.currentCardStatus === 'red') {
         issues.push("Worker has active Red Card (site ban)");
-      }
-      if (worker.currentCardStatus === 'yellow') {
-        issues.push("Worker has Yellow Card warning - requires authorization for check-in");
       }
       
       if (issues.length > 0) {
@@ -6939,12 +6936,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (worker.rightToWork !== 'valid') {
         issues.push(`Right to work status: ${worker.rightToWork || 'missing'}`);
       }
-      // Check for Red Card (site ban) or Yellow Card (warning)
+      // Check for Red Card (site ban) - Yellow Cards are warnings only, not blockages
       if (worker.currentCardStatus === 'red') {
         issues.push("Worker has active Red Card (site ban)");
-      }
-      if (worker.currentCardStatus === 'yellow') {
-        issues.push("Worker has Yellow Card warning - requires authorization for check-in");
       }
       
       if (issues.length > 0) {
