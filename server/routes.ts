@@ -6593,6 +6593,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Worker is already checked in" });
       }
 
+      console.log(`🔄 Checking in contractor worker: ${worker.firstName} ${worker.lastName} from ${company.name}`);
+      
       // Generate QR code
       const qrCode = `CONTRACTOR-${workerId}-${Date.now()}`;
       
@@ -6618,7 +6620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         qrCode: qrCode
       });
 
-      // Send e-pass if email is available
+      // Send e-pass if email is available and H&S rules accepted
       if (worker.email && hsRulesAccepted) {
         try {
           // Import the simplified database service
@@ -6628,14 +6630,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const context = simpleDatabaseService.createCustomerContext('Andy');
           const companySettings = await simpleDatabaseService.getCompanySettings(context);
           
-          if (companySettings) {
+          // Check if e-Pass is enabled in settings
+          if (companySettings?.ePassEnabled) {
+            console.log(`📧 E-Pass is enabled, sending contractor digital pass to ${worker.email}`);
+            
             const emailService = new EmailService(companySettings);
             const passUrl = `${process.env.APP_URL || 'http://localhost:5000'}/pass/contractor/${visit.id}`;
             
-            await emailService.sendContractorEPass(
+            const emailSent = await emailService.sendContractorEPass(
               worker.email,
               `${worker.firstName} ${worker.lastName}`,
-              worker.companyName || 'Contractor',
+              company.name || 'Contractor',  // Use company.name instead of worker.companyName
               qrCode,
               passUrl,
               companySettings
@@ -6648,7 +6653,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               passUrl: passUrl
             });
             
-            console.log(`📧 E-pass sent to contractor ${worker.email}`);
+            if (emailSent) {
+              console.log(`✅ E-Pass sent successfully to contractor ${worker.email}`);
+            } else {
+              console.log(`⚠️ Failed to send e-pass to contractor ${worker.email}`);
+            }
+          } else {
+            console.log(`📧 E-Pass is disabled in settings, skipping e-pass for ${worker.email}`);
           }
         } catch (emailError) {
           console.error("Failed to send contractor e-pass:", emailError);
