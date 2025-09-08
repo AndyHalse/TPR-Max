@@ -24,10 +24,38 @@ import bcrypt from "bcryptjs";
 
 export class DatabaseStorage implements IStorage {
   constructor() {
+    // Initialize default system user for card issuing
+    this.initializeSystemUser();
     // Initialize default offences data
     this.initializeDefaultOffences();
     // Initialize default NVQ qualifications
     this.initializeDefaultNvqQualifications();
+  }
+
+  private async initializeSystemUser() {
+    try {
+      // Check if the system user already exists
+      const systemUserId = 'b7b74fa2-1a48-43d1-b71c-39fd9697b2ea';
+      const [existingUser] = await db.select().from(users).where(eq(users.id, systemUserId));
+      
+      if (!existingUser) {
+        // Create system user for card issuing
+        const hashedPassword = await bcrypt.hash('SystemUser2024!', 10);
+        await db.insert(users).values({
+          id: systemUserId,
+          username: 'system',
+          password: hashedPassword,
+          customerId: 'dev-customer-001',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        console.log('✅ System user created for card issuing');
+      } else {
+        console.log('System user already exists');
+      }
+    } catch (error) {
+      console.error('Error initializing system user:', error);
+    }
   }
 
   private async initializeDefaultOffences() {
