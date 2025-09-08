@@ -36,6 +36,7 @@ import {
   ThumbsUp,
   ThumbsDown
 } from "lucide-react";
+import { WorkerCard } from "@/components/WorkerCard";
 
 interface ContractorCompany {
   id: string;
@@ -77,6 +78,11 @@ export default function Contractors() {
     comments: '',
     rejectionReason: ''
   });
+  
+  // Host selection state (like visitors)
+  const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<any>(null);
+  const [showHostSelection, setShowHostSelection] = useState(false);
+  const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
   const [editWorkerForm, setEditWorkerForm] = useState({
     firstName: "",
     lastName: "",
@@ -140,6 +146,12 @@ export default function Contractors() {
     queryKey: ["/api/contractors", selectedContractor?.id, "documents"],
     enabled: !!selectedContractor?.id,
     refetchInterval: 30000,
+  });
+  
+  // Global staff query for host selection (like visitors)
+  const { data: staff } = useQuery<any[]>({
+    queryKey: ["/api/staff"],
+    enabled: true,
   });
 
   // Fetch document approvals
@@ -296,6 +308,63 @@ export default function Contractors() {
 
   const handleUpdateWorker = () => {
     updateWorkerMutation.mutate(editWorkerForm);
+  };
+  
+  // Handle contractor check-in (with host selection like visitors)
+  const handleWorkerCheckIn = (worker: any) => {
+    setSelectedWorkerForCheckIn(worker);
+    setShowHostSelection(true);
+  };
+  
+  // Handle host selection confirmation
+  const handleHostSelectionConfirm = async () => {
+    if (!selectedWorkerForCheckIn || !selectedHostForWorker) return;
+    
+    try {
+      await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
+        hostId: selectedHostForWorker
+      });
+      
+      toast({
+        title: "Success",
+        description: `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName} checked in successfully`
+      });
+      
+      // Reset state
+      setShowHostSelection(false);
+      setSelectedWorkerForCheckIn(null);
+      setSelectedHostForWorker("");
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+    } catch (error: any) {
+      toast({
+        title: "Check-in Failed",
+        description: error.message || "Failed to check in worker",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Handle contractor check-out
+  const handleWorkerCheckOut = async (workerId: string) => {
+    try {
+      await apiRequest("POST", `/api/contractors/workers/${workerId}/checkout`);
+      
+      toast({
+        title: "Success",
+        description: "Worker checked out successfully"
+      });
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+    } catch (error: any) {
+      toast({
+        title: "Check-out Failed",
+        description: error.message || "Failed to check out worker",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleViewDocument = (document: any) => {
