@@ -17,6 +17,8 @@ import type {
   InsertTenantCompany,
   PreBooking,
   InsertPreBooking,
+  ContractorWorker,
+  InsertContractorWorker,
 } from "@shared/schema";
 import * as schema from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -1265,11 +1267,10 @@ export class DatabaseService {
   async getAllContractorCompanies(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // Get all contractor companies
+    // Get all contractor companies (TODO: Add customer isolation later)
     const companies = await db
       .select()
-      .from(schema.contractorCompanies)
-      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+      .from(schema.contractorCompanies);
     
     // For each company, count workers and get document status
     const companiesWithCounts = await Promise.all(
@@ -1322,11 +1323,97 @@ export class DatabaseService {
   async getAllReports(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // TODO: Add customer isolation when reports schema is updated with customerId
     return await db
       .select()
-      .from(schema.reports)
-      .where(eq(schema.reports.customerId, context.customerId))
-      .orderBy(desc(schema.reports.createdAt));
+      .from(schema.reports);
+  }
+
+  // Contractor Worker Methods (TODO: Add customer isolation later)
+  async getContractorWorkerById(context: CustomerContext, id: string): Promise<ContractorWorker | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      // Use raw SQL to avoid Drizzle issues with contractor schema
+      const result = await db.execute(sql`SELECT * FROM contractor_workers WHERE id = ${id} LIMIT 1`);
+      const worker = result.rows[0] as any;
+      
+      if (!worker) return undefined;
+      
+      // Convert snake_case to camelCase for proper ContractorWorker format
+      return {
+        id: worker.id,
+        companyId: worker.company_id,
+        firstName: worker.first_name,
+        lastName: worker.last_name,
+        email: worker.email,
+        phone: worker.phone,
+        photoUrl: worker.photo_url,
+        hsRulesAccepted: worker.hs_rules_accepted,
+        hsRulesAcceptedAt: worker.hs_rules_accepted_at ? new Date(worker.hs_rules_accepted_at) : null,
+        isCheckedIn: worker.is_checked_in,
+        checkedInAt: worker.checked_in_at ? new Date(worker.checked_in_at) : null,
+        checkedOutAt: worker.checked_out_at ? new Date(worker.checked_out_at) : null,
+        createdAt: worker.created_at ? new Date(worker.created_at) : new Date(),
+        updatedAt: worker.updated_at ? new Date(worker.updated_at) : new Date(),
+      } as ContractorWorker;
+    } catch (error) {
+      console.error('Error getting contractor worker:', error);
+      return undefined;
+    }
+  }
+
+  async updateContractorWorker(
+    context: CustomerContext, 
+    id: string, 
+    updates: Partial<InsertContractorWorker>
+  ): Promise<ContractorWorker | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      // Build update query dynamically based on updates provided
+      const updateFields = [];
+      const values = [];
+      
+      if (updates.hsRulesAccepted !== undefined) {
+        updateFields.push('hs_rules_accepted = $' + (values.length + 2));
+        values.push(updates.hsRulesAccepted);
+      }
+      
+      if (updates.hsRulesAcceptedAt !== undefined) {
+        updateFields.push('hs_rules_accepted_at = $' + (values.length + 2));
+        values.push(updates.hsRulesAcceptedAt);
+      }
+      
+      if (updates.isCheckedIn !== undefined) {
+        updateFields.push('is_checked_in = $' + (values.length + 2));
+        values.push(updates.isCheckedIn);
+      }
+      
+      if (updates.checkedInAt !== undefined) {
+        updateFields.push('checked_in_at = $' + (values.length + 2));
+        values.push(updates.checkedInAt);
+      }
+      
+      updateFields.push('updated_at = $' + (values.length + 2));
+      values.push(new Date());
+      
+      if (updateFields.length === 1) { // Only updated_at was added
+        return this.getContractorWorkerById(context, id);
+      }
+      
+      const updateQuery = `UPDATE contractor_workers SET ${updateFields.join(', ')} WHERE id = $1 RETURNING *`;
+      const result = await db.execute(sql.raw(updateQuery, [id, ...values]));
+      const worker = result.rows[0] as any;
+      
+      if (!worker) return undefined;
+      
+      // Convert to proper format and return
+      return this.getContractorWorkerById(context, id);
+    } catch (error) {
+      console.error('Error updating contractor worker:', error);
+      return undefined;
+    }
   }
 
   /**

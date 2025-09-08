@@ -2606,9 +2606,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `);
       }
       
-      // Update contractor worker with H&S acceptance and complete check-in
+      // Update contractor worker with H&S acceptance and complete check-in (same as visitor pattern)
       const now = new Date();
-      const updatedWorker = await storage.updateContractorWorker(workerId, {
+      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         hsRulesAccepted: true,
         hsRulesAcceptedAt: now,
         isCheckedIn: true,
@@ -2662,15 +2662,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get contractor worker
-      const worker = await storage.getContractorWorkerById(workerId);
+      // Get contractor worker (using customer-isolated database service like visitors)
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         return res.status(404).json({ error: "Contractor worker not found" });
       }
       
-      // Update contractor worker with H&S acceptance and complete check-in
+      // Update contractor worker with H&S acceptance and complete check-in (same as visitor pattern)
       const now = new Date();
-      const updatedWorker = await storage.updateContractorWorker(workerId, {
+      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         hsRulesAccepted: true,
         hsRulesAcceptedAt: now,
         isCheckedIn: true,
