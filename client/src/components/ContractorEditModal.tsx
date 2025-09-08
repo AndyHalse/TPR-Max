@@ -50,7 +50,6 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     ipafStatus: worker?.ipafStatus || 'none',
     asbestosAwareness: worker?.asbestosAwareness || false,
     manualHandling: worker?.manualHandling || false,
-    workingAtHeight: worker?.workingAtHeight || false,
     inductionCompleted: worker?.inductionCompleted || false,
   });
 
@@ -68,7 +67,6 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         ipafStatus: worker.ipafStatus || 'none',
         asbestosAwareness: worker.asbestosAwareness || false,
         manualHandling: worker.manualHandling || false,
-        workingAtHeight: worker.workingAtHeight || false,
         inductionCompleted: worker.inductionCompleted || false,
       });
     }
@@ -363,15 +361,6 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       <span>Manual Handling</span>
                     </label>
                     
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.workingAtHeight}
-                        onChange={(e) => handleInputChange('workingAtHeight', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span>Working at Height</span>
-                    </label>
                     
                     <label className="flex items-center space-x-2">
                       <input
