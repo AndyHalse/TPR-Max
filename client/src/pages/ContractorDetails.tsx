@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -58,6 +58,11 @@ export default function ContractorDetails() {
   // Fetch card offences for card issue form
   const { data: cardOffences = [] } = useQuery<CardOffence[]>({
     queryKey: ['/api/card-offences'],
+  });
+
+  // Staff query for host selection (same as visitor workflow)
+  const { data: staff = [] } = useQuery<any[]>({
+    queryKey: ["/api/staff"],
   });
 
   // Form for issuing card violations
@@ -217,9 +222,38 @@ export default function ContractorDetails() {
     }
   });
 
+  // Host selection state for contractor check-in (same as visitor workflow)
+  const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
+  const [showHostSelection, setShowHostSelection] = useState(false);
+  const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
+
   const handleWorkerCheckIn = (worker: ContractorWorker) => {
-    // Direct check-in without modal - e-pass will be sent
-    checkInMutation.mutate(worker);
+    // Show host selection dialog first (same as visitor workflow)
+    setSelectedWorkerForCheckIn(worker);
+    setShowHostSelection(true);
+  };
+
+  // Handle host selection confirmation
+  const handleHostSelectionConfirm = async () => {
+    if (!selectedWorkerForCheckIn || !selectedHostForWorker) return;
+    
+    try {
+      await checkInMutation.mutateAsync({
+        ...selectedWorkerForCheckIn,
+        hostId: selectedHostForWorker
+      });
+      
+      // Reset state
+      setShowHostSelection(false);
+      setSelectedWorkerForCheckIn(null);
+      setSelectedHostForWorker("");
+    } catch (error: any) {
+      toast({
+        title: "Check-in Failed",
+        description: error.message || "Failed to check in worker",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleWorkerCheckOut = (workerId: string) => {
@@ -1024,6 +1058,59 @@ export default function ContractorDetails() {
           companyName={contractorData.name}
         />
       )}
+
+      {/* Host Selection Dialog for Contractor Check-in (Same as Visitors) */}
+      <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Select Host for {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Who is {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName} working with today?
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="host-select" className="text-sm font-medium">
+                Host Staff Member *
+              </Label>
+              <Select value={selectedHostForWorker} onValueChange={setSelectedHostForWorker}>
+                <SelectTrigger data-testid="select-contractor-host">
+                  <SelectValue placeholder="Select host staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff?.map((member: any) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.firstName} {member.lastName} - {member.department}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowHostSelection(false);
+                setSelectedWorkerForCheckIn(null);
+                setSelectedHostForWorker("");
+              }}
+              data-testid="button-cancel-host-selection"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleHostSelectionConfirm}
+              disabled={!selectedHostForWorker}
+              data-testid="button-confirm-host-selection"
+            >
+              Confirm Check-In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
