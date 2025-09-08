@@ -5016,13 +5016,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Pre-booking already completed" });
       }
       
+      // Find or create contractor company
+      let company = await storage.getContractorCompanies().then(companies => 
+        companies.find(c => c.name === preBooking.companyName)
+      );
+      
+      if (!company) {
+        // Create company if it doesn't exist
+        company = await storage.createContractorCompany({
+          name: preBooking.companyName,
+          contactEmail: preBooking.contactEmail,
+          contactPhone: preBooking.contactPhone,
+          status: 'pending', // New companies start as pending
+          address: '',
+          contactPerson: preBooking.workerName
+        });
+      }
+      
+      // Check company approval status
+      if (company.status !== 'approved') {
+        return res.status(400).json({ 
+          error: "Contractor company not approved",
+          details: `Cannot check in: Company ${company.name} is not approved (status: ${company.status || 'pending'})`,
+          issues: [`Contractor company is not approved (status: ${company.status || 'pending'})`]
+        });
+      }
+      
+      // Find or create worker
+      let worker = await storage.getContractorWorkers().then(workers => 
+        workers.find(w => 
+          w.companyId === company.id && 
+          `${w.firstName} ${w.lastName}` === preBooking.workerName
+        )
+      );
+      
+      if (!worker) {
+        // Create worker if doesn't exist
+        const nameParts = preBooking.workerName.split(' ');
+        const firstName = nameParts[0] || preBooking.workerName;
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        worker = await storage.createContractorWorker({
+          companyId: company.id,
+          firstName,
+          lastName,
+          email: preBooking.workerEmail,
+          phone: preBooking.contactPhone,
+          rightToWork: 'pending',
+          isActive: true,
+          inductionCompleted: false,
+          safetyRating: 'N/A'
+        });
+      }
+      
+      // Check worker status
+      const issues = [];
+      if (!worker.isActive) {
+        issues.push("Worker account is inactive");
+      }
+      if (!worker.inductionCompleted) {
+        issues.push("Induction not completed");
+      }
+      if (worker.rightToWork !== 'valid') {
+        issues.push(`Right to work status: ${worker.rightToWork || 'missing'}`);
+      }
+      if (worker.hasRedCard) {
+        issues.push("Worker has active Red Card (site ban)");
+      }
+      
+      if (issues.length > 0) {
+        return res.status(400).json({ 
+          error: "Worker not cleared for check-in",
+          details: `Cannot check in: ${issues.join(', ')}`,
+          issues: issues
+        });
+      }
+      
+      // Check if worker is already checked in
+      if (worker.isCheckedIn) {
+        return res.status(400).json({ error: "Worker is already checked in" });
+      }
+      
       // Update pre-booking status
       await storage.updateContractorPreBooking(preBooking.id, { status: 'completed' });
       
+      // Update worker check-in status
+      await storage.updateContractorWorker(worker.id, {
+        isCheckedIn: true,
+        checkedInAt: new Date(),
+        qrCode: qrCode
+      });
+      
       // Create contractor visit record
       const visit = await storage.createContractorVisit({
-        workerId: preBooking.id, // Use pre-booking ID as temporary worker ID
-        companyId: preBooking.id, // Use pre-booking ID as temporary company ID
+        workerId: worker.id,
+        companyId: company.id,
         purpose: preBooking.purpose,
         hsRulesAccepted: true,
         hsRulesAcceptedAt: new Date(),
@@ -5033,7 +5121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         message: "Contractor checked in successfully",
-        visit: visit
+        visit: visit,
+        worker: worker,
+        company: company
       });
     } catch (error) {
       console.error("Error checking in contractor from pre-booking:", error);
@@ -6463,8 +6553,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Worker not found" });
       }
 
+      // Get contractor company details to check approval status
+      const company = await storage.getContractorCompanyById(worker.companyId);
+      if (!company) {
+        return res.status(404).json({ error: "Contractor company not found" });
+      }
+
       // Check if worker can check in (induction completed, valid status, etc.)
       const issues = [];
+      
+      // Check company approval status first
+      if (company.status !== 'approved') {
+        issues.push(`Contractor company is not approved (status: ${company.status || 'pending'})`);
+      }
+      
       if (!worker.isActive) {
         issues.push("Worker account is inactive");
       }
