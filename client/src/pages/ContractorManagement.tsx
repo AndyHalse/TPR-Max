@@ -525,12 +525,7 @@ export default function ContractorManagement() {
               {previousContractors.slice(0, showAllWorkers ? previousContractors.length : 6).map((contractor) => (
                 <GlassCard 
                   key={contractor.id} 
-                  className="p-4 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => {
-                    setSelectedWorkerForEdit(contractor);
-                    setSelectedWorkerCompanyName(contractor.companyName);
-                    setShowContractorEditModal(true);
-                  }}
+                  className="p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="space-y-3">
                     {/* Contractor Info */}
@@ -605,69 +600,89 @@ export default function ContractorManagement() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          if (contractor.isCheckedIn) {
-                            checkOutMutation.mutate(contractor.id);
-                          } else {
+                    <div className="space-y-2">
+                      {/* Primary Check In/Out Button */}
+                      {!contractor.isCheckedIn ? (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
                             checkInMutation.mutate(contractor.id);
-                          }
-                        }}
-                        disabled={checkInMutation.isPending || checkOutMutation.isPending}
-                        className={`flex-1 ${
-                          contractor.isCheckedIn
-                            ? "bg-red-600 hover:bg-red-700"
-                            : "bg-green-600 hover:bg-green-700"
-                        } text-white`}
-                        data-testid={`button-${contractor.isCheckedIn ? 'checkout' : 'checkin'}-${contractor.id}`}
-                      >
-                        {contractor.isCheckedIn ? (
-                          <>
-                            <LogOut className="mr-1 h-3 w-3" />
-                            Check Out
-                          </>
-                        ) : (
-                          <>
-                            <LogIn className="mr-1 h-3 w-3" />
-                            Check In
-                          </>
+                          }}
+                          disabled={checkInMutation.isPending}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white"
+                          data-testid={`button-checkin-${contractor.id}`}
+                        >
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Check In
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            checkOutMutation.mutate(contractor.id);
+                          }}
+                          disabled={checkOutMutation.isPending}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white"
+                          data-testid={`button-checkout-${contractor.id}`}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Check Out
+                        </Button>
+                      )}
+                      
+                      {/* Secondary Actions Row */}
+                      <div className="flex gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1 text-blue-600 hover:bg-blue-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedWorkerForEdit(contractor);
+                            setSelectedWorkerCompanyName(contractor.companyName);
+                            setShowContractorEditModal(true);
+                          }}
+                          data-testid={`button-edit-worker-${contractor.id}`}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                        
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-orange-600 hover:bg-orange-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sendInductionMutation.mutate(contractor.id);
+                          }}
+                          disabled={sendInductionMutation.isPending}
+                          title="Send Site Induction Email"
+                          data-testid={`button-send-induction-${contractor.id}`}
+                        >
+                          <Mail className="h-3 w-3" />
+                        </Button>
+                        
+                        {contractor.isCheckedIn && (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-purple-600 hover:bg-purple-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedWorker(contractor);
+                              setSelectedCompanyName(contractor.companyName);
+                              setShowPassPreview(true);
+                            }}
+                            title="Print Pass"
+                            data-testid={`button-print-pass-${contractor.id}`}
+                          >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                          </Button>
                         )}
-                      </Button>
-                      
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-orange-600 hover:bg-orange-50"
-                        onClick={() => sendInductionMutation.mutate(contractor.id)}
-                        disabled={sendInductionMutation.isPending}
-                        title="Send Site Induction Email"
-                        data-testid={`button-send-induction-${contractor.id}`}
-                      >
-                        <Mail className="h-3 w-3" />
-                      </Button>
-                      
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-blue-600 hover:bg-blue-50"
-                        onClick={() => handleEditWorker(contractor)}
-                        data-testid={`button-edit-worker-${contractor.id}`}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-red-600 hover:bg-red-50"
-                        onClick={() => handleDeleteWorker(contractor.id, `${contractor.firstName} ${contractor.lastName}`)}
-                        disabled={deleteWorkerMutation.isPending}
-                        data-testid={`button-delete-worker-${contractor.id}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      </div>
                     </div>
                   </div>
                 </GlassCard>

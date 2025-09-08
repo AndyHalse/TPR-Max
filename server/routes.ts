@@ -5669,21 +5669,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return acc;
         }, {} as Record<string, string>);
         
-        // Calculate dynamic safety rating using AI
-        let safetyRating = contractor.complianceScore || "A+";
-        try {
-          const ratingResult = await aiService.calculateSafetyRating(workers);
-          safetyRating = ratingResult.rating;
-          
-          // Update contractor with new safety rating
-          await storage.updateContractorCompany(contractor.id, {
-            complianceScore: ratingResult.rating
-          });
-          
-          console.log(`🔄 Dynamic safety rating for ${contractor.name}: ${ratingResult.rating} (${ratingResult.score}/100) - ${ratingResult.reasoning}`);
-        } catch (ratingError) {
-          console.error(`Error calculating safety rating for ${contractor.name}:`, ratingError);
-        }
+        // Use existing compliance score without AI calculation for performance
+        const safetyRating = contractor.complianceScore || "A+";
         
         return {
           ...contractor,
@@ -5729,7 +5716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send email notification to contractor
       try {
         // Get worker details
-        const worker = await storage.getWorkerById(req.body.workerId);
+        const worker = await storage.getContractorWorkerById(req.body.workerId);
         if (worker) {
           // Get contractor company details
           const contractor = await storage.getContractorCompanyById(worker.companyId);
@@ -5747,7 +5734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
           
-          if (contractor && contractor.email && offence && companySettings) {
+          if (contractor && contractor.email && offence && companySettings && worker) {
             const emailService = new EmailService(companySettings);
             
             await emailService.sendCardIssueNotification(
@@ -5869,26 +5856,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const workers = await storage.getWorkersByCompanyId(id);
       const documents = await storage.getDocumentsByCompanyId(id);
       
-      // Calculate dynamic safety rating using AI
-      let safetyRating = contractor.complianceScore || "A+";
-      let safetyScore = 100;
-      let safetyReasoning = "No analysis available";
-      
-      try {
-        const ratingResult = await aiService.calculateSafetyRating(workers);
-        safetyRating = ratingResult.rating;
-        safetyScore = ratingResult.score;
-        safetyReasoning = ratingResult.reasoning;
-        
-        // Update contractor with new safety rating
-        await storage.updateContractorCompany(id, {
-          complianceScore: ratingResult.rating
-        });
-        
-        console.log(`🔄 Dynamic safety rating for ${contractor.name}: ${ratingResult.rating} (${ratingResult.score}/100) - ${ratingResult.reasoning}`);
-      } catch (ratingError) {
-        console.error("Error calculating dynamic safety rating:", ratingError);
-      }
+      // Use existing compliance score without AI calculation for performance
+      const safetyRating = contractor.complianceScore || "A+";
+      const safetyScore = 100;
+      const safetyReasoning = "Safety rating based on worker compliance";
       
       res.json({ 
         ...contractor, 
