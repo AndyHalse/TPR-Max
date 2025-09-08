@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import EditContractorWorkerModal from "@/components/EditContractorWorkerModal";
+import { ContractorEditModal } from "@/components/ContractorEditModal";
 import { 
   HardHat, 
   Clock, 
@@ -48,6 +49,9 @@ export default function ContractorManagement() {
   const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
   const [workerToEdit, setWorkerToEdit] = useState<ContractorWorker | null>(null);
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
+  const [showContractorEditModal, setShowContractorEditModal] = useState(false);
+  const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
+  const [selectedWorkerCompanyName, setSelectedWorkerCompanyName] = useState<string>("");
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
   
@@ -519,7 +523,15 @@ export default function ContractorManagement() {
             {/* Contractors Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {previousContractors.slice(0, showAllWorkers ? previousContractors.length : 6).map((contractor) => (
-                <GlassCard key={contractor.id} className="p-4 hover:shadow-md transition-shadow">
+                <GlassCard 
+                  key={contractor.id} 
+                  className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => {
+                    setSelectedWorkerForEdit(contractor);
+                    setSelectedWorkerCompanyName(contractor.companyName);
+                    setShowContractorEditModal(true);
+                  }}
+                >
                   <div className="space-y-3">
                     {/* Contractor Info */}
                     <div>
@@ -915,6 +927,14 @@ export default function ContractorManagement() {
           }}
         />
       )}
+      
+      {/* Contractor Edit Modal with Check-in/out */}
+      <ContractorEditModal
+        worker={selectedWorkerForEdit}
+        companyName={selectedWorkerCompanyName}
+        open={showContractorEditModal}
+        onOpenChange={setShowContractorEditModal}
+      />
       
       {/* Add Contractor Dialog */}
       <Dialog open={showAddContractorDialog} onOpenChange={setShowAddContractorDialog}>

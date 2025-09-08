@@ -72,8 +72,9 @@ export class AuthService {
       } else {
         await storage.createUser({
           username: 'Andy',
-          password: 'Kubo1966&&'
-        });
+          password: 'Kubo1966&&',
+          customerId: 'dev-customer-001'
+        } as any);
         console.log('Developer user "Andy" created successfully with password: Kubo1966&&');
       }
 
@@ -87,8 +88,9 @@ export class AuthService {
       } else {
         await storage.createUser({
           username: 'Emma',
-          password: 'Kubo1976&&'
-        });
+          password: 'Kubo1976&&',
+          customerId: 'dev-customer-002'
+        } as any);
         console.log('✅ Developer user "Emma" created successfully for Customer 002 testing');
       }
     } catch (error) {
