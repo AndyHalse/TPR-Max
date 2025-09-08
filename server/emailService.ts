@@ -1467,6 +1467,10 @@ Powered by VisiGate Pro`;
                                     })}
                                   </td>
                                 </tr>
+                                <tr>
+                                  <td style="padding: 6px 0; color: ${variableTextColor}; font-size: 14px;">Valid Until:</td>
+                                  <td style="padding: 6px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">End of day</td>
+                                </tr>
                               </table>
                             </td>
                           </tr>
@@ -1484,48 +1488,45 @@ Powered by VisiGate Pro`;
                           </tr>
                         </table>
                         
-                        <!-- Health & Safety Section -->
+                        <!-- Health & Safety Rules Section (exactly matching visitor e-pass) -->
+                        ${workerId ? `
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
                           <tr>
-                            <td style="background: #fff3e0; border: 1px solid #ffcc02; border-radius: 10px; padding: 18px;">
-                              <h3 style="margin: 0 0 12px 0; color: #e65100; font-size: 17px; font-weight: 600;">
-                                ✓ Health & Safety Rules - Action Required
+                            <td style="background: linear-gradient(to right, #fee2e220, #fecaca40); border: 2px solid #ef4444; border-radius: 10px; padding: 20px;">
+                              <h3 style="margin: 0 0 15px 0; color: #dc2626; font-size: 18px; font-weight: 700; text-align: center;">
+                                🛡️ Health & Safety Rules - Action Required
                               </h3>
-                              <div style="background: white; padding: 15px; border-radius: 8px; margin: 12px 0;">
-                                <p style="margin: 0 0 10px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">
-                                  # Health & Safety Rules and Regulations
-                                </p>
-                                <p style="margin: 0 0 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">
-                                  ## General Safety Rules
-                                </p>
-                                <p style="margin: 0 0 5px 0; color: ${variableTextColor}; font-size: 14px;">
-                                  1. <strong>Personal Safety</strong>
-                                </p>
-                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
-                                  - Report to reception upon arrival and departure
-                                </p>
-                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
-                                  - Wear your visitor/contractor pass at all times
-                                </p>
-                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
-                                  - Follow all posted safety signs and instructions
-                                </p>
-                                <p style="margin: 0 0 8px 0; color: ${variableTextColor}; font-size: 14px;">
-                                  - Report any accidents or near misses immediately
-                                </p>
-                                <p style="margin: 0 0 5px 0; color: ${variableTextColor}; font-size: 14px;">
-                                  2. <strong>Emergency Procedures</strong>
-                                </p>
-                                <p style="margin: 0 0 3px 0; color: ${variableTextColor}; font-size: 14px;">
-                                  - Familiarize yourself with emergency exits
-                                </p>
+                              <div style="background: white; border-radius: 8px; padding: 15px; margin: 0 0 15px 0;">
+                                <div style="color: ${textColor}; font-size: 14px; line-height: 1.8; max-height: 300px; overflow-y: auto;">
+                                  <p style="margin: 8px 0; font-weight: 600;"># Health & Safety Rules and Regulations</p>
+                                  <p style="margin: 8px 0; font-weight: 600;">## General Safety Rules</p>
+                                  <p style="margin: 8px 0;"><strong>1. Personal Safety</strong></p>
+                                  <p style="margin: 4px 0 4px 16px;">- Report to reception upon arrival and departure</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Wear your visitor/contractor pass at all times</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Follow all posted safety signs and instructions</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Report any accidents or near misses immediately</p>
+                                  <p style="margin: 8px 0;"><strong>2. Emergency Procedures</strong></p>
+                                  <p style="margin: 4px 0 4px 16px;">- Familiarize yourself with emergency exits</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Only use approved ladders and platforms</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Ensure proper edge protection is in place</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Wear fall protection equipment when required</p>
+                                  <p style="margin: 8px 0; font-weight: 600;">## "Electrical Safety"</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Do not use damaged electrical equipment</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Report exposed wires or damaged sockets</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Ensure trailing cables are secured</p>
+                                  <p style="margin: 8px 0; font-weight: 600;">## "Working at Height"</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Only use approved ladders and platforms</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Ensure proper edge protection is in place</p>
+                                  <p style="margin: 4px 0 4px 16px;">- Wear fall protection equipment when required</p>
+                                </div>
                               </div>
-                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
                                 <tr>
                                   <td align="center">
-                                    <a href="${hsAcceptanceUrl}" 
-                                       style="display: inline-block; padding: 12px 30px; background: #d32f2f; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
-                                      ✓ I Accept Health & Safety Rules
+                                    <a href="${process.env.APP_URL || 'http://localhost:5000'}/api/contractors/workers/${workerId}/accept-hs-rules" 
+                                       class="mobile-button"
+                                       style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); text-align: center;">
+                                      ✅ I Accept Health & Safety Rules
                                     </a>
                                   </td>
                                 </tr>
@@ -1533,6 +1534,7 @@ Powered by VisiGate Pro`;
                             </td>
                           </tr>
                         </table>
+                        ` : ''}
                         
                         <!-- Important Reminders -->
                         <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
