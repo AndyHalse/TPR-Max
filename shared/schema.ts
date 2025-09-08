@@ -748,6 +748,10 @@ export const contractorWorkers = pgTable("contractor_workers", {
   isPreRegistered: boolean("is_pre_registered").default(false),
   inductionCompleted: boolean("induction_completed").default(false),
   inductionCompletedAt: timestamp("induction_completed_at"),
+  // H&S Rules acceptance tracking (same as visitors)
+  hsRulesAccepted: boolean("hs_rules_accepted").default(false).notNull(),
+  hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
+  hsRulesAcceptanceToken: text("hs_rules_acceptance_token"), // Token for verification
   isActive: boolean("is_active").default(true),
   // Check-in/out status
   isCheckedIn: boolean("is_checked_in").default(false),
