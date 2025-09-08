@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import ContractorHSModal from '@/components/ContractorHSModal';
 
 interface ContractorEditModalProps {
   worker: ContractorWorker | null;
@@ -36,6 +37,7 @@ interface ContractorVisit {
 export function ContractorEditModal({ worker, companyName, open, onOpenChange }: ContractorEditModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showHSModal, setShowHSModal] = useState(false);
   
   const [formData, setFormData] = useState({
     firstName: worker?.firstName || '',
@@ -111,6 +113,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       if (!worker) throw new Error('No worker selected');
       const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/checkin`, {
         purpose: 'Site work',
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: new Date().toISOString(),
       });
       return response.json();
     },
@@ -180,14 +184,15 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   const isCheckedIn = !!currentVisit;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-slate-800">
-            <HardHat className="h-5 w-5" />
-            Edit Contractor Profile
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <HardHat className="h-5 w-5" />
+              Edit Contractor Profile
+            </DialogTitle>
+          </DialogHeader>
 
         <Tabs defaultValue="profile" className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-2">
@@ -397,7 +402,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                     ) : (
                       <Button
                         type="button"
-                        onClick={() => checkInMutation.mutate()}
+                        onClick={() => setShowHSModal(true)}
                         disabled={checkInMutation.isPending}
                         className="bg-green-600 hover:bg-green-700 text-white"
                         data-testid="button-contractor-checkin"
@@ -493,5 +498,20 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         </Tabs>
       </DialogContent>
     </Dialog>
+    
+    {/* H&S Acceptance Modal */}
+    {worker && (
+      <ContractorHSModal
+        isOpen={showHSModal}
+        onClose={() => setShowHSModal(false)}
+        onAccept={() => {
+          checkInMutation.mutate();
+          setShowHSModal(false);
+        }}
+        worker={worker}
+        companyName={companyName}
+      />
+    )}
+    </>
   );
 }
