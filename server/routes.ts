@@ -2477,19 +2477,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // TEST: Simple contractor H&S endpoint to verify route registration  
-  app.get("/api/worker-hs/test", async (req, res) => {
-    res.send(`
-      <html>
-        <body style="font-family: Arial; text-align: center; padding: 50px;">
-          <h1 style="color: #10b981;">✅ Success!</h1>
-          <h2>Contractor H&S Route is Working!</h2>
-          <p>This confirms the route is registered correctly and bypassing auth.</p>
-          <p style="margin-top: 20px;">Now try the actual H&S acceptance link!</p>
-        </body>
-      </html>
-    `);
-  });
 
   // Contractor H&S Rules acceptance endpoint (NO AUTH - uses worker-hs path to avoid contractor middleware)
   app.get("/api/worker-hs/:workerId/accept-hs-rules", async (req, res) => {
