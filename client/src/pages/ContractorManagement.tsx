@@ -14,6 +14,7 @@ import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import EditContractorWorkerModal from "@/components/EditContractorWorkerModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
+import ContractorPreBooking from "@/components/ContractorPreBooking";
 import { 
   HardHat, 
   Clock, 
@@ -890,29 +891,7 @@ export default function ContractorManagement() {
       )}
 
       {activeTab === "prebook" && (
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <CalendarPlus className="h-5 w-5 text-purple-600" />
-              <h2 className="text-xl font-semibold text-slate-800">Pre-booking</h2>
-              <span className="text-sm text-slate-500">
-                Schedule future contractor visits
-              </span>
-            </div>
-            
-            <div className="text-center py-8">
-              <p className="text-slate-600 mb-4">Schedule a contractor visit for a future date</p>
-              <Button
-                onClick={() => {/* Handle pre-booking */}}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-                data-testid="button-start-prebooking"
-              >
-                <CalendarPlus className="mr-2 h-4 w-4" />
-                Create Pre-booking
-              </Button>
-            </div>
-          </div>
-        </GlassCard>
+        <ContractorPreBooking />
       )}
 
       {/* Contractor Pass Preview Modal */}
