@@ -204,7 +204,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 max-h-[calc(95vh-120px)]">
+          <div className="flex-1 max-h-[calc(95vh-120px)] overflow-y-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-400 hover:scrollbar-thumb-slate-500">
             <TabsContent value="profile" className="space-y-4 px-1 pb-6">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Personal Information */}
@@ -526,7 +526,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                 </div>
               )}
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
