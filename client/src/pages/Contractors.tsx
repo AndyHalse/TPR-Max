@@ -1012,94 +1012,29 @@ export default function Contractors() {
                 </Button>
               </div>
 
-              {/* Workers Table */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Worker Name
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Role
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Certifications
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
-                      {(workers as any[]).length > 0 ? (workers as any[]).map((worker: any) => (
-                        <tr key={worker.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="font-medium text-slate-900">{worker.firstName} {worker.lastName}</div>
-                            {worker.email && <div className="text-sm text-slate-500">{worker.email}</div>}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="text-slate-600">
-                              {worker.cscsCard ? "Certified Worker" : "General Worker"}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="text-slate-600 text-sm">
-                              {[
-                                worker.cscsStatus === 'valid' && worker.cscsCard && `CSCS: ${worker.cscsCard}`,
-                                worker.ipafStatus === 'valid' && 'IPAF',
-                                worker.asbestosAwareness && 'Asbestos Awareness',
-                                worker.manualHandling && 'Manual Handling'
-                              ].filter(Boolean).join(', ') || 'No certifications'}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <Badge className={`${
-                              worker.isActive && worker.inductionCompleted && worker.rightToWork === 'valid' ? 'bg-green-100 text-green-800' :
-                              !worker.inductionCompleted ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {worker.isActive && worker.inductionCompleted && worker.rightToWork === 'valid' ? 'Active' :
-                               !worker.inductionCompleted ? 'Pending' : 'Inactive'}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleViewWorker(worker)}
-                                data-testid={`button-view-worker-${worker.id}`}
-                              >
-                                <FileCheck className="h-4 w-4 mr-1" />
-                                View
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleEditWorker(worker)}
-                                data-testid={`button-edit-worker-${worker.id}`}
-                              >
-                                <FileText className="h-4 w-4 mr-1" />
-                                Edit
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                            No workers found for this contractor
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              {/* Workers Grid - Same as Visitor Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {(workers as any[]).length > 0 ? (workers as any[]).map((worker: any) => (
+                  <WorkerCard
+                    key={worker.id}
+                    worker={worker}
+                    onCheckIn={handleWorkerCheckIn}
+                    onCheckOut={handleWorkerCheckOut}
+                    onClick={() => handleViewWorker(worker)}
+                  />
+                )) : (
+                  <div className="col-span-full text-center py-8">
+                    <Users className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+                    <p className="text-slate-500">No workers found for this contractor.</p>
+                    <Button 
+                      onClick={() => setShowAddWorkerDialog(true)}
+                      className="mt-4 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Worker
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Document Management Section */}
@@ -1989,6 +1924,61 @@ export default function Contractors() {
               {createWorkerMutation.isPending ? "Adding..." : "Add Worker"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Host Selection Dialog for Contractor Check-in (Same as Visitors) */}
+      <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Host for {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-slate-600">
+              Who is {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName} working with today?
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="hostSelection" className="text-sm font-medium text-slate-700">
+                Host Staff Member *
+              </Label>
+              <Select 
+                value={selectedHostForWorker} 
+                onValueChange={setSelectedHostForWorker}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select host staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff?.map((member: any) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.firstName} {member.lastName} - {member.department}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowHostSelection(false);
+                  setSelectedWorkerForCheckIn(null);
+                  setSelectedHostForWorker("");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleHostSelectionConfirm}
+                disabled={!selectedHostForWorker}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                data-testid="button-confirm-host"
+              >
+                Check In & Send E-Pass
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
