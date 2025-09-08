@@ -1307,6 +1307,73 @@ Powered by VisiGate Pro`;
 
     return success;
   }
+
+  async sendContractorEPass(
+    email: string,
+    name: string,
+    company: string,
+    qrCode: string,
+    passUrl: string,
+    companySettings: CompanySettings
+  ): Promise<boolean> {
+    const subject = `✅ Contractor E-Pass - ${companySettings.companyName}`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ff6f00 0%, #ff8f00 100%); color: white; padding: 30px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">🏗️ Contractor E-Pass</h1>
+          <p style="margin: 10px 0 0 0;">Welcome to ${companySettings.companyName}</p>
+        </div>
+        
+        <div style="padding: 30px; background: #f8f9fa; border-left: 4px solid #ff6f00;">
+          <h2 style="color: #333; margin-top: 0;">Hello ${name},</h2>
+          
+          <p>You have been successfully checked in as a contractor for <strong>${company}</strong>.</p>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+            <h3 style="color: #ff6f00; margin-top: 0;">Your Check-in Details</h3>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Company:</strong> ${company}</p>
+            <p><strong>QR Code:</strong> ${qrCode}</p>
+            <p style="margin-top: 20px;">
+              <a href="${passUrl}" style="display: inline-block; background: #ff6f00; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Your Pass</a>
+            </p>
+          </div>
+
+          <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #e65100; margin-top: 0;">✓ Health & Safety Reminder</h4>
+            <p style="margin: 5px 0;">You have confirmed acceptance of our health & safety rules.</p>
+            <p style="margin: 5px 0;">Please ensure you:</p>
+            <ul style="margin: 5px 0;">
+              <li>Wear appropriate PPE at all times</li>
+              <li>Follow site safety procedures</li>
+              <li>Report any incidents immediately</li>
+              <li>Check out when leaving site</li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <p style="color: #666; font-size: 14px;">
+              Please show this e-pass at reception if requested.<br>
+              Remember to check out when leaving the premises.
+            </p>
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">
+              📧 This e-pass was sent automatically by VisiGate Pro
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const text = `Contractor E-Pass - ${companySettings.companyName}\n\nHello ${name},\n\nYou have been successfully checked in as a contractor for ${company}.\n\nCheck-in Details:\nName: ${name}\nCompany: ${company}\nQR Code: ${qrCode}\n\nView your pass: ${passUrl}\n\nHealth & Safety Reminder:\nYou have confirmed acceptance of our health & safety rules.\nPlease ensure you:\n- Wear appropriate PPE at all times\n- Follow site safety procedures\n- Report any incidents immediately\n- Check out when leaving site\n\nPlease show this e-pass at reception if requested.\nRemember to check out when leaving the premises.\n\nThis e-pass was sent automatically by VisiGate Pro`;
+
+    return await this.sendEmail({ 
+      to: email, 
+      subject, 
+      html, 
+      text 
+    });
+  }
 }
 
 export { EmailService };

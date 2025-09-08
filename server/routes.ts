@@ -6274,6 +6274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/contractors/workers/:workerId/checkin", async (req, res) => {
     try {
       const { workerId } = req.params;
+      const { purpose, hostStaffId, hostName, hsRulesAccepted } = req.body;
       
       // Get worker details first
       const worker = await storage.getContractorWorkerById(workerId);
@@ -6312,6 +6313,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate QR code
       const qrCode = `CONTRACTOR-${workerId}-${Date.now()}`;
       
+      // Create a visit record
+      const visit = await storage.createContractorVisit({
+        workerId,
+        companyId: worker.companyId,
+        purpose: purpose || "Work",
+        hostStaffId: hostStaffId || null,
+        hostName: hostName || null,
+        hsRulesAccepted: hsRulesAccepted || false,
+        hsRulesAcceptedAt: hsRulesAccepted ? new Date() : null,
+        inductionCompleted: worker.inductionCompleted || false,
+        inductionCompletedAt: worker.inductionCompletedAt || null,
+        qrCode: qrCode,
+        checkedInAt: new Date()
+      });
+      
       // Update worker status
       const updatedWorker = await storage.updateContractorWorker(workerId, {
         isCheckedIn: true,
@@ -6319,9 +6335,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         qrCode: qrCode
       });
 
+      // Send e-pass if email is available
+      if (worker.email && hsRulesAccepted) {
+        try {
+          // Import the simplified database service
+          const { simpleDatabaseService } = await import("./simpleDatabaseService");
+          
+          // Get customer context (use default for now)
+          const context = simpleDatabaseService.createCustomerContext('Andy');
+          const companySettings = await simpleDatabaseService.getCompanySettings(context);
+          
+          if (companySettings) {
+            const emailService = new EmailService(companySettings);
+            const passUrl = `${process.env.APP_URL || 'http://localhost:5000'}/pass/contractor/${visit.id}`;
+            
+            await emailService.sendContractorEPass(
+              worker.email,
+              `${worker.firstName} ${worker.lastName}`,
+              worker.companyName || 'Contractor',
+              qrCode,
+              passUrl,
+              companySettings
+            );
+            
+            // Update visit record with e-pass sent status
+            await storage.updateContractorVisit(visit.id, {
+              ePassSent: true,
+              ePassSentAt: new Date(),
+              passUrl: passUrl
+            });
+            
+            console.log(`📧 E-pass sent to contractor ${worker.email}`);
+          }
+        } catch (emailError) {
+          console.error("Failed to send contractor e-pass:", emailError);
+          // Don't fail the check-in if email fails
+        }
+      }
+
       res.json({
         success: true,
         worker: updatedWorker,
+        visit: visit,
         message: "Worker checked in successfully"
       });
     } catch (error) {
@@ -6333,6 +6388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/contractors/workers/:workerId/checkout", async (req, res) => {
     try {
       const { workerId } = req.params;
+      const { checkoutType } = req.body;
       
       // Get worker details first
       const worker = await storage.getContractorWorkerById(workerId);
@@ -6343,6 +6399,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if worker is currently checked in
       if (!worker.isCheckedIn) {
         return res.status(400).json({ error: "Worker is not currently checked in" });
+      }
+
+      // Find the current visit record
+      const currentVisit = await storage.getCurrentContractorVisit(workerId);
+      if (currentVisit) {
+        // Update visit with checkout time
+        await storage.updateContractorVisit(currentVisit.id, {
+          checkedOutAt: new Date(),
+          checkoutType: checkoutType || 'manual'
+        });
       }
 
       // Update worker status
