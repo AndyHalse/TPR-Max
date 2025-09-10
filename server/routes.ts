@@ -6600,13 +6600,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const reports = await databaseService.getSustainabilityReports(context.customerId, companyId);
 
+      // Map database fields to frontend expected fields
+      const mappedReports = reports.map(report => ({
+        id: report.id,
+        companyId: report.companyId,
+        companyName: report.companyId, // Will be enhanced with actual company name
+        reportType: report.reportType,
+        totalCO2kg: parseFloat(report.totalCO2Analyzed || '0'), // Map totalCO2Analyzed -> totalCO2kg
+        workerCount: report.totalWorkersCovered || 0, // Map totalWorkersCovered -> workerCount
+        recommendations: report.reductionRecommendations ? [report.reductionRecommendations] : [],
+        insights: report.environmentalImpactAnalysis ? [report.environmentalImpactAnalysis] : [],
+        generatedAt: report.generatedAt,
+        isActive: true,
+        // Include full report content for viewing
+        fullReportContent: report.fullReportContent,
+        executiveSummary: report.executiveSummary,
+        actionPlan: report.actionPlan,
+        topRecommendation: report.topRecommendation
+      }));
+
       res.json({
         success: true,
-        data: reports
+        data: mappedReports
       });
     } catch (error) {
       console.error("Error fetching sustainability reports:", error);
       res.status(500).json({ error: "Failed to fetch sustainability reports" });
+    }
+  });
+
+  // Get individual sustainability report for viewing/PDF
+  app.get("/api/sustainability-reports/:reportId", requireAuth, async (req, res) => {
+    try {
+      const { reportId } = req.params;
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      const reports = await databaseService.getSustainabilityReports(context.customerId);
+      const report = reports.find(r => r.id === reportId);
+
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: report.id,
+          reportTitle: report.reportTitle,
+          reportType: report.reportType,
+          reportPeriod: report.reportPeriod,
+          totalWorkersCovered: report.totalWorkersCovered,
+          totalCO2Analyzed: parseFloat(report.totalCO2Analyzed || '0'),
+          executiveSummary: report.executiveSummary,
+          currentEmissionsStatus: report.currentEmissionsStatus,
+          environmentalImpactAnalysis: report.environmentalImpactAnalysis,
+          reductionRecommendations: report.reductionRecommendations,
+          industryComparison: report.industryComparison,
+          actionPlan: report.actionPlan,
+          fullReportContent: report.fullReportContent,
+          topRecommendation: report.topRecommendation,
+          potentialSavings: parseFloat(report.potentialSavings || '0'),
+          generatedBy: report.generatedBy,
+          aiModel: report.aiModel,
+          generatedAt: report.generatedAt
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching sustainability report:", error);
+      res.status(500).json({ error: "Failed to fetch sustainability report" });
     }
   });
 

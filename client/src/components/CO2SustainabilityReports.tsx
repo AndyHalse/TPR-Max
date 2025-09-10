@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Leaf, 
   TrendingDown, 
@@ -22,7 +24,9 @@ import {
   Bus,
   Building2,
   Calendar,
-  Target
+  Target,
+  Eye,
+  Printer
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -78,6 +82,8 @@ const transportMethods = [
 export function CO2SustainabilityReports({ companyId, companyName }: CO2SustainabilityReportsProps) {
   const [selectedReportType, setSelectedReportType] = useState<string>('monthly');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(companyId || '');
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [showReportDialog, setShowReportDialog] = useState(false);
   
   const { toast } = useToast();
 
@@ -136,6 +142,120 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
       return;
     }
     generateReportMutation.mutate();
+  };
+
+  // Fetch individual report for viewing
+  const { data: fullReport, isLoading: isLoadingReport } = useQuery<{
+    success: boolean;
+    data: any;
+  }>({
+    queryKey: [`/api/sustainability-reports/${selectedReport?.id}`],
+    enabled: !!selectedReport?.id
+  });
+
+  const handleViewReport = (report: any) => {
+    setSelectedReport(report);
+    setShowReportDialog(true);
+  };
+
+  const handlePrintReport = () => {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!fullReport?.data) return;
+    
+    try {
+      // Create PDF content
+      const reportContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${fullReport.data.reportTitle}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .section { margin-bottom: 30px; }
+            .section h2 { color: #2563eb; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+            .metric { display: inline-block; margin: 10px 20px; text-align: center; }
+            .metric-value { font-size: 24px; font-weight: bold; color: #059669; }
+            .metric-label { font-size: 12px; color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${fullReport.data.reportTitle}</h1>
+            <p>Generated on ${format(new Date(fullReport.data.generatedAt), 'MMMM d, yyyy')}</p>
+          </div>
+          
+          <div class="section">
+            <h2>Executive Summary</h2>
+            <p>${fullReport.data.executiveSummary}</p>
+          </div>
+          
+          <div class="section">
+            <h2>Key Metrics</h2>
+            <div class="metric">
+              <div class="metric-value">${fullReport.data.totalWorkersCovered}</div>
+              <div class="metric-label">Workers Analyzed</div>
+            </div>
+            <div class="metric">
+              <div class="metric-value">${fullReport.data.totalCO2Analyzed.toFixed(1)} kg</div>
+              <div class="metric-label">Monthly CO2 Emissions</div>
+            </div>
+            <div class="metric">
+              <div class="metric-value">${fullReport.data.potentialSavings.toFixed(1)} kg</div>
+              <div class="metric-label">Potential Savings</div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <h2>Current Emissions Status</h2>
+            <p>${fullReport.data.currentEmissionsStatus}</p>
+          </div>
+          
+          <div class="section">
+            <h2>Environmental Impact Analysis</h2>
+            <p>${fullReport.data.environmentalImpactAnalysis}</p>
+          </div>
+          
+          <div class="section">
+            <h2>Reduction Recommendations</h2>
+            <p>${fullReport.data.reductionRecommendations}</p>
+          </div>
+          
+          <div class="section">
+            <h2>Action Plan</h2>
+            <p>${fullReport.data.actionPlan}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Create blob and download
+      const blob = new Blob([reportContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fullReport.data.reportTitle.replace(/\s+/g, '_')}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Report Downloaded",
+        description: "The sustainability report has been downloaded as an HTML file."
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Unable to download the report. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getTransportIcon = (method: string) => {
@@ -462,7 +582,11 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
               ) : reportsData?.data && reportsData.data.length > 0 ? (
                 <div className="space-y-4">
                   {reportsData.data.map((report) => (
-                    <Card key={report.id}>
+                    <Card 
+                      key={report.id} 
+                      className="cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => handleViewReport(report)}
+                    >
                       <CardHeader className="pb-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -547,6 +671,134 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Report Viewer Dialog */}
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-green-600" />
+              {fullReport?.data?.reportTitle || 'Sustainability Report'}
+            </DialogTitle>
+            <DialogDescription>
+              {fullReport?.data && format(new Date(fullReport.data.generatedAt), 'Generated on MMMM d, yyyy')}
+            </DialogDescription>
+            <div className="flex items-center gap-2 pt-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleDownloadPDF}
+                disabled={!fullReport?.data}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handlePrintReport}
+                disabled={!fullReport?.data}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-[60vh] pr-4">
+            {isLoadingReport ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                <span className="ml-2 text-sm text-muted-foreground">Loading report...</span>
+              </div>
+            ) : fullReport?.data ? (
+              <div className="space-y-6">
+                {/* Key Metrics */}
+                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{fullReport.data.totalWorkersCovered}</div>
+                    <div className="text-sm text-muted-foreground">Workers Analyzed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{fullReport.data.totalCO2Analyzed.toFixed(1)} kg</div>
+                    <div className="text-sm text-muted-foreground">Monthly CO2 Emissions</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{fullReport.data.potentialSavings.toFixed(1)} kg</div>
+                    <div className="text-sm text-muted-foreground">Potential Savings</div>
+                  </div>
+                </div>
+
+                {/* Executive Summary */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                    Executive Summary
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">{fullReport.data.executiveSummary}</p>
+                </div>
+
+                {/* Current Emissions Status */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-orange-600" />
+                    Current Emissions Status
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">{fullReport.data.currentEmissionsStatus}</p>
+                </div>
+
+                {/* Environmental Impact Analysis */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-green-600" />
+                    Environmental Impact Analysis
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">{fullReport.data.environmentalImpactAnalysis}</p>
+                </div>
+
+                {/* Reduction Recommendations */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <Target className="w-5 h-5 text-green-600" />
+                    Reduction Recommendations
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">{fullReport.data.reductionRecommendations}</p>
+                </div>
+
+                {/* Action Plan */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-purple-600" />
+                    Action Plan
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">{fullReport.data.actionPlan}</p>
+                </div>
+
+                {/* Top Recommendation */}
+                {fullReport.data.topRecommendation && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <h3 className="font-semibold text-lg mb-2 text-green-800">💡 Top Recommendation</h3>
+                    <p className="text-green-700">{fullReport.data.topRecommendation}</p>
+                  </div>
+                )}
+
+                {/* Report Metadata */}
+                <div className="text-xs text-muted-foreground border-t pt-4">
+                  Generated by {fullReport.data.generatedBy} using {fullReport.data.aiModel} • 
+                  Report Type: {fullReport.data.reportType} • 
+                  Period: {fullReport.data.reportPeriod}
+                </div>
+              </div>
+            ) : (
+              <Alert>
+                <AlertDescription>
+                  Unable to load report details. Please try again.
+                </AlertDescription>
+              </Alert>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
