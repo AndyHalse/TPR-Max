@@ -41,7 +41,7 @@ export async function generateCompanyDescription(website: string, companyName: s
         }
       ],
       response_format: { type: "json_object" },
-      max_tokens: 150,
+      max_completion_tokens: 150,
       temperature: 0.3
     });
 
