@@ -6055,12 +6055,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get all contractors from storage (TODO: Add customer isolation in future)
-      const contractors = await storage.getAllContractorCompanies();
+      // Get all contractors using customer-isolated database service
+      const contractors = await databaseService.getAllContractorCompanies(context);
       
       // Add worker counts, document status, and dynamic safety ratings for each contractor
       const contractorsWithStats = await Promise.all(contractors.map(async (contractor) => {
-        const workers = await storage.getWorkersByCompanyId(contractor.id);
+        const workers = await databaseService.getWorkersByCompanyId(context, contractor.id);
         const documents = await storage.getDocumentsByCompanyId(contractor.id);
         
         // Create document status summary
