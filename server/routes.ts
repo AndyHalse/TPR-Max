@@ -6322,14 +6322,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate test workers for all contractor companies
-  app.post("/api/contractors/generate-test-workers", async (req, res) => {
+  app.post("/api/contractors/generate-test-workers", requireAuth, async (req, res) => {
     try {
-      let companies = await storage.getAllContractorCompanies();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      let companies = await databaseService.getAllContractorCompanies(context);
       
       // If no companies exist, create some test companies first
       if (companies.length === 0) {
         const testCompanies = [
           {
+            customerId: context.customerId, // Add customer isolation
             name: "Steel Works Ltd",
             contactPerson: "John Smith",
             email: "john.smith@steelworks.co.uk",
@@ -6337,6 +6342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address: "123 Industrial Estate, Manchester M1 1AA"
           },
           {
+            customerId: context.customerId, // Add customer isolation
             name: "Prime Construction",
             contactPerson: "Sarah Johnson",
             email: "sarah@primeconstruction.co.uk", 
@@ -6344,6 +6350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address: "456 Building Road, London E1 4AB"
           },
           {
+            customerId: context.customerId, // Add customer isolation
             name: "Elite Engineering Services",
             contactPerson: "Mike Wilson",
             email: "mike.wilson@eliteeng.co.uk",
@@ -6353,11 +6360,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ];
         
         for (const companyData of testCompanies) {
-          await storage.createContractorCompany(companyData);
+          await databaseService.createContractorCompany(context, companyData);
         }
         
         // Refresh companies list
-        companies = await storage.getAllContractorCompanies();
+        companies = await databaseService.getAllContractorCompanies(context);
         console.log(`Created ${testCompanies.length} test contractor companies`);
       }
       const workerNames = [
@@ -6377,7 +6384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const company of companies) {
         // Skip if company already has workers
-        const existingWorkers = await storage.getWorkersByCompanyId(company.id);
+        const existingWorkers = await databaseService.getWorkersByCompanyId(context, company.id);
         if (existingWorkers.length > 0) {
           console.log(`Skipping ${company.name} - already has ${existingWorkers.length} workers`);
           continue;
@@ -6409,15 +6416,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             inductionCompletedAt: Math.random() < 0.85 ? new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000) : null
           };
 
-          await storage.createContractorWorker(worker);
+          await databaseService.createContractorWorker(context, worker);
           workersCreated++;
         }
       }
 
       // Update worker counts for companies
       for (const company of companies) {
-        const workers = await storage.getWorkersByCompanyId(company.id);
-        await storage.updateContractorCompany(company.id, {
+        const workers = await databaseService.getWorkersByCompanyId(context, company.id);
+        await databaseService.updateContractorCompany(context, company.id, {
           workersCount: workers.length
         });
       }

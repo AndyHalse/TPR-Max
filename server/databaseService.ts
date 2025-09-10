@@ -1313,6 +1313,82 @@ export class DatabaseService {
       .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
   }
 
+  async createContractorCompany(context: CustomerContext, insertCompany: any): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [newCompany] = await db
+      .insert(schema.contractorCompanies)
+      .values({
+        ...insertCompany,
+        customerId: context.customerId, // Ensure customer isolation
+      })
+      .returning();
+    
+    return newCompany;
+  }
+
+  async getWorkersByCompanyId(context: CustomerContext, companyId: string): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // First verify the company belongs to this customer
+    const company = await db
+      .select()
+      .from(schema.contractorCompanies)
+      .where(and(
+        eq(schema.contractorCompanies.id, companyId),
+        eq(schema.contractorCompanies.customerId, context.customerId)
+      ));
+    
+    if (company.length === 0) {
+      return []; // Company doesn't exist or doesn't belong to this customer
+    }
+    
+    return await db
+      .select()
+      .from(schema.contractorWorkers)
+      .where(eq(schema.contractorWorkers.companyId, companyId))
+      .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
+  }
+
+  async createContractorWorker(context: CustomerContext, insertWorker: any): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Verify the company belongs to this customer
+    const company = await db
+      .select()
+      .from(schema.contractorCompanies)
+      .where(and(
+        eq(schema.contractorCompanies.id, insertWorker.companyId),
+        eq(schema.contractorCompanies.customerId, context.customerId)
+      ));
+    
+    if (company.length === 0) {
+      throw new Error('Company not found or access denied');
+    }
+    
+    const [newWorker] = await db
+      .insert(schema.contractorWorkers)
+      .values(insertWorker)
+      .returning();
+    
+    return newWorker;
+  }
+
+  async updateContractorCompany(context: CustomerContext, companyId: string, updates: any): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [updatedCompany] = await db
+      .update(schema.contractorCompanies)
+      .set(updates)
+      .where(and(
+        eq(schema.contractorCompanies.id, companyId),
+        eq(schema.contractorCompanies.customerId, context.customerId)
+      ))
+      .returning();
+    
+    return updatedCompany;
+  }
+
   async getAllContractorCompanies(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
