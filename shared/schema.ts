@@ -760,7 +760,8 @@ export const contractorWorkers = pgTable("contractor_workers", {
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
-  // CO2 Emissions Tracking
+  // Environmental data for CO2 calculations
+  transportMethod: text("transport_method").default("car_diesel"), // car_diesel, car_petrol, electric_car, hybrid_car, motorcycle, public_transport, bicycle, walking, van_diesel, van_petrol
   postcode: text("postcode"), // Worker's home postcode for distance/CO2 calculations
   // Convenience field for displaying company name
   companyName: text("company_name"),
