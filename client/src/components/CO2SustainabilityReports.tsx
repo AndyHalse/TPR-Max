@@ -965,19 +965,56 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                            <span className="text-sm">SECR Reporting: Ready</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                            <span className="text-sm">ISO 14001: Compliant</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-orange-600" />
-                            <span className="text-sm">Net Zero Target: In Progress</span>
-                          </div>
-                          <Button size="sm" variant="outline" className="w-full">
+                          {(() => {
+                            const carbonScore = calculateCarbonScore(co2Summary?.data?.totalAnnualCO2kg || 0, co2Summary?.data?.totalWorkers);
+                            const targetProgress = calculateTargetProgress(co2Summary?.data?.totalMonthlyCO2kg || 0, co2Summary?.data?.totalWorkers);
+                            const secrReady = carbonScore >= 70;
+                            const iso14001Compliant = carbonScore >= 50 && targetProgress >= 30;
+                            const netZeroProgress = targetProgress >= 70 ? "On Track" : targetProgress >= 30 ? "In Progress" : "Behind Target";
+                            
+                            return (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  {secrReady ? (
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 text-orange-600" />
+                                  )}
+                                  <span className="text-sm">SECR Reporting: {secrReady ? 'Ready' : 'Needs Improvement'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {iso14001Compliant ? (
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 text-orange-600" />
+                                  )}
+                                  <span className="text-sm">ISO 14001: {iso14001Compliant ? 'Compliant' : 'Action Required'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {netZeroProgress === "On Track" ? (
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                  ) : netZeroProgress === "In Progress" ? (
+                                    <AlertCircle className="w-4 h-4 text-orange-600" />
+                                  ) : (
+                                    <AlertCircle className="w-4 h-4 text-red-600" />
+                                  )}
+                                  <span className="text-sm">Net Zero Target: {netZeroProgress}</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={() => {
+                              const carbonScore = calculateCarbonScore(co2Summary?.data?.totalAnnualCO2kg || 0, co2Summary?.data?.totalWorkers);
+                              toast({
+                                title: "Compliance Report",
+                                description: `Carbon Score: ${carbonScore}/100 - ${getCarbonScoreLabel(carbonScore)}`,
+                              });
+                            }}
+                          >
                             View Full Report
                           </Button>
                         </div>
