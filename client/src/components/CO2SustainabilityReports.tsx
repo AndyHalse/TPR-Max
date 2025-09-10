@@ -274,11 +274,11 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
   };
 
   // Competitive CO2 Features - Helper Functions
-  const calculateCarbonScore = (totalCO2kg: number): number => {
+  const calculateCarbonScore = (totalCO2kg: number, workerCount?: number): number => {
     // Industry benchmark: <150 kg/month per worker = excellent (90-100)
     // 150-250 = good (70-89), 250-350 = average (50-69), >350 = poor (<50)
-    const workerCount = co2Data?.data?.workerCount || 1;
-    const avgPerWorker = totalCO2kg / workerCount;
+    const workers = workerCount || co2Summary?.data?.totalWorkers || 1;
+    const avgPerWorker = totalCO2kg / workers;
     
     if (avgPerWorker < 150) return Math.max(90, 100 - (avgPerWorker / 150) * 10);
     if (avgPerWorker < 250) return Math.max(70, 90 - ((avgPerWorker - 150) / 100) * 20);
@@ -298,8 +298,9 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
     return Math.round(workerCount * 160); // 160 kg target per worker
   };
 
-  const calculateTargetProgress = (actualCO2: number): number => {
-    const target = getMonthlyTarget(co2Data?.data?.workerCount || 1);
+  const calculateTargetProgress = (actualCO2: number, workerCount?: number): number => {
+    const workers = workerCount || co2Summary?.data?.totalWorkers || 1;
+    const target = getMonthlyTarget(workers);
     if (target === 0) return 100;
     return Math.min(100, Math.max(0, ((target - actualCO2) / target) * 100));
   };
@@ -773,7 +774,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <div>
                             <p className="text-sm font-medium text-green-700">Carbon Score</p>
                             <p className="text-2xl font-bold text-green-800">
-                              {Math.round(calculateCarbonScore(co2Summary.data.totalMonthlyCO2kg || 0))}/100
+                              {Math.round(calculateCarbonScore(co2Summary.data.totalMonthlyCO2kg || 0, co2Summary.data.totalWorkers))}/100
                             </p>
                           </div>
                           <Award className="w-8 h-8 text-green-600" />
@@ -782,11 +783,11 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <div className="w-full bg-green-200 rounded-full h-2">
                             <div 
                               className="bg-green-600 h-2 rounded-full transition-all"
-                              style={{ width: `${calculateCarbonScore(co2Summary.data.totalMonthlyCO2kg || 0)}%` }}
+                              style={{ width: `${calculateCarbonScore(co2Summary.data.totalMonthlyCO2kg || 0, co2Summary.data.totalWorkers)}%` }}
                             ></div>
                           </div>
                           <p className="text-xs text-green-600 mt-1">
-                            {getCarbonScoreLabel(calculateCarbonScore(co2Summary.data.totalMonthlyCO2kg || 0))}
+                            {getCarbonScoreLabel(calculateCarbonScore(co2Summary.data.totalMonthlyCO2kg || 0, co2Summary.data.totalWorkers))}
                           </p>
                         </div>
                       </CardContent>
@@ -798,7 +799,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <div>
                             <p className="text-sm font-medium text-orange-700">Monthly Target</p>
                             <p className="text-2xl font-bold text-orange-800">
-                              {Math.round(calculateTargetProgress(co2Summary.data.totalMonthlyCO2kg || 0))}%
+                              {Math.round(calculateTargetProgress(co2Summary.data.totalMonthlyCO2kg || 0, co2Summary.data.totalWorkers))}%
                             </p>
                           </div>
                           <Target className="w-8 h-8 text-orange-600" />

@@ -990,7 +990,7 @@ export class DatabaseService {
       .innerJoin(schema.contractorCompanies, eq(schema.contractorWorkers.companyId, schema.contractorCompanies.id))
       .where(and(
         eq(schema.contractorWorkers.isCheckedIn, true),
-        eq(schema.contractorCompanies.customer_id, context.customerId)
+        eq(schema.contractorCompanies.customerId, context.customerId)
       ));
     
     // Get total staff
