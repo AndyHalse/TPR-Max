@@ -29,7 +29,7 @@ export async function generateCompanyDescription(website: string, companyName: s
     const prompt = `Based on the company name "${companyName}" and their website "${formattedWebsite}"${industryContext}, generate a professional company description (2-3 sentences maximum) that would be suitable for a visitor management system. Focus on their main services, expertise, and what makes them professional contractors. Keep it concise and professional. Respond with JSON in this format: { "description": "your generated description here" }`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
+      model: "gpt-4", // Using gpt-4 as a reliable model for text generation
       messages: [
         {
           role: "system",
