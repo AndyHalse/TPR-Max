@@ -983,14 +983,23 @@ export class DatabaseService {
         eq(schema.staff.isCheckedIn, true)
       ));
     
-    // Get contractors on site count
-    const contractorsOnSiteResult = await db
+    // Get contractors on site count - Two-step approach for customer isolation
+    // First get all company IDs for this customer
+    const customerCompanies = await db
+      .select({ id: schema.contractorCompanies.id })
+      .from(schema.contractorCompanies)
+      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+    
+    const companyIds = customerCompanies.map(c => c.id);
+    
+    // Then count checked-in workers from those companies
+    const contractorsOnSiteResult = companyIds.length > 0 ? await db
       .select({ count: sql<number>`count(*)` })
       .from(schema.contractorWorkers)
       .where(and(
         eq(schema.contractorWorkers.isCheckedIn, true),
-        sql`${schema.contractorWorkers.companyId} IN (SELECT id FROM ${schema.contractorCompanies} WHERE ${schema.contractorCompanies.customerId} = ${context.customerId})`
-      ));
+        inArray(schema.contractorWorkers.companyId, companyIds)
+      )) : [{ count: 0 }];
     
     // Get total staff
     const totalStaffResult = await db
@@ -1281,12 +1290,25 @@ export class DatabaseService {
   async getCheckedInContractors(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // Get customer's contractor company IDs first
+    const customerCompanies = await db
+      .select({ id: schema.contractorCompanies.id })
+      .from(schema.contractorCompanies)
+      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+    
+    const companyIds = customerCompanies.map(c => c.id);
+    
+    if (companyIds.length === 0) {
+      return [];
+    }
+    
+    // Then get checked-in workers from those companies
     return await db
       .select()
       .from(schema.contractorWorkers)
       .where(and(
         eq(schema.contractorWorkers.isCheckedIn, true),
-        sql`${schema.contractorWorkers.companyId} IN (SELECT id FROM ${schema.contractorCompanies} WHERE ${schema.contractorCompanies.customerId} = ${context.customerId})`
+        inArray(schema.contractorWorkers.companyId, companyIds)
       ))
       .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
   }
