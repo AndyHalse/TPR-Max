@@ -486,14 +486,14 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {/* AI Insights */}
-                        {report.insights.length > 0 && (
+                        {report.insights && report.insights.length > 0 && (
                           <div>
                             <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
                               <BarChart3 className="w-4 h-4 text-blue-600" />
                               AI Insights
                             </h5>
                             <div className="space-y-2">
-                              {report.insights.slice(0, 3).map((insight, index) => (
+                              {(report.insights || []).slice(0, 3).map((insight, index) => (
                                 <Alert key={index} className="border-blue-200">
                                   <AlertDescription className="text-sm">
                                     {insight}
@@ -505,14 +505,14 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                         )}
 
                         {/* Recommendations */}
-                        {report.recommendations.length > 0 && (
+                        {report.recommendations && report.recommendations.length > 0 && (
                           <div>
                             <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
                               <Target className="w-4 h-4 text-green-600" />
                               Recommendations
                             </h5>
                             <div className="space-y-2">
-                              {report.recommendations.slice(0, 3).map((recommendation, index) => (
+                              {(report.recommendations || []).slice(0, 3).map((recommendation, index) => (
                                 <Alert key={index} className="border-green-200">
                                   <AlertDescription className="text-sm">
                                     {recommendation}
