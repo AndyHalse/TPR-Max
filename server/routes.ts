@@ -6337,8 +6337,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contact_person: combinedContactPerson
       };
       
+      console.log('🔍 Request data before validation:', requestDataWithCustomerId);
+      console.log('🔍 Combined contact person:', combinedContactPerson);
+      
       // Parse and validate contractor data
       const contractorData = insertContractorCompanySchema.parse(requestDataWithCustomerId);
+      
+      console.log('🔍 Validated contractor data:', contractorData);
       
       // Use customer-isolated database service
       const contractor = await databaseService.createContractorCompany(context, contractorData);
