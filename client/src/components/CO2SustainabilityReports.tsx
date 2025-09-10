@@ -931,16 +931,25 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <div>
                             <p className="text-sm text-emerald-700">Required Offsets</p>
                             <p className="text-xl font-bold text-emerald-800">
-                              {((co2Summary.data.totalMonthlyCO2kg || 0) / 1000).toFixed(2)} tonnes
+                              {((co2Summary.data.totalAnnualCO2kg || 0) / 1000).toFixed(2)} tonnes
                             </p>
                           </div>
                           <div>
                             <p className="text-sm text-emerald-700">Estimated Cost</p>
                             <p className="text-lg font-semibold text-emerald-800">
-                              £{(((co2Summary.data.totalMonthlyCO2kg || 0) / 1000) * 25).toFixed(0)}
+                              £{(((co2Summary.data.totalAnnualCO2kg || 0) / 1000) * 25).toFixed(0)}
                             </p>
                           </div>
-                          <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700">
+                          <Button 
+                            size="sm" 
+                            className="w-full bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => {
+                              toast({
+                                title: "Carbon Offset Purchase",
+                                description: `Redirecting to carbon offset marketplace for ${((co2Summary.data.totalAnnualCO2kg || 0) / 1000).toFixed(2)} tonnes CO2...`,
+                              });
+                            }}
+                          >
                             Purchase Offsets
                           </Button>
                         </div>
