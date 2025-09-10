@@ -117,7 +117,8 @@ export class CO2CalculationService {
     workers: WorkerCO2Summary[];
   }> {
     const emissionsData = await this.databaseService.getCO2EmissionsByCompany(customerId, companyId);
-    const workers = await this.databaseService.getWorkersByCompany(companyId);
+    const context = { customerId }; // Create context for customer isolation
+    const workers = await this.databaseService.getWorkersByCompany(context, companyId);
 
     const workerSummaries: WorkerCO2Summary[] = emissionsData.map(emission => {
       const worker = workers.find(w => w.id === emission.workerId);

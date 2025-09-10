@@ -348,6 +348,7 @@ export default function ContractorManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] }); // Refresh contractor list
       toast({
         title: "Success",
         description: "Contractor checked out successfully!",
