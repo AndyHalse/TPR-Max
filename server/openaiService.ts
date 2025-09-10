@@ -26,43 +26,32 @@ export async function generateCompanyDescription(website: string, companyName: s
 
     // Create a focused prompt for company description generation
     const industryContext = industry ? ` in the ${industry} industry` : '';
-    const prompt = `Based on the company name "${companyName}" and their website "${formattedWebsite}"${industryContext}, generate a professional company description (2-3 sentences maximum) that would be suitable for a visitor management system. Focus on their main services, expertise, and what makes them professional contractors. Keep it concise and professional. Respond with JSON in this format: { "description": "your generated description here" }`;
+    const prompt = `Based on the company name "${companyName}" and their website "${formattedWebsite}"${industryContext}, generate a professional company description (2-3 sentences maximum) that would be suitable for a visitor management system. Focus on their main services, expertise, and what makes them professional contractors. Keep it concise and professional. Return only the description text, no formatting or extra content.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4", // Using gpt-4 as a reliable model for text generation
       messages: [
         {
           role: "system",
-          content: "You are a professional business analyst who writes concise, professional company descriptions for contractor management systems. Focus on services, expertise, and professionalism."
+          content: "You are a professional business analyst who writes concise, professional company descriptions for contractor management systems. Focus on services, expertise, and professionalism. Return only the description text, no additional formatting."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      response_format: { type: "json_object" },
       max_completion_tokens: 150
     });
 
-    console.log('OpenAI response:', response.choices[0].message.content);
-    const result = JSON.parse(response.choices[0].message.content || '{}');
-    console.log('Parsed result:', result);
+    const description = response.choices[0].message.content?.trim() || '';
+    console.log('OpenAI response:', description);
     
-    if (!result.description || result.description.trim() === '') {
-      console.log('No description in result, trying alternative fields:', Object.keys(result));
-      // Try alternative field names that GPT might use
-      const description = result.description || result.company_description || result.summary || result.text || '';
-      if (description && description.trim() !== '') {
-        return {
-          description: description.trim(),
-          success: true
-        };
-      }
-      throw new Error('No description generated - response was: ' + JSON.stringify(result));
+    if (!description || description === '') {
+      throw new Error('No description generated - empty response');
     }
 
     return {
-      description: result.description.trim(),
+      description: description,
       success: true
     };
 
