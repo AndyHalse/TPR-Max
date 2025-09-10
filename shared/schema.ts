@@ -663,7 +663,13 @@ export const contractorCompanies = pgTable("contractor_companies", {
   email: text("email").notNull(),
   phone: text("phone"),
   address: text("address"),
-  contactPerson: text("contact_person").notNull(),
+  postcode: text("postcode"), // Separate postcode for reporting
+  // Split contact person into separate fields for consistency
+  contactFirstName: text("contact_first_name").notNull(),
+  contactLastName: text("contact_last_name").notNull(),
+  website: text("website"), // Company website URL
+  description: text("description"), // Company description
+  industry: text("industry"), // Construction, Engineering, Manufacturing, etc.
   status: text("status").notNull().default("pending"), // pending, approved, suspended
   complianceScore: text("compliance_score").default("0"), // Stored as text for flexibility
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),

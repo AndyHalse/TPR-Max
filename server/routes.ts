@@ -6286,12 +6286,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/contractors", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       // Parse and validate contractor data
       const contractorData = insertContractorCompanySchema.parse(req.body);
       
-      // TODO: Add customer isolation - for now use storage directly
-      // In production, contractors should be isolated per customer
-      const contractor = await storage.createContractorCompany(contractorData);
+      // Use customer-isolated database service
+      const contractor = await databaseService.createContractorCompany(context, contractorData);
       res.json(contractor);
     } catch (error) {
       if (error instanceof z.ZodError) {

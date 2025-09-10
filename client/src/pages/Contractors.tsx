@@ -100,9 +100,14 @@ export default function Contractors() {
   const [contractorForm, setContractorForm] = useState({
     name: "",
     email: "",
-    contactPerson: "",
+    contactFirstName: "",
+    contactLastName: "",
     phone: "",
     address: "",
+    postcode: "",
+    website: "",
+    description: "",
+    industry: "",
     status: "pending" as "pending" | "approved" | "suspended",
     complianceScore: 0,
     publicLiabilityExpiry: "",
@@ -163,7 +168,7 @@ export default function Contractors() {
   const contractorData = contractors || [];
   const filteredContractors = contractorData.filter((contractor: ContractorCompany) =>
     contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contractor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${contractor.contactFirstName} ${contractor.contactLastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     contractor.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -191,9 +196,14 @@ export default function Contractors() {
       setContractorForm({
         name: "",
         email: "",
-        contactPerson: "",
+        contactFirstName: "",
+        contactLastName: "",
         phone: "",
         address: "",
+        postcode: "",
+        website: "",
+        description: "",
+        industry: "",
         status: "pending",
         complianceScore: 0,
         publicLiabilityExpiry: "",
@@ -673,12 +683,21 @@ export default function Contractors() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Contact Person *</label>
+              <label className="text-sm font-medium text-slate-700">Contact First Name *</label>
               <Input
-                value={contractorForm.contactPerson}
-                onChange={(e) => setContractorForm({ ...contractorForm, contactPerson: e.target.value })}
-                placeholder="John Smith"
-                data-testid="input-contact-person"
+                value={contractorForm.contactFirstName}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })}
+                placeholder="John"
+                data-testid="input-contact-first-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact Last Name *</label>
+              <Input
+                value={contractorForm.contactLastName}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })}
+                placeholder="Smith"
+                data-testid="input-contact-last-name"
               />
             </div>
             <div className="space-y-2">
@@ -710,6 +729,63 @@ export default function Contractors() {
                 data-testid="input-address"
                 rows={2}
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Postcode</label>
+              <Input
+                value={contractorForm.postcode}
+                onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })}
+                placeholder="SW1A 1AA"
+                data-testid="input-postcode"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Website</label>
+              <Input
+                value={contractorForm.website}
+                onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })}
+                placeholder="https://www.company.co.uk"
+                data-testid="input-website"
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <label className="text-sm font-medium text-slate-700">Description</label>
+              <Textarea
+                value={contractorForm.description}
+                onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })}
+                placeholder="Brief description of company services and expertise..."
+                data-testid="input-description"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Industry</label>
+              <Select
+                value={contractorForm.industry}
+                onValueChange={(value) => setContractorForm({ ...contractorForm, industry: value })}
+              >
+                <SelectTrigger data-testid="select-industry">
+                  <SelectValue placeholder="Select industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="construction">Construction</SelectItem>
+                  <SelectItem value="engineering">Engineering</SelectItem>
+                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                  <SelectItem value="electrical">Electrical</SelectItem>
+                  <SelectItem value="plumbing">Plumbing & Heating</SelectItem>
+                  <SelectItem value="mechanical">Mechanical</SelectItem>
+                  <SelectItem value="roofing">Roofing</SelectItem>
+                  <SelectItem value="scaffolding">Scaffolding</SelectItem>
+                  <SelectItem value="demolition">Demolition</SelectItem>
+                  <SelectItem value="groundworks">Groundworks</SelectItem>
+                  <SelectItem value="painting">Painting & Decorating</SelectItem>
+                  <SelectItem value="glazing">Glazing</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="cleaning">Cleaning & Maintenance</SelectItem>
+                  <SelectItem value="landscaping">Landscaping</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">CIS Registration Number</label>
@@ -781,7 +857,7 @@ export default function Contractors() {
             </Button>
             <Button 
               onClick={handleAddContractor}
-              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactPerson || !contractorForm.phone || !contractorForm.address || createContractorMutation.isPending}
+              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || !contractorForm.phone || !contractorForm.address || createContractorMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-save-contractor"
             >
