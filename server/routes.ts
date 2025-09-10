@@ -6327,10 +6327,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Add customerId to request body before validation
+      // Combine contact first name and last name into contact_person field for database compatibility
+      const combinedContactPerson = `${req.body.contactFirstName || ''} ${req.body.contactLastName || ''}`.trim();
+      
+      // Add customerId and combined contact_person to request body before validation
       const requestDataWithCustomerId = {
         ...req.body,
-        customerId: context.customerId
+        customerId: context.customerId,
+        contact_person: combinedContactPerson
       };
       
       // Parse and validate contractor data
