@@ -987,7 +987,10 @@ export class DatabaseService {
     const contractorsOnSiteResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.isCheckedIn, true));
+      .where(and(
+        eq(schema.contractorWorkers.isCheckedIn, true),
+        sql`${schema.contractorWorkers.companyId} IN (SELECT id FROM ${schema.contractorCompanies} WHERE ${schema.contractorCompanies.customerId} = ${context.customerId})`
+      ));
     
     // Get total staff
     const totalStaffResult = await db
@@ -1281,7 +1284,10 @@ export class DatabaseService {
     return await db
       .select()
       .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.isCheckedIn, true))
+      .where(and(
+        eq(schema.contractorWorkers.isCheckedIn, true),
+        sql`${schema.contractorWorkers.companyId} IN (SELECT id FROM ${schema.contractorCompanies} WHERE ${schema.contractorCompanies.customerId} = ${context.customerId})`
+      ))
       .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
   }
 
