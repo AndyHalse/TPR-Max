@@ -21,6 +21,7 @@ import {
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
   XCircle, Clock, AlertCircle
 } from "lucide-react";
+import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import { apiRequest } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
@@ -818,70 +819,10 @@ export default function ContractorDetails() {
         </TabsContent>
 
         <TabsContent value="reporting" className="space-y-4" data-testid="reporting-tab-content">
-          <div className="grid gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Leaf className="w-5 h-5" />
-                  CO2 Emissions Tracking
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Monthly Emissions</h4>
-                      <div className="text-2xl font-bold text-green-600">2.3t CO2</div>
-                      <p className="text-sm text-muted-foreground">15% reduction from last month</p>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Transport Methods</h4>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Diesel vehicles</span>
-                          <span>1.8t CO2</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Electric vehicles</span>
-                          <span>0.5t CO2</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Local Labour Statistics
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Local Workers</h4>
-                      <div className="text-2xl font-bold text-blue-600">68%</div>
-                      <p className="text-sm text-muted-foreground">Within 20 miles</p>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Apprentices</h4>
-                      <div className="text-2xl font-bold text-purple-600">12%</div>
-                      <p className="text-sm text-muted-foreground">Training programs</p>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Skills Development</h4>
-                      <div className="text-2xl font-bold text-green-600">5</div>
-                      <p className="text-sm text-muted-foreground">Ongoing qualifications</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <CO2SustainabilityReports 
+            selectedCompany={contractor} 
+            companyName={contractor?.name} 
+          />
         </TabsContent>
       </Tabs>
 
