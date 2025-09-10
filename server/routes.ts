@@ -6284,14 +6284,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OpenAI auto-populate company description endpoint
+  app.post("/api/contractors/generate-description", requireAuth, async (req, res) => {
+    try {
+      const { website, companyName, industry } = req.body;
+      
+      if (!website || !companyName) {
+        return res.status(400).json({ 
+          error: "Website and company name are required" 
+        });
+      }
+
+      const { generateCompanyDescription } = await import("./openaiService");
+      const result = await generateCompanyDescription(website, companyName, industry);
+      
+      if (result.success) {
+        res.json({ description: result.description });
+      } else {
+        res.status(400).json({ 
+          error: result.error || "Failed to generate description" 
+        });
+      }
+    } catch (error) {
+      console.error("Error in generate-description endpoint:", error);
+      res.status(500).json({ 
+        error: "Internal server error while generating description" 
+      });
+    }
+  });
+
   app.post("/api/contractors", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
+      // Add customerId to request body before validation
+      const requestDataWithCustomerId = {
+        ...req.body,
+        customerId: context.customerId
+      };
+      
       // Parse and validate contractor data
-      const contractorData = insertContractorCompanySchema.parse(req.body);
+      const contractorData = insertContractorCompanySchema.parse(requestDataWithCustomerId);
       
       // Use customer-isolated database service
       const contractor = await databaseService.createContractorCompany(context, contractorData);

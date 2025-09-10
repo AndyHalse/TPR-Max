@@ -77,6 +77,53 @@ export default function ContractorManagement() {
     industry: "",
     status: "pending" as "pending" | "approved" | "suspended"
   });
+
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  // OpenAI auto-populate description mutation
+  const generateDescriptionMutation = useMutation({
+    mutationFn: async (data: { website: string; companyName: string; industry?: string }) => {
+      return await apiRequest("POST", "/api/contractors/generate-description", data);
+    },
+    onSuccess: (response: { description: string }) => {
+      setContractorForm(prev => ({
+        ...prev,
+        description: response.description
+      }));
+      toast({
+        title: "Success",
+        description: "Company description generated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error", 
+        description: error.message || "Failed to generate description",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsGeneratingDescription(false);
+    }
+  });
+
+  const handleGenerateDescription = async () => {
+    if (!contractorForm.website || !contractorForm.name) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter company name and website first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingDescription(true);
+    generateDescriptionMutation.mutate({
+      website: contractorForm.website,
+      companyName: contractorForm.name,
+      industry: contractorForm.industry || undefined
+    });
+  };
   
   // Form state for adding worker
   const [workerForm, setWorkerForm] = useState({
@@ -1052,7 +1099,24 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="col-span-2 space-y-2">
-              <label className="text-sm font-medium text-slate-700">Description</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-700">Description</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateDescription}
+                  disabled={isGeneratingDescription || !contractorForm.website || !contractorForm.name}
+                  className="text-xs"
+                  data-testid="button-generate-description"
+                >
+                  {isGeneratingDescription ? (
+                    <>🤖 Generating...</>
+                  ) : (
+                    <>🤖 Auto-fill with AI</>
+                  )}
+                </Button>
+              </div>
               <Textarea
                 value={contractorForm.description}
                 onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })}

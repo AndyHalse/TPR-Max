@@ -15,7 +15,7 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 33809
+localPort = 38125
 externalPort = 3000
 
 [env]
@@ -43,4 +43,4 @@ args = "npm run dev"
 waitForPort = 5000
 
 [agent]
-integrations = ["javascript_object_storage==1.0.0", "javascript_websocket==1.0.0", "javascript_sendgrid==1.0.0"]
+integrations = ["javascript_object_storage:1.0.0", "javascript_websocket:1.0.0", "javascript_sendgrid:1.0.0", "javascript_openai:1.0.0"]
