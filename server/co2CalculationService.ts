@@ -214,8 +214,9 @@ export class CO2CalculationService {
   ): Promise<CO2SustainabilityReport> {
     const startTime = Date.now();
     
-    // Get company data
-    const company = await this.databaseService.getContractorCompany(companyId);
+    // Get company data with customer isolation
+    const context = { customerId }; // Create context for customer isolation
+    const company = await this.databaseService.getContractorCompany(context, companyId);
     if (!company) {
       throw new Error('Company not found');
     }
