@@ -839,9 +839,6 @@ export const insertContractorCompanySchema = createInsertSchema(contractorCompan
   id: true,
   lastUpdated: true,
   createdAt: true,
-}).extend({
-  // Temporary field to maintain database compatibility until migration removes it
-  contact_person: z.string().optional(),
 });
 
 export const insertNvqQualificationSchema = createInsertSchema(nvqQualifications).omit({
