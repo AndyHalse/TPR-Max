@@ -6287,13 +6287,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OpenAI auto-populate company description endpoint
   app.post("/api/contractors/generate-description", requireAuth, async (req, res) => {
     try {
-      const { website, companyName, industry } = req.body;
+      // Validate request body with Zod
+      const bodySchema = z.object({
+        website: z.string().min(1, "Website is required"),
+        companyName: z.string().min(1, "Company name is required"),
+        industry: z.string().optional()
+      });
       
-      if (!website || !companyName) {
-        return res.status(400).json({ 
-          error: "Website and company name are required" 
-        });
-      }
+      const validatedData = bodySchema.parse(req.body);
+      const { website, companyName, industry } = validatedData;
 
       const { generateCompanyDescription } = await import("./openaiService");
       const result = await generateCompanyDescription(website, companyName, industry);
@@ -6301,11 +6303,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (result.success) {
         res.json({ description: result.description });
       } else {
-        res.status(400).json({ 
-          error: result.error || "Failed to generate description" 
+        // Return 502 for OpenAI service failures
+        res.status(502).json({ 
+          error: result.error || "Failed to generate description from AI service" 
         });
       }
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: error.errors.map(e => e.message).join(", ")
+        });
+      }
       console.error("Error in generate-description endpoint:", error);
       res.status(500).json({ 
         error: "Internal server error while generating description" 

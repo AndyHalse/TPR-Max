@@ -41,8 +41,8 @@ export async function generateCompanyDescription(website: string, companyName: s
         }
       ],
       response_format: { type: "json_object" },
-      max_tokens: 200,
-      temperature: 0.7
+      max_tokens: 150,
+      temperature: 0.3
     });
 
     const result = JSON.parse(response.choices[0].message.content || '{}');
