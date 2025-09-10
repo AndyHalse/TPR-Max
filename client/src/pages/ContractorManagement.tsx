@@ -83,7 +83,8 @@ export default function ContractorManagement() {
   // OpenAI auto-populate description mutation
   const generateDescriptionMutation = useMutation({
     mutationFn: async (data: { website: string; companyName: string; industry?: string }) => {
-      return await apiRequest("POST", "/api/contractors/generate-description", data);
+      const response = await apiRequest("POST", "/api/contractors/generate-description", data);
+      return await response.json();
     },
     onSuccess: (response: { description: string }) => {
       setContractorForm(prev => ({
