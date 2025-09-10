@@ -820,7 +820,7 @@ export default function ContractorDetails() {
 
         <TabsContent value="reporting" className="space-y-4" data-testid="reporting-tab-content">
           <CO2SustainabilityReports 
-            selectedCompany={contractor} 
+            companyId={contractor?.id} 
             companyName={contractor?.name} 
           />
         </TabsContent>
