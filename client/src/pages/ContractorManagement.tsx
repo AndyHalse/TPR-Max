@@ -299,6 +299,7 @@ export default function ContractorManagement() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
       
       // Find the company name for the worker
       const worker = data.worker;
@@ -346,6 +347,7 @@ export default function ContractorManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
       toast({
         title: "Success",
         description: "Contractor checked out successfully!",
