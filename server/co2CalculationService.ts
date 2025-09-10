@@ -112,6 +112,8 @@ export class CO2CalculationService {
   ): Promise<{
     totalWorkers: number;
     totalMonthlyCO2kg: number;
+    totalAnnualCO2kg: number;
+    averageDistance: number;
     averageCO2PerWorker: number;
     transportBreakdown: Record<string, number>;
     workers: WorkerCO2Summary[];
@@ -136,6 +138,10 @@ export class CO2CalculationService {
     });
 
     const totalMonthlyCO2 = workerSummaries.reduce((sum, w) => sum + w.monthlyCO2kg, 0);
+    const totalAnnualCO2 = workerSummaries.reduce((sum, w) => sum + w.annualCO2kg, 0);
+    const totalDistance = workerSummaries.reduce((sum, w) => sum + w.distanceMiles, 0);
+    const averageDistance = workerSummaries.length > 0 ? totalDistance / workerSummaries.length : 0;
+    
     const transportBreakdown = workerSummaries.reduce((acc, worker) => {
       acc[worker.transportMethod] = (acc[worker.transportMethod] || 0) + 1;
       return acc;
@@ -144,6 +150,8 @@ export class CO2CalculationService {
     return {
       totalWorkers: workerSummaries.length,
       totalMonthlyCO2kg: totalMonthlyCO2,
+      totalAnnualCO2kg: totalAnnualCO2,
+      averageDistance: averageDistance,
       averageCO2PerWorker: workerSummaries.length > 0 ? totalMonthlyCO2 / workerSummaries.length : 0,
       transportBreakdown,
       workers: workerSummaries,
