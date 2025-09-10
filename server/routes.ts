@@ -6907,15 +6907,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       const { purpose, hostStaffId, hostName, hsRulesAccepted } = req.body;
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = { customerId: customerDbService.getCustomerIdByUsername(username) };
-      
-      // Get worker details first with customer isolation
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      const simpleDbContext = simpleDatabaseService.createCustomerContext(username);
-      const databaseService = new simpleDatabaseService.DatabaseService();
-      const worker = await databaseService.getContractorWorkerById(simpleDbContext, workerId);
+      // Get worker details first
+      const worker = await storage.getContractorWorkerById(workerId);
       if (!worker) {
         return res.status(404).json({ error: "Worker not found" });
       }
@@ -6983,7 +6976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Mark worker as checked in immediately if H&S already accepted, otherwise wait for e-pass acceptance
       const shouldCheckInNow = worker.hsRulesAccepted || hsRulesAccepted;
-      const updatedWorker = await databaseService.updateContractorWorker(simpleDbContext, workerId, {
+      const updatedWorker = await storage.updateContractorWorker(workerId, {
         qrCode: qrCode,
         isCheckedIn: shouldCheckInNow,
         checkedInAt: shouldCheckInNow ? new Date() : worker.checkedInAt

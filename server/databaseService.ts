@@ -1281,21 +1281,17 @@ export class DatabaseService {
     return await db
       .select()
       .from(schema.contractorWorkers)
-      .where(and(
-        eq(schema.contractorWorkers.isCheckedIn, true),
-        eq(schema.contractorWorkers.customerId, context.customerId)
-      ))
+      .where(eq(schema.contractorWorkers.isCheckedIn, true))
       .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
   }
 
   async getAllContractorCompanies(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // Get all contractor companies with customer isolation
+    // Get all contractor companies
     const companies = await db
       .select()
-      .from(schema.contractorCompanies)
-      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+      .from(schema.contractorCompanies);
     
     // For each company, count workers and get document status
     const companiesWithCounts = await Promise.all(
@@ -1483,10 +1479,7 @@ export class DatabaseService {
     return await db
       .select()
       .from(schema.contractorWorkers)
-      .where(and(
-        eq(schema.contractorWorkers.companyId, companyId),
-        eq(schema.contractorWorkers.customerId, context.customerId)
-      ));
+      .where(eq(schema.contractorWorkers.companyId, companyId));
   }
 
   async getContractorCompany(context: CustomerContext, companyId: string): Promise<ContractorCompany | undefined> {
@@ -1495,10 +1488,7 @@ export class DatabaseService {
     const companies = await db
       .select()
       .from(schema.contractorCompanies)
-      .where(and(
-        eq(schema.contractorCompanies.id, companyId),
-        eq(schema.contractorCompanies.customerId, context.customerId)
-      ))
+      .where(eq(schema.contractorCompanies.id, companyId))
       .limit(1);
     
     return companies[0];
