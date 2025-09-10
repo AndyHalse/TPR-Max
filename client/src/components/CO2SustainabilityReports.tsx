@@ -187,7 +187,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
         <body>
           <div class="header">
             <h1>${fullReport.data.reportTitle}</h1>
-            <p>Generated on ${format(new Date(fullReport.data.generatedAt), 'MMMM d, yyyy')}</p>
+            <p>Generated on ${format(new Date(fullReport.data.generatedAt), 'PPP')}</p>
           </div>
           
           <div class="section">
@@ -681,7 +681,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
               {fullReport?.data?.reportTitle || 'Sustainability Report'}
             </DialogTitle>
             <DialogDescription>
-              {fullReport?.data && format(new Date(fullReport.data.generatedAt), 'Generated on MMMM d, yyyy')}
+              {fullReport?.data && `Generated on ${format(new Date(fullReport.data.generatedAt), 'MMMM d, yyyy')}`}
             </DialogDescription>
             <div className="flex items-center gap-2 pt-2">
               <Button 
