@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Leaf, 
   TrendingDown, 
@@ -94,6 +96,8 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(companyId || '');
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showTargetDialog, setShowTargetDialog] = useState(false);
+  const [customTarget, setCustomTarget] = useState<number>(0);
   
   const { toast } = useToast();
 
@@ -793,7 +797,13 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
+                    <Card 
+                      className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200 cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => {
+                        setCustomTarget(getMonthlyTarget(co2Summary.data.totalWorkers || 0));
+                        setShowTargetDialog(true);
+                      }}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -807,6 +817,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                         <p className="text-xs text-orange-600 mt-2">
                           Target: {getMonthlyTarget(co2Summary.data.totalWorkers || 0)} kg CO2
                         </p>
+                        <p className="text-xs text-orange-500 mt-1">Click to customize</p>
                       </CardContent>
                     </Card>
 
@@ -1237,6 +1248,59 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
               </Alert>
             )}
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Target Setting Dialog */}
+      <Dialog open={showTargetDialog} onOpenChange={setShowTargetDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-orange-600" />
+              Set Monthly CO2 Target
+            </DialogTitle>
+            <DialogDescription>
+              Set a custom monthly CO2 reduction target for {companyName || 'this company'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="target-input">Monthly CO2 Target (kg)</Label>
+              <Input
+                id="target-input"
+                type="number"
+                value={customTarget}
+                onChange={(e) => setCustomTarget(Number(e.target.value))}
+                placeholder="Enter target in kg CO2 per month"
+              />
+              <p className="text-sm text-muted-foreground">
+                Current emissions: {co2Summary?.data?.totalMonthlyCO2kg?.toFixed(1) || '0'} kg/month
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Suggested target (20% reduction): {getMonthlyTarget(co2Summary?.data?.totalWorkers || 0)} kg/month
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  toast({
+                    title: "Target Updated",
+                    description: `Monthly CO2 target set to ${customTarget} kg for ${companyName}`,
+                  });
+                  setShowTargetDialog(false);
+                }}
+                className="flex-1"
+              >
+                Save Target
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowTargetDialog(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
