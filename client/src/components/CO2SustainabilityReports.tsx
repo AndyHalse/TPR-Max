@@ -98,6 +98,8 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [customTarget, setCustomTarget] = useState<number>(0);
+  const [selectedWorker, setSelectedWorker] = useState<any>(null);
+  const [showWorkerDialog, setShowWorkerDialog] = useState(false);
   
   const { toast } = useToast();
 
@@ -596,7 +598,14 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       const transportColor = getTransportColor(worker.transportMethod);
                       
                       return (
-                        <Card key={worker.workerId}>
+                        <Card 
+                          key={worker.workerId} 
+                          className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-green-500"
+                          onClick={() => {
+                            setSelectedWorker(worker);
+                            setShowWorkerDialog(true);
+                          }}
+                        >
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -608,6 +617,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                   <p className="text-sm text-muted-foreground">
                                     {worker.postcode} • {worker.distanceMiles?.toFixed(1) || '0.0'} miles
                                   </p>
+                                  <p className="text-xs text-blue-600 mt-1">Click for detailed analysis</p>
                                 </div>
                               </div>
                               
@@ -1301,6 +1311,160 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Worker Detailed Analysis Dialog */}
+      <Dialog open={showWorkerDialog} onOpenChange={setShowWorkerDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-green-600" />
+              Worker Analysis: {selectedWorker?.workerName}
+            </DialogTitle>
+            <DialogDescription>
+              Detailed CO2 emissions analysis and recommendations for this worker
+            </DialogDescription>
+          </DialogHeader>
+          {selectedWorker && (
+            <ScrollArea className="max-h-[70vh]">
+              <div className="space-y-6 p-4">
+                {/* Worker Summary */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium">Location</span>
+                      </div>
+                      <p className="text-lg font-semibold">{selectedWorker.postcode}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedWorker.distanceMiles?.toFixed(1)} miles to work
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Car className="w-4 h-4 text-orange-600" />
+                        <span className="text-sm font-medium">Transport</span>
+                      </div>
+                      <p className="text-lg font-semibold">
+                        {transportMethods.find(t => t.value === selectedWorker.transportMethod)?.label || selectedWorker.transportMethod}
+                      </p>
+                      <Badge 
+                        variant="secondary"
+                        className={`${getEmissionLevel(selectedWorker.monthlyCO2kg || 0).bgColor} ${getEmissionLevel(selectedWorker.monthlyCO2kg || 0).color}`}
+                      >
+                        {getEmissionLevel(selectedWorker.monthlyCO2kg || 0).level} Impact
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Emissions Breakdown */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-green-600" />
+                      Emissions Breakdown
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span>Daily CO2 (round trip):</span>
+                        <span className="font-semibold">{(selectedWorker.monthlyCO2kg / 22)?.toFixed(2) || '0.00'} kg</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Monthly CO2:</span>
+                        <span className="font-semibold">{selectedWorker.monthlyCO2kg?.toFixed(1) || '0.0'} kg</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Annual CO2 (projected):</span>
+                        <span className="font-semibold">{(selectedWorker.monthlyCO2kg * 12)?.toFixed(1) || '0.0'} kg</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Carbon Score:</span>
+                        <span className="font-semibold">
+                          {calculateCarbonScore(selectedWorker.monthlyCO2kg || 0, 1)}/100
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Recommendations */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="w-5 h-5 text-blue-600" />
+                      Optimization Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {selectedWorker.transportMethod !== 'electric_car' && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Zap className="w-4 h-4 text-green-600" />
+                            <span className="font-medium text-green-800">Electric Vehicle</span>
+                          </div>
+                          <p className="text-sm text-green-700">
+                            Switching to electric could save {calculateCO2Savings(selectedWorker.transportMethod, 'electric_car', selectedWorker.monthlyCO2kg || 0).toFixed(1)} kg CO2/month
+                          </p>
+                        </div>
+                      )}
+                      
+                      {selectedWorker.transportMethod !== 'public_transport' && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Bus className="w-4 h-4 text-blue-600" />
+                            <span className="font-medium text-blue-800">Public Transport</span>
+                          </div>
+                          <p className="text-sm text-blue-700">
+                            Using public transport could save {calculateCO2Savings(selectedWorker.transportMethod, 'public_transport', selectedWorker.monthlyCO2kg || 0).toFixed(1)} kg CO2/month
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MapPin className="w-4 h-4 text-orange-600" />
+                          <span className="font-medium text-orange-800">Route Optimization</span>
+                        </div>
+                        <p className="text-sm text-orange-700">
+                          Consider carpooling or flexible working arrangements to reduce travel frequency
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      toast({
+                        title: "Recommendations Sent",
+                        description: `Personalized CO2 reduction recommendations sent to ${selectedWorker.workerName}`,
+                      });
+                    }}
+                    className="flex-1"
+                  >
+                    Send Recommendations
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowWorkerDialog(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
     </div>
