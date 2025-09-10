@@ -44,14 +44,25 @@ export async function generateCompanyDescription(website: string, companyName: s
       max_completion_tokens: 150
     });
 
+    console.log('OpenAI response:', response.choices[0].message.content);
     const result = JSON.parse(response.choices[0].message.content || '{}');
+    console.log('Parsed result:', result);
     
-    if (!result.description) {
-      throw new Error('No description generated');
+    if (!result.description || result.description.trim() === '') {
+      console.log('No description in result, trying alternative fields:', Object.keys(result));
+      // Try alternative field names that GPT might use
+      const description = result.description || result.company_description || result.summary || result.text || '';
+      if (description && description.trim() !== '') {
+        return {
+          description: description.trim(),
+          success: true
+        };
+      }
+      throw new Error('No description generated - response was: ' + JSON.stringify(result));
     }
 
     return {
-      description: result.description,
+      description: result.description.trim(),
       success: true
     };
 
