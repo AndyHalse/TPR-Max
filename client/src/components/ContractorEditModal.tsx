@@ -45,6 +45,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     email: worker?.email || '',
     phone: worker?.phone || '',
     postcode: worker?.postcode || '',
+    transportMethod: worker?.transportMethod || 'car_diesel',
     rightToWork: worker?.rightToWork || 'pending',
     cscsCard: worker?.cscsCard || '',
     cscsStatus: worker?.cscsStatus || 'pending',
@@ -63,6 +64,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         email: worker.email || '',
         phone: worker.phone || '',
         postcode: worker.postcode || '',
+        transportMethod: worker.transportMethod || 'car_diesel',
         rightToWork: worker.rightToWork || 'pending',
         cscsCard: worker.cscsCard || '',
         cscsStatus: worker.cscsStatus || 'pending',
@@ -269,6 +271,28 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         placeholder="e.g. OX28 4BH"
                         data-testid="input-contractor-postcode"
                       />
+                      <p className="text-xs text-slate-500 mt-1">For CO2 emissions calculation</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="transportMethod">Vehicle Fuel Type</Label>
+                      <select
+                        id="transportMethod"
+                        value={formData.transportMethod}
+                        onChange={(e) => handleInputChange('transportMethod', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        data-testid="select-transport-method"
+                      >
+                        <option value="car_diesel">Diesel Car</option>
+                        <option value="car_petrol">Petrol Car</option>
+                        <option value="electric_car">Electric Car</option>
+                        <option value="hybrid_car">Hybrid Car</option>
+                        <option value="motorcycle">Motorcycle</option>
+                        <option value="public_transport">Public Transport</option>
+                        <option value="bicycle">Bicycle</option>
+                        <option value="walking">Walking</option>
+                        <option value="van_diesel">Diesel Van</option>
+                        <option value="van_petrol">Petrol Van</option>
+                      </select>
                       <p className="text-xs text-slate-500 mt-1">For CO2 emissions calculation</p>
                     </div>
                   </div>
