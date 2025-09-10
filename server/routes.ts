@@ -6974,12 +6974,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedInAt: new Date()
       });
       
-      // Mark worker as checked in immediately if H&S already accepted, otherwise wait for e-pass acceptance
-      const shouldCheckInNow = worker.hsRulesAccepted || hsRulesAccepted;
+      // Mark worker as checked in immediately (H&S rules tracked separately)
       const updatedWorker = await storage.updateContractorWorker(workerId, {
         qrCode: qrCode,
-        isCheckedIn: shouldCheckInNow,
-        checkedInAt: shouldCheckInNow ? new Date() : worker.checkedInAt
+        isCheckedIn: true,  // Always mark as checked in when check-in button is clicked
+        checkedInAt: new Date(),
+        // Keep H&S rules status separate - will be updated via e-pass link later
+        hsRulesAccepted: worker.hsRulesAccepted || hsRulesAccepted || false
       });
 
       let ePassSent = false;
