@@ -10,17 +10,23 @@ export async function generateCompanyDescription(website: string, companyName: s
   error?: string; 
 }> {
   try {
-    if (!website || !website.startsWith('http')) {
+    if (!website) {
       return {
         description: '',
         success: false,
-        error: 'Invalid website URL provided'
+        error: 'Website URL is required'
       };
+    }
+
+    // Auto-add https:// if not present
+    let formattedWebsite = website.trim();
+    if (!formattedWebsite.startsWith('http://') && !formattedWebsite.startsWith('https://')) {
+      formattedWebsite = `https://${formattedWebsite}`;
     }
 
     // Create a focused prompt for company description generation
     const industryContext = industry ? ` in the ${industry} industry` : '';
-    const prompt = `Based on the company name "${companyName}" and their website "${website}"${industryContext}, generate a professional company description (2-3 sentences maximum) that would be suitable for a visitor management system. Focus on their main services, expertise, and what makes them professional contractors. Keep it concise and professional. Respond with JSON in this format: { "description": "your generated description here" }`;
+    const prompt = `Based on the company name "${companyName}" and their website "${formattedWebsite}"${industryContext}, generate a professional company description (2-3 sentences maximum) that would be suitable for a visitor management system. Focus on their main services, expertise, and what makes them professional contractors. Keep it concise and professional. Respond with JSON in this format: { "description": "your generated description here" }`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
