@@ -1281,17 +1281,21 @@ export class DatabaseService {
     return await db
       .select()
       .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.isCheckedIn, true))
+      .where(and(
+        eq(schema.contractorWorkers.isCheckedIn, true),
+        eq(schema.contractorWorkers.customerId, context.customerId)
+      ))
       .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
   }
 
   async getAllContractorCompanies(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // Get all contractor companies (TODO: Add customer isolation later)
+    // Get all contractor companies with customer isolation
     const companies = await db
       .select()
-      .from(schema.contractorCompanies);
+      .from(schema.contractorCompanies)
+      .where(eq(schema.contractorCompanies.customerId, context.customerId));
     
     // For each company, count workers and get document status
     const companiesWithCounts = await Promise.all(
@@ -1473,23 +1477,28 @@ export class DatabaseService {
       .orderBy(desc(schema.co2EmissionsData.calculatedAt));
   }
 
-  async getWorkersByCompany(companyId: string): Promise<ContractorWorker[]> {
-    // Get the customer ID by finding any worker from this company first
-    const db = await customerDbService.getCustomerDatabase('dev-customer-001'); // Using dev context
+  async getWorkersByCompany(context: CustomerContext, companyId: string): Promise<ContractorWorker[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     return await db
       .select()
       .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.companyId, companyId));
+      .where(and(
+        eq(schema.contractorWorkers.companyId, companyId),
+        eq(schema.contractorWorkers.customerId, context.customerId)
+      ));
   }
 
-  async getContractorCompany(companyId: string): Promise<ContractorCompany | undefined> {
-    const db = await customerDbService.getCustomerDatabase('dev-customer-001'); // Using dev context
+  async getContractorCompany(context: CustomerContext, companyId: string): Promise<ContractorCompany | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const companies = await db
       .select()
       .from(schema.contractorCompanies)
-      .where(eq(schema.contractorCompanies.id, companyId))
+      .where(and(
+        eq(schema.contractorCompanies.id, companyId),
+        eq(schema.contractorCompanies.customerId, context.customerId)
+      ))
       .limit(1);
     
     return companies[0];

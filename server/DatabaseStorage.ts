@@ -1412,13 +1412,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getContractorCompanyById(id: string): Promise<ContractorCompany | undefined> {
-    const customerId = this.getCustomerId();
-    const [company] = await db.select().from(contractorCompanies).where(
-      and(
-        eq(contractorCompanies.id, id),
-        eq(contractorCompanies.customerId, customerId)
-      )
-    );
+    const [company] = await db.select().from(contractorCompanies).where(eq(contractorCompanies.id, id));
     return company || undefined;
   }
 
