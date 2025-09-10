@@ -275,14 +275,14 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <span className="text-sm font-medium">Monthly CO2</span>
                         </div>
                         <div className="mt-2">
-                          <span className="text-2xl font-bold">{co2Summary.data.totalMonthlyCO2kg.toFixed(1)}</span>
+                          <span className="text-2xl font-bold">{co2Summary.data.totalMonthlyCO2kg?.toFixed(1) || '0.0'}</span>
                           <span className="text-sm text-muted-foreground ml-1">kg</span>
                         </div>
                         <Badge 
                           variant="secondary"
-                          className={`mt-2 ${getEmissionLevel(co2Summary.data.totalMonthlyCO2kg).bgColor} ${getEmissionLevel(co2Summary.data.totalMonthlyCO2kg).color}`}
+                          className={`mt-2 ${getEmissionLevel(co2Summary.data.totalMonthlyCO2kg || 0).bgColor} ${getEmissionLevel(co2Summary.data.totalMonthlyCO2kg || 0).color}`}
                         >
-                          {getEmissionLevel(co2Summary.data.totalMonthlyCO2kg).level}
+                          {getEmissionLevel(co2Summary.data.totalMonthlyCO2kg || 0).level}
                         </Badge>
                       </CardContent>
                     </Card>
@@ -294,7 +294,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <span className="text-sm font-medium">Annual CO2</span>
                         </div>
                         <div className="mt-2">
-                          <span className="text-2xl font-bold">{co2Summary.data.totalAnnualCO2kg.toFixed(1)}</span>
+                          <span className="text-2xl font-bold">{co2Summary.data.totalAnnualCO2kg?.toFixed(1) || '0.0'}</span>
                           <span className="text-sm text-muted-foreground ml-1">kg</span>
                         </div>
                       </CardContent>
@@ -307,7 +307,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <span className="text-sm font-medium">Avg Distance</span>
                         </div>
                         <div className="mt-2">
-                          <span className="text-2xl font-bold">{co2Summary.data.averageDistance.toFixed(1)}</span>
+                          <span className="text-2xl font-bold">{co2Summary.data.averageDistance?.toFixed(1) || '0.0'}</span>
                           <span className="text-sm text-muted-foreground ml-1">miles</span>
                         </div>
                       </CardContent>
@@ -324,9 +324,9 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {Object.entries(co2Summary.data.transportBreakdown).map(([method, count]) => {
+                        {Object.entries(co2Summary.data.transportBreakdown || {}).map(([method, count]) => {
                           const transport = transportMethods.find(t => t.value === method);
-                          const percentage = (count / co2Summary.data.totalWorkers) * 100;
+                          const percentage = co2Summary.data.totalWorkers > 0 ? (count / co2Summary.data.totalWorkers) * 100 : 0;
                           
                           if (count === 0) return null;
                           
@@ -346,7 +346,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                               <div className="flex items-center gap-3">
                                 <Progress value={percentage} className="w-20 h-2" />
                                 <span className="text-sm text-muted-foreground w-12 text-right">
-                                  {count} ({percentage.toFixed(0)}%)
+                                  {count} ({(percentage || 0).toFixed(0)}%)
                                 </span>
                               </div>
                             </div>
@@ -394,7 +394,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                 <div>
                                   <p className="font-medium">{worker.workerName}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    {worker.postcode} • {worker.distanceMiles.toFixed(1)} miles
+                                    {worker.postcode} • {worker.distanceMiles?.toFixed(1) || '0.0'} miles
                                   </p>
                                 </div>
                               </div>
@@ -408,15 +408,15 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                 </div>
                                 
                                 <div className="text-right">
-                                  <p className="font-semibold">{worker.monthlyCO2kg.toFixed(1)} kg CO2</p>
+                                  <p className="font-semibold">{worker.monthlyCO2kg?.toFixed(1) || '0.0'} kg CO2</p>
                                   <p className="text-sm text-muted-foreground">per month</p>
                                 </div>
                                 
                                 <Badge 
                                   variant="secondary"
-                                  className={`${getEmissionLevel(worker.monthlyCO2kg).bgColor} ${getEmissionLevel(worker.monthlyCO2kg).color}`}
+                                  className={`${getEmissionLevel(worker.monthlyCO2kg || 0).bgColor} ${getEmissionLevel(worker.monthlyCO2kg || 0).color}`}
                                 >
-                                  {getEmissionLevel(worker.monthlyCO2kg).level}
+                                  {getEmissionLevel(worker.monthlyCO2kg || 0).level}
                                 </Badge>
                               </div>
                             </div>
@@ -431,7 +431,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                   <div className="flex items-center gap-2">
                                     <TrendingDown className="w-3 h-3 text-green-600" />
                                     <span className="font-medium text-green-600">
-                                      -{calculateCO2Savings(worker.transportMethod, 'electric_car', worker.monthlyCO2kg).toFixed(1)} kg/month
+                                      -{calculateCO2Savings(worker.transportMethod, 'electric_car', worker.monthlyCO2kg || 0)?.toFixed(1) || '0.0'} kg/month
                                     </span>
                                   </div>
                                 </div>
@@ -475,8 +475,8 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className={`${getEmissionLevel(report.totalCO2kg).bgColor} ${getEmissionLevel(report.totalCO2kg).color}`}>
-                              {report.totalCO2kg.toFixed(1)} kg CO2
+                            <Badge variant="secondary" className={`${getEmissionLevel(report.totalCO2kg || 0).bgColor} ${getEmissionLevel(report.totalCO2kg || 0).color}`}>
+                              {report.totalCO2kg?.toFixed(1) || '0.0'} kg CO2
                             </Badge>
                             <span className="text-sm text-muted-foreground">
                               {format(new Date(report.generatedAt), 'MMM d, yyyy')}
