@@ -6299,15 +6299,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get contractor company by ID using storage
-      const contractor = await storage.getContractorCompanyById(id);
+      // Get all contractors and find the specific one (using same pattern as list endpoint)
+      const contractors = await databaseService.getAllContractorCompanies(context);
+      const contractor = contractors.find(c => c.id === id);
       
       if (!contractor) {
         return res.status(404).json({ error: "Contractor not found" });
       }
 
-      // Get workers for this company  
-      const workers = await storage.getWorkersByCompanyId(id);
+      // Get workers for this company using customer-isolated database service
+      const workers = await databaseService.getWorkersByCompanyId(context, id);
       
       // Get documents and create status summary
       const documents = await storage.getDocumentsByCompanyId(id);
