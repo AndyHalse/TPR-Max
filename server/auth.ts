@@ -62,20 +62,24 @@ export class AuthService {
    */
   static async initializeDeveloperUser(): Promise<void> {
     try {
+      // Get passwords from environment variables with fallback defaults for development
+      const andyPassword = process.env.DEV_ANDY_PASSWORD || 'Kubo1966&&';
+      const emmaPassword = process.env.DEV_EMMA_PASSWORD || 'Kubo1976&&';
+
       // Initialize Andy (Customer 001)
       const existingAndy = await storage.getUserByUsername('Andy');
       
       if (existingAndy) {
         console.log('Developer user "Andy" already exists - updating password');
-        await storage.updateUser(existingAndy.id, { password: 'Kubo1966&&' });
+        await storage.updateUser(existingAndy.id, { password: andyPassword });
         console.log('Developer user password updated successfully');
       } else {
         await storage.createUser({
           username: 'Andy',
-          password: 'Kubo1966&&',
+          password: andyPassword,
           customerId: 'dev-customer-001'
         } as any);
-        console.log('Developer user "Andy" created successfully with password: Kubo1966&&');
+        console.log('Developer user "Andy" created successfully');
       }
 
       // Initialize Emma (Customer 002) for testing customer isolation
@@ -83,12 +87,12 @@ export class AuthService {
       
       if (existingEmma) {
         console.log('Developer user "Emma" already exists - updating password');
-        await storage.updateUser(existingEmma.id, { password: 'Kubo1976&&' });
+        await storage.updateUser(existingEmma.id, { password: emmaPassword });
         console.log('Emma user password updated successfully');
       } else {
         await storage.createUser({
           username: 'Emma',
-          password: 'Kubo1976&&',
+          password: emmaPassword,
           customerId: 'dev-customer-002'
         } as any);
         console.log('✅ Developer user "Emma" created successfully for Customer 002 testing');

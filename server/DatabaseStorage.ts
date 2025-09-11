@@ -39,8 +39,9 @@ export class DatabaseStorage implements IStorage {
       const [existingUser] = await db.select().from(users).where(eq(users.id, systemUserId));
       
       if (!existingUser) {
-        // Create system user for card issuing
-        const hashedPassword = await bcrypt.hash('SystemUser2024!', 10);
+        // Get system password from environment variable with fallback for development
+        const systemPassword = process.env.SYSTEM_USER_PASSWORD || 'SystemUser2024!';
+        const hashedPassword = await bcrypt.hash(systemPassword, 10);
         await db.insert(users).values({
           id: systemUserId,
           username: 'system',
