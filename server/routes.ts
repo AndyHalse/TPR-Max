@@ -6299,9 +6299,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
+      console.log(`🔍 Contractor details request for ID: ${id}, Customer: ${context.customerId}, User: ${username}`);
+      
       // Get all contractors and find the specific one (using same pattern as list endpoint)
       const contractors = await databaseService.getAllContractorCompanies(context);
+      console.log(`📊 Found ${contractors.length} contractors in database:`);
+      contractors.forEach(c => console.log(`  - ID: ${c.id}, Name: ${c.name}`));
+      
       const contractor = contractors.find(c => c.id === id);
+      console.log(`🎯 Looking for contractor with ID: ${id}`);
+      console.log(`✅ Found contractor:`, contractor ? `${contractor.name} (${contractor.id})` : 'NOT FOUND');
       
       if (!contractor) {
         return res.status(404).json({ error: "Contractor not found" });
