@@ -1475,6 +1475,17 @@ export class DatabaseService {
       .orderBy(schema.cardOffences.cardType, schema.cardOffences.offenceName);
   }
 
+  // Get all contractor workers for current customer 
+  async getAllContractorWorkers(context: CustomerContext): Promise<ContractorWorker[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.contractorWorkers)
+      .where(eq(schema.contractorWorkers.customerId, context.customerId))
+      .orderBy(asc(schema.contractorWorkers.firstName));
+  }
+
   // Card issues methods
   async createCardIssue(context: CustomerContext, data: InsertCardIssue): Promise<CardIssue> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);

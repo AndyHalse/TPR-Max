@@ -6718,8 +6718,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // For now return empty until we implement customer-isolated workers
-      res.json([]);
+      // Use customer-isolated database service to get all contractor workers
+      const workers = await databaseService.getAllContractorWorkers(context);
+      
+      console.log(`✅ Retrieved ${workers.length} contractor workers for customer ${context.customerId}`);
+      
+      res.json(workers);
     } catch (error) {
       console.error("Error fetching all workers:", error);
       res.status(500).json({ error: "Failed to fetch all workers" });
