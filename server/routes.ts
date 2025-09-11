@@ -7292,43 +7292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if worker can check in (induction completed, valid status, etc.)
       const issues = [];
       
-      // DEBUG: Log worker data to understand validation mismatch
-      console.log(`🔍 DEBUG - Worker data for check-in validation:`, {
-        id: worker.id,
-        firstName: worker.firstName,
-        lastName: worker.lastName,
-        isActive: worker.isActive,
-        inductionCompleted: worker.inductionCompleted,
-        rightToWork: worker.rightToWork,
-        companyId: worker.companyId,
-        companyStatus: company.status
-      });
-
-      // TEMPORARY FIX: Update worker data to match UI display (induction completed, valid right to work)
-      if (worker.inductionCompleted === undefined || worker.inductionCompleted === null) {
-        console.log(`🔧 FIXING - Setting inductionCompleted to true for ${worker.firstName} ${worker.lastName}`);
-        try {
-          const updateResult = await databaseService.updateContractorWorker(context, workerId, {
-            inductionCompleted: true,
-            rightToWork: 'valid',
-            inductionCompletedAt: new Date()
-          });
-          console.log(`✅ UPDATE RESULT:`, updateResult);
-          
-          // Refresh worker data after update
-          const refreshedWorker = await databaseService.getContractorWorkerById(context, workerId);
-          console.log(`🔄 REFRESHED WORKER:`, refreshedWorker);
-          if (refreshedWorker) {
-            Object.assign(worker, refreshedWorker);
-            console.log(`📝 UPDATED WORKER DATA:`, {
-              inductionCompleted: worker.inductionCompleted,
-              rightToWork: worker.rightToWork
-            });
-          }
-        } catch (error) {
-          console.error(`❌ DATABASE UPDATE FAILED:`, error);
-        }
-      }
+      // Validation passed - worker data is now correct from database
       
       // Check company approval status first
       if (company.status !== 'approved') {
