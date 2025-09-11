@@ -69,6 +69,8 @@ export default function Contractors() {
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [showViewWorkerModal, setShowViewWorkerModal] = useState(false);
   const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
+  const [showIssueCardModal, setShowIssueCardModal] = useState(false);
+  const [workerForCard, setWorkerForCard] = useState<any>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -273,6 +275,12 @@ export default function Contractors() {
   const handleViewWorker = (worker: any) => {
     setSelectedWorker(worker);
     setShowViewWorkerModal(true);
+  };
+
+  const handleIssueCard = (workerId: string) => {
+    const worker = workers?.find((w: any) => w.id === workerId);
+    setWorkerForCard(worker);
+    setShowIssueCardModal(true);
   };
 
   const handleEditWorker = (worker: any) => {
@@ -1097,6 +1105,7 @@ export default function Contractors() {
                     worker={worker}
                     onCheckIn={handleWorkerCheckIn}
                     onCheckOut={handleWorkerCheckOut}
+                    onIssueCard={handleIssueCard}
                     onClick={() => handleViewWorker(worker)}
                   />
                 )) : (
@@ -1259,6 +1268,72 @@ export default function Contractors() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue Card Modal */}
+      <Dialog open={showIssueCardModal} onOpenChange={setShowIssueCardModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Issue Red or Yellow Card</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Worker</label>
+              <div className="p-2 bg-gray-50 rounded">
+                {workerForCard?.firstName} {workerForCard?.lastName}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Card Type</label>
+              <select className="w-full p-2 border rounded" data-testid="select-card-type">
+                <option value="yellow">Yellow Card</option>
+                <option value="red">Red Card</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Offence</label>
+              <select className="w-full p-2 border rounded" data-testid="select-offence">
+                <option value="">Select offence</option>
+                <option value="safety_violation">Safety Violation</option>
+                <option value="late_arrival">Late Arrival</option>
+                <option value="improper_ppe">Improper PPE</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <textarea 
+                placeholder="Describe the incident..." 
+                className="w-full p-2 border rounded h-20"
+                data-testid="textarea-description"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2 mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowIssueCardModal(false)}
+              data-testid="button-cancel"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                // Handle card issuing logic here
+                setShowIssueCardModal(false);
+                // You can add actual card issuing API call here
+              }}
+              data-testid="button-issue-card"
+            >
+              Issue Card
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
