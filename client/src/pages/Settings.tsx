@@ -146,10 +146,7 @@ export default function Settings() {
         fileInputRef.current.value = '';
       }
       
-      // Refresh page after short delay to ensure all data is updated
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      // Query invalidation is sufficient to refresh all data - no need for page reload
     },
     onError: (error: any) => {
       toast({
