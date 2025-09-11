@@ -1669,27 +1669,17 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Build update object dynamically based on updates provided
-      const updateData: any = { updatedAt: new Date() };
+      // CRITICAL FIX: Use ALL fields from updates instead of hardcoding specific ones
+      // This ensures postcode and other fields are properly saved
+      const updateData: any = { 
+        ...updates, // Copy ALL fields from updates
+        updatedAt: new Date() 
+      };
       
-      if (updates.hsRulesAccepted !== undefined) {
-        updateData.hsRulesAccepted = updates.hsRulesAccepted;
-      }
+      console.log(`🔄 Updating contractor worker ${id} with data:`, updateData);
       
-      if (updates.hsRulesAcceptedAt !== undefined) {
-        updateData.hsRulesAcceptedAt = updates.hsRulesAcceptedAt;
-      }
-      
-      if (updates.isCheckedIn !== undefined) {
-        updateData.isCheckedIn = updates.isCheckedIn;
-      }
-      
-      if (updates.checkedInAt !== undefined) {
-        updateData.checkedInAt = updates.checkedInAt;
-      }
-      
-      // If only updatedAt was added, no actual changes to make
-      if (Object.keys(updateData).length === 1) {
+      // If no actual updates provided, return existing record
+      if (Object.keys(updates).length === 0) {
         return this.getContractorWorkerById(context, id);
       }
       
