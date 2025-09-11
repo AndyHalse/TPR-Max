@@ -878,7 +878,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   // Environmental data for CO2 calculations
   transportMethod: text("transport_method").default("car_diesel"), // car_diesel, car_petrol, electric_car, hybrid_car, motorcycle, public_transport, bicycle, walking, van_diesel, van_petrol
-  postcode: text("postcode"), // Worker's home postcode for distance/CO2 calculations
+  postcode: text("postcode"), // Worker's home postcode for distance/CO2 calculations - REQUIRED for emissions tracking
   // Convenience field for displaying company name
   companyName: text("company_name"),
   qrCode: text("qr_code"),

@@ -19,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,19 @@ const editWorkerSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
-  postcode: z.string().optional().or(z.literal("")),
+  postcode: z.string()
+    .min(1, "Home Postcode is required for CO2 emissions calculations")
+    .regex(/^[A-Z]{1,2}[0-9R][0-9A-Z]?\s?[0-9][A-Z]{2}$/i, "Please enter a valid UK postcode (e.g., SW1A 1AA, M1 1AA)")
+    .transform((val) => {
+      // Format UK postcode correctly for CO2 calculations
+      const cleaned = val.replace(/\s/g, '').toUpperCase();
+      if (cleaned.length >= 5) {
+        const inward = cleaned.slice(-3);
+        const outward = cleaned.slice(0, -3);
+        return `${outward} ${inward}`;
+      }
+      return cleaned;
+    }),
   
   // Right to Work
   rightToWork: z.enum(["valid", "expired", "pending", "missing"]).default("pending"),
@@ -362,15 +375,28 @@ export default function EditContractorWorkerModal({
                   name="postcode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Postcode</FormLabel>
+                      <FormLabel>Home Postcode *</FormLabel>
                       <FormControl>
                         <Input 
                           {...field} 
-                          placeholder="e.g., SW1A 1AA" 
+                          placeholder="e.g., SW1A 1AA, M1 1AA, B33 8TH" 
                           data-testid="input-postcode"
-                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          onChange={(e) => {
+                            // Auto-format as user types
+                            let value = e.target.value.replace(/\s/g, '').toUpperCase();
+                            if (value.length > 4) {
+                              const inward = value.slice(-3);
+                              const outward = value.slice(0, -3);
+                              value = `${outward} ${inward}`;
+                            }
+                            field.onChange(value);
+                          }}
+                          className="font-mono"
                         />
                       </FormControl>
+                      <FormDescription className="text-xs text-muted-foreground">
+                        Required for accurate CO2 emissions calculations
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
