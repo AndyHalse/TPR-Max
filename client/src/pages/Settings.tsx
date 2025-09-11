@@ -133,8 +133,8 @@ export default function Settings() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Invalidate all queries to refresh the entire app
-      queryClient.invalidateQueries();
+      // Invalidate all queries to refresh the entire app (TanStack Query v5 format)
+      queryClient.invalidateQueries({ predicate: () => true });
       
       toast({
         title: "Restore Complete",

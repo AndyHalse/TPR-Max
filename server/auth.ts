@@ -59,10 +59,16 @@ export class AuthService {
 
   /**
    * Initialize developer users for testing multi-customer isolation
+   * Only runs in development/test environments for security
    */
   static async initializeDeveloperUser(): Promise<void> {
+    // Only initialize dev users in development/test environments
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+    
     try {
-      // Get passwords from environment variables with fallback defaults for development
+      // Get passwords from environment variables - no fallbacks in production
       const andyPassword = process.env.DEV_ANDY_PASSWORD || 'Kubo1966&&';
       const emmaPassword = process.env.DEV_EMMA_PASSWORD || 'Kubo1976&&';
 
@@ -71,7 +77,9 @@ export class AuthService {
       
       if (existingAndy) {
         console.log('Developer user "Andy" already exists - updating password');
-        await storage.updateUser(existingAndy.id, { password: andyPassword });
+        // Hash password before updating
+        const hashedPassword = await this.hashPassword(andyPassword);
+        await storage.updateUser(existingAndy.id, { password: hashedPassword });
         console.log('Developer user password updated successfully');
       } else {
         await storage.createUser({
@@ -87,7 +95,9 @@ export class AuthService {
       
       if (existingEmma) {
         console.log('Developer user "Emma" already exists - updating password');
-        await storage.updateUser(existingEmma.id, { password: emmaPassword });
+        // Hash password before updating
+        const hashedPassword = await this.hashPassword(emmaPassword);
+        await storage.updateUser(existingEmma.id, { password: hashedPassword });
         console.log('Emma user password updated successfully');
       } else {
         await storage.createUser({
@@ -104,12 +114,14 @@ export class AuthService {
       
       if (existingTestUser) {
         console.log('Test user "TestUser" already exists - updating password');
-        await storage.updateUser(existingTestUser.id, { password: testPassword });
+        // Hash password before updating
+        const hashedPassword = await this.hashPassword(testPassword);
+        await storage.updateUser(existingTestUser.id, { password: hashedPassword });
         console.log('Test user password updated successfully');
       } else {
         await storage.createUser({
           username: 'TestUser',
-          password: testPassword,
+          password: testPassword, // createUser should handle hashing
           customerId: 'test-customer-trial'
         } as any);
         console.log('✅ Test user "TestUser" created successfully for free trial testing');
