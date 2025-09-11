@@ -7258,19 +7258,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contractor Worker Check-in/Check-out endpoints
-  app.post("/api/contractors/workers/:workerId/checkin", async (req, res) => {
+  app.post("/api/contractors/workers/:workerId/checkin", requireAuth, async (req, res) => {
     try {
       const { workerId } = req.params;
       const { purpose, hostStaffId, hostName, hsRulesAccepted } = req.body;
       
-      // Get worker details first
-      const worker = await storage.getContractorWorkerById(workerId);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get worker details using customer-isolated database service
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         return res.status(404).json({ error: "Worker not found" });
       }
 
-      // Get contractor company details to check approval status
-      const company = await storage.getContractorCompanyById(worker.companyId);
+      // Get contractor company details using customer-isolated database service
+      const contractors = await databaseService.getAllContractorCompanies(context);
+      const company = contractors.find(c => c.id === worker.companyId);
       if (!company) {
         return res.status(404).json({ error: "Contractor company not found" });
       }
@@ -7315,23 +7320,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate QR code
       const qrCode = `CONTRACTOR-${workerId}-${Date.now()}`;
       
-      // Create a visit record (H&S will be accepted via e-pass link)
-      const visit = await storage.createContractorVisit({
-        workerId,
-        companyId: worker.companyId,
-        purpose: purpose || "Work",
-        hostStaffId: hostStaffId || null,
-        hostName: hostName || null,
-        hsRulesAccepted: false,  // Will be updated when accepted via e-pass
-        hsRulesAcceptedAt: null,  // Will be updated when accepted via e-pass
-        inductionCompleted: worker.inductionCompleted || false,
-        inductionCompletedAt: worker.inductionCompletedAt || null,
-        qrCode: qrCode,
-        checkedInAt: new Date()
-      });
-      
-      // Mark worker as checked in immediately (H&S rules tracked separately)
-      const updatedWorker = await storage.updateContractorWorker(workerId, {
+      // Mark worker as checked in using customer-isolated database service
+      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         qrCode: qrCode,
         isCheckedIn: true,  // Always mark as checked in when check-in button is clicked
         checkedInAt: new Date(),
@@ -7357,7 +7347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`📧 Sending contractor e-pass to ${worker.email} for H&S acceptance and check-in completion`);
             
             const emailService = new EmailService(companySettings);
-            const passUrl = `${process.env.APP_URL || 'http://localhost:5000'}/pass/contractor/${visit.id}`;
+            const passUrl = `${process.env.APP_URL || 'http://localhost:5000'}/pass/contractor/${workerId}`;
             
             emailSentSuccessfully = await emailService.sendContractorEPass(
               worker.email,
@@ -7371,12 +7361,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
             
             if (emailSentSuccessfully) {
-              // Update visit record with e-pass sent status
-              await storage.updateContractorVisit(visit.id, {
-                ePassSent: true,
-                ePassSentAt: new Date(),
-                passUrl: passUrl
-              });
               ePassSent = true;
               console.log(`✅ E-Pass sent successfully to contractor ${worker.email}`);
             } else {
@@ -7394,7 +7378,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         worker: updatedWorker,
-        visit: visit,
         ePassSent: ePassSent,
         hasEmail: !!worker.email,
         message: worker.email 
