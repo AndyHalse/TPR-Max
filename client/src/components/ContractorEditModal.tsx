@@ -524,9 +524,14 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           <Clock className="h-4 w-4 text-slate-500" />
                           <span className="font-semibold">Visit #{workerHistory.length - index}</span>
                         </div>
-                        {!visit.checkedOutAt && (
+                        {!visit.checkedOutAt && new Date(visit.checkedInAt).toDateString() === new Date().toDateString() && (
                           <Badge className="bg-green-500 text-white">
                             Currently On-Site
+                          </Badge>
+                        )}
+                        {!visit.checkedOutAt && new Date(visit.checkedInAt).toDateString() !== new Date().toDateString() && (
+                          <Badge className="bg-orange-500 text-white">
+                            Not Checked Out
                           </Badge>
                         )}
                       </div>
@@ -544,7 +549,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           <div className="font-medium">
                             {visit.checkedOutAt 
                               ? format(new Date(visit.checkedOutAt), 'dd/MM/yyyy HH:mm')
-                              : 'Still on-site'}
+                              : new Date(visit.checkedInAt).toDateString() === new Date().toDateString()
+                                ? 'Still on-site'
+                                : 'Not checked out'}
                           </div>
                         </div>
                       </div>
