@@ -7422,24 +7422,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Worker not found" });
       }
 
-      // Find the current visit record (determines check-in status like the modal does)
-      const currentVisit = await storage.getCurrentContractorVisit(workerId);
-      if (!currentVisit) {
-        return res.status(400).json({ error: "Worker is not currently checked in" });
-      }
-      if (currentVisit) {
-        // Update visit with checkout time
-        await storage.updateContractorVisit(currentVisit.id, {
-          checkedOutAt: new Date(),
-          checkoutType: checkoutType || 'manual'
-        });
-      }
-
-      // Update worker status
-      const updatedWorker = await storage.updateContractorWorker(workerId, {
+      // Update worker status using customer-isolated database service
+      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         isCheckedIn: false,
-        checkedOutAt: new Date(),
-        qrCode: null
+        checkedOutAt: new Date()
       });
 
       res.json({
