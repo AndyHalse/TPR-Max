@@ -124,6 +124,8 @@ export default function Contractors() {
     lastName: "",
     email: "",
     phone: "",
+    postcode: "",
+    transportMethod: "car_diesel" as "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle",
     rightToWork: "",
     cscsCard: "",
     cscsStatus: "valid" as "valid" | "expired" | "pending",
@@ -1955,6 +1957,39 @@ export default function Contractors() {
               />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Home Post Code *</label>
+              <Input
+                value={workerForm.postcode}
+                onChange={(e) => setWorkerForm({ ...workerForm, postcode: e.target.value.replace(/\s/g, '').toUpperCase() })}
+                placeholder="SW1A 1AA"
+                maxLength={8}
+                data-testid="input-worker-postcode"
+                style={{ textTransform: 'uppercase' }}
+              />
+              <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Vehicle Fuel Type *</label>
+              <Select
+                value={workerForm.transportMethod}
+                onValueChange={(value: "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle") => 
+                  setWorkerForm({ ...workerForm, transportMethod: value })
+                }
+              >
+                <SelectTrigger data-testid="select-transport-method">
+                  <SelectValue placeholder="Select vehicle type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="car_diesel">🚗 Diesel Car</SelectItem>
+                  <SelectItem value="car_petrol">🚗 Petrol Car</SelectItem>
+                  <SelectItem value="electric_car">⚡ Electric Car</SelectItem>
+                  <SelectItem value="motorcycle">🏍️ Motorcycle</SelectItem>
+                  <SelectItem value="public_transport">🚌 Public Transport</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Right to Work Status</label>
               <Select
                 value={workerForm.rightToWork}
@@ -2073,7 +2108,7 @@ export default function Contractors() {
             </Button>
             <Button 
               onClick={handleAddWorker}
-              disabled={!workerForm.firstName || !workerForm.lastName || createWorkerMutation.isPending}
+              disabled={!workerForm.firstName || !workerForm.lastName || !workerForm.postcode || !workerForm.transportMethod || createWorkerMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-save-worker"
             >

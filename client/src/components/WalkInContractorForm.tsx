@@ -27,6 +27,8 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
     workerLastName: "",
     workerEmail: "",
     workerPhone: "",
+    workerPostcode: "",
+    workerTransportMethod: "car_diesel" as "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle",
     rightToWork: "",
     cscsCard: "",
     purpose: "",
@@ -62,6 +64,8 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
         lastName: data.workerLastName,
         email: data.workerEmail,
         phone: data.workerPhone,
+        postcode: data.workerPostcode,
+        transportMethod: data.workerTransportMethod,
         rightToWork: data.rightToWork || "pending",
         cscsCard: data.cscsCard,
         cscsStatus: data.cscsCard ? "valid" : "missing",
@@ -95,6 +99,24 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
       toast({
         title: "Error",
         description: "Company name and worker name are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.workerPostcode.trim()) {
+      toast({
+        title: "Error",
+        description: "Worker home post code is required for CO2 calculations",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.workerTransportMethod) {
+      toast({
+        title: "Error",
+        description: "Worker vehicle fuel type is required for CO2 calculations",
         variant: "destructive",
       });
       return;
@@ -245,6 +267,38 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                   placeholder="Enter worker phone"
                   data-testid="input-worker-phone"
                 />
+              </div>
+              
+              <div>
+                <Label htmlFor="workerPostcode">Home Post Code *</Label>
+                <Input
+                  id="workerPostcode"
+                  value={formData.workerPostcode}
+                  onChange={(e) => handleInputChange("workerPostcode", e.target.value.replace(/\s/g, '').toUpperCase())}
+                  placeholder="SW1A1AA"
+                  maxLength={8}
+                  data-testid="input-worker-postcode"
+                  style={{ textTransform: 'uppercase' }}
+                  required
+                />
+                <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
+              </div>
+              
+              <div>
+                <Label htmlFor="workerTransportMethod">Vehicle Fuel Type *</Label>
+                <Select value={formData.workerTransportMethod} onValueChange={(value) => handleInputChange("workerTransportMethod", value)}>
+                  <SelectTrigger data-testid="select-worker-transport-method">
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="car_diesel">🚗 Diesel Car</SelectItem>
+                    <SelectItem value="car_petrol">🚗 Petrol Car</SelectItem>
+                    <SelectItem value="electric_car">⚡ Electric Car</SelectItem>
+                    <SelectItem value="motorcycle">🏍️ Motorcycle</SelectItem>
+                    <SelectItem value="public_transport">🚌 Public Transport</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
               </div>
               
               <div>
