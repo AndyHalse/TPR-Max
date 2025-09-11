@@ -1355,9 +1355,76 @@ export class DatabaseService {
   async getContractorVisitHistory(context: CustomerContext, workerId: string): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // Get visit history for the worker (contractor visits table doesn't exist yet in customer DB)
-    // For now, return empty array until visit tracking is implemented
-    return [];
+    try {
+      // Query contractor visits for this worker
+      const visits = await db
+        .select()
+        .from(schema.contractorVisits)
+        .where(eq(schema.contractorVisits.workerId, workerId))
+        .orderBy(desc(schema.contractorVisits.checkedInAt));
+      
+      console.log(`📋 Found ${visits.length} visit records for worker ${workerId}`);
+      return visits;
+    } catch (error) {
+      console.error("Error querying contractor visits:", error);
+      return [];
+    }
+  }
+
+  async createContractorVisit(context: CustomerContext, visitData: any): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      const [newVisit] = await db
+        .insert(schema.contractorVisits)
+        .values(visitData)
+        .returning();
+      
+      console.log(`📋 Created visit record for worker ${visitData.workerId}`);
+      return newVisit;
+    } catch (error) {
+      console.error("Error creating contractor visit:", error);
+      throw error;
+    }
+  }
+
+  async updateContractorVisit(context: CustomerContext, visitId: string, updates: any): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      const [updatedVisit] = await db
+        .update(schema.contractorVisits)
+        .set(updates)
+        .where(eq(schema.contractorVisits.id, visitId))
+        .returning();
+      
+      console.log(`📋 Updated visit record ${visitId}`);
+      return updatedVisit;
+    } catch (error) {
+      console.error("Error updating contractor visit:", error);
+      throw error;
+    }
+  }
+
+  async getCurrentContractorVisit(context: CustomerContext, workerId: string): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      const [currentVisit] = await db
+        .select()
+        .from(schema.contractorVisits)
+        .where(and(
+          eq(schema.contractorVisits.workerId, workerId),
+          isNull(schema.contractorVisits.checkedOutAt)
+        ))
+        .orderBy(desc(schema.contractorVisits.checkedInAt))
+        .limit(1);
+      
+      return currentVisit || null;
+    } catch (error) {
+      console.error("Error getting current contractor visit:", error);
+      return null;
+    }
   }
 
   async createContractorWorker(context: CustomerContext, insertWorker: any): Promise<any> {

@@ -7325,6 +7325,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hsRulesAccepted: worker.hsRulesAccepted || hsRulesAccepted || false
       });
 
+      // Create a visit record for history tracking
+      const visitData = {
+        workerId: workerId,
+        companyId: worker.companyId,
+        purpose: purpose || "Site work",
+        checkedInAt: new Date(),
+        hostStaffId: hostStaffId,
+        hostName: hostName,
+        hsRulesAccepted: worker.hsRulesAccepted || hsRulesAccepted || false,
+        qrCode: qrCode
+      };
+      
+      await databaseService.createContractorVisit(context, visitData);
+      console.log(`📋 Created visit record for ${worker.firstName} ${worker.lastName}`);
+
       let ePassSent = false;
       let emailSentSuccessfully = false;
       
@@ -7407,6 +7422,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedOutAt: new Date()
       });
 
+      // Complete the current visit record
+      const currentVisit = await databaseService.getCurrentContractorVisit(context, workerId);
+      if (currentVisit) {
+        await databaseService.updateContractorVisit(context, currentVisit.id, {
+          checkedOutAt: new Date()
+        });
+        console.log(`📋 Completed visit record for ${worker.firstName} ${worker.lastName}`);
+      }
+
       res.json({
         success: true,
         worker: updatedWorker,
@@ -7423,12 +7447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contractors/workers/:workerId/history", requireAuth, async (req, res) => {
     try {
       const { workerId } = req.params;
-      const customerId = req.user?.customerId;
-
-      if (!customerId) {
-        return res.status(400).json({ error: "Customer context required" });
-      }
-
+      
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
