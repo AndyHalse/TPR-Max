@@ -25,7 +25,14 @@ import {
   printQueue,
   insertPrintQueueSchema,
   printJobHistory,
-  insertPrintJobHistorySchema
+  insertPrintJobHistorySchema,
+  helpCategories,
+  helpArticles,
+  helpUserInteractions,
+  helpOnboardingProgress,
+  insertHelpArticleSchema,
+  insertHelpUserInteractionSchema,
+  insertHelpOnboardingProgressSchema
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -576,6 +583,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching AI safety image by type:', error);
       res.status(500).json({ error: 'Failed to fetch AI safety image' });
+    }
+  });
+
+  // Help System endpoints
+  app.get("/api/help/categories", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation
+      const username = req.user.username;
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const categories = await db.select()
+        .from(helpCategories)
+        .where(and(
+          eq(helpCategories.isActive, true),
+          sql`(${helpCategories.customerId} IS NULL OR ${helpCategories.customerId} = ${context.customerId})`
+        ))
+        .orderBy(helpCategories.sortOrder, helpCategories.name);
+      
+      res.json(categories);
+    } catch (error) {
+      console.error('Error fetching help categories:', error);
+      res.status(500).json({ error: 'Failed to fetch help categories' });
+    }
+  });
+
+  app.get("/api/help/articles/featured", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation
+      const username = req.user.username;
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const articles = await db.select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          eq(helpArticles.isFeatured, true),
+          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`
+        ))
+        .orderBy(helpArticles.helpfulCount, helpArticles.viewCount)
+        .limit(10);
+      
+      res.json(articles);
+    } catch (error) {
+      console.error('Error fetching featured help articles:', error);
+      res.status(500).json({ error: 'Failed to fetch featured articles' });
+    }
+  });
+
+  app.get("/api/help/articles/contextual", requireAuth, async (req, res) => {
+    try {
+      const { location } = req.query;
+      const page = location && typeof location === 'string' ? location.replace('/', '') : '';
+      
+      // Get customer context for isolation
+      const username = req.user.username;
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const articles = await db.select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          sql`${page} = ANY(${helpArticles.targetPages})`,
+          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`
+        ))
+        .orderBy(helpArticles.sortOrder, helpArticles.helpfulCount)
+        .limit(5);
+      
+      res.json(articles);
+    } catch (error) {
+      console.error('Error fetching contextual help articles:', error);
+      res.status(500).json({ error: 'Failed to fetch contextual articles' });
+    }
+  });
+
+  app.get("/api/help/articles/general", requireAuth, async (req, res) => {
+    try {
+      // Handle general help articles
+      const username = req.user.username;
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const articles = await db.select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          eq(helpArticles.isQuickStart, true),
+          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`
+        ))
+        .orderBy(helpArticles.sortOrder, helpArticles.helpfulCount)
+        .limit(5);
+      
+      res.json(articles);
+    } catch (error) {
+      console.error('Error fetching general help articles:', error);
+      res.status(500).json({ error: 'Failed to fetch help articles' });
+    }
+  });
+
+  app.get("/api/help/articles/search", requireAuth, async (req, res) => {
+    try {
+      const { searchQuery } = req.query;
+      const query = searchQuery && typeof searchQuery === 'string' ? searchQuery : '';
+      
+      if (!query || query.length < 3) {
+        return res.json([]);
+      }
+      
+      // Get customer context for isolation
+      const username = req.user.username;
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const articles = await db.select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`,
+          sql`(
+            LOWER(${helpArticles.title}) LIKE LOWER(${'%' + query + '%'}) OR 
+            LOWER(${helpArticles.content}) LIKE LOWER(${'%' + query + '%'}) OR 
+            LOWER(${helpArticles.summary}) LIKE LOWER(${'%' + query + '%'}) OR 
+            EXISTS (SELECT 1 FROM unnest(${helpArticles.searchKeywords}) AS keyword WHERE LOWER(keyword) LIKE LOWER(${'%' + query + '%'}))
+          )`
+        ))
+        .orderBy(helpArticles.helpfulCount, helpArticles.viewCount)
+        .limit(20);
+      
+      res.json(articles);
+    } catch (error) {
+      console.error('Error searching help articles:', error);
+      res.status(500).json({ error: 'Failed to search articles' });
+    }
+  });
+
+  app.post("/api/help/interactions", requireAuth, async (req, res) => {
+    try {
+      const interactionData = insertHelpUserInteractionSchema.parse(req.body);
+      
+      // Get customer context for isolation
+      const username = req.user.username;
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const [interaction] = await db.insert(helpUserInteractions)
+        .values({
+          ...interactionData,
+          customerId: context.customerId,
+          userId: req.session.userId || null,
+        })
+        .returning();
+      
+      // Update article view count if this is a view interaction
+      if (interactionData.interactionType === 'view') {
+        await db.update(helpArticles)
+          .set({ 
+            viewCount: sql`${helpArticles.viewCount} + 1`,
+            lastViewedAt: new Date()
+          })
+          .where(eq(helpArticles.id, interactionData.articleId));
+      }
+      
+      // Update helpful/not helpful counts
+      if (interactionData.interactionType === 'helpful') {
+        await db.update(helpArticles)
+          .set({ helpfulCount: sql`${helpArticles.helpfulCount} + 1` })
+          .where(eq(helpArticles.id, interactionData.articleId));
+      } else if (interactionData.interactionType === 'not_helpful') {
+        await db.update(helpArticles)
+          .set({ notHelpfulCount: sql`${helpArticles.notHelpfulCount} + 1` })
+          .where(eq(helpArticles.id, interactionData.articleId));
+      }
+      
+      res.json({ success: true, interaction });
+    } catch (error) {
+      console.error('Error tracking help interaction:', error);
+      res.status(500).json({ error: 'Failed to track interaction' });
     }
   });
 

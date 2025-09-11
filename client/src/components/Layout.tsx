@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
+import HelpButton from "@/components/HelpButton";
+import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect } from "react";
 
@@ -13,6 +15,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   
   // Get current user info
   const { data: user } = useQuery<{ id: string; username: string }>({
@@ -241,6 +244,16 @@ export default function Layout({ children }: LayoutProps) {
           {children}
         </div>
       </div>
+
+      {/* Help System */}
+      <HelpButton 
+        onClick={() => setIsHelpPanelOpen(!isHelpPanelOpen)} 
+        isHelpPanelOpen={isHelpPanelOpen} 
+      />
+      <HelpPanel 
+        isOpen={isHelpPanelOpen} 
+        onClose={() => setIsHelpPanelOpen(false)} 
+      />
     </div>
   );
 }
