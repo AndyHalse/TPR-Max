@@ -96,6 +96,18 @@ export default function Dashboard() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  // Company settings for feature toggles
+  const { data: settings } = useQuery<{
+    featureMultiTenant?: boolean;
+    featureMeetingRooms?: boolean;
+    featureTimeAttendance?: boolean;
+    featureInductionSettings?: boolean;
+    featureKiosk?: boolean;
+    featureAiDemo?: boolean;
+  }>({
+    queryKey: ["/api/settings"],
+  });
+
   // Meeting room booking data for today
   const { data: todayRoomBookings, isLoading: roomBookingsLoading } = useQuery<RoomBooking[]>({
     queryKey: ["/api/room-bookings/today"],
@@ -552,84 +564,86 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Multi-Tenant Building Overview */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
-            <Building2 className="text-blue-600" size={20} />
-            Building Overview
-          </h2>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setLocation('/multi-tenant')}
-            className="flex items-center gap-2"
-            data-testid="button-multi-tenant-dashboard"
-          >
-            <Settings className="w-4 h-4" />
-            Multi-Tenant Dashboard
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <GlassCard className="dark:glass-dark">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-variable text-sm font-medium">Total Companies</p>
-                <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-total-companies">
-                  {stats?.totalCompanies || 0}
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  Active tenants in building
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                <Building2 className="text-blue-600 dark:text-blue-400" size={24} />
-              </div>
-            </div>
-          </GlassCard>
+      {/* Multi-Tenant Building Overview - Only show if feature is enabled */}
+      {settings?.featureMultiTenant !== false && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
+              <Building2 className="text-blue-600" size={20} />
+              Building Overview
+            </h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setLocation('/multi-tenant')}
+              className="flex items-center gap-2"
+              data-testid="button-multi-tenant-dashboard"
+            >
+              <Settings className="w-4 h-4" />
+              Multi-Tenant Dashboard
+            </Button>
+          </div>
           
-          <GlassCard hover className="cursor-pointer dark:glass-dark" onClick={() => setOpenModal('total-people')}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-variable text-sm font-medium">Total People</p>
-                <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-building-occupancy">
-                  {((stats?.currentVisitors || 0) + (stats?.staffOnSite || 0) + (stats?.contractorsOnSite || 0))}
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  All people on-site
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                <UsersRound className="text-green-600 dark:text-green-400" size={24} />
-              </div>
-            </div>
-          </GlassCard>
-          
-          <GlassCard className="dark:glass-dark">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-variable text-sm font-medium">Quick Actions</p>
-                <div className="mt-2 space-y-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full text-xs flex items-center justify-center gap-2"
-                    onClick={() => setLocation('/multi-tenant')}
-                    data-testid="button-manage-tenants"
-                  >
-                    <Eye className="w-3 h-3" />
-                    View All Tenants
-                  </Button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <GlassCard className="dark:glass-dark">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-variable text-sm font-medium">Total Companies</p>
+                  <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-total-companies">
+                    {stats?.totalCompanies || 0}
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    Active tenants in building
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                  <Building2 className="text-blue-600 dark:text-blue-400" size={24} />
                 </div>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                <Settings className="text-purple-600 dark:text-purple-400" size={24} />
+            </GlassCard>
+            
+            <GlassCard hover className="cursor-pointer dark:glass-dark" onClick={() => setOpenModal('total-people')}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-variable text-sm font-medium">Total People</p>
+                  <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-building-occupancy">
+                    {((stats?.currentVisitors || 0) + (stats?.staffOnSite || 0) + (stats?.contractorsOnSite || 0))}
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    All people on-site
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                  <UsersRound className="text-green-600 dark:text-green-400" size={24} />
+                </div>
               </div>
-            </div>
-          </GlassCard>
+            </GlassCard>
+            
+            <GlassCard className="dark:glass-dark">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-variable text-sm font-medium">Quick Actions</p>
+                  <div className="mt-2 space-y-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full text-xs flex items-center justify-center gap-2"
+                      onClick={() => setLocation('/multi-tenant')}
+                      data-testid="button-manage-tenants"
+                    >
+                      <Eye className="w-3 h-3" />
+                      View All Tenants
+                    </Button>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                  <Settings className="text-purple-600 dark:text-purple-400" size={24} />
+                </div>
+              </div>
+            </GlassCard>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Advanced Analytics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
