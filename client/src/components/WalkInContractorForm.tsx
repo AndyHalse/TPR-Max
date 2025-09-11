@@ -18,10 +18,12 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     companyName: "",
-    contactPerson: "",
+    contactFirstName: "",
+    contactLastName: "",
     email: "",
     phone: "",
     address: "",
+    postcode: "",
     // Worker details
     workerFirstName: "",
     workerLastName: "",
@@ -52,7 +54,9 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
         email: data.email,
         phone: data.phone,
         address: data.address,
-        contactPerson: data.contactPerson,
+        postcode: data.postcode,
+        contactFirstName: data.contactFirstName,
+        contactLastName: data.contactLastName,
         status: "pending", // Walk-ins need approval
       });
       
@@ -95,10 +99,10 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.companyName.trim() || !formData.workerFirstName.trim() || !formData.workerLastName.trim()) {
+    if (!formData.companyName.trim() || !formData.contactFirstName.trim() || !formData.contactLastName.trim() || !formData.workerFirstName.trim() || !formData.workerLastName.trim()) {
       toast({
         title: "Error",
-        description: "Company name and worker name are required",
+        description: "Company name, contact person name, and worker name are required",
         variant: "destructive",
       });
       return;
@@ -167,13 +171,25 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
               </div>
               
               <div>
-                <Label htmlFor="contactPerson">Contact Person *</Label>
+                <Label htmlFor="contactFirstName">Contact First Name *</Label>
                 <Input
-                  id="contactPerson"
-                  value={formData.contactPerson}
-                  onChange={(e) => handleInputChange("contactPerson", e.target.value)}
-                  placeholder="Enter contact person name"
-                  data-testid="input-contact-person"
+                  id="contactFirstName"
+                  value={formData.contactFirstName}
+                  onChange={(e) => handleInputChange("contactFirstName", e.target.value)}
+                  placeholder="Enter contact first name"
+                  data-testid="input-contact-first-name"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="contactLastName">Contact Last Name *</Label>
+                <Input
+                  id="contactLastName"
+                  value={formData.contactLastName}
+                  onChange={(e) => handleInputChange("contactLastName", e.target.value)}
+                  placeholder="Enter contact last name"
+                  data-testid="input-contact-last-name"
                   required
                 />
               </div>
@@ -199,6 +215,20 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                   placeholder="Enter phone number"
                   data-testid="input-phone"
                 />
+              </div>
+              
+              <div>
+                <Label htmlFor="postcode">Post Code</Label>
+                <Input
+                  id="postcode"
+                  value={formData.postcode}
+                  onChange={(e) => handleInputChange("postcode", e.target.value.replace(/\s/g, '').toUpperCase())}
+                  placeholder="SW1A1AA"
+                  maxLength={8}
+                  data-testid="input-company-postcode"
+                  style={{ textTransform: 'uppercase' }}
+                />
+                <p className="text-xs text-slate-500">Company post code for better data management</p>
               </div>
               
               <div className="md:col-span-2">
