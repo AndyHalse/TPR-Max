@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -52,6 +52,7 @@ interface CompanyComboboxProps {
 function CompanyCombobox({ value, onChange, companies, placeholder = "Select or type company...", className, testId }: CompanyComboboxProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
+  const companyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update inputValue when value prop changes
   useEffect(() => {
@@ -69,8 +70,9 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
     onChange(newValue);
     
     // Clear any existing timeout
-    if (window.companyTimeout) {
-      clearTimeout(window.companyTimeout);
+    if (companyTimeoutRef.current) {
+      clearTimeout(companyTimeoutRef.current);
+      companyTimeoutRef.current = null;
     }
     
     if (newValue.length >= 2) {
@@ -81,7 +83,7 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
       
       if (hasMatches) {
         // Show suggestions only if there are potential matches
-        window.companyTimeout = setTimeout(() => {
+        companyTimeoutRef.current = setTimeout(() => {
           const currentInput = document.activeElement as HTMLInputElement;
           if (currentInput && currentInput.value === newValue) {
             setOpen(true);
