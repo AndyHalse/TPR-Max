@@ -26,6 +26,8 @@ import type {
   InsertCO2MonthlySummary,
   CO2SustainabilityReport,
   InsertCO2SustainabilityReport,
+  CardIssue,
+  InsertCardIssue,
 } from "@shared/schema";
 import * as schema from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -1471,6 +1473,59 @@ export class DatabaseService {
       .from(schema.cardOffences)
       .where(eq(schema.cardOffences.customerId, context.customerId))
       .orderBy(schema.cardOffences.cardType, schema.cardOffences.offenceName);
+  }
+
+  // Card issues methods
+  async createCardIssue(context: CustomerContext, data: InsertCardIssue): Promise<CardIssue> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    console.log("🔴 Creating customer card issue with data:", data);
+    
+    // Ensure required fields are present
+    const cardIssueData = {
+      ...data,
+      id: randomUUID(),
+      customerId: context.customerId,
+      issuedAt: data.issuedAt || new Date(),
+      photos: data.photos || [],
+      status: data.status || "active"
+    };
+    
+    console.log("🔴 Final customer card issue data:", cardIssueData);
+    
+    const [issue] = await db.insert(schema.cardIssues).values(cardIssueData).returning();
+    
+    // Update worker's card status
+    await this.updateWorkerCardStatus(context, data.workerId, data.cardType as "red" | "yellow", data.issuedBy);
+    
+    return issue;
+  }
+
+  // Update worker's current card status
+  async updateWorkerCardStatus(context: CustomerContext, workerId: string, cardType: "red" | "yellow", updatedBy: string): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updateData: any = {
+      currentCardStatus: cardType,
+      cardStatusUpdatedAt: new Date(),
+      cardStatusUpdatedBy: updatedBy,
+    };
+
+    // If red card, set 3-year ban
+    if (cardType === "red") {
+      const banEndDate = new Date();
+      banEndDate.setFullYear(banEndDate.getFullYear() + 3);
+      updateData.redCardBanUntil = banEndDate;
+    }
+
+    console.log(`🔴 Updating worker ${workerId} card status to ${cardType}`);
+
+    await db
+      .update(schema.contractorWorkers)
+      .set(updateData)
+      .where(eq(schema.contractorWorkers.id, workerId));
+      
+    console.log(`✅ Worker card status updated successfully`);
   }
 
   async seedCustomerCardOffences(context: CustomerContext): Promise<void> {
