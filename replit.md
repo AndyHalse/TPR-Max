@@ -10,6 +10,24 @@ The application follows a full-stack architecture with React frontend, Express b
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### Feature Toggle System Implementation
+- Added comprehensive feature toggle system to allow customers to disable unused features for simplified interface
+- Database schema enhanced with 6 boolean feature toggles in companySettings table
+- Navigation automatically hides icons when corresponding features are disabled
+- Settings page includes dedicated Feature Toggles panel with visual switches
+- Dashboard conditionally renders sections based on feature toggles (e.g., Building Overview for multi-tenant)
+- All feature states persist per customer with proper isolation
+
+Available toggles:
+- Multi-Tenant: Building overview & tenant management
+- Meeting Rooms: Room booking & management  
+- Time Attendance: Staff time tracking & reports
+- Induction Settings: Safety induction configuration
+- Kiosk Mode: Self-service check-in kiosks
+- AI Demo: AI-powered features showcase
+
 ## System Architecture
 
 ### Frontend Architecture

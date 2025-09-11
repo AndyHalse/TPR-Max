@@ -105,22 +105,36 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [settings?.backgroundColor, settings?.foregroundColor, settings?.variableTextColor, settings?.accentColor]);
 
-  const navItems = [
-    { path: "/", icon: ChartLine, label: "Dashboard" },
-    { path: "/visitors", icon: User, label: "Visitors" },
-    { path: "/contractors", icon: HardHat, label: "Contractors" },
-    { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out" },
-    { path: "/staff", icon: Users, label: "Staff" },
-    { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms" },
-    { path: "/time-attendance", icon: Clock, label: "T&A Report" },
-    { path: "/muster", icon: ListChecks, label: "Muster List" },
-    { path: "/reports", icon: FileText, label: "Reports" },
-    { path: "/induction-settings", icon: Video, label: "Induction Settings" },
-    { path: "/kiosk", icon: Dock, label: "Kiosk Mode" },
-    { path: "/ai-demo", icon: Brain, label: "AI Demo" },
-    { path: "/multi-tenant", icon: Building2, label: "Multi-Tenant" },
-    { path: "/settings", icon: Settings, label: "Settings" },
+  const allNavItems = [
+    { path: "/", icon: ChartLine, label: "Dashboard", alwaysVisible: true },
+    { path: "/visitors", icon: User, label: "Visitors", alwaysVisible: true },
+    { path: "/contractors", icon: HardHat, label: "Contractors", alwaysVisible: true },
+    { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", alwaysVisible: true },
+    { path: "/staff", icon: Users, label: "Staff", alwaysVisible: true },
+    { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms" },
+    { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance" },
+    { path: "/muster", icon: ListChecks, label: "Muster List", alwaysVisible: true },
+    { path: "/reports", icon: FileText, label: "Reports", alwaysVisible: true },
+    { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings" },
+    { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk" },
+    { path: "/ai-demo", icon: Brain, label: "AI Demo", featureKey: "featureAiDemo" },
+    { path: "/multi-tenant", icon: Building2, label: "Multi-Tenant", featureKey: "featureMultiTenant" },
+    { path: "/settings", icon: Settings, label: "Settings", alwaysVisible: true },
   ];
+
+  // Filter navigation items based on feature toggles
+  const navItems = allNavItems.filter(item => {
+    // Always show items marked as alwaysVisible
+    if (item.alwaysVisible) return true;
+    
+    // For items with feature toggles, check if the feature is enabled
+    if (item.featureKey && settings) {
+      return settings[item.featureKey as keyof CompanySettings] !== false;
+    }
+    
+    // If no settings loaded yet, show all items (avoid hiding during loading)
+    return !settings || true;
+  });
 
   return (
     <div className="min-h-screen">
