@@ -5363,7 +5363,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           contactPhone: preBooking.contactPhone,
           status: 'pending', // New companies start as pending
           address: '',
-          contactPerson: preBooking.workerName
+          contactFirstName: preBooking.workerName.split(' ')[0] || preBooking.workerName,
+          contactLastName: preBooking.workerName.split(' ').slice(1).join(' ') || ''
         });
       }
       
@@ -6592,7 +6593,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             customerId: context.customerId, // Add customer isolation
             name: "Steel Works Ltd",
-            contactPerson: "John Smith",
+            contactFirstName: "John",
+            contactLastName: "Smith",
             email: "john.smith@steelworks.co.uk",
             phone: "+44 1234 567890",
             address: "123 Industrial Estate, Manchester M1 1AA"
@@ -6600,7 +6602,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             customerId: context.customerId, // Add customer isolation
             name: "Prime Construction",
-            contactPerson: "Sarah Johnson",
+            contactFirstName: "Sarah",
+            contactLastName: "Johnson",
             email: "sarah@primeconstruction.co.uk", 
             phone: "+44 2034 567891",
             address: "456 Building Road, London E1 4AB"
@@ -6608,7 +6611,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             customerId: context.customerId, // Add customer isolation
             name: "Elite Engineering Services",
-            contactPerson: "Mike Wilson",
+            contactFirstName: "Mike",
+            contactLastName: "Wilson",
             email: "mike.wilson@eliteeng.co.uk",
             phone: "+44 3456 789012",
             address: "789 Tech Park, Birmingham B2 5CD"
