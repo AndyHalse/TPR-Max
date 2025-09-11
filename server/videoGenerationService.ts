@@ -306,9 +306,15 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         throw new Error('CRITICAL: OpenAI API key not configured');
       }
       
-      // Force GPT-4o since GPT-5 is not available yet
-      let selectedModel = "gpt-4o";
-      console.log(`🤖 Selected AI model: ${selectedModel} (forced to use available model)`);
+      // Use the latest available model with intelligent fallback
+      let selectedModel = this.companySettings?.openaiModel || "gpt-4o";
+      
+      // Try GPT-5 first if configured, with fallback strategy
+      if (selectedModel === "gpt-5") {
+        console.log(`🤖 Attempting to use GPT-5 for enhanced induction generation...`);
+      } else {
+        console.log(`🤖 Selected AI model: ${selectedModel}`);
+      }
       
       let response;
       let apiStartTime: number = Date.now();
@@ -322,75 +328,197 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         messages: [
           {
             role: "system",
-            content: `You are a UK Health & Safety expert creating professional induction content. You MUST respond with valid JSON format containing script, scenes array, and totalDuration. Each scene must have title, content, duration, and imagePrompt fields.`
+            content: `You are a UK Health & Safety expert with extensive experience in workplace safety training and induction program development. Your expertise includes:
+
+            - NEBOSH and IOSH certified safety training principles
+            - UK HSE regulations and industry-specific compliance requirements  
+            - Adult learning psychology and engagement techniques
+            - Modern safety training methodologies and best practices
+            - Risk assessment and hazard identification expertise
+            - Emergency response planning and procedures
+            
+            Your task is to create professional, engaging safety induction content that meets UK standards and is tailored to the specific company and industry context provided.`
           },
           {
             role: "user", 
             content: `${prompt}
 
-            Create an induction script with 6-8 scenes, each 2-3 minutes long.
-
-            IMPORTANT: Respond ONLY with a valid JSON object in this exact format:
+            ENHANCED INSTRUCTION SET:
+            
+            Step 1: Content Planning
+            - Analyze the company profile and industry context provided
+            - Identify key safety risks and regulatory requirements specific to this organization
+            - Plan content flow that builds from basic concepts to advanced applications
+            
+            Step 2: Script Development  
+            - Create an engaging, conversational narration script (750-1200 words)
+            - Use UK Health & Safety terminology and legal frameworks
+            - Include specific examples relevant to the company's industry and operations
+            - Maintain professional yet approachable tone throughout
+            
+            Step 3: Scene Structure (6-8 scenes, 2-3 minutes each)
+            Required scenes with industry-specific adaptations:
+            1. Welcome & Company Introduction (incorporate company culture and values)
+            2. Legal Framework & Responsibilities (UK HSE requirements + industry-specific regulations)
+            3. PPE Requirements (role and environment-specific equipment)
+            4. Hazard Identification (company-specific workplace hazards)
+            5. Emergency Procedures (facility-specific protocols and assembly points)
+            6. Safe Work Practices (industry and role-specific procedures)
+            7. Environmental & Health Considerations (company sustainability and wellness policies)
+            8. Assessment & Continuous Learning (company training requirements and feedback mechanisms)
+            
+            Step 4: Visual Content Planning
+            - Each scene requires an "imagePrompt" for AI image generation
+            - Prompts should be detailed, professional, and contextually relevant
+            - Include specific safety equipment, workplace settings, and diverse representation
+            - Avoid text/logos in image descriptions (pure visual content)
+            
+            CRITICAL OUTPUT REQUIREMENTS:
+            Respond with ONLY valid JSON in this exact structure (no additional text):
             {
-              "script": "Full narration text here",
+              "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
               "scenes": [
                 {
-                  "title": "Scene title",
-                  "content": "Scene content/narration",
+                  "title": "Descriptive scene title",
+                  "content": "Detailed scene narration (100-150 words)",
                   "duration": 180,
-                  "imagePrompt": "Description for safety illustration"
+                  "imagePrompt": "Detailed visual description for AI image generation, photorealistic, professional workplace setting, diverse representation, no text or logos"
                 }
               ],
               "totalDuration": 1200
             }
-
-            Include exactly 6-8 scenes covering: Introduction, PPE requirements, Emergency procedures, Hazard identification, Safe work practices, Environmental responsibilities, Health requirements, and Summary.`
+            
+            Quality Standards:
+            - Script must be informative, engaging, and legally compliant
+            - Each scene must advance the learning objectives progressively  
+            - Content must reflect the company's industry and operational context
+            - Include UK-specific emergency numbers, legal references, and procedures
+            - Ensure accessibility and inclusive language throughout`
           }
         ],
         response_format: { type: "json_object" },
         temperature: 0.7,
-        max_tokens: 4000,
+        // Dynamic token allocation based on complexity and model capabilities
+        ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
+          ? { 
+            max_completion_tokens: this.calculateOptimalTokens(prompt.length, roleType, videoFormat),
+            stream: false
+          }
+          : { 
+            max_tokens: Math.min(4000, this.calculateOptimalTokens(prompt.length, roleType, videoFormat))
+          }),
         });
       } catch (error: any) {
-        if (error.code === 'model_not_found' && selectedModel === 'gpt-5') {
-          console.log('⚠️ GPT-5 model not found, retrying with GPT-5');
-          selectedModel = 'gpt-5';
+        console.log(`⚠️ AI generation attempt failed: ${error.message}`);
+        
+        // Intelligent model fallback strategy
+        if (error.code === 'model_not_found' || error.message?.includes('model') || error.status === 404) {
+          console.log(`🔄 Model ${selectedModel} not available, implementing fallback strategy...`);
           
-          response = await openai.chat.completions.create({
-            model: selectedModel,
-            messages: [
-              {
-                role: "system",
-                content: `You are a UK Health & Safety expert creating professional induction content. You MUST respond with valid JSON format. Create a detailed, engaging script that covers all essential safety points for ${roleType}s.`
-              },
-              {
-                role: "user", 
-                content: `${prompt}
+          const fallbackModels = ['gpt-4o', 'gpt-4-turbo', 'gpt-4'];
+          let fallbackSuccess = false;
+          
+          for (const fallbackModel of fallbackModels) {
+            if (fallbackModel === selectedModel) continue;
+            
+            try {
+              console.log(`🔄 Trying fallback model: ${fallbackModel}`);
+              apiStartTime = Date.now();
+              
+              response = await openai.chat.completions.create({
+                model: fallbackModel,
+                messages: [
+                  {
+                    role: "system",
+                    content: `You are a UK Health & Safety expert with extensive experience in workplace safety training and induction program development. Your expertise includes:
 
-                Create an induction script with 6-8 scenes, each 2-3 minutes long.
+            - NEBOSH and IOSH certified safety training principles
+            - UK HSE regulations and industry-specific compliance requirements  
+            - Adult learning psychology and engagement techniques
+            - Modern safety training methodologies and best practices
+            - Risk assessment and hazard identification expertise
+            - Emergency response planning and procedures
+            
+            Your task is to create professional, engaging safety induction content that meets UK standards and is tailored to the specific company and industry context provided.`
+                  },
+                  {
+                    role: "user", 
+                    content: `${prompt}
 
-                IMPORTANT: Respond ONLY with a valid JSON object in this exact format:
+            ENHANCED INSTRUCTION SET:
+            
+            Step 1: Content Planning
+            - Analyze the company profile and industry context provided
+            - Identify key safety risks and regulatory requirements specific to this organization
+            - Plan content flow that builds from basic concepts to advanced applications
+            
+            Step 2: Script Development  
+            - Create an engaging, conversational narration script (750-1200 words)
+            - Use UK Health & Safety terminology and legal frameworks
+            - Include specific examples relevant to the company's industry and operations
+            - Maintain professional yet approachable tone throughout
+            
+            Step 3: Scene Structure (6-8 scenes, 2-3 minutes each)
+            Required scenes with industry-specific adaptations:
+            1. Welcome & Company Introduction (incorporate company culture and values)
+            2. Legal Framework & Responsibilities (UK HSE requirements + industry-specific regulations)
+            3. PPE Requirements (role and environment-specific equipment)
+            4. Hazard Identification (company-specific workplace hazards)
+            5. Emergency Procedures (facility-specific protocols and assembly points)
+            6. Safe Work Practices (industry and role-specific procedures)
+            7. Environmental & Health Considerations (company sustainability and wellness policies)
+            8. Assessment & Continuous Learning (company training requirements and feedback mechanisms)
+            
+            Step 4: Visual Content Planning
+            - Each scene requires an "imagePrompt" for AI image generation
+            - Prompts should be detailed, professional, and contextually relevant
+            - Include specific safety equipment, workplace settings, and diverse representation
+            - Avoid text/logos in image descriptions (pure visual content)
+            
+            CRITICAL OUTPUT REQUIREMENTS:
+            Respond with ONLY valid JSON in this exact structure (no additional text):
+            {
+              "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
+              "scenes": [
                 {
-                  "script": "Full narration text here",
-                  "scenes": [
-                    {
-                      "title": "Scene title",
-                      "content": "Scene content/narration",
-                      "duration": 180,
-                      "imagePrompt": "Description for safety illustration"
-                    }
-                  ],
-                  "totalDuration": 1200
+                  "title": "Descriptive scene title",
+                  "content": "Detailed scene narration (100-150 words)",
+                  "duration": 180,
+                  "imagePrompt": "Detailed visual description for AI image generation, photorealistic, professional workplace setting, diverse representation, no text or logos"
                 }
-
-                Include exactly 6-8 scenes covering: Introduction, PPE requirements, Emergency procedures, Hazard identification, Safe work practices, Environmental responsibilities, Health requirements, and Summary.`
-              }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.7,
-            max_tokens: 4000
-          });
+              ],
+              "totalDuration": 1200
+            }
+            
+            Quality Standards:
+            - Script must be informative, engaging, and legally compliant
+            - Each scene must advance the learning objectives progressively  
+            - Content must reflect the company's industry and operational context
+            - Include UK-specific emergency numbers, legal references, and procedures
+            - Ensure accessibility and inclusive language throughout`
+                  }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.7,
+                max_tokens: Math.min(4000, this.calculateOptimalTokens(prompt.length, roleType, videoFormat)),
+              });
+              
+              selectedModel = fallbackModel;
+              fallbackSuccess = true;
+              console.log(`✅ Fallback successful with ${fallbackModel}`);
+              break;
+              
+            } catch (fallbackError: any) {
+              console.log(`⚠️ Fallback ${fallbackModel} also failed: ${fallbackError.message}`);
+              continue;
+            }
+          }
+          
+          if (!fallbackSuccess) {
+            throw new Error(`All AI models failed. Last error: ${error.message}`);
+          }
         } else {
+          // Handle other types of errors (rate limiting, quota, network, etc.)
           throw error;
         }
       }
@@ -1849,6 +1977,39 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     }
     
     return "Professional blue and orange safety theme with modern corporate aesthetics.";
+  }
+
+  // Helper method to calculate optimal token allocation based on content complexity
+  private calculateOptimalTokens(promptLength: number, roleType: string, videoFormat: string): number {
+    // Base token allocation
+    let baseTokens = 3000;
+    
+    // Adjust for prompt complexity
+    if (promptLength > 2000) baseTokens += 1000;
+    if (promptLength > 3000) baseTokens += 500;
+    
+    // Role-specific adjustments
+    const roleComplexity = {
+      'contractor': 1.3,    // Higher complexity - more regulations and procedures
+      'staff': 1.2,        // Medium complexity - comprehensive employee training
+      'visitor': 1.0       // Standard complexity - basic safety requirements
+    };
+    
+    const roleMultiplier = roleComplexity[roleType as keyof typeof roleComplexity] || 1.0;
+    baseTokens = Math.floor(baseTokens * roleMultiplier);
+    
+    // Format-specific adjustments
+    const formatComplexity = {
+      'full_video': 1.4,           // Highest complexity - complete narrative structure
+      'hybrid_enhanced': 1.2,      // Enhanced with multimedia elements
+      'interactive_slides': 1.0    // Standard complexity - slide-based content
+    };
+    
+    const formatMultiplier = formatComplexity[videoFormat as keyof typeof formatComplexity] || 1.0;
+    baseTokens = Math.floor(baseTokens * formatMultiplier);
+    
+    // Cap at reasonable limits to avoid excessive costs
+    return Math.min(6000, Math.max(2000, baseTokens));
   }
 }
 
