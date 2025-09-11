@@ -277,7 +277,10 @@ export function WorkerCard({
             <Button 
               size="sm" 
               variant="outline" 
-              onClick={() => onIssueCard?.(worker.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onIssueCard?.(worker.id);
+              }}
               className="flex-1"
               data-testid={`issue-card-${worker.id}`}
             >
@@ -287,7 +290,10 @@ export function WorkerCard({
               <Button 
                 size="sm" 
                 variant="default" 
-                onClick={() => onResetCard?.(worker.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onResetCard?.(worker.id);
+                }}
                 className="flex-1"
                 data-testid={`reset-card-${worker.id}`}
               >

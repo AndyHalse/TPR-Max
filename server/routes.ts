@@ -7407,13 +7407,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contractors/workers/:workerId/checkout", async (req, res) => {
+  app.post("/api/contractors/workers/:workerId/checkout", requireAuth, async (req, res) => {
     try {
       const { workerId } = req.params;
       const { checkoutType } = req.body;
       
-      // Get worker details first
-      const worker = await storage.getContractorWorkerById(workerId);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get worker details using customer-isolated database service
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         return res.status(404).json({ error: "Worker not found" });
       }
