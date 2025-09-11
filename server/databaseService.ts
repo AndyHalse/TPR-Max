@@ -1479,10 +1479,23 @@ export class DatabaseService {
   async getAllContractorWorkers(context: CustomerContext): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // First get all companies for this customer
+    const companies = await db
+      .select()
+      .from(schema.contractorCompanies)
+      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+    
+    if (companies.length === 0) {
+      return []; // No companies, no workers
+    }
+    
+    // Get workers for all companies belonging to this customer
+    const companyIds = companies.map(c => c.id);
+    
     return await db
       .select()
       .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.customerId, context.customerId))
+      .where(inArray(schema.contractorWorkers.companyId, companyIds))
       .orderBy(asc(schema.contractorWorkers.firstName));
   }
 
