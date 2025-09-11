@@ -4231,7 +4231,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const workerId = req.params.id;
       const updateData = insertContractorWorkerSchema.partial().parse(req.body);
       
-      const updatedWorker = await storage.updateContractorWorker(workerId, updateData);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, updateData);
       
       if (!updatedWorker) {
         return res.status(404).json({ error: 'Contractor worker not found' });
@@ -7107,10 +7111,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contractors/:companyId/workers", async (req, res) => {
+  app.get("/api/contractors/:companyId/workers", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const workers = await storage.getWorkersByCompanyId(companyId);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const workers = await databaseService.getWorkersByCompanyId(context, companyId);
       res.json(workers);
     } catch (error) {
       console.error("Error fetching workers:", error);
@@ -7433,8 +7442,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Customer context required" });
       }
 
-      // Get contractor visits from database
-      const visits = await storage.getContractorVisitHistory(workerId, customerId);
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get contractor visits from customer-isolated database
+      const visits = await databaseService.getContractorVisitHistory(context, workerId);
       
       // Format visits with duration calculations
       const formattedVisits = visits.map(visit => ({
