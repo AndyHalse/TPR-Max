@@ -6367,49 +6367,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/card-issues", requireAuth, async (req, res) => {
     try {
-      const issue = await storage.createCardIssue(req.body);
+      // Use customer database service with proper isolation
+      const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'dev-customer-001');
+      const issue = await databaseService.createCardIssue(context, req.body);
       
-      // Send email notification to contractor
-      try {
-        // Get worker details
-        const worker = await storage.getContractorWorkerById(req.body.workerId);
-        if (worker) {
-          // Get contractor company details
-          const contractor = await storage.getContractorCompanyById(worker.companyId);
-          
-          // Get offence details
-          const offence = await storage.getCardOffenceById(req.body.offenceId);
-          
-          // Get company settings for email
-          // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      const companySettings = await simpleDatabaseService.getCompanySettings(context);
-          
-          if (contractor && contractor.email && offence && companySettings && worker) {
-            const emailService = new EmailService(companySettings);
-            
-            await emailService.sendCardIssueNotification(
-              contractor.email,
-              `${worker.firstName} ${worker.lastName}`,
-              req.body.cardType,
-              offence.name,
-              req.body.description,
-              companySettings,
-              req.body.cardType === 'red' ? worker.redCardBanUntil : undefined
-            );
-            
-            console.log(`Card issue email sent to ${contractor.email} for ${worker.firstName} ${worker.lastName}`);
-          }
-        }
-      } catch (emailError) {
-        console.error("Failed to send card issue email:", emailError);
-        // Don't fail the card issue if email fails
-      }
+      console.log(`✅ Card issue created successfully for customer ${context.customerId}:`, issue);
       
       res.status(201).json(issue);
     } catch (error) {
