@@ -7307,15 +7307,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // TEMPORARY FIX: Update worker data to match UI display (induction completed, valid right to work)
       if (worker.inductionCompleted === undefined || worker.inductionCompleted === null) {
         console.log(`🔧 FIXING - Setting inductionCompleted to true for ${worker.firstName} ${worker.lastName}`);
-        await databaseService.updateContractorWorker(context, workerId, {
-          inductionCompleted: true,
-          rightToWork: 'valid',
-          inductionCompletedAt: new Date()
-        });
-        // Refresh worker data after update
-        const refreshedWorker = await databaseService.getContractorWorkerById(context, workerId);
-        if (refreshedWorker) {
-          Object.assign(worker, refreshedWorker);
+        try {
+          const updateResult = await databaseService.updateContractorWorker(context, workerId, {
+            inductionCompleted: true,
+            rightToWork: 'valid',
+            inductionCompletedAt: new Date()
+          });
+          console.log(`✅ UPDATE RESULT:`, updateResult);
+          
+          // Refresh worker data after update
+          const refreshedWorker = await databaseService.getContractorWorkerById(context, workerId);
+          console.log(`🔄 REFRESHED WORKER:`, refreshedWorker);
+          if (refreshedWorker) {
+            Object.assign(worker, refreshedWorker);
+            console.log(`📝 UPDATED WORKER DATA:`, {
+              inductionCompleted: worker.inductionCompleted,
+              rightToWork: worker.rightToWork
+            });
+          }
+        } catch (error) {
+          console.error(`❌ DATABASE UPDATE FAILED:`, error);
         }
       }
       
