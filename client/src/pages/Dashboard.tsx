@@ -11,6 +11,7 @@ import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
 import type { Staff, Visitor, RoomBooking, MeetingRoom } from "@shared/schema";
+import { formatDistanceToNow } from "date-fns";
 
 interface Stats {
   currentVisitors: number;
@@ -32,7 +33,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'department-details' | 'visitor-details' | null>(null);
+  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'contractors' | 'total-people' | 'department-details' | 'visitor-details' | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [selectedVisitor, setSelectedVisitor] = useState<any>(null);
   
@@ -58,6 +59,10 @@ export default function Dashboard() {
 
   const { data: checkedInStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff/checked-in"],
+  });
+
+  const { data: checkedInContractors } = useQuery<any[]>({
+    queryKey: ["/api/contractors/checked-in"],
   });
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<Activity[]>({
@@ -480,7 +485,7 @@ export default function Dashboard() {
           </div>
         </GlassCard>
         
-        <GlassCard hover className="cursor-pointer" onClick={() => setLocation('/contractor')}>
+        <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('contractors')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-variable text-sm font-medium">Contractors</p>
@@ -561,15 +566,15 @@ export default function Dashboard() {
             </div>
           </GlassCard>
           
-          <GlassCard className="dark:glass-dark">
+          <GlassCard hover className="cursor-pointer dark:glass-dark" onClick={() => setOpenModal('total-people')}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-variable text-sm font-medium">Building Occupancy</p>
+                <p className="text-variable text-sm font-medium">Total People</p>
                 <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-building-occupancy">
-                  {((stats?.currentVisitors || 0) + (stats?.staffOnSite || 0))}
+                  {((stats?.currentVisitors || 0) + (stats?.staffOnSite || 0) + (stats?.contractorsOnSite || 0))}
                 </p>
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  Total people in building
+                  All people on-site
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
@@ -1719,6 +1724,172 @@ export default function Dashboard() {
             )}
           </DialogContent>
         </Dialog>
+
+      {/* Contractors Modal */}
+      <Dialog open={openModal === 'contractors'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <HardHat className="text-orange-600" size={24} />
+              Contractors On-Site ({checkedInContractors?.length || 0})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
+            {checkedInContractors && checkedInContractors.length > 0 ? (
+              checkedInContractors.map((contractor) => (
+                <div key={contractor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30 hover:bg-white/70 transition-colors">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                      <span className="text-orange-600 font-medium text-sm">
+                        {getInitials(`${contractor.firstName} ${contractor.lastName}`)}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-slate-800">
+                        {contractor.firstName} {contractor.lastName}
+                      </div>
+                      <div className="text-sm text-slate-600">
+                        {contractor.company || 'Company not specified'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Role: {contractor.role || 'General Contractor'} • Checked in: {contractor.checkedInAt ? formatDistanceToNow(new Date(contractor.checkedInAt), { addSuffix: true }) : 'Recently'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
+                      On-site
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-slate-600">
+                No contractors currently on-site
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Total People Modal */}
+      <Dialog open={openModal === 'total-people'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <Users className="text-green-600" size={24} />
+              All People On-Site ({((currentVisitors?.length || 0) + (checkedInStaff?.length || 0) + (checkedInContractors?.length || 0))})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
+            
+            {/* Visitors Section */}
+            {currentVisitors && currentVisitors.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+                  <UsersRound className="mr-2 text-blue-600" size={20} />
+                  Visitors ({currentVisitors.length})
+                </h3>
+                <div className="space-y-2">
+                  {currentVisitors.map((visitor) => (
+                    <div key={visitor.id} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200/30">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-medium text-sm">
+                            {getInitials(`${visitor.firstName} ${visitor.lastName}`)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-800">
+                            {visitor.firstName} {visitor.lastName}
+                          </div>
+                          <div className="text-sm text-slate-600">{visitor.company}</div>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+                        Visitor
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Staff Section */}
+            {checkedInStaff && checkedInStaff.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+                  <BadgeInfo className="mr-2 text-purple-600" size={20} />
+                  Staff ({checkedInStaff.length})
+                </h3>
+                <div className="space-y-2">
+                  {checkedInStaff.map((staff) => (
+                    <div key={staff.id} className="flex items-center justify-between p-3 bg-purple-50/50 rounded-lg border border-purple-200/30">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                          <span className="text-purple-600 font-medium text-sm">
+                            {getInitials(`${staff.firstName} ${staff.lastName}`)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-800">
+                            {staff.firstName} {staff.lastName}
+                          </div>
+                          <div className="text-sm text-slate-600">{staff.department}</div>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-300">
+                        Staff
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contractors Section */}
+            {checkedInContractors && checkedInContractors.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+                  <HardHat className="mr-2 text-orange-600" size={20} />
+                  Contractors ({checkedInContractors.length})
+                </h3>
+                <div className="space-y-2">
+                  {checkedInContractors.map((contractor) => (
+                    <div key={contractor.id} className="flex items-center justify-between p-3 bg-orange-50/50 rounded-lg border border-orange-200/30">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                          <span className="text-orange-600 font-medium text-sm">
+                            {getInitials(`${contractor.firstName} ${contractor.lastName}`)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-800">
+                            {contractor.firstName} {contractor.lastName}
+                          </div>
+                          <div className="text-sm text-slate-600">{contractor.company || 'Contractor'}</div>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
+                        Contractor
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {(!currentVisitors || currentVisitors.length === 0) && 
+             (!checkedInStaff || checkedInStaff.length === 0) && 
+             (!checkedInContractors || checkedInContractors.length === 0) && (
+              <div className="text-center py-8 text-slate-600">
+                No people currently on-site
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

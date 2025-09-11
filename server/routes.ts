@@ -2160,6 +2160,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get checked-in contractors endpoint
+  app.get("/api/contractors/checked-in", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const checkedInContractors = await databaseService.getCheckedInContractors(context);
+      res.json(checkedInContractors);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch checked-in contractors" });
+    }
+  });
+
   // Time & Attendance report endpoint
   app.get("/api/staff/time-attendance", async (req, res) => {
     try {
