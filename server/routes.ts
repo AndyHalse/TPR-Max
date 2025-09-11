@@ -7340,6 +7340,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await databaseService.createContractorVisit(context, visitData);
       console.log(`📋 Created visit record for ${worker.firstName} ${worker.lastName}`);
 
+      // Calculate CO2 emissions for this worker's commute
+      let co2CalculationResult = null;
+      if (worker.postcode && company.address) {
+        try {
+          console.log(`🌱 Calculating CO2 emissions for ${worker.firstName} ${worker.lastName}`);
+          
+          const co2Calculator = new CO2CalculationService(databaseService);
+          co2CalculationResult = await co2Calculator.calculateWorkerCO2Emissions(
+            context.customerId,
+            worker.companyId,
+            {
+              workerId: workerId,
+              workerPostcode: worker.postcode,
+              companyAddress: company.address,
+              transportMethod: worker.transportMethod || 'car_diesel',
+              workingDaysPerMonth: 22
+            }
+          );
+          
+          console.log(`✅ CO2 emissions calculated: ${co2CalculationResult.monthlyCO2kg} kg/month for ${worker.firstName} ${worker.lastName}`);
+        } catch (co2Error) {
+          console.error(`❌ Failed to calculate CO2 emissions for ${worker.firstName} ${worker.lastName}:`, co2Error);
+          // Don't fail the check-in if CO2 calculation fails
+        }
+      } else {
+        console.log(`⚠️ Skipping CO2 calculation for ${worker.firstName} ${worker.lastName} - missing postcode or company address`);
+      }
+
       let ePassSent = false;
       let emailSentSuccessfully = false;
       
