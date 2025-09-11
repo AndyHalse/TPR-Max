@@ -6290,6 +6290,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor company by ID
+  app.get("/api/contractors/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get contractor company by ID
+      const contractor = await databaseService.getContractorCompanyById(context, id);
+      
+      if (!contractor) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+
+      // Get workers for this company
+      const workers = await databaseService.getWorkersByCompanyId(context, id);
+      
+      // Get documents and create status summary
+      const documents = await storage.getDocumentsByCompanyId(id);
+      const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'];
+      const documentsStatus = docTypes.reduce((acc, docType) => {
+        const doc = documents.find(d => d.documentType === docType);
+        acc[docType] = doc?.status || 'missing';
+        return acc;
+      }, {} as Record<string, string>);
+
+      // Enhanced contractor data with workers and documents
+      const contractorWithDetails = {
+        ...contractor,
+        workers,
+        workersCount: workers.length,
+        documentsStatus,
+        documents
+      };
+
+      res.json(contractorWithDetails);
+    } catch (error) {
+      console.error('Error fetching contractor details:', error);
+      res.status(500).json({ error: "Failed to fetch contractor details" });
+    }
+  });
+
   // Red and Yellow Card System Routes
   app.get("/api/card-offences", async (req, res) => {
     try {

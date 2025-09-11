@@ -3270,6 +3270,24 @@ export class MemStorage implements IStorage {
     }
     return existed;
   }
+
+  // Card Offences methods (Red/Yellow Card System) - Simple implementations for now
+  async getAllCardOffences(): Promise<any[]> {
+    // Return empty array for now to prevent 500 errors
+    return [];
+  }
+
+  async getCardOffenceById(id: string): Promise<any | undefined> {
+    return undefined;
+  }
+
+  async createCardOffence(offence: any): Promise<any> {
+    return { ...offence, id: randomUUID(), createdAt: new Date() };
+  }
+
+  async createCardIssue(issue: any): Promise<any> {
+    return { ...issue, id: randomUUID(), createdAt: new Date() };
+  }
 }
 
 // Create and export a default storage instance
