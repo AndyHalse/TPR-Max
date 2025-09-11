@@ -7101,12 +7101,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/contractors/:companyId/workers", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       const workerData = insertContractorWorkerSchema.parse({
         ...req.body,
         companyId
       });
       
-      const worker = await storage.createContractorWorker(workerData);
+      // Use customer-isolated database service instead of old storage
+      const worker = await databaseService.createContractorWorker(context, workerData);
+      
+      console.log(`✅ Created contractor worker: ${workerData.firstName} ${workerData.lastName} (ID: ${worker.id}) for customer ${context.customerId}`);
+      
       res.json(worker);
     } catch (error) {
       if (error instanceof z.ZodError) {
