@@ -1350,6 +1350,14 @@ export class DatabaseService {
       .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
   }
 
+  async getContractorVisitHistory(context: CustomerContext, workerId: string): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Get visit history for the worker (contractor visits table doesn't exist yet in customer DB)
+    // For now, return empty array until visit tracking is implemented
+    return [];
+  }
+
   async createContractorWorker(context: CustomerContext, insertWorker: any): Promise<any> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     

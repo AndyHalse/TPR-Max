@@ -7292,6 +7292,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if worker can check in (induction completed, valid status, etc.)
       const issues = [];
       
+      // DEBUG: Log worker data to understand validation mismatch
+      console.log(`🔍 DEBUG - Worker data for check-in validation:`, {
+        id: worker.id,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
+        isActive: worker.isActive,
+        inductionCompleted: worker.inductionCompleted,
+        rightToWork: worker.rightToWork,
+        companyId: worker.companyId,
+        companyStatus: company.status
+      });
+      
       // Check company approval status first
       if (company.status !== 'approved') {
         issues.push(`Contractor company is not approved (status: ${company.status || 'pending'})`);
