@@ -7309,14 +7309,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         issues.push(`Contractor company is not approved (status: ${company.status || 'pending'})`);
       }
       
-      if (!worker.isActive) {
-        issues.push("Worker account is inactive");
-      }
-      if (!worker.inductionCompleted) {
+      // Note: isActive field doesn't exist in contractorWorkers schema - skip this check
+      // Workers are assumed active if they exist in the system
+      
+      // Handle inductionCompleted with proper default (schema defaults to false)
+      const inductionCompleted = worker.inductionCompleted ?? false;
+      if (!inductionCompleted) {
         issues.push("Induction not completed");
       }
-      if (worker.rightToWork !== 'valid') {
-        issues.push(`Right to work status: ${worker.rightToWork || 'missing'}`);
+      
+      // Handle rightToWork with proper default (schema defaults to 'pending')
+      const rightToWorkStatus = worker.rightToWork ?? 'pending';
+      if (rightToWorkStatus !== 'valid') {
+        issues.push(`Right to work status: ${rightToWorkStatus}`);
       }
       // Check for Red Card (site ban) - Yellow Cards are warnings only, not blockages
       if (worker.currentCardStatus === 'red') {
