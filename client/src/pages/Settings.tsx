@@ -48,6 +48,11 @@ export default function Settings() {
   const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Get current user to access customerId
+  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
+    queryKey: ["/api/auth/me"],
+  });
+
   const { data: settings, isLoading } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
@@ -65,7 +70,7 @@ export default function Settings() {
     timestamp: string;
   }>({
     queryKey: ["/api/system/status"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 300000, // Refresh every 5 minutes
   });
 
   const { data: departments } = useQuery<Department[]>({
@@ -409,11 +414,21 @@ export default function Settings() {
       return;
     }
 
+    if (!currentUser?.customerId) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive",
+      });
+      return;
+    }
+
     departmentMutation.mutate({
       department: {
         name: departmentForm.name.trim(),
         description: departmentForm.description?.trim() || "",
-        color: departmentForm.color || "bg-blue-500"
+        color: departmentForm.color || "bg-blue-500",
+        customerId: currentUser.customerId
       },
       isEdit: !!departmentToEdit,
       id: departmentToEdit?.id
@@ -857,8 +872,8 @@ export default function Settings() {
                     <p className="text-xs text-slate-500">Secure connection (recommended)</p>
                   </div>
                   <Switch
-                    checked={currentSettings?.smtpSecure !== false}
-                    onCheckedChange={(checked) => handleInputChange("smtpSecure", checked)}
+                    checked={currentSettings?.smtpSecurity === "SSL/TLS"}
+                    onCheckedChange={(checked) => handleInputChange("smtpSecurity", checked ? "SSL/TLS" : "STARTTLS")}
                     data-testid="switch-smtp-secure"
                   />
                 </div>
@@ -1045,8 +1060,8 @@ export default function Settings() {
                         Report Type & Frequency
                       </Label>
                       <Select 
-                        value={currentSettings?.reportType || "weekly"} 
-                        onValueChange={(value) => handleInputChange("reportType", value)}
+                        value={currentSettings?.reportFrequency || "weekly"} 
+                        onValueChange={(value) => handleInputChange("reportFrequency", value)}
                       >
                         <SelectTrigger data-testid="select-report-type">
                           <SelectValue />
@@ -1598,14 +1613,14 @@ export default function Settings() {
                           <p className="text-xs text-slate-500">Supports network and USB Zebra printers</p>
                         </div>
                         <Switch
-                          checked={currentSettings?.zebraEnabled || false}
-                          onCheckedChange={(checked) => handleInputChange("zebraEnabled", checked)}
+                          checked={currentSettings?.thermalSelectedPrinter === "zebra"}
+                          onCheckedChange={(checked) => handleInputChange("thermalSelectedPrinter", checked ? "zebra" : "tec")}
                           data-testid="switch-zebra-enabled"
                         />
                       </div>
                     </div>
 
-                    {currentSettings?.zebraEnabled && (
+                    {currentSettings?.thermalSelectedPrinter === "zebra" && (
                       <>
                         <div className="space-y-2">
                           <Label className="text-sm font-medium text-slate-700">
@@ -1613,8 +1628,8 @@ export default function Settings() {
                           </Label>
                           <Input
                             type="text"
-                            value={currentSettings?.zebraPrinterIP || ""}
-                            onChange={(e) => handleInputChange("zebraPrinterIP", e.target.value)}
+                            value={currentSettings?.biostarServerUrl || ""}
+                            onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                             placeholder="192.168.1.100"
                             data-testid="input-zebra-ip"
@@ -1628,8 +1643,8 @@ export default function Settings() {
                           </Label>
                           <Input
                             type="number"
-                            value={currentSettings?.zebraPrinterPort || "9100"}
-                            onChange={(e) => handleInputChange("zebraPrinterPort", e.target.value)}
+                            value={currentSettings?.smtpPort || "587"}
+                            onChange={(e) => handleInputChange("smtpPort", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                             placeholder="9100"
                             data-testid="input-zebra-port"
@@ -1642,8 +1657,8 @@ export default function Settings() {
                             Zebra Printer Model
                           </Label>
                           <Select
-                            value={currentSettings?.zebraPrinterModel || "GK420d"}
-                            onValueChange={(value) => handleInputChange("zebraPrinterModel", value)}
+                            value={currentSettings?.thermalSelectedPrinter || "tec"}
+                            onValueChange={(value) => handleInputChange("thermalSelectedPrinter", value)}
                           >
                             <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-zebra-model">
                               <SelectValue placeholder="Select Zebra model" />
@@ -2287,19 +2302,18 @@ export default function Settings() {
                           });
                           
                           try {
-                            const response = await apiRequest("/api/clue/test-connection", {
-                              method: "POST"
-                            });
+                            const response = await apiRequest("POST", "/api/clue/test-connection");
+                            const data = await response.json();
                             
-                            if (response.success) {
+                            if (data.success) {
                               toast({
                                 title: "Connection Successful",
-                                description: response.message,
+                                description: data.message,
                               });
                             } else {
                               toast({
                                 title: "Connection Failed",
-                                description: response.message,
+                                description: data.message,
                                 variant: "destructive"
                               });
                             }
@@ -2327,14 +2341,13 @@ export default function Settings() {
                           });
                           
                           try {
-                            const response = await apiRequest("/api/clue/sync", {
-                              method: "POST"
-                            });
+                            const response = await apiRequest("POST", "/api/clue/sync");
+                            const data = await response.json();
                             
-                            if (response.success) {
+                            if (data.success) {
                               toast({
                                 title: "Sync Complete",
-                                description: `Synced ${response.synced} items. ${response.failed} failed.`,
+                                description: `Synced ${data.synced} items. ${data.failed} failed.`,
                               });
                               
                               // Update the last sync timestamp
@@ -2383,13 +2396,12 @@ export default function Settings() {
                       size="sm"
                       onClick={async () => {
                         try {
-                          const response = await apiRequest("/api/clue/devices", {
-                            method: "GET"
-                          });
+                          const response = await apiRequest("GET", "/api/clue/devices");
+                          const data = await response.json();
                           
-                          if (response.success && response.devices) {
+                          if (data.success && data.devices) {
                             toast({
-                              title: `Found ${response.count} device(s)`,
+                              title: `Found ${data.count} device(s)`,
                               description: "Device list refreshed successfully",
                             });
                           }
@@ -2508,8 +2520,8 @@ export default function Settings() {
                         Default Reader Mode
                       </Label>
                       <Select 
-                        value={currentSettings?.qrReaderMode || "auto"} 
-                        onValueChange={(value) => handleInputChange("qrReaderMode", value)}
+                        value={currentSettings?.qrReaderDevice || "auto"} 
+                        onValueChange={(value) => handleInputChange("qrReaderDevice", value)}
                       >
                         <SelectTrigger data-testid="select-qr-reader-mode">
                           <SelectValue placeholder="Select reader mode" />
@@ -2533,8 +2545,8 @@ export default function Settings() {
                         type="number"
                         min="1"
                         max="30"
-                        value={currentSettings?.qrScanTimeout || "5"}
-                        onChange={(e) => handleInputChange("qrScanTimeout", e.target.value)}
+                        value={currentSettings?.clueQrValidityMinutes || "60"}
+                        onChange={(e) => handleInputChange("clueQrValidityMinutes", e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                         data-testid="input-qr-scan-timeout"
                       />
@@ -2548,8 +2560,8 @@ export default function Settings() {
                         <p className="text-xs text-slate-500">Play sound on successful scan</p>
                       </div>
                       <Switch
-                        checked={currentSettings?.qrAudioFeedback || false}
-                        onCheckedChange={(checked) => handleInputChange("qrAudioFeedback", checked)}
+                        checked={currentSettings?.qrReaderEnabled || false}
+                        onCheckedChange={(checked) => handleInputChange("qrReaderEnabled", checked)}
                         data-testid="switch-qr-audio-feedback"
                       />
                     </div>
@@ -2558,7 +2570,7 @@ export default function Settings() {
               </div>
 
               {/* X-Station 2 Configuration */}
-              {currentSettings?.qrReaderMode === 'xstation' && (
+              {currentSettings?.qrReaderDevice === 'xstation' && (
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <Shield className="mr-3 text-indigo-600" size={24} />
@@ -2585,8 +2597,8 @@ export default function Settings() {
                         Pre-booking QR Support
                       </Label>
                       <Switch
-                        checked={currentSettings?.xStationPreBookingSupport || false}
-                        onCheckedChange={(checked) => handleInputChange("xStationPreBookingSupport", checked)}
+                        checked={currentSettings?.xStationEnabled || false}
+                        onCheckedChange={(checked) => handleInputChange("xStationEnabled", checked)}
                         data-testid="switch-xstation-prebooking"
                       />
                       <p className="text-xs text-slate-500">
@@ -3297,8 +3309,8 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">Include Charts</Label>
                     <Switch 
-                      checked={currentSettings?.includeCharts !== false} 
-                      onCheckedChange={(checked) => handleInputChange("includeCharts", checked)}
+                      checked={currentSettings?.emailReportsEnabled !== false} 
+                      onCheckedChange={(checked) => handleInputChange("emailReportsEnabled", checked)}
                       data-testid="switch-include-charts" 
                     />
                   </div>
@@ -3306,8 +3318,8 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">Include Photos</Label>
                     <Switch 
-                      checked={currentSettings?.includePhotos === true} 
-                      onCheckedChange={(checked) => handleInputChange("includePhotos", checked)}
+                      checked={currentSettings?.enableQrCodes === true} 
+                      onCheckedChange={(checked) => handleInputChange("enableQrCodes", checked)}
                       data-testid="switch-include-photos" 
                     />
                   </div>
@@ -3315,8 +3327,8 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">PDF Export</Label>
                     <Switch 
-                      checked={currentSettings?.pdfExport !== false} 
-                      onCheckedChange={(checked) => handleInputChange("pdfExport", checked)}
+                      checked={currentSettings?.enable2dBarcodes !== false} 
+                      onCheckedChange={(checked) => handleInputChange("enable2dBarcodes", checked)}
                       data-testid="switch-pdf-export" 
                     />
                   </div>
@@ -3324,8 +3336,8 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-slate-700">Excel Export</Label>
                     <Switch 
-                      checked={currentSettings?.excelExport === true} 
-                      onCheckedChange={(checked) => handleInputChange("excelExport", checked)}
+                      checked={currentSettings?.biostarEnabled === true} 
+                      onCheckedChange={(checked) => handleInputChange("biostarEnabled", checked)}
                       data-testid="switch-excel-export" 
                     />
                   </div>
