@@ -97,6 +97,23 @@ export class AuthService {
         } as any);
         console.log('✅ Developer user "Emma" created successfully for Customer 002 testing');
       }
+
+      // Initialize TestUser for free onboarding testing without subscription
+      const testPassword = process.env.TEST_USER_PASSWORD || 'TestUser2024!';
+      const existingTestUser = await storage.getUserByUsername('TestUser');
+      
+      if (existingTestUser) {
+        console.log('Test user "TestUser" already exists - updating password');
+        await storage.updateUser(existingTestUser.id, { password: testPassword });
+        console.log('Test user password updated successfully');
+      } else {
+        await storage.createUser({
+          username: 'TestUser',
+          password: testPassword,
+          customerId: 'test-customer-trial'
+        } as any);
+        console.log('✅ Test user "TestUser" created successfully for free trial testing');
+      }
     } catch (error) {
       console.error('Failed to initialize developer users:', error);
     }
