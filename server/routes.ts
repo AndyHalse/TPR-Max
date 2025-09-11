@@ -7292,7 +7292,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if worker can check in (induction completed, valid status, etc.)
       const issues = [];
       
-      // Validation passed - worker data is now correct from database
+      // DEBUG: Check current worker data after database fix
+      console.log(`🔍 CURRENT WORKER DATA:`, {
+        id: worker.id,
+        firstName: worker.firstName,
+        inductionCompleted: worker.inductionCompleted,
+        rightToWork: worker.rightToWork,
+        companyStatus: company.status
+      });
       
       // Check company approval status first
       if (company.status !== 'approved') {
