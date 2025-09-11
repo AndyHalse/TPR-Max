@@ -687,6 +687,106 @@ export const contractorCompanies = pgTable("contractor_companies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Help System Tables for comprehensive customer support
+export const helpCategories = pgTable("help_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each help category can be global or customer-specific
+  customerId: varchar("customer_id").references(() => customers.id), // NULL for global categories
+  name: text("name").notNull(),
+  description: text("description"),
+  icon: text("icon").default("HelpCircle"), // Lucide icon name
+  color: text("color").default("blue"), // UI color theme
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  // Ensure category names are unique within customer scope (including global)
+  uniqueCustomerName: sql`unique(coalesce(customer_id, 'GLOBAL'), name)`,
+}));
+
+export const helpArticles = pgTable("help_articles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each help article can be global or customer-specific
+  customerId: varchar("customer_id").references(() => customers.id), // NULL for global articles
+  categoryId: varchar("category_id").notNull().references(() => helpCategories.id),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(), // URL-friendly identifier
+  summary: text("summary"), // Short description for search results
+  content: text("content").notNull(), // Full article content (Markdown supported)
+  contentType: text("content_type").default("markdown"), // markdown, html, video
+  videoUrl: text("video_url"), // Optional embedded video
+  // Targeting and visibility
+  targetPages: text("target_pages").array().default([]), // Pages where this article is contextually relevant
+  targetFeatures: text("target_features").array().default([]), // Features this article applies to
+  difficulty: text("difficulty").default("beginner"), // beginner, intermediate, advanced
+  estimatedReadTime: integer("estimated_read_time").default(5), // minutes
+  // SEO and search
+  searchKeywords: text("search_keywords").array().default([]), // Additional search terms
+  tags: text("tags").array().default([]), // Categorization tags
+  // Analytics and feedback
+  viewCount: integer("view_count").default(0),
+  helpfulCount: integer("helpful_count").default(0),
+  notHelpfulCount: integer("not_helpful_count").default(0),
+  lastViewedAt: timestamp("last_viewed_at"),
+  // Publishing
+  isPublished: boolean("is_published").default(true),
+  publishedAt: timestamp("published_at"),
+  authorId: varchar("author_id").references(() => users.id),
+  // Ordering and priority
+  sortOrder: integer("sort_order").default(0),
+  isFeatured: boolean("is_featured").default(false), // Show in prominently
+  isQuickStart: boolean("is_quick_start").default(false), // Part of onboarding
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  // Ensure article slugs are unique within customer scope (including global)
+  uniqueCustomerSlug: sql`unique(coalesce(customer_id, 'GLOBAL'), slug)`,
+}));
+
+export const helpUserInteractions = pgTable("help_user_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each interaction belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  userId: varchar("user_id").references(() => users.id), // NULL for anonymous/guest interactions
+  articleId: varchar("article_id").notNull().references(() => helpArticles.id),
+  // Interaction type and details
+  interactionType: text("interaction_type").notNull(), // view, helpful, not_helpful, search, complete
+  sessionId: text("session_id"), // Group interactions by user session
+  timeSpent: integer("time_spent"), // seconds spent viewing article
+  // Contextual information
+  pageContext: text("page_context"), // Which page they were on when accessing help
+  searchQuery: text("search_query"), // What they searched for to find this article
+  // Feedback
+  feedbackRating: integer("feedback_rating"), // 1-5 rating
+  feedbackComments: text("feedback_comments"), // Optional user feedback
+  // Completion tracking (for tutorials/guides)
+  isCompleted: boolean("is_completed").default(false),
+  completedSteps: text("completed_steps").array().default([]), // For multi-step guides
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const helpOnboardingProgress = pgTable("help_onboarding_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each onboarding progress belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  // Onboarding steps and progress
+  currentStep: integer("current_step").default(1),
+  completedSteps: text("completed_steps").array().default([]), // Array of completed step IDs
+  skippedSteps: text("skipped_steps").array().default([]), // Steps user chose to skip
+  totalSteps: integer("total_steps").default(10), // Total steps in onboarding
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  // Progress tracking
+  timeSpent: integer("time_spent").default(0), // Total time in seconds
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  // Feature-specific onboarding completion
+  featureOnboardingCompleted: text("feature_onboarding_completed").array().default([]), // Features user has completed onboarding for
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Contractor Documents table
 export const contractorDocuments = pgTable("contractor_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1677,3 +1777,42 @@ export type CO2MonthlySummary = typeof co2MonthlySummaries.$inferSelect;
 export type InsertCO2MonthlySummary = z.infer<typeof insertCO2MonthlySummarySchema>;
 export type CO2SustainabilityReport = typeof co2SustainabilityReports.$inferSelect;
 export type InsertCO2SustainabilityReport = z.infer<typeof insertCO2SustainabilityReportSchema>;
+
+// Insert schemas for help system
+export const insertHelpCategorySchema = createInsertSchema(helpCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHelpArticleSchema = createInsertSchema(helpArticles).omit({
+  id: true,
+  viewCount: true,
+  helpfulCount: true,
+  notHelpfulCount: true,
+  lastViewedAt: true,
+  publishedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHelpUserInteractionSchema = createInsertSchema(helpUserInteractions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertHelpOnboardingProgressSchema = createInsertSchema(helpOnboardingProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for help system
+export type HelpCategory = typeof helpCategories.$inferSelect;
+export type InsertHelpCategory = z.infer<typeof insertHelpCategorySchema>;
+export type HelpArticle = typeof helpArticles.$inferSelect;
+export type InsertHelpArticle = z.infer<typeof insertHelpArticleSchema>;
+export type HelpUserInteraction = typeof helpUserInteractions.$inferSelect;
+export type InsertHelpUserInteraction = z.infer<typeof insertHelpUserInteractionSchema>;
+export type HelpOnboardingProgress = typeof helpOnboardingProgress.$inferSelect;
+export type InsertHelpOnboardingProgress = z.infer<typeof insertHelpOnboardingProgressSchema>;
