@@ -520,23 +520,30 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       const imagePromises = selectedScenes.map(async (scene, i) => {
         console.log(`🖼️ Starting image generation ${i + 1}/${selectedScenes.length}`);
         
-        // Simplified prompt focusing on visual elements to avoid text generation issues
-        const enhancedPrompt = `Professional workplace safety photograph for visitor induction. ${scene.imagePrompt}. 
-        Style: Clean, modern corporate safety photography with professional quality. 
-        Colors: Professional blue and safety orange corporate theme. 
-        Setting: Modern office/industrial environment, professional facilities. 
-        Quality: High-resolution, crystal clear, informative, realistic photography.
-        Details: Safety equipment, professional uniforms, modern facilities.
-        IMPORTANT: Minimize or avoid text in the image. Focus on visual demonstration of safety concepts.
-        Avoid: Text, signage with words, cartoons, sketches, amateur photography.`;
+        // Enhanced prompt with latest DALL-E 3 capabilities for photorealistic safety training
+        const companyBranding = "professional blue and safety orange"; // Use consistent corporate theme
+        const enhancedPrompt = `Ultra-realistic corporate safety training photograph for ${this.companySettings?.companyName || "professional workplace"} induction. ${scene.imagePrompt}. 
+        
+        Visual Style: Photorealistic, high-end corporate photography with perfect lighting and composition.
+        Color Scheme: ${companyBranding} theme with modern professional aesthetics.
+        Environment: State-of-the-art modern workplace with contemporary safety equipment and infrastructure.
+        Quality: 4K professional photography quality, crystal clear focus, perfect exposure.
+        People: Diverse, professional individuals demonstrating proper safety procedures, modern business attire with appropriate PPE.
+        Equipment: Latest generation safety equipment, modern facilities, contemporary industrial design.
+        Composition: Dynamic angles showing clear demonstration of safety concepts without relying on text.
+        Lighting: Professional studio-quality lighting highlighting safety features and proper procedures.
+        
+        CRITICAL: Create photorealistic images without any text, logos, or written content. Focus on clear visual demonstration of safety concepts through body language, equipment positioning, and environmental cues.
+        Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting, amateur composition.`;
         
         try {
           const imageResponse = await openai.images.generate({
             model: "dall-e-3",
             prompt: enhancedPrompt,
             n: 1,
-            size: "1024x1024",
-            quality: "standard", // Use standard quality for speed
+            size: "1792x1024", // Use widescreen format for better presentation
+            quality: "hd", // Use HD quality for enhanced professional appearance
+            style: "natural" // Natural photorealistic style
           });
           
           const imageUrl = imageResponse.data?.[0]?.url;
@@ -592,12 +599,16 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         const narrationText = `${scene.title}. ${scene.content}`;
         
         try {
-          // Generate audio using OpenAI TTS
+          // Generate audio using latest OpenAI TTS with enhanced settings
+          const voiceOptions = ["nova", "alloy", "echo", "fable", "onyx", "shimmer"];
+          const selectedVoice = "nova"; // Use professional female voice for safety training
+          
           const mp3Response = await openai.audio.speech.create({
-            model: "tts-1",
-            voice: "nova", // Professional female voice
+            model: "tts-1-hd", // Use HD model for better quality
+            voice: voiceOptions.includes(selectedVoice) ? selectedVoice as any : "nova",
             input: narrationText,
-            speed: 0.95 // Slightly slower for better comprehension
+            speed: 0.92, // Optimized for safety training comprehension
+            response_format: "mp3"
           });
           
           // Convert to base64 for embedding in HTML
@@ -1365,13 +1376,24 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Enhanced Safety Induction</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1e1b4b 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 10s ease infinite;
             color: white;
             overflow: hidden;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
         .presentation-container {
             width: 100%;
