@@ -3907,6 +3907,143 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+          
+          <div className="mt-6">
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Settings2 className="w-5 h-5" />
+                Feature Toggles
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Disable unused features to simplify your interface and reduce complexity for your team.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Multi-Tenant */}
+                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Building2 className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-slate-800">Multi-Tenant</h4>
+                      <p className="text-xs text-slate-500">Building overview & tenant management</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureMultiTenant !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureMultiTenant", checked)}
+                    data-testid="toggle-multi-tenant"
+                  />
+                </div>
+
+                {/* Meeting Rooms */}
+                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Calendar className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-slate-800">Meeting Rooms</h4>
+                      <p className="text-xs text-slate-500">Room booking & management</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureMeetingRooms !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureMeetingRooms", checked)}
+                    data-testid="toggle-meeting-rooms"
+                  />
+                </div>
+
+                {/* Time & Attendance */}
+                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Activity className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-slate-800">Time Attendance</h4>
+                      <p className="text-xs text-slate-500">Staff time tracking & reports</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureTimeAttendance !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureTimeAttendance", checked)}
+                    data-testid="toggle-time-attendance"
+                  />
+                </div>
+
+                {/* Induction Settings */}
+                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Shield className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-slate-800">Induction Settings</h4>
+                      <p className="text-xs text-slate-500">Safety induction configuration</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureInductionSettings !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureInductionSettings", checked)}
+                    data-testid="toggle-induction-settings"
+                  />
+                </div>
+
+                {/* Kiosk Mode */}
+                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-cyan-100 rounded-lg">
+                      <Monitor className="w-5 h-5 text-cyan-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-slate-800">Kiosk Mode</h4>
+                      <p className="text-xs text-slate-500">Self-service check-in kiosks</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureKiosk !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureKiosk", checked)}
+                    data-testid="toggle-kiosk"
+                  />
+                </div>
+
+                {/* AI Demo */}
+                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-pink-100 rounded-lg">
+                      <Brain className="w-5 h-5 text-pink-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-slate-800">AI Demo</h4>
+                      <p className="text-xs text-slate-500">AI-powered features showcase</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureAiDemo !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureAiDemo", checked)}
+                    data-testid="toggle-ai-demo"
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1">Feature Toggle Benefits:</h4>
+                    <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                      <li>• Simplify navigation by hiding unused features</li>
+                      <li>• Reduce training time for staff on relevant features only</li>
+                      <li>• Customize the system to match your specific business needs</li>
+                      <li>• Changes take effect immediately across all user sessions</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
         </TabsContent>
       </Tabs>
 
