@@ -40,5 +40,26 @@
     "checkedOutAt": null,
     "createdAt": "2025-09-08T10:03:35.986Z",
     "updatedAt": "2025-09-08T10:03:35.986Z"
+  },
+  {
+    "id": "36ebeabf-3aca-4ecb-91db-ab60acf6007f",
+    "companyId": "64165c2b-5b51-47bc-9eea-7182e124abc1",
+    "firstName": "Easta",
+    "lastName": "Halse",
+    "email": "cctv@acsltd.eu",
+    "phone": "01344 771569",
+    "rightToWork": "valid",
+    "cscsCard": "654654",
+    "cscsStatus": "valid",
+    "ipafStatus": "3a",
+    "asbestosAwareness": true,
+    "manualHandling": true,
+    "inductionCompleted": true,
+    "isActive": true,
+    "isCheckedIn": false,
+    "checkedInAt": null,
+    "checkedOutAt": null,
+    "createdAt": "2025-09-11T15:02:29.825Z",
+    "updatedAt": "2025-09-11T15:02:29.825Z"
   }
 ]
