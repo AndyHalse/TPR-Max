@@ -1482,6 +1482,9 @@ export class DatabaseService {
         email: worker.email,
         phone: worker.phone,
         photoUrl: worker.photo_url,
+        // Critical validation fields that were missing!
+        inductionCompleted: worker.induction_completed,
+        rightToWork: worker.right_to_work_status,
         hsRulesAccepted: worker.hs_rules_accepted,
         hsRulesAcceptedAt: worker.hs_rules_accepted_at ? new Date(worker.hs_rules_accepted_at) : null,
         isCheckedIn: worker.is_checked_in,
