@@ -198,10 +198,18 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     totalDuration: number;
   }> {
     
-    // Get company details for professional branding
+    // Get comprehensive company details for enhanced AI personalization
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
     const companyLogo = this.companySettings?.bannerUrl ? `Company Logo: ${this.companySettings.bannerUrl}` : "Professional company branding";
     const aiInstructions = this.companySettings?.aiInstructionsPrompt || "Create comprehensive, engaging safety induction content";
+    
+    // Enhanced company context for better AI generation
+    const companyWebsite = this.companySettings?.website || "";
+    const companyAddress = this.companySettings?.address || "";
+    const companyPhone = this.companySettings?.phone || "";
+    const industryContext = this.getIndustryContext(companyName, companyWebsite);
+    const companySize = this.estimateCompanySize();
+    const companyBranding = this.getBrandingTheme();
     
     // Enhanced prompts based on video format
     const formatSpecificInstructions = {
@@ -215,52 +223,76 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     const roleSpecificPrompts = {
       visitor: `Generate a comprehensive safety induction script for VISITORS to ${companyName}. ${formatInstruction}
       
-      Company Details: ${companyName}
+      Company Profile:
+      - Name: ${companyName}
+      - Industry Context: ${industryContext}
+      - Organization Size: ${companySize}
+      - Visual Branding: ${companyBranding}
       ${companyLogo}
-      AI Instructions: ${aiInstructions}
+      ${companyWebsite ? `- Website: ${companyWebsite}` : ''}
+      ${companyAddress ? `- Location: ${companyAddress}` : ''}
+      ${companyPhone ? `- Contact: ${companyPhone}` : ''}
       
-      Include:
-        - Welcome and introduction
-        - Site access protocols and escort requirements
-        - Basic PPE requirements in designated areas
-        - Emergency procedures and assembly points
-        - Restricted areas and safety zones
-        - Key contact information
-        - Sign-in/sign-out procedures`,
+      AI Customization Instructions: ${aiInstructions}
+      
+      Content Requirements (tailor to company industry and context):
+        - Personalized welcome reflecting company culture and industry
+        - Industry-specific site access protocols and escort requirements
+        - PPE requirements relevant to the company's operational environment
+        - Emergency procedures specific to the facility and location
+        - Restricted areas and safety zones relevant to the business type
+        - Company-specific contact information and reporting procedures
+        - Professional sign-in/sign-out procedures aligned with company standards`,
       
       staff: `Generate a comprehensive safety induction script for new STAFF MEMBERS at ${companyName}. ${formatInstruction}
       
-      Company Details: ${companyName}
+      Company Profile:
+      - Name: ${companyName}
+      - Industry Context: ${industryContext}
+      - Organization Size: ${companySize}
+      - Visual Branding: ${companyBranding}
       ${companyLogo}
-      AI Instructions: ${aiInstructions}
+      ${companyWebsite ? `- Website: ${companyWebsite}` : ''}
+      ${companyAddress ? `- Workplace Location: ${companyAddress}` : ''}
+      ${companyPhone ? `- HR/Safety Contact: ${companyPhone}` : ''}
       
-      Include:
-        - Company safety culture and policies
-        - Workplace hazards and risk assessments
-        - PPE requirements and usage
-        - Emergency procedures and evacuation routes
-        - Incident reporting procedures
-        - Health and safety responsibilities
-        - Equipment safety protocols
-        - Training requirements and refresher schedules`,
+      AI Customization Instructions: ${aiInstructions}
+      
+      Content Requirements (customize for company's industry and organizational context):
+        - Company safety culture and policies reflecting industry standards and organizational values
+        - Industry-specific workplace hazards and comprehensive risk assessments
+        - Role-appropriate PPE requirements and usage protocols for the business environment
+        - Company-specific emergency procedures and evacuation routes tailored to facility layout
+        - Internal incident reporting procedures and escalation pathways
+        - Departmental health and safety responsibilities aligned with company structure
+        - Equipment and technology safety protocols relevant to the organization's operations
+        - Mandatory training requirements and refresher schedules per company policy`,
       
       contractor: `Generate a comprehensive safety induction script for CONTRACTORS working at ${companyName}. ${formatInstruction}
       
-      Company Details: ${companyName}
+      Company Profile:
+      - Name: ${companyName}
+      - Industry Context: ${industryContext}
+      - Organization Size: ${companySize}
+      - Visual Branding: ${companyBranding}
       ${companyLogo}
-      AI Instructions: ${aiInstructions}
+      ${companyWebsite ? `- Website: ${companyWebsite}` : ''}
+      ${companyAddress ? `- Site Location: ${companyAddress}` : ''}
+      ${companyPhone ? `- Site Management Contact: ${companyPhone}` : ''}
       
-      Include:
-        - Site-specific safety requirements
-        - Permit to work procedures
-        - Risk assessment requirements
-        - PPE standards and compliance
-        - Red and Yellow card system explanation
-        - Method statements and documentation
-        - Subcontractor responsibilities
-        - Site rules and regulations
-        - Emergency contact procedures
-        - Quality and safety standards`
+      AI Customization Instructions: ${aiInstructions}
+      
+      Content Requirements (adapt to company's industry environment and operational context):
+        - Industry-specific site safety requirements aligned with business operations
+        - Company-specific permit to work procedures and authorization protocols
+        - Risk assessment requirements tailored to the organization's operational hazards
+        - PPE standards and compliance appropriate to the industry and work environment
+        - Red and Yellow card disciplinary system explanation with company-specific escalation procedures
+        - Method statements and documentation requirements matching company quality standards
+        - Subcontractor responsibilities reflecting the organization's management structure
+        - Site rules and regulations specific to the company's facilities and operations
+        - Emergency contact procedures with company-specific escalation pathways
+        - Quality and safety standards aligned with the company's industry certifications and commitments`
     };
 
     const prompt = roleSpecificPrompts[roleType as keyof typeof roleSpecificPrompts] || roleSpecificPrompts.contractor;
@@ -1763,6 +1795,60 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       console.error('Error updating settings:', error);
       throw new Error('Failed to update induction settings');
     }
+  }
+
+  // Helper method to determine industry context from company information
+  private getIndustryContext(companyName: string, website: string): string {
+    const name = companyName.toLowerCase();
+    const site = website.toLowerCase();
+    
+    // Analyze company name and website for industry indicators
+    if (name.includes('construction') || name.includes('building') || name.includes('contractor') || 
+        site.includes('construction') || site.includes('building')) {
+      return "Construction and Building Industry - Focus on CDM regulations, site safety, heavy machinery, working at height, and contractor coordination.";
+    }
+    
+    if (name.includes('manufacturing') || name.includes('factory') || name.includes('industrial') ||
+        site.includes('manufacturing') || site.includes('industrial')) {
+      return "Manufacturing Industry - Emphasize machine safety, COSHH regulations, production line protocols, and industrial accident prevention.";
+    }
+    
+    if (name.includes('hospital') || name.includes('medical') || name.includes('healthcare') ||
+        site.includes('health') || site.includes('medical')) {
+      return "Healthcare Industry - Focus on infection control, patient safety, medical equipment protocols, and healthcare-specific H&S requirements.";
+    }
+    
+    if (name.includes('office') || name.includes('consulting') || name.includes('services') ||
+        name.includes('technology') || name.includes('software')) {
+      return "Office and Professional Services - Emphasize DSE regulations, ergonomics, fire safety, and workplace wellbeing.";
+    }
+    
+    if (name.includes('retail') || name.includes('shop') || name.includes('store') ||
+        site.includes('retail') || site.includes('shop')) {
+      return "Retail Industry - Focus on customer safety, manual handling, security protocols, and public access areas.";
+    }
+    
+    // Default to general workplace safety
+    return "General Business Operations - Comprehensive workplace safety covering all essential H&S requirements for modern business environments.";
+  }
+
+  // Helper method to estimate company size for tailored content
+  private estimateCompanySize(): string {
+    // Since we don't have employee count, use reasonable defaults
+    // This could be enhanced with actual data if available in company settings
+    return "Medium-sized organization (50-200 employees)";
+  }
+
+  // Helper method to get branding theme based on company settings
+  private getBrandingTheme(): string {
+    const logoUrl = this.companySettings?.logoUrl || this.companySettings?.bannerUrl;
+    const hasCustomBranding = logoUrl && logoUrl.length > 0;
+    
+    if (hasCustomBranding) {
+      return "Corporate branded theme with company-specific visual identity and professional color scheme.";
+    }
+    
+    return "Professional blue and orange safety theme with modern corporate aesthetics.";
   }
 }
 
