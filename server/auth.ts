@@ -77,9 +77,8 @@ export class AuthService {
       
       if (existingAndy) {
         console.log('Developer user "Andy" already exists - updating password');
-        // Hash password before updating
-        const hashedPassword = await this.hashPassword(andyPassword);
-        await storage.updateUser(existingAndy.id, { password: hashedPassword });
+        // updateUser will handle password hashing automatically
+        await storage.updateUser(existingAndy.id, { password: andyPassword });
         console.log('Developer user password updated successfully');
       } else {
         await storage.createUser({
@@ -95,9 +94,8 @@ export class AuthService {
       
       if (existingEmma) {
         console.log('Developer user "Emma" already exists - updating password');
-        // Hash password before updating
-        const hashedPassword = await this.hashPassword(emmaPassword);
-        await storage.updateUser(existingEmma.id, { password: hashedPassword });
+        // updateUser will handle password hashing automatically
+        await storage.updateUser(existingEmma.id, { password: emmaPassword });
         console.log('Emma user password updated successfully');
       } else {
         await storage.createUser({
@@ -114,9 +112,8 @@ export class AuthService {
       
       if (existingTestUser) {
         console.log('Test user "TestUser" already exists - updating password');
-        // Hash password before updating
-        const hashedPassword = await this.hashPassword(testPassword);
-        await storage.updateUser(existingTestUser.id, { password: hashedPassword });
+        // updateUser will handle password hashing automatically
+        await storage.updateUser(existingTestUser.id, { password: testPassword });
         console.log('Test user password updated successfully');
       } else {
         await storage.createUser({

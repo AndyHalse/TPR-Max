@@ -2,7 +2,7 @@
   {
     "id": "aea47885-0257-4b8b-a4ee-a1791d1d5655",
     "username": "Andy",
-    "password": "$2b$10$rhXCgKmluuur.Uf6VxWize.1kbEb.XnTAdMD5DyNcL.d3IotWeoze",
+    "password": "$2b$10$4EnTKUvHE0FsnA6JjBMiTeH8e3DV/RFcBb7W1mXvUxf2JJO8aOhUG",
     "email": null,
     "role": "user",
     "isActive": true,
@@ -11,7 +11,7 @@
   {
     "id": "9a09df1c-f6e3-4de2-aa13-8d6ebdb53480",
     "username": "Emma",
-    "password": "$2b$10$vyjZL72R.pLuMbFUFsjXlugT03p6Gmv77ApNjg16hG2TXrxipHlRi",
+    "password": "$2b$10$2CYiM5UtUL4OdyhwtqTNpeNh64X126U7y4.skur1u5pmtXBJ.npDC",
     "email": null,
     "role": "user",
     "isActive": true,
@@ -20,7 +20,7 @@
   {
     "id": "f0fec8be-ba9d-401f-a2d9-bfad8b9e3726",
     "username": "TestUser",
-    "password": "$2b$10$z.uEkkgua3HsBdCeR5zudOJTdSE1Cao6h0jaLBAijO10CGor0Vyhy",
+    "password": "$2b$10$diKTY2kQ.LK36AyS6.Hi0.5Fd9n1yvtAe9v/dltJB1D9VumlBDlOS",
     "email": null,
     "role": "user",
     "isActive": true,
