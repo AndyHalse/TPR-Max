@@ -1696,9 +1696,38 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Use raw SQL to avoid Drizzle issues with contractor schema
-      const result = await db.execute(sql`SELECT * FROM contractor_workers WHERE id = ${id} LIMIT 1`);
+      // Use raw SQL with explicit column selection including CO2 fields
+      const result = await db.execute(sql`
+        SELECT 
+          id, 
+          company_id, 
+          first_name, 
+          last_name, 
+          email, 
+          phone, 
+          photo_url,
+          postcode,
+          transport_method,
+          induction_completed,
+          right_to_work_status,
+          hs_rules_accepted,
+          hs_rules_accepted_at,
+          is_checked_in,
+          checked_in_at,
+          checked_out_at,
+          created_at,
+          updated_at
+        FROM contractor_workers 
+        WHERE id = ${id} 
+        LIMIT 1
+      `);
       const worker = result.rows[0] as any;
+      
+      // Debug: Log what fields are actually returned
+      if (worker) {
+        console.log(`🔍 DEBUG: Worker data keys: ${Object.keys(worker).join(', ')}`);
+        console.log(`🔍 DEBUG: Postcode value: "${worker.postcode}", Transport: "${worker.transport_method}"`);
+      }
       
       if (!worker) return undefined;
       
@@ -1711,6 +1740,9 @@ export class DatabaseService {
         email: worker.email,
         phone: worker.phone,
         photoUrl: worker.photo_url,
+        // CRITICAL CO2 FIELDS - Previously missing!
+        postcode: worker.postcode,
+        transportMethod: worker.transport_method,
         // Critical validation fields that were missing!
         inductionCompleted: worker.induction_completed,
         rightToWork: worker.right_to_work_status,

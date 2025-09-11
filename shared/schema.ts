@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1230,8 +1230,8 @@ export const co2EmissionsData = pgTable("co2_emissions_data", {
   // Distance data
   workerPostcode: text("worker_postcode").notNull(),
   companyAddress: text("company_address").notNull(),
-  distanceMiles: integer("distance_miles").notNull(), // One-way distance in miles  
-  distanceKm: integer("distance_km").notNull(), // One-way distance in kilometers
+  distanceMiles: doublePrecision("distance_miles").notNull(), // One-way distance in miles  
+  distanceKm: doublePrecision("distance_km").notNull(), // One-way distance in kilometers
   routeType: text("route_type").default("mixed"), // motorway, a-roads, mixed
   estimatedTravelTime: text("estimated_travel_time"), // e.g. "45 minutes"
   // Transport and emissions
@@ -1265,9 +1265,9 @@ export const co2MonthlySummaries = pgTable("co2_monthly_summaries", {
   // Transport method breakdown
   transportBreakdown: text("transport_breakdown"), // JSON: {"car_diesel": 15, "electric": 3, "public_transport": 2}
   // Distance analysis
-  averageDistanceMiles: integer("average_distance_miles"),
-  longestCommuteMiles: integer("longest_commute_miles"),
-  shortestCommuteMiles: integer("shortest_commute_miles"),
+  averageDistanceMiles: doublePrecision("average_distance_miles"),
+  longestCommuteMiles: doublePrecision("longest_commute_miles"),
+  shortestCommuteMiles: doublePrecision("shortest_commute_miles"),
   // Comparison metrics
   previousMonthCO2kg: text("previous_month_co2_kg"), // For % change calculation
   percentageChange: text("percentage_change"), // +/- percentage from previous month
