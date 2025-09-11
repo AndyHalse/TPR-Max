@@ -420,6 +420,29 @@ export default function Dashboard() {
     },
   });
 
+  const checkoutContractorMutation = useMutation({
+    mutationFn: async (contractorId: string) => {
+      const response = await apiRequest("POST", `/api/contractors/workers/${contractorId}/checkout`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      toast({
+        title: "Success", 
+        description: "Contractor checked out successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to check out contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
   const checkoutStaffMutation = useMutation({
     mutationFn: async (staffId: string) => {
       const response = await apiRequest("POST", `/api/staff/${staffId}/checkout`);
@@ -1756,11 +1779,17 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
-                      On-site
-                    </Badge>
-                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => checkoutContractorMutation.mutate(contractor.id)}
+                    disabled={checkoutContractorMutation.isPending}
+                    className="flex items-center gap-1"
+                    data-testid={`checkout-contractor-${contractor.id}`}
+                  >
+                    <LogOut size={14} />
+                    Check Out
+                  </Button>
                 </div>
               ))
             ) : (
