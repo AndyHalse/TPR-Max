@@ -7246,6 +7246,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEV-ONLY: Test check-in endpoint without authentication for CO2 testing
+  if (process.env.NODE_ENV === 'development') {
+    app.post("/api/dev/contractors/workers/:workerId/checkin", async (req, res) => {
+      try {
+        const { workerId } = req.params;
+        const { purpose, hostStaffId, hostName, hsRulesAccepted } = req.body;
+        
+        console.log(`🧪 DEV-ONLY: Testing check-in for worker ${workerId}`);
+        
+        // Get customer context (use default for dev testing)
+        const context = simpleDatabaseService.createCustomerContext('Andy');
+        
+        // Get worker details using customer-isolated database service
+        const worker = await databaseService.getContractorWorkerById(context, workerId);
+        if (!worker) {
+          return res.status(404).json({ error: "Worker not found" });
+        }
+
+        // Get contractor company details using customer-isolated database service
+        const contractors = await databaseService.getAllContractorCompanies(context);
+        const company = contractors.find(c => c.id === worker.companyId);
+        if (!company) {
+          return res.status(404).json({ error: "Contractor company not found" });
+        }
+
+        console.log(`🌱 DEV: Testing CO2 calculation for ${worker.firstName} ${worker.lastName}`);
+        console.log(`📍 Postcode: ${worker.postcode}, Transport: ${worker.transportMethod}`);
+        console.log(`🏢 Company address: ${company.address}`);
+
+        // Calculate CO2 emissions for this worker's commute
+        let co2CalculationResult = null;
+        if (worker.postcode && company.address) {
+          try {
+            console.log(`🌱 Calculating CO2 emissions for ${worker.firstName} ${worker.lastName}`);
+            
+            const co2Calculator = new CO2CalculationService(databaseService);
+            co2CalculationResult = await co2Calculator.calculateWorkerCO2Emissions(
+              context.customerId,
+              worker.companyId,
+              {
+                workerId: workerId,
+                workerPostcode: worker.postcode,
+                companyAddress: company.address,
+                transportMethod: worker.transportMethod || 'car_diesel',
+                workingDaysPerMonth: 22
+              }
+            );
+            
+            console.log(`✅ CO2 emissions calculated: ${co2CalculationResult.monthlyCO2kg} kg/month for ${worker.firstName} ${worker.lastName}`);
+          } catch (co2Error) {
+            console.error(`❌ Failed to calculate CO2 emissions for ${worker.firstName} ${worker.lastName}:`, co2Error);
+            return res.status(500).json({ error: `CO2 calculation failed: ${co2Error.message}` });
+          }
+        } else {
+          console.log(`⚠️ Skipping CO2 calculation for ${worker.firstName} ${worker.lastName} - missing postcode or company address`);
+        }
+
+        res.json({
+          success: true,
+          message: "DEV: CO2 calculation test completed",
+          worker: {
+            id: worker.id,
+            name: `${worker.firstName} ${worker.lastName}`,
+            postcode: worker.postcode,
+            transportMethod: worker.transportMethod
+          },
+          company: {
+            address: company.address
+          },
+          co2Result: co2CalculationResult
+        });
+      } catch (error) {
+        console.error("DEV: Error in CO2 test check-in:", error);
+        res.status(500).json({ error: `DEV test failed: ${error.message}` });
+      }
+    });
+  }
+
   // Contractor Worker Check-in/Check-out endpoints
   app.post("/api/contractors/workers/:workerId/checkin", requireAuth, async (req, res) => {
     try {
