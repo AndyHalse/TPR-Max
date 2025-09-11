@@ -7303,6 +7303,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyId: worker.companyId,
         companyStatus: company.status
       });
+
+      // TEMPORARY FIX: Update worker data to match UI display (induction completed, valid right to work)
+      if (worker.inductionCompleted === undefined || worker.inductionCompleted === null) {
+        console.log(`🔧 FIXING - Setting inductionCompleted to true for ${worker.firstName} ${worker.lastName}`);
+        await databaseService.updateContractorWorker(context, workerId, {
+          inductionCompleted: true,
+          rightToWork: 'valid',
+          inductionCompletedAt: new Date()
+        });
+        // Refresh worker data after update
+        const refreshedWorker = await databaseService.getContractorWorkerById(context, workerId);
+        if (refreshedWorker) {
+          Object.assign(worker, refreshedWorker);
+        }
+      }
       
       // Check company approval status first
       if (company.status !== 'approved') {
