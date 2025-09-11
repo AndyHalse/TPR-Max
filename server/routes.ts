@@ -6340,9 +6340,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Red and Yellow Card System Routes
-  app.get("/api/card-offences", async (req, res) => {
+  app.get("/api/card-offences", requireAuth, async (req, res) => {
     try {
-      const offences = await storage.getAllCardOffences();
+      const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'dev-customer-001');
+      
+      // Ensure offences are seeded for this customer
+      await databaseService.seedCustomerCardOffences(context);
+      
+      const offences = await databaseService.getAllCardOffences(context);
       res.json(offences);
     } catch (error) {
       console.error("Error fetching card offences:", error);

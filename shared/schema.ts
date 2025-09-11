@@ -1048,6 +1048,8 @@ export type InsertInductionSettings = z.infer<typeof insertInductionSettingsSche
 // Red and Yellow Card System
 export const cardOffences = pgTable("card_offences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each card offence belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   offenceName: text("offence_name").notNull(),
   offenceDescription: text("offence_description"),
   cardType: text("card_type").notNull(), // red, yellow

@@ -1462,6 +1462,89 @@ export class DatabaseService {
       .from(schema.reports);
   }
 
+  // Card Offences Methods - Customer Isolated
+  async getAllCardOffences(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(schema.cardOffences)
+      .where(eq(schema.cardOffences.customerId, context.customerId))
+      .orderBy(schema.cardOffences.cardType, schema.cardOffences.offenceName);
+  }
+
+  async seedCustomerCardOffences(context: CustomerContext): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      // Check if offences already exist for this customer
+      const existingOffences = await db
+        .select()
+        .from(schema.cardOffences)
+        .where(eq(schema.cardOffences.customerId, context.customerId))
+        .limit(1);
+      
+      if (existingOffences.length > 0) {
+        return; // Already seeded for this customer
+      }
+
+      // Red Card Offences from UK/Siemens Energy requirements
+      const redCardOffences = [
+        { offenceName: "Unsafe work at height", offenceDescription: "Working at height without proper safety measures" },
+        { offenceName: "Abuse of and putting the public at risk", offenceDescription: "Behavior that endangers public safety" },
+        { offenceName: "Flagrant disregard for the safety method statement", offenceDescription: "Intentional violation of established safety procedures" },
+        { offenceName: "Urinating and defecating in unauthorised locations", offenceDescription: "Using inappropriate areas for bodily functions" },
+        { offenceName: "Drugs and alcohol abuse", offenceDescription: "Being under the influence of substances on site" },
+        { offenceName: "Working within unsafe excavations and confined spaces", offenceDescription: "Entering hazardous work areas without authorization" },
+        { offenceName: "Misuse of scaffolding or access equipment", offenceDescription: "Improper use of safety equipment" },
+        { offenceName: "Unauthorised use of plant", offenceDescription: "Operating machinery without permission or qualification" },
+        { offenceName: "Illegal discharges into drainage or water courses", offenceDescription: "Environmental contamination violations" },
+        { offenceName: "Misuse of fire prevention equipment", offenceDescription: "Tampering with or misusing fire safety systems" },
+        { offenceName: "Unauthorised work on asbestos-containing materials", offenceDescription: "Working with hazardous materials without proper training" },
+        { offenceName: "Smoking in restricted areas", offenceDescription: "Smoking in prohibited zones" },
+        { offenceName: "Operating plant while using a mobile phone", offenceDescription: "Distracted operation of machinery" }
+      ];
+
+      // Yellow Card Offences
+      const yellowCardOffences = [
+        { offenceName: "Not wearing hard hats", offenceDescription: "Failure to wear required head protection" },
+        { offenceName: "Not wearing safety footwear", offenceDescription: "Improper or missing safety footwear" },
+        { offenceName: "Incorrect use of PPE", offenceDescription: "Misuse of personal protective equipment" },
+        { offenceName: "Misuse of lifting appliances and equipment", offenceDescription: "Improper use of lifting equipment" },
+        { offenceName: "Misuse of tools and equipment", offenceDescription: "Incorrect handling of work tools" },
+        { offenceName: "Use of mobile phones in unsafe areas", offenceDescription: "Mobile phone use in restricted zones" }
+      ];
+
+      // Insert Red Card offences
+      for (const offence of redCardOffences) {
+        await db.insert(schema.cardOffences).values({
+          customerId: context.customerId,
+          offenceName: offence.offenceName,
+          offenceDescription: offence.offenceDescription,
+          cardType: "red",
+          isActive: true,
+          siteConfigurable: true
+        });
+      }
+
+      // Insert Yellow Card offences
+      for (const offence of yellowCardOffences) {
+        await db.insert(schema.cardOffences).values({
+          customerId: context.customerId,
+          offenceName: offence.offenceName,
+          offenceDescription: offence.offenceDescription,
+          cardType: "yellow",
+          isActive: true,
+          siteConfigurable: true
+        });
+      }
+
+      console.log(`✅ Seeded ${redCardOffences.length + yellowCardOffences.length} UK contractor offences for customer: ${context.customerId}`);
+    } catch (error) {
+      console.error(`Error seeding card offences for customer ${context.customerId}:`, error);
+    }
+  }
+
   // Contractor Worker Methods (TODO: Add customer isolation later)
   async getContractorWorkerById(context: CustomerContext, id: string): Promise<ContractorWorker | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
