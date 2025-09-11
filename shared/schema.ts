@@ -526,6 +526,14 @@ export const companySettings = pgTable("company_settings", {
   hsRulesUrl: text("hs_rules_url").default(""), // External URL for H&S rules if not using internal content
   hsRulesRequireAcceptance: boolean("hs_rules_require_acceptance").default(false),
   
+  // Feature Toggles - Allow customers to disable unused features for simplified UI
+  featureMultiTenant: boolean("feature_multi_tenant").default(true),
+  featureMeetingRooms: boolean("feature_meeting_rooms").default(true),
+  featureTimeAttendance: boolean("feature_time_attendance").default(true),
+  featureInductionSettings: boolean("feature_induction_settings").default(true),
+  featureKiosk: boolean("feature_kiosk").default(true),
+  featureAiDemo: boolean("feature_ai_demo").default(true),
+  
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
