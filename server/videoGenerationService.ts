@@ -412,7 +412,8 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         console.log(`⚠️ AI generation attempt failed: ${error.message}`);
         
         // Intelligent model fallback strategy
-        if (error.code === 'model_not_found' || error.message?.includes('model') || error.status === 404) {
+        if (error.code === 'model_not_found' || error.code === 'insufficient_quota' || 
+            error.message?.includes('model') || error.status === 404 || error.status === 429) {
           console.log(`🔄 Model ${selectedModel} not available, implementing fallback strategy...`);
           
           const fallbackModels = ['gpt-4o', 'gpt-4-turbo', 'gpt-4'];

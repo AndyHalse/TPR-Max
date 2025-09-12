@@ -9,8 +9,8 @@
     "hostStaffId": "969fcce9-5254-4610-82c2-26daaf443ebf",
     "qrCode": "VIS-1756909142814-zql1hb98u",
     "checkedInAt": "2025-09-03T14:19:02.814Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-09-11T23:15:00.079Z",
+    "isCheckedIn": false
   },
   {
     "id": "89753321-1706-4106-bee1-2a6600bafaea",
@@ -22,8 +22,8 @@
     "hostStaffId": "969fcce9-5254-4610-82c2-26daaf443ebf",
     "qrCode": "VIS-1756909144803-buksqlmws",
     "checkedInAt": "2025-09-03T14:19:04.803Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-09-11T23:15:00.079Z",
+    "isCheckedIn": false
   },
   {
     "id": "88c7da06-672f-4119-b442-bd4bcf982699",
@@ -35,7 +35,7 @@
     "hostStaffId": "969fcce9-5254-4610-82c2-26daaf443ebf",
     "qrCode": "VIS-1756909145955-id2ujsz1a",
     "checkedInAt": "2025-09-03T14:19:05.955Z",
-    "checkedOutAt": null,
-    "isCheckedIn": true
+    "checkedOutAt": "2025-09-11T23:15:00.079Z",
+    "isCheckedIn": false
   }
 ]
