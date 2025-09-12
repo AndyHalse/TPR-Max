@@ -2,11 +2,26 @@ import OpenAI from "openai";
 import type { Visitor, Staff, CompanySettings, AiGeneratedImage, InsertAiGeneratedImage } from '@shared/schema';
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
+
+// Support organization and project IDs to ensure correct billing context
+const openaiConfig: any = {
   apiKey: process.env.OPENAI_API_KEY,
-  organization: null,  // Use default organization for the API key
-  project: null        // Use default project for the API key
-});
+};
+
+// Add organization and project if provided (for proper billing context)
+if (process.env.OPENAI_ORG_ID) {
+  openaiConfig.organization = process.env.OPENAI_ORG_ID;
+}
+if (process.env.OPENAI_PROJECT_ID) {
+  openaiConfig.project = process.env.OPENAI_PROJECT_ID;
+}
+
+const openai = new OpenAI(openaiConfig);
+
+// Log configuration for debugging (without exposing full key)
+console.log(`🔐 AIService OpenAI configured with key: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`);
+if (process.env.OPENAI_ORG_ID) console.log(`🏢 AIService Organization: ${process.env.OPENAI_ORG_ID}`);
+if (process.env.OPENAI_PROJECT_ID) console.log(`📁 AIService Project: ${process.env.OPENAI_PROJECT_ID}`);
 
 export class AIService {
 
