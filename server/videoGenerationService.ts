@@ -2030,75 +2030,153 @@ export class VideoGenerationService {
   } {
     console.log(`🆘 Generating emergency fallback script for ${roleType} in ${videoFormat} format`);
     
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = this.companySettings?.companyName || "ACS Safety & Security Ltd";
     
     const fallbackContent = {
       visitor: {
-        script: `Welcome to ${companyName}. This is your essential health and safety induction. As a visitor to our premises, your safety is our top priority. Please follow all safety instructions, report to reception upon arrival, and ensure you are accompanied by your host at all times. In case of emergency, follow the green exit signs to the nearest assembly point. Thank you for your cooperation in maintaining a safe workplace.`,
+        script: `Welcome to ${companyName}. This comprehensive health and safety induction is designed to ensure your safety and that of others during your visit. Under the Health and Safety at Work Act 1974, we have a legal duty to provide you with essential safety information. This induction covers UK HSE requirements, emergency procedures, personal protective equipment, and site-specific hazards. Your cooperation in following these procedures is vital for maintaining our excellent safety record and ensuring everyone returns home safely.`,
         scenes: [
           {
-            title: "Welcome & Introduction",
-            content: `Welcome to ${companyName}. This safety induction will prepare you for a safe visit to our premises.`,
-            duration: 120,
-            imagePrompt: "Professional office reception area with safety signage and welcome desk"
+            title: "Welcome & Safety Orientation",
+            content: `Welcome to ${companyName}. As a professional safety and security organization, we maintain the highest standards of workplace safety. Under the Health and Safety at Work Act 1974, both employers and visitors have legal responsibilities. This induction will equip you with essential knowledge to ensure your safety and that of others. Our commitment to zero accidents requires everyone's participation in our safety culture. Please remain attentive throughout this presentation as you will be required to acknowledge understanding of these procedures.`,
+            duration: 180,
+            imagePrompt: "Professional modern office reception with corporate safety awards, HSE compliance certificates, and branded welcome signage"
           },
           {
-            title: "PPE Requirements", 
-            content: "Personal protective equipment may be required in designated areas. Your host will provide necessary equipment.",
-            duration: 120,
-            imagePrompt: "Safety equipment including hard hats, safety glasses, and high-visibility vests"
+            title: "Legal Framework & Responsibilities", 
+            content: `The Health and Safety at Work Act 1974 places duties on both employers and visitors. As our visitor, you must take reasonable care for your own health and safety and that of others who may be affected by your actions. You must cooperate with ${companyName} staff on safety matters and not interfere with safety equipment. Management of Health and Safety at Work Regulations 1999 require risk assessments for all activities. We conduct regular safety audits and maintain comprehensive emergency procedures in compliance with UK legislation.`,
+            duration: 200,
+            imagePrompt: "Professional safety documentation including UK HSE compliance certificates, legal frameworks, and safety policy documents"
           },
           {
-            title: "Emergency Procedures",
-            content: "In case of emergency, remain calm, follow evacuation signs, and proceed to the designated assembly point.",
-            duration: 120,
-            imagePrompt: "Emergency exit signs and assembly point in a modern building"
+            title: "Personal Protective Equipment Requirements",
+            content: `Personal Protective Equipment Regulations 2002 mandate proper PPE usage in designated areas. ${companyName} will provide all necessary safety equipment including hard hats, high-visibility vests, safety glasses, and protective footwear where required. PPE must be worn correctly and inspected before use. Report any damaged equipment immediately. Some areas require additional respiratory protection or hearing protection. Your host will ensure you have appropriate PPE before entering any restricted areas. Never remove PPE until you have exited the designated zone.`,
+            duration: 180,
+            imagePrompt: "Complete range of professional PPE equipment including hard hats, high-vis vests, safety boots, protective eyewear arranged in modern safety equipment station"
+          },
+          {
+            title: "Hazard Identification & Risk Management",
+            content: `${companyName} operates a comprehensive hazard identification system. Common workplace hazards include slips, trips and falls, moving vehicles, electrical equipment, and confined spaces. All hazards are clearly marked with appropriate warning signs. Yellow and black hazard tape indicates caution areas. Red tags indicate equipment out of service. Report any unsafe conditions immediately to your host or security personnel. Do not enter cordoned areas or operate unfamiliar equipment. Risk assessments are available for all work activities upon request.`,
+            duration: 190,
+            imagePrompt: "Modern workplace showing proper hazard identification with warning signs, safety barriers, hazard marking tape, and safety equipment in industrial setting"
+          },
+          {
+            title: "Emergency Procedures & Evacuation",
+            content: `In case of emergency, remain calm and follow instructions from ${companyName} staff. Fire alarm is a continuous bell - evacuate immediately via the nearest marked exit. Assembly point is located in the main car park area. Do not use lifts during evacuation. If you discover a fire, raise the alarm immediately and evacuate. First aid trained personnel are available 24/7. Emergency contact numbers are displayed throughout the facility. Report all incidents, no matter how minor, to reception or your host. We investigate all incidents to prevent recurrence.`,
+            duration: 170,
+            imagePrompt: "Professional emergency response setup showing clearly marked fire exits, assembly point signs, emergency equipment, and evacuation route maps"
+          },
+          {
+            title: "Security & Access Control",
+            content: `${companyName} maintains strict security protocols. Your visitor badge must be visible at all times and returned upon departure. Access is restricted to authorized areas only - your host will escort you to designated locations. CCTV operates throughout the facility for security purposes. Report any suspicious activity immediately. Do not allow unauthorized persons to follow you through secure doors (tailgating). Photography may be restricted in certain areas. All bags may be subject to security inspection. Comply with all reasonable requests from security personnel.`,
+            duration: 160,
+            imagePrompt: "Professional security access control area with visitor badge system, security cameras, and controlled access points in modern corporate environment"
+          },
+          {
+            title: "Environmental Awareness & Compliance",
+            content: `${companyName} is committed to environmental protection and sustainability. Dispose of waste in designated receptacles - recycling bins are clearly marked. Report any spills or environmental incidents immediately. Some chemicals require special handling procedures. Smoking is prohibited throughout the facility except in designated outdoor areas. We monitor noise levels and air quality regularly. Energy conservation measures are in place - please support our efforts by switching off lights and equipment when not required.`,
+            duration: 150,
+            imagePrompt: "Professional environmental compliance area showing recycling stations, waste management systems, and environmental monitoring equipment"
+          },
+          {
+            title: "Incident Reporting & Continuous Improvement",
+            content: `${companyName} operates a proactive approach to safety improvement. All incidents, near-misses, and safety suggestions should be reported immediately. Our RIDDOR (Reporting of Injuries, Diseases and Dangerous Occurrences Regulations) procedures ensure compliance with HSE requirements. No blame culture encourages open reporting for learning purposes. Safety performance is monitored continuously through leading and lagging indicators. Regular safety audits ensure compliance with ISO 45001 standards. Your feedback helps us improve our safety management system.`,
+            duration: 180,
+            imagePrompt: "Professional safety management center with incident reporting systems, safety performance dashboards, and continuous improvement processes"
           }
         ]
       },
       staff: {
-        script: `Welcome to ${companyName}. As a new team member, understanding health and safety procedures is essential. You have responsibilities under UK health and safety law to take reasonable care of yourself and others. Report hazards immediately, use provided safety equipment correctly, and participate in all required training. Together we maintain a safe and healthy workplace for everyone.`,
+        script: `Welcome to ${companyName}. As a new team member, you are entering an organization committed to the highest standards of health and safety. Under UK health and safety legislation, particularly the Health and Safety at Work Act 1974, you have both rights and responsibilities. This comprehensive induction will prepare you to work safely and contribute to our positive safety culture. You have a legal duty to take reasonable care of yourself and others, cooperate with safety procedures, and report any hazards or incidents immediately.`,
         scenes: [
           {
-            title: "Health & Safety Responsibilities",
-            content: `Welcome to ${companyName}. Learn your essential health and safety responsibilities as a team member.`,
-            duration: 180,
-            imagePrompt: "Professional team meeting discussing workplace safety in modern office"
+            title: "Employee Rights & Legal Responsibilities",
+            content: `Welcome to ${companyName}. As a new employee, you have fundamental rights under UK health and safety law including the right to a safe workplace, proper training, protective equipment, and to refuse unsafe work. Simultaneously, you have legal responsibilities under Section 7 of the Health and Safety at Work Act 1974 to take reasonable care for your own safety and that of others. You must cooperate with your employer on safety matters, follow established procedures, and not interfere with safety equipment. Failure to comply may result in personal prosecution and unlimited fines.`,
+            duration: 200,
+            imagePrompt: "Professional employee handbook showing UK health and safety rights and responsibilities with legal documentation and training materials"
           },
           {
-            title: "Workplace Hazards",
-            content: "Identify common workplace hazards and understand risk assessment procedures specific to your role.",
-            duration: 180,
-            imagePrompt: "Workplace safety assessment with hazard identification charts and equipment"
+            title: "Workplace Risk Assessment & Safe Systems",
+            content: `${companyName} conducts comprehensive risk assessments for all work activities as required by the Management of Health and Safety at Work Regulations 1999. You must familiarize yourself with risk assessments relevant to your role and follow documented safe systems of work. Dynamic risk assessment skills enable you to identify changing hazards throughout your workday. The hierarchy of control guides our approach: elimination, substitution, engineering controls, administrative controls, and PPE. Report new hazards immediately through our digital reporting system.`,
+            duration: 210,
+            imagePrompt: "Modern office showing comprehensive risk assessment documentation, hazard identification charts, and safe system of work procedures"
           },
           {
-            title: "Emergency Response",
-            content: "Know your emergency procedures, evacuation routes, and first aid procedures for workplace incidents.",
+            title: "Personal Protective Equipment & Safety Equipment",
+            content: `Personal Protective Equipment at Work Regulations 2022 require proper PPE provision, training, and usage. ${companyName} provides role-specific PPE including respiratory protection, hearing protection, eye protection, and protective clothing where assessed as necessary. You must inspect PPE before use, report defects immediately, and maintain equipment properly. Safety equipment throughout the facility includes emergency showers, eye wash stations, fire extinguishers, and first aid stations. Never misuse or interfere with safety equipment - this is a criminal offense under UK law.`,
+            duration: 190,
+            imagePrompt: "Professional safety equipment room showing organized PPE storage, inspection checklists, and safety equipment maintenance records"
+          },
+          {
+            title: "Incident Reporting & Investigation",
+            content: `${companyName} operates a comprehensive incident management system. You must report all incidents, near-misses, and unsafe conditions immediately, regardless of severity. Our RIDDOR procedures ensure compliance with HSE reporting requirements for specified injuries and dangerous occurrences. Investigation focuses on systemic causes, not individual blame. Incident data drives continuous improvement and preventive measures. The online reporting system is available 24/7 and ensures anonymous reporting options. Your proactive reporting helps protect all employees and demonstrates our commitment to safety excellence.`,
             duration: 180,
-            imagePrompt: "Emergency response equipment and evacuation route signage in workplace"
+            imagePrompt: "Professional incident reporting center with digital reporting systems, investigation procedures, and safety performance monitoring displays"
+          },
+          {
+            title: "Emergency Procedures & Business Continuity",
+            content: `Emergency procedures are designed to protect life and minimize business disruption. Know your role in emergency response including evacuation procedures, fire warden responsibilities if applicable, and business continuity plans. Fire evacuation requires immediate response to continuous alarm signals. Assembly points are clearly marked and regularly practiced. First aid personnel are strategically located and trained to HSE standards. Emergency contact systems include internal communications, emergency services liaison, and family notification procedures. Regular drills ensure competency and compliance with regulatory requirements.`,
+            duration: 200,
+            imagePrompt: "Professional emergency response coordination center showing evacuation plans, emergency contact systems, and business continuity procedures"
+          },
+          {
+            title: "Mental Health & Wellbeing Support",
+            content: `${companyName} recognizes work-related stress as a significant health hazard covered by Management of Health and Safety at Work Regulations. We provide comprehensive mental health support including Employee Assistance Programs, stress risk assessments, and wellbeing initiatives. Early intervention is key - watch for signs including mood changes, sleep difficulties, concentration problems, or relationship issues. Confidential counseling services are available 24/7. Mental health is equally important as physical safety. Support is available through HR, occupational health, and external professional services without stigma or career impact.`,
+            duration: 190,
+            imagePrompt: "Professional wellness center showing mental health resources, counseling facilities, and wellbeing support materials in comfortable environment"
+          },
+          {
+            title: "Display Screen Equipment & Ergonomics",
+            content: `Display Screen Equipment Regulations 1992 require proper workstation assessment and regular breaks for computer users. ${companyName} provides ergonomic assessments, adjustable furniture, and eye testing for DSE users. Proper posture includes feet flat on floor, screen top at eye level, and keyboard/mouse at elbow height. Take regular breaks every hour, adjust lighting to prevent glare, and report discomfort early. Work-related upper limb disorders are preventable through proper setup and technique. Training is provided on workstation adjustment and good practice. Request reassessment when changing workstations or experiencing discomfort.`,
+            duration: 180,
+            imagePrompt: "Modern ergonomic office workspace showing properly adjusted desk setup, ergonomic equipment, and DSE assessment documentation"
           }
         ]
       },
       contractor: {
-        script: `Welcome contractors to ${companyName}. As external workers, you must comply with our site safety requirements and UK CDM regulations. Complete risk assessments, obtain necessary permits, and follow our safety management system. Report all incidents immediately and ensure your work meets our quality and safety standards. Your cooperation ensures everyone's safety.`,
+        script: `Welcome contractors to ${companyName}. As external service providers, you are subject to both your own health and safety obligations and our stringent site requirements. CDM Regulations 2015 place specific duties on contractors regarding planning, coordination, and safe execution of work. This induction covers legal compliance, permit systems, risk management, and emergency procedures. Your commitment to safety excellence is essential for maintaining our zero-accident culture and ensuring successful project delivery for all parties.`,
         scenes: [
           {
-            title: "Contractor Safety Requirements",
-            content: `Essential safety requirements for contractors working at ${companyName} premises.`,
-            duration: 180,
-            imagePrompt: "Construction workers in PPE reviewing safety documentation at building site"
+            title: "CDM Regulations & Legal Compliance",
+            content: `The Construction (Design and Management) Regulations 2015 place specific legal duties on contractors. As a contractor at ${companyName}, you must ensure competence of all workers, provide adequate resources for safe working, and cooperate with other duty holders. Principal contractors have additional responsibilities for site coordination and welfare facilities. All work must comply with approved risk assessments and method statements. CDM requires ongoing consultation, coordination, and information sharing. Health and safety files must be maintained and updated. Breaches can result in prohibition notices, prosecution, and unlimited fines for organizations and individuals.`,
+            duration: 220,
+            imagePrompt: "Professional contractor briefing room showing CDM regulations documentation, legal compliance certificates, and safety management systems"
           },
           {
-            title: "Permit to Work Systems",
-            content: "Understand permit to work procedures, risk assessments, and method statements required for your activities.",
-            duration: 180,
-            imagePrompt: "Safety permit documentation and authorization process in industrial setting"
+            title: "Permit to Work & Authorization Systems",
+            content: `${companyName} operates comprehensive Permit to Work systems for high-risk activities including hot work, confined spaces, electrical isolation, and working at height. All permits require authorized person approval before work commences. Risk assessments and method statements must be current and site-specific. Gas testing certificates are required for confined space entry. Electrical isolation must follow lock-out/tag-out procedures with authorized electricians. Hot work permits require fire watch arrangements and equipment inspection. Permits are time-limited and must be renewed for continued work. Unauthorized work may result in immediate contract termination.`,
+            duration: 240,
+            imagePrompt: "Professional permit to work control center showing authorization systems, safety documentation, and permit tracking procedures"
           },
           {
-            title: "Site Safety Compliance",
-            content: "Follow site rules, report incidents, and maintain safety standards throughout your work.",
+            title: "Site Safety Rules & Compliance Standards",
+            content: `${companyName} maintains strict site safety standards that exceed legal minimums. Mandatory PPE includes safety helmets, high-visibility clothing, safety footwear, and eye protection in designated areas. Speed limits apply to all vehicles - maximum 10mph on site. Mobile phone use is prohibited while operating equipment or vehicles. Smoking is only permitted in designated areas. Alcohol and drugs policy includes random testing with zero tolerance. Tool box talks are required before starting new activities. All incidents must be reported immediately regardless of severity. Compliance monitoring includes safety inspections, behavioral observations, and performance metrics.`,
+            duration: 200,
+            imagePrompt: "Professional construction site showing safety signage, PPE requirements, vehicle restrictions, and compliance monitoring systems"
+          },
+          {
+            title: "High-Risk Activity Management",
+            content: `Working at height, confined spaces, electrical work, and lifting operations require specialized controls. Working at Height Regulations 2005 mandate hierarchy: avoid, prevent falls, mitigate consequences. All equipment must have current inspection certificates. Confined Space Regulations 1997 require atmospheric testing, emergency arrangements, and trained attendants. Lifting Operations and Lifting Equipment Regulations 1998 require competent persons for planning and supervision. PUWER requires suitable training for equipment operators. Method statements must address specific site conditions and interface risks with other contractors.`,
+            duration: 210,
+            imagePrompt: "Professional high-risk work area showing working at height equipment, confined space entry systems, and lifting operation controls"
+          },
+          {
+            title: "Environmental Protection & Waste Management",
+            content: `Environmental protection is integral to ${companyName} operations. All contractors must comply with environmental permits, waste management licenses, and pollution prevention measures. Hazardous materials require COSHH assessments and specialized disposal arrangements. Noise levels are monitored and restricted during specified hours. Dust control measures must be implemented for cutting and grinding operations. Spill kits are strategically located and all personnel must know response procedures. Vehicle movements are controlled to minimize emissions and noise. Environmental incidents must be reported immediately to prevent regulatory breaches and potential prosecution.`,
+            duration: 190,
+            imagePrompt: "Professional environmental compliance area showing waste management systems, environmental monitoring equipment, and pollution control measures"
+          },
+          {
+            title: "Emergency Response & Business Continuity",
+            content: `Contractors must integrate with ${companyName} emergency response procedures. Emergency evacuation signals, assembly points, and escape routes are mandatory knowledge. Fire wardens and first aid personnel are identified and trained to recognized standards. Emergency contact procedures include internal notification, emergency services, and client notification systems. Business continuity plans address service disruption, alternative arrangements, and recovery procedures. Regular emergency drills ensure competency and coordination between contractors and client personnel. Out-of-hours emergency contacts are available 24/7 for critical incidents requiring immediate response.`,
+            duration: 200,
+            imagePrompt: "Professional emergency response coordination showing contractor integration with client emergency procedures and business continuity planning"
+          },
+          {
+            title: "Quality Assurance & Performance Monitoring",
+            content: `${companyName} operates continuous performance monitoring including safety audits, quality inspections, and client feedback systems. Key Performance Indicators include safety statistics, environmental compliance, quality metrics, and schedule performance. Regular progress meetings review performance against contractual obligations and improvement opportunities. Non-conformances require immediate corrective action and root cause analysis. Performance improvement plans may be implemented for persistent issues. Excellence in safety and quality performance may qualify contractors for preferred supplier status and future opportunities. All documentation must be maintained to professional standards for audit and inspection purposes.`,
             duration: 180,
-            imagePrompt: "Safety compliance checklist and reporting procedures at construction site"
+            imagePrompt: "Professional quality assurance center showing performance monitoring systems, audit procedures, and contractor evaluation processes"
           }
         ]
       }
