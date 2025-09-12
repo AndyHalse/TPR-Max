@@ -229,3 +229,6 @@ export class AIService {
     };
   }
 }
+
+// Export instance for compatibility
+export const aiService = new AIService();

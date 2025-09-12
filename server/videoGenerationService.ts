@@ -24,21 +24,49 @@ export class VideoGenerationService {
     };
   }
 
-  // Shim methods for AI operations
+  // Gemini AI completion methods
   private async aiComplete(prompt: string, options: any = {}): Promise<string> {
-    const result = await this.services.chatClient.complete(prompt, options);
-    if (ResultUtils.isSuccess(result)) {
-      return result.data;
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+
+      return response.text || "No response from Gemini";
+    } catch (error: any) {
+      throw new Error(`Gemini completion failed: ${error.message}`);
     }
-    throw new Error(result.error?.message || 'AI completion failed');
   }
 
   private async aiCompleteJson<T>(prompt: string, schemaHints?: string, options: any = {}): Promise<T> {
-    const result = await this.services.chatClient.completeJson<T>(prompt, schemaHints, options);
-    if (ResultUtils.isSuccess(result)) {
-      return result.data;
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+      
+      const jsonPrompt = schemaHints ? 
+        `${prompt}\n\nRespond with valid JSON following this schema: ${schemaHints}` :
+        `${prompt}\n\nRespond with valid JSON only.`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+        },
+        contents: jsonPrompt,
+      });
+
+      const rawJson = response.text;
+      if (!rawJson) {
+        throw new Error("Empty response from Gemini");
+      }
+
+      return JSON.parse(rawJson);
+    } catch (error: any) {
+      throw new Error(`Gemini JSON completion failed: ${error.message}`);
     }
-    throw new Error(result.error?.message || 'AI JSON completion failed');
   }
 
   // Message-compatible shim methods

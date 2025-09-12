@@ -2,17 +2,19 @@
  * Image generation fallback chain for reliable image delivery
  */
 
-import OpenAI from "openai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import type { IImageGenerator, ImageGenerationResult, Result } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
 
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY,
-  organization: null,
-  project: null
-});
+// DON'T DELETE THIS COMMENT
+// Follow these instructions when using this blueprint:
+// - Note that the newest Gemini model series is "gemini-2.5-flash" or gemini-2.5-pro"
+//   - do not change this unless explicitly requested by the user
 
-export class OpenAIImageGenerator implements IImageGenerator {
+// This API key is from Gemini Developer API Key, not vertex AI API Key
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+export class GeminiImageGenerator implements IImageGenerator {
   async generate(
     slideType: string, 
     title: string, 
@@ -27,33 +29,54 @@ export class OpenAIImageGenerator implements IImageGenerator {
         legal_framework: "Professional health and safety compliance scene showing safety documentation, legal frameworks, and regulatory compliance materials in a modern office setting. Safety certificates, compliance checklists, and regulatory documentation prominently displayed."
       };
 
-      const dallePrompt = prompts[slideType as keyof typeof prompts] || prompts.ppe;
+      const geminiPrompt = prompts[slideType as keyof typeof prompts] || prompts.ppe;
 
-      const response = await openai.images.generate({
-        model: "dall-e-3",
-        prompt: dallePrompt,
-        n: 1,
-        size: "1792x1024",
-        quality: "hd",
-        style: "natural"
+      // IMPORTANT: only this gemini model supports image generation
+      const response = await ai.models.generateContent({
+        model: "gemini-2.0-flash-preview-image-generation",
+        contents: [{ role: "user", parts: [{ text: geminiPrompt }] }],
+        config: {
+          responseModalities: [Modality.TEXT, Modality.IMAGE],
+        },
       });
 
-      const url = response.data?.[0]?.url;
-      if (!url) {
-        throw new Error('No image URL returned from DALL-E');
+      const candidates = response.candidates;
+      if (!candidates || candidates.length === 0) {
+        throw new Error('No candidates returned from Gemini');
       }
+
+      const content = candidates[0].content;
+      if (!content || !content.parts) {
+        throw new Error('No content parts returned from Gemini');
+      }
+
+      // Look for image data in the response
+      let imageData: string = "";
+      for (const part of content.parts) {
+        if (part.inlineData && part.inlineData.data) {
+          imageData = part.inlineData.data;
+          break;
+        }
+      }
+
+      if (!imageData) {
+        throw new Error('No image data returned from Gemini');
+      }
+
+      // Convert base64 to data URL
+      const url = `data:image/jpeg;base64,${imageData}`;
 
       return ResultUtils.success({
         url,
         meta: {
-          model: "dall-e-3",
-          prompt: dallePrompt,
+          model: "gemini-2.0-flash-preview-image-generation",
+          prompt: geminiPrompt,
           fallback: false
         }
       });
 
     } catch (error: any) {
-      console.error('❌ OpenAI image generation failed:', error.message);
+      console.error('❌ Gemini image generation failed:', error.message);
       return ResultUtils.error(error);
     }
   }
@@ -369,7 +392,7 @@ export class ImageFallbackChain implements IImageGenerator {
   constructor(private companySettings?: any) {}
 
   private generators: IImageGenerator[] = [
-    new OpenAIImageGenerator(),
+    new GeminiImageGenerator(),
     new FallbackSvgImageGenerator(this.companySettings)
   ];
 
