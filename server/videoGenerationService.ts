@@ -286,6 +286,7 @@ export class VideoGenerationService {
       }
       
       let response;
+      let content: any = null;
       let apiStartTime: number = Date.now();
       try {
         console.log(`🚀 Making API call to ${selectedModel}...`);
@@ -384,7 +385,7 @@ export class VideoGenerationService {
             })
         };
         
-        const content = await this.aiJsonFromMessages(messages, "Induction script with scenes array", options);
+        content = await this.aiJsonFromMessages(messages, "Induction script with scenes array", options);
       } catch (error: any) {
         console.log(`⚠️ AI generation failed: ${error.message}`);
         console.log(`🚨 Using emergency fallback content due to AI failure...`);
