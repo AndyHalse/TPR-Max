@@ -516,7 +516,9 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
           }
           
           if (!fallbackSuccess) {
-            throw new Error(`All AI models failed. Last error: ${error.message}`);
+            console.log(`🚨 All AI models failed, using emergency fallback content...`);
+            // Return emergency fallback content when all AI models fail
+            return this.generateEmergencyFallbackScript(roleType, videoFormat);
           }
         } else {
           // Handle other types of errors (rate limiting, quota, network, etc.)
@@ -526,6 +528,12 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
 
       const apiDuration = Date.now() - apiStartTime;
       console.log(`⏱️ API call completed in ${apiDuration}ms`);
+      
+      // Ensure response is defined before using it
+      if (!response) {
+        console.log(`🚨 No response received, using emergency fallback content...`);
+        return this.generateEmergencyFallbackScript(roleType, videoFormat);
+      }
       
       // Debug the full API response structure
       console.log('🔍 Full API response structure:', JSON.stringify({
@@ -2011,6 +2019,103 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
     
     // Cap at reasonable limits to avoid excessive costs
     return Math.min(6000, Math.max(2000, baseTokens));
+  }
+
+  // Emergency fallback method when all AI models fail
+  private generateEmergencyFallbackScript(roleType: string, videoFormat: string): {
+    script: string;
+    scenes: Array<{
+      title: string;
+      content: string;
+      duration: number;
+      imagePrompt: string;
+    }>;
+    totalDuration: number;
+  } {
+    console.log(`🆘 Generating emergency fallback script for ${roleType} in ${videoFormat} format`);
+    
+    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    
+    const fallbackContent = {
+      visitor: {
+        script: `Welcome to ${companyName}. This is your essential health and safety induction. As a visitor to our premises, your safety is our top priority. Please follow all safety instructions, report to reception upon arrival, and ensure you are accompanied by your host at all times. In case of emergency, follow the green exit signs to the nearest assembly point. Thank you for your cooperation in maintaining a safe workplace.`,
+        scenes: [
+          {
+            title: "Welcome & Introduction",
+            content: `Welcome to ${companyName}. This safety induction will prepare you for a safe visit to our premises.`,
+            duration: 120,
+            imagePrompt: "Professional office reception area with safety signage and welcome desk"
+          },
+          {
+            title: "PPE Requirements", 
+            content: "Personal protective equipment may be required in designated areas. Your host will provide necessary equipment.",
+            duration: 120,
+            imagePrompt: "Safety equipment including hard hats, safety glasses, and high-visibility vests"
+          },
+          {
+            title: "Emergency Procedures",
+            content: "In case of emergency, remain calm, follow evacuation signs, and proceed to the designated assembly point.",
+            duration: 120,
+            imagePrompt: "Emergency exit signs and assembly point in a modern building"
+          }
+        ]
+      },
+      staff: {
+        script: `Welcome to ${companyName}. As a new team member, understanding health and safety procedures is essential. You have responsibilities under UK health and safety law to take reasonable care of yourself and others. Report hazards immediately, use provided safety equipment correctly, and participate in all required training. Together we maintain a safe and healthy workplace for everyone.`,
+        scenes: [
+          {
+            title: "Health & Safety Responsibilities",
+            content: `Welcome to ${companyName}. Learn your essential health and safety responsibilities as a team member.`,
+            duration: 180,
+            imagePrompt: "Professional team meeting discussing workplace safety in modern office"
+          },
+          {
+            title: "Workplace Hazards",
+            content: "Identify common workplace hazards and understand risk assessment procedures specific to your role.",
+            duration: 180,
+            imagePrompt: "Workplace safety assessment with hazard identification charts and equipment"
+          },
+          {
+            title: "Emergency Response",
+            content: "Know your emergency procedures, evacuation routes, and first aid procedures for workplace incidents.",
+            duration: 180,
+            imagePrompt: "Emergency response equipment and evacuation route signage in workplace"
+          }
+        ]
+      },
+      contractor: {
+        script: `Welcome contractors to ${companyName}. As external workers, you must comply with our site safety requirements and UK CDM regulations. Complete risk assessments, obtain necessary permits, and follow our safety management system. Report all incidents immediately and ensure your work meets our quality and safety standards. Your cooperation ensures everyone's safety.`,
+        scenes: [
+          {
+            title: "Contractor Safety Requirements",
+            content: `Essential safety requirements for contractors working at ${companyName} premises.`,
+            duration: 180,
+            imagePrompt: "Construction workers in PPE reviewing safety documentation at building site"
+          },
+          {
+            title: "Permit to Work Systems",
+            content: "Understand permit to work procedures, risk assessments, and method statements required for your activities.",
+            duration: 180,
+            imagePrompt: "Safety permit documentation and authorization process in industrial setting"
+          },
+          {
+            title: "Site Safety Compliance",
+            content: "Follow site rules, report incidents, and maintain safety standards throughout your work.",
+            duration: 180,
+            imagePrompt: "Safety compliance checklist and reporting procedures at construction site"
+          }
+        ]
+      }
+    };
+
+    const content = fallbackContent[roleType as keyof typeof fallbackContent] || fallbackContent.visitor;
+    const totalDuration = content.scenes.reduce((sum, scene) => sum + scene.duration, 0);
+
+    return {
+      script: content.script,
+      scenes: content.scenes,
+      totalDuration
+    };
   }
 }
 
