@@ -1,19 +1,63 @@
-import OpenAI from "openai";
 import { db } from "./db";
 import { inductionSettings, type CompanySettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
-
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY,
-  organization: null,  // Use default organization for the API key
-  project: null        // Use default project for the API key
-});
+import { ServiceFactory } from './factories/ServiceFactory';
+import type { AiServiceDependencies } from './interfaces/ai';
+import { ResultUtils } from './utils/result';
 
 export class VideoGenerationService {
   private companySettings: CompanySettings | null = null;
+  private services: AiServiceDependencies;
 
-  constructor(settings?: CompanySettings) {
+  constructor(settings?: CompanySettings, deps?: Partial<AiServiceDependencies>) {
     this.companySettings = settings || null;
+    this.services = { ...ServiceFactory.getDependencies(), ...deps };
+  }
+
+  // Shim methods for AI operations
+  private async aiComplete(prompt: string, options: any = {}): Promise<string> {
+    const result = await this.services.chatClient.complete(prompt, options);
+    if (ResultUtils.isSuccess(result)) {
+      return result.data;
+    }
+    throw new Error(result.error?.message || 'AI completion failed');
+  }
+
+  private async aiCompleteJson<T>(prompt: string, schemaHints?: string, options: any = {}): Promise<T> {
+    const result = await this.services.chatClient.completeJson<T>(prompt, schemaHints, options);
+    if (ResultUtils.isSuccess(result)) {
+      return result.data;
+    }
+    throw new Error(result.error?.message || 'AI JSON completion failed');
+  }
+
+  // Message-compatible shim methods
+  private async aiFromMessages(messages: Array<{role: string, content: string}>, options: any = {}): Promise<string> {
+    // Convert messages to single prompt - combine system and user messages
+    const systemMessages = messages.filter(m => m.role === 'system').map(m => m.content);
+    const userMessages = messages.filter(m => m.role === 'user').map(m => m.content);
+    
+    let combinedPrompt = '';
+    if (systemMessages.length > 0) {
+      combinedPrompt = systemMessages.join('\n\n') + '\n\n';
+    }
+    combinedPrompt += userMessages.join('\n\n');
+    
+    return this.aiComplete(combinedPrompt, options);
+  }
+
+  private async aiJsonFromMessages<T>(messages: Array<{role: string, content: string}>, schemaHints?: string, options: any = {}): Promise<T> {
+    // Convert messages to single prompt - combine system and user messages
+    const systemMessages = messages.filter(m => m.role === 'system').map(m => m.content);
+    const userMessages = messages.filter(m => m.role === 'user').map(m => m.content);
+    
+    let combinedPrompt = '';
+    if (systemMessages.length > 0) {
+      combinedPrompt = systemMessages.join('\n\n') + '\n\n';
+    }
+    combinedPrompt += userMessages.join('\n\n');
+    
+    return this.aiCompleteJson<T>(combinedPrompt, schemaHints, options);
   }
   
   // Generate AI-powered questions based on video script content
@@ -29,103 +73,14 @@ export class VideoGenerationService {
     category: string;
     roleType: string;
   }>> {
-    console.log(`🧠 Generating AI questions for ${roleType} induction video...`);
+    const result = await this.services.questionGenerator.generate(script, scenes, roleType);
     
-    try {
-      const companyName = this.companySettings?.companyName || "VisiGate Pro";
-      
-      // Create comprehensive prompt for question generation
-      const prompt = `Based on the following ${roleType} safety induction video content, generate 8-12 comprehensive multiple choice questions that test understanding of the key safety concepts covered.
-
-INDUCTION VIDEO SCRIPT:
-${script}
-
-SCENE DETAILS:
-${scenes.map((scene, index) => `Scene ${index + 1}: ${scene.title}\n${scene.content}`).join('\n\n')}
-
-REQUIREMENTS:
-- Generate 8-12 multiple choice questions (A, B, C, D options)
-- Focus on critical safety knowledge from the video content
-- Include questions about PPE, emergency procedures, hazards, and role-specific requirements
-- Make questions practical and scenario-based where possible
-- Ensure questions directly relate to content covered in the video
-- Provide clear, educational explanations for correct answers
-- Use UK Health & Safety terminology and standards
-- Vary difficulty levels from basic recall to application of concepts
-
-QUESTION CATEGORIES to cover:
-- ${roleType}_safety_protocols
-- emergency_procedures  
-- ppe_requirements
-- hazard_identification
-- company_policies
-- risk_assessment
-- legal_compliance
-- workplace_behavior
-
-Company: ${companyName}
-Role Type: ${roleType}
-
-IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
-[
-  {
-    "questionText": "What is the first step when entering the site as a visitor?",
-    "questionType": "multiple_choice",
-    "correctAnswer": "C",
-    "optionA": "Put on safety helmet immediately",
-    "optionB": "Find your meeting location",
-    "optionC": "Report to reception and sign in",
-    "optionD": "Contact your host directly",
-    "explanation": "All visitors must report to reception first to sign in and receive safety briefing before entering any work areas.",
-    "category": "${roleType}_safety_protocols",
-    "roleType": "${roleType}"
-  }
-]`;
-
-      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
-      
-      const response = await openai.chat.completions.create({
-        model: selectedModel,
-        messages: [
-          {
-            role: "system",
-            content: `You are a UK Health & Safety expert creating assessment questions. Generate comprehensive questions that test understanding of the safety content provided. You MUST respond with valid JSON format.`
-          },
-          {
-            role: "user", 
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
-        // GPT-5 and newer use max_completion_tokens instead of max_tokens
-        ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
-          ? { max_completion_tokens: parseInt(this.companySettings?.openaiMaxTokens || "3000") }
-          : { max_tokens: parseInt(this.companySettings?.openaiMaxTokens || "3000") }),
-      });
-
-      const content = response.choices[0].message.content;
-      if (!content) {
-        throw new Error('No content received from AI');
-      }
-
-      // Parse the JSON response
-      const parsedResponse = JSON.parse(content);
-      
-      // Handle both direct array and object with questions property
-      const questions = Array.isArray(parsedResponse) ? parsedResponse : 
-                      (parsedResponse.questions || parsedResponse.data || []);
-
-      console.log(`✅ Generated ${questions.length} AI questions based on video content`);
-      return questions;
-
-    } catch (error) {
-      console.error('❌ Error generating questions from script:', error);
-      
-      // Return fallback questions based on role type
-      const fallbackQuestions = this.getFallbackQuestions(roleType);
-      console.log(`⚠️ Using ${fallbackQuestions.length} fallback questions for ${roleType}`);
-      return fallbackQuestions;
+    if (ResultUtils.isSuccess(result)) {
+      return result.data;
     }
+
+    console.error('❌ Question generation failed:', result.error?.message);
+    return this.getFallbackQuestions(roleType);
   }
 
   // Fallback questions if AI generation fails
@@ -327,12 +282,7 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
         console.log(`📝 Prompt length: ${prompt.length} characters`);
         
         apiStartTime = Date.now();
-        response = await openai.chat.completions.create({
-          model: selectedModel,
-        messages: [
-          {
-            role: "system",
-            content: `You are a UK Health & Safety expert with extensive experience in workplace safety training and induction program development. Your expertise includes:
+        const systemMessage = `You are a UK Health & Safety expert with extensive experience in workplace safety training and induction program development. Your expertise includes:
 
             - NEBOSH and IOSH certified safety training principles
             - UK HSE regulations and industry-specific compliance requirements  
@@ -341,248 +291,126 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
             - Risk assessment and hazard identification expertise
             - Emergency response planning and procedures
             
-            Your task is to create professional, engaging safety induction content that meets UK standards and is tailored to the specific company and industry context provided.`
+            Your task is to create professional, engaging safety induction content that meets UK standards and is tailored to the specific company and industry context provided.`;
+        
+        const fullPrompt = `${systemMessage}\n\n${prompt}
+
+            ENHANCED INSTRUCTION SET:
+            
+            Step 1: Content Planning
+            - Analyze the company profile and industry context provided
+            - Identify key safety risks and regulatory requirements specific to this organization
+            - Plan content flow that builds from basic concepts to advanced applications
+            
+            Step 2: Script Development  
+            - Create an engaging, conversational narration script (750-1200 words)
+            - Use UK Health & Safety terminology and legal frameworks
+            - Include specific examples relevant to the company's industry and operations
+            - Maintain professional yet approachable tone throughout
+            
+            Step 3: Scene Structure (6-8 scenes, 2-3 minutes each)
+            Required scenes with industry-specific adaptations:
+            1. Welcome & Company Introduction (incorporate company culture and values)
+            2. Legal Framework & Responsibilities (UK HSE requirements + industry-specific regulations)
+            3. PPE Requirements (role and environment-specific equipment)
+            4. Hazard Identification (company-specific workplace hazards)
+            5. Emergency Procedures (facility-specific protocols and assembly points)
+            6. Safe Work Practices (industry and role-specific procedures)
+            7. Environmental & Health Considerations (company sustainability and wellness policies)
+            8. Assessment & Continuous Learning (company training requirements and feedback mechanisms)
+            
+            Step 4: Visual Content Planning
+            - Each scene requires an "imagePrompt" for AI image generation
+            - Prompts should be detailed, professional, and contextually relevant
+            - Include specific safety equipment, workplace settings, and diverse representation
+            - Avoid text/logos in image descriptions (pure visual content)
+            
+            CRITICAL OUTPUT REQUIREMENTS:
+            Respond with ONLY valid JSON in this exact structure (no additional text):
+            {
+              "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
+              "scenes": [
+                {
+                  "title": "Descriptive scene title",
+                  "content": "Detailed scene narration (100-150 words)",
+                  "duration": 180,
+                  "imagePrompt": "Detailed visual description for AI image generation, photorealistic, professional workplace setting, diverse representation, no text or logos"
+                }
+              ],
+              "totalDuration": 1200
+            }
+            
+            Quality Standards:
+            - Script must be informative, engaging, and legally compliant
+            - Each scene must advance the learning objectives progressively  
+            - Content must reflect the company's industry and operational context
+            - Include UK-specific emergency numbers, legal references, and procedures
+            - Ensure accessibility and inclusive language throughout`
+        
+        // Use aiJsonFromMessages instead of direct OpenAI call
+        const messages = [
+          {
+            role: "system",
+            content: systemMessage
           },
           {
             role: "user", 
-            content: `${prompt}
-
-            ENHANCED INSTRUCTION SET:
-            
-            Step 1: Content Planning
-            - Analyze the company profile and industry context provided
-            - Identify key safety risks and regulatory requirements specific to this organization
-            - Plan content flow that builds from basic concepts to advanced applications
-            
-            Step 2: Script Development  
-            - Create an engaging, conversational narration script (750-1200 words)
-            - Use UK Health & Safety terminology and legal frameworks
-            - Include specific examples relevant to the company's industry and operations
-            - Maintain professional yet approachable tone throughout
-            
-            Step 3: Scene Structure (6-8 scenes, 2-3 minutes each)
-            Required scenes with industry-specific adaptations:
-            1. Welcome & Company Introduction (incorporate company culture and values)
-            2. Legal Framework & Responsibilities (UK HSE requirements + industry-specific regulations)
-            3. PPE Requirements (role and environment-specific equipment)
-            4. Hazard Identification (company-specific workplace hazards)
-            5. Emergency Procedures (facility-specific protocols and assembly points)
-            6. Safe Work Practices (industry and role-specific procedures)
-            7. Environmental & Health Considerations (company sustainability and wellness policies)
-            8. Assessment & Continuous Learning (company training requirements and feedback mechanisms)
-            
-            Step 4: Visual Content Planning
-            - Each scene requires an "imagePrompt" for AI image generation
-            - Prompts should be detailed, professional, and contextually relevant
-            - Include specific safety equipment, workplace settings, and diverse representation
-            - Avoid text/logos in image descriptions (pure visual content)
-            
-            CRITICAL OUTPUT REQUIREMENTS:
-            Respond with ONLY valid JSON in this exact structure (no additional text):
-            {
-              "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
-              "scenes": [
-                {
-                  "title": "Descriptive scene title",
-                  "content": "Detailed scene narration (100-150 words)",
-                  "duration": 180,
-                  "imagePrompt": "Detailed visual description for AI image generation, photorealistic, professional workplace setting, diverse representation, no text or logos"
-                }
-              ],
-              "totalDuration": 1200
-            }
-            
-            Quality Standards:
-            - Script must be informative, engaging, and legally compliant
-            - Each scene must advance the learning objectives progressively  
-            - Content must reflect the company's industry and operational context
-            - Include UK-specific emergency numbers, legal references, and procedures
-            - Ensure accessibility and inclusive language throughout`
+            content: fullPrompt
           }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-        // Dynamic token allocation based on complexity and model capabilities
-        ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
-          ? { 
-            max_completion_tokens: this.calculateOptimalTokens(prompt.length, roleType, videoFormat),
-            stream: false
-          }
-          : { 
-            max_tokens: Math.min(4000, this.calculateOptimalTokens(prompt.length, roleType, videoFormat))
-          }),
-        });
-      } catch (error: any) {
-        console.log(`⚠️ AI generation attempt failed: ${error.message}`);
+        ];
         
-        // Intelligent model fallback strategy
-        if (error.code === 'model_not_found' || error.code === 'insufficient_quota' || 
-            error.message?.includes('model') || error.status === 404 || error.status === 429) {
-          console.log(`🔄 Model ${selectedModel} not available, implementing fallback strategy...`);
-          
-          const fallbackModels = ['gpt-4o', 'gpt-4-turbo', 'gpt-4'];
-          let fallbackSuccess = false;
-          
-          for (const fallbackModel of fallbackModels) {
-            if (fallbackModel === selectedModel) continue;
-            
-            try {
-              console.log(`🔄 Trying fallback model: ${fallbackModel}`);
-              apiStartTime = Date.now();
-              
-              response = await openai.chat.completions.create({
-                model: fallbackModel,
-                messages: [
-                  {
-                    role: "system",
-                    content: `You are a UK Health & Safety expert with extensive experience in workplace safety training and induction program development. Your expertise includes:
-
-            - NEBOSH and IOSH certified safety training principles
-            - UK HSE regulations and industry-specific compliance requirements  
-            - Adult learning psychology and engagement techniques
-            - Modern safety training methodologies and best practices
-            - Risk assessment and hazard identification expertise
-            - Emergency response planning and procedures
-            
-            Your task is to create professional, engaging safety induction content that meets UK standards and is tailored to the specific company and industry context provided.`
-                  },
-                  {
-                    role: "user", 
-                    content: `${prompt}
-
-            ENHANCED INSTRUCTION SET:
-            
-            Step 1: Content Planning
-            - Analyze the company profile and industry context provided
-            - Identify key safety risks and regulatory requirements specific to this organization
-            - Plan content flow that builds from basic concepts to advanced applications
-            
-            Step 2: Script Development  
-            - Create an engaging, conversational narration script (750-1200 words)
-            - Use UK Health & Safety terminology and legal frameworks
-            - Include specific examples relevant to the company's industry and operations
-            - Maintain professional yet approachable tone throughout
-            
-            Step 3: Scene Structure (6-8 scenes, 2-3 minutes each)
-            Required scenes with industry-specific adaptations:
-            1. Welcome & Company Introduction (incorporate company culture and values)
-            2. Legal Framework & Responsibilities (UK HSE requirements + industry-specific regulations)
-            3. PPE Requirements (role and environment-specific equipment)
-            4. Hazard Identification (company-specific workplace hazards)
-            5. Emergency Procedures (facility-specific protocols and assembly points)
-            6. Safe Work Practices (industry and role-specific procedures)
-            7. Environmental & Health Considerations (company sustainability and wellness policies)
-            8. Assessment & Continuous Learning (company training requirements and feedback mechanisms)
-            
-            Step 4: Visual Content Planning
-            - Each scene requires an "imagePrompt" for AI image generation
-            - Prompts should be detailed, professional, and contextually relevant
-            - Include specific safety equipment, workplace settings, and diverse representation
-            - Avoid text/logos in image descriptions (pure visual content)
-            
-            CRITICAL OUTPUT REQUIREMENTS:
-            Respond with ONLY valid JSON in this exact structure (no additional text):
-            {
-              "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
-              "scenes": [
-                {
-                  "title": "Descriptive scene title",
-                  "content": "Detailed scene narration (100-150 words)",
-                  "duration": 180,
-                  "imagePrompt": "Detailed visual description for AI image generation, photorealistic, professional workplace setting, diverse representation, no text or logos"
-                }
-              ],
-              "totalDuration": 1200
+        const options = {
+          model: selectedModel,
+          temperature: 0.7,
+          response_format: { type: "json_object" },
+          // Dynamic token allocation based on complexity and model capabilities
+          ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
+            ? { 
+              max_completion_tokens: this.calculateOptimalTokens(prompt.length, roleType, videoFormat),
+              stream: false
             }
-            
-            Quality Standards:
-            - Script must be informative, engaging, and legally compliant
-            - Each scene must advance the learning objectives progressively  
-            - Content must reflect the company's industry and operational context
-            - Include UK-specific emergency numbers, legal references, and procedures
-            - Ensure accessibility and inclusive language throughout`
-                  }
-                ],
-                response_format: { type: "json_object" },
-                temperature: 0.7,
-                max_tokens: Math.min(4000, this.calculateOptimalTokens(prompt.length, roleType, videoFormat)),
-              });
-              
-              selectedModel = fallbackModel;
-              fallbackSuccess = true;
-              console.log(`✅ Fallback successful with ${fallbackModel}`);
-              break;
-              
-            } catch (fallbackError: any) {
-              console.log(`⚠️ Fallback ${fallbackModel} also failed: ${fallbackError.message}`);
-              continue;
-            }
-          }
-          
-          if (!fallbackSuccess) {
-            console.log(`🚨 All AI models failed, using emergency fallback content...`);
-            // Return emergency fallback content when all AI models fail
-            return this.generateEmergencyFallbackScript(roleType, videoFormat);
-          }
-        } else {
-          // Handle other types of errors (rate limiting, quota, network, etc.)
-          throw error;
-        }
+            : { 
+              max_tokens: Math.min(4000, this.calculateOptimalTokens(prompt.length, roleType, videoFormat))
+            })
+        };
+        
+        const content = await this.aiJsonFromMessages(messages, "Induction script with scenes array", options);
+      } catch (error: any) {
+        console.log(`⚠️ AI generation failed: ${error.message}`);
+        console.log(`🚨 Using emergency fallback content due to AI failure...`);
+        // AiModelManager handles retries, so if we get here, use fallback content
+        return this.generateEmergencyFallbackScript(roleType, videoFormat);
       }
 
       const apiDuration = Date.now() - apiStartTime;
-      console.log(`⏱️ API call completed in ${apiDuration}ms`);
+      console.log(`⏱️ AI call completed in ${apiDuration}ms`);
       
-      // Ensure response is defined before using it
-      if (!response) {
-        console.log(`🚨 No response received, using emergency fallback content...`);
+      // Ensure content is defined (aiJsonFromMessages returns parsed JSON directly)
+      if (!content) {
+        console.log(`🚨 No content received, using emergency fallback content...`);
         return this.generateEmergencyFallbackScript(roleType, videoFormat);
       }
       
-      // Debug the full API response structure
-      console.log('🔍 Full API response structure:', JSON.stringify({
-        choices: response.choices?.map(choice => ({
-          index: choice.index,
-          message: {
-            role: choice.message?.role,
-            content: choice.message?.content ? `${choice.message.content.substring(0, 100)}...` : 'NO CONTENT',
-            contentLength: choice.message?.content?.length || 0
-          },
-          finish_reason: choice.finish_reason
-        })),
-        usage: response.usage,
-        model: response.model,
-        id: response.id
+      // Debug the AI response structure
+      console.log('🔍 AI response structure:', JSON.stringify({
+        hasScript: !!content.script,
+        scriptLength: content.script?.length || 0,
+        scenesCount: content.scenes?.length || 0,
+        totalDuration: content.totalDuration
       }, null, 2));
       
-      const rawContent = response.choices?.[0]?.message?.content;
-      console.log(`📥 Raw AI response length: ${rawContent?.length || 0} characters`);
-      console.log(`📥 Raw AI response preview: ${rawContent?.substring(0, 200) || 'NO CONTENT'}...`);
+      console.log(`📥 AI response script length: ${content.script?.length || 0} characters`);
+      console.log(`📥 AI response scenes count: ${content.scenes?.length || 0}`);
       
-      if (!rawContent) {
-        console.error('❌ CRITICAL: OpenAI returned empty content!');
-        console.error('❌ Response choices:', response.choices);
-        console.error('❌ First choice message:', response.choices?.[0]?.message);
-        console.error('❌ Finish reason:', response.choices?.[0]?.finish_reason);
-        throw new Error('CRITICAL: No content received from OpenAI API');
-      }
-      
-      let content;
-      try {
-        content = JSON.parse(rawContent);
-        console.log('✅ JSON parsing successful, scenes found:', content.scenes?.length || 0);
+      // Validate content structure
+      if (!content.scenes || content.scenes.length === 0) {
+        console.error('🚨 CRITICAL: AI returned response but NO SCENES!');
+        console.error('🚨 Response structure:', JSON.stringify(content, null, 2));
         
-        if (!content.scenes || content.scenes.length === 0) {
-          console.error('🚨 CRITICAL: AI returned valid JSON but NO SCENES!');
-          console.error('🚨 Response structure:', JSON.stringify(content, null, 2));
-        }
-      } catch (parseError) {
-        console.error('❌ JSON parsing failed:', parseError);
-        console.error('❌ Raw content that failed parsing:', rawContent);
-        // Fallback: create default scenes if parsing fails
-        console.log('🔄 Using fallback scenes');
+        // Use fallback scenes if AI didn't provide proper scenes
+        console.log('🔄 Using fallback scenes due to missing scenes');
         content = {
-          script: `Welcome to the ${roleType} safety induction. This presentation covers essential health and safety requirements.`,
+          script: content.script || `Welcome to the ${roleType} safety induction. This presentation covers essential health and safety requirements.`,
           scenes: [
             {
               title: "Welcome & Introduction",
