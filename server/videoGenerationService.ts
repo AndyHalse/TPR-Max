@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { ServiceFactory } from './factories/ServiceFactory';
 import type { AiServiceDependencies } from './interfaces/ai';
 import { ResultUtils } from './utils/result';
+import { ImageFallbackChain } from './managers/ImageFallbackChain';
 
 export class VideoGenerationService {
   private companySettings: CompanySettings | null = null;
@@ -11,7 +12,16 @@ export class VideoGenerationService {
 
   constructor(settings?: CompanySettings, deps?: Partial<AiServiceDependencies>) {
     this.companySettings = settings || null;
-    this.services = { ...ServiceFactory.getDependencies(), ...deps };
+    
+    // Create services with company settings for proper branding
+    const defaultServices = ServiceFactory.getDependencies();
+    const imageGenerator = new ImageFallbackChain(this.companySettings);
+    
+    this.services = { 
+      ...defaultServices, 
+      imageGenerator, // Override with company-aware image generator
+      ...deps 
+    };
   }
 
   // Shim methods for AI operations
