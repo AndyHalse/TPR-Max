@@ -11,10 +11,7 @@ const openaiConfig: any = {
   apiKey: process.env.OPENAI_API_KEY,
 };
 
-// Add organization and project if provided (for proper billing context)
-if (process.env.OPENAI_ORG_ID) {
-  openaiConfig.organization = process.env.OPENAI_ORG_ID;
-}
+// For project-scoped API keys, only set project ID (organization is implicit)
 if (process.env.OPENAI_PROJECT_ID) {
   openaiConfig.project = process.env.OPENAI_PROJECT_ID;
 }
