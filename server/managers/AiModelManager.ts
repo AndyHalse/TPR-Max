@@ -111,8 +111,9 @@ export class AiModelManager implements IAiChatClient {
         console.log(`🚀 Making API call to ${config.name} (attempt ${attempt}/${maxAttempts})...`);
         
         const requestOptions = this.buildRequestOptions(config, options);
+        const timeoutMs = options.timeoutMs ?? config.timeoutMs;
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), config.timeoutMs);
+          setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
         });
 
         const apiCall = openai.chat.completions.create({
@@ -155,12 +156,8 @@ export class AiModelManager implements IAiChatClient {
       temperature,
     };
 
-    // Some models use max_tokens, others use max_completion_tokens
-    if (config.name.includes('gpt-4') || config.name.includes('gpt-5')) {
-      requestOptions.max_completion_tokens = maxTokens;
-    } else {
-      requestOptions.max_tokens = maxTokens;
-    }
+    // All chat.completions use max_tokens (max_completion_tokens is for Responses API only)
+    requestOptions.max_tokens = maxTokens;
 
     // Add JSON response format if requested
     if (options.json) {

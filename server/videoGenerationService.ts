@@ -538,21 +538,17 @@ export class VideoGenerationService {
         Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting, amateur composition.`;
         
         try {
-          const imageResponse = await openai.images.generate({
-            model: "dall-e-3",
-            prompt: enhancedPrompt,
-            n: 1,
-            size: "1792x1024", // Use widescreen format for better presentation
-            quality: "hd", // Use HD quality for enhanced professional appearance
-            style: "natural" // Natural photorealistic style
-          });
+          const result = await this.services.imageGenerator.generate(
+            'safety_training',
+            `Safety Image ${i + 1}`,
+            enhancedPrompt
+          );
           
-          const imageUrl = imageResponse.data?.[0]?.url;
-          if (imageUrl) {
+          if (ResultUtils.isSuccess(result)) {
             console.log(`✅ Image ${i + 1} generated successfully`);
-            return imageUrl;
+            return result.data.url;
           } else {
-            console.log(`⚠️ Image ${i + 1} generation returned no URL`);
+            console.log(`⚠️ Image ${i + 1} generation failed: ${result.error?.message}`);
             return this.generateFallbackImage(scene.imagePrompt, i + 1);
           }
         } catch (error) {
@@ -761,27 +757,21 @@ export class VideoGenerationService {
         const narrationText = `${scene.title}. ${scene.content}`;
         
         try {
-          // Generate audio using latest OpenAI TTS with enhanced settings
-          const voiceOptions = ["nova", "alloy", "echo", "fable", "onyx", "shimmer"];
-          const selectedVoice = "nova"; // Use professional female voice for safety training
-          
-          const mp3Response = await openai.audio.speech.create({
-            model: "tts-1-hd", // Use HD model for better quality
-            voice: voiceOptions.includes(selectedVoice) ? selectedVoice as any : "nova",
-            input: narrationText,
-            speed: 0.92, // Optimized for safety training comprehension
-            response_format: "mp3"
+          const result = await this.services.audioGenerator.generate(narrationText, {
+            voice: 'nova',
+            speed: 0.92,
+            format: 'mp3'
           });
           
-          // Convert to base64 for embedding in HTML
-          const buffer = Buffer.from(await mp3Response.arrayBuffer());
-          const base64Audio = buffer.toString('base64');
-          const audioDataUrl = `data:audio/mp3;base64,${base64Audio}`;
-          
-          console.log(`✅ Audio ${i + 1} generated successfully`);
-          return audioDataUrl;
+          if (ResultUtils.isSuccess(result)) {
+            console.log(`✅ Audio ${i + 1} generated successfully`);
+            return result.data;
+          } else {
+            console.warn(`⚠️ Audio generation not available for scene ${i + 1}, skipping audio`);
+            return ''; // Return empty string when audio service unavailable
+          }
         } catch (error) {
-          console.error(`❌ Failed to generate audio ${i + 1}:`, error);
+          console.warn(`⚠️ Audio generation failed for scene ${i + 1}:`, error.message);
           return ''; // Return empty string for failed audio
         }
       });
@@ -1305,8 +1295,10 @@ export class VideoGenerationService {
       
       // Check if Sora API is available in OpenAI client
       // Note: Sora API structure may vary - checking for availability
-      if (typeof (openai as any).videos?.generate === 'function') {
-        const videoResponse = await (openai as any).videos.generate({
+      // Video generation is currently not available - gracefully skip
+      if (false) { // Disabled for now - OpenAI video generation not implemented
+        console.warn('⚠️ Video generation feature not yet available, using static content');
+        const videoResponse = await Promise.resolve({
           model: "sora-1.0",
           prompt: videoPrompt,
           duration: 20, // Maximum 20 seconds for safety induction
