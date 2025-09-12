@@ -725,11 +725,12 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
             return imageUrl;
           } else {
             console.log(`⚠️ Image ${i + 1} generation returned no URL`);
-            return '';
+            return this.generateFallbackImage(scene.imagePrompt, i + 1);
           }
         } catch (error) {
           console.error(`❌ Failed to generate image ${i + 1}:`, error);
-          return ''; // Return empty string for failed images
+          console.log(`🔄 Using fallback image generation for image ${i + 1}...`);
+          return this.generateFallbackImage(scene.imagePrompt, i + 1);
         }
       });
       
@@ -757,6 +758,166 @@ IMPORTANT: Respond ONLY with a valid JSON array in this exact format:
       }
       // Return empty array rather than failing completely
       return new Array(selectedScenes.length).fill('');
+    }
+  }
+
+  // Generate fallback images using Canvas when AI generation fails
+  private generateFallbackImage(prompt: string, imageNumber: number): string {
+    // Create a professional safety image using Canvas/SVG
+    const width = 1792;
+    const height = 1024;
+    
+    // Determine the safety theme based on prompt content
+    let theme = 'general';
+    let bgColor = '#1a365d'; // Professional blue
+    let accentColor = '#ed8936'; // Safety orange
+    let icon = '🛡️';
+    let title = 'Safety First';
+    
+    if (prompt.toLowerCase().includes('ppe') || prompt.toLowerCase().includes('personal protective')) {
+      theme = 'ppe';
+      icon = '👷';
+      title = 'Personal Protective Equipment';
+    } else if (prompt.toLowerCase().includes('emergency') || prompt.toLowerCase().includes('evacuation')) {
+      theme = 'emergency';
+      icon = '🚨';
+      title = 'Emergency Procedures';
+      bgColor = '#c53030'; // Emergency red
+    } else if (prompt.toLowerCase().includes('welcome') || prompt.toLowerCase().includes('introduction')) {
+      theme = 'welcome';
+      icon = '👋';
+      title = 'Welcome & Safety Orientation';
+    }
+
+    // Escape text content for SVG safety
+    const escapeXml = (text: string) => text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    // Re-generate SVG with escaped content
+    const companyNameEscaped = escapeXml(this.companySettings?.companyName || 'VisiGate Pro');
+    const titleEscaped = escapeXml(title);
+    
+    const safeSvg = `<?xml version="1.0" encoding="UTF-8"?>
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">
+        <defs>
+          <linearGradient id="bgGradient${imageNumber}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:${bgColor};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${this.darkenColor(bgColor, 20)};stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="accentGradient${imageNumber}" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:${accentColor};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${this.lightenColor(accentColor, 20)};stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        
+        <!-- Background -->
+        <rect width="100%" height="100%" fill="url(#bgGradient${imageNumber})" />
+        
+        <!-- Company Branding Bar -->
+        <rect x="0" y="0" width="100%" height="120" fill="url(#accentGradient${imageNumber})" opacity="0.9" />
+        
+        <!-- Company Name -->
+        <text x="80" y="75" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white">
+          ${companyNameEscaped} - Safety Induction
+        </text>
+        
+        <!-- Main Icon Circle -->
+        <circle cx="${width/2}" cy="${height/2 - 50}" r="150" fill="white" opacity="0.9" stroke="${bgColor}" stroke-width="8" />
+        
+        <!-- Vector Icon Instead of Emoji -->
+        ${this.getSafetyVectorIcon(theme, width/2, height/2 - 50, bgColor)}
+        
+        <!-- Title -->
+        <text x="${width/2}" y="${height/2 + 120}" font-family="Arial, sans-serif" font-size="64" font-weight="bold" 
+              text-anchor="middle" fill="white">${titleEscaped}</text>
+        
+        <!-- Professional Badge -->
+        <rect x="${width - 300}" y="${height - 150}" width="250" height="100" rx="10" fill="white" opacity="0.9" stroke="${bgColor}" stroke-width="2" />
+        <text x="${width - 175}" y="${height - 110}" font-family="Arial, sans-serif" font-size="24" font-weight="bold" 
+              text-anchor="middle" fill="${bgColor}">Professional</text>
+        <text x="${width - 175}" y="${height - 80}" font-family="Arial, sans-serif" font-size="24" font-weight="bold" 
+              text-anchor="middle" fill="${bgColor}">Safety Training</text>
+        
+        <!-- Safety Pattern -->
+        <pattern id="safetyStripes${imageNumber}" patternUnits="userSpaceOnUse" width="40" height="40">
+          <rect width="40" height="40" fill="${accentColor}" opacity="0.1" />
+          <rect x="0" y="0" width="20" height="20" fill="white" opacity="0.1" />
+          <rect x="20" y="20" width="20" height="20" fill="white" opacity="0.1" />
+        </pattern>
+        <rect x="0" y="${height - 60}" width="100%" height="60" fill="url(#safetyStripes${imageNumber})" />
+      </svg>`;
+
+    // Convert to proper data URL that browsers can use
+    const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}`;
+    
+    console.log(`✅ Generated fallback safety image ${imageNumber} for theme: ${theme}`);
+    return svgDataUrl;
+  }
+
+  // Helper function to darken a hex color
+  private darkenColor(hex: string, percent: number): string {
+    const num = parseInt(hex.replace("#", ""), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) - amt;
+    const G = (num >> 8 & 0x00FF) - amt;
+    const B = (num & 0x0000FF) - amt;
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + 
+                  (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 + 
+                  (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+  }
+
+  // Helper function to lighten a hex color
+  private lightenColor(hex: string, percent: number): string {
+    const num = parseInt(hex.replace("#", ""), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    return "#" + (0x1000000 + (R > 255 ? 255 : R) * 0x10000 + 
+                  (G > 255 ? 255 : G) * 0x100 + 
+                  (B > 255 ? 255 : B)).toString(16).slice(1);
+  }
+
+  // Generate vector icons instead of emojis for professional appearance
+  private getSafetyVectorIcon(theme: string, centerX: number, centerY: number, color: string): string {
+    switch (theme) {
+      case 'ppe':
+        return `
+          <!-- Hard Hat Icon -->
+          <path d="M ${centerX-60} ${centerY-20} Q ${centerX-60} ${centerY-60} ${centerX} ${centerY-60} Q ${centerX+60} ${centerY-60} ${centerX+60} ${centerY-20} 
+                   L ${centerX+50} ${centerY+20} Q ${centerX+50} ${centerY+40} ${centerX} ${centerY+40} Q ${centerX-50} ${centerY+40} ${centerX-50} ${centerY+20} Z" 
+                fill="${color}" stroke="white" stroke-width="3" />
+          <rect x="${centerX-70}" y="${centerY+20}" width="140" height="20" rx="10" fill="${color}" stroke="white" stroke-width="2" />
+        `;
+      case 'emergency':
+        return `
+          <!-- Emergency Exit Icon -->
+          <rect x="${centerX-80}" y="${centerY-60}" width="160" height="120" rx="10" fill="none" stroke="${color}" stroke-width="8" />
+          <path d="M ${centerX-40} ${centerY-20} L ${centerX+20} ${centerY-20} L ${centerX+10} ${centerY-40} L ${centerX+40} ${centerY} L ${centerX+10} ${centerY+40} 
+                   L ${centerX+20} ${centerY+20} L ${centerX-40} ${centerY+20} Z" fill="${color}" />
+          <rect x="${centerX-60}" y="${centerY-10}" width="40" height="20" fill="${color}" />
+        `;
+      case 'welcome':
+        return `
+          <!-- Handshake Icon -->
+          <path d="M ${centerX-60} ${centerY-30} Q ${centerX-80} ${centerY-50} ${centerX-60} ${centerY-70} Q ${centerX-40} ${centerY-50} ${centerX-20} ${centerY-30} 
+                   Q ${centerX} ${centerY-50} ${centerX+20} ${centerY-30} Q ${centerX+40} ${centerY-50} ${centerX+60} ${centerY-70} Q ${centerX+80} ${centerY-50} ${centerX+60} ${centerY-30}
+                   L ${centerX+40} ${centerY+10} Q ${centerX+20} ${centerY+30} ${centerX} ${centerY+10} Q ${centerX-20} ${centerY+30} ${centerX-40} ${centerY+10} Z" 
+                fill="${color}" stroke="white" stroke-width="3" />
+        `;
+      default:
+        return `
+          <!-- Shield Icon -->
+          <path d="M ${centerX} ${centerY-70} L ${centerX-50} ${centerY-50} L ${centerX-50} ${centerY+20} Q ${centerX-50} ${centerY+60} ${centerX} ${centerY+70} 
+                   Q ${centerX+50} ${centerY+60} ${centerX+50} ${centerY+20} L ${centerX+50} ${centerY-50} Z" 
+                fill="${color}" stroke="white" stroke-width="4" />
+          <text x="${centerX}" y="${centerY+10}" font-family="Arial, sans-serif" font-size="36" font-weight="bold" 
+                text-anchor="middle" fill="white">✓</text>
+        `;
     }
   }
   
