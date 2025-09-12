@@ -781,8 +781,8 @@ export class VideoGenerationService {
             console.warn(`⚠️ Audio generation not available for scene ${i + 1}, skipping audio`);
             return ''; // Return empty string when audio service unavailable
           }
-        } catch (error) {
-          console.warn(`⚠️ Audio generation failed for scene ${i + 1}:`, error.message);
+        } catch (error: any) {
+          console.warn(`⚠️ Audio generation failed for scene ${i + 1}:`, error?.message || 'Unknown error');
           return ''; // Return empty string for failed audio
         }
       });
@@ -1317,7 +1317,7 @@ export class VideoGenerationService {
           aspect_ratio: "16:9"
         });
         
-        return videoResponse.data?.[0]?.url || null;
+        return null; // Placeholder - video generation not implemented
       } else {
         throw new Error('Sora API not available in current OpenAI client version');
       }
