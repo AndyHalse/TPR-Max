@@ -3,7 +3,11 @@ import { db } from "./db";
 import { inductionSettings, type CompanySettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY,
+  organization: null,  // Use default organization for the API key
+  project: null        // Use default project for the API key
+});
 
 export class VideoGenerationService {
   private companySettings: CompanySettings | null = null;
