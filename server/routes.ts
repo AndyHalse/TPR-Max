@@ -60,7 +60,7 @@ import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
 import cron from "node-cron";
 
@@ -7556,7 +7556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(and(
           eq(ukHSDocumentTemplates.customerId, context.customerId),
           eq(ukHSDocumentTemplates.isActive, true),
-          sql`${ukHSDocumentTemplates.documentCode} = ANY(${defaultDocumentCodes})`
+          inArray(ukHSDocumentTemplates.documentCode, defaultDocumentCodes)
         ))
         .orderBy(ukHSDocumentTemplates.documentCode);
       
@@ -7604,7 +7604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(ukHSDocumentTemplates.id, templateId),
           eq(ukHSDocumentTemplates.customerId, context.customerId),
           eq(ukHSDocumentTemplates.isActive, true),
-          sql`${ukHSDocumentTemplates.documentCode} = ANY(${defaultDocumentCodes})`
+          inArray(ukHSDocumentTemplates.documentCode, defaultDocumentCodes)
         ));
       
       if (!existingTemplate) {

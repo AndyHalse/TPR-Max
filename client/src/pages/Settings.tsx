@@ -21,6 +21,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
+import { DefaultTemplateManager } from "@/components/DefaultTemplateManager";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -3707,6 +3708,11 @@ export default function Settings() {
 
         <TabsContent value="contractors" className="space-y-6 mt-6">
           <ContractorsHSManagement />
+          
+          {/* Default UK H&S Document Templates Section */}
+          <div className="mt-8">
+            <DefaultTemplateManager className="w-full" />
+          </div>
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6 mt-6">
