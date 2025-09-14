@@ -200,17 +200,17 @@ class EmailService {
               </tr>
             </thead>
             <tbody>
-              ${visitors.map(visitor => {
-                const duration = visitor.checkedOutAt 
-                  ? Math.round((new Date(visitor.checkedOutAt).getTime() - new Date(visitor.checkedInAt).getTime()) / (1000 * 60)) 
+              ${visitors.map((visitor: any) => {
+                const duration = (visitor as any).checkedOutAt 
+                  ? Math.round((new Date((visitor as any).checkedOutAt).getTime() - new Date((visitor as any).checkedInAt).getTime()) / (1000 * 60)) 
                   : null;
                 return `
                   <tr>
-                    <td>${visitor.firstName} ${visitor.lastName}</td>
-                    <td>${visitor.company || 'N/A'}</td>
-                    <td>${visitor.hostName || 'N/A'}</td>
-                    <td>${new Date(visitor.checkedInAt).toLocaleString()}</td>
-                    <td>${visitor.checkedOutAt ? new Date(visitor.checkedOutAt).toLocaleString() : 'Still on-site'}</td>
+                    <td>${(visitor as any).firstName} ${(visitor as any).lastName}</td>
+                    <td>${(visitor as any).company || 'N/A'}</td>
+                    <td>${(visitor as any).hostName || 'N/A'}</td>
+                    <td>${new Date((visitor as any).checkedInAt).toLocaleString()}</td>
+                    <td>${(visitor as any).checkedOutAt ? new Date((visitor as any).checkedOutAt).toLocaleString() : 'Still on-site'}</td>
                     <td>${duration ? `${duration} min` : 'N/A'}</td>
                   </tr>
                 `;
@@ -253,10 +253,10 @@ ${visitors.map(visitor => {
     ? Math.round((new Date(visitor.checkedOutAt).getTime() - new Date(visitor.checkedInAt).getTime()) / (1000 * 60)) 
     : null;
   return `
-- ${visitor.firstName} ${visitor.lastName} (${visitor.company || 'N/A'})
-  Host: ${visitor.hostName || 'N/A'}
-  Check-in: ${new Date(visitor.checkedInAt).toLocaleString()}
-  Check-out: ${visitor.checkedOutAt ? new Date(visitor.checkedOutAt).toLocaleString() : 'Still on-site'}
+- ${(visitor as any).firstName} ${(visitor as any).lastName} (${(visitor as any).company || 'N/A'})
+  Host: ${(visitor as any).hostName || 'N/A'}
+  Check-in: ${new Date((visitor as any).checkedInAt).toLocaleString()}
+  Check-out: ${(visitor as any).checkedOutAt ? new Date((visitor as any).checkedOutAt).toLocaleString() : 'Still on-site'}
   Duration: ${duration ? `${duration} min` : 'N/A'}
   `;
 }).join('')}
@@ -676,7 +676,7 @@ For questions about this report, please contact the administrator.
           <div style="text-align: center; margin-top: 20px;">
             <p style="color: #666; font-size: 14px;">
               ${companySettings.companyName}<br>
-              Emergency Contact: ${companySettings.phoneNumber || '999'}
+              Emergency Contact: ${(companySettings as any)?.phoneNumber || companySettings?.phone || '999'}
             </p>
           </div>
         </div>
@@ -700,7 +700,7 @@ Important Instructions:
 - Remain at the muster point until given the all-clear
 
 ${companySettings.companyName}
-Emergency Contact: ${companySettings.phoneNumber || '999'}`;
+Emergency Contact: ${(companySettings as any)?.phoneNumber || companySettings?.phone || '999'}`;
     
     return await this.sendEmail({
       to: toEmail,
