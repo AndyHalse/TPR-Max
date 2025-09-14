@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info } from "lucide-react";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
+import ContractorsHSManagement from "@/components/ContractorsHSManagement";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -3705,88 +3706,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="contractors" className="space-y-6 mt-6">
-          <div className="grid grid-cols-1 gap-6">
-            <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                UK Health & Safety Compliance Management
-              </h3>
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800 font-medium">
-                    🏗️ UK H&S Compliance System
-                  </p>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Manage UK Health & Safety compliance documents for contractor workers. Assign and track acceptance of required documents including Right to Work, Ladder Safety Training, Permit to Work, and more.
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-4 bg-white rounded-lg border border-slate-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="w-4 h-4 text-blue-600" />
-                      <h4 className="font-semibold text-slate-800">Document Templates</h4>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      6 UK H&S compliance document templates with auto-fill capabilities
-                    </p>
-                  </div>
-                  
-                  <div className="p-4 bg-white rounded-lg border border-slate-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Mail className="w-4 h-4 text-green-600" />
-                      <h4 className="font-semibold text-slate-800">Email System</h4>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      Automated email delivery with secure acceptance links for workers
-                    </p>
-                  </div>
-                  
-                  <div className="p-4 bg-white rounded-lg border border-slate-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <BarChart3 className="w-4 h-4 text-purple-600" />
-                      <h4 className="font-semibold text-slate-800">Tracking & Reports</h4>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      Real-time compliance tracking and detailed reporting
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="mt-6">
-                  <h4 className="font-semibold text-slate-800 mb-3">UK H&S Document Types</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                      "Right to Work Documentation",
-                      "Ladder Safety Training Certificate", 
-                      "Permit to Work Authorization",
-                      "Independent Contractor Agreement",
-                      "Health & Safety Risk Assessment",
-                      "Site-Specific Safety Induction"
-                    ].map((docType, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                        <Shield className="w-4 h-4 text-green-600" />
-                        <span className="text-sm text-slate-700">{docType}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm text-amber-800 font-medium">Implementation Status</p>
-                      <p className="text-sm text-amber-700 mt-1">
-                        The UK H&S compliance system backend is fully implemented with comprehensive API endpoints.
-                        Frontend interface development is in progress for document assignment and management.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
-          </div>
+          <ContractorsHSManagement />
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6 mt-6">
