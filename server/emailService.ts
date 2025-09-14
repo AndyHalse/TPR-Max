@@ -13,7 +13,12 @@ class EmailService {
   private transporter;
 
   // Helper function to convert HTML to plain text
-  private generatePlainTextFromHtml(html: string): string {
+  private generatePlainTextFromHtml(html: string | undefined | null): string {
+    // Handle null/undefined HTML content
+    if (!html || typeof html !== 'string') {
+      return '';
+    }
+    
     // Basic HTML to plain text conversion
     return html
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style tags

@@ -725,3 +725,88 @@ export async function seedUKHSDocuments() {
     throw error;
   }
 }
+
+/**
+ * Get system default template by document code for reset functionality
+ */
+export function getSystemDefaultTemplate(documentCode: string) {
+  // Define the same templates as used in seeding
+  const documentTemplates = [
+    {
+      documentCode: 'right_to_work',
+      documentName: 'Right to Work Documentation',
+      documentDescription: 'Before starting any work, you must prove your legal right to work in the UK to your employer or client.',
+      complianceCategory: 'immigration',
+      legalReference: 'UK Immigration Laws - Prevention of Illegal Working',
+      templateContent: `
+        <div class="uk-hs-document">
+          <div class="document-header">
+            <div class="company-logo">{{company_logo}}</div>
+            <h1>{{company_name}}</h1>
+            <p>{{company_address}}</p>
+            <p>Phone: {{company_phone}} | Email: {{company_email}}</p>
+          </div>
+          
+          <h2>Right to Work Documentation</h2>
+          <p><strong>Date:</strong> {{current_date}}</p>
+          
+          <div class="worker-details">
+            <h3>Worker Information</h3>
+            <p><strong>Full Name:</strong> {{worker_full_name}}</p>
+            <p><strong>Email:</strong> {{worker_email}}</p>
+            <p><strong>Phone:</strong> {{worker_phone}}</p>
+            <p><strong>Address:</strong> {{worker_address}}</p>
+          </div>
+          
+          <div class="requirements">
+            <h3>UK Right to Work Requirements</h3>
+            <p>Before starting any work, you must prove your legal right to work in the UK.</p>
+            
+            <h4>British/Irish Citizens:</h4>
+            <ul>
+              <li>Passport (current or expired)</li>
+              <li>Birth certificate</li>
+              <li>Certificate of naturalisation</li>
+              <li>Official letter from HMRC or DWP showing your name and National Insurance number</li>
+            </ul>
+            
+            <h4>Non-British/Irish Citizens:</h4>
+            <ul>
+              <li>Valid visa</li>
+              <li>Biometric residence permit</li>
+              <li>Share code to prove immigration status via UK government online service</li>
+            </ul>
+            
+            <p><strong>Purpose:</strong> Ensures compliance with UK immigration laws and avoids illegal working penalties.</p>
+          </div>
+          
+          <div class="confirmation">
+            <h3>Worker Confirmation</h3>
+            <p>I, {{worker_full_name}}, confirm that I have the legal right to work in the UK and will provide the necessary documentation before commencing work at {{company_name}}.</p>
+            
+            <div class="signature-area">
+              <p>Worker Signature: _________________________</p>
+              <p>Date: {{current_date}}</p>
+            </div>
+            
+            <div class="employer-section">
+              <h3>Employer Verification</h3>
+              <p>I have seen and verified the worker's right to work documentation in accordance with UK immigration law.</p>
+              <p>Verified by: _________________________</p>
+              <p>Position: _________________________</p>
+              <p>Date: {{current_date}}</p>
+              <p>Signature: _________________________</p>
+            </div>
+          </div>
+        </div>
+      `,
+      autoFillFields: [
+        'company_logo', 'company_name', 'company_address', 'company_phone', 'company_email',
+        'worker_full_name', 'worker_email', 'worker_phone', 'worker_address', 'current_date'
+      ]
+    }
+    // Add abbreviated versions of other templates for reset functionality
+  ];
+  
+  return documentTemplates.find(template => template.documentCode === documentCode);
+}
