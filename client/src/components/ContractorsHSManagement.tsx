@@ -24,8 +24,11 @@ import {
   Eye,
   BarChart3,
   Calendar,
-  Download
+  Download,
+  Edit,
+  Settings
 } from "lucide-react";
+import { TemplateEditor } from './TemplateEditor';
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { ContractorCompany, ContractorWorker, UkHSDocumentTemplate, WorkerDocumentAssignment } from "@shared/schema";
 
@@ -63,6 +66,8 @@ export default function ContractorsHSManagement() {
   const [showComplianceDialog, setShowComplianceDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCompany, setFilterCompany] = useState("all");
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<UkHSDocumentTemplate | undefined>(undefined);
   
   // Fetch contractor companies
   const { data: contractors = [], isLoading: contractorsLoading } = useQuery<ContractorCompany[]>({
@@ -191,6 +196,22 @@ export default function ContractorsHSManagement() {
     setSelectedDocuments([]);
   };
 
+  // Template editing handlers
+  const handleCreateTemplate = () => {
+    setEditingTemplate(undefined);
+    setShowTemplateEditor(true);
+  };
+
+  const handleEditTemplate = (template: UkHSDocumentTemplate) => {
+    setEditingTemplate(template);
+    setShowTemplateEditor(true);
+  };
+
+  const handleCloseTemplateEditor = () => {
+    setShowTemplateEditor(false);
+    setEditingTemplate(undefined);
+  };
+
   if (contractorsLoading || workersLoading || templatesLoading) {
     return (
       <div className="space-y-6">
@@ -284,10 +305,21 @@ export default function ContractorsHSManagement() {
 
       {/* Document Templates */}
       <GlassCard>
-        <h4 className="text-md font-semibold text-slate-800 mb-4 flex items-center gap-2">
-          <FileText className="w-4 h-4" />
-          UK H&S Document Templates
-        </h4>
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-md font-semibold text-slate-800 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            UK H&S Document Templates
+          </h4>
+          <Button
+            onClick={handleCreateTemplate}
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 text-white"
+            data-testid="button-create-new-template"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create New Template
+          </Button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {documentTemplates.map((template) => (
             <div key={template.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
@@ -567,6 +599,17 @@ export default function ContractorsHSManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Template Editor */}
+      <TemplateEditor
+        template={editingTemplate}
+        isOpen={showTemplateEditor}
+        onClose={handleCloseTemplateEditor}
+        onSave={() => {
+          // Refresh templates when saved
+          queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/templates"] });
+        }}
+      />
     </div>
   );
 }

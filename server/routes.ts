@@ -34,6 +34,7 @@ import {
   insertHelpUserInteractionSchema,
   insertHelpOnboardingProgressSchema,
   ukHSDocumentTemplates,
+  insertUkHSDocumentTemplateSchema,
   workerDocumentAssignments,
   workerDocumentAcceptances,
   contractorWorkers,
@@ -44,6 +45,7 @@ import {
 import { z } from "zod";
 import path from "path";
 import express from "express";
+import { randomUUID } from "crypto";
 import { CO2CalculationService } from "./co2CalculationService";
 
 // Staff authentication schema
@@ -58,7 +60,7 @@ import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
 import cron from "node-cron";
 
@@ -7538,8 +7540,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get user ID for assignment tracking
-      const userId = req.user?.id || assignedBy || '00000000-0000-0000-0000-000000000000';
+      // Get user ID for assignment tracking - ensure it's a valid user ID from customer's database
+      let userId = assignedBy;
+      
+      // Always look up the user in the customer's database to ensure they exist
+      const loggedInUser = await databaseService.getUserByUsername(context, username);
+      if (loggedInUser) {
+        userId = loggedInUser.id;
+      } else {
+        // Create customer user record if it doesn't exist (sync from auth system)
+        try {
+          const authUser = req.user;
+          if (authUser) {
+            const newUser = await databaseService.createUser(context, {
+              username: authUser.username,
+              password: '', // Auth users don't need passwords in customer DB
+              customerId: context.customerId
+            });
+            userId = newUser.id;
+            console.log(`✅ Created customer user record for ${authUser.username}`);
+          }
+        } catch (error) {
+          console.error('Failed to create customer user record:', error);
+        }
+      }
+      
+      // Skip assignments with invalid user IDs to prevent FK constraint violations
+      if (!userId) {
+        return res.status(400).json({ error: 'Could not resolve user for document assignment. Please contact support.' });
+      }
       
       // Start transaction for data consistency
       const assignments = await db.transaction(async (tx) => {
