@@ -115,6 +115,11 @@ app.use((req, res, next) => {
       // Seed role-specific questions
       const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
       await seedRoleSpecificQuestions();
+
+      // Seed UK H&S compliance documents
+      console.log('🌱 Seeding UK H&S compliance documents...');
+      const { seedUKHSDocuments } = await import("./seed-uk-hs-documents");
+      await seedUKHSDocuments();
     } catch (error) {
       console.error("Failed to seed induction data:", error);
     }

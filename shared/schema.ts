@@ -1818,3 +1818,168 @@ export type HelpUserInteraction = typeof helpUserInteractions.$inferSelect;
 export type InsertHelpUserInteraction = z.infer<typeof insertHelpUserInteractionSchema>;
 export type HelpOnboardingProgress = typeof helpOnboardingProgress.$inferSelect;
 export type InsertHelpOnboardingProgress = z.infer<typeof insertHelpOnboardingProgressSchema>;
+
+// UK H&S Compliance Document System
+// Templates for the 6 specific UK H&S documents
+export const ukHSDocumentTemplates = pgTable("uk_hs_document_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each template belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  
+  // Document identification
+  documentCode: text("document_code").notNull(), // right_to_work, ladder_safety, permit_to_work, contractor_agreement, risk_assessment, site_induction
+  documentName: text("document_name").notNull(),
+  documentDescription: text("document_description"),
+  
+  // Template content with auto-fill placeholders
+  templateContent: text("template_content").notNull(), // HTML template with {{placeholder}} tags
+  autoFillFields: text("auto_fill_fields").array().default([]), // Array of field names to auto-fill
+  
+  // UK H&S compliance requirements
+  isUKHSRequired: boolean("is_uk_hs_required").default(true).notNull(),
+  complianceCategory: text("compliance_category").notNull(), // immigration, safety_training, work_permit, contract, risk_management, induction
+  legalReference: text("legal_reference"), // Reference to UK H&S legislation
+  
+  // Template metadata
+  version: text("version").default("1.0").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Worker document assignments - which documents are assigned to which workers
+export const workerDocumentAssignments = pgTable("worker_document_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each assignment belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  
+  // Assignment details
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  documentTemplateId: varchar("document_template_id").notNull().references(() => ukHSDocumentTemplates.id),
+  
+  // Assignment metadata
+  assignedBy: varchar("assigned_by").notNull().references(() => users.id),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  dueDate: timestamp("due_date"), // Optional deadline for acceptance
+  
+  // Status tracking
+  status: text("status").default("pending").notNull(), // pending, sent, accepted, rejected, expired
+  emailSent: boolean("email_sent").default(false).notNull(),
+  emailSentAt: timestamp("email_sent_at"),
+  
+  // Worker access
+  acceptanceToken: text("acceptance_token").unique(), // Unique token for worker access
+  acceptanceUrl: text("acceptance_url"), // Full URL for worker to access document
+  
+  // Completion tracking
+  viewedAt: timestamp("viewed_at"), // When worker first viewed the document
+  acceptedAt: timestamp("accepted_at"), // When worker accepted the document
+  rejectedAt: timestamp("rejected_at"), // When worker rejected the document
+  rejectionReason: text("rejection_reason"),
+  
+  // Auto-filled document content
+  filledDocumentContent: text("filled_document_content"), // Template filled with actual data
+  
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Worker document acceptances - historical tracking of all acceptances
+export const workerDocumentAcceptances = pgTable("worker_document_acceptances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each acceptance belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  
+  // Reference to assignment
+  assignmentId: varchar("assignment_id").notNull().references(() => workerDocumentAssignments.id),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  documentTemplateId: varchar("document_template_id").notNull().references(() => ukHSDocumentTemplates.id),
+  
+  // Acceptance details
+  acceptanceMethod: text("acceptance_method").default("email_link").notNull(), // email_link, manual_entry, system_generated
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  acceptanceToken: text("acceptance_token").notNull(), // Token used for verification
+  
+  // Digital signature/confirmation
+  digitalSignature: text("digital_signature"), // Base64 encoded signature if applicable
+  confirmationText: text("confirmation_text"), // Text the worker typed to confirm understanding
+  
+  // Timestamps
+  acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+  
+  // Compliance audit trail
+  witnessName: text("witness_name"), // Optional witness for critical documents
+  witnessEmail: text("witness_email"),
+  auditNotes: text("audit_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Auto-fill data mapping - maps company/worker fields to document placeholders
+export const documentAutoFillMapping = pgTable("document_auto_fill_mapping", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each mapping belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  
+  // Document and field identification
+  documentTemplateId: varchar("document_template_id").notNull().references(() => ukHSDocumentTemplates.id),
+  placeholderName: text("placeholder_name").notNull(), // {{company_name}}, {{worker_full_name}}, etc.
+  
+  // Data source configuration
+  dataSource: text("data_source").notNull(), // company_settings, contractor_worker, contractor_company, system_generated
+  sourceField: text("source_field").notNull(), // Field name in the source table
+  fallbackValue: text("fallback_value"), // Default value if source field is empty
+  
+  // Field transformation
+  transformationType: text("transformation_type").default("none"), // none, uppercase, lowercase, date_format, currency_format
+  transformationConfig: text("transformation_config"), // JSON config for complex transformations
+  
+  // Validation rules
+  isRequired: boolean("is_required").default(false).notNull(),
+  validationPattern: text("validation_pattern"), // Regex pattern for validation
+  validationMessage: text("validation_message"),
+  
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schemas for UK H&S document system
+export const insertUkHSDocumentTemplateSchema = createInsertSchema(ukHSDocumentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWorkerDocumentAssignmentSchema = createInsertSchema(workerDocumentAssignments).omit({
+  id: true,
+  assignedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWorkerDocumentAcceptanceSchema = createInsertSchema(workerDocumentAcceptances).omit({
+  id: true,
+  acceptedAt: true,
+  createdAt: true,
+});
+
+export const insertDocumentAutoFillMappingSchema = createInsertSchema(documentAutoFillMapping).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for UK H&S document system
+export type UkHSDocumentTemplate = typeof ukHSDocumentTemplates.$inferSelect;
+export type InsertUkHSDocumentTemplate = z.infer<typeof insertUkHSDocumentTemplateSchema>;
+export type WorkerDocumentAssignment = typeof workerDocumentAssignments.$inferSelect;
+export type InsertWorkerDocumentAssignment = z.infer<typeof insertWorkerDocumentAssignmentSchema>;
+export type WorkerDocumentAcceptance = typeof workerDocumentAcceptances.$inferSelect;
+export type InsertWorkerDocumentAcceptance = z.infer<typeof insertWorkerDocumentAcceptanceSchema>;
+export type DocumentAutoFillMapping = typeof documentAutoFillMapping.$inferSelect;
+export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFillMappingSchema>;

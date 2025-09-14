@@ -32,7 +32,14 @@ import {
   helpOnboardingProgress,
   insertHelpArticleSchema,
   insertHelpUserInteractionSchema,
-  insertHelpOnboardingProgressSchema
+  insertHelpOnboardingProgressSchema,
+  ukHSDocumentTemplates,
+  workerDocumentAssignments,
+  workerDocumentAcceptances,
+  contractorWorkers,
+  contractorCompanies,
+  insertWorkerDocumentAssignmentSchema,
+  insertWorkerDocumentAcceptanceSchema
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -2506,7 +2513,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Generate e-Pass URL
-        const ePassUrl = `${process.env.PUBLIC_URL || req.protocol + '://' + req.get('host')}/epass/${visitor.id}`;
+        const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+        const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
         
         // Update visitor with e-Pass URL
         await databaseService.updateVisitor(context, visitor.id, {
@@ -2637,7 +2645,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate e-Pass URL
-      const ePassUrl = `${process.env.PUBLIC_URL || req.protocol + '://' + req.get('host')}/epass/${visitor.id}`;
+      const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+      const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
       
       // Update visitor email if provided
       if (email) {
@@ -7247,6 +7256,815 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error approving/rejecting document:", error);
       res.status(500).json({ error: "Failed to process document approval" });
+    }
+  });
+
+  // UK H&S Compliance Document Management API Routes
+  
+  // Get all UK H&S document templates for customer
+  app.get("/api/uk-hs-documents/templates", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const templates = await db
+        .select()
+        .from(ukHSDocumentTemplates)
+        .where(and(
+          eq(ukHSDocumentTemplates.customerId, context.customerId),
+          eq(ukHSDocumentTemplates.isActive, true)
+        ))
+        .orderBy(ukHSDocumentTemplates.complianceCategory, ukHSDocumentTemplates.documentName);
+      
+      res.json(templates);
+    } catch (error) {
+      console.error('Error fetching UK H&S document templates:', error);
+      res.status(500).json({ error: 'Failed to fetch UK H&S document templates' });
+    }
+  });
+
+  // Get specific UK H&S document template
+  app.get("/api/uk-hs-documents/templates/:templateId", requireAuth, async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const [template] = await db
+        .select()
+        .from(ukHSDocumentTemplates)
+        .where(and(
+          eq(ukHSDocumentTemplates.id, templateId),
+          eq(ukHSDocumentTemplates.customerId, context.customerId)
+        ));
+      
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      console.error('Error fetching UK H&S document template:', error);
+      res.status(500).json({ error: 'Failed to fetch UK H&S document template' });
+    }
+  });
+
+  // Assign UK H&S documents to workers
+  app.post("/api/uk-hs-documents/assign", requireAuth, async (req, res) => {
+    try {
+      // Validate request body using Zod schema
+      const assignmentRequestSchema = z.object({
+        workerIds: z.array(z.string().uuid()).min(1, 'At least one worker ID required'),
+        documentTemplateIds: z.array(z.string().uuid()).min(1, 'At least one document template ID required'),
+        dueDate: z.string().datetime().optional(),
+        assignedBy: z.string().uuid().optional()
+      });
+      
+      const validatedData = assignmentRequestSchema.parse(req.body);
+      const { workerIds, documentTemplateIds, dueDate, assignedBy } = validatedData;
+      
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get user ID for assignment tracking
+      const userId = req.user?.id || assignedBy || '00000000-0000-0000-0000-000000000000';
+      
+      // Start transaction for data consistency
+      const assignments = await db.transaction(async (tx) => {
+        const newAssignments = [];
+        
+        // Create assignments for each worker-document combination
+        for (const workerId of workerIds) {
+          // Get worker and company details for validation
+          const worker = await databaseService.getContractorWorkerById(context, workerId);
+          if (!worker) {
+            console.warn(`Worker ${workerId} not found, skipping assignment`);
+            continue;
+          }
+          
+          for (const templateId of documentTemplateIds) {
+            // Check for existing active assignment (duplicate prevention)
+            const [existingAssignment] = await tx
+              .select()
+              .from(workerDocumentAssignments)
+              .where(and(
+                eq(workerDocumentAssignments.workerId, workerId),
+                eq(workerDocumentAssignments.documentTemplateId, templateId),
+                eq(workerDocumentAssignments.customerId, context.customerId),
+                eq(workerDocumentAssignments.isActive, true),
+                // Only prevent duplicates for non-completed assignments
+                sql`${workerDocumentAssignments.status} NOT IN ('accepted', 'rejected')`
+              ));
+            
+            if (existingAssignment) {
+              console.warn(`Assignment already exists for worker ${workerId} and template ${templateId}, skipping`);
+              continue;
+            }
+            
+            // Validate template exists and belongs to customer
+            const [template] = await tx
+              .select()
+              .from(ukHSDocumentTemplates)
+              .where(and(
+                eq(ukHSDocumentTemplates.id, templateId),
+                eq(ukHSDocumentTemplates.customerId, context.customerId),
+                eq(ukHSDocumentTemplates.isActive, true)
+              ));
+            
+            if (!template) {
+              console.warn(`Template ${templateId} not found or not accessible, skipping assignment`);
+              continue;
+            }
+            
+            // Generate unique acceptance token
+            const acceptanceToken = randomUUID();
+            const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+            const acceptanceUrl = `${baseUrl}/hs-document/${acceptanceToken}`;
+            
+            const assignmentData = {
+              customerId: context.customerId,
+              workerId,
+              companyId: worker.companyId,
+              documentTemplateId: templateId,
+              assignedBy: userId,
+              dueDate: dueDate ? new Date(dueDate) : null,
+              acceptanceToken,
+              acceptanceUrl,
+              status: 'pending' as const
+            };
+            
+            // Validate assignment data with Zod
+            const validatedAssignment = insertWorkerDocumentAssignmentSchema.parse(assignmentData);
+            newAssignments.push(validatedAssignment);
+          }
+        }
+        
+        if (newAssignments.length === 0) {
+          throw new Error('No valid assignments to create');
+        }
+        
+        // Insert all assignments atomically
+        const insertedAssignments = await tx
+          .insert(workerDocumentAssignments)
+          .values(newAssignments)
+          .returning();
+        
+        return insertedAssignments;
+      });
+      
+      res.json({
+        success: true,
+        assignmentsCreated: assignments.length,
+        assignments
+      });
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: error.errors 
+        });
+      }
+      console.error('Error assigning UK H&S documents:', error);
+      res.status(500).json({ error: 'Failed to assign UK H&S documents' });
+    }
+  });
+
+  // Get worker document assignments
+  app.get("/api/uk-hs-documents/assignments/worker/:workerId", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const assignments = await db
+        .select({
+          assignment: workerDocumentAssignments,
+          template: ukHSDocumentTemplates
+        })
+        .from(workerDocumentAssignments)
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .where(and(
+          eq(workerDocumentAssignments.workerId, workerId),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true)
+        ))
+        .orderBy(workerDocumentAssignments.assignedAt);
+      
+      res.json(assignments);
+    } catch (error) {
+      console.error('Error fetching worker document assignments:', error);
+      res.status(500).json({ error: 'Failed to fetch worker document assignments' });
+    }
+  });
+
+  // Get all document assignments for a company
+  app.get("/api/uk-hs-documents/assignments/company/:companyId", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const assignments = await db
+        .select({
+          assignment: workerDocumentAssignments,
+          template: ukHSDocumentTemplates,
+          worker: {
+            id: contractorWorkers.id,
+            firstName: contractorWorkers.firstName,
+            lastName: contractorWorkers.lastName,
+            email: contractorWorkers.email
+          }
+        })
+        .from(workerDocumentAssignments)
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
+        .where(and(
+          eq(workerDocumentAssignments.companyId, companyId),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true)
+        ))
+        .orderBy(workerDocumentAssignments.assignedAt);
+      
+      res.json(assignments);
+    } catch (error) {
+      console.error('Error fetching company document assignments:', error);
+      res.status(500).json({ error: 'Failed to fetch company document assignments' });
+    }
+  });
+
+  // Send UK H&S documents via email to workers
+  app.post("/api/uk-hs-documents/send-email", requireAuth, async (req, res) => {
+    try {
+      // Validate request body using Zod schema
+      const sendEmailRequestSchema = z.object({
+        assignmentIds: z.array(z.string().uuid()).min(1, 'At least one assignment ID required')
+      });
+      
+      const validatedData = sendEmailRequestSchema.parse(req.body);
+      const { assignmentIds } = validatedData;
+      
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      if (!companySettings) {
+        return res.status(400).json({ error: 'Company settings not found' });
+      }
+      
+      const emailService = new EmailService(companySettings);
+      let emailsSent = 0;
+      const errors = [];
+      
+      // Process each assignment with transaction boundaries
+      const results = await db.transaction(async (tx) => {
+        let emailsSent = 0;
+        const errors = [];
+        
+        for (const assignmentId of assignmentIds) {
+          try {
+            // Get assignment with worker and template details (with customer scoping)
+            const [assignmentData] = await tx
+              .select({
+                assignment: workerDocumentAssignments,
+                template: ukHSDocumentTemplates,
+                worker: contractorWorkers,
+                company: contractorCompanies
+              })
+              .from(workerDocumentAssignments)
+              .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+              .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
+              .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
+              .where(and(
+                eq(workerDocumentAssignments.id, assignmentId),
+                eq(workerDocumentAssignments.customerId, context.customerId),
+                eq(workerDocumentAssignments.isActive, true),
+                // Only send emails for pending assignments
+                sql`${workerDocumentAssignments.status} IN ('pending')`
+              ));
+              
+            if (!assignmentData || !assignmentData.worker.email) {
+              errors.push(`Assignment ${assignmentId}: Worker or email not found`);
+              continue;
+            }
+            
+            const { assignment, template, worker, company } = assignmentData;
+            
+            // Check if email already sent
+            if (assignment.emailSent) {
+              errors.push(`Assignment ${assignmentId}: Email already sent`);
+              continue;
+            }
+            
+            // Send H&S document email
+            const emailSubject = `UK H&S Compliance Document: ${template.documentName}`;
+            const emailContent = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">UK Health & Safety Compliance Document</h2>
+                
+                <p>Dear ${worker.firstName} ${worker.lastName},</p>
+                
+                <p>You have been assigned a UK Health & Safety compliance document that requires your review and acceptance.</p>
+                
+                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin: 0 0 10px 0; color: #1e293b;">Document Details:</h3>
+                  <p><strong>Document:</strong> ${template.documentName}</p>
+                  <p><strong>Category:</strong> ${template.complianceCategory}</p>
+                  <p><strong>Company:</strong> ${company.name}</p>
+                  ${assignment.dueDate ? `<p><strong>Due Date:</strong> ${new Date(assignment.dueDate).toLocaleDateString()}</p>` : ''}
+                </div>
+                
+                <p>Please click the link below to review and accept this document:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${assignment.acceptanceUrl}" 
+                     style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    Review & Accept Document
+                  </a>
+                </div>
+                
+                <div style="background: #fef2f2; padding: 15px; border-radius: 6px; border-left: 4px solid #ef4444;">
+                  <p style="margin: 0; color: #dc2626;"><strong>Important:</strong> This document must be accepted before you can commence work on site.</p>
+                </div>
+                
+                <hr style="margin: 30px 0;">
+                <p style="color: #64748b; font-size: 14px;">
+                  This email was sent by ${companySettings.companyName}<br>
+                  If you have any questions, please contact us.
+                </p>
+              </div>
+            `;
+            
+            const emailSent = await emailService.sendEmail(
+              worker.email,
+              emailSubject,
+              emailContent
+            );
+            
+            if (emailSent) {
+              // Update assignment status atomically within transaction
+              await tx
+                .update(workerDocumentAssignments)
+                .set({
+                  emailSent: true,
+                  emailSentAt: new Date(),
+                  status: 'sent',
+                  updatedAt: new Date()
+                })
+                .where(eq(workerDocumentAssignments.id, assignmentId));
+                
+              emailsSent++;
+            } else {
+              errors.push(`Assignment ${assignmentId}: Email failed to send`);
+            }
+            
+          } catch (assignmentError) {
+            console.error(`Error processing assignment ${assignmentId}:`, assignmentError);
+            errors.push(`Assignment ${assignmentId}: ${assignmentError.message}`);
+          }
+        }
+        
+        return { emailsSent, errors };
+      });
+      
+      res.json({
+        success: true,
+        emailsSent: results.emailsSent,
+        totalAssignments: assignmentIds.length,
+        errors: results.errors.length > 0 ? results.errors : undefined
+      });
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: error.errors 
+        });
+      }
+      console.error('Error sending UK H&S document emails:', error);
+      res.status(500).json({ error: 'Failed to send UK H&S document emails' });
+    }
+  });
+
+  // Worker document acceptance endpoint (public - no authentication required)
+  app.get("/api/uk-hs-documents/accept/:token", async (req, res) => {
+    try {
+      // Validate token parameter
+      const tokenSchema = z.string().uuid('Invalid token format');
+      const token = tokenSchema.parse(req.params.token);
+      
+      // Find assignment by acceptance token with customer scoping validation
+      const [assignment] = await db
+        .select({
+          assignment: workerDocumentAssignments,
+          template: ukHSDocumentTemplates,
+          worker: contractorWorkers,
+          company: contractorCompanies
+        })
+        .from(workerDocumentAssignments)
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
+        .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
+        .where(and(
+          eq(workerDocumentAssignments.acceptanceToken, token),
+          eq(workerDocumentAssignments.isActive, true),
+          // CRITICAL: Ensure all related entities belong to the same customer for multi-tenant isolation
+          eq(workerDocumentAssignments.customerId, ukHSDocumentTemplates.customerId)
+        ));
+      
+      if (!assignment) {
+        return res.status(404).json({ error: 'Document assignment not found or invalid token' });
+      }
+      
+      // Additional customer scoping validation - verify all entities belong to the same customer
+      if (assignment.assignment.customerId !== assignment.template.customerId) {
+        console.error('Customer ID mismatch in document acceptance:', {
+          assignmentCustomerId: assignment.assignment.customerId,
+          templateCustomerId: assignment.template.customerId,
+          token
+        });
+        return res.status(404).json({ error: 'Document assignment not found or invalid token' });
+      }
+      
+      // Check if assignment is expired
+      if (assignment.assignment.dueDate && new Date() > new Date(assignment.assignment.dueDate)) {
+        return res.status(410).json({ 
+          error: 'Document assignment has expired',
+          dueDate: assignment.assignment.dueDate
+        });
+      }
+      
+      // Check if already accepted
+      if (assignment.assignment.status === 'accepted') {
+        return res.json({
+          success: true,
+          alreadyAccepted: true,
+          message: 'Document already accepted',
+          acceptedAt: assignment.assignment.acceptedAt,
+          assignment: assignment.assignment,
+          template: assignment.template,
+          worker: assignment.worker,
+          company: assignment.company
+        });
+      }
+      
+      // Update viewed timestamp if first view
+      if (!assignment.assignment.viewedAt) {
+        await db
+          .update(workerDocumentAssignments)
+          .set({ viewedAt: new Date() })
+          .where(eq(workerDocumentAssignments.id, assignment.assignment.id));
+      }
+      
+      res.json({
+        success: true,
+        assignment: assignment.assignment,
+        template: assignment.template,
+        worker: assignment.worker,
+        company: assignment.company
+      });
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Invalid token format', 
+          details: error.errors 
+        });
+      }
+      console.error('Error fetching document for acceptance:', error);
+      res.status(500).json({ error: 'Failed to fetch document for acceptance' });
+    }
+  });
+
+  // Submit worker document acceptance (public - no authentication required)
+  app.post("/api/uk-hs-documents/accept/:token", async (req, res) => {
+    try {
+      // Validate token parameter
+      const tokenSchema = z.string().uuid('Invalid token format');
+      const token = tokenSchema.parse(req.params.token);
+      
+      // Validate request body
+      const acceptanceRequestSchema = z.object({
+        digitalSignature: z.string().optional(),
+        confirmationText: z.string().min(1, 'Confirmation text is required'),
+        acceptanceMethod: z.enum(['email_link', 'manual_entry']).default('email_link'),
+        witnessName: z.string().optional(),
+        witnessEmail: z.string().email().optional()
+      });
+      
+      const validatedData = acceptanceRequestSchema.parse(req.body);
+      const { digitalSignature, confirmationText, acceptanceMethod, witnessName, witnessEmail } = validatedData;
+      
+      // Use transaction for data consistency
+      const result = await db.transaction(async (tx) => {
+        // Find assignment by acceptance token with customer scoping
+        const [assignment] = await tx
+          .select()
+          .from(workerDocumentAssignments)
+          .where(and(
+            eq(workerDocumentAssignments.acceptanceToken, token),
+            eq(workerDocumentAssignments.isActive, true)
+          ));
+        
+        if (!assignment) {
+          throw new Error('Document assignment not found or invalid token');
+        }
+        
+        // Check if assignment is expired
+        if (assignment.dueDate && new Date() > new Date(assignment.dueDate)) {
+          throw new Error('Document assignment has expired');
+        }
+        
+        // Check if already accepted
+        if (assignment.status === 'accepted') {
+          throw new Error('Document has already been accepted');
+        }
+        
+        const acceptedAt = new Date();
+        
+        // Update assignment status
+        await tx
+          .update(workerDocumentAssignments)
+          .set({
+            status: 'accepted',
+            acceptedAt,
+            updatedAt: acceptedAt
+          })
+          .where(eq(workerDocumentAssignments.id, assignment.id));
+        
+        // Create acceptance record with proper validation
+        const acceptanceData = {
+          customerId: assignment.customerId,
+          assignmentId: assignment.id,
+          workerId: assignment.workerId,
+          documentTemplateId: assignment.documentTemplateId,
+          acceptanceMethod,
+          ipAddress: req.ip || 'unknown',
+          userAgent: req.get('User-Agent') || null,
+          acceptanceToken: token,
+          digitalSignature,
+          confirmationText,
+          witnessName,
+          witnessEmail
+        };
+        
+        // Validate acceptance data with Zod
+        const validatedAcceptance = insertWorkerDocumentAcceptanceSchema.parse(acceptanceData);
+        
+        const [acceptanceRecord] = await tx
+          .insert(workerDocumentAcceptances)
+          .values(validatedAcceptance)
+          .returning();
+        
+        return { assignment, acceptanceRecord, acceptedAt };
+      });
+      
+      res.json({
+        success: true,
+        message: 'Document accepted successfully',
+        acceptedAt: result.acceptedAt,
+        acceptanceId: result.acceptanceRecord.id
+      });
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: error.errors 
+        });
+      }
+      if (error.message === 'Document assignment not found or invalid token') {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message === 'Document assignment has expired') {
+        return res.status(410).json({ error: error.message });
+      }
+      if (error.message === 'Document has already been accepted') {
+        return res.status(400).json({ error: error.message });
+      }
+      console.error('Error accepting document:', error);
+      res.status(500).json({ error: 'Failed to accept document' });
+    }
+  });
+
+  // Get auto-fill data for document template
+  app.get("/api/uk-hs-documents/auto-fill/:workerId/:templateId", requireAuth, async (req, res) => {
+    try {
+      const { workerId, templateId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get worker details
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
+      if (!worker) {
+        return res.status(404).json({ error: 'Worker not found' });
+      }
+      
+      // Get company details
+      const company = await storage.getContractorCompanyById(worker.companyId);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+      
+      // Get company settings
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      if (!companySettings) {
+        return res.status(404).json({ error: 'Company settings not found' });
+      }
+      
+      // Get template
+      const [template] = await db
+        .select()
+        .from(ukHSDocumentTemplates)
+        .where(and(
+          eq(ukHSDocumentTemplates.id, templateId),
+          eq(ukHSDocumentTemplates.customerId, context.customerId)
+        ));
+      
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      // Get auto-fill mappings for this template
+      const mappings = await db
+        .select()
+        .from(documentAutoFillMapping)
+        .where(and(
+          eq(documentAutoFillMapping.documentTemplateId, templateId),
+          eq(documentAutoFillMapping.customerId, context.customerId)
+        ));
+      
+      // Build auto-fill data
+      const autoFillData: Record<string, any> = {};
+      
+      for (const mapping of mappings) {
+        let value = null;
+        
+        // Extract value based on data source
+        switch (mapping.dataSource) {
+          case 'worker':
+            value = (worker as any)[mapping.sourceField];
+            break;
+          case 'company':
+            value = (company as any)[mapping.sourceField];
+            break;
+          case 'settings':
+            value = (companySettings as any)[mapping.sourceField];
+            break;
+          case 'system':
+            if (mapping.sourceField === 'current_date') {
+              value = new Date().toLocaleDateString();
+            } else if (mapping.sourceField === 'current_datetime') {
+              value = new Date().toLocaleString();
+            }
+            break;
+        }
+        
+        // Apply formatting if specified
+        if (value && mapping.formatting) {
+          switch (mapping.formatting) {
+            case 'uppercase':
+              value = String(value).toUpperCase();
+              break;
+            case 'lowercase':
+              value = String(value).toLowerCase();
+              break;
+            case 'title_case':
+              value = String(value).replace(/\w\S*/g, (txt) => 
+                txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+              break;
+            case 'date_uk':
+              if (value instanceof Date || !isNaN(Date.parse(value))) {
+                value = new Date(value).toLocaleDateString('en-GB');
+              }
+              break;
+          }
+        }
+        
+        if (value !== null && value !== undefined) {
+          autoFillData[mapping.placeholderField] = value;
+        }
+      }
+      
+      res.json({
+        success: true,
+        autoFillData,
+        template: {
+          id: template.id,
+          documentName: template.documentName,
+          complianceCategory: template.complianceCategory
+        },
+        worker: {
+          id: worker.id,
+          firstName: worker.firstName,
+          lastName: worker.lastName
+        },
+        company: {
+          id: company.id,
+          name: company.name
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error generating auto-fill data:', error);
+      res.status(500).json({ error: 'Failed to generate auto-fill data' });
+    }
+  });
+
+  // Get document acceptance history for a worker
+  app.get("/api/uk-hs-documents/acceptances/worker/:workerId", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const acceptances = await db
+        .select({
+          acceptance: workerDocumentAcceptances,
+          template: ukHSDocumentTemplates
+        })
+        .from(workerDocumentAcceptances)
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAcceptances.documentTemplateId, ukHSDocumentTemplates.id))
+        .where(and(
+          eq(workerDocumentAcceptances.workerId, workerId),
+          eq(workerDocumentAcceptances.customerId, context.customerId)
+        ))
+        .orderBy(desc(workerDocumentAcceptances.acceptanceDate));
+      
+      res.json(acceptances);
+    } catch (error) {
+      console.error('Error fetching worker document acceptances:', error);
+      res.status(500).json({ error: 'Failed to fetch worker document acceptances' });
+    }
+  });
+
+  // Get document compliance status summary for company
+  app.get("/api/uk-hs-documents/compliance/company/:companyId", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get all workers for the company
+      const workers = await storage.getWorkersByCompanyId(companyId);
+      
+      // Get all document templates
+      const templates = await db
+        .select()
+        .from(ukHSDocumentTemplates)
+        .where(and(
+          eq(ukHSDocumentTemplates.customerId, context.customerId),
+          eq(ukHSDocumentTemplates.isActive, true)
+        ));
+      
+      // Get all assignments for company
+      const assignments = await db
+        .select()
+        .from(workerDocumentAssignments)
+        .where(and(
+          eq(workerDocumentAssignments.companyId, companyId),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true)
+        ));
+      
+      // Calculate compliance metrics
+      const totalWorkers = workers.length;
+      const totalDocuments = templates.length;
+      const totalRequired = totalWorkers * totalDocuments;
+      const totalAssigned = assignments.length;
+      const totalAccepted = assignments.filter(a => a.status === 'accepted').length;
+      const totalPending = assignments.filter(a => a.status === 'pending' || a.status === 'sent').length;
+      
+      const compliancePercentage = totalRequired > 0 ? Math.round((totalAccepted / totalRequired) * 100) : 0;
+      
+      res.json({
+        companyId,
+        totalWorkers,
+        totalDocuments,
+        totalRequired,
+        totalAssigned,
+        totalAccepted,
+        totalPending,
+        compliancePercentage,
+        workers: workers.map(worker => ({
+          id: worker.id,
+          name: `${worker.firstName} ${worker.lastName}`,
+          assignedCount: assignments.filter(a => a.workerId === worker.id).length,
+          acceptedCount: assignments.filter(a => a.workerId === worker.id && a.status === 'accepted').length
+        })),
+        templates: templates.map(template => ({
+          id: template.id,
+          name: template.documentName,
+          category: template.complianceCategory,
+          assignedCount: assignments.filter(a => a.documentTemplateId === template.id).length,
+          acceptedCount: assignments.filter(a => a.documentTemplateId === template.id && a.status === 'accepted').length
+        }))
+      });
+      
+    } catch (error) {
+      console.error('Error fetching company compliance status:', error);
+      res.status(500).json({ error: 'Failed to fetch company compliance status' });
     }
   });
 
