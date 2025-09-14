@@ -7261,14 +7261,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // UK H&S Compliance Document Management API Routes
   
-  // Get all UK H&S document templates for customer
+  // Get all UK H&S document templates for customer (with auto-copy from defaults)
   app.get("/api/uk-hs-documents/templates", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const templates = await db
+      // First check if customer has any templates
+      let templates = await db
         .select()
         .from(ukHSDocumentTemplates)
         .where(and(
@@ -7276,6 +7277,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(ukHSDocumentTemplates.isActive, true)
         ))
         .orderBy(ukHSDocumentTemplates.complianceCategory, ukHSDocumentTemplates.documentName);
+      
+      // If customer has no templates, copy default templates from dev-customer-001
+      if (templates.length === 0) {
+        console.log(`🔄 Customer ${context.customerId} has no UK H&S templates, copying defaults...`);
+        
+        // Get default templates from dev-customer-001
+        const defaultTemplates = await db
+          .select()
+          .from(ukHSDocumentTemplates)
+          .where(and(
+            eq(ukHSDocumentTemplates.customerId, 'dev-customer-001'),
+            eq(ukHSDocumentTemplates.isActive, true)
+          ));
+        
+        if (defaultTemplates.length > 0) {
+          // Copy templates to customer's account
+          const customerTemplates = defaultTemplates.map(template => ({
+            customerId: context.customerId,
+            documentCode: template.documentCode,
+            documentName: template.documentName,
+            documentDescription: template.documentDescription,
+            templateContent: template.templateContent,
+            autoFillFields: template.autoFillFields,
+            isUKHSRequired: template.isUKHSRequired,
+            complianceCategory: template.complianceCategory,
+            legalReference: template.legalReference,
+            version: template.version,
+            isActive: true
+          }));
+          
+          templates = await db
+            .insert(ukHSDocumentTemplates)
+            .values(customerTemplates)
+            .returning();
+          
+          console.log(`✅ Copied ${templates.length} UK H&S templates for customer ${context.customerId}`);
+        }
+      }
       
       res.json(templates);
     } catch (error) {
@@ -7307,6 +7346,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching UK H&S document template:', error);
       res.status(500).json({ error: 'Failed to fetch UK H&S document template' });
+    }
+  });
+
+  // Update UK H&S document template
+  app.put("/api/uk-hs-documents/templates/:templateId", requireAuth, async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Validate request body
+      const updateTemplateSchema = z.object({
+        documentName: z.string().min(1, 'Document name is required').optional(),
+        documentDescription: z.string().optional(),
+        templateContent: z.string().min(1, 'Template content is required').optional(),
+        autoFillFields: z.array(z.string()).optional(),
+        complianceCategory: z.enum(['immigration', 'safety_training', 'work_permit', 'contract', 'risk_management', 'induction']).optional(),
+        legalReference: z.string().optional(),
+        isActive: z.boolean().optional()
+      });
+      
+      const validatedData = updateTemplateSchema.parse(req.body);
+      
+      // Check if template exists and belongs to customer
+      const [existingTemplate] = await db
+        .select()
+        .from(ukHSDocumentTemplates)
+        .where(and(
+          eq(ukHSDocumentTemplates.id, templateId),
+          eq(ukHSDocumentTemplates.customerId, context.customerId)
+        ));
+      
+      if (!existingTemplate) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      // Update template with new data
+      const [updatedTemplate] = await db
+        .update(ukHSDocumentTemplates)
+        .set({
+          ...validatedData,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(ukHSDocumentTemplates.id, templateId),
+          eq(ukHSDocumentTemplates.customerId, context.customerId)
+        ))
+        .returning();
+      
+      console.log(`✅ Updated UK H&S template ${templateId} for customer ${context.customerId}`);
+      res.json(updatedTemplate);
+    } catch (error) {
+      console.error('Error updating UK H&S document template:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid request data', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to update UK H&S document template' });
+    }
+  });
+
+  // Create new UK H&S document template
+  app.post("/api/uk-hs-documents/templates", requireAuth, async (req, res) => {
+    try {
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Validate request body
+      const createTemplateSchema = z.object({
+        documentCode: z.string().min(1, 'Document code is required'),
+        documentName: z.string().min(1, 'Document name is required'),
+        documentDescription: z.string().optional(),
+        templateContent: z.string().min(1, 'Template content is required'),
+        autoFillFields: z.array(z.string()).default([]),
+        complianceCategory: z.enum(['immigration', 'safety_training', 'work_permit', 'contract', 'risk_management', 'induction']),
+        legalReference: z.string().optional(),
+        isUKHSRequired: z.boolean().default(true),
+        version: z.string().default('1.0')
+      });
+      
+      const validatedData = createTemplateSchema.parse(req.body);
+      
+      // Check if document code already exists for this customer
+      const [existingTemplate] = await db
+        .select()
+        .from(ukHSDocumentTemplates)
+        .where(and(
+          eq(ukHSDocumentTemplates.documentCode, validatedData.documentCode),
+          eq(ukHSDocumentTemplates.customerId, context.customerId),
+          eq(ukHSDocumentTemplates.isActive, true)
+        ));
+      
+      if (existingTemplate) {
+        return res.status(409).json({ error: 'A template with this document code already exists' });
+      }
+      
+      // Create new template
+      const [newTemplate] = await db
+        .insert(ukHSDocumentTemplates)
+        .values({
+          ...validatedData,
+          customerId: context.customerId,
+          isActive: true
+        })
+        .returning();
+      
+      console.log(`✅ Created new UK H&S template ${newTemplate.id} for customer ${context.customerId}`);
+      res.status(201).json(newTemplate);
+    } catch (error) {
+      console.error('Error creating UK H&S document template:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid request data', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to create UK H&S document template' });
+    }
+  });
+
+  // Delete UK H&S document template (soft delete)
+  app.delete("/api/uk-hs-documents/templates/:templateId", requireAuth, async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Check if template exists and belongs to customer
+      const [existingTemplate] = await db
+        .select()
+        .from(ukHSDocumentTemplates)
+        .where(and(
+          eq(ukHSDocumentTemplates.id, templateId),
+          eq(ukHSDocumentTemplates.customerId, context.customerId)
+        ));
+      
+      if (!existingTemplate) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      // Check if template is used in any active assignments
+      const [assignmentCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(workerDocumentAssignments)
+        .where(and(
+          eq(workerDocumentAssignments.documentTemplateId, templateId),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true),
+          sql`${workerDocumentAssignments.status} IN ('pending', 'sent')`
+        ));
+      
+      if (assignmentCount.count > 0) {
+        return res.status(409).json({ 
+          error: 'Cannot delete template with active assignments',
+          message: `This template has ${assignmentCount.count} active assignment(s). Complete or cancel them first.`
+        });
+      }
+      
+      // Soft delete the template
+      const [deletedTemplate] = await db
+        .update(ukHSDocumentTemplates)
+        .set({
+          isActive: false,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(ukHSDocumentTemplates.id, templateId),
+          eq(ukHSDocumentTemplates.customerId, context.customerId)
+        ))
+        .returning();
+      
+      console.log(`✅ Deleted UK H&S template ${templateId} for customer ${context.customerId}`);
+      res.json({ success: true, message: 'Template deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting UK H&S document template:', error);
+      res.status(500).json({ error: 'Failed to delete UK H&S document template' });
     }
   });
 
