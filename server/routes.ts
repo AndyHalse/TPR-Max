@@ -7963,50 +7963,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               continue;
             }
             
-            // Send H&S document email
-            const emailSubject = `UK H&S Compliance Document: ${template.documentName}`;
-            const emailContent = `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">UK Health & Safety Compliance Document</h2>
-                
-                <p>Dear ${worker.firstName} ${worker.lastName},</p>
-                
-                <p>You have been assigned a UK Health & Safety compliance document that requires your review and acceptance.</p>
-                
-                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <h3 style="margin: 0 0 10px 0; color: #1e293b;">Document Details:</h3>
-                  <p><strong>Document:</strong> ${template.documentName}</p>
-                  <p><strong>Category:</strong> ${template.complianceCategory}</p>
-                  <p><strong>Company:</strong> ${company.name}</p>
-                  ${assignment.dueDate ? `<p><strong>Due Date:</strong> ${new Date(assignment.dueDate).toLocaleDateString()}</p>` : ''}
-                </div>
-                
-                <p>Please click the link below to review and accept this document:</p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${assignment.acceptanceUrl}" 
-                     style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                    Review & Accept Document
-                  </a>
-                </div>
-                
-                <div style="background: #fef2f2; padding: 15px; border-radius: 6px; border-left: 4px solid #ef4444;">
-                  <p style="margin: 0; color: #dc2626;"><strong>Important:</strong> This document must be accepted before you can commence work on site.</p>
-                </div>
-                
-                <hr style="margin: 30px 0;">
-                <p style="color: #64748b; font-size: 14px;">
-                  This email was sent by ${companySettings.companyName}<br>
-                  If you have any questions, please contact us.
-                </p>
-              </div>
-            `;
-            
-            const emailSent = await emailService.sendEmail(
-              worker.email,
-              emailSubject,
-              emailContent
-            );
+            // Send professional H&S document assignment email
+            const emailSent = await emailService.sendHSDocumentAssignment({
+              workerEmail: worker.email,
+              workerName: `${worker.firstName} ${worker.lastName}`,
+              documentName: template.documentName,
+              complianceCategory: template.complianceCategory,
+              companyName: company.name,
+              acceptanceUrl: assignment.acceptanceUrl,
+              dueDate: assignment.dueDate,
+              companySettings: companySettings
+            });
             
             if (emailSent) {
               // Update assignment status atomically within transaction

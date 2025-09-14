@@ -133,6 +133,277 @@ class EmailService {
     }
   }
 
+  /**
+   * Send professional, mobile-responsive H&S document assignment email
+   */
+  async sendHSDocumentAssignment(options: {
+    workerEmail: string;
+    workerName: string;
+    documentName: string;
+    complianceCategory: string;
+    companyName: string;
+    acceptanceUrl: string;
+    dueDate?: Date;
+    companySettings?: any;
+  }): Promise<boolean> {
+    try {
+      const {
+        workerEmail,
+        workerName,
+        documentName,
+        complianceCategory,
+        companyName,
+        acceptanceUrl,
+        dueDate,
+        companySettings
+      } = options;
+
+      // Get company branding
+      const primaryColor = companySettings?.accentColor || '#ef4444'; // Red for H&S compliance
+      const secondaryColor = companySettings?.backgroundColor || '#f8fafc';
+      const logoUrl = companySettings?.logoUrl;
+
+      const subject = `🛡️ UK H&S Compliance Required: ${documentName}`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="X-UA-Compatible" content="IE=edge">
+          <title>UK Health & Safety Compliance Document</title>
+          <!--[if mso]>
+          <noscript>
+            <xml>
+              <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+              </o:OfficeDocumentSettings>
+            </xml>
+          </noscript>
+          <![endif]-->
+          <style>
+            /* Mobile-first responsive design */
+            @media only screen and (max-width: 600px) {
+              .container { width: 100% !important; padding: 10px !important; }
+              .header-logo { max-width: 120px !important; height: auto !important; }
+              .main-content { padding: 20px 15px !important; }
+              .cta-button { width: 100% !important; padding: 16px 20px !important; font-size: 16px !important; }
+              .document-card { margin: 15px 0 !important; padding: 15px !important; }
+              .footer-content { padding: 15px !important; }
+              h1 { font-size: 22px !important; line-height: 28px !important; }
+              h2 { font-size: 18px !important; line-height: 24px !important; }
+            }
+            
+            /* High contrast for accessibility */
+            .high-contrast { background: #1a1a1a; color: #ffffff; }
+            .text-contrast { color: #333333; }
+            
+            /* Print styles */
+            @media print {
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #f6f6f6; font-family: 'Arial', 'Helvetica', sans-serif; line-height: 1.6;">
+          <div style="width: 100%; background-color: #f6f6f6; padding: 20px 0;">
+            
+            <!-- Email Container -->
+            <div class="container" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); border-radius: 8px; overflow: hidden;">
+              
+              <!-- Header Section -->
+              <div style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); color: white; padding: 30px 20px; text-align: center; position: relative;">
+                ${logoUrl ? `
+                  <img src="${logoUrl}" alt="${companyName} Logo" class="header-logo" style="max-width: 150px; height: auto; margin-bottom: 15px; border-radius: 4px;">
+                ` : ''}
+                
+                <h1 style="margin: 0; font-size: 26px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                  🛡️ UK Health & Safety Compliance
+                </h1>
+                
+                <div style="background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 20px; display: inline-block; margin-top: 10px;">
+                  <span style="font-size: 14px; font-weight: 500;">
+                    Action Required • ${complianceCategory.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              
+              <!-- Main Content -->
+              <div class="main-content" style="padding: 30px 25px;">
+                
+                <!-- Personal Greeting -->
+                <div style="margin-bottom: 25px;">
+                  <h2 style="color: #1f2937; margin: 0 0 8px 0; font-size: 20px;">
+                    Hello ${workerName.split(' ')[0]},
+                  </h2>
+                  <p style="color: #6b7280; margin: 0; font-size: 16px;">
+                    You have been assigned a critical UK Health & Safety compliance document that requires immediate attention.
+                  </p>
+                </div>
+                
+                <!-- Document Information Card -->
+                <div class="document-card" style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 1px solid #fecaca; border-radius: 12px; padding: 25px; margin: 25px 0; position: relative;">
+                  <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div style="background: ${primaryColor}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                      📋
+                    </div>
+                    <div>
+                      <h3 style="margin: 0; color: #991b1b; font-size: 18px; font-weight: bold;">
+                        ${documentName}
+                      </h3>
+                      <p style="margin: 2px 0 0 0; color: #7f1d1d; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ${complianceCategory} • ${companyName}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  ${dueDate ? `
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #fca5a5; border-radius: 8px; padding: 12px; margin-top: 15px;">
+                      <p style="margin: 0; color: #991b1b; font-weight: 600; font-size: 15px;">
+                        ⏰ <strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-GB', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </p>
+                    </div>
+                  ` : ''}
+                </div>
+                
+                <!-- Critical Notice -->
+                <div style="background: #fbbf24; color: #92400e; border: 2px solid #f59e0b; border-radius: 8px; padding: 16px; margin: 25px 0; text-align: center;">
+                  <p style="margin: 0; font-weight: bold; font-size: 15px;">
+                    ⚠️ <strong>IMPORTANT:</strong> This document must be completed before you can commence work on site
+                  </p>
+                </div>
+                
+                <!-- Call to Action -->
+                <div style="text-align: center; margin: 35px 0;">
+                  <p style="color: #4b5563; margin-bottom: 20px; font-size: 16px;">
+                    Click the button below to review and accept this compliance document:
+                  </p>
+                  
+                  <a href="${acceptanceUrl}" 
+                     class="cta-button"
+                     style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); 
+                            color: white; 
+                            text-decoration: none; 
+                            padding: 18px 36px; 
+                            border-radius: 8px; 
+                            display: inline-block; 
+                            font-weight: bold; 
+                            font-size: 16px; 
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
+                            transition: all 0.3s ease;
+                            border: 2px solid ${primaryColor};">
+                    🛡️ Review & Accept Document
+                  </a>
+                  
+                  <p style="color: #9ca3af; font-size: 12px; margin-top: 15px;">
+                    Secure link expires in 7 days • Mobile & desktop friendly
+                  </p>
+                </div>
+                
+                <!-- Help Section -->
+                <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #6b7280;">
+                  <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 16px;">
+                    📞 Need Help?
+                  </h4>
+                  <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.5;">
+                    If you have questions about this compliance document or experience technical issues, 
+                    please contact your site supervisor or email 
+                    <a href="mailto:${companySettings?.email || 'support@' + companyName.toLowerCase().replace(/\s+/g, '') + '.com'}" 
+                       style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">
+                      ${companySettings?.email || 'support@' + companyName.toLowerCase().replace(/\s+/g, '') + '.com'}
+                    </a>
+                  </p>
+                </div>
+                
+              </div>
+              
+              <!-- Footer -->
+              <div class="footer-content" style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 25px; text-align: center;">
+                <div style="margin-bottom: 15px;">
+                  <p style="margin: 0; color: #374151; font-weight: 600; font-size: 15px;">
+                    ${companyName}
+                  </p>
+                  ${companySettings?.address ? `
+                    <p style="margin: 5px 0; color: #6b7280; font-size: 13px;">
+                      ${companySettings.address}
+                    </p>
+                  ` : ''}
+                  ${companySettings?.phone ? `
+                    <p style="margin: 5px 0; color: #6b7280; font-size: 13px;">
+                      📞 ${companySettings.phone}
+                    </p>
+                  ` : ''}
+                </div>
+                
+                <div style="border-top: 1px solid #d1d5db; padding-top: 15px; margin-top: 15px;">
+                  <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.4;">
+                    This email was sent automatically by the VisiGate Pro compliance system.<br>
+                    You are receiving this because you have been assigned a UK H&S compliance document.<br>
+                    For system support, visit our <a href="https://visigate.pro/support" style="color: ${primaryColor}; text-decoration: none;">help center</a>.
+                  </p>
+                </div>
+              </div>
+              
+            </div>
+            
+            <!-- Email Client Spacing -->
+            <div style="height: 20px;"></div>
+            
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Generate accessible plain text version
+      const text = `UK HEALTH & SAFETY COMPLIANCE DOCUMENT
+
+Hello ${workerName},
+
+You have been assigned a critical UK Health & Safety compliance document that requires immediate attention.
+
+DOCUMENT DETAILS:
+- Document: ${documentName}
+- Category: ${complianceCategory}
+- Company: ${companyName}
+${dueDate ? `- Due Date: ${new Date(dueDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}` : ''}
+
+IMPORTANT: This document must be completed before you can commence work on site.
+
+To review and accept this compliance document, please visit:
+${acceptanceUrl}
+
+This secure link expires in 7 days and is mobile & desktop friendly.
+
+NEED HELP?
+If you have questions about this compliance document or experience technical issues, please contact your site supervisor or email ${companySettings?.email || 'support@' + companyName.toLowerCase().replace(/\s+/g, '') + '.com'}
+
+${companyName}
+${companySettings?.address || ''}
+${companySettings?.phone ? 'Phone: ' + companySettings.phone : ''}
+
+This email was sent automatically by the VisiGate Pro compliance system.
+You are receiving this because you have been assigned a UK H&S compliance document.
+For system support, visit: https://visigate.pro/support`;
+
+      return await this.sendEmail({
+        to: workerEmail,
+        subject,
+        html,
+        text,
+        companyName
+      });
+
+    } catch (error) {
+      console.error('Failed to send H&S document assignment email:', error);
+      return false;
+    }
+  }
+
   public generateReportHTML(report: any, reportData: any, companyName: string): string {
     const { visitors, staff, checkedOutVisitors } = reportData;
     const fromDate = new Date(report.dateFrom).toLocaleDateString();
