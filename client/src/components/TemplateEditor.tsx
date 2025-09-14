@@ -34,6 +34,8 @@ interface TemplateEditorProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: () => void;
+  apiEndpoint?: string; // Custom API endpoint (defaults to /api/uk-hs-documents/templates)
+  title?: string; // Custom dialog title
 }
 
 // Available auto-fill variables organized by category
@@ -87,7 +89,14 @@ const VARIABLE_CATEGORIES = {
   }
 };
 
-export function TemplateEditor({ template, isOpen, onClose, onSave }: TemplateEditorProps) {
+export function TemplateEditor({ 
+  template, 
+  isOpen, 
+  onClose, 
+  onSave, 
+  apiEndpoint = '/api/uk-hs-documents/templates',
+  title
+}: TemplateEditorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -122,7 +131,10 @@ export function TemplateEditor({ template, isOpen, onClose, onSave }: TemplateEd
   // Update mutation for existing templates
   const updateTemplateMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await fetch(`/api/uk-hs-documents/templates/${template?.id}`, {
+      const endpoint = apiEndpoint === '/api/uk-hs-documents/templates' 
+        ? `${apiEndpoint}/${template?.id}`
+        : `${apiEndpoint}/${template?.id}`;
+      const response = await fetch(endpoint, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -142,7 +154,9 @@ export function TemplateEditor({ template, isOpen, onClose, onSave }: TemplateEd
         title: "Template Updated",
         description: "Your template has been updated successfully.",
       });
+      // Invalidate both regular templates and defaults queries
       queryClient.invalidateQueries({ queryKey: ['/api/uk-hs-documents/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/uk-hs-documents/defaults'] });
       onSave?.();
       onClose();
     },
