@@ -1262,32 +1262,7 @@ export class DatabaseService {
     return !!updatedVisitor;
   }
 
-  async getCurrentVisitors(context: CustomerContext): Promise<Visitor[]> {
-    const db = await customerDbService.getCustomerDatabase(context.customerId);
-    
-    return await db
-      .select()
-      .from(schema.visitors)
-      .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.isCheckedIn, true)
-      ))
-      .orderBy(desc(schema.visitors.checkedInAt));
-  }
-
-  async getCheckedInStaff(context: CustomerContext): Promise<Staff[]> {
-    const db = await customerDbService.getCustomerDatabase(context.customerId);
-    
-    return await db
-      .select()
-      .from(schema.staff)
-      .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.isCheckedIn, true),
-        eq(schema.staff.isActive, true)
-      ))
-      .orderBy(asc(schema.staff.firstName), asc(schema.staff.lastName));
-  }
+  // Duplicate functions removed - using original implementations
 
   async getCheckedInContractors(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
