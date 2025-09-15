@@ -60,10 +60,12 @@ export default function Login() {
           description: `Welcome back, ${data.user.username}!`,
         });
         
-        // Clear all cached data to prevent cross-tenant data contamination
-        queryClient.clear();
-        // Invalidate auth query and redirect
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        // Set the auth data in cache AND invalidate to ensure fresh fetch
+        queryClient.setQueryData(["/api/auth/me"], data.user);
+        
+        // Force invalidation to ensure Router sees the updated auth state
+        await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        
         console.log("🔄 Redirecting to dashboard...");
         setLocation("/");
       } else {

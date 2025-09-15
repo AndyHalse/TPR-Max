@@ -73,39 +73,59 @@ function Router() {
   }
   
   // Robust authentication with fallback for browser restrictions
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, error, isError } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
+      console.log("🔍 [AUTH QUERY] Executing /api/auth/me query...");
       try {
         const res = await fetch("/api/auth/me", {
           credentials: "include",
         });
+        console.log("📥 [AUTH QUERY] Response status:", res.status);
+        
         if (res.status === 401) {
-          return null; // Return null for unauthenticated users
+          console.log("❌ [AUTH QUERY] Unauthenticated (401) - checking localStorage fallback...");
+          // Check localStorage fallback for browser restrictions
+          const fallbackUser = localStorage.getItem('visigate_user');
+          if (fallbackUser) {
+            console.log("✅ [AUTH QUERY] Found localStorage fallback user");
+            return JSON.parse(fallbackUser);
+          }
+          console.log("❌ [AUTH QUERY] No fallback user found - returning null");
+          return null;
         }
         if (!res.ok) {
           throw new Error(`${res.status}: ${res.statusText}`);
         }
-        return await res.json();
+        const userData = await res.json();
+        console.log("✅ [AUTH QUERY] Successfully authenticated user:", userData.username);
+        return userData;
       } catch (error) {
+        console.log("💥 [AUTH QUERY] Network error:", error);
         // If auth fails due to browser restrictions, check localStorage fallback
         const fallbackUser = localStorage.getItem('visigate_user');
         if (fallbackUser) {
+          console.log("✅ [AUTH QUERY] Using localStorage fallback due to network error");
           return JSON.parse(fallbackUser);
         }
+        console.log("❌ [AUTH QUERY] No fallback available - returning null");
         return null;
       }
     },
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Always fresh - critical for proper auth flow
+    gcTime: 0, // Don't cache auth queries
   });
 
+  console.log("🔍 [AUTH STATE] Current state:", { user: user?.username || 'null', isLoading, isError, error });
+
   if (isLoading) {
+    console.log("⏳ [AUTH STATE] Authentication loading...");
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+          <p className="text-slate-600 dark:text-slate-400">Checking authentication...</p>
         </div>
       </div>
     );
@@ -113,8 +133,11 @@ function Router() {
 
   // If not authenticated, show login page
   if (!user) {
+    console.log("❌ [AUTH STATE] No authenticated user - showing login page");
     return <Login />;
   }
+
+  console.log("✅ [AUTH STATE] User authenticated - showing main app for:", user.username);
 
   // If authenticated, show main app
   return (
