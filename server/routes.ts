@@ -398,12 +398,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Set session
+      // Clear any old session cookies during login to force fresh session
+      if (req.headers.cookie?.includes('connect.sid')) {
+        res.clearCookie('connect.sid', { path: '/', httpOnly: true });
+        console.log(`🧹 Cleared old connect.sid cookie for user: ${username}`);
+      }
+
+      // Set session and save it explicitly
       req.session.userId = user.id;
       
-      res.json({ 
-        success: true, 
-        user: { id: user.id, username: user.username }
+      // Explicitly save the session before responding
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ error: "Failed to establish session" });
+        }
+        
+        console.log(`✅ Session saved successfully for user: ${username} (ID: ${user.id})`);
+        res.json({ 
+          success: true, 
+          user: { id: user.id, username: user.username },
+          sessionRefresh: true // Signal frontend that session was refreshed
+        });
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -412,11 +428,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", (req, res) => {
+    // Clear both old and new session cookies explicitly
+    res.clearCookie('connect.sid', { 
+      path: '/', 
+      httpOnly: true 
+    });
+    res.clearCookie('visigate.session', { 
+      path: '/', 
+      httpOnly: true, 
+      sameSite: 'lax' 
+    });
+    
     req.session.destroy((err) => {
       if (err) {
+        console.error("Session destroy error:", err);
         return res.status(500).json({ error: "Logout failed" });
       }
-      res.json({ success: true });
+      console.log(`🔓 User logged out and all session cookies cleared`);
+      res.json({ success: true, cookiesCleared: true });
     });
   });
 
@@ -429,30 +458,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(html);
   });
 
+  // Session refresh endpoint to clear old cookies and force fresh session
+  app.post("/api/auth/session-refresh", (req, res) => {
+    // Clear both old and new session cookies
+    res.clearCookie('connect.sid', { path: '/', httpOnly: true });
+    res.clearCookie('visigate.session', { path: '/', httpOnly: true, sameSite: 'lax' });
+    
+    // Destroy current session
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Session refresh error:", err);
+        return res.status(500).json({ error: "Session refresh failed" });
+      }
+      console.log(`🔄 Session refreshed - old cookies cleared`);
+      res.json({ success: true, sessionRefreshed: true });
+    });
+  });
+
   app.get("/api/auth/me", async (req, res) => {
+    console.log(`🔍 /api/auth/me called - session.userId: ${req.session?.userId}`);
+    
     if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
+      // If no session, suggest session refresh to clear old cookies
+      return res.status(401).json({ 
+        error: "Not authenticated",
+        suggestion: "session_refresh_needed" 
+      });
     }
     
     try {
-      // Load user from storage to get username for context
-      const sessionUser = await storage.getUser(req.session.userId);
-      if (!sessionUser) {
-        return res.status(401).json({ error: "Invalid session" });
-      }
+      console.log(`🔍 Attempting to load user with ID: ${req.session.userId}`);
       
-      // Get customer context for isolation based on logged-in user
-      const context = simpleDatabaseService.createCustomerContext(sessionUser.username);
+      // Load user from storage (same storage layer used in login)
+      const user = await storage.getUser(req.session.userId);
       
-      const user = await databaseService.getUser(context, req.session.userId);
+      console.log(`🔍 User lookup result:`, user ? `Found user: ${user.username}` : 'User not found');
+      
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
       
+      console.log(`✅ User authenticated successfully: ${user.username} (ID: ${user.id})`);
+      
       res.json({ 
         id: user.id, 
         username: user.username, 
-        customerId: context.customerId
+        customerId: user.customerId || 'dev-customer-001'
       });
     } catch (error) {
       console.error('Error in /api/auth/me:', error);
@@ -12858,99 +12909,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(installationGuide);
   });
 
-  // ============================================================================
-  // AUTHENTICATION ENDPOINTS - Critical for system security and functionality
-  // ============================================================================
-  
-  // User authentication (login)
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password are required' });
-      }
-
-      // Authenticate user using existing auth service
-      const user = await AuthService.authenticateUser(username, password);
-      
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid username or password' });
-      }
-
-      // Create session
-      req.session.userId = user.id;
-      
-      console.log(`✅ User login successful: ${username} (ID: ${user.id})`);
-      
-      res.json({
-        success: true,
-        user: {
-          id: user.id,
-          username: user.username,
-          customerId: user.customerId,
-          role: user.role || 'user'
-        },
-        message: 'Login successful'
-      });
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ error: 'Internal server error during login' });
-    }
-  });
-
-  // Get current authenticated user
-  app.get("/api/auth/me", async (req, res) => {
-    try {
-      // Check if user is authenticated via session
-      if (!req.session?.userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-
-      // Load user from storage
-      const user = await storage.getUser(req.session.userId);
-      
-      if (!user) {
-        // Clear invalid session
-        req.session.userId = undefined;
-        return res.status(401).json({ error: 'User not found' });
-      }
-
-      res.json({
-        id: user.id,
-        username: user.username,
-        customerId: user.customerId,
-        role: user.role || 'user',
-        lastLoginAt: user.lastLoginAt
-      });
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-      res.status(500).json({ error: 'Failed to fetch user information' });
-    }
-  });
-
-  // User logout
-  app.post("/api/auth/logout", async (req, res) => {
-    try {
-      if (req.session) {
-        const userId = req.session.userId;
-        req.session.destroy((err) => {
-          if (err) {
-            console.error('Session destruction error:', err);
-            return res.status(500).json({ error: 'Failed to logout' });
-          }
-          
-          console.log(`✅ User logout successful: ${userId || 'unknown'}`);
-          res.json({ success: true, message: 'Logged out successfully' });
-        });
-      } else {
-        res.json({ success: true, message: 'Already logged out' });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-      res.status(500).json({ error: 'Internal server error during logout' });
-    }
-  });
 
   // Staff authentication and current staff info
   app.get("/api/staff/me/:customerId?", requireAuth, async (req, res) => {

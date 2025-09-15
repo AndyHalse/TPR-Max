@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import MemoryStore from "memorystore";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
@@ -46,17 +47,62 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Session configuration
+// Enhanced session configuration with proper store and debugging
+const MemoryStoreSession = MemoryStore(session);
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'visigate-pro-dev-secret-key-2024',
+  name: 'visigate.session', // Custom session name
   resave: false,
   saveUninitialized: false,
+  store: new MemoryStoreSession({
+    checkPeriod: 86400000, // prune expired entries every 24h
+    max: 1000, // max number of sessions
+    ttl: 24 * 60 * 60 * 1000, // 24 hours
+    dispose: function(key: string, sess: any) {
+      console.log('🗑️ Session disposed:', key.substring(0, 8) + '...', sess?.userId || 'no-user');
+    }
+  }),
   cookie: {
     secure: false, // Set to true in production with HTTPS
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax', // Critical for cross-origin requests
+    path: '/', // Ensure cookie is sent with all requests
+    domain: undefined // Let the browser determine the domain
+  },
+  rolling: true // Reset expiration on every request
 }));
+
+// Session debugging middleware - BEFORE loadUser
+app.use((req, res, next) => {
+  const sessionId = req.sessionID;
+  const userId = req.session?.userId;
+  const hasSession = !!req.session;
+  const cookieHeader = req.headers.cookie;
+  
+  // Log detailed session info for API routes
+  if (req.path.startsWith('/api')) {
+    console.log(`🔍 Session Debug [${req.method} ${req.path}]:`, {
+      sessionId: sessionId ? sessionId.substring(0, 8) + '...' : 'NONE',
+      userId: userId || 'NONE',
+      hasSession,
+      cookies: cookieHeader ? 'present' : 'MISSING',
+      sessionCookie: cookieHeader?.includes('visigate.session') ? 'present' : 'MISSING',
+      userAgent: req.headers['user-agent'] ? req.headers['user-agent'].substring(0, 50) + '...' : 'missing'
+    });
+    
+    // Log full cookie details for auth routes
+    if (req.path.includes('/auth/')) {
+      console.log(`🍪 Cookie Debug [${req.path}]:`, {
+        fullCookieHeader: cookieHeader,
+        sessionObj: req.session ? 'exists' : 'MISSING',
+        sessionKeys: req.session ? Object.keys(req.session) : 'none'
+      });
+    }
+  }
+  next();
+});
 
 // Load user middleware
 app.use(loadUser);
