@@ -544,13 +544,7 @@ export default function ContractorManagement() {
                   Select a contractor who has been onsite before
                 </span>
               </div>
-              <Button
-                variant="outline"
-                className="text-red-600 border-red-600 hover:bg-red-50"
-                onClick={() => {/* Remove duplicates */}}
-              >
-                Remove Duplicates
-              </Button>
+              {/* Remove Duplicates button removed - duplication prevented via email validation */}
             </div>
 
             {/* Search */}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Shield, AlertTriangle, XCircle, CheckCircle2, 
   Calendar, Phone, Mail, Award, Clock,
-  LogIn, LogOut, Edit, Printer
+  LogIn, LogOut, Edit, Printer, FileText, Send
 } from "lucide-react";
 import type { ContractorWorker } from "@shared/schema";
 
@@ -18,7 +18,9 @@ interface WorkerCardProps {
   onCheckOut?: (workerId: string) => void;
   onEdit?: (worker: ContractorWorker) => void;
   onPrint?: (worker: ContractorWorker) => void;
+  onResendHSDocument?: (assignmentId: string) => void;
   canManageCards?: boolean;
+  hsAssignments?: any[];
 }
 
 export function WorkerCard({ 
@@ -30,7 +32,9 @@ export function WorkerCard({
   onCheckOut,
   onEdit,
   onPrint,
-  canManageCards = false 
+  onResendHSDocument,
+  canManageCards = false,
+  hsAssignments = []
 }: WorkerCardProps) {
   const getCardStatusColor = (status: string) => {
     switch (status) {
@@ -270,6 +274,87 @@ export function WorkerCard({
             <Badge variant="outline" className="text-xs">Manual Handling</Badge>
           )}
         </div>
+
+        {/* H&S Document Assignments */}
+        {hsAssignments && hsAssignments.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm flex items-center gap-1">
+              <FileText className="w-4 h-4" />
+              H&S Documents ({hsAssignments.length})
+            </h4>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {hsAssignments.map((assignment: any) => {
+                const getStatusColor = (status: string) => {
+                  switch (status) {
+                    case 'accepted': return 'bg-green-100 text-green-800';
+                    case 'sent': return 'bg-blue-100 text-blue-800';
+                    case 'pending': return 'bg-yellow-100 text-yellow-800';
+                    case 'rejected': return 'bg-red-100 text-red-800';
+                    case 'expired': return 'bg-gray-100 text-gray-800';
+                    default: return 'bg-gray-100 text-gray-800';
+                  }
+                };
+                
+                return (
+                  <div key={assignment.assignment.id} className="p-2 border rounded-md bg-white/50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate" title={assignment.template.documentName}>
+                          {assignment.template.documentName}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge className={`text-xs ${getStatusColor(assignment.assignment.status)}`}>
+                            {assignment.assignment.status.charAt(0).toUpperCase() + assignment.assignment.status.slice(1)}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {assignment.assignment.status === 'accepted' && assignment.assignment.acceptedAt ? (
+                            <span className="text-green-600">
+                              Accepted: {new Date(assignment.assignment.acceptedAt).toLocaleDateString()} at {' '}
+                              {new Date(assignment.assignment.acceptedAt).toLocaleTimeString('en-GB', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          ) : assignment.assignment.emailSentAt ? (
+                            <span>
+                              Sent: {new Date(assignment.assignment.emailSentAt).toLocaleDateString()} at {' '}
+                              {new Date(assignment.assignment.emailSentAt).toLocaleTimeString('en-GB', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          ) : (
+                            <span>
+                              Assigned: {new Date(assignment.assignment.assignedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Resend Email Button */}
+                      {assignment.assignment.status !== 'accepted' && onResendHSDocument && (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onResendHSDocument(assignment.assignment.id);
+                          }}
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 h-6 px-2 text-xs"
+                          data-testid={`resend-hs-${assignment.assignment.id}`}
+                        >
+                          <Send className="h-3 w-3 mr-1" />
+                          Resend
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Card Management Actions */}
         {canManageCards && (

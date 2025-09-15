@@ -188,6 +188,45 @@ export default function Contractors() {
     refetchInterval: 30000,
   });
 
+  // Fetch H&S document assignments for all workers with customer isolation
+  const { data: allWorkerHSAssignments = {} } = useQuery<Record<string, any[]>>({
+    queryKey: ["/api/uk-hs-documents/assignments", "all-workers", customerId],
+    enabled: !!customerId,
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const assignments: Record<string, any[]> = {};
+      
+      // Fetch assignments for all workers from all contractors
+      for (const contractor of contractors) {
+        if (contractor.workersCount > 0) {
+          try {
+            const workersList = await fetch(`/api/contractors/${contractor.id}/workers`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}` }
+            }).then(res => res.json()).catch(() => []);
+            
+            for (const worker of workersList) {
+              try {
+                const workerAssignments = await fetch(`/api/uk-hs-documents/assignments/worker/${worker.id}`, {
+                  headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}` }
+                }).then(res => res.json()).catch(() => []);
+                
+                if (workerAssignments.length > 0) {
+                  assignments[worker.id] = workerAssignments;
+                }
+              } catch (error) {
+                console.warn(`Failed to fetch H&S assignments for worker ${worker.id}:`, error);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch workers for contractor ${contractor.id}:`, error);
+          }
+        }
+      }
+      
+      return assignments;
+    },
+  });
+
   const contractorData = contractors || [];
   const filteredContractors = contractorData.filter((contractor: ContractorCompany) =>
     contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -346,8 +385,34 @@ export default function Contractors() {
     },
   });
 
+  // Resend H&S document email mutation
+  const resendHSDocumentMutation = useMutation({
+    mutationFn: async (assignmentId: string) => {
+      return await apiRequest("POST", `/api/uk-hs-documents/assignments/${assignmentId}/resend`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Email Resent",
+        description: "H&S document email has been resent to the worker",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments", "all-workers", customerId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Resend Failed",
+        description: error.message || "Failed to resend H&S document email",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleUpdateWorker = () => {
     updateWorkerMutation.mutate(editWorkerForm);
+  };
+  
+  // Handle resending H&S document email
+  const handleResendHSDocument = (assignmentId: string) => {
+    resendHSDocumentMutation.mutate(assignmentId);
   };
   
   // Handle contractor check-in (with host selection like visitors)
@@ -1155,6 +1220,8 @@ export default function Contractors() {
                     onCheckOut={handleWorkerCheckOut}
                     onIssueCard={handleIssueCard}
                     onViewDetails={() => handleViewWorker(worker)}
+                    onResendHSDocument={handleResendHSDocument}
+                    hsAssignments={allWorkerHSAssignments[worker.id] || []}
                   />
                 )) : (
                   <div className="col-span-full text-center py-8">

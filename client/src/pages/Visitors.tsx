@@ -883,16 +883,7 @@ export default function Visitors() {
                   <p className="text-variable">Select a visitor who has been onsite before</p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => cleanupDuplicatesMutation.mutate()}
-                disabled={cleanupDuplicatesMutation.isPending}
-                data-testid="button-cleanup-duplicates"
-                className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
-              >
-                {cleanupDuplicatesMutation.isPending ? "Cleaning..." : "Remove Duplicates"}
-              </Button>
+              {/* Remove Duplicates button removed - duplication prevented via email validation */}
             </div>
 
             {/* Search */}
