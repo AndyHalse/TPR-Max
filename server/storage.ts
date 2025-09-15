@@ -3008,6 +3008,15 @@ export class MemStorage implements IStorage {
   }
 
   async createContractorCompany(insertCompany: InsertContractorCompany): Promise<ContractorCompany> {
+    // Validation: Check for duplicate email
+    if (insertCompany.email) {
+      const existingCompanyByEmail = Array.from(this.contractorCompanies.values())
+        .find(company => company.email === insertCompany.email);
+      if (existingCompanyByEmail) {
+        throw new Error("A contractor company with this email already exists");
+      }
+    }
+    
     const id = crypto.randomUUID();
     const company: ContractorCompany = {
       id,
@@ -3046,6 +3055,15 @@ export class MemStorage implements IStorage {
   }
 
   async createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker> {
+    // Validation: Check for duplicate email
+    if (insertWorker.email) {
+      const existingWorkerByEmail = Array.from(this.contractorWorkers.values())
+        .find(worker => worker.email === insertWorker.email);
+      if (existingWorkerByEmail) {
+        throw new Error("A contractor worker with this email already exists");
+      }
+    }
+    
     const id = crypto.randomUUID();
     const worker: ContractorWorker = {
       id,
