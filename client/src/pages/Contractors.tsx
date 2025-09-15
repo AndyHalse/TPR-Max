@@ -38,6 +38,8 @@ import {
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
+import HSDocumentAssignment from "@/components/HSDocumentAssignment";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ContractorCompany {
   id: string;
@@ -63,6 +65,7 @@ interface ContractorCompany {
 export default function Contractors() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState("contractors");
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
@@ -509,6 +512,21 @@ export default function Contractors() {
           </Button>
         </div>
       </div>
+
+      {/* Tab Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="contractors" className="flex items-center gap-2">
+            <Building2 size={16} />
+            Contractors
+          </TabsTrigger>
+          <TabsTrigger value="assign-hs" className="flex items-center gap-2">
+            <Shield size={16} />
+            Assign H&S Document
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="contractors" className="space-y-6 mt-6">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -2196,6 +2214,13 @@ export default function Contractors() {
           </div>
         </DialogContent>
       </Dialog>
+
+        </TabsContent>
+
+        <TabsContent value="assign-hs" className="space-y-6 mt-6">
+          <HSDocumentAssignment />
+        </TabsContent>
+      </Tabs>
 
       {/* H&S Compliance View Dialog */}
       <Dialog open={showComplianceView} onOpenChange={setShowComplianceView}>

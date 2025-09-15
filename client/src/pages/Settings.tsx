@@ -682,10 +682,10 @@ export default function Settings() {
             <span className="hidden xl:inline">BioStar</span>
             <span className="xl:hidden">Bio</span>
           </TabsTrigger>
-          <TabsTrigger value="contractors" className="flex items-center gap-1 px-2 text-xs">
-            <Users size={14} />
-            <span className="hidden xl:inline">Contractors</span>
-            <span className="xl:hidden">Cont.</span>
+          <TabsTrigger value="hs-documents" className="flex items-center gap-1 px-2 text-xs">
+            <FileText size={14} />
+            <span className="hidden xl:inline">H&S Documents</span>
+            <span className="xl:hidden">H&S</span>
           </TabsTrigger>
           <TabsTrigger value="ai" className="flex items-center gap-1 px-2 text-xs">
             <Brain size={14} />
@@ -3706,7 +3706,7 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        <TabsContent value="contractors" className="space-y-6 mt-6">
+        <TabsContent value="hs-documents" className="space-y-6 mt-6">
           <ContractorsHSManagement />
           
           {/* Default UK H&S Document Templates Section */}
