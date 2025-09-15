@@ -63,12 +63,13 @@ export function WorkerCard({
     }
   };
 
-  const getCertificationStatus = (status: string) => {
+  const getCertificationStatus = (status: string | null) => {
     switch (status) {
       case 'valid': return { variant: 'default' as const, text: 'Valid' };
       case 'expired': return { variant: 'destructive' as const, text: 'Expired' };
       case 'expiring': return { variant: 'secondary' as const, text: 'Expiring' };
       case 'missing': return { variant: 'outline' as const, text: 'Missing' };
+      case null: return { variant: 'outline' as const, text: 'Unknown' };
       default: return { variant: 'outline' as const, text: 'Unknown' };
     }
   };
@@ -169,22 +170,15 @@ export function WorkerCard({
             </Button>
           )}
           
-          {/* Manual H&S Acceptance Button for Testing */}
+          {/* H&S Acceptance Status - Show when checked in but not accepted */}
           {worker.isCheckedIn && !worker.hsRulesAccepted && (
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                // Open H&S acceptance in new tab to bypass email security
-                window.open(`/api/contractors/workers/${worker.id}/accept-hs-rules`, '_blank');
-              }}
-              size="sm"
+            <Badge
               variant="outline"
-              className="text-orange-600 border-orange-600 hover:bg-orange-50"
-              data-testid={`button-accept-hs-${worker.id}`}
+              className="text-orange-600 border-orange-600 bg-orange-50"
             >
               <Shield className="h-4 w-4 mr-1" />
-              Accept H&S
-            </Button>
+              H&S Pending
+            </Badge>
           )}
           <Button
             onClick={(e) => {

@@ -76,10 +76,10 @@ export class AuthService {
       const existingAndy = await storage.getUserByUsername('Andy');
       
       if (existingAndy) {
-        console.log('Developer user "Andy" already exists - updating password');
+        console.log('Developer user "Andy" already exists - updating credentials');
         // updateUser will handle password hashing automatically
         await storage.updateUser(existingAndy.id, { password: andyPassword });
-        console.log('Developer user password updated successfully');
+        console.log('Developer user credentials updated successfully');
       } else {
         await storage.createUser({
           username: 'Andy',
@@ -93,10 +93,10 @@ export class AuthService {
       const existingEmma = await storage.getUserByUsername('Emma');
       
       if (existingEmma) {
-        console.log('Developer user "Emma" already exists - updating password');
+        console.log('Developer user "Emma" already exists - updating credentials');
         // updateUser will handle password hashing automatically
         await storage.updateUser(existingEmma.id, { password: emmaPassword });
-        console.log('Emma user password updated successfully');
+        console.log('Emma user credentials updated successfully');
       } else {
         await storage.createUser({
           username: 'Emma',
@@ -111,10 +111,10 @@ export class AuthService {
       const existingTestUser = await storage.getUserByUsername('TestUser');
       
       if (existingTestUser) {
-        console.log('Test user "TestUser" already exists - updating password');
+        console.log('Test user "TestUser" already exists - updating credentials');
         // updateUser will handle password hashing automatically
         await storage.updateUser(existingTestUser.id, { password: testPassword });
-        console.log('Test user password updated successfully');
+        console.log('Test user credentials updated successfully');
       } else {
         await storage.createUser({
           username: 'TestUser',

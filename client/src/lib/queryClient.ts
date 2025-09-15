@@ -37,7 +37,9 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     try {
-      const url = queryKey.join("/") as string;
+      // Extract just the first element (the actual API endpoint URL) from queryKey
+      // All subsequent elements are for cache partitioning only
+      const url = queryKey[0] as string;
       console.log(`🔍 Query request to:`, url);
       const res = await fetch(url, {
         credentials: "include",
@@ -52,7 +54,7 @@ export const getQueryFn: <T>(options: {
       await throwIfResNotOk(res);
       return await res.json();
     } catch (error) {
-      console.error(`❌ Query failed for ${queryKey.join("/")}:`, error);
+      console.error(`❌ Query failed for ${queryKey[0]}:`, error);
       throw error;
     }
   };

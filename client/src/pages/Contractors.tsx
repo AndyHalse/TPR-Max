@@ -151,20 +151,20 @@ export default function Contractors() {
     staleTime: 5000,
   });
 
-  // Use fallback customer ID if auth fails or use default dev customer
-  const customerId = currentUser?.customerId || 'dev-customer-001';
+  // Secure customer ID - no fallback for production security
+  const customerId = currentUser?.customerId;
 
   // Fetch contractor companies from API with customer isolation
   const { data: contractors = [], isLoading } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Staff query for host selection (same as visitor workflow) with customer isolation
   const { data: staff = [] } = useQuery<any[]>({
     queryKey: ["/api/staff", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
   });
 
   // Fetch workers for selected contractor with customer isolation
@@ -191,7 +191,7 @@ export default function Contractors() {
   // Fetch H&S document assignments for all workers with customer isolation
   const { data: allWorkerHSAssignments = {} } = useQuery<Record<string, any[]>>({
     queryKey: ["/api/uk-hs-documents/assignments", "all-workers", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
     refetchInterval: 30000,
     queryFn: async () => {
       const assignments: Record<string, any[]> = {};

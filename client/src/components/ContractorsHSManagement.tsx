@@ -35,13 +35,13 @@ export default function ContractorsHSManagement() {
     staleTime: 5000,
   });
 
-  // Use fallback customer ID if auth fails or use default dev customer
-  const customerId = currentUser?.customerId || 'dev-customer-001';
+  // Secure customer ID - no fallback for production security
+  const customerId = currentUser?.customerId;
 
   // Get current staff member to check access level for admin enforcement
   const { data: currentStaff } = useQuery<{ accessLevel: string; firstName: string; lastName: string }>({
     queryKey: ["/api/staff/me", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
     retry: false,
     staleTime: 5000,
   });
@@ -49,7 +49,7 @@ export default function ContractorsHSManagement() {
   // Fetch UK H&S document templates with customer isolation
   const { data: documentTemplates = [], isLoading: templatesLoading } = useQuery<UkHSDocumentTemplate[]>({
     queryKey: ["/api/uk-hs-documents/templates", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
     refetchInterval: 30000,
   });
 

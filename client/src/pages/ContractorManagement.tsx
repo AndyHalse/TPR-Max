@@ -41,6 +41,16 @@ import {
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 
+// Extended type for list view with computed fields
+type ExtendedContractorCompany = ContractorCompany & {
+  workersCount?: number;
+  documentsStatus?: Record<string, string>;
+  hasRedCard?: boolean;
+  hasYellowCard?: boolean;
+  serviceType?: string;
+  contactEmail?: string;
+};
+
 export default function ContractorManagement() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -81,6 +91,16 @@ export default function ContractorManagement() {
   });
 
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  // Get current user for customer isolation and admin access control
+  const { data: currentUser, isError: authError } = useQuery<{ id: string; username: string; customerId: string; role?: string }>({
+    queryKey: ["/api/auth/me"],
+    retry: false, // Don't retry if auth fails
+    staleTime: 5000,
+  });
+
+  // Secure customer ID - no fallback for production security
+  const customerId = currentUser?.customerId;
 
   // OpenAI auto-populate description mutation
   const generateDescriptionMutation = useMutation({
@@ -146,13 +166,14 @@ export default function ContractorManagement() {
     isActive: true
   });
 
-  const { data: companies = [] } = useQuery<ContractorCompany[]>({
-    queryKey: ["/api/contractors"],
+  const { data: companies = [] } = useQuery<ExtendedContractorCompany[]>({
+    queryKey: ["/api/contractors", customerId],
+    enabled: !!currentUser,
   });
 
   const { data: allWorkers = [], refetch: refetchWorkers } = useQuery<ContractorWorker[]>({
-    queryKey: ["/api/contractors/workers/all"],
-    enabled: activeTab === "previous",
+    queryKey: ["/api/contractors/workers/all", customerId],
+    enabled: activeTab === "previous" && !!customerId,
   });
 
   const generateTestWorkersMutation = useMutation({
@@ -170,7 +191,7 @@ export default function ContractorManagement() {
         description: "Successfully created test workers for all contractor companies",
       });
       refetchWorkers();
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
     },
     onError: () => {
       toast({
@@ -195,7 +216,7 @@ export default function ContractorManagement() {
         title: "Success",
         description: "Contractor company added successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       setShowAddContractorDialog(false);
       setContractorForm({
         name: "",
@@ -230,8 +251,8 @@ export default function ContractorManagement() {
         title: "Success",
         description: "Worker added successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
       setShowAddWorkerDialog(false);
       setWorkerForm({
         companyId: selectedContractor?.id || "",
@@ -277,8 +298,8 @@ export default function ContractorManagement() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
       toast({
         title: "Success",
         description: "Contractor deleted successfully",
@@ -300,8 +321,8 @@ export default function ContractorManagement() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       toast({
         title: "Success",
         description: "Worker deleted successfully",
@@ -358,7 +379,7 @@ export default function ContractorManagement() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
       
       // Find the company name for the worker
@@ -406,9 +427,9 @@ export default function ContractorManagement() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] }); // Refresh contractor list
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] }); // Refresh contractor list
       toast({
         title: "Success",
         description: "Contractor checked out successfully!",
@@ -830,13 +851,13 @@ export default function ContractorManagement() {
               <div className="text-sm text-slate-600">
                 Showing {showAllCompanies ? companies.filter(company => 
                   company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+                  (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
                 ).length : Math.min(6, companies.filter(company => 
                   company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+                  (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
                 ).length)} of {companies.filter(company => 
                   company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+                  (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
                 ).length} contractor companies
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
@@ -853,7 +874,7 @@ export default function ContractorManagement() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {companies.filter(company => 
                 company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+                (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
               ).slice(0, showAllCompanies ? companies.length : 6).map((company) => (
                 <GlassCard key={company.id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="space-y-3">
@@ -862,7 +883,7 @@ export default function ContractorManagement() {
                       <h3 className="font-semibold text-slate-800">
                         {company.name}
                       </h3>
-                      <p className="text-sm text-slate-600">{company.contactEmail}</p>
+                      <p className="text-sm text-slate-600">{company.contactEmail || company.email}</p>
                       <p className="text-sm text-slate-600">{company.contactPhone}</p>
                       <p className="text-xs text-slate-500">
                         Workers: {company.workersCount || 0}
@@ -882,7 +903,7 @@ export default function ContractorManagement() {
                       </Badge>
                       
                       <Badge className="bg-blue-100 text-blue-800">
-                        {company.serviceType || 'General'}
+                        {company.serviceType || company.industry || 'General'}
                       </Badge>
                     </div>
 
@@ -981,8 +1002,8 @@ export default function ContractorManagement() {
           onClose={handleEditWorkerModalClose}
           worker={workerToEdit}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
+            queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
             handleEditWorkerModalClose();
           }}
         />

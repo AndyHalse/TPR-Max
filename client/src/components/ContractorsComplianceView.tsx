@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -69,46 +69,46 @@ export default function ContractorsComplianceView({
     staleTime: 5000,
   });
 
-  // Use fallback customer ID if auth fails or use default dev customer
-  const customerId = currentUser?.customerId || 'dev-customer-001';
+  // Secure customer ID - no fallback for production security
+  const customerId = currentUser?.customerId;
 
   // Fetch contractor companies with customer isolation
   const { data: contractors = [], isLoading: contractorsLoading } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
     refetchInterval: 30000,
   });
 
   // Fetch all workers with customer isolation
   const { data: allWorkers = [], isLoading: workersLoading } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors/workers/all", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
     refetchInterval: 30000,
   });
 
   // Fetch UK H&S document templates with customer isolation
   const { data: documentTemplates = [], isLoading: templatesLoading } = useQuery<UkHSDocumentTemplate[]>({
     queryKey: ["/api/uk-hs-documents/templates", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser,
     refetchInterval: 30000,
   });
 
   // Fetch assignments for selected company with customer isolation
   const { data: assignments = [] } = useQuery<AssignmentWithDetails[]>({
-    queryKey: ["/api/uk-hs-documents/assignments", "company", selectedCompany?.id, customerId],
+    queryKey: ["/api/uk-hs-documents/assignments/company", selectedCompany?.id, customerId],
     enabled: !!selectedCompany?.id && !!customerId,
     refetchInterval: 30000,
   });
 
-  // Set initial company if provided
-  useState(() => {
+  // Set initial company if provided using proper useEffect
+  useEffect(() => {
     if (initialCompanyId && contractors.length > 0 && !selectedCompany) {
       const company = contractors.find(c => c.id === initialCompanyId);
       if (company) {
         setSelectedCompany(company);
       }
     }
-  });
+  }, [initialCompanyId, contractors, selectedCompany]);
 
   // Get workers for selected company
   const companyWorkers = selectedCompany 
@@ -135,7 +135,7 @@ export default function ContractorsComplianceView({
         description: `Successfully sent ${data.emailsSent} reminder emails`,
       });
       queryClient.invalidateQueries({ 
-        queryKey: ["/api/uk-hs-documents/assignments", "company", selectedCompany?.id, customerId] 
+        queryKey: ["/api/uk-hs-documents/assignments/company", selectedCompany?.id, customerId] 
       });
     },
     onError: (error: any) => {
@@ -303,7 +303,7 @@ export default function ContractorsComplianceView({
               
               <Button 
                 onClick={() => queryClient.invalidateQueries({ 
-                  queryKey: ["/api/uk-hs-documents/assignments", "company", selectedCompany?.id, customerId] 
+                  queryKey: ["/api/uk-hs-documents/assignments/company", selectedCompany?.id, customerId] 
                 })}
                 variant="outline"
                 size="sm"

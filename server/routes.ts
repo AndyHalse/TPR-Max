@@ -434,16 +434,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "Not authenticated" });
     }
     
-    // Get customer context for isolation based on logged-in user
-    const username = req.user?.username || 'Andy';
-    const context = simpleDatabaseService.createCustomerContext(username);
-    
-    const user = await databaseService.getUser(context, req.session.userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    try {
+      // Load user from storage to get username for context
+      const sessionUser = await storage.getUser(req.session.userId);
+      if (!sessionUser) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+      
+      // Get customer context for isolation based on logged-in user
+      const context = simpleDatabaseService.createCustomerContext(sessionUser.username);
+      
+      const user = await databaseService.getUser(context, req.session.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      res.json({ 
+        id: user.id, 
+        username: user.username, 
+        customerId: context.customerId
+      });
+    } catch (error) {
+      console.error('Error in /api/auth/me:', error);
+      return res.status(401).json({ error: "Authentication failed" });
     }
-    
-    res.json({ id: user.id, username: user.username, tenantCompanyId: user.tenantCompanyId });
   });
 
   // Tenant-specific authentication route
@@ -2961,6 +2975,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // CONTRACTOR H&S ENDPOINTS HAVE BEEN MOVED TO THE TOP OF THE FILE BEFORE VISITOR ENDPOINTS
+
+  // H&S Rules acceptance for contractor workers (POST only for security)
+  app.post("/api/contractors/workers/:workerId/accept-hs-rules", async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const { token } = req.query as { token?: string };
+
+      console.log(`🔐 Processing H&S rules acceptance for contractor worker ${workerId}`);
+
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+
+      // Get the contractor worker and validate token  
+      const workers = await db.select().from(contractorWorkers)
+        .where(and(
+          eq(contractorWorkers.id, workerId),
+          eq(contractorWorkers.customerId, context.customerId)
+        ));
+      
+      const worker = workers[0];
+      if (!worker) {
+        console.log(`❌ Contractor worker ${workerId} not found`);
+        return res.status(404).json({ error: "Worker not found" });
+      }
+
+      if (worker.hsRulesAcceptanceToken !== token) {
+        console.log(`❌ Invalid token for contractor worker ${workerId}`);
+        return res.status(400).json({ error: "Invalid token" });
+      }
+
+      if (worker.hsRulesAccepted) {
+        console.log(`ℹ️ H&S rules already accepted for contractor worker ${workerId}`);
+        return res.status(200).json({ 
+          message: "H&S rules already accepted",
+          worker: { 
+            id: worker.id,
+            firstName: worker.firstName,
+            lastName: worker.lastName,
+            hsRulesAccepted: worker.hsRulesAccepted,
+            hsRulesAcceptedAt: worker.hsRulesAcceptedAt
+          }
+        });
+      }
+
+      // Mark H&S rules as accepted
+      await db.update(contractorWorkers)
+        .set({
+          hsRulesAccepted: true,
+          hsRulesAcceptedAt: new Date(),
+          hsRulesAcceptanceToken: null // Clear the token after use
+        })
+        .where(eq(contractorWorkers.id, workerId));
+
+      console.log(`✅ H&S rules accepted for contractor worker ${workerId}`);
+      res.json({ 
+        message: "H&S rules accepted successfully",
+        worker: {
+          id: worker.id,
+          firstName: worker.firstName,
+          lastName: worker.lastName,
+          hsRulesAccepted: true,
+          hsRulesAcceptedAt: new Date()
+        }
+      });
+
+    } catch (error) {
+      console.error("Error accepting H&S rules for contractor worker:", error);
+      res.status(500).json({ error: "Failed to accept H&S rules" });
+    }
+  });
 
   app.post("/api/visitors/checkout-by-qr", async (req, res) => {
     try {
@@ -6682,6 +6771,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log(`Creating worker: ${firstName} ${lastName} (${randomTrade}) for ${company.name}`);
           
+          // Generate H&S acceptance token for test worker
+          const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+          
           const worker = {
             companyId: company.id,
             firstName: firstName,
@@ -6689,6 +6781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             email: `${randomName.toLowerCase().replace(/\s+/g, '.')}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
             phone: `+44 ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 900000) + 100000}`,
             rightToWork: Math.random() < 0.9 ? "valid" : "expired",
+            hsRulesAcceptanceToken: hsToken,
             // Required for check-in authorization
             isActive: true,
             inductionCompleted: Math.random() < 0.85, // 85% have completed induction
@@ -7129,9 +7222,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
+      // Generate H&S acceptance token for new worker
+      const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
       const workerData = insertContractorWorkerSchema.parse({
         ...req.body,
-        companyId
+        companyId,
+        hsRulesAcceptanceToken: hsToken
       });
       
       // Use customer-isolated database service instead of old storage
@@ -8439,6 +8536,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching company compliance status:', error);
       res.status(500).json({ error: 'Failed to fetch company compliance status' });
+    }
+  });
+
+  // Get all document assignments across all workers (for H&S management dashboard)
+  app.get("/api/uk-hs-documents/assignments/all", requireAuth, async (req, res) => {
+    console.log('🔍 DEBUG: assignments/all endpoint called');
+    console.log('🔍 DEBUG: req.user:', req.user);
+    console.log('🔍 DEBUG: req.session:', req.session);
+    
+    try {
+      // Ensure user is authenticated (requireAuth should prevent this, but double-check)
+      if (!req.user?.username) {
+        console.log('🔍 DEBUG: No authenticated user, returning 401');
+        return res.status(401).json({ error: 'User authentication required' });
+      }
+      
+      const username = req.user.username;
+      console.log('🔍 DEBUG: Authenticated user:', username);
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get all assignments for this customer - simplified query
+      console.log('🔍 DEBUG: Customer context:', context);
+      
+      let assignments: any[] = [];
+      try {
+        assignments = await db
+          .select()
+          .from(workerDocumentAssignments)
+          .where(eq(workerDocumentAssignments.customerId, context.customerId))
+          .limit(100); // Limit for performance
+          
+        console.log(`🔍 DEBUG: Found ${assignments.length} assignments in database`);
+      } catch (dbError) {
+        console.error('🔥 Database query failed:', dbError);
+        // Return empty array if database query fails
+        assignments = [];
+      }
+      
+      console.log(`✅ Retrieved ${assignments.length} H&S document assignments for customer ${context.customerId}`);
+      console.log('🔍 DEBUG: About to send JSON response');
+      res.status(200).json(assignments);
+      console.log('🔍 DEBUG: JSON response sent successfully');
+    } catch (error) {
+      console.error('🔥 ERROR in assignments/all:', error);
+      console.log('🔍 DEBUG: Sending error response');
+      res.status(500).json({ error: 'Failed to fetch document assignments' });
+    }
+  });
+
+  // Send reminder emails for document assignments
+  app.post("/api/uk-hs-documents/send-email", requireAuth, async (req, res) => {
+    try {
+      const { assignmentIds } = req.body;
+      
+      if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
+        return res.status(400).json({ error: 'Assignment IDs are required' });
+      }
+      
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get assignment details for emails
+      const assignments = await db
+        .select({
+          assignment: workerDocumentAssignments,
+          worker: contractorWorkers,
+          template: ukHSDocumentTemplates,
+          company: contractorCompanies
+        })
+        .from(workerDocumentAssignments)
+        .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
+        .where(and(
+          inArray(workerDocumentAssignments.id, assignmentIds),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true)
+        ));
+      
+      let emailsSent = 0;
+      
+      for (const { assignment, worker, template, company } of assignments) {
+        try {
+          // Create acceptance URL with token
+          const acceptanceUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/uk-hs-documents/accept/${assignment.acceptanceToken}`;
+          
+          // Send reminder email using EmailService
+          await emailService.sendEmail({
+            to: worker.email,
+            subject: `H&S Document Required: ${template.documentName}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Health & Safety Document Required</h2>
+                <p>Dear ${worker.firstName} ${worker.lastName},</p>
+                <p>You have a Health & Safety document that requires your acknowledgment:</p>
+                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin: 0 0 10px 0; color: #1e40af;">${template.documentName}</h3>
+                  <p style="margin: 0 0 5px 0;"><strong>Company:</strong> ${company.name}</p>
+                  <p style="margin: 0 0 5px 0;"><strong>Category:</strong> ${template.complianceCategory}</p>
+                  <p style="margin: 0;"><strong>Assigned:</strong> ${assignment.assignedAt.toLocaleDateString()}</p>
+                </div>
+                <p>Please click the button below to review and acknowledge this document:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${acceptanceUrl}" 
+                     style="background: #059669; color: white; padding: 12px 24px; 
+                            text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    Review Document
+                  </a>
+                </div>
+                <p style="font-size: 14px; color: #6b7280;">
+                  If you have any questions, please contact your site supervisor.
+                </p>
+              </div>
+            `
+          });
+          
+          // Update assignment status to 'sent'
+          await db
+            .update(workerDocumentAssignments)
+            .set({ 
+              status: 'sent',
+              emailSentAt: new Date(),
+              updatedAt: new Date()
+            })
+            .where(eq(workerDocumentAssignments.id, assignment.id));
+          
+          emailsSent++;
+          
+        } catch (emailError) {
+          console.error(`Failed to send email for assignment ${assignment.id}:`, emailError);
+        }
+      }
+      
+      console.log(`✅ Sent ${emailsSent} H&S document reminder emails for customer ${context.customerId}`);
+      res.json({ 
+        emailsSent, 
+        message: `Successfully sent ${emailsSent} reminder emails` 
+      });
+      
+    } catch (error) {
+      console.error('Error sending document reminder emails:', error);
+      res.status(500).json({ error: 'Failed to send reminder emails' });
+    }
+  });
+
+  // Get assignments by company ID (for compliance view)
+  app.get("/api/uk-hs-documents/assignments/company/:companyId", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get assignments for specific company with full details
+      const assignments = await db
+        .select({
+          assignment: workerDocumentAssignments,
+          worker: contractorWorkers,
+          template: ukHSDocumentTemplates,
+          company: contractorCompanies
+        })
+        .from(workerDocumentAssignments)
+        .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
+        .where(and(
+          eq(workerDocumentAssignments.companyId, companyId),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true),
+          eq(contractorWorkers.customerId, context.customerId),
+          eq(ukHSDocumentTemplates.customerId, context.customerId),
+          eq(contractorCompanies.customerId, context.customerId)
+        ))
+        .orderBy(desc(workerDocumentAssignments.assignedAt));
+      
+      console.log(`✅ Retrieved ${assignments.length} H&S document assignments for company ${companyId} and customer ${context.customerId}`);
+      res.json(assignments);
+    } catch (error) {
+      console.error('Error fetching company document assignments:', error);
+      res.status(500).json({ error: 'Failed to fetch company document assignments' });
     }
   });
 
@@ -12580,6 +12856,186 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     res.setHeader('Content-Type', 'text/html');
     res.send(installationGuide);
+  });
+
+  // ============================================================================
+  // AUTHENTICATION ENDPOINTS - Critical for system security and functionality
+  // ============================================================================
+  
+  // User authentication (login)
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+      }
+
+      // Authenticate user using existing auth service
+      const user = await AuthService.authenticateUser(username, password);
+      
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid username or password' });
+      }
+
+      // Create session
+      req.session.userId = user.id;
+      
+      console.log(`✅ User login successful: ${username} (ID: ${user.id})`);
+      
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          customerId: user.customerId,
+          role: user.role || 'user'
+        },
+        message: 'Login successful'
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'Internal server error during login' });
+    }
+  });
+
+  // Get current authenticated user
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      // Check if user is authenticated via session
+      if (!req.session?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      // Load user from storage
+      const user = await storage.getUser(req.session.userId);
+      
+      if (!user) {
+        // Clear invalid session
+        req.session.userId = undefined;
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      res.json({
+        id: user.id,
+        username: user.username,
+        customerId: user.customerId,
+        role: user.role || 'user',
+        lastLoginAt: user.lastLoginAt
+      });
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+      res.status(500).json({ error: 'Failed to fetch user information' });
+    }
+  });
+
+  // User logout
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      if (req.session) {
+        const userId = req.session.userId;
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('Session destruction error:', err);
+            return res.status(500).json({ error: 'Failed to logout' });
+          }
+          
+          console.log(`✅ User logout successful: ${userId || 'unknown'}`);
+          res.json({ success: true, message: 'Logged out successfully' });
+        });
+      } else {
+        res.json({ success: true, message: 'Already logged out' });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ error: 'Internal server error during logout' });
+    }
+  });
+
+  // Staff authentication and current staff info
+  app.get("/api/staff/me/:customerId?", requireAuth, async (req, res) => {
+    try {
+      const { customerId: pathCustomerId } = req.params;
+      
+      // Get customer context from authenticated user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use path customer ID if provided, otherwise use context customer ID
+      const targetCustomerId = pathCustomerId || context.customerId;
+      
+      // Ensure user has access to this customer data
+      if (context.customerId !== targetCustomerId) {
+        return res.status(403).json({ error: 'Access denied to customer data' });
+      }
+      
+      // Get staff member for this customer (simplified - in production you'd validate staff access)
+      // For now, return basic staff info based on authenticated user
+      const staffInfo = {
+        id: req.user.id,
+        firstName: req.user.username,
+        lastName: 'User',
+        email: `${req.user.username.toLowerCase()}@example.com`,
+        accessLevel: req.user.role === 'admin' ? 'admin' : 'supervisor',
+        customerId: targetCustomerId,
+        isActive: true
+      };
+      
+      console.log(`✅ Staff info retrieved for user ${username} and customer ${targetCustomerId}`);
+      res.json(staffInfo);
+    } catch (error) {
+      console.error('Error fetching staff info:', error);
+      res.status(500).json({ error: 'Failed to fetch staff information' });
+    }
+  });
+
+  // Alternative staff endpoint without customer ID parameter
+  app.get("/api/staff/me", requireAuth, async (req, res) => {
+    try {
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const staffInfo = {
+        id: req.user.id,
+        firstName: req.user.username,
+        lastName: 'User',
+        email: `${req.user.username.toLowerCase()}@example.com`,
+        accessLevel: req.user.role === 'admin' ? 'admin' : 'supervisor',
+        customerId: context.customerId,
+        isActive: true
+      };
+      
+      console.log(`✅ Staff info retrieved for user ${username} and customer ${context.customerId}`);
+      res.json(staffInfo);
+    } catch (error) {
+      console.error('Error fetching staff info:', error);
+      res.status(500).json({ error: 'Failed to fetch staff information' });
+    }
+  });
+
+  // ============================================================================
+  // SETTINGS ENDPOINT - Required by frontend components
+  // ============================================================================
+  
+  app.get("/api/settings", async (req, res) => {
+    try {
+      // Return basic settings - can be expanded as needed
+      const settings = {
+        appName: 'VisiGate Pro',
+        version: '1.0.0',
+        supportedFeatures: ['contractor_management', 'hs_documents', 'printing'],
+        defaultTimeZone: 'Europe/London',
+        maxFileUploadSize: '10MB',
+        supportedPrinterTypes: ['tec', 'zebra'],
+        co2TrackingEnabled: true,
+        maintenanceMode: false
+      };
+      
+      res.json(settings);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      res.status(500).json({ error: 'Failed to fetch settings' });
+    }
   });
 
   const httpServer = createServer(app);

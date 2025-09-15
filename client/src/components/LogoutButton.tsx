@@ -24,8 +24,10 @@ export default function LogoutButton() {
       // Clear the user query cache and force immediate refetch
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      // Clear all cached data to ensure clean logout
+      // Clear all cached data to prevent cross-tenant data bleeding
       queryClient.clear();
+      // Force hard reload to ensure complete state cleanup
+      window.location.href = '/login';
     },
     onError: (error: Error) => {
       toast({

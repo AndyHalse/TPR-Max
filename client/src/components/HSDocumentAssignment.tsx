@@ -49,13 +49,13 @@ export default function HSDocumentAssignment() {
     staleTime: 5000,
   });
 
-  // Use fallback customer ID if auth fails or use default dev customer
-  const customerId = currentUser?.customerId || 'dev-customer-001';
+  // Secure customer ID - no fallback for production security
+  const customerId = currentUser?.customerId;
 
   // Get current staff member to check access level for admin enforcement
   const { data: currentStaff } = useQuery<{ accessLevel: string; firstName: string; lastName: string }>({
     queryKey: ["/api/staff/me", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser, // Use currentUser instead of customerId to avoid conditional hooks
     retry: false,
     staleTime: 5000,
   });
@@ -63,28 +63,28 @@ export default function HSDocumentAssignment() {
   // Fetch contractor companies with customer isolation
   const { data: contractors = [], isLoading: contractorsLoading } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser, // Use currentUser instead of customerId to avoid conditional hooks
     refetchInterval: 30000,
   });
 
   // Fetch all workers with customer isolation
   const { data: allWorkers = [], isLoading: workersLoading } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors/workers/all", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser, // Use currentUser instead of customerId to avoid conditional hooks
     refetchInterval: 30000,
   });
 
   // Fetch UK H&S document templates with customer isolation
   const { data: documentTemplates = [], isLoading: templatesLoading } = useQuery<UkHSDocumentTemplate[]>({
     queryKey: ["/api/uk-hs-documents/templates", customerId],
-    enabled: !!customerId,
+    enabled: !!currentUser, // Use currentUser instead of customerId to avoid conditional hooks
     refetchInterval: 30000,
   });
 
   // Get all assignments for statistics with customer isolation
   const { data: allAssignments = [] } = useQuery<WorkerDocumentAssignment[]>({
-    queryKey: ["/api/uk-hs-documents/assignments", "all", customerId],
-    enabled: !!customerId,
+    queryKey: ["/api/uk-hs-documents/assignments/all", customerId],
+    enabled: !!currentUser, // Use currentUser instead of customerId to avoid conditional hooks
     refetchInterval: 30000,
   });
 
@@ -106,7 +106,7 @@ export default function HSDocumentAssignment() {
         title: "Documents Assigned",
         description: `Successfully assigned ${data.assignmentsCreated} documents to workers`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments", "all", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments/all", customerId] });
       setSelectedWorkers([]);
       setSelectedDocuments([]);
       setShowAssignDialog(false);
@@ -165,26 +165,6 @@ export default function HSDocumentAssignment() {
                         currentStaff?.accessLevel === 'admin' || 
                         currentStaff?.accessLevel === 'supervisor';
   
-  // Show access denied if user doesn't have proper permissions
-  if (!hasAdminAccess && !authError) {
-    return (
-      <div className="space-y-6">
-        <GlassCard>
-          <div className="text-center py-8">
-            <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Access Restricted</h3>
-            <p className="text-slate-600">
-              UK Health & Safety compliance management requires administrator or supervisor access.
-            </p>
-            <p className="text-sm text-slate-500 mt-2">
-              Contact your system administrator if you need access to this feature.
-            </p>
-          </div>
-        </GlassCard>
-      </div>
-    );
-  }
-
   // Show loading state only when data is loading (not auth failure)
   if (contractorsLoading || workersLoading || templatesLoading) {
     return (
@@ -198,6 +178,26 @@ export default function HSDocumentAssignment() {
                 Using development mode - Auth unavailable
               </p>
             )}
+          </div>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  // Show access denied if user doesn't have proper permissions (after loading check)
+  if (!hasAdminAccess && !authError) {
+    return (
+      <div className="space-y-6">
+        <GlassCard>
+          <div className="text-center py-8">
+            <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Access Restricted</h3>
+            <p className="text-slate-600">
+              UK Health & Safety compliance management requires administrator or supervisor access.
+            </p>
+            <p className="text-sm text-slate-500 mt-2">
+              Contact your system administrator if you need access to this feature.
+            </p>
           </div>
         </GlassCard>
       </div>

@@ -60,7 +60,9 @@ export default function Login() {
           description: `Welcome back, ${data.user.username}!`,
         });
         
-        // Invalidate queries and redirect
+        // Clear all cached data to prevent cross-tenant data contamination
+        queryClient.clear();
+        // Invalidate auth query and redirect
         queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
         console.log("🔄 Redirecting to dashboard...");
         setLocation("/");

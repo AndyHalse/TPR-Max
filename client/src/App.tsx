@@ -31,6 +31,7 @@ import FireMarshalMobile from "@/pages/FireMarshalMobile";
 import InductionSettings from "@/pages/InductionSettings";
 import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
+import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -39,6 +40,14 @@ function Router() {
   // Special case: Fire Marshal emergency access with token
   if (window.location.pathname === '/fire-marshal' && emergencyToken) {
     return <FireMarshalMuster token={emergencyToken} />;
+  }
+  
+  // H&S Document acceptance - public route with token (no authentication required)
+  if (window.location.pathname.startsWith('/hs-document/')) {
+    const token = window.location.pathname.split('/hs-document/')[1];
+    if (token) {
+      return <HSDocumentAcceptance token={token} />;
+    }
   }
   
   // Public induction system - no authentication required
