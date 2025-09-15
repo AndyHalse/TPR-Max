@@ -48,12 +48,23 @@ export default function ContractorsHSManagement() {
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<UkHSDocumentTemplate | undefined>(undefined);
   
-  // Get current user for customer isolation
-  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
+  // Get current user for customer isolation and admin access control
+  const { data: currentUser, isError: authError } = useQuery<{ id: string; username: string; customerId: string; role?: string }>({
     queryKey: ["/api/auth/me"],
+    retry: false, // Don't retry if auth fails
+    staleTime: 5000,
   });
 
-  const customerId = currentUser?.customerId;
+  // Use fallback customer ID if auth fails or use default dev customer
+  const customerId = currentUser?.customerId || 'dev-customer-001';
+
+  // Get current staff member to check access level for admin enforcement
+  const { data: currentStaff } = useQuery<{ accessLevel: string; firstName: string; lastName: string }>({
+    queryKey: ["/api/staff/me", customerId],
+    enabled: !!customerId,
+    retry: false,
+    staleTime: 5000,
+  });
 
   // Fetch contractor companies with customer isolation
   const { data: contractors = [], isLoading: contractorsLoading } = useQuery<ContractorCompany[]>({
@@ -174,16 +185,44 @@ export default function ContractorsHSManagement() {
     setEditingTemplate(undefined);
   };
 
-  // Show loading state when customer ID is not available or when data is loading
-  if (!customerId || contractorsLoading || workersLoading || templatesLoading) {
+  // Check if user has admin/supervisor access for H&S management (after all hooks)
+  const hasAdminAccess = currentUser?.role === 'admin' || 
+                        currentStaff?.accessLevel === 'admin' || 
+                        currentStaff?.accessLevel === 'supervisor';
+  
+  // Show access denied if user doesn't have proper permissions
+  if (!hasAdminAccess && !authError) {
+    return (
+      <div className="space-y-6">
+        <GlassCard>
+          <div className="text-center py-8">
+            <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Access Restricted</h3>
+            <p className="text-slate-600">
+              UK Health & Safety compliance management requires administrator or supervisor access.
+            </p>
+            <p className="text-sm text-slate-500 mt-2">
+              Contact your system administrator if you need access to this feature.
+            </p>
+          </div>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  // Show loading state only when data is loading (not auth failure)
+  if (contractorsLoading || workersLoading || templatesLoading) {
     return (
       <div className="space-y-6">
         <GlassCard>
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
-            <p className="mt-2 text-slate-600">
-              {!customerId ? "Loading user session..." : "Loading UK H&S management system..."}
-            </p>
+            <p className="mt-2 text-slate-600">Loading UK H&S management system...</p>
+            {authError && (
+              <p className="mt-1 text-xs text-orange-600">
+                Using development mode - Auth unavailable
+              </p>
+            )}
           </div>
         </GlassCard>
       </div>

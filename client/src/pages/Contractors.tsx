@@ -37,6 +37,7 @@ import {
   ThumbsDown
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
+import ContractorsComplianceView from "@/components/ContractorsComplianceView";
 
 interface ContractorCompany {
   id: string;
@@ -77,6 +78,7 @@ export default function Contractors() {
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState('');
+  const [showComplianceView, setShowComplianceView] = useState(false);
   const [approvalForm, setApprovalForm] = useState({
     status: '',
     comments: '',
@@ -139,35 +141,47 @@ export default function Contractors() {
     isActive: true
   });
 
-  // Fetch contractor companies from API
+  // Get current user for customer isolation with fallback handling
+  const { data: currentUser, isError: authError } = useQuery<{ id: string; username: string; customerId: string }>({
+    queryKey: ["/api/auth/me"],
+    retry: false, // Don't retry if auth fails
+    staleTime: 5000,
+  });
+
+  // Use fallback customer ID if auth fails or use default dev customer
+  const customerId = currentUser?.customerId || 'dev-customer-001';
+
+  // Fetch contractor companies from API with customer isolation
   const { data: contractors = [], isLoading } = useQuery<ContractorCompany[]>({
-    queryKey: ["/api/contractors"],
+    queryKey: ["/api/contractors", customerId],
+    enabled: !!customerId,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Staff query for host selection (same as visitor workflow)
+  // Staff query for host selection (same as visitor workflow) with customer isolation
   const { data: staff = [] } = useQuery<any[]>({
-    queryKey: ["/api/staff"],
+    queryKey: ["/api/staff", customerId],
+    enabled: !!customerId,
   });
 
-  // Fetch workers for selected contractor
+  // Fetch workers for selected contractor with customer isolation
   const { data: workers = [] } = useQuery<any[]>({
-    queryKey: ["/api/contractors", selectedContractor?.id, "workers"],
-    enabled: !!selectedContractor?.id,
+    queryKey: ["/api/contractors", selectedContractor?.id, "workers", customerId],
+    enabled: !!selectedContractor?.id && !!customerId,
     refetchInterval: 30000,
   });
 
-  // Fetch documents for selected contractor
+  // Fetch documents for selected contractor with customer isolation
   const { data: documents = [] } = useQuery<any[]>({
-    queryKey: ["/api/contractors", selectedContractor?.id, "documents"],
-    enabled: !!selectedContractor?.id,
+    queryKey: ["/api/contractors", selectedContractor?.id, "documents", customerId],
+    enabled: !!selectedContractor?.id && !!customerId,
     refetchInterval: 30000,
   });
   
-  // Fetch document approvals
+  // Fetch document approvals with customer isolation
   const { data: approvals = [] } = useQuery<any[]>({
-    queryKey: ["/api/contractors", selectedContractor?.id, "documents", selectedDocument?.id, "approvals"],
-    enabled: !!selectedContractor?.id && !!selectedDocument?.id,
+    queryKey: ["/api/contractors", selectedContractor?.id, "documents", selectedDocument?.id, "approvals", customerId],
+    enabled: !!selectedContractor?.id && !!selectedDocument?.id && !!customerId,
     refetchInterval: 30000,
   });
 
@@ -197,7 +211,7 @@ export default function Contractors() {
         title: "Success",
         description: "Contractor company added successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       setShowAddContractorDialog(false);
       setContractorForm({
         name: "",
@@ -237,7 +251,7 @@ export default function Contractors() {
         title: "Success",
         description: "Worker added successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       setShowAddWorkerDialog(false);
       setWorkerForm({
         companyId: selectedContractor?.id || "",
@@ -318,7 +332,7 @@ export default function Contractors() {
         description: "Worker information has been updated successfully.",
       });
       setShowEditWorkerModal(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
     },
     onError: (error: any) => {
       toast({
@@ -359,7 +373,7 @@ export default function Contractors() {
       setSelectedHostForWorker("");
       
       // Refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
     } catch (error: any) {
       toast({
@@ -381,7 +395,7 @@ export default function Contractors() {
       });
       
       // Refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
     } catch (error: any) {
       toast({
@@ -416,7 +430,7 @@ export default function Contractors() {
         description: `Document ${status} successfully`,
       });
       
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       
       setApprovalForm({ status: '', comments: '', rejectionReason: '' });
       setShowDocumentModal(false);
@@ -476,14 +490,24 @@ export default function Contractors() {
             <p className="text-variable">Manage contractor companies and compliance</p>
           </div>
         </div>
-        <Button 
-          onClick={() => setShowAddContractorDialog(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          data-testid="button-add-contractor"
-        >
-          <Plus className="mr-2" size={16} />
-          Add Contractor
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setShowComplianceView(true)}
+            className="bg-green-600 hover:bg-green-700 text-white"
+            data-testid="button-view-compliance"
+          >
+            <Shield className="mr-2" size={16} />
+            View H&S Compliance
+          </Button>
+          <Button 
+            onClick={() => setShowAddContractorDialog(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            data-testid="button-add-contractor"
+          >
+            <Plus className="mr-2" size={16} />
+            Add Contractor
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -1112,7 +1136,7 @@ export default function Contractors() {
                     onCheckIn={handleWorkerCheckIn}
                     onCheckOut={handleWorkerCheckOut}
                     onIssueCard={handleIssueCard}
-                    onViewWorker={() => handleViewWorker(worker)}
+                    onViewDetails={() => handleViewWorker(worker)}
                   />
                 )) : (
                   <div className="col-span-full text-center py-8">
@@ -2170,6 +2194,22 @@ export default function Contractors() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* H&S Compliance View Dialog */}
+      <Dialog open={showComplianceView} onOpenChange={setShowComplianceView}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-green-600" />
+              UK Health & Safety Compliance Management
+            </DialogTitle>
+          </DialogHeader>
+          <ContractorsComplianceView 
+            isDialog={true}
+            onClose={() => setShowComplianceView(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

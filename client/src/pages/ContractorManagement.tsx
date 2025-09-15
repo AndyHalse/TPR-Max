@@ -479,29 +479,6 @@ export default function ContractorManagement() {
           <HardHat className="h-8 w-8 text-orange-600" />
           <h1 className="text-3xl font-bold text-slate-800">Contractor Management</h1>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setActiveTab("previous")}
-            variant="outline"
-            className="text-blue-600 border-blue-600 hover:bg-blue-50"
-          >
-            Show All Current Workers
-          </Button>
-          <Button
-            onClick={() => setActiveTab("contractors")}
-            variant="outline"
-            className="text-purple-600 border-purple-600 hover:bg-purple-50"
-          >
-            Contractors
-          </Button>
-          <Button
-            onClick={handleGenerateTestWorkers}
-            variant="outline"
-            className="text-orange-600 border-orange-600 hover:bg-orange-50"
-          >
-            Generate Test Workers
-          </Button>
-        </div>
       </div>
 
       {/* Tab Navigation */}
