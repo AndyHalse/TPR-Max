@@ -7955,8 +7955,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
+        // If no new assignments needed, that's actually a success case
         if (newAssignments.length === 0) {
-          throw new Error('No valid assignments to create');
+          console.log('✅ All H&S documents already assigned to selected workers - no new assignments needed');
+          return []; // Return empty array instead of throwing error
         }
         
         // Insert all assignments atomically
@@ -7968,8 +7970,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return insertedAssignments;
       });
       
+      // Provide appropriate response message based on results
+      const responseMessage = assignments.length === 0 
+        ? 'All selected H&S documents are already assigned to the selected workers'
+        : `Successfully assigned ${assignments.length} H&S document(s)`;
+
       res.json({
         success: true,
+        message: responseMessage,
         assignmentsCreated: assignments.length,
         assignments
       });
