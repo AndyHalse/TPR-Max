@@ -162,6 +162,7 @@ class EmailService {
       const primaryColor = companySettings?.accentColor || '#ef4444'; // Red for H&S compliance
       const secondaryColor = companySettings?.backgroundColor || '#f8fafc';
       const logoUrl = companySettings?.logoUrl;
+      console.log(`📧 H&S Email: Using logo URL: ${logoUrl || 'No logo configured'}, Primary color: ${primaryColor}`);
 
       const subject = `🛡️ UK H&S Compliance Required: ${documentName}`;
 

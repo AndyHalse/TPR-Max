@@ -2523,7 +2523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Generate e-Pass URL
-        const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+        const baseUrl = process.env.REPLIT_DOMAINS || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
         const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
         
         // Update visitor with e-Pass URL
@@ -2655,7 +2655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate e-Pass URL
-      const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+      const baseUrl = process.env.REPLIT_DOMAINS || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
       const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
       
       // Update visitor email if provided
@@ -7785,7 +7785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Generate unique acceptance token
             const acceptanceToken = randomUUID();
-            const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+            const baseUrl = process.env.REPLIT_DOMAINS || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
             const acceptanceUrl = `${baseUrl}/hs-document/${acceptanceToken}`;
             
             const assignmentData = {
@@ -8659,7 +8659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`📧 Sending contractor e-pass to ${worker.email} for H&S acceptance and check-in completion`);
             
             const emailService = new EmailService();
-            const passUrl = `${process.env.APP_URL || 'http://localhost:5000'}/pass/contractor/${workerId}`;
+            const passUrl = `${process.env.REPLIT_DOMAINS || process.env.APP_URL || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`}/pass/contractor/${workerId}`;
             
             emailSentSuccessfully = await emailService.sendContractorEPass(
               worker.email,
