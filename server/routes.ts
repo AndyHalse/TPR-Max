@@ -7786,16 +7786,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Generate unique acceptance token
             const acceptanceToken = randomUUID();
             
-            // Helper function to create absolute URLs for email clients
-            const absolutizeUrl = (path: string): string => {
-              const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`).trim();
-              const base = host.startsWith('http') ? host : `https://${host}`;
-              const cleanBase = base.replace(/\/$/, ''); // Remove trailing slash
-              const cleanPath = path.replace(/^\//, ''); // Remove leading slash
-              return `${cleanBase}/${cleanPath}`;
-            };
-            
-            const acceptanceUrl = absolutizeUrl(`/hs-document/${acceptanceToken}`);
+            // Don't store URL in database - generate it fresh at email time like contractor H&S acceptance
+            const acceptanceUrl = null; // Will be generated fresh in email service
             
             const assignmentData = {
               customerId: context.customerId,
@@ -7979,7 +7971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               documentName: template.documentName,
               complianceCategory: template.complianceCategory,
               companyName: company.name,
-              acceptanceUrl: assignment.acceptanceUrl,
+              acceptanceToken: assignment.acceptanceToken,
               dueDate: assignment.dueDate,
               companySettings: companySettings
             });

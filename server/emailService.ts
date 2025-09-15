@@ -142,7 +142,7 @@ class EmailService {
     documentName: string;
     complianceCategory: string;
     companyName: string;
-    acceptanceUrl: string;
+    acceptanceToken: string;
     dueDate?: Date;
     companySettings?: any;
   }): Promise<boolean> {
@@ -153,7 +153,7 @@ class EmailService {
         documentName,
         complianceCategory,
         companyName,
-        acceptanceUrl,
+        acceptanceToken,
         dueDate,
         companySettings
       } = options;
@@ -175,7 +175,15 @@ class EmailService {
       };
       
       const logoUrl = absolutizeUrl(companySettings?.logoUrl);
+      
+      // Generate acceptance URL fresh at email time (like contractor H&S acceptance)
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : (process.env.PUBLIC_URL || process.env.BASE_URL || 'http://localhost:5000');
+      const acceptanceUrl = `${baseUrl}/hs-document/${acceptanceToken}`;
+      
       console.log(`📧 H&S Email: Using logo URL: ${logoUrl || 'No logo configured'}, Primary color: ${primaryColor}`);
+      console.log(`📧 H&S Email: Generated fresh acceptance URL: ${acceptanceUrl}`);
 
       const subject = `🛡️ UK H&S Compliance Required: ${documentName}`;
 
