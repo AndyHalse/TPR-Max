@@ -17,6 +17,7 @@ import { ContractorEditModal } from "@/components/ContractorEditModal";
 import ContractorPreBooking from "@/components/ContractorPreBooking";
 import ContractorHSModal from "@/components/ContractorHSModal";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
+import HSDocumentAssignment from "@/components/HSDocumentAssignment";
 import { 
   HardHat, 
   Clock, 
@@ -34,7 +35,8 @@ import {
   Mail,
   Plus,
   User,
-  Leaf
+  Leaf,
+  Shield
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -42,7 +44,7 @@ import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 export default function ContractorManagement() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2">("previous");
+  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs">("previous");
   const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showWalkInForm, setShowWalkInForm] = useState(false);
@@ -528,6 +530,15 @@ export default function ContractorManagement() {
         >
           <Leaf className="h-4 w-4" />
           CO2 Reports
+        </Button>
+        <Button
+          variant={activeTab === "assign-hs" ? "default" : "outline"}
+          onClick={() => setActiveTab("assign-hs")}
+          className="flex items-center gap-2"
+          data-testid="tab-assign-hs"
+        >
+          <Shield className="h-4 w-4" />
+          Assign H&S Document
         </Button>
       </div>
 
@@ -1372,6 +1383,10 @@ export default function ContractorManagement() {
             />
           )}
         </div>
+      )}
+
+      {activeTab === "assign-hs" && (
+        <HSDocumentAssignment />
       )}
       
       {/* H&S Acceptance Modal */}
