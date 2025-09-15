@@ -12,21 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
   FileText, 
-  Mail, 
   Send, 
-  CheckCircle, 
-  Clock, 
-  AlertTriangle, 
   Building2,
   Shield,
   Search,
   Plus,
-  Eye,
-  BarChart3,
-  Calendar,
-  Download,
-  Edit,
-  Settings
+  Edit
 } from "lucide-react";
 import { TemplateEditor } from './TemplateEditor';
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -38,17 +29,7 @@ interface AssignDocumentsResponse {
   message: string;
 }
 
-interface SendEmailsResponse {
-  emailsSent: number;
-  message: string;
-}
 
-interface AssignmentWithDetails {
-  assignment: WorkerDocumentAssignment;
-  worker: ContractorWorker;
-  template: UkHSDocumentTemplate;
-  company: ContractorCompany;
-}
 
 // Glass card component
 const GlassCard = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
@@ -59,45 +40,49 @@ const GlassCard = ({ children, className = "" }: { children: React.ReactNode; cl
 
 export default function ContractorsHSManagement() {
   const { toast } = useToast();
-  const [selectedCompany, setSelectedCompany] = useState<ContractorCompany | null>(null);
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [showComplianceDialog, setShowComplianceDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCompany, setFilterCompany] = useState("all");
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<UkHSDocumentTemplate | undefined>(undefined);
   
-  // Fetch contractor companies
+  // Get current user for customer isolation
+  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  const customerId = currentUser?.customerId;
+
+  // Fetch contractor companies with customer isolation
   const { data: contractors = [], isLoading: contractorsLoading } = useQuery<ContractorCompany[]>({
-    queryKey: ["/api/contractors"],
+    queryKey: ["/api/contractors", customerId],
+    enabled: !!customerId,
     refetchInterval: 30000,
   });
 
-  // Fetch all workers  
+  // Fetch all workers with customer isolation
   const { data: allWorkers = [], isLoading: workersLoading } = useQuery<ContractorWorker[]>({
-    queryKey: ["/api/contractors/workers/all"],
+    queryKey: ["/api/contractors/workers/all", customerId],
+    enabled: !!customerId,
     refetchInterval: 30000,
   });
 
-  // Fetch UK H&S document templates
+  // Fetch UK H&S document templates with customer isolation
   const { data: documentTemplates = [], isLoading: templatesLoading } = useQuery<UkHSDocumentTemplate[]>({
-    queryKey: ["/api/uk-hs-documents/templates"],
+    queryKey: ["/api/uk-hs-documents/templates", customerId],
+    enabled: !!customerId,
     refetchInterval: 30000,
   });
 
-  // Fetch assignments for selected company
-  const { data: assignments = [] } = useQuery<AssignmentWithDetails[]>({
-    queryKey: ["/api/uk-hs-documents/assignments", "company", selectedCompany?.id],
-    enabled: !!selectedCompany?.id,
+  // Get all assignments for statistics with customer isolation
+  const { data: allAssignments = [] } = useQuery<WorkerDocumentAssignment[]>({
+    queryKey: ["/api/uk-hs-documents/assignments", "all", customerId],
+    enabled: !!customerId,
     refetchInterval: 30000,
   });
 
-  // Get workers for selected company
-  const companyWorkers = selectedCompany 
-    ? allWorkers.filter(worker => worker.companyId === selectedCompany.id)
-    : [];
 
   // Filter workers based on search term and company filter
   const filteredWorkers = allWorkers.filter(worker => {
@@ -117,7 +102,7 @@ export default function ContractorsHSManagement() {
         title: "Documents Assigned",
         description: `Successfully assigned ${data.assignmentsCreated} documents to workers`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments", "all", customerId] });
       setSelectedWorkers([]);
       setSelectedDocuments([]);
       setShowAssignDialog(false);
@@ -131,26 +116,6 @@ export default function ContractorsHSManagement() {
     },
   });
 
-  // Email sending mutation
-  const sendEmailsMutation = useMutation<SendEmailsResponse, Error, string[]>({
-    mutationFn: async (assignmentIds: string[]) => {
-      return await apiRequest("POST", "/api/uk-hs-documents/send-email", { assignmentIds }) as unknown as SendEmailsResponse;
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Emails Sent",
-        description: `Successfully sent ${data.emailsSent} emails`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Email Failed",
-        description: error.message || "Failed to send emails",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleAssignDocuments = () => {
     if (selectedWorkers.length === 0 || selectedDocuments.length === 0) {
@@ -168,9 +133,6 @@ export default function ContractorsHSManagement() {
     });
   };
 
-  const handleSendEmails = (assignmentIds: string[]) => {
-    sendEmailsMutation.mutate(assignmentIds);
-  };
 
   const toggleWorkerSelection = (workerId: string) => {
     setSelectedWorkers(prev => 
@@ -212,13 +174,16 @@ export default function ContractorsHSManagement() {
     setEditingTemplate(undefined);
   };
 
-  if (contractorsLoading || workersLoading || templatesLoading) {
+  // Show loading state when customer ID is not available or when data is loading
+  if (!customerId || contractorsLoading || workersLoading || templatesLoading) {
     return (
       <div className="space-y-6">
         <GlassCard>
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
-            <p className="mt-2 text-slate-600">Loading UK H&S management system...</p>
+            <p className="mt-2 text-slate-600">
+              {!customerId ? "Loading user session..." : "Loading UK H&S management system..."}
+            </p>
           </div>
         </GlassCard>
       </div>
@@ -247,14 +212,6 @@ export default function ContractorsHSManagement() {
             >
               <Plus className="mr-2" size={16} />
               Assign Documents
-            </Button>
-            <Button 
-              onClick={() => setShowComplianceDialog(true)}
-              variant="outline"
-              data-testid="button-view-compliance"
-            >
-              <BarChart3 className="mr-2" size={16} />
-              View Compliance
             </Button>
           </div>
         </div>
@@ -296,7 +253,7 @@ export default function ContractorsHSManagement() {
           <div className="flex items-center gap-3">
             <Send className="w-8 h-8 text-orange-600" />
             <div>
-              <p className="text-2xl font-bold text-slate-800">{assignments.length}</p>
+              <p className="text-2xl font-bold text-slate-800">{allAssignments.length}</p>
               <p className="text-sm text-slate-600">Total Assignments</p>
             </div>
           </div>
@@ -333,53 +290,24 @@ export default function ContractorsHSManagement() {
                     </Badge>
                   )}
                 </div>
-                <Shield className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEditTemplate(template)}
+                    className="h-6 w-6 p-0"
+                    data-testid={`button-edit-template-${template.id}`}
+                  >
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                  <Shield className="w-4 h-4 text-green-600 flex-shrink-0" />
+                </div>
               </div>
             </div>
           ))}
         </div>
       </GlassCard>
 
-      {/* Recent Assignments */}
-      {selectedCompany && assignments.length > 0 && (
-        <GlassCard>
-          <h4 className="text-md font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Recent Assignments - {selectedCompany.name}
-          </h4>
-          <div className="space-y-2">
-            {assignments.slice(0, 5).map((assignment) => (
-              <div key={assignment.assignment.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{assignment.template.documentName}</p>
-                  <p className="text-xs text-slate-600">
-                    {assignment.worker.firstName} {assignment.worker.lastName}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={
-                    assignment.assignment.status === 'accepted' ? 'default' :
-                    assignment.assignment.status === 'sent' ? 'secondary' : 'outline'
-                  }>
-                    {assignment.assignment.status}
-                  </Badge>
-                  {assignment.assignment.status === 'pending' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleSendEmails([assignment.assignment.id])}
-                      disabled={sendEmailsMutation.isPending}
-                      data-testid={`button-send-email-${assignment.assignment.id}`}
-                    >
-                      <Send className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-      )}
 
       {/* Document Assignment Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
@@ -510,95 +438,6 @@ export default function ContractorsHSManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Compliance Overview Dialog */}
-      <Dialog open={showComplianceDialog} onOpenChange={setShowComplianceDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Compliance Overview
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Company Selection */}
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Select Company</Label>
-              <Select 
-                value={selectedCompany?.id || ""} 
-                onValueChange={(value) => {
-                  const company = contractors.find(c => c.id === value);
-                  setSelectedCompany(company || null);
-                }}
-              >
-                <SelectTrigger className="w-64" data-testid="select-compliance-company">
-                  <SelectValue placeholder="Choose a company..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {contractors.map((company) => (
-                    <SelectItem key={company.id} value={company.id}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedCompany && (
-              <div className="space-y-4">
-                <h4 className="font-medium text-slate-800">
-                  {selectedCompany.name} - Compliance Status
-                </h4>
-                
-                {assignments.length > 0 ? (
-                  <div className="space-y-3">
-                    {assignments.map((assignment) => (
-                      <div key={assignment.assignment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm">{assignment.worker.firstName} {assignment.worker.lastName}</p>
-                            <span className="text-slate-400">•</span>
-                            <p className="text-sm text-slate-600">{assignment.template.documentName}</p>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Assigned: {new Date(assignment.assignment.assignedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={
-                            assignment.assignment.status === 'accepted' ? 'default' :
-                            assignment.assignment.status === 'sent' ? 'secondary' : 'outline'
-                          }>
-                            {assignment.assignment.status}
-                          </Badge>
-                          {assignment.assignment.status === 'accepted' ? (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          ) : assignment.assignment.status === 'sent' ? (
-                            <Clock className="w-4 h-4 text-yellow-600" />
-                          ) : (
-                            <AlertTriangle className="w-4 h-4 text-red-600" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    <FileText className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                    <p>No H&S documents assigned to this company yet</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowComplianceDialog(false)} data-testid="button-close-compliance">
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Template Editor */}
       <TemplateEditor
@@ -607,7 +446,7 @@ export default function ContractorsHSManagement() {
         onClose={handleCloseTemplateEditor}
         onSave={() => {
           // Refresh templates when saved
-          queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/templates"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/templates", customerId] });
         }}
       />
     </div>
