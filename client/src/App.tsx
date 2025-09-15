@@ -117,8 +117,8 @@ function Router() {
             <Route path="/" component={Dashboard} />
             <Route path="/staff" component={StaffManagement} />
             <Route path="/visitors" component={Visitors} />
-            <Route path="/contractors" component={ContractorManagement} />
-            <Route path="/contractors/legacy" component={Contractors} />
+            <Route path="/contractors" component={Contractors} />
+            <Route path="/contractors/legacy" component={ContractorManagement} />
             <Route path="/contractors/:id" component={ContractorDetails} />
             <Route path="/contractor" component={ContractorKiosk} />
             <Route path="/checkin" component={VisitorCheckIn} />
