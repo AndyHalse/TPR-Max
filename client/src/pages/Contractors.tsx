@@ -45,6 +45,8 @@ interface ContractorCompany {
   phone: string;
   address: string;
   contactPerson: string;
+  contactFirstName: string;
+  contactLastName: string;
   status: "pending" | "approved" | "suspended";
   complianceScore: number;
   lastUpdated: string;
@@ -243,6 +245,8 @@ export default function Contractors() {
         lastName: "",
         email: "",
         phone: "",
+        postcode: "",
+        transportMethod: "car_diesel" as "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle",
         rightToWork: "",
         cscsCard: "",
         cscsStatus: "valid",
@@ -306,11 +310,7 @@ export default function Contractors() {
 
   const updateWorkerMutation = useMutation({
     mutationFn: async (workerData: any) => {
-      return await apiRequest(`/api/contractors/workers/${selectedWorker.id}`, {
-        method: "PUT",
-        body: JSON.stringify(workerData),
-        headers: { "Content-Type": "application/json" }
-      });
+      return await apiRequest("PUT", `/api/contractors/workers/${selectedWorker.id}`, workerData);
     },
     onSuccess: () => {
       toast({
@@ -1112,7 +1112,7 @@ export default function Contractors() {
                     onCheckIn={handleWorkerCheckIn}
                     onCheckOut={handleWorkerCheckOut}
                     onIssueCard={handleIssueCard}
-                    onClick={() => handleViewWorker(worker)}
+                    onViewWorker={() => handleViewWorker(worker)}
                   />
                 )) : (
                   <div className="col-span-full text-center py-8">
