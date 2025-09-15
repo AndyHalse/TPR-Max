@@ -660,17 +660,17 @@ export default function ContractorManagement() {
                       </Badge>
                       
                       {/* Card Status Badges */}
-                      {contractor.hasRedCard && (
+                      {(contractor as any).hasRedCard && (
                         <Badge className="bg-red-200 text-red-900">
                           Red Card
                         </Badge>
                       )}
-                      {contractor.hasYellowCard && (
+                      {(contractor as any).hasYellowCard && (
                         <Badge className="bg-yellow-200 text-yellow-900">
                           Yellow Card
                         </Badge>
                       )}
-                      {(!contractor.hasRedCard && !contractor.hasYellowCard) && (
+                      {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && (
                         <Badge className="bg-green-200 text-green-900">
                           Clear
                         </Badge>
@@ -884,7 +884,7 @@ export default function ContractorManagement() {
                         {company.name}
                       </h3>
                       <p className="text-sm text-slate-600">{company.contactEmail || company.email}</p>
-                      <p className="text-sm text-slate-600">{company.contactPhone}</p>
+                      <p className="text-sm text-slate-600">{(company as any).contactPhone || company.phone || 'No phone provided'}</p>
                       <p className="text-xs text-slate-500">
                         Workers: {company.workersCount || 0}
                       </p>
@@ -1001,11 +1001,6 @@ export default function ContractorManagement() {
           isOpen={showEditWorkerModal}
           onClose={handleEditWorkerModalClose}
           worker={workerToEdit}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
-            queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
-            handleEditWorkerModalClose();
-          }}
         />
       )}
       
@@ -1407,7 +1402,36 @@ export default function ContractorManagement() {
       )}
 
       {activeTab === "assign-hs" && (
-        <HSDocumentAssignment />
+        <HSDocumentAssignment 
+          onNavigateToTab={(target) => {
+            // Handle navigation from H&S statistics panels
+            switch (target) {
+              case 'contractors':
+                setActiveTab('contractors');
+                break;
+              case 'previous':
+                setActiveTab('previous');
+                break;
+              case 'templates':
+                // For now, stay on assign-hs tab as there's no separate templates tab
+                // Could be extended in the future
+                toast({
+                  title: "Document Templates",
+                  description: "Use the assignment dialog to view and manage document templates",
+                });
+                break;
+              case 'assignments':
+                // Stay on current tab but show info
+                toast({
+                  title: "Assignment History",
+                  description: "Assignment history is displayed in the current dashboard",
+                });
+                break;
+              default:
+                break;
+            }
+          }}
+        />
       )}
       
       {/* H&S Acceptance Modal */}
