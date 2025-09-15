@@ -7785,8 +7785,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Generate unique acceptance token
             const acceptanceToken = randomUUID();
-            const baseUrl = process.env.REPLIT_DOMAINS || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-            const acceptanceUrl = `${baseUrl}/hs-document/${acceptanceToken}`;
+            
+            // Helper function to create absolute URLs for email clients
+            const absolutizeUrl = (path: string): string => {
+              const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`).trim();
+              const base = host.startsWith('http') ? host : `https://${host}`;
+              const cleanBase = base.replace(/\/$/, ''); // Remove trailing slash
+              const cleanPath = path.replace(/^\//, ''); // Remove leading slash
+              return `${cleanBase}/${cleanPath}`;
+            };
+            
+            const acceptanceUrl = absolutizeUrl(`/hs-document/${acceptanceToken}`);
             
             const assignmentData = {
               customerId: context.customerId,

@@ -161,7 +161,20 @@ class EmailService {
       // Get company branding
       const primaryColor = companySettings?.accentColor || '#ef4444'; // Red for H&S compliance
       const secondaryColor = companySettings?.backgroundColor || '#f8fafc';
-      const logoUrl = companySettings?.logoUrl;
+      
+      // Helper function to create absolute URLs for email clients
+      const absolutizeUrl = (url: string | undefined | null): string | null => {
+        if (!url) return null;
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        
+        const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`).trim();
+        const base = host.startsWith('http') ? host : `https://${host}`;
+        const cleanBase = base.replace(/\/$/, ''); // Remove trailing slash
+        const cleanPath = url.replace(/^\//, ''); // Remove leading slash
+        return `${cleanBase}/${cleanPath}`;
+      };
+      
+      const logoUrl = absolutizeUrl(companySettings?.logoUrl);
       console.log(`📧 H&S Email: Using logo URL: ${logoUrl || 'No logo configured'}, Primary color: ${primaryColor}`);
 
       const subject = `🛡️ UK H&S Compliance Required: ${documentName}`;
