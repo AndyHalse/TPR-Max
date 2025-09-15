@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import type { ContractorWorker } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle } from 'lucide-react';
+import type { ContractorWorker, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
+import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,6 +32,11 @@ interface ContractorVisit {
   duration: string | null;
   qrCode: string;
   notes: string | null;
+}
+
+interface HSDocumentAssignment {
+  assignment: WorkerDocumentAssignment;
+  template: UkHSDocumentTemplate;
 }
 
 export function ContractorEditModal({ worker, companyName, open, onOpenChange }: ContractorEditModalProps) {
@@ -79,6 +84,14 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   // Fetch contractor visit history
   const { data: workerHistory = [], refetch: refetchHistory } = useQuery<ContractorVisit[]>({
     queryKey: [`/api/contractors/workers/${worker?.id}/history`],
+    enabled: !!worker?.id,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch H&S document assignments for worker
+  const { data: hsAssignments = [], isLoading: hsLoading, refetch: refetchHS } = useQuery<HSDocumentAssignment[]>({
+    queryKey: [`/api/uk-hs-documents/assignments/worker/${worker?.id}`],
     enabled: !!worker?.id,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
@@ -164,6 +177,31 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     },
   });
 
+  // Resend H&S document mutation
+  const resendDocumentMutation = useMutation({
+    mutationFn: async (assignmentId: string) => {
+      const response = await apiRequest('POST', `/api/uk-hs-documents/send-email`, {
+        assignmentIds: [assignmentId]
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/uk-hs-documents/assignments/worker/${worker?.id}`] });
+      toast({
+        title: 'Success',
+        description: 'H&S document resent successfully!',
+      });
+      refetchHS();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to resend H&S document',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateWorkerMutation.mutate(formData);
@@ -173,12 +211,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Refetch history when worker changes or modal opens
+  // Refetch history and H&S assignments when worker changes or modal opens
   useEffect(() => {
     if (worker?.id && open) {
       refetchHistory();
+      refetchHS();
     }
-  }, [worker?.id, open, refetchHistory]);
+  }, [worker?.id, open, refetchHistory, refetchHS]);
 
   if (!worker) return null;
 
@@ -198,13 +237,20 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
           </DialogHeader>
 
         <Tabs defaultValue="profile" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-1">
               <History className="h-4 w-4" />
               Visit History
               <Badge variant="secondary" className="ml-1">
                 {workerHistory.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="hs-documents" className="flex items-center gap-1">
+              <Shield className="h-4 w-4" />
+              H&S Documents
+              <Badge variant="secondary" className="ml-1">
+                {hsAssignments.length}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -571,6 +617,199 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="hs-documents" className="space-y-4 px-1">
+              {hsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-slate-500 mt-2">Loading H&S documents...</p>
+                </div>
+              ) : hsAssignments.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <Shield className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                  <p className="font-medium">No H&S documents assigned</p>
+                  <p className="text-sm">This contractor has no assigned H&S documents yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {hsAssignments.map((item) => {
+                    const { assignment, template } = item;
+                    
+                    // Helper function to get status badge
+                    const getStatusBadge = (status: string) => {
+                      switch (status) {
+                        case 'accepted':
+                          return <Badge className="bg-green-500 text-white">Accepted</Badge>;
+                        case 'pending':
+                          return <Badge className="bg-yellow-500 text-white">Pending</Badge>;
+                        case 'sent':
+                          return <Badge className="bg-blue-500 text-white">Sent</Badge>;
+                        case 'rejected':
+                          return <Badge className="bg-red-500 text-white">Rejected</Badge>;
+                        case 'expired':
+                          return <Badge className="bg-gray-500 text-white">Expired</Badge>;
+                        default:
+                          return <Badge variant="secondary">{status}</Badge>;
+                      }
+                    };
+
+                    // Helper function to get category badge color
+                    const getCategoryColor = (category: string) => {
+                      switch (category) {
+                        case 'immigration':
+                          return 'bg-purple-100 text-purple-800';
+                        case 'safety_training':
+                          return 'bg-orange-100 text-orange-800';
+                        case 'work_permit':
+                          return 'bg-blue-100 text-blue-800';
+                        case 'contract':
+                          return 'bg-green-100 text-green-800';
+                        case 'risk_management':
+                          return 'bg-red-100 text-red-800';
+                        case 'induction':
+                          return 'bg-indigo-100 text-indigo-800';
+                        default:
+                          return 'bg-slate-100 text-slate-800';
+                      }
+                    };
+
+                    const canResend = ['pending', 'expired', 'rejected'].includes(assignment.status);
+
+                    return (
+                      <div key={assignment.id} className="bg-white/50 rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1">
+                            <FileText className="h-5 w-5 text-slate-500 mt-0.5" />
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <h4 className="font-semibold text-slate-800">{template.documentName}</h4>
+                                  {template.documentDescription && (
+                                    <p className="text-sm text-slate-600 mt-1">{template.documentDescription}</p>
+                                  )}
+                                </div>
+                                {getStatusBadge(assignment.status)}
+                              </div>
+                              
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge 
+                                  variant="secondary" 
+                                  className={`text-xs ${getCategoryColor(template.complianceCategory)}`}
+                                >
+                                  {template.complianceCategory.replace('_', ' ').toUpperCase()}
+                                </Badge>
+                                {template.legalReference && (
+                                  <span className="text-xs text-slate-500">
+                                    {template.legalReference}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-slate-600 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Assigned:
+                            </span>
+                            <div className="font-medium">
+                              {format(new Date(assignment.assignedAt), 'dd/MM/yyyy HH:mm')}
+                            </div>
+                          </div>
+                          
+                          {assignment.emailSentAt && (
+                            <div>
+                              <span className="text-slate-600 flex items-center gap-1">
+                                <Send className="h-3 w-3" />
+                                Email sent:
+                              </span>
+                              <div className="font-medium">
+                                {format(new Date(assignment.emailSentAt), 'dd/MM/yyyy HH:mm')}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {assignment.acceptedAt && (
+                            <div>
+                              <span className="text-slate-600 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Accepted:
+                              </span>
+                              <div className="font-medium text-green-600">
+                                {format(new Date(assignment.acceptedAt), 'dd/MM/yyyy HH:mm')}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {assignment.rejectedAt && (
+                            <div>
+                              <span className="text-slate-600 flex items-center gap-1">
+                                <X className="h-3 w-3" />
+                                Rejected:
+                              </span>
+                              <div className="font-medium text-red-600">
+                                {format(new Date(assignment.rejectedAt), 'dd/MM/yyyy HH:mm')}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {assignment.dueDate && (
+                            <div>
+                              <span className="text-slate-600 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Due date:
+                              </span>
+                              <div className={`font-medium ${
+                                new Date(assignment.dueDate) < new Date() ? 'text-red-600' : 'text-slate-800'
+                              }`}>
+                                {format(new Date(assignment.dueDate), 'dd/MM/yyyy')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {assignment.rejectionReason && (
+                          <div className="mt-2 p-2 bg-red-50 rounded text-sm">
+                            <span className="text-red-700 font-medium">Rejection reason: </span>
+                            <span className="text-red-600">{assignment.rejectionReason}</span>
+                          </div>
+                        )}
+
+                        {assignment.notes && (
+                          <div className="mt-2 p-2 bg-slate-50 rounded text-sm">
+                            <span className="text-slate-700 font-medium">Notes: </span>
+                            <span className="text-slate-600">{assignment.notes}</span>
+                          </div>
+                        )}
+
+                        {canResend && (
+                          <div className="flex justify-end pt-2 border-t border-slate-200">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => resendDocumentMutation.mutate(assignment.id)}
+                              disabled={resendDocumentMutation.isPending}
+                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                              data-testid={`button-resend-${assignment.id}`}
+                            >
+                              {resendDocumentMutation.isPending ? (
+                                <RotateCcw className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <Send className="h-3 w-3 mr-1" />
+                              )}
+                              Resend Email
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
