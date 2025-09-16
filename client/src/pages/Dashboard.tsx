@@ -228,6 +228,22 @@ export default function Dashboard() {
     });
   };
 
+  // Helper function to get the correct visit time from entry data
+  const getVisitDisplayTime = (entry: any) => {
+    // If visitTime is provided as a string (e.g., "11:30"), use it directly
+    if (entry.visitTime && typeof entry.visitTime === 'string') {
+      return entry.visitTime;
+    }
+    
+    // Otherwise, extract time from visitDate
+    if (entry.visitDate) {
+      return formatVisitTime(new Date(entry.visitDate));
+    }
+    
+    // Fallback
+    return 'Not set';
+  };
+
   const isToday = (date: Date) => {
     const today = new Date();
     return date.toDateString() === today.toDateString();
@@ -925,7 +941,7 @@ export default function Dashboard() {
                           .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
                           .map((entry) => {
                             const priority = getPriorityLevel(entry);
-                            const visitTime = formatVisitTime(new Date(entry.visitDate));
+                            const visitTime = getVisitDisplayTime(entry);
                             
                             return (
                               <div
