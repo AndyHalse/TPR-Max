@@ -467,21 +467,57 @@ export default function MarketingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 dark:bg-slate-950 py-12">
+      <footer className="bg-slate-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <img 
-                src={acsLogo} 
-                alt="ACS logo" 
-                className="h-8 w-8 object-contain bg-white rounded-lg p-1" 
-                data-testid="img-footer-logo" 
-              />
-              <span className="text-xl font-bold text-white">VisiGate Pro</span>
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Company Info */}
+            <div>
+              <div className="flex items-center mb-6">
+                <img 
+                  src={acsLogo} 
+                  alt="ACS Safety & Security Ltd" 
+                  className="h-8 w-auto mr-3"
+                  data-testid="img-footer-logo"
+                />
+                <span className="text-xl font-bold">ACS Safety & Security Ltd</span>
+              </div>
+              <div className="space-y-2 text-slate-300">
+                <p className="font-semibold">Business Address:</p>
+                <p>Wittas House<br />
+                   Two Rivers<br />
+                   Station Lane<br />
+                   Witney<br />
+                   OX28 4BH</p>
+                <p className="mt-4">
+                  <span className="font-semibold">Phone:</span> +44 1344 771569
+                </p>
+              </div>
             </div>
-            <div className="text-slate-400 text-sm">
-              © 2025 VisiGate Pro. All rights reserved.
+
+            {/* Registered Office */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Registered Office</h3>
+              <div className="text-slate-300">
+                <p>20-22 Wenlock Road<br />
+                   London<br />
+                   N1 7GU</p>
+              </div>
+              
+              {/* Additional Links */}
+              <div className="mt-8">
+                <h4 className="font-semibold mb-3">VisiGate Pro</h4>
+                <p className="text-slate-300 text-sm">
+                  Comprehensive personnel management system for visitors, contractors, and staff.
+                </p>
+              </div>
             </div>
+          </div>
+          
+          {/* Bottom Bar */}
+          <div className="border-t border-slate-800 mt-8 pt-6 text-center">
+            <p className="text-slate-400 text-sm">
+              © 2024 ACS Safety & Security Ltd. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>
