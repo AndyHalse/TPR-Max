@@ -5751,57 +5751,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI-powered visitor insights endpoint - NOW WITH CUSTOMER ISOLATION!
-  app.get("/api/ai/insights", async (req, res) => {
-    try {
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      const visitors = await storage.getCurrentVisitors();
-      const staff = await storage.getAllStaff();
-      const stats = await storage.getVisitorStats();
-      
-      const insights = await aiService.generateVisitorInsights(visitors, staff, stats);
-      
-      console.log(`🤖 Generated AI insights FOR CUSTOMER: ${context.customerId}`);
-      res.json({
-        success: true,
-        timestamp: new Date().toISOString(),
-        insights
-      });
-    } catch (error) {
-      console.error("AI insights error:", error);
-      res.status(500).json({ error: "Failed to generate AI insights" });
-    }
-  });
-
-  // AI predictive analytics endpoint
-  app.get("/api/ai/analytics", async (req, res) => {
-    try {
-      const stats = await storage.getVisitorStats();
-      const currentTrends = {
-        currentVisitors: stats.currentVisitors,
-        todayCheckins: stats.todayCheckins,
-        staffOnSite: stats.staffOnSite,
-        avgVisitDuration: stats.avgVisitDuration
-      };
-      
-      const analytics = await aiService.generatePredictiveAnalytics({}, currentTrends);
-      
-      res.json({
-        success: true,
-        timestamp: new Date().toISOString(),
-        analytics
-      });
-    } catch (error) {
-      console.error("AI analytics error:", error);
-      res.status(500).json({ error: "Failed to generate AI analytics" });
-    }
-  });
 
   // AI competitive analysis endpoint
   app.post("/api/ai/competitive-analysis", async (req, res) => {
