@@ -154,5 +154,31 @@
     "checkedIn": false,
     "checkedInAt": null,
     "createdAt": "2025-08-31T13:37:48.084Z"
+  },
+  {
+    "id": "0f00cf07-85f5-43a1-8a33-2aa5f9af2900",
+    "bookingId": "e4db45b1-cd5f-4161-a1d5-39938ae17992",
+    "staffId": "d9cbf3d5-ae78-49a1-abd6-180b5047b543",
+    "email": "john.smith@company.com",
+    "name": "John Smith",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-09-16T11:07:46.632Z"
+  },
+  {
+    "id": "6e5b283f-3cba-456a-b437-90cc14f2091b",
+    "bookingId": "e4db45b1-cd5f-4161-a1d5-39938ae17992",
+    "staffId": "6602b2e6-2dee-4864-9cf1-c65fced9d120",
+    "email": "michael.brown@company.com",
+    "name": "Michael Brown",
+    "isOrganizer": false,
+    "responseStatus": "pending",
+    "responseAt": null,
+    "checkedIn": false,
+    "checkedInAt": null,
+    "createdAt": "2025-09-16T11:07:46.635Z"
   }
 ]
