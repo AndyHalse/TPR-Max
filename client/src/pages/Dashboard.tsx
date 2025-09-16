@@ -18,6 +18,8 @@ interface Stats {
   todayCheckins: number;
   staffOnSite: number;
   contractorsOnSite: number;
+  totalPeopleOnSite: number;
+  totalCompanies: number;
 }
 
 
