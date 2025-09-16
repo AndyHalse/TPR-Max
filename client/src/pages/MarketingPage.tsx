@@ -83,28 +83,28 @@ export default function MarketingPage() {
                 className="h-8 w-8 object-contain" 
                 data-testid="img-logo" 
               />
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="text-xl font-bold" style={{color: '#2460A9'}}>
                 VisiGate Pro
               </span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
               <button 
                 onClick={() => scrollToSection('features')} 
-                className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
                 data-testid="link-features"
               >
                 Features
               </button>
               <button 
                 onClick={() => scrollToSection('industries')} 
-                className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
                 data-testid="link-industries"
               >
                 Industries
               </button>
               <button 
                 onClick={() => scrollToSection('contact')} 
-                className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
                 data-testid="link-contact"
               >
                 Contact
@@ -127,23 +127,23 @@ export default function MarketingPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start space-x-2 mb-6">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                <Badge variant="secondary" className="text-white" style={{backgroundColor: '#2460A9'}}>
                   <Zap className="h-3 w-3 mr-1" />
-                  Modern Visitor Management
+                  Complete Personnel Management
                 </Badge>
               </div>
               
               <h1 className="text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-6">
-                Secure Visitor Management 
-                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  {" "}Made Simple
+                Complete Personnel Management 
+                <span style={{color: '#2460A9'}}>
+                  {" "}For Total Site Control
                 </span>
               </h1>
               
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-                Transform your visitor check-in process with VisiGate Pro's cloud-based solution. 
-                Generate professional ID passes, track visitors with QR codes, and ensure 
-                compliance with AI-powered inductions.
+                Complete personnel management for visitors, contractors, and staff. 
+                Handle legal compliance, generate ID passes, track personnel with QR codes, 
+                and ensure emergency mustering with total site visibility.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -203,13 +203,13 @@ export default function MarketingPage() {
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
               Everything You Need for 
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {" "}Visitor Management
+              <span style={{color: '#2460A9'}}>
+                {" "}Personnel Management
               </span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              From check-in to compliance, VisiGate Pro handles every aspect of visitor management 
-              with cutting-edge technology and intuitive design.
+              From visitor check-ins to contractor compliance and staff management, VisiGate Pro 
+              provides complete personnel oversight with emergency mustering capabilities.
             </p>
           </div>
 
@@ -225,7 +225,7 @@ export default function MarketingPage() {
                     Professional ID Passes
                   </h3>
                   <p className="text-slate-600 dark:text-slate-300">
-                    Generate and print high-quality thermal ID passes with photos, QR codes, and company branding in seconds.
+                    Generate thermal ID passes for all personnel - visitors, contractors, and staff - with photos, QR codes, and custom branding.
                   </p>
                 </div>
                 <div className="relative">
@@ -245,10 +245,10 @@ export default function MarketingPage() {
                   <QrCode className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                  QR Code Tracking
+                  QR Code & Access Control
                 </h3>
                 <p className="text-slate-600 dark:text-slate-300 mb-4">
-                  Every visitor gets a unique QR code for secure tracking, access control, and real-time location monitoring.
+                  Track all personnel with QR codes, integrate with existing access control systems, and monitor real-time site occupancy.
                 </p>
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -264,10 +264,10 @@ export default function MarketingPage() {
                   <Brain className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                  AI-Powered Inductions
+                  Legal Compliance Management
                 </h3>
                 <p className="text-slate-600 dark:text-slate-300 mb-4">
-                  Automated safety inductions with AI-generated content, compliance tracking, and digital certificates.
+                  Manage contractor legal documents, safety inductions, certifications, and compliance tracking with AI-powered content.
                 </p>
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -283,15 +283,15 @@ export default function MarketingPage() {
                   <Smartphone className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                  Self-Service Kiosks
+                  Emergency Mustering
                 </h3>
                 <p className="text-slate-600 dark:text-slate-300 mb-4">
-                  Touch-screen kiosks for visitor self-check-in, photo capture, and instant ID pass printing.
+                  Complete site personnel visibility enables effective emergency evacuations with real-time mustering capabilities.
                 </p>
                 <div className="relative mt-4">
                   <img 
                     src={kioskImg} 
-                    alt="Self-Service Kiosk Interface" 
+                    alt="Emergency Mustering Interface" 
                     className="rounded-lg w-full h-24 object-cover"
                   />
                 </div>
@@ -305,10 +305,10 @@ export default function MarketingPage() {
                   <BarChart3 className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                  Real-Time Analytics
+                  Staff Management
                 </h3>
                 <p className="text-slate-600 dark:text-slate-300 mb-4">
-                  Comprehensive dashboards with visitor metrics, compliance reports, and security insights.
+                  Complete staff check-in/out system with QR code tracking, attendance monitoring, and real-time location visibility.
                 </p>
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -330,7 +330,7 @@ export default function MarketingPage() {
                   Perfect for serviced offices, co-working spaces, and multi-building complexes with isolated data.
                 </p>
                 <div className="flex items-center space-x-2">
-                  <Lock className="h-4 w-4 text-blue-500" />
+                  <Lock className="h-4 w-4" style={{color: '#2460A9'}} />
                   <span className="text-sm text-slate-600 dark:text-slate-400">Data Isolation</span>
                 </div>
               </CardContent>
@@ -345,7 +345,7 @@ export default function MarketingPage() {
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
               Trusted Across 
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <span style={{color: '#2460A9'}}>
                 {" "}Industries
               </span>
             </h2>
@@ -383,7 +383,7 @@ export default function MarketingPage() {
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
               Enterprise-Grade 
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <span style={{color: '#2460A9'}}>
                 {" "}Technology
               </span>
             </h2>
@@ -424,14 +424,14 @@ export default function MarketingPage() {
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-20 bg-gradient-to-r from-blue-600 to-indigo-600 scroll-mt-24">
+      <section id="contact" className="py-20 scroll-mt-24" style={{background: `linear-gradient(135deg, #2460A9 0%, #1e4a87 100%)`}}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl lg:text-5xl font-bold text-white mb-6">
-            Ready to Transform Your Visitor Management?
+            Ready to Transform Your Personnel Management?
           </h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join hundreds of companies already using VisiGate Pro to secure their facilities 
-            and streamline visitor experiences.
+          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+            Join hundreds of companies using VisiGate Pro for complete personnel oversight, 
+            compliance management, and emergency preparedness.
           </p>
 
           <form onSubmit={handleContactSubmit} className="max-w-md mx-auto">
@@ -449,7 +449,8 @@ export default function MarketingPage() {
                 type="submit" 
                 variant="secondary" 
                 size="lg"
-                className="px-6 bg-white text-blue-600 hover:bg-slate-50"
+                className="px-6 bg-white hover:bg-slate-50"
+                style={{color: '#2460A9'}}
                 disabled={contactMutation.isPending}
                 data-testid="button-contact-submit"
               >
@@ -459,7 +460,7 @@ export default function MarketingPage() {
             </div>
           </form>
 
-          <p className="text-blue-100 text-sm mt-4">
+          <p className="text-white/70 text-sm mt-4">
             No credit card required • 14-day free trial • Setup in 5 minutes
           </p>
         </div>
