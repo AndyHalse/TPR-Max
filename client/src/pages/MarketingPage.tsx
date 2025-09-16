@@ -850,9 +850,12 @@ export default function MarketingPage() {
                 <div className="relative">
                   <img 
                     src={thermalImg} 
-                    alt="Professional ID Card Printing System" 
+                    alt="Professional Thermal ID Card Printer - High-quality card printing system for visitor badges, employee IDs, and contractor passes with enterprise-grade security features" 
                     className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
                     data-testid="img-thermal-printer"
+                    loading="lazy"
+                    width="400"
+                    height="300"
                   />
                   <div className="absolute -bottom-4 -right-4 bg-white dark:bg-slate-800 rounded-lg p-3 shadow-lg border border-slate-200 dark:border-slate-700">
                     <div className="flex items-center space-x-2">
@@ -1094,9 +1097,12 @@ export default function MarketingPage() {
                 <div className="relative">
                   <img 
                     src={kioskImg} 
-                    alt="Emergency Mustering System" 
+                    alt="VisiGate Pro Digital Reception Kiosk - Self-service visitor check-in interface with touchscreen navigation, QR code scanning, and automated host notifications" 
                     className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
                     data-testid="img-emergency-system"
+                    loading="lazy"
+                    width="800"
+                    height="600"
                   />
                   <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium animate-pulse">
                     Emergency Mode Active
