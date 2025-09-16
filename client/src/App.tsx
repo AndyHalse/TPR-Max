@@ -149,6 +149,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/kiosk" component={KioskMode} />
+      <Route path="/marketing" component={MarketingPage} />
       <Route>
         <Layout>
           <Switch>
