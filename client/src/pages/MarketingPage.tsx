@@ -166,51 +166,93 @@ export default function MarketingPage() {
             <div className="text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start space-x-2 mb-6">
                 <Badge variant="secondary" className="text-white" style={{backgroundColor: '#2460A9'}}>
-                  <Zap className="h-3 w-3 mr-1" />
-                  Complete Personnel Management
+                  <Shield className="h-3 w-3 mr-1" />
+                  Enterprise-Ready Security Platform
+                </Badge>
+                <Badge variant="secondary" className="text-white bg-green-600">
+                  <Lock className="h-3 w-3 mr-1" />
+                  SOC 2 Compliant
                 </Badge>
               </div>
               
               <h1 className="text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-6">
-                Complete Personnel Management 
+                Reduce Security Risk by 90%
                 <span style={{color: '#2460A9'}}>
-                  {" "}For Total Site Control
+                  {" "}While Cutting Admin Time in Half
                 </span>
               </h1>
+
+              {/* Enterprise Metrics Bar */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 py-6 px-4 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-uptime">99.9%</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Uptime SLA</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-visitors">10K+</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Daily Visitors</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-compliance">100%</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Compliance Rate</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-efficiency">50%</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Time Savings</div>
+                </div>
+              </div>
               
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-                Complete personnel management for visitors, contractors, and staff. 
-                Handle legal compliance, generate ID passes, track personnel with QR codes, 
-                and ensure emergency mustering with total site visibility.
+                Transform your facility security and compliance operations with our enterprise-grade personnel management platform. 
+                Achieve complete regulatory compliance, eliminate manual processes, and gain real-time visibility across all sites 
+                while reducing operational costs and security incidents.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Button 
                   size="lg" 
-                  className="text-lg px-8" 
+                  className="text-lg px-8 shadow-lg hover:shadow-xl transition-shadow" 
                   onClick={() => scrollToSection('contact')} 
                   data-testid="button-get-started"
+                  style={{backgroundColor: '#2460A9'}}
                 >
-                  Get Started Free
+                  Start Free Enterprise Trial
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
                 <Button 
                   variant="outline" 
                   size="lg" 
-                  className="text-lg px-8" 
+                  className="text-lg px-8 border-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" 
                   onClick={() => scrollToSection('features')} 
                   data-testid="button-view-demo"
+                  style={{borderColor: '#2460A9', color: '#2460A9'}}
                 >
-                  View Live Demo
+                  <Eye className="h-5 w-5 mr-2" />
+                  See ROI Calculator
                 </Button>
               </div>
 
-              <div className="flex items-center justify-center lg:justify-start space-x-6 mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+              {/* Trust Indicators */}
+              <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-start space-y-4 lg:space-y-0 lg:space-x-8 mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center space-x-1">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   ))}
-                  <span className="text-sm text-slate-600 dark:text-slate-400 ml-2">4.9/5 from 200+ customers</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400 ml-2">4.9/5 from 200+ enterprise customers</span>
+                </div>
+                <div className="flex items-center space-x-4 text-sm text-slate-600 dark:text-slate-400">
+                  <div className="flex items-center space-x-1">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>ISO 27001 Certified</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>GDPR Compliant</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>24/7 Support</span>
+                  </div>
                 </div>
               </div>
             </div>
