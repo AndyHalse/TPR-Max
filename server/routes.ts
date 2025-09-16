@@ -430,43 +430,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Clear any old session cookies during login to force fresh session
-      if (req.headers.cookie?.includes('connect.sid')) {
-        res.clearCookie('connect.sid', { path: '/', httpOnly: true });
-        console.log(`🧹 Cleared old connect.sid cookie for user: ${username}`);
-      }
-      if (req.headers.cookie?.includes('visigate.session')) {
-        res.clearCookie('visigate.session', { path: '/', httpOnly: true });
-        console.log(`🧹 Cleared old visigate.session cookie for user: ${username}`);
-      }
+      console.log(`🔐 Login attempt for user: ${username} (ID: ${user.id})`);
 
-      // Force session regeneration to create a completely fresh session
-      req.session.regenerate((regErr) => {
-        if (regErr) {
-          console.error("Session regeneration error:", regErr);
-          return res.status(500).json({ error: "Failed to create session" });
+      // Simple session approach - avoid regeneration complexity
+      // Clear any existing userId first
+      delete req.session.userId;
+      
+      // Set the userId directly on the existing session
+      req.session.userId = user.id;
+      
+      console.log(`📝 Setting session.userId = ${user.id} for user: ${username}`);
+      
+      // Explicitly save the session with verification
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("❌ Session save error:", saveErr);
+          return res.status(500).json({ error: "Failed to establish session" });
         }
-
-        // Set session data on the new session
-        req.session.userId = user.id;
         
-        // Explicitly save the session before responding
-        req.session.save((saveErr) => {
-          if (saveErr) {
-            console.error("Session save error:", saveErr);
-            return res.status(500).json({ error: "Failed to establish session" });
-          }
-          
-          console.log(`✅ Session regenerated and saved successfully for user: ${username} (ID: ${user.id})`);
-          res.json({ 
-            success: true, 
-            user: { id: user.id, username: user.username },
-            sessionRefresh: true // Signal frontend that session was refreshed
-          });
+        // Verify the userId was actually saved
+        const savedUserId = req.session.userId;
+        console.log(`✅ Session saved successfully - userId: ${savedUserId}, username: ${username}`);
+        
+        if (savedUserId !== user.id) {
+          console.error("❌ Session userId mismatch after save!", { expected: user.id, actual: savedUserId });
+          return res.status(500).json({ error: "Session persistence failed" });
+        }
+        
+        res.json({ 
+          success: true, 
+          user: { id: user.id, username: user.username }
         });
       });
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
       res.status(500).json({ error: "Login failed" });
     }
   });
