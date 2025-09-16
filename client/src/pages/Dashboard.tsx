@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
-import type { Staff, Visitor, RoomBooking, MeetingRoom } from "@shared/schema";
+import type { Staff, Visitor, TransformedRoomBooking, MeetingRoom } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 
 interface Stats {
@@ -126,7 +126,7 @@ export default function Dashboard() {
   });
 
   // Meeting room booking data for today
-  const { data: todayRoomBookings, isLoading: roomBookingsLoading } = useQuery<RoomBooking[]>({
+  const { data: todayRoomBookings, isLoading: roomBookingsLoading } = useQuery<TransformedRoomBooking[]>({
     queryKey: ["/api/room-bookings/today"],
     refetchInterval: 30000, // Refresh every 30 seconds
     enabled: !!currentUser,
@@ -150,10 +150,12 @@ export default function Dashboard() {
     }>;
     visitors: Array<{
       id: string;
-      name: string;
+      firstName: string;
+      lastName: string;
       company: string | null;
       checkedInAt: string;
       isCheckedIn: boolean;
+      hostName: string;
     }>;
     statistics: {
       totalStaff: number;

@@ -25,7 +25,7 @@ const createBookingFormSchema = (rooms: MeetingRoom[]) => z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(100, 'Title cannot exceed 100 characters'),
   description: z.string().optional(),
   roomId: z.string().min(1, 'Please select a room'),
-  organizerStaffId: z.string().min(1, 'Please select an organizer'),
+  bookedByStaffId: z.string().min(1, 'Please select an organizer'),
   startDateTime: z.string().min(1, 'Start time is required'),
   endDateTime: z.string().min(1, 'End time is required'),
   expectedAttendees: z.number().min(1, 'At least 1 attendee required').max(100, 'Maximum 100 attendees'),
@@ -114,7 +114,7 @@ export function RoomBookingForm({
       title: '',
       description: '',
       roomId: selectedRoomId || '',
-      organizerStaffId: '',
+      bookedByStaffId: '',
       expectedAttendees: 1,
       isRecurring: false,
       cateringRequired: false,
@@ -148,7 +148,7 @@ export function RoomBookingForm({
         title: editBooking.title,
         description: editBooking.description || '',
         roomId: editBooking.roomId,
-        organizerStaffId: editBooking.organizerStaffId,
+        bookedByStaffId: editBooking.bookedByStaffId,
         expectedAttendees: editBooking.expectedAttendees || 1,
         startDateTime: format(startDate, "yyyy-MM-dd'T'HH:mm"),
         endDateTime: format(endDate, "yyyy-MM-dd'T'HH:mm"),
@@ -395,7 +395,7 @@ export function RoomBookingForm({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="organizerStaffId"
+                        name="bookedByStaffId"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Organizer</FormLabel>

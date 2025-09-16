@@ -372,10 +372,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email } = marketingContactSchema.parse(req.body);
       
       // Send notification email to sales team
-      await emailService.sendEmail(
-        process.env.SALES_EMAIL || 'sales@visigatepro.com',
-        'New Demo Request - VisiGate Pro',
-        `
+      await emailService.sendEmail({
+        to: process.env.SALES_EMAIL || 'sales@visigatepro.com',
+        subject: 'New Demo Request - VisiGate Pro',
+        html: `
         <h2>New Demo Request</h2>
         <p>A potential customer has requested a demo of VisiGate Pro:</p>
         <ul>
@@ -385,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </ul>
         <p>Please follow up with this lead as soon as possible.</p>
         `,
-        `
+        text: `
         New Demo Request - VisiGate Pro
         
         A potential customer has requested a demo:
@@ -396,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         Please follow up with this lead as soon as possible.
         `
-      );
+      });
 
       console.log(`📧 Marketing contact submitted: ${email}`);
       res.status(204).send();
@@ -1163,7 +1163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               `${staff.firstName} ${staff.lastName}`,
               evacuationData.message,
               evacuationData.musterPoints,
-              companySettings
+              companySettings!
             );
             evacuationData.notificationsSent++;
           }
@@ -1177,7 +1177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               `${visitor.firstName} ${visitor.lastName}`,
               evacuationData.message,
               evacuationData.musterPoints,
-              companySettings
+              companySettings!
             );
             evacuationData.notificationsSent++;
           }
@@ -1191,7 +1191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             `${fireMarshal.firstName} ${fireMarshal.lastName}`,
             evacuationData,
             [...checkedInStaff, ...currentVisitors],
-            companySettings
+            companySettings!
           );
         }
       }
@@ -1315,19 +1315,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activatedBy
       };
       
-      const emailService = new EmailService(companySettings);
+      const customEmailService = new EmailService();
       const errors = [];
       
       // Send to all staff
       for (const staff of checkedInStaff) {
         if (staff.email) {
           try {
-            const sent = await emailService.sendEvacuationAlert(
+            const sent = await customEmailService.sendEvacuationAlert(
               staff.email,
               `${staff.firstName} ${staff.lastName}`,
               evacuationData.message,
               evacuationData.musterPoints,
-              companySettings
+              companySettings!
             );
             if (sent) evacuationData.notificationsSent++;
           } catch (error) {
@@ -1340,12 +1340,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const visitor of currentVisitors) {
         if (visitor.email) {
           try {
-            const sent = await emailService.sendEvacuationAlert(
+            const sent = await customEmailService.sendEvacuationAlert(
               visitor.email,
               `${visitor.firstName} ${visitor.lastName}`,
               evacuationData.message,
               evacuationData.musterPoints,
-              companySettings
+              companySettings!
             );
             if (sent) evacuationData.notificationsSent++;
           } catch (error) {
@@ -1369,7 +1369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               `${marshal.firstName} ${marshal.lastName}`,
               evacuationData,
               [...checkedInStaff, ...currentVisitors],
-              companySettings
+              companySettings!
             );
           } catch (error) {
             console.error(`Failed to send Fire Marshal alert to ${marshal.firstName}:`, error);
@@ -1515,7 +1515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get updated accountability data
       const currentVisitors = await databaseService.getCurrentVisitors(context);
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
-      const emailService = new EmailService(companySettings);
+      const customEmailService = new EmailService();
 
       const evacuationData = {
         timestamp: new Date().toISOString(),
@@ -1535,7 +1535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               `${marshal.firstName} ${marshal.lastName}`,
               evacuationData,
               [...checkedInStaff, ...currentVisitors],
-              companySettings
+              companySettings!
             );
             sent++;
           } catch (error) {
@@ -2096,7 +2096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   execSync(wakeCommand, { encoding: 'utf8', timeout: 10000 });
                   console.log(`✅ Magicard wake-up command sent`);
                 } catch (wakeError) {
-                  console.log(`⚠️ Wake-up command failed, continuing: ${wakeError.message}`);
+                  console.log(`⚠️ Wake-up command failed, continuing: ${wakeError instanceof Error ? wakeError.message : String(wakeError)}`);
                 }
               }
               
@@ -2107,7 +2107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 execSync(clearQueueCommand, { encoding: 'utf8', timeout: 10000 });
                 console.log(`✅ Print queue cleared`);
               } catch (clearError) {
-                console.log(`ℹ️ No existing jobs to clear: ${clearError.message}`);
+                console.log(`ℹ️ No existing jobs to clear: ${clearError instanceof Error ? clearError.message : String(clearError)}`);
               }
               
               // Step 3: Check printer status
@@ -2117,7 +2117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const statusResult = execSync(statusCommand, { encoding: 'utf8', timeout: 10000 });
                 console.log(`📊 Printer status:\n${statusResult}`);
               } catch (statusError) {
-                console.log(`⚠️ Status check failed: ${statusError.message}`);
+                console.log(`⚠️ Status check failed: ${statusError instanceof Error ? statusError.message : String(statusError)}`);
               }
               
               // Step 4: Send print job using enhanced method for card printers
@@ -2159,7 +2159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const magicardResult = execSync(magicardCommand, { encoding: 'utf8', timeout: 15000 });
                   console.log(`🔧 Magicard status check:\n${magicardResult}`);
                 } catch (magicardError) {
-                  console.log(`⚠️ Magicard status check failed: ${magicardError.message}`);
+                  console.log(`⚠️ Magicard status check failed: ${magicardError instanceof Error ? magicardError.message : String(magicardError)}`);
                 }
               }
               
@@ -2174,7 +2174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log(`🗑️ Cleaned up temp file: ${tempFile}`);
                 }
               } catch (cleanupError) {
-                console.warn(`⚠️ Failed to cleanup temp file: ${cleanupError.message}`);
+                console.warn(`⚠️ Failed to cleanup temp file: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
               }
             }, 5000);
             
@@ -2205,7 +2205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (fallbackError) {
               console.error(`❌ ALL print methods failed:`, fallbackError);
               printStatus = "failed";
-              printError = fallbackError.message;
+              printError = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
             }
           }
         } else {
@@ -2222,7 +2222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error(`❌ Print job creation failed:`, error);
         printStatus = "failed";
-        printError = error.message;
+        printError = error instanceof Error ? error.message : String(error);
       }
       
       // Use the already fetched settings for the print job record
@@ -2599,9 +2599,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const hsToken = existingVisitor.hsRulesAcceptanceToken || 
             (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
           visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
-            hostStaffId: visitorData.hostStaffId,
-            purpose: visitorData.purpose,
-            carRegistration: visitorData.carRegistration,
+            hostStaffId: visitorData.hostStaffId || undefined,
+            purpose: visitorData.purpose || undefined,
+            carRegistration: visitorData.carRegistration || undefined,
             hsRulesAcceptanceToken: hsToken
           });
         } else {
@@ -2652,8 +2652,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const emailSent = await emailService.sendDigitalEPass(
               visitor,
-              host,
-              settings,
+              host || null,
+              settings!,
               ePassUrl
             );
             
@@ -2784,8 +2784,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const emailSent = await emailService.sendDigitalEPass(
             visitor,
-            host,
-            settings,
+            host || null,
+            settings!,
             ePassUrl
           );
           
@@ -2802,7 +2802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (emailError) {
           console.error('Failed to send e-Pass email:', emailError);
-          res.status(500).json({ error: "Failed to send e-Pass email", details: emailError.message });
+          res.status(500).json({ error: "Failed to send e-Pass email", details: emailError instanceof Error ? emailError.message : String(emailError) });
         }
       } else {
         res.status(400).json({ error: "No email address available for visitor" });
@@ -2877,7 +2877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <h1 style="color: #10b981;">✅ Thank You!</h1>
             <h2>Health & Safety Rules Accepted</h2>
             <p>Thank you ${worker.firstName} ${worker.lastName} for accepting our Health & Safety Rules.</p>
-            <p>Your acceptance has been recorded at ${new Date(updatedWorker.hsRulesAcceptedAt).toLocaleString('en-GB')}.</p>
+            <p>Your acceptance has been recorded at ${updatedWorker.hsRulesAcceptedAt ? new Date(updatedWorker.hsRulesAcceptedAt).toLocaleString('en-GB') : new Date().toLocaleString('en-GB')}.</p>
             <p><strong>You are now fully checked in and may proceed with your work.</strong></p>
             <p style="margin-top: 20px;">You may now close this window.</p>
           </body>
@@ -3011,7 +3011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <h1 style="color: #10b981;">✅ Thank You!</h1>
             <h2>Health & Safety Rules Accepted</h2>
             <p>Thank you ${visitor.firstName} ${visitor.lastName} for accepting our Health & Safety Rules.</p>
-            <p>Your acceptance has been recorded at ${new Date(updatedVisitor.hsRulesAcceptedAt).toLocaleString('en-GB')}.</p>
+            <p>Your acceptance has been recorded at ${updatedVisitor.hsRulesAcceptedAt ? new Date(updatedVisitor.hsRulesAcceptedAt).toLocaleString('en-GB') : new Date().toLocaleString('en-GB')}.</p>
             <p style="margin-top: 20px;">You may now close this window and proceed with your visit.</p>
           </body>
         </html>
@@ -3347,7 +3347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: "Failed to test connection",
-        error: error.message 
+        error: error instanceof Error ? error.message : String(error) 
       });
     }
   });
@@ -3969,7 +3969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to detect printers',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -4101,7 +4101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to run printer diagnostics',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -4191,7 +4191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Raw printing test failed',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -4558,7 +4558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ];
         
         for (const staffMember of testStaff) {
-          await databaseService.createStaff(context, staffMember);
+          await databaseService.createStaff(context, { ...staffMember, customerId: context.customerId });
         }
         
         staff = await databaseService.getAllStaff(context);
@@ -8126,7 +8126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Company settings not found' });
       }
       
-      const emailService = new EmailService(companySettings);
+      const customEmailService = new EmailService();
       let emailsSent = 0;
       const errors = [];
       
@@ -10856,12 +10856,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Today's Room Bookings - specific route must come before parameterized route
   app.get("/api/room-bookings/today", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // Get today's date range
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
       
-      // For now return empty until we implement customer-isolated room bookings
-      res.json([]);
+      // Get room bookings with joined room and organizer data
+      const bookings = await storage.getRoomBookings(startOfDay, endOfDay);
+      
+      // Transform data to match frontend expectations
+      const transformedBookings = bookings.map(booking => {
+        const startDateTime = new Date(booking.startDateTime);
+        const endDateTime = new Date(booking.endDateTime);
+        
+        return {
+          id: booking.id,
+          title: booking.title,
+          description: booking.description,
+          date: startDateTime.toISOString().split('T')[0], // YYYY-MM-DD format
+          startTime: startDateTime.toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+          }), // HH:MM format
+          endTime: endDateTime.toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+          }), // HH:MM format
+          roomName: booking.room?.name || 'Unknown Room',
+          organizer: booking.organizer ? 
+            `${booking.organizer.firstName} ${booking.organizer.lastName}` : 
+            'Unknown Organizer',
+          attendees: booking.attendeeEmails || [],
+          expectedAttendees: booking.expectedAttendees || 0,
+          status: booking.status,
+          requiresCatering: booking.requiresCatering,
+          cateringNotes: booking.cateringNotes,
+          specialRequirements: booking.specialRequirements
+        };
+      });
+      
+      res.json(transformedBookings);
     } catch (error) {
       console.error("Error fetching today's room bookings:", error);
       res.status(500).json({ error: "Failed to fetch today's room bookings" });

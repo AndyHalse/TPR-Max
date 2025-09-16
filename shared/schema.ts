@@ -1634,6 +1634,30 @@ export type InsertRoomBookingAttendee = z.infer<typeof insertRoomBookingAttendee
 export type RoomBookingWaitlist = typeof roomBookingWaitlist.$inferSelect;
 export type InsertRoomBookingWaitlist = z.infer<typeof insertRoomBookingWaitlistSchema>;
 
+// Room booking with related data for API responses
+export type RoomBookingWithRelations = RoomBooking & {
+  room: MeetingRoom;
+  organizer: Staff;
+};
+
+// Transformed room booking interface for frontend API responses
+export interface TransformedRoomBooking {
+  id: string;
+  title: string;
+  description: string | null;
+  date: string; // YYYY-MM-DD format
+  startTime: string; // HH:MM format
+  endTime: string; // HH:MM format
+  roomName: string;
+  organizer: string;
+  attendees: string[];
+  expectedAttendees: number;
+  status: string;
+  requiresCatering: boolean;
+  cateringNotes: string | null;
+  specialRequirements: string | null;
+}
+
 // ===========================
 // WINDOWS SERVICE PRINT QUEUE
 // ===========================

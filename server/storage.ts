@@ -38,6 +38,7 @@ import type {
   InsertMeetingRoom,
   RoomBooking,
   InsertRoomBooking,
+  RoomBookingWithRelations,
   RoomBookingAttendee,
   InsertRoomBookingAttendee,
   RoomBookingWaitlist,
@@ -344,15 +345,15 @@ export interface IStorage {
   checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean>;
 
   // Room Booking methods
-  getRoomBookings(startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]>;
+  getRoomBookings(startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]>;
   getRoomBookingsByRoom(roomId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { organizer: Staff })[]>;
-  getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]>;
-  getRoomBookingById(id: string): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff }) | undefined>;
+  getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]>;
+  getRoomBookingById(id: string): Promise<RoomBookingWithRelations | undefined>;
   createRoomBooking(insertBooking: InsertRoomBooking): Promise<RoomBooking>;
   updateRoomBooking(id: string, updates: Partial<InsertRoomBooking>): Promise<RoomBooking | undefined>;
   cancelRoomBooking(id: string, cancelledBy: string): Promise<RoomBooking | undefined>;
   deleteRoomBooking(id: string): Promise<boolean>;
-  getUpcomingBookings(roomId?: string, minutes?: number): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]>;
+  getUpcomingBookings(roomId?: string, minutes?: number): Promise<RoomBookingWithRelations[]>;
   checkInToMeeting(bookingId: string, staffId: string): Promise<RoomBooking | undefined>;
   endMeeting(bookingId: string): Promise<RoomBooking | undefined>;
 
@@ -2366,7 +2367,7 @@ export class MemStorage implements IStorage {
     const bookingsWithDetails = [];
     for (const booking of bookings) {
       const room = this.meetingRooms.get(booking.roomId);
-      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      const organizer = this.staffMembers.get(booking.bookedByStaffId);
       
       if (room && organizer) {
         bookingsWithDetails.push({
@@ -2395,7 +2396,7 @@ export class MemStorage implements IStorage {
     // Join with organizer data
     const bookingsWithOrganizer = [];
     for (const booking of bookings) {
-      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      const organizer = this.staffMembers.get(booking.bookedByStaffId);
       if (organizer) {
         bookingsWithOrganizer.push({
           ...booking,
@@ -2423,7 +2424,7 @@ export class MemStorage implements IStorage {
     const bookingsWithDetails = [];
     for (const booking of bookings) {
       const room = this.meetingRooms.get(booking.roomId);
-      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      const organizer = this.staffMembers.get(booking.bookedByStaffId);
       
       if (room && organizer) {
         bookingsWithDetails.push({
@@ -2444,7 +2445,7 @@ export class MemStorage implements IStorage {
     if (!booking) return undefined;
     
     const room = this.meetingRooms.get(booking.roomId);
-    const organizer = this.staffMembers.get(booking.organizerStaffId);
+    const organizer = this.staffMembers.get(booking.bookedByStaffId);
     
     if (!room || !organizer) return undefined;
     
@@ -2577,7 +2578,7 @@ export class MemStorage implements IStorage {
     const bookingsWithDetails = [];
     for (const booking of bookings) {
       const room = this.meetingRooms.get(booking.roomId);
-      const organizer = this.staffMembers.get(booking.organizerStaffId);
+      const organizer = this.staffMembers.get(booking.bookedByStaffId);
       
       if (room && organizer) {
         bookingsWithDetails.push({
