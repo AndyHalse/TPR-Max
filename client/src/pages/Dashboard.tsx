@@ -132,6 +132,18 @@ export default function Dashboard() {
     enabled: !!currentUser,
   });
 
+  // Get room bookings based on view mode - for now using today's data for all modes
+  // TODO: Add separate API endpoints for tomorrow and weekly room bookings
+  const getCurrentViewRoomBookings = () => {
+    if (!todayRoomBookings) return [];
+    
+    // For now, showing today's bookings for all views
+    // In the future, this should filter based on diaryViewMode and currentDate
+    return todayRoomBookings;
+  };
+
+  const currentViewRoomBookings = getCurrentViewRoomBookings();
+
   const { data: meetingRooms } = useQuery<MeetingRoom[]>({
     queryKey: ["/api/meeting-rooms"],
     enabled: !!currentUser,
@@ -956,7 +968,7 @@ export default function Dashboard() {
               {filteredDiary?.length || 0} Visitors
             </Badge>
             <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
-              {todayRoomBookings?.length || 0} Meetings
+              {currentViewRoomBookings?.length || 0} Meetings
             </Badge>
           </div>
         </div>
@@ -1053,7 +1065,7 @@ export default function Dashboard() {
                 <Calendar className="text-purple-600" size={20} />
                 <div>
                   <div className="text-lg font-bold text-purple-800 dark:text-purple-200">
-                    {diaryViewMode === 'today' ? (todayRoomBookings?.length || 0) : 0}
+                    {currentViewRoomBookings?.length || 0}
                   </div>
                   <div className="text-xs text-purple-600 dark:text-purple-400">Room Bookings</div>
                 </div>
@@ -1080,7 +1092,7 @@ export default function Dashboard() {
               <Calendar className="mx-auto mb-3 text-slate-400" size={40} />
               <p>Loading reception diary...</p>
             </div>
-          ) : (!filteredDiary || filteredDiary.length === 0) && (!todayRoomBookings || todayRoomBookings.length === 0) ? (
+          ) : (!filteredDiary || filteredDiary.length === 0) && (!currentViewRoomBookings || currentViewRoomBookings.length === 0) ? (
             <div className="text-center py-8 text-slate-600">
               <CalendarDays className="mx-auto mb-3 text-slate-400" size={40} />
               <p className="font-medium">No activities scheduled for {getViewTitle().toLowerCase()}</p>
@@ -1088,20 +1100,20 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Today's Meeting Room Bookings */}
-              {diaryViewMode === 'today' && todayRoomBookings && todayRoomBookings.length > 0 && (
+              {/* Meeting Room Bookings for Current View */}
+              {currentViewRoomBookings && currentViewRoomBookings.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-medium">
-                      Today's Meetings
+                      {diaryViewMode === 'today' ? "Today's" : diaryViewMode === 'tomorrow' ? "Tomorrow's" : "Scheduled"} Meetings
                     </Badge>
                     <span className="text-xs text-slate-500">
-                      {todayRoomBookings.length} meeting{todayRoomBookings.length !== 1 ? 's' : ''}
+                      {currentViewRoomBookings.length} meeting{currentViewRoomBookings.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                   
                   <div className="space-y-2 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
-                    {todayRoomBookings
+                    {currentViewRoomBookings
                       .sort((a, b) => new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime())
                       .map((booking) => (
                         <div

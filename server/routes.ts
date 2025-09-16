@@ -10685,8 +10685,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // For now return empty until we implement customer-isolated meeting rooms
-      const rooms = [];
+      // Fetch actual meeting rooms from storage
+      const rooms = await storage.getAllMeetingRooms();
       
       res.json(rooms);
     } catch (error) {

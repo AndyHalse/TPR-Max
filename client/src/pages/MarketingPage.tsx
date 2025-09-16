@@ -22,7 +22,9 @@ import {
   Camera,
   Smartphone,
   Globe,
-  Mail
+  Mail,
+  Calendar,
+  MapPin
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -313,6 +315,31 @@ export default function MarketingPage() {
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-slate-600 dark:text-slate-400">Live Updates</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Meeting Rooms & Booking Management */}
+            <Card className="group hover:shadow-xl transition-all duration-300 border-0 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
+              <CardContent className="p-8">
+                <div className="h-12 w-12 bg-gradient-to-br from-rose-500 to-rose-600 rounded-lg flex items-center justify-center mb-4">
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                  Meeting Rooms & Booking Management
+                </h3>
+                <p className="text-slate-600 dark:text-slate-300 mb-4">
+                  Complete room scheduling with calendar integration, equipment tracking, automated notifications, and real-time availability checking.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span className="text-sm text-slate-600 dark:text-slate-400">Smart Scheduling</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-4 w-4 text-green-500" />
+                    <span className="text-sm text-slate-600 dark:text-slate-400">Room Analytics</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
