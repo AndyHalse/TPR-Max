@@ -144,26 +144,28 @@ export default function Layout({ children }: LayoutProps) {
       {/* Navigation */}
       <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3 min-w-0 flex-shrink-0">
-            <div className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0">
-              {settings?.logoUrl ? (
-                <img 
-                  src={`/objects${settings.logoUrl}`}
-                  alt="Company Logo" 
-                  className="w-15 h-15 object-contain rounded"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.nextElementSibling?.setAttribute('style', 'display: block');
-                  }}
-                />
-              ) : null}
-              <IdCard className="text-white" size={20} style={settings?.logoUrl ? {display: 'none'} : {}} />
+          <Link href="/marketing">
+            <div className="flex items-center space-x-3 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0">
+                {settings?.logoUrl ? (
+                  <img 
+                    src={`/objects${settings.logoUrl}`}
+                    alt="Company Logo" 
+                    className="w-15 h-15 object-contain rounded"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: block');
+                    }}
+                  />
+                ) : null}
+                <IdCard className="text-white" size={20} style={settings?.logoUrl ? {display: 'none'} : {}} />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{settings?.companyName || "VisiGate Pro"}</h1>
+                <p className="text-xs text-slate-600 hidden sm:block">Visitor Management</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{settings?.companyName || "VisiGate Pro"}</h1>
-              <p className="text-xs text-slate-600 hidden sm:block">Visitor Management</p>
-            </div>
-          </div>
+          </Link>
           
           <div className="hidden lg:flex items-center space-x-1 flex-1 justify-center">
             <TooltipProvider>
