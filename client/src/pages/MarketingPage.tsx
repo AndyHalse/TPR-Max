@@ -44,7 +44,24 @@ import {
   CreditCard,
   Briefcase,
   HeadphonesIcon,
-  Quote
+  Quote,
+  HardHat,
+  Factory,
+  Heart,
+  GraduationCap,
+  Handshake,
+  FileCheck,
+  UserX,
+  School,
+  Stethoscope,
+  ShieldCheck,
+  Target,
+  TrendingDown,
+  Siren,
+  Badge as BadgeIcon,
+  UserPlus,
+  DollarSign,
+  Timer as TimerIcon
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -1636,40 +1653,333 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Industries Section */}
-      <section id="industries" className="py-20 scroll-mt-24">
+      {/* Industry-Specific Solutions Section */}
+      <section id="industries" className="py-20 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-              Trusted Across 
+              Tailored for 
               <span style={{color: '#2460A9'}}>
-                {" "}Industries
+                {" "}Your Industry
               </span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              From corporate offices to industrial sites, VisiGate Pro adapts to your industry's specific 
-              security and compliance requirements.
+              VisiGate Pro adapts to serve diverse organizational needs with industry-specific features, 
+              compliance requirements, and security protocols that matter most to your sector.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { name: "Corporate Offices", icon: Building2, color: "from-blue-500 to-blue-600" },
-              { name: "Manufacturing", icon: Shield, color: "from-orange-500 to-orange-600" },
-              { name: "Healthcare", icon: Users, color: "from-green-500 to-green-600" },
-              { name: "Construction", icon: Clock, color: "from-purple-500 to-purple-600" },
-            ].map((industry, index) => (
-              <Card key={index} className="group hover:shadow-lg transition-all duration-300 border-0 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                <CardContent className="p-6 text-center">
-                  <div className={`h-12 w-12 bg-gradient-to-br ${industry.color} rounded-lg flex items-center justify-center mx-auto mb-4`}>
-                    <industry.icon className="h-6 w-6 text-white" />
+          <div className="grid md:grid-cols-2 gap-12">
+            {/* Corporate Offices */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-corporate-offices">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
+                    <Building2 className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    {industry.name}
-                  </h3>
-                </CardContent>
-              </Card>
-            ))}
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Corporate Offices</h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300">Professional visitor experience and executive efficiency</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Key Challenges Solved:</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <UserX className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Unprofessional visitor experiences</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Eliminate paper logs and long wait times</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <TimerIcon className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Meeting room inefficiencies</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Optimize space utilization and booking conflicts</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <TrendingDown className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Staff productivity losses</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Reduce administrative overhead and interruptions</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <ShieldCheck className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Security compliance gaps</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Meet corporate governance and audit requirements</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Corporate Benefits:</h5>
+                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                    <li>• Executive-level visitor experience with branded touchpoints</li>
+                    <li>• 60% faster meeting room turnover and utilization</li>
+                    <li>• Automated compliance reporting for audits</li>
+                    <li>• Integration with corporate calendars and directory systems</li>
+                  </ul>
+                </div>
+
+                <Button 
+                  size="lg" 
+                  onClick={() => scrollToSection('contact')}
+                  className="w-full text-white"
+                  style={{backgroundColor: '#2460A9'}}
+                  data-testid="button-corporate-solution"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  See Corporate Solution
+                </Button>
+              </div>
+            </Card>
+
+            {/* Manufacturing & Industrial */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-manufacturing-industrial">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center">
+                    <Factory className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Manufacturing & Industrial</h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300">Contractor safety and regulatory compliance</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Key Challenges Solved:</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <HardHat className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Contractor safety verification</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Automate cert checks and safety inductions</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <FileCheck className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Compliance documentation</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">OSHA, MSHA, and industry-specific requirements</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <Siren className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Emergency response delays</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Instant personnel location and evacuation management</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <DollarSign className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Insurance liability exposure</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Comprehensive audit trails and safety compliance</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Industrial Benefits:</h5>
+                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                    <li>• 90% reduction in safety incidents through automated verification</li>
+                    <li>• Real-time emergency mustering for all site personnel</li>
+                    <li>• Automated OSHA and regulatory compliance reporting</li>
+                    <li>• Integration with existing safety management systems</li>
+                  </ul>
+                </div>
+
+                <Button 
+                  size="lg" 
+                  onClick={() => scrollToSection('contact')}
+                  className="w-full text-white bg-orange-600 hover:bg-orange-700"
+                  data-testid="button-manufacturing-solution"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  See Industrial Solution
+                </Button>
+              </div>
+            </Card>
+
+            {/* Healthcare Facilities */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-healthcare-facilities">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center">
+                    <Stethoscope className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Healthcare Facilities</h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300">Patient safety and HIPAA compliance</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Key Challenges Solved:</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <Heart className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Patient visitor control</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Restrict access to sensitive areas and patient rooms</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <BadgeIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Staff credentialing verification</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Automated license and certification validation</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <ShieldCheck className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Infection control protocols</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Contact tracing and health screening workflows</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <FileCheck className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">HIPAA compliance gaps</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Secure visitor logs and access audit trails</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Healthcare Benefits:</h5>
+                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                    <li>• HIPAA-compliant visitor management with secure data handling</li>
+                    <li>• Automated staff credential verification and renewal alerts</li>
+                    <li>• Real-time contact tracing for infection control</li>
+                    <li>• Integration with hospital access control and paging systems</li>
+                  </ul>
+                </div>
+
+                <Button 
+                  size="lg" 
+                  onClick={() => scrollToSection('contact')}
+                  className="w-full text-white bg-green-600 hover:bg-green-700"
+                  data-testid="button-healthcare-solution"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  See Healthcare Solution
+                </Button>
+              </div>
+            </Card>
+
+            {/* Educational Institutions */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-educational-institutions">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center">
+                    <GraduationCap className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Educational Institutions</h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300">Campus security and student safety</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Key Challenges Solved:</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <School className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Campus security risks</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Control access to dormitories, labs, and facilities</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <UserPlus className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Student and faculty tracking</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Attendance monitoring and location services</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <UserX className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Visitor screening challenges</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Background checks and restricted area access</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <Siren className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">Emergency response coordination</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Campus-wide alerts and evacuation management</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Educational Benefits:</h5>
+                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                    <li>• Campus-wide emergency notification and mustering system</li>
+                    <li>• Automated visitor screening with background check integration</li>
+                    <li>• Student attendance tracking and parent notification</li>
+                    <li>• Integration with existing student information systems</li>
+                  </ul>
+                </div>
+
+                <Button 
+                  size="lg" 
+                  onClick={() => scrollToSection('contact')}
+                  className="w-full text-white bg-purple-600 hover:bg-purple-700"
+                  data-testid="button-educational-solution"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  See Educational Solution
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          {/* Industry CTA Section */}
+          <div className="text-center mt-16 p-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600">
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
+              Don't See Your Industry?
+            </h3>
+            <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-2xl mx-auto">
+              VisiGate Pro serves organizations across all sectors. Our flexible platform adapts to your 
+              specific compliance requirements, security protocols, and operational workflows.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button 
+                size="lg" 
+                onClick={() => scrollToSection('contact')}
+                className="text-white px-8"
+                style={{backgroundColor: '#2460A9'}}
+                data-testid="button-custom-industry"
+              >
+                <Handshake className="h-4 w-4 mr-2" />
+                Discuss Your Requirements
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                onClick={() => scrollToSection('features')}
+                className="px-8 border-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+                style={{borderColor: '#2460A9', color: '#2460A9'}}
+                data-testid="button-view-all-features"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View All Features
+              </Button>
+            </div>
           </div>
         </div>
       </section>
