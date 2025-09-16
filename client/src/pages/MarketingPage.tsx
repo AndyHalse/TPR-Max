@@ -230,13 +230,6 @@ export default function MarketingPage() {
                     Generate thermal ID passes for all personnel - visitors, contractors, and staff - with photos, QR codes, and custom branding.
                   </p>
                 </div>
-                <div className="relative">
-                  <img 
-                    src={thermalImg} 
-                    alt="Thermal ID Card Printer" 
-                    className="rounded-lg w-full h-32 object-cover"
-                  />
-                </div>
               </CardContent>
             </Card>
 
