@@ -32,6 +32,7 @@ import InductionSettings from "@/pages/InductionSettings";
 import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
 import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
+import MarketingPage from "@/pages/MarketingPage";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -48,6 +49,11 @@ function Router() {
     if (token) {
       return <HSDocumentAcceptance token={token} />;
     }
+  }
+  
+  // Public marketing page - no authentication required
+  if (window.location.pathname === '/marketing') {
+    return <MarketingPage />;
   }
   
   // Public induction system - no authentication required
