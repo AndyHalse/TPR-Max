@@ -2943,6 +2943,10 @@ export class MemStorage implements IStorage {
         return {
           ...booking,
           hostName: staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown',
+          hostFirstName: staff ? staff.firstName : '',
+          hostLastName: staff ? staff.lastName : '',
+          hostDepartment: staff ? staff.department || '' : '',
+          hostEmail: staff ? staff.email || '' : '',
         };
       })
       .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
