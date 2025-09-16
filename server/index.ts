@@ -26,6 +26,9 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const app = express();
 
+// Set trust proxy for proper session handling
+app.set('trust proxy', 1);
+
 // CORS middleware
 app.use((req, res, next) => {
   // Allow specific origin instead of wildcard when using credentials
@@ -52,8 +55,8 @@ const MemoryStoreSession = MemoryStore(session);
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'visigate-pro-dev-secret-key-2024',
-  name: 'visigate.session', // Custom session name
-  resave: false,
+  name: 'connect.sid', // Use default session cookie name
+  resave: false, // Prevent unnecessary session saves
   saveUninitialized: false,
   store: new MemoryStoreSession({
     checkPeriod: 86400000, // prune expired entries every 24h
@@ -61,7 +64,8 @@ app.use(session({
     ttl: 24 * 60 * 60 * 1000, // 24 hours
     dispose: function(key: string, sess: any) {
       console.log('🗑️ Session disposed:', key.substring(0, 8) + '...', sess?.userId || 'no-user');
-    }
+    },
+    stale: false
   }),
   cookie: {
     secure: false, // Set to true in production with HTTPS
@@ -71,7 +75,7 @@ app.use(session({
     path: '/', // Ensure cookie is sent with all requests
     domain: undefined // Let the browser determine the domain
   },
-  rolling: true // Reset expiration on every request
+  rolling: false // Prevent session ID churn on every request
 }));
 
 // Session debugging middleware - BEFORE loadUser
@@ -88,7 +92,7 @@ app.use((req, res, next) => {
       userId: userId || 'NONE',
       hasSession,
       cookies: cookieHeader ? 'present' : 'MISSING',
-      sessionCookie: cookieHeader?.includes('visigate.session') ? 'present' : 'MISSING',
+      sessionCookie: cookieHeader?.includes('connect.sid') ? 'present' : 'MISSING',
       userAgent: req.headers['user-agent'] ? req.headers['user-agent'].substring(0, 50) + '...' : 'missing'
     });
     

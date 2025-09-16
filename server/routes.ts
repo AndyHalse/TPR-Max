@@ -453,22 +453,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.clearCookie('connect.sid', { path: '/', httpOnly: true });
         console.log(`🧹 Cleared old connect.sid cookie for user: ${username}`);
       }
+      if (req.headers.cookie?.includes('visigate.session')) {
+        res.clearCookie('visigate.session', { path: '/', httpOnly: true });
+        console.log(`🧹 Cleared old visigate.session cookie for user: ${username}`);
+      }
 
-      // Set session and save it explicitly
-      req.session.userId = user.id;
-      
-      // Explicitly save the session before responding
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ error: "Failed to establish session" });
+      // Force session regeneration to create a completely fresh session
+      req.session.regenerate((regErr) => {
+        if (regErr) {
+          console.error("Session regeneration error:", regErr);
+          return res.status(500).json({ error: "Failed to create session" });
         }
+
+        // Set session data on the new session
+        req.session.userId = user.id;
         
-        console.log(`✅ Session saved successfully for user: ${username} (ID: ${user.id})`);
-        res.json({ 
-          success: true, 
-          user: { id: user.id, username: user.username },
-          sessionRefresh: true // Signal frontend that session was refreshed
+        // Explicitly save the session before responding
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return res.status(500).json({ error: "Failed to establish session" });
+          }
+          
+          console.log(`✅ Session regenerated and saved successfully for user: ${username} (ID: ${user.id})`);
+          res.json({ 
+            success: true, 
+            user: { id: user.id, username: user.username },
+            sessionRefresh: true // Signal frontend that session was refreshed
+          });
         });
       });
     } catch (error) {
