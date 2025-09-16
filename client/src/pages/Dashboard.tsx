@@ -41,32 +41,44 @@ export default function Dashboard() {
   const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('tomorrow');
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  // Get current user for authentication check
+  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
+    queryKey: ["/api/auth/me"],
+  });
+  
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
     queryKey: ["/api/stats"],
+    enabled: !!currentUser,
   });
 
   const { data: currentVisitors, isLoading: visitorsLoading } = useQuery<Visitor[]>({
     queryKey: ["/api/visitors/current"],
+    enabled: !!currentUser,
   });
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
+    enabled: !!currentUser,
   });
 
   const { data: todayVisitors } = useQuery<Visitor[]>({
     queryKey: ["/api/visitors/today"],
+    enabled: !!currentUser,
   });
 
   const { data: checkedInStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff/checked-in"],
+    enabled: !!currentUser,
   });
 
   const { data: checkedInContractors } = useQuery<any[]>({
     queryKey: ["/api/contractors/checked-in"],
+    enabled: !!currentUser,
   });
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<Activity[]>({
     queryKey: ["/api/activity/recent"],
+    enabled: !!currentUser,
   });
 
   const { data: departmentAnalytics, isLoading: departmentsLoading } = useQuery<Array<{
@@ -79,6 +91,7 @@ export default function Dashboard() {
   }>>({
     queryKey: ["/api/analytics/departments"],
     refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    enabled: !!currentUser,
   });
 
   const { data: peakHoursData, isLoading: peakHoursLoading } = useQuery<{
@@ -94,6 +107,7 @@ export default function Dashboard() {
   }>({
     queryKey: ["/api/analytics/peak-hours"],
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: !!currentUser,
   });
 
   // Company settings for feature toggles
@@ -106,16 +120,19 @@ export default function Dashboard() {
     featureAiDemo?: boolean;
   }>({
     queryKey: ["/api/settings"],
+    enabled: !!currentUser,
   });
 
   // Meeting room booking data for today
   const { data: todayRoomBookings, isLoading: roomBookingsLoading } = useQuery<RoomBooking[]>({
     queryKey: ["/api/room-bookings/today"],
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: !!currentUser,
   });
 
   const { data: meetingRooms } = useQuery<MeetingRoom[]>({
     queryKey: ["/api/meeting-rooms"],
+    enabled: !!currentUser,
   });
 
   const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
@@ -144,7 +161,7 @@ export default function Dashboard() {
     };
   }>({
     queryKey: ["/api/analytics/departments", selectedDepartment],
-    enabled: !!selectedDepartment && openModal === 'department-details',
+    enabled: !!currentUser && !!selectedDepartment && openModal === 'department-details',
   });
 
   // Reception Diary Data
@@ -169,6 +186,7 @@ export default function Dashboard() {
   }>>({
     queryKey: ["/api/reception/diary"],
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: !!currentUser,
   });
 
   const getStaffName = (staffId?: string) => {
