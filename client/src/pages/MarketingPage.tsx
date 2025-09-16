@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Shield, 
   Printer, 
@@ -22,20 +25,49 @@ import {
   Mail
 } from "lucide-react";
 
-// Import some sample screenshots - we'll update these with real ones
+// Import ACS logo and screenshots
+import acsLogo from "@assets/acs-logo-2460A9-200px.jpg";
 import dashboardImg from "@assets/Screenshot 2025-08-24 at 14.24.53_1756038339122.png";
 import kioskImg from "@assets/Screenshot 2025-08-24 at 16.05.36_1756044356361.png";
 import thermalImg from "@assets/ID Card printer_1756400844599.png";
 
 export default function MarketingPage() {
   const [email, setEmail] = useState("");
+  const { toast } = useToast();
+
+  const contactMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const response = await apiRequest("POST", "/api/marketing/contact", { email });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Thank you for your interest!",
+        description: "We'll be in touch with you soon to schedule your demo.",
+      });
+      setEmail("");
+    },
+    onError: () => {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again or contact us directly.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle contact form submission
-    console.log("Contact form submitted:", email);
-    setEmail("");
-    alert("Thank you for your interest! We'll be in touch soon.");
+    if (email) {
+      contactMutation.mutate(email);
+    }
+  };
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   return (
@@ -45,24 +77,43 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-white" />
-              </div>
+              <img 
+                src={acsLogo} 
+                alt="ACS logo" 
+                className="h-8 w-8 object-contain" 
+                data-testid="img-logo" 
+              />
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 VisiGate Pro
               </span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <button 
+                onClick={() => scrollToSection('features')} 
+                className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                data-testid="link-features"
+              >
                 Features
-              </a>
-              <a href="#industries" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              </button>
+              <button 
+                onClick={() => scrollToSection('industries')} 
+                className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                data-testid="link-industries"
+              >
                 Industries
-              </a>
-              <a href="#contact" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              </button>
+              <button 
+                onClick={() => scrollToSection('contact')} 
+                className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                data-testid="link-contact"
+              >
                 Contact
-              </a>
-              <Button size="sm" data-testid="button-demo">
+              </button>
+              <Button 
+                size="sm" 
+                onClick={() => scrollToSection('contact')} 
+                data-testid="button-demo"
+              >
                 Request Demo
               </Button>
             </div>
@@ -96,11 +147,22 @@ export default function MarketingPage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Button size="lg" className="text-lg px-8" data-testid="button-get-started">
+                <Button 
+                  size="lg" 
+                  className="text-lg px-8" 
+                  onClick={() => scrollToSection('contact')} 
+                  data-testid="button-get-started"
+                >
                   Get Started Free
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
-                <Button variant="outline" size="lg" className="text-lg px-8" data-testid="button-view-demo">
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="text-lg px-8" 
+                  onClick={() => scrollToSection('features')} 
+                  data-testid="button-view-demo"
+                >
                   View Live Demo
                 </Button>
               </div>
@@ -136,7 +198,7 @@ export default function MarketingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-white/50 dark:bg-slate-800/50">
+      <section id="features" className="py-20 bg-white/50 dark:bg-slate-800/50 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
@@ -278,7 +340,7 @@ export default function MarketingPage() {
       </section>
 
       {/* Industries Section */}
-      <section id="industries" className="py-20">
+      <section id="industries" className="py-20 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
@@ -362,7 +424,7 @@ export default function MarketingPage() {
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-20 bg-gradient-to-r from-blue-600 to-indigo-600">
+      <section id="contact" className="py-20 bg-gradient-to-r from-blue-600 to-indigo-600 scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl lg:text-5xl font-bold text-white mb-6">
             Ready to Transform Your Visitor Management?
@@ -388,10 +450,11 @@ export default function MarketingPage() {
                 variant="secondary" 
                 size="lg"
                 className="px-6 bg-white text-blue-600 hover:bg-slate-50"
+                disabled={contactMutation.isPending}
                 data-testid="button-contact-submit"
               >
                 <Mail className="h-4 w-4 mr-2" />
-                Get Demo
+                {contactMutation.isPending ? 'Sending...' : 'Get Demo'}
               </Button>
             </div>
           </form>
@@ -407,9 +470,12 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <div className="h-8 w-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-white" />
-              </div>
+              <img 
+                src={acsLogo} 
+                alt="ACS logo" 
+                className="h-8 w-8 object-contain bg-white rounded-lg p-1" 
+                data-testid="img-footer-logo" 
+              />
               <span className="text-xl font-bold text-white">VisiGate Pro</span>
             </div>
             <div className="text-slate-400 text-sm">

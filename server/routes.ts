@@ -362,6 +362,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Marketing contact endpoint (public, no auth required)
+  const marketingContactSchema = z.object({
+    email: z.string().email('Please enter a valid email address'),
+  });
+
+  app.post('/api/marketing/contact', async (req, res) => {
+    try {
+      const { email } = marketingContactSchema.parse(req.body);
+      
+      // Send notification email to sales team
+      await emailService.sendEmail(
+        process.env.SALES_EMAIL || 'sales@visigatepro.com',
+        'New Demo Request - VisiGate Pro',
+        `
+        <h2>New Demo Request</h2>
+        <p>A potential customer has requested a demo of VisiGate Pro:</p>
+        <ul>
+          <li><strong>Email:</strong> ${email}</li>
+          <li><strong>Date:</strong> ${new Date().toLocaleString()}</li>
+          <li><strong>Source:</strong> Marketing Website</li>
+        </ul>
+        <p>Please follow up with this lead as soon as possible.</p>
+        `,
+        `
+        New Demo Request - VisiGate Pro
+        
+        A potential customer has requested a demo:
+        
+        Email: ${email}
+        Date: ${new Date().toLocaleString()}
+        Source: Marketing Website
+        
+        Please follow up with this lead as soon as possible.
+        `
+      );
+
+      console.log(`📧 Marketing contact submitted: ${email}`);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error processing marketing contact:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Invalid email address',
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: 'Failed to process contact request' });
+    }
+  });
+
   // Serve static files from public directory
   app.use('/sample-*.pdf', express.static(path.join(process.cwd(), 'public')));
   
