@@ -34,9 +34,11 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'contractors' | 'total-people' | 'department-details' | 'visitor-details' | null>(null);
+  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'contractors' | 'total-people' | 'department-details' | 'visitor-details' | 'visitor-booking-details' | 'meeting-booking-details' | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [selectedVisitor, setSelectedVisitor] = useState<any>(null);
+  const [selectedVisitorBooking, setSelectedVisitorBooking] = useState<any>(null);
+  const [selectedMeetingBooking, setSelectedMeetingBooking] = useState<any>(null);
   
   // Reception Diary view state
   const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('tomorrow');
@@ -844,8 +846,12 @@ export default function Dashboard() {
                       .map((booking) => (
                         <div
                           key={booking.id}
-                          className="p-4 rounded-xl border border-purple-200 bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors"
+                          className="p-4 rounded-xl border border-purple-200 bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors cursor-pointer"
                           data-testid={`meeting-${booking.id}`}
+                          onClick={() => {
+                            setSelectedMeetingBooking(booking);
+                            setOpenModal('meeting-booking-details');
+                          }}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -924,8 +930,12 @@ export default function Dashboard() {
                             return (
                               <div
                                 key={entry.id}
-                                className={`p-4 rounded-xl border ${priority.color} bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors`}
+                                className={`p-4 rounded-xl border ${priority.color} bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors cursor-pointer`}
                                 data-testid={`diary-entry-${entry.id}`}
+                                onClick={() => {
+                                  setSelectedVisitorBooking(entry);
+                                  setOpenModal('visitor-booking-details');
+                                }}
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
@@ -1890,6 +1900,479 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visitor Booking Details Modal */}
+      <Dialog open={openModal === 'visitor-booking-details'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center">
+                <Calendar className="text-white" size={24} />
+              </div>
+              <div>
+                <div className="text-xl">Visitor Pre-Booking Details</div>
+                <div className="text-sm text-slate-600 font-normal">
+                  {selectedVisitorBooking?.visitorFirstName} {selectedVisitorBooking?.visitorLastName}
+                </div>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedVisitorBooking && (
+            <div className="space-y-6">
+              {/* Status Banner */}
+              <div className={`border rounded-lg p-4 ${
+                selectedVisitorBooking.isCheckedIn 
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {selectedVisitorBooking.isCheckedIn ? (
+                      <CheckCircle2 className="text-green-600" size={20} />
+                    ) : (
+                      <Clock3 className="text-blue-600" size={20} />
+                    )}
+                    <Badge variant="default" className={selectedVisitorBooking.isCheckedIn ? 'bg-green-600' : 'bg-blue-600'}>
+                      {selectedVisitorBooking.isCheckedIn ? '✓ Visitor Has Arrived' : '⏰ Expected Arrival'}
+                    </Badge>
+                    <span className="text-sm font-medium">
+                      {formatVisitTime(new Date(selectedVisitorBooking.visitDate))}
+                    </span>
+                  </div>
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs" 
+                    style={{ 
+                      backgroundColor: selectedVisitorBooking.tenantPrimaryColor + '20', 
+                      borderColor: selectedVisitorBooking.tenantPrimaryColor 
+                    }}
+                  >
+                    {selectedVisitorBooking.tenantCompanyName}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Visitor Information */}
+              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                  <User className="text-indigo-600" size={20} />
+                  Visitor Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Full Name</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedVisitorBooking.visitorFirstName} {selectedVisitorBooking.visitorLastName}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Email Address</label>
+                    <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedVisitorBooking.visitorEmail}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Company</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedVisitorBooking.company || 'Not specified'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Visit Date & Time</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {new Date(selectedVisitorBooking.visitDate).toLocaleDateString('en-GB', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })} at {formatVisitTime(new Date(selectedVisitorBooking.visitDate))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Host & Meeting Details */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
+                  <UserCheck className="text-blue-600" size={20} />
+                  Host & Meeting Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Host</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedVisitorBooking.hostFirstName} {selectedVisitorBooking.hostLastName}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedVisitorBooking.hostDepartment}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Host Email</label>
+                    <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedVisitorBooking.hostEmail}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Purpose of Visit</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedVisitorBooking.purpose || 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reception Services & Special Requests */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
+                  <AtSign className="text-purple-600" size={20} />
+                  Reception Services & Special Requests
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                      <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">☕ Refreshment Services</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Welcome coffee/tea upon arrival</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Meeting room refreshments</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Special dietary requirements</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                      <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">🏢 Building Services</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Visitor parking required</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Meeting room booking needed</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Technical equipment setup</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-purple-700 dark:text-purple-400">Additional Notes for Reception</label>
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded border mt-1">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 italic">
+                        {selectedVisitorBooking.purpose ? 
+                          `Meeting purpose: ${selectedVisitorBooking.purpose}. Please ensure visitor is greeted professionally and host is notified immediately upon arrival.` :
+                          'Please ensure visitor is greeted professionally and host is notified immediately upon arrival.'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button 
+                  onClick={() => {
+                    if (selectedVisitorBooking.visitorEmail) {
+                      window.open(`mailto:${selectedVisitorBooking.visitorEmail}`, '_blank');
+                    }
+                  }}
+                  disabled={!selectedVisitorBooking.visitorEmail}
+                  className="flex-1"
+                  data-testid="button-email-visitor-booking"
+                >
+                  📧 Email Visitor
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (selectedVisitorBooking.hostEmail) {
+                      window.open(`mailto:${selectedVisitorBooking.hostEmail}`, '_blank');
+                    }
+                  }}
+                  disabled={!selectedVisitorBooking.hostEmail}
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="button-email-host-booking"
+                >
+                  📧 Email Host
+                </Button>
+                <Button 
+                  onClick={() => {
+                    toast({
+                      title: "Reception Service Checklist",
+                      description: "✅ Coffee/tea prepared ☑️ Meeting room ready ☑️ Parking arranged ☑️ Host notified",
+                    });
+                  }}
+                  variant="outline"
+                  className="flex-1 bg-green-50 hover:bg-green-100 border-green-300"
+                  data-testid="button-service-checklist"
+                >
+                  ✅ Service Checklist
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Meeting Booking Details Modal */}
+      <Dialog open={openModal === 'meeting-booking-details'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                <Calendar className="text-white" size={24} />
+              </div>
+              <div>
+                <div className="text-xl">Meeting Room Booking Details</div>
+                <div className="text-sm text-slate-600 font-normal">
+                  {selectedMeetingBooking?.title}
+                </div>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedMeetingBooking && (
+            <div className="space-y-6">
+              {/* Status Banner */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="text-purple-600" size={20} />
+                    <Badge variant="default" className="bg-purple-600">
+                      📅 Scheduled Meeting
+                    </Badge>
+                    <span className="text-sm font-medium">
+                      {selectedMeetingBooking.startTime} - {selectedMeetingBooking.endTime}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-200">
+                    Meeting Room
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Meeting Information */}
+              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                  <Calendar className="text-purple-600" size={20} />
+                  Meeting Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Meeting Title</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedMeetingBooking.title}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Room</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedMeetingBooking.roomName}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Date</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {new Date(selectedMeetingBooking.date).toLocaleDateString('en-GB', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Time</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedMeetingBooking.startTime} - {selectedMeetingBooking.endTime}
+                    </p>
+                  </div>
+                </div>
+                {selectedMeetingBooking.description && (
+                  <div className="mt-4">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Description</label>
+                    <p className="text-base bg-white dark:bg-slate-800 p-2 rounded border mt-1">
+                      {selectedMeetingBooking.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Organizer & Attendees */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
+                  <Users className="text-blue-600" size={20} />
+                  Organizer & Attendees
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Meeting Organizer</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedMeetingBooking.organizer}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Expected Attendees</label>
+                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      {selectedMeetingBooking.expectedAttendees || 0} people
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Catering & Technical Requirements */}
+              <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-300 mb-3 flex items-center gap-2">
+                  <AtSign className="text-orange-600" size={20} />
+                  Catering & Technical Requirements
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                      <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">☕ Catering Services</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" defaultChecked={selectedMeetingBooking.expectedAttendees >= 5} />
+                          <span>Coffee & tea service</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" defaultChecked={selectedMeetingBooking.expectedAttendees >= 10} />
+                          <span>Light refreshments</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Water & glasses</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Special dietary requirements</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                      <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">🔧 Technical Setup</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" defaultChecked />
+                          <span>Projector & screen available</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" defaultChecked />
+                          <span>Video conferencing ready</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Flip chart & markers</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded" />
+                          <span>Power outlets accessible</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-orange-700 dark:text-orange-400">Room Setup Notes</label>
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded border mt-1">
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Room configured for {selectedMeetingBooking.expectedAttendees || 'small group'} attendees. 
+                        {selectedMeetingBooking.description ? ` Meeting purpose: ${selectedMeetingBooking.description}` : ' Standard meeting room setup required.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Room Information */}
+              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                  <Building2 className="text-slate-600" size={20} />
+                  Room Information
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Room Name</span>
+                    <span className="text-base font-mono">{selectedMeetingBooking.roomName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Capacity</span>
+                    <span className="text-base">
+                      {meetingRooms?.find(room => room.name === selectedMeetingBooking.roomName)?.capacity || 'Unknown'} people
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Equipment</span>
+                    <span className="text-base">
+                      {meetingRooms?.find(room => room.name === selectedMeetingBooking.roomName)?.equipment?.join(', ') || 'Standard AV equipment'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button 
+                  onClick={() => {
+                    toast({
+                      title: "Room Preparation Started",
+                      description: "✅ Room cleaned ☑️ Equipment tested ☑️ Catering ordered ☑️ Organizer notified",
+                    });
+                  }}
+                  className="flex-1"
+                  data-testid="button-prepare-meeting-room"
+                >
+                  🏢 Prepare Room
+                </Button>
+                <Button 
+                  onClick={() => {
+                    toast({
+                      title: "Catering Service Request",
+                      description: `Catering ordered for ${selectedMeetingBooking.expectedAttendees || 'estimated'} attendees in ${selectedMeetingBooking.roomName}`,
+                    });
+                  }}
+                  variant="outline"
+                  className="flex-1 bg-orange-50 hover:bg-orange-100 border-orange-300"
+                  data-testid="button-order-catering"
+                >
+                  ☕ Order Catering
+                </Button>
+                <Button 
+                  onClick={() => {
+                    toast({
+                      title: "Technical Check Completed",
+                      description: "✅ Projector working ☑️ WiFi strong ☑️ Video conferencing ready ☑️ All systems go",
+                    });
+                  }}
+                  variant="outline"
+                  className="flex-1 bg-blue-50 hover:bg-blue-100 border-blue-300"
+                  data-testid="button-tech-check"
+                >
+                  🔧 Tech Check
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -144,6 +144,25 @@ export function RoomBookingForm({
       const startDate = parseISO(editBooking.startDateTime);
       const endDate = parseISO(editBooking.endDateTime);
       
+      // Extract attendee data from editBooking.attendees
+      const staffAttendeeIds: string[] = [];
+      const externalAttendeeEmails: string[] = [];
+      
+      if (editBooking.attendees && Array.isArray(editBooking.attendees)) {
+        editBooking.attendees.forEach((attendee: any) => {
+          // Skip the organizer (they're already set as bookedByStaffId)
+          if (attendee.isOrganizer) return;
+          
+          if (attendee.staffId) {
+            // This is a staff attendee
+            staffAttendeeIds.push(attendee.staffId);
+          } else if (attendee.email) {
+            // This is an external attendee
+            externalAttendeeEmails.push(attendee.email);
+          }
+        });
+      }
+      
       form.reset({
         title: editBooking.title,
         description: editBooking.description || '',
@@ -152,6 +171,8 @@ export function RoomBookingForm({
         expectedAttendees: editBooking.expectedAttendees || 1,
         startDateTime: format(startDate, "yyyy-MM-dd'T'HH:mm"),
         endDateTime: format(endDate, "yyyy-MM-dd'T'HH:mm"),
+        staffAttendeeIds: staffAttendeeIds,
+        externalAttendeeEmails: externalAttendeeEmails,
         cateringRequired: editBooking.cateringRequired || false,
         cateringNotes: editBooking.cateringNotes || '',
         technicalRequirements: editBooking.technicalRequirements || '',
