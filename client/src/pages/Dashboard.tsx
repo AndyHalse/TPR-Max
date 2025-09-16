@@ -869,7 +869,7 @@ export default function Dashboard() {
                                 </div>
                                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                                   <Users size={14} />
-                                  <span>{booking.attendees?.length || 0} attendees</span>
+                                  <span>{booking.expectedAttendees || 0} attendees</span>
                                 </div>
                                 {booking.description && (
                                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
