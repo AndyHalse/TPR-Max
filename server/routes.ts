@@ -416,24 +416,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/sample-*.pdf', express.static(path.join(process.cwd(), 'public')));
   
   // Authentication endpoints
-  // Emergency GET login bypass (no clicking needed)
-  app.get("/api/auth/login", async (req, res) => {
-    const { username, password, method } = req.query;
-    
-    if (method === 'GET' && username === 'Andy' && password === 'Kubo1966&&') {
-      try {
-        const user = await AuthService.authenticateUser(username as string, password as string);
-        if (user) {
-          req.session.userId = user.id;
-          return res.redirect('/');
-        }
-      } catch (error) {
-        console.error("GET login error:", error);
-      }
-    }
-    
-    return res.status(400).json({ error: "Invalid GET login attempt" });
-  });
 
   app.post("/api/auth/login", async (req, res) => {
     try {
