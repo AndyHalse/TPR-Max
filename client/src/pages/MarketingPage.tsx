@@ -29,7 +29,7 @@ import {
 
 // Import ACS logo and screenshots
 import acsLogo from "@assets/acs-logo-2460A9-200px.jpg";
-import dashboardImg from "@assets/Screenshot 2025-08-24 at 14.24.53_1756038339122.png";
+import dashboardImg from "@assets/Screenshot 2025-09-16 at 13.39.01_1758022774224.png";
 import kioskImg from "@assets/Screenshot 2025-08-24 at 16.05.36_1756044356361.png";
 import thermalImg from "@assets/ID Card printer_1756400844599.png";
 
