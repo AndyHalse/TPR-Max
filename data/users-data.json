@@ -2,28 +2,31 @@
   {
     "id": "aea47885-0257-4b8b-a4ee-a1791d1d5655",
     "username": "Andy",
-    "password": "$2b$10$JotzM4ne75q5v3DMU4QGoOup.zCbRzu89H5J4xHbnqlGt52pGET8S",
+    "password": "$2b$10$BDXPAxx4lfp6OLESTRmd7eu.cfRVobZFFxyDyURhAk3Fz2Kmw9w02",
     "email": null,
     "role": "user",
     "isActive": true,
-    "createdAt": "2025-08-31T12:35:23.515Z"
+    "createdAt": "2025-08-31T12:35:23.515Z",
+    "customerId": "dev-customer-001"
   },
   {
     "id": "9a09df1c-f6e3-4de2-aa13-8d6ebdb53480",
     "username": "Emma",
-    "password": "$2b$10$8QVOE3tHzsLPrp3.WMk/7.tDt69JHNsUOtxnSSAZdj2QJP4LHjzLS",
+    "password": "$2b$10$iyrQtqv7nsTGXpwy2mE3yOutdxFEOimScouuPyLL1zp/buBHaMjAm",
     "email": null,
     "role": "user",
     "isActive": true,
-    "createdAt": "2025-09-03T00:34:07.643Z"
+    "createdAt": "2025-09-03T00:34:07.643Z",
+    "customerId": "dev-customer-002"
   },
   {
     "id": "f0fec8be-ba9d-401f-a2d9-bfad8b9e3726",
     "username": "TestUser",
-    "password": "$2b$10$wZuYy1wO9sHA29YabUYyoufJCei5KMVE9KDXi7YLZ2w3X2K9bZd0S",
+    "password": "$2b$10$zX1EPy7dYKK6WVvQBwSfyexKUJj6SKnRCQFmQz8.tuTk7dp.aDuiS",
     "email": null,
     "role": "user",
     "isActive": true,
-    "createdAt": "2025-09-11T13:18:57.773Z"
+    "createdAt": "2025-09-11T13:18:57.773Z",
+    "customerId": "test-customer-trial"
   }
 ]
