@@ -3740,20 +3740,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION!
+  // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION AND SECURITY SANITIZATION!
   app.get("/api/settings", async (req, res) => {
     try {
-      // Import the simplified database service
+      // Import the simplified database service and sanitization helper
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const { sanitizeCompanySettings } = await import("@shared/schema");
       
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const settings = await simpleDatabaseService.getCompanySettings(context);
+      // Get raw settings and sanitize before returning to API
+      const rawSettings = await simpleDatabaseService.getCompanySettings(context);
+      const sanitizedSettings = sanitizeCompanySettings(rawSettings);
       
-      console.log(`🎨 Loading company settings FOR CUSTOMER: ${context.customerId}`);
-      res.json(settings);
+      console.log(`🎨 Loading SANITIZED company settings FOR CUSTOMER: ${context.customerId}`);
+      res.json(sanitizedSettings);
     } catch (error) {
       console.error('Settings fetch error:', error);
       res.status(500).json({ error: "Failed to fetch company settings" });
@@ -13059,29 +13062,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
-  // SETTINGS ENDPOINT - Required by frontend components
+  // DUPLICATE ROUTE REMOVED - Main /api/settings route handles company settings
   // ============================================================================
-  
-  app.get("/api/settings", async (req, res) => {
-    try {
-      // Return basic settings - can be expanded as needed
-      const settings = {
-        appName: 'VisiGate Pro',
-        version: '1.0.0',
-        supportedFeatures: ['contractor_management', 'hs_documents', 'printing'],
-        defaultTimeZone: 'Europe/London',
-        maxFileUploadSize: '10MB',
-        supportedPrinterTypes: ['tec', 'zebra'],
-        co2TrackingEnabled: true,
-        maintenanceMode: false
-      };
-      
-      res.json(settings);
-    } catch (error) {
-      console.error('Error fetching settings:', error);
-      res.status(500).json({ error: 'Failed to fetch settings' });
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;

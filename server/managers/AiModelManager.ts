@@ -18,10 +18,7 @@ if (process.env.OPENAI_PROJECT_ID) {
 
 const openai = new OpenAI(openaiConfig);
 
-// Log configuration for debugging (without exposing full key)
-console.log(`🔐 OpenAI configured with key: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`);
-if (process.env.OPENAI_ORG_ID) console.log(`🏢 Organization: ${process.env.OPENAI_ORG_ID}`);
-if (process.env.OPENAI_PROJECT_ID) console.log(`📁 Project: ${process.env.OPENAI_PROJECT_ID}`);
+// OpenAI configured - detailed logging disabled for security
 
 export class AiModelManager implements IAiChatClient {
   private readonly modelConfigs: ModelConfig[] = [

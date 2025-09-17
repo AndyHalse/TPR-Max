@@ -1634,16 +1634,12 @@ Powered by VisiGate Pro`;
       // Professional subject line
       const subject = `Contractor E-Pass - ${name} at ${companyName}`;
       
-      // Debug logging for H&S acceptance URL
+      // Generate base URL for H&S acceptance URL (environment variable logging disabled for security)
       const baseUrl = process.env.REPLIT_DOMAINS 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
         : (process.env.PUBLIC_URL || 'http://localhost:5000');
       const hsAcceptanceUrl = workerId ? `${baseUrl}/hs-contractor/${workerId}/accept-rules` : passUrl;
-      console.log(`🔗 DEBUG: Contractor H&S acceptance URL: ${hsAcceptanceUrl}`);
-      console.log(`🔗 DEBUG: PUBLIC_URL env var: ${process.env.PUBLIC_URL}`);
-      console.log(`🔗 DEBUG: REPLIT_DOMAINS env var: ${process.env.REPLIT_DOMAINS}`);
-      console.log(`🔗 DEBUG: Final baseUrl: ${baseUrl}`);
-      console.log(`🔗 DEBUG: workerId: ${workerId}`);
+      console.log(`🔗 Generated contractor H&S acceptance URL for worker: ${workerId || 'unknown'}`);
       
       const html = `
         <!DOCTYPE html>

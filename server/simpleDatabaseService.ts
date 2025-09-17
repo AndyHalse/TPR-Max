@@ -64,7 +64,16 @@ export class SimpleDatabaseService {
         .from(isolatedSchema.companySettings)
         .limit(1);
       
-      return settings[0];
+      const result = settings[0];
+      if (!result) {
+        return undefined;
+      }
+      
+      // SECURITY: Exclude sensitive fields from API responses
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { smtpPassword, ...sanitizedSettings } = result;
+      
+      return sanitizedSettings as CompanySettings;
     } catch (error: any) {
       // Handle schema mismatches gracefully (e.g., missing columns like last_daily_reset)
       if (error.code === '42703') {

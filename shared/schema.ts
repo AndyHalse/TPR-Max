@@ -2007,3 +2007,46 @@ export type WorkerDocumentAcceptance = typeof workerDocumentAcceptances.$inferSe
 export type InsertWorkerDocumentAcceptance = z.infer<typeof insertWorkerDocumentAcceptanceSchema>;
 export type DocumentAutoFillMapping = typeof documentAutoFillMapping.$inferSelect;
 export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFillMappingSchema>;
+
+// SECURITY: Company Settings Types with Sanitization
+export type CompanySettings = typeof companySettings.$inferSelect;
+export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+
+// SECURITY: Sanitized Company Settings type - EXCLUDES sensitive fields for API responses
+export type SanitizedCompanySettings = Omit<CompanySettings, 
+  | 'smtpPassword'
+  | 'smtpUsername' 
+  | 'biostarPassword'
+  | 'biostarApiKey'
+  | 'clueApiKey'
+  | 'clueApiSecret'
+  | 'clueWebhookSecret'
+  | 'twilioAuthToken'
+>;
+
+/**
+ * SECURITY: Sanitize company settings for API responses
+ * This function removes sensitive fields like passwords, API keys, and secrets
+ * to prevent accidental exposure through API endpoints.
+ * 
+ * @param settings Raw company settings from database
+ * @returns Sanitized settings safe for API responses
+ */
+export function sanitizeCompanySettings(settings: CompanySettings | null | undefined): SanitizedCompanySettings | null {
+  if (!settings) return null;
+  
+  // Create a copy and remove sensitive fields
+  const { 
+    smtpPassword,
+    smtpUsername,
+    biostarPassword,
+    biostarApiKey,
+    clueApiKey,
+    clueApiSecret,
+    clueWebhookSecret,
+    twilioAuthToken,
+    ...sanitizedSettings 
+  } = settings;
+  
+  return sanitizedSettings;
+}

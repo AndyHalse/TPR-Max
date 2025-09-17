@@ -9,8 +9,7 @@ import type { Visitor, Staff, CompanySettings, AiGeneratedImage, InsertAiGenerat
 // This API key is from Gemini Developer API Key, not vertex AI API Key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-// Log configuration for debugging (without exposing full key)
-console.log(`🔐 GeminiService configured with key: ${process.env.GEMINI_API_KEY?.substring(0, 7)}...`);
+// GeminiService initialized - configuration logging disabled for security
 
 export class GeminiService {
 

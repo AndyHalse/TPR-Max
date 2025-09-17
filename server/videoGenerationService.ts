@@ -297,7 +297,6 @@ export class VideoGenerationService {
     try {
       console.log(`🔧 Starting script generation with comprehensive logging...`);
       console.log(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
-      console.log(`🔧 OpenAI API key configured: ${process.env.OPENAI_API_KEY ? 'YES' : 'NO'}`);
       
       if (!process.env.OPENAI_API_KEY) {
         throw new Error('CRITICAL: OpenAI API key not configured');
