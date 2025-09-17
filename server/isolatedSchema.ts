@@ -80,6 +80,7 @@ export const evacuationAccountability = pgTable("evacuation_accountability", {
 
 export const visitors = pgTable("visitors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email"),
