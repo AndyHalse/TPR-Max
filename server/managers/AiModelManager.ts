@@ -5,6 +5,7 @@
 import OpenAI from "openai";
 import type { ModelConfig, AiModelOptions, Result, IAiChatClient } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
+import { OpenAIErrorHandler } from '../utils/openaiErrorHandler';
 
 // Support organization and project IDs to ensure correct billing context
 const openaiConfig: any = {
@@ -99,12 +100,36 @@ export class AiModelManager implements IAiChatClient {
         return result;
       }
 
-      console.log(`⚠️ Model ${config.name} failed: ${result.error?.message}`);
+      // Check if we should try a different model based on the error type
+      const shouldTryDifferent = OpenAIErrorHandler.shouldTryDifferentModel(result.error);
+      
+      if (shouldTryDifferent) {
+        console.log(`🔄 Model ${config.name} not available, trying next model...`);
+      } else {
+        console.log(`⚠️ Model ${config.name} failed: ${result.error?.message}`);
+      }
+      
       lastError = result.error || new Error(`Unknown error with ${config.name}`);
     }
 
-    console.log(`🚨 All AI models failed, last error: ${lastError?.message}`);
-    return ResultUtils.error(lastError || new Error('All AI models failed'));
+    // Provide comprehensive error information when all models fail
+    if (lastError) {
+      const errorResult = OpenAIErrorHandler.handleError(lastError);
+      console.log(`🚨 All AI models failed: ${errorResult.userMessage}`);
+      
+      if (!errorResult.isRecoverable) {
+        console.log('💡 This error may require configuration changes or support assistance');
+      }
+      
+      // Enhance the error with user-friendly information
+      const enhancedError = new Error(errorResult.userMessage);
+      (enhancedError as any).isRecoverable = errorResult.isRecoverable;
+      (enhancedError as any).technicalMessage = errorResult.technicalMessage;
+      
+      return ResultUtils.error(enhancedError);
+    }
+    
+    return ResultUtils.error(new Error('All AI models failed - no specific error available'));
   }
 
   private async tryModelWithRetry(
@@ -140,14 +165,31 @@ export class AiModelManager implements IAiChatClient {
         return ResultUtils.success(content);
 
       } catch (error: any) {
-        console.error(`❌ Attempt ${attempt} failed for ${config.name}:`, error.message);
+        const errorResult = OpenAIErrorHandler.handleError(error);
+        
+        console.error(`❌ Attempt ${attempt} failed for ${config.name}: ${errorResult.technicalMessage}`);
+        
+        // Log the error with context but don't expose sensitive info
+        if (attempt === 1) {
+          OpenAIErrorHandler.logError(error, `AiModelManager.${config.name}`);
+        }
         
         if (attempt === maxAttempts) {
-          return ResultUtils.error(error as Error);
+          // Return enhanced error information for final failure
+          const enhancedError = new Error(errorResult.userMessage);
+          (enhancedError as any).isRecoverable = errorResult.isRecoverable;
+          (enhancedError as any).shouldRetry = errorResult.shouldRetry;
+          (enhancedError as any).technicalMessage = errorResult.technicalMessage;
+          
+          return ResultUtils.error(enhancedError);
         }
 
-        // Exponential backoff before retry
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        // Use error-specific delay or exponential backoff
+        const errorDelay = errorResult.retryDelay;
+        const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        const delay = errorDelay || backoffDelay;
+        
+        console.log(`⏳ Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

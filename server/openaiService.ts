@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { OpenAIErrorHandler } from "./utils/openaiErrorHandler";
 
 // Using javascript_openai blueprint
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
@@ -56,11 +57,43 @@ export async function generateCompanyDescription(website: string, companyName: s
     };
 
   } catch (error) {
-    console.error('Error generating company description:', error);
+    const errorResult = OpenAIErrorHandler.handleError(error);
+    OpenAIErrorHandler.logError(error, 'generateCompanyDescription');
+    
+    // Provide a basic fallback description when AI fails
+    const fallbackDescription = generateFallbackDescription(companyName, industry);
+    
     return {
-      description: '',
+      description: fallbackDescription,
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate description'
+      error: errorResult.userMessage
     };
   }
+}
+
+/**
+ * Generate a basic fallback description when AI service is unavailable
+ */
+function generateFallbackDescription(companyName: string, industry?: string): string {
+  if (!companyName) {
+    return 'Professional contractor providing specialized services.';
+  }
+
+  const industryDescriptions: Record<string, string> = {
+    'construction': 'construction and building services',
+    'electrical': 'electrical installation and maintenance services',
+    'plumbing': 'plumbing and heating services',
+    'roofing': 'roofing and exterior building services',
+    'hvac': 'heating, ventilation, and air conditioning services',
+    'security': 'security and surveillance services',
+    'cleaning': 'professional cleaning and maintenance services',
+    'landscaping': 'landscaping and groundskeeping services',
+    'technology': 'technology and IT services',
+    'consulting': 'professional consulting services'
+  };
+
+  const industryKey = industry?.toLowerCase() || '';
+  const serviceDescription = industryDescriptions[industryKey] || 'professional contractor services';
+
+  return `${companyName} is a professional contractor specializing in ${serviceDescription}. The company provides reliable, high-quality solutions to meet client requirements and maintain industry standards.`;
 }

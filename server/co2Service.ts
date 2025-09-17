@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { OpenAIErrorHandler } from './utils/openaiErrorHandler';
 
 interface DistanceCalculation {
   distanceMiles: number;
@@ -93,7 +94,11 @@ Only return valid JSON, no additional text.`;
 
       return distanceData;
     } catch (error) {
-      console.error('Error calculating distance with OpenAI:', error);
+      const errorResult = OpenAIErrorHandler.handleError(error);
+      OpenAIErrorHandler.logError(error, 'CO2Service.calculateDistance');
+      
+      // For distance calculation, we can always provide a fallback
+      console.warn(`⚠️ Distance calculation fallback: ${errorResult.userMessage}`);
       
       // Fallback: Basic postcode distance estimation
       // This is a rough approximation based on UK postcode system
@@ -147,7 +152,7 @@ Only return valid JSON, no additional text.`;
       transportMethod: string;
       monthlyCO2: number;
     }>
-  ): Promise<string> {
+  ): Promise<{report: string; success: boolean; error?: string}> {
     try {
       const prompt = `Generate a professional CO2 emissions sustainability report for ${companyName}.
 
@@ -187,10 +192,28 @@ Format as a comprehensive business report.`;
         max_tokens: 2000
       });
 
-      return response.choices[0]?.message?.content || 'Report generation failed';
+      const reportContent = response.choices[0]?.message?.content;
+      
+      if (!reportContent) {
+        throw new Error('No report content received from AI service');
+      }
+
+      return {
+        report: reportContent,
+        success: true
+      };
     } catch (error) {
-      console.error('Error generating sustainability report:', error);
-      return 'Unable to generate AI-powered sustainability report at this time.';
+      const errorResult = OpenAIErrorHandler.handleError(error);
+      OpenAIErrorHandler.logError(error, 'CO2Service.generateSustainabilityReport');
+      
+      // For reports, we can provide a basic fallback report
+      const fallbackReport = this.generateFallbackReport(companyName, totalWorkers, totalMonthlyCO2, workerBreakdown);
+      
+      return {
+        report: fallbackReport,
+        success: false,
+        error: errorResult.userMessage
+      };
     }
   }
 
@@ -209,6 +232,57 @@ Format as a comprehensive business report.`;
     
     // Different areas - estimate based on UK geography
     return Math.random() * 100 + 20; // 20-120 miles
+  }
+
+  /**
+   * Generate a basic fallback sustainability report when AI is unavailable
+   */
+  private generateFallbackReport(
+    companyName: string,
+    totalWorkers: number,
+    totalMonthlyCO2: number,
+    workerBreakdown: Array<any>
+  ): string {
+    const avgCO2PerWorker = totalMonthlyCO2 / totalWorkers;
+    const annualCO2 = totalMonthlyCO2 * 12;
+    
+    return `# CO2 EMISSIONS SUSTAINABILITY REPORT
+Company: ${companyName}
+Generated: ${new Date().toLocaleDateString('en-GB')}
+
+## EXECUTIVE SUMMARY
+This report analyzes the carbon footprint of ${totalWorkers} contractor workers associated with ${companyName}. The analysis is based on commuting distances and transportation methods.
+
+## CURRENT EMISSIONS STATUS
+- Total contractor workers: ${totalWorkers}
+- Monthly CO2 emissions: ${totalMonthlyCO2.toFixed(2)} kg
+- Annual projected emissions: ${annualCO2.toFixed(2)} kg  
+- Average emissions per worker: ${avgCO2PerWorker.toFixed(2)} kg/month
+
+## ENVIRONMENTAL IMPACT
+The current annual emissions of ${annualCO2.toFixed(2)} kg CO2 is equivalent to:
+- Planting ${Math.round(annualCO2 / 22)} trees to offset (based on 22kg CO2/tree/year)
+- ${(annualCO2 / 2300).toFixed(1)} average UK household's yearly emissions (2.3 tonnes)
+
+## RECOMMENDATIONS FOR REDUCTION
+1. **Electric Vehicle Transition**: Encourage contractors to switch to electric vehicles
+2. **Public Transport**: Promote public transport use for shorter distances (<30 miles)  
+3. **Car Sharing**: Implement lift-sharing schemes between contractors
+4. **Remote Work**: Reduce travel through remote meetings and digital collaboration
+
+## ACTION PLAN
+- Immediate (0-3 months): Survey contractors on transport preferences
+- Short-term (3-6 months): Implement car sharing platform
+- Medium-term (6-12 months): Provide EV charging points or allowances
+- Long-term (12+ months): Monitor and report quarterly emissions
+
+## COMPLIANCE & REPORTING
+This basic assessment provides a foundation for:
+- SECR (Streamlined Energy and Carbon Reporting) compliance
+- Scope 3 emissions reporting under GHG Protocol
+- ESG (Environmental, Social, Governance) reporting
+
+*Note: This is a basic assessment. A detailed AI-generated report with industry benchmarks and advanced analytics is temporarily unavailable.*`;
   }
 
   /**
