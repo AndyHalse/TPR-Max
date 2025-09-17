@@ -78,7 +78,7 @@ function Router() {
     );
   }
   
-  // Robust authentication with fallback for browser restrictions
+  // Secure authentication - requires valid server session
   const { data: user, isLoading, error, isError } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
@@ -90,14 +90,7 @@ function Router() {
         console.log("📥 [AUTH QUERY] Response status:", res.status);
         
         if (res.status === 401) {
-          console.log("❌ [AUTH QUERY] Unauthenticated (401) - checking localStorage fallback...");
-          // Check localStorage fallback for browser restrictions
-          const fallbackUser = localStorage.getItem('visigate_user');
-          if (fallbackUser) {
-            console.log("✅ [AUTH QUERY] Found localStorage fallback user");
-            return JSON.parse(fallbackUser);
-          }
-          console.log("❌ [AUTH QUERY] No fallback user found - returning null");
+          console.log("❌ [AUTH QUERY] Unauthenticated (401) - no valid session");
           return null;
         }
         if (!res.ok) {
@@ -108,13 +101,7 @@ function Router() {
         return userData;
       } catch (error) {
         console.log("💥 [AUTH QUERY] Network error:", error);
-        // If auth fails due to browser restrictions, check localStorage fallback
-        const fallbackUser = localStorage.getItem('visigate_user');
-        if (fallbackUser) {
-          console.log("✅ [AUTH QUERY] Using localStorage fallback due to network error");
-          return JSON.parse(fallbackUser);
-        }
-        console.log("❌ [AUTH QUERY] No fallback available - returning null");
+        console.log("❌ [AUTH QUERY] No valid authentication available");
         return null;
       }
     },

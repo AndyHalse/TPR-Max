@@ -110,10 +110,7 @@ export class DatabaseService {
     const staff = await db
       .select()
       .from(isolatedSchema.staff)
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.id, id)
-      ))
+      .where(eq(isolatedSchema.staff.id, id))
       .limit(1);
     
     return staff[0];
@@ -132,7 +129,6 @@ export class DatabaseService {
       .insert(isolatedSchema.staff)
       .values({
         ...insertStaff,
-        customerId: context.customerId,
         password: hashedPassword,
       })
       .returning();
@@ -150,10 +146,7 @@ export class DatabaseService {
     const updated = await db
       .update(isolatedSchema.staff)
       .set({ ...updates, updatedAt: new Date() })
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.id, id)
-      ))
+      .where(eq(isolatedSchema.staff.id, id))
       .returning();
     
     return updated[0];
@@ -164,10 +157,7 @@ export class DatabaseService {
     
     const deleted = await db
       .delete(isolatedSchema.staff)
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.id, id)
-      ))
+      .where(eq(isolatedSchema.staff.id, id))
       .returning();
     
     return deleted.length > 0;
@@ -185,10 +175,7 @@ export class DatabaseService {
         manualCheckIn: manual,
         updatedAt: new Date()
       })
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.id, id)
-      ))
+      .where(eq(isolatedSchema.staff.id, id))
       .returning();
     
     if (updated[0]) {
@@ -217,10 +204,7 @@ export class DatabaseService {
         checkedOutAt: new Date(),
         updatedAt: new Date()
       })
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.id, id)
-      ))
+      .where(eq(isolatedSchema.staff.id, id))
       .returning();
     
     if (updated[0]) {
@@ -229,7 +213,6 @@ export class DatabaseService {
         .select()
         .from(isolatedSchema.staffAttendanceHistory)
         .where(and(
-          eq(isolatedSchema.staffAttendanceHistory.customerId, context.customerId),
           eq(isolatedSchema.staffAttendanceHistory.staffId, id),
           isNull(isolatedSchema.staffAttendanceHistory.checkOutTime)
         ))
@@ -1111,20 +1094,14 @@ export class DatabaseService {
     const [staff] = await db
       .select()
       .from(isolatedSchema.staff)
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.id, id)
-      ));
+      .where(eq(isolatedSchema.staff.id, id));
     
     if (!staff) return false;
     
     await db
       .update(isolatedSchema.staff)
       .set({ isAccountedFor: !staff.isAccountedFor })
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.id, id)
-      ));
+      .where(eq(isolatedSchema.staff.id, id));
     
     return true;
   }

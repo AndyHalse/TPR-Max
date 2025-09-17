@@ -52,9 +52,6 @@ export default function Login() {
       if (response.ok && data.success) {
         console.log("🎉 Login successful!");
         
-        // Store user in localStorage as fallback for browser restrictions
-        localStorage.setItem('visigate_user', JSON.stringify(data.user));
-        
         toast({
           title: "Login Successful",
           description: `Welcome back, ${data.user.username}!`,
