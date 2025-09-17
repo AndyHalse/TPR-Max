@@ -6,6 +6,7 @@ import * as schema from "@shared/schema";
 import * as isolatedSchema from "./isolatedSchema";
 import type { Customer } from "@shared/schema";
 import { databaseProvisioningService } from "./databaseProvisioningService";
+import { createMigrationRunner } from "./migrationRunner";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -30,6 +31,7 @@ export class CustomerDatabaseService {
   private static instance: CustomerDatabaseService;
   private customerConnections: Map<string, ReturnType<typeof drizzle>> = new Map();
   private customerPools: Map<string, Pool> = new Map();
+  private migrationRunner = createMigrationRunner(this);
 
   private constructor() {}
 
@@ -83,6 +85,15 @@ export class CustomerDatabaseService {
     this.customerConnections.set(customerId, db);
 
     console.log(`✅ Connected to isolated database for customer: ${customer.companyName} (${customerId})`);
+    
+    // Run schema migrations to ensure database is up to date
+    try {
+      await this.migrationRunner.ensureSchema(customerId);
+    } catch (error) {
+      console.error(`⚠️ Schema migration failed for customer ${customerId}:`, error);
+      // Don't throw - allow connection to proceed as migrations are best-effort
+    }
+    
     return db;
   }
 

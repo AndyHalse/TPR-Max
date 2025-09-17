@@ -346,6 +346,104 @@ export const companySettings = pgTable("company_settings", {
   enable2dBarcodes: boolean("enable_2d_barcodes").default(false),
   barcodeFormat: text("barcode_format").default("QR_CODE"), // QR_CODE, DATA_MATRIX, PDF417
   printQuality: text("print_quality").default("normal"), // draft, normal, high
+  // ID Card printer settings
+  idCardPrinter: text("id_card_printer").default(""),
+  idCardPrintQuality: text("id_card_print_quality").default("high"), // draft, normal, high
+  idCardPaperSize: text("id_card_paper_size").default("cr80"), // cr80 (standard card size), cr79, custom
+  idCardOrientation: text("id_card_orientation").default("landscape"), // portrait, landscape
+  idCardDesign: text("id_card_design").default("[]"), // JSON string storing card element positions and styles
+  // Thermal Pass Designs for B-FV4D Printer (95mm x 65mm)
+  visitorPassDesign: text("visitor_pass_design").default("[]"), // JSON string storing visitor thermal pass layout
+  contractorPassDesign: text("contractor_pass_design").default("[]"), // JSON string storing contractor thermal pass layout
+  // Thermal Printer Settings for Pass Designer
+  thermalSelectedPrinter: text("thermal_selected_printer").default("tec"), // tec, zebra
+  thermalPrintMethod: text("thermal_print_method").default("direct"), // direct, browser, windows
+  thermalPrintQuality: text("thermal_print_quality").default("reception"), // reception, security, visitor
+  thermalPrinterSettings: text("thermal_printer_settings").default("{}"), // JSON string storing printer configuration
+  // Suprema Biostar integration settings
+  biostarEnabled: boolean("biostar_enabled").default(false),
+  biostarServerUrl: text("biostar_server_url").default(""), // e.g., "https://your-biostar-server.com:8443"
+  biostarApiKey: text("biostar_api_key").default(""),
+  biostarUsername: text("biostar_username").default(""),
+  biostarPassword: text("biostar_password").default(""),
+  biostarDatabaseId: text("biostar_database_id").default("1"), // Default database ID
+  biostarSyncInterval: text("biostar_sync_interval").default("300"), // Sync every 5 minutes (300 seconds)
+  // Biometric reader device settings
+  biometricDevices: text("biometric_devices").array().default([]), // Array of configured device IDs
+  readerSettings: text("reader_settings").default("{}"), // JSON string for device-specific settings
+  // AI and Video Generation Settings
+  openaiModel: text("openai_model").default("gpt-5"), // gpt-4, gpt-5, gpt-6, gpt-7
+  openaiTemperature: text("openai_temperature").default("0.7"), // 0.0-2.0 for creativity control
+  openaiMaxTokens: text("openai_max_tokens").default("4000"), // Token limit per request
+  videoQualityPreference: text("video_quality_preference").default("high"), // low, medium, high, ultra
+  enableAdvancedVideoFeatures: boolean("enable_advanced_video_features").default(true),
+  defaultVideoLength: text("default_video_length").default("15"), // minutes
+  aiInstructionsPrompt: text("ai_instructions_prompt").default("Create comprehensive, engaging safety induction content"),
+  // QR Code Reader Integration Settings
+  qrReaderEnabled: boolean("qr_reader_enabled").default(false),
+  qrReaderDevice: text("qr_reader_device").default("auto"), // auto, hid, serial, usb
+  qrCodeFormat: text("qr_code_format").default("visigate"), // visigate, uuid, custom
+  qrReaderSettings: text("qr_reader_settings").default("{}"), // JSON string for device-specific settings
+  
+  // Suprema CLUe Cloud Platform Integration
+  clueEnabled: boolean("clue_enabled").default(false),
+  clueApiUrl: text("clue_api_url").default("https://api.suprema-clue.com"), // CLUe API endpoint
+  clueApiKey: text("clue_api_key").default(""), // CLUe API key for authentication
+  clueApiSecret: text("clue_api_secret").default(""), // CLUe API secret
+  clueOrganizationId: text("clue_organization_id").default(""), // Organization ID in CLUe
+  clueWebhookSecret: text("clue_webhook_secret").default(""), // Secret for webhook verification
+  clueDynamicQrEnabled: boolean("clue_dynamic_qr_enabled").default(true), // Enable dynamic QR codes
+  clueQrValidityMinutes: text("clue_qr_validity_minutes").default("60"), // QR code validity period
+  clueDeviceGroups: text("clue_device_groups").array().default([]), // X-Station 2 device group IDs
+  clueSyncInterval: text("clue_sync_interval").default("300"), // Sync every 5 minutes (300 seconds)
+  clueAutoRegisterVisitors: boolean("clue_auto_register_visitors").default(true), // Auto-register visitors in CLUe
+  clueAutoDeleteExpired: boolean("clue_auto_delete_expired").default(true), // Auto-delete expired QR codes
+  clueTestMode: boolean("clue_test_mode").default(false), // Test mode for development
+  clueLastSync: timestamp("clue_last_sync"), // Last successful sync timestamp
+  
+  // E-Pass Configuration Settings
+  ePassEnabled: boolean("e_pass_enabled").default(false),
+  ePassDeliveryMethod: text("e_pass_delivery_method").default("both"), // email, sms, both, choice
+  ePassEmailTemplate: text("e_pass_email_template").default("default"), // default, custom
+  ePassSmsTemplate: text("e_pass_sms_template").default("default"), // default, custom
+  ePassAutoCheckout: boolean("e_pass_auto_checkout").default(true),
+  ePassCheckoutReminderMinutes: text("e_pass_checkout_reminder_minutes").default("30"), // Minutes before expected departure
+  ePassHostNotificationEnabled: boolean("e_pass_host_notification_enabled").default(true),
+  ePassHostNotificationDelay: text("e_pass_host_notification_delay").default("60"), // Minutes after expected departure
+  
+  // Twilio SMS Configuration
+  twilioEnabled: boolean("twilio_enabled").default(false),
+  twilioAccountSid: text("twilio_account_sid").default(""),
+  twilioAuthToken: text("twilio_auth_token").default(""),
+  twilioPhoneNumber: text("twilio_phone_number").default(""),
+  twilioMessagingServiceSid: text("twilio_messaging_service_sid").default(""),
+  
+  // Geofencing Configuration
+  geofencingEnabled: boolean("geofencing_enabled").default(false),
+  geofenceRadius: text("geofence_radius").default("100"), // meters
+  geofenceLat: text("geofence_lat").default(""),
+  geofenceLng: text("geofence_lng").default(""),
+  
+  // BioStar X-Station 2 Integration
+  xStationEnabled: boolean("x_station_enabled").default(false),
+  xStationDevices: text("x_station_devices").array().default([]), // Array of X-Station device IDs/IPs
+  xStationCheckoutMode: text("x_station_checkout_mode").default("qr"), // qr, face, both
+  xStationApiEndpoint: text("x_station_api_endpoint").default(""),
+  
+  // Health & Safety Rules
+  hsRulesEnabled: boolean("hs_rules_enabled").default(true),
+  hsRulesContent: text("hs_rules_content").default(""),
+  hsRulesUrl: text("hs_rules_url").default(""), // External URL for H&S rules if not using internal content
+  hsRulesRequireAcceptance: boolean("hs_rules_require_acceptance").default(false),
+  
+  // Feature Toggles - Allow customers to disable unused features for simplified UI
+  featureMultiTenant: boolean("feature_multi_tenant").default(true),
+  featureMeetingRooms: boolean("feature_meeting_rooms").default(true),
+  featureTimeAttendance: boolean("feature_time_attendance").default(true),
+  featureInductionSettings: boolean("feature_induction_settings").default(true),
+  featureKiosk: boolean("feature_kiosk").default(true),
+  featureAiDemo: boolean("feature_ai_demo").default(true),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
