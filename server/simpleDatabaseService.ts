@@ -3,8 +3,10 @@ import { db } from "./db";
 import type {
   CompanySettings,
   InsertCompanySettings,
-} from "@shared/schema";
+} from "./isolatedSchema";
 import * as schema from "@shared/schema";
+import * as isolatedSchema from "./isolatedSchema";
+import { customerDbService } from "./customerDatabase";
 
 export interface CustomerContext {
   customerId: string;
@@ -54,10 +56,11 @@ export class SimpleDatabaseService {
   async getCompanySettings(context: CustomerContext): Promise<CompanySettings | undefined> {
     console.log(`🔍 Getting company settings for customer: ${context.customerId}`);
     
-    const settings = await db
+    // Use customer isolated database - no customerId filter needed
+    const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+    const settings = await customerDb
       .select()
-      .from(schema.companySettings)
-      .where(eq(schema.companySettings.customerId, context.customerId))
+      .from(isolatedSchema.companySettings)
       .limit(1);
     
     return settings[0];
@@ -87,6 +90,7 @@ export class SimpleDatabaseService {
       return updated[0];
     } else {
       // Create new settings for this customer with UK H&S rules
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       const defaultHSRules = `# Health & Safety Rules and Regulations
 
 ## General Safety Rules

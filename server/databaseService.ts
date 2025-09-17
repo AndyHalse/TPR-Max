@@ -109,10 +109,10 @@ export class DatabaseService {
     
     const staff = await db
       .select()
-      .from(schema.staff)
+      .from(isolatedSchema.staff)
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, id)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, id)
       ))
       .limit(1);
     
@@ -129,7 +129,7 @@ export class DatabaseService {
     }
     
     const created = await db
-      .insert(schema.staff)
+      .insert(isolatedSchema.staff)
       .values({
         ...insertStaff,
         customerId: context.customerId,
@@ -148,11 +148,11 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const updated = await db
-      .update(schema.staff)
+      .update(isolatedSchema.staff)
       .set({ ...updates, updatedAt: new Date() })
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, id)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, id)
       ))
       .returning();
     
@@ -163,10 +163,10 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const deleted = await db
-      .delete(schema.staff)
+      .delete(isolatedSchema.staff)
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, id)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, id)
       ))
       .returning();
     
@@ -178,7 +178,7 @@ export class DatabaseService {
     
     // Update staff record
     const updated = await db
-      .update(schema.staff)
+      .update(isolatedSchema.staff)
       .set({ 
         isCheckedIn: true,
         checkedInAt: new Date(),
@@ -186,14 +186,14 @@ export class DatabaseService {
         updatedAt: new Date()
       })
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, id)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, id)
       ))
       .returning();
     
     if (updated[0]) {
       // Create attendance history record
-      await db.insert(schema.staffAttendanceHistory).values({
+      await db.insert(isolatedSchema.staffAttendanceHistory).values({
         customerId: context.customerId,
         staffId: id,
         checkInTime: new Date(),
@@ -211,15 +211,15 @@ export class DatabaseService {
     
     // Update staff record
     const updated = await db
-      .update(schema.staff)
+      .update(isolatedSchema.staff)
       .set({ 
         isCheckedIn: false,
         checkedOutAt: new Date(),
         updatedAt: new Date()
       })
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, id)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, id)
       ))
       .returning();
     
@@ -227,13 +227,13 @@ export class DatabaseService {
       // Find the most recent unclosed attendance record
       const openSession = await db
         .select()
-        .from(schema.staffAttendanceHistory)
+        .from(isolatedSchema.staffAttendanceHistory)
         .where(and(
-          eq(schema.staffAttendanceHistory.customerId, context.customerId),
-          eq(schema.staffAttendanceHistory.staffId, id),
-          isNull(schema.staffAttendanceHistory.checkOutTime)
+          eq(isolatedSchema.staffAttendanceHistory.customerId, context.customerId),
+          eq(isolatedSchema.staffAttendanceHistory.staffId, id),
+          isNull(isolatedSchema.staffAttendanceHistory.checkOutTime)
         ))
-        .orderBy(desc(schema.staffAttendanceHistory.checkInTime))
+        .orderBy(desc(isolatedSchema.staffAttendanceHistory.checkInTime))
         .limit(1);
       
       if (openSession[0]) {
@@ -244,13 +244,13 @@ export class DatabaseService {
         
         // Update the attendance history record
         await db
-          .update(schema.staffAttendanceHistory)
+          .update(isolatedSchema.staffAttendanceHistory)
           .set({
             checkOutTime: checkOutTime,
             durationMinutes: durationMinutes,
             checkoutType: 'user'
           })
-          .where(eq(schema.staffAttendanceHistory.id, openSession[0].id));
+          .where(eq(isolatedSchema.staffAttendanceHistory.id, openSession[0].id));
       }
     }
     
@@ -265,9 +265,8 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.visitors)
-      .where(eq(schema.visitors.customerId, context.customerId))
-      .orderBy(desc(schema.visitors.checkedInAt));
+      .from(isolatedSchema.visitors)
+      .orderBy(desc(isolatedSchema.visitors.checkedInAt));
   }
 
   async getTodaysVisitors(context: CustomerContext): Promise<Visitor[]> {
@@ -280,13 +279,13 @@ export class DatabaseService {
 
     return await db
       .select()
-      .from(schema.visitors)
+      .from(isolatedSchema.visitors)
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        gte(schema.visitors.checkedInAt, today),
-        lt(schema.visitors.checkedInAt, tomorrow)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        gte(isolatedSchema.visitors.checkedInAt, today),
+        lt(isolatedSchema.visitors.checkedInAt, tomorrow)
       ))
-      .orderBy(desc(schema.visitors.checkedInAt));
+      .orderBy(desc(isolatedSchema.visitors.checkedInAt));
   }
 
   async getCurrentVisitors(context: CustomerContext): Promise<Visitor[]> {
@@ -294,12 +293,9 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.visitors)
-      .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.isCheckedIn, true)
-      ))
-      .orderBy(desc(schema.visitors.checkedInAt));
+      .from(isolatedSchema.visitors)
+      .where(eq(isolatedSchema.visitors.isCheckedIn, true))
+      .orderBy(desc(isolatedSchema.visitors.checkedInAt));
   }
 
   async createVisitor(context: CustomerContext, insertVisitor: InsertVisitor): Promise<Visitor> {
@@ -308,7 +304,7 @@ export class DatabaseService {
     const qrCode = `VIS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const created = await db
-      .insert(schema.visitors)
+      .insert(isolatedSchema.visitors)
       .values({
         ...insertVisitor,
         customerId: context.customerId,
@@ -350,11 +346,11 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const updated = await db
-      .update(schema.visitors)
+      .update(isolatedSchema.visitors)
       .set({ ...updates, updatedAt: new Date() })
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, id)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.id, id)
       ))
       .returning();
     
@@ -370,7 +366,7 @@ export class DatabaseService {
     
     const checkOutTime = new Date();
     const updated = await db
-      .update(schema.visitors)
+      .update(isolatedSchema.visitors)
       .set({ 
         isCheckedIn: false, 
         checkedOutAt: checkOutTime,
@@ -378,8 +374,8 @@ export class DatabaseService {
         updatedAt: new Date()
       })
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, id)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.id, id)
       ))
       .returning();
     
@@ -388,19 +384,19 @@ export class DatabaseService {
       // Find the open history record (one without checkout time)
       const openHistoryRecord = await db
         .select()
-        .from(schema.visitorHistory)
+        .from(isolatedSchema.visitorHistory)
         .where(and(
-          eq(schema.visitorHistory.customerId, context.customerId),
-          eq(schema.visitorHistory.visitorId, id),
-          isNull(schema.visitorHistory.checkOutTime)
+          eq(isolatedSchema.visitorHistory.customerId, context.customerId),
+          eq(isolatedSchema.visitorHistory.visitorId, id),
+          isNull(isolatedSchema.visitorHistory.checkOutTime)
         ))
-        .orderBy(desc(schema.visitorHistory.checkInTime))
+        .orderBy(desc(isolatedSchema.visitorHistory.checkInTime))
         .limit(1);
       
       if (openHistoryRecord.length > 0) {
         // Update existing history record with checkout time
         await db
-          .update(schema.visitorHistory)
+          .update(isolatedSchema.visitorHistory)
           .set({
             checkOutTime: checkOutTime,
             checkoutType: 'user',
@@ -410,7 +406,7 @@ export class DatabaseService {
             hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
             notes: visitor.notes
           })
-          .where(eq(schema.visitorHistory.id, openHistoryRecord[0].id));
+          .where(eq(isolatedSchema.visitorHistory.id, openHistoryRecord[0].id));
       } else {
         // If no open history record exists, create one (shouldn't normally happen)
         await this.createVisitorHistory(context, {
@@ -458,7 +454,7 @@ export class DatabaseService {
     }
     
     const [history] = await db
-      .insert(schema.visitorHistory)
+      .insert(isolatedSchema.visitorHistory)
       .values({
         ...historyData,
         customerId: context.customerId,
@@ -475,12 +471,12 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.visitorHistory)
+      .from(isolatedSchema.visitorHistory)
       .where(and(
-        eq(schema.visitorHistory.customerId, context.customerId),
-        eq(schema.visitorHistory.visitorId, visitorId)
+        eq(isolatedSchema.visitorHistory.customerId, context.customerId),
+        eq(isolatedSchema.visitorHistory.visitorId, visitorId)
       ))
-      .orderBy(desc(schema.visitorHistory.checkInTime));
+      .orderBy(desc(isolatedSchema.visitorHistory.checkInTime));
   }
   
   async getTenantCompanyById(context: CustomerContext, id: string): Promise<TenantCompany | undefined> {
@@ -488,10 +484,10 @@ export class DatabaseService {
     
     const [tenant] = await db
       .select()
-      .from(schema.tenantCompanies)
+      .from(isolatedSchema.tenantCompanies)
       .where(and(
-        eq(schema.tenantCompanies.customerId, context.customerId),
-        eq(schema.tenantCompanies.id, id)
+        eq(isolatedSchema.tenantCompanies.customerId, context.customerId),
+        eq(isolatedSchema.tenantCompanies.id, id)
       ))
       .limit(1);
     
@@ -503,10 +499,10 @@ export class DatabaseService {
     
     try {
       const result = await db
-        .delete(schema.visitors)
+        .delete(isolatedSchema.visitors)
         .where(and(
-          eq(schema.visitors.customerId, context.customerId),
-          eq(schema.visitors.id, id)
+          eq(isolatedSchema.visitors.customerId, context.customerId),
+          eq(isolatedSchema.visitors.id, id)
         ))
         .returning();
       
@@ -526,20 +522,20 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const whereConditions = [
-      eq(schema.visitors.customerId, context.customerId),
-      eq(schema.visitors.firstName, firstName),
-      eq(schema.visitors.lastName, lastName)
+      eq(isolatedSchema.visitors.customerId, context.customerId),
+      eq(isolatedSchema.visitors.firstName, firstName),
+      eq(isolatedSchema.visitors.lastName, lastName)
     ];
     
     if (company) {
-      whereConditions.push(eq(schema.visitors.company, company));
+      whereConditions.push(eq(isolatedSchema.visitors.company, company));
     }
     
     const [visitor] = await db
       .select()
-      .from(schema.visitors)
+      .from(isolatedSchema.visitors)
       .where(and(...whereConditions))
-      .orderBy(desc(schema.visitors.checkedInAt))
+      .orderBy(desc(isolatedSchema.visitors.checkedInAt))
       .limit(1);
     
     return visitor;
@@ -559,7 +555,7 @@ export class DatabaseService {
     
     const checkInTime = new Date();
     const updated = await db
-      .update(schema.visitors)
+      .update(isolatedSchema.visitors)
       .set({ 
         isCheckedIn: true,
         checkedInAt: checkInTime,
@@ -571,8 +567,8 @@ export class DatabaseService {
         updatedAt: new Date()
       })
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, id)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.id, id)
       ))
       .returning();
     
@@ -610,10 +606,10 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.departments)
+      .from(isolatedSchema.departments)
       .where(and(
-        eq(schema.departments.customerId, context.customerId),
-        eq(schema.departments.isActive, true)
+        eq(isolatedSchema.departments.customerId, context.customerId),
+        eq(isolatedSchema.departments.isActive, true)
       ));
   }
 
@@ -621,11 +617,11 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const departments = await db
-      .select({ name: schema.departments.name })
-      .from(schema.departments)
+      .select({ name: isolatedSchema.departments.name })
+      .from(isolatedSchema.departments)
       .where(and(
-        eq(schema.departments.customerId, context.customerId),
-        eq(schema.departments.isActive, true)
+        eq(isolatedSchema.departments.customerId, context.customerId),
+        eq(isolatedSchema.departments.isActive, true)
       ));
       
     return departments.map(dept => dept.name);
@@ -654,22 +650,22 @@ export class DatabaseService {
     // Get all staff for the customer
     const staff = await db
       .select()
-      .from(schema.staff)
+      .from(isolatedSchema.staff)
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.isActive, true)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.isActive, true)
       ));
     
     // Get attendance history for the date range
     const attendanceHistory = await db
       .select()
-      .from(schema.staffAttendanceHistory)
+      .from(isolatedSchema.staffAttendanceHistory)
       .where(and(
-        eq(schema.staffAttendanceHistory.customerId, context.customerId),
-        gte(schema.staffAttendanceHistory.checkInTime, fromDate),
-        lte(schema.staffAttendanceHistory.checkInTime, toDate)
+        eq(isolatedSchema.staffAttendanceHistory.customerId, context.customerId),
+        gte(isolatedSchema.staffAttendanceHistory.checkInTime, fromDate),
+        lte(isolatedSchema.staffAttendanceHistory.checkInTime, toDate)
       ))
-      .orderBy(asc(schema.staffAttendanceHistory.checkInTime));
+      .orderBy(asc(isolatedSchema.staffAttendanceHistory.checkInTime));
     
     // Group attendance records by staff ID
     const attendanceByStaff = new Map<string, typeof attendanceHistory>();
@@ -720,7 +716,7 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const created = await db
-      .insert(schema.departments)
+      .insert(isolatedSchema.departments)
       .values({
         ...insertDepartment,
         customerId: context.customerId,
@@ -734,11 +730,11 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const updated = await db
-      .update(schema.departments)
+      .update(isolatedSchema.departments)
       .set(updates)
       .where(and(
-        eq(schema.departments.id, id),
-        eq(schema.departments.customerId, context.customerId)
+        eq(isolatedSchema.departments.id, id),
+        eq(isolatedSchema.departments.customerId, context.customerId)
       ))
       .returning();
     
@@ -749,10 +745,10 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const result = await db
-      .delete(schema.departments)
+      .delete(isolatedSchema.departments)
       .where(and(
-        eq(schema.departments.id, id),
-        eq(schema.departments.customerId, context.customerId)
+        eq(isolatedSchema.departments.id, id),
+        eq(isolatedSchema.departments.customerId, context.customerId)
       ))
       .returning();
     
@@ -767,10 +763,10 @@ export class DatabaseService {
     
     const users = await db
       .select()
-      .from(schema.users)
+      .from(isolatedSchema.users)
       .where(and(
-        eq(schema.users.customerId, context.customerId),
-        eq(schema.users.username, username)
+        eq(isolatedSchema.users.customerId, context.customerId),
+        eq(isolatedSchema.users.username, username)
       ))
       .limit(1);
     
@@ -784,7 +780,7 @@ export class DatabaseService {
     const hashedPassword = await bcrypt.hash(insertUser.password, 10);
     
     const created = await db
-      .insert(schema.users)
+      .insert(isolatedSchema.users)
       .values({
         ...insertUser,
         customerId: context.customerId,
@@ -803,12 +799,12 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.staff)
+      .from(isolatedSchema.staff)
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.isCheckedIn, true)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.isCheckedIn, true)
       ))
-      .orderBy(desc(schema.staff.checkedInAt));
+      .orderBy(desc(isolatedSchema.staff.checkedInAt));
   }
 
   /**
@@ -820,18 +816,18 @@ export class DatabaseService {
     // Get department analytics with visitor counts
     const results = await db
       .select({
-        department: schema.staff.department,
-        visitorCount: sql<number>`COUNT(DISTINCT ${schema.visitors.id})`,
-        staffCount: sql<number>`COUNT(DISTINCT ${schema.staff.id})`
+        department: isolatedSchema.staff.department,
+        visitorCount: sql<number>`COUNT(DISTINCT ${isolatedSchema.visitors.id})`,
+        staffCount: sql<number>`COUNT(DISTINCT ${isolatedSchema.staff.id})`
       })
-      .from(schema.staff)
-      .leftJoin(schema.visitors, and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.hostStaffId, schema.staff.id)
+      .from(isolatedSchema.staff)
+      .leftJoin(isolatedSchema.visitors, and(
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.hostStaffId, isolatedSchema.staff.id)
       ))
-      .where(eq(schema.staff.customerId, context.customerId))
-      .groupBy(schema.staff.department)
-      .orderBy(sql`COUNT(DISTINCT ${schema.visitors.id}) DESC`);
+      .where(eq(isolatedSchema.staff.customerId, context.customerId))
+      .groupBy(isolatedSchema.staff.department)
+      .orderBy(sql`COUNT(DISTINCT ${isolatedSchema.visitors.id}) DESC`);
 
     return results;
   }
@@ -848,30 +844,30 @@ export class DatabaseService {
     // Get staff in department
     const staff = await db
       .select()
-      .from(schema.staff)
+      .from(isolatedSchema.staff)
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.department, departmentName)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.department, departmentName)
       ));
     
     // Get visitors hosted by staff in this department
     const visitors = await db
       .select({
-        id: schema.visitors.id,
-        firstName: schema.visitors.firstName,
-        lastName: schema.visitors.lastName,
-        company: schema.visitors.company,
-        checkedInAt: schema.visitors.checkedInAt,
-        isCheckedIn: schema.visitors.isCheckedIn,
-        hostName: sql<string>`${schema.staff.firstName} || ' ' || ${schema.staff.lastName}`
+        id: isolatedSchema.visitors.id,
+        firstName: isolatedSchema.visitors.firstName,
+        lastName: isolatedSchema.visitors.lastName,
+        company: isolatedSchema.visitors.company,
+        checkedInAt: isolatedSchema.visitors.checkedInAt,
+        isCheckedIn: isolatedSchema.visitors.isCheckedIn,
+        hostName: sql<string>`${isolatedSchema.staff.firstName} || ' ' || ${isolatedSchema.staff.lastName}`
       })
-      .from(schema.visitors)
-      .innerJoin(schema.staff, and(
-        eq(schema.visitors.hostStaffId, schema.staff.id),
-        eq(schema.staff.department, departmentName)
+      .from(isolatedSchema.visitors)
+      .innerJoin(isolatedSchema.staff, and(
+        eq(isolatedSchema.visitors.hostStaffId, isolatedSchema.staff.id),
+        eq(isolatedSchema.staff.department, departmentName)
       ))
-      .where(eq(schema.visitors.customerId, context.customerId))
-      .orderBy(desc(schema.visitors.checkedInAt))
+      .where(eq(isolatedSchema.visitors.customerId, context.customerId))
+      .orderBy(desc(isolatedSchema.visitors.checkedInAt))
       .limit(10);
     
     // Calculate total hours worked by department today
@@ -882,12 +878,12 @@ export class DatabaseService {
       .select({
         totalMinutes: sql<number>`SUM(duration_minutes)`
       })
-      .from(schema.staffAttendanceHistory)
-      .innerJoin(schema.staff, eq(schema.staffAttendanceHistory.staffId, schema.staff.id))
+      .from(isolatedSchema.staffAttendanceHistory)
+      .innerJoin(isolatedSchema.staff, eq(isolatedSchema.staffAttendanceHistory.staffId, isolatedSchema.staff.id))
       .where(and(
-        eq(schema.staffAttendanceHistory.customerId, context.customerId),
-        eq(schema.staff.department, departmentName),
-        gte(schema.staffAttendanceHistory.checkInTime, today)
+        eq(isolatedSchema.staffAttendanceHistory.customerId, context.customerId),
+        eq(isolatedSchema.staff.department, departmentName),
+        gte(isolatedSchema.staffAttendanceHistory.checkInTime, today)
       ));
     
     const totalHours = hoursData[0]?.totalMinutes ? hoursData[0].totalMinutes / 60 : 0;
@@ -896,17 +892,17 @@ export class DatabaseService {
     const recentActivity = await db
       .select({
         type: sql<string>`'staff'`,
-        name: sql<string>`${schema.staff.firstName} || ' ' || ${schema.staff.lastName}`,
-        action: sql<string>`CASE WHEN ${schema.staffAttendanceHistory.checkOutTime} IS NULL THEN 'Checked In' ELSE 'Checked Out' END`,
-        time: sql<Date>`COALESCE(${schema.staffAttendanceHistory.checkOutTime}, ${schema.staffAttendanceHistory.checkInTime})`
+        name: sql<string>`${isolatedSchema.staff.firstName} || ' ' || ${isolatedSchema.staff.lastName}`,
+        action: sql<string>`CASE WHEN ${isolatedSchema.staffAttendanceHistory.checkOutTime} IS NULL THEN 'Checked In' ELSE 'Checked Out' END`,
+        time: sql<Date>`COALESCE(${isolatedSchema.staffAttendanceHistory.checkOutTime}, ${isolatedSchema.staffAttendanceHistory.checkInTime})`
       })
-      .from(schema.staffAttendanceHistory)
-      .innerJoin(schema.staff, eq(schema.staffAttendanceHistory.staffId, schema.staff.id))
+      .from(isolatedSchema.staffAttendanceHistory)
+      .innerJoin(isolatedSchema.staff, eq(isolatedSchema.staffAttendanceHistory.staffId, isolatedSchema.staff.id))
       .where(and(
-        eq(schema.staffAttendanceHistory.customerId, context.customerId),
-        eq(schema.staff.department, departmentName)
+        eq(isolatedSchema.staffAttendanceHistory.customerId, context.customerId),
+        eq(isolatedSchema.staff.department, departmentName)
       ))
-      .orderBy(desc(sql`COALESCE(${schema.staffAttendanceHistory.checkOutTime}, ${schema.staffAttendanceHistory.checkInTime})`))
+      .orderBy(desc(sql`COALESCE(${isolatedSchema.staffAttendanceHistory.checkOutTime}, ${isolatedSchema.staffAttendanceHistory.checkInTime})`))
       .limit(5);
     
     // Count checked-in staff
@@ -942,11 +938,8 @@ export class DatabaseService {
     // Get current visitors count
     const currentVisitorsResult = await db
       .select({ count: sql<number>`count(*)` })
-      .from(schema.visitors)
-      .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.isCheckedIn, true)
-      ));
+      .from(isolatedSchema.visitors)
+      .where(eq(isolatedSchema.visitors.isCheckedIn, true));
     
     // Get today's check-ins
     const today = new Date();
@@ -956,48 +949,39 @@ export class DatabaseService {
     
     const todayCheckinsResult = await db
       .select({ count: sql<number>`count(*)` })
-      .from(schema.visitors)
+      .from(isolatedSchema.visitors)
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        gte(schema.visitors.checkedInAt, today),
-        lt(schema.visitors.checkedInAt, tomorrow)
+        gte(isolatedSchema.visitors.checkedInAt, today),
+        lt(isolatedSchema.visitors.checkedInAt, tomorrow)
       ));
     
     // Get staff on site
     const staffOnSiteResult = await db
       .select({ count: sql<number>`count(*)` })
-      .from(schema.staff)
-      .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.isCheckedIn, true)
-      ));
+      .from(isolatedSchema.staff)
+      .where(eq(isolatedSchema.staff.isCheckedIn, true));
     
-    // Get contractors on site count - Two-step approach for customer isolation
-    // First get all company IDs for this customer
+    // Get contractors on site count - No customer filter needed in isolated DB
     const customerCompanies = await db
-      .select({ id: schema.contractorCompanies.id })
-      .from(schema.contractorCompanies)
-      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+      .select({ id: isolatedSchema.contractorCompanies.id })
+      .from(isolatedSchema.contractorCompanies);
     
-    const companyIds = customerCompanies.map(c => c.id);
+    const companyIds = customerCompanies.map(c => c.id || '').filter(id => id);
     
     // Then count checked-in workers from those companies
     const contractorsOnSiteResult = companyIds.length > 0 ? await db
       .select({ count: sql<number>`count(*)` })
-      .from(schema.contractorWorkers)
+      .from(isolatedSchema.contractorWorkers)
       .where(and(
-        eq(schema.contractorWorkers.isCheckedIn, true),
-        inArray(schema.contractorWorkers.companyId, companyIds)
+        eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
+        inArray(isolatedSchema.contractorWorkers.companyId, companyIds)
       )) : [{ count: 0 }];
     
     // Get total staff
     const totalStaffResult = await db
       .select({ count: sql<number>`count(*)` })
-      .from(schema.staff)
-      .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.isActive, true)
-      ));
+      .from(isolatedSchema.staff)
+      .where(eq(isolatedSchema.staff.isActive, true));
     
     const currentVisitors = parseInt(String(currentVisitorsResult[0]?.count)) || 0;
     const staffOnSite = parseInt(String(staffOnSiteResult[0]?.count)) || 0;
@@ -1027,17 +1011,17 @@ export class DatabaseService {
     
     const hourlyData = await db
       .select({
-        hour: sql<number>`EXTRACT(HOUR FROM ${schema.visitors.checkedInAt})`,
+        hour: sql<number>`EXTRACT(HOUR FROM ${isolatedSchema.visitors.checkedInAt})`,
         count: sql<number>`COUNT(*)`
       })
-      .from(schema.visitors)
+      .from(isolatedSchema.visitors)
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        gte(schema.visitors.checkedInAt, today),
-        lt(schema.visitors.checkedInAt, tomorrow)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        gte(isolatedSchema.visitors.checkedInAt, today),
+        lt(isolatedSchema.visitors.checkedInAt, tomorrow)
       ))
-      .groupBy(sql`EXTRACT(HOUR FROM ${schema.visitors.checkedInAt})`)
-      .orderBy(sql`EXTRACT(HOUR FROM ${schema.visitors.checkedInAt})`);
+      .groupBy(sql`EXTRACT(HOUR FROM ${isolatedSchema.visitors.checkedInAt})`)
+      .orderBy(sql`EXTRACT(HOUR FROM ${isolatedSchema.visitors.checkedInAt})`);
 
     return hourlyData.map(item => ({
       hour: parseInt(String(item.hour)),
@@ -1053,10 +1037,10 @@ export class DatabaseService {
     
     const [user] = await db
       .select()
-      .from(schema.users)
+      .from(isolatedSchema.users)
       .where(and(
-        eq(schema.users.customerId, context.customerId),
-        eq(schema.users.id, userId)
+        eq(isolatedSchema.users.customerId, context.customerId),
+        eq(isolatedSchema.users.id, userId)
       ));
     
     return user || undefined;
@@ -1092,10 +1076,10 @@ export class DatabaseService {
       
       const [staff] = await db
         .select()
-        .from(schema.staff)
+        .from(isolatedSchema.staff)
         .where(and(
-          eq(schema.staff.customerId, context.customerId),
-          eq(schema.staff.email, email)
+          eq(isolatedSchema.staff.customerId, context.customerId),
+          eq(isolatedSchema.staff.email, email)
         ));
       
       if (!staff || !staff.password) {
@@ -1127,11 +1111,11 @@ export class DatabaseService {
     
     const [staff] = await db
       .select()
-      .from(schema.staff)
+      .from(isolatedSchema.staff)
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.emergencyToken, token),
-        gt(schema.staff.emergencyTokenExpires, new Date())
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.emergencyToken, token),
+        gt(isolatedSchema.staff.emergencyTokenExpires, new Date())
       ));
     
     return staff || null;
@@ -1142,20 +1126,20 @@ export class DatabaseService {
     
     const [staff] = await db
       .select()
-      .from(schema.staff)
+      .from(isolatedSchema.staff)
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, id)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, id)
       ));
     
     if (!staff) return false;
     
     await db
-      .update(schema.staff)
+      .update(isolatedSchema.staff)
       .set({ isAccountedFor: !staff.isAccountedFor })
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, id)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, id)
       ));
     
     return true;
@@ -1166,20 +1150,20 @@ export class DatabaseService {
     
     const [visitor] = await db
       .select()
-      .from(schema.visitors)
+      .from(isolatedSchema.visitors)
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, id)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.id, id)
       ));
     
     if (!visitor) return false;
     
     await db
-      .update(schema.visitors)
+      .update(isolatedSchema.visitors)
       .set({ isAccountedFor: !visitor.isAccountedFor })
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, id)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.id, id)
       ));
     
     return true;
@@ -1190,15 +1174,15 @@ export class DatabaseService {
     
     const [worker] = await db
       .select()
-      .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.id, id));
+      .from(isolatedSchema.contractorWorkers)
+      .where(eq(isolatedSchema.contractorWorkers.id, id));
     
     if (!worker) return false;
     
     await db
-      .update(schema.contractorWorkers)
+      .update(isolatedSchema.contractorWorkers)
       .set({ isAccountedFor: !worker.isAccountedFor })
-      .where(eq(schema.contractorWorkers.id, id));
+      .where(eq(isolatedSchema.contractorWorkers.id, id));
     
     return true;
   }
@@ -1218,15 +1202,15 @@ export class DatabaseService {
     
     // Try to update as staff first
     const [updatedStaff] = await db
-      .update(schema.staff)
+      .update(isolatedSchema.staff)
       .set({
         isAccountedFor: data.isAccountedFor,
         // Note: staff table doesn't have accountedBy, accountedAt, musterPoint columns
         // These would need to be added to the schema if you want to track them
       })
       .where(and(
-        eq(schema.staff.customerId, context.customerId),
-        eq(schema.staff.id, personId)
+        eq(isolatedSchema.staff.customerId, context.customerId),
+        eq(isolatedSchema.staff.id, personId)
       ))
       .returning();
     
@@ -1234,15 +1218,15 @@ export class DatabaseService {
     
     // Try to update as visitor
     const [updatedVisitor] = await db
-      .update(schema.visitors)
+      .update(isolatedSchema.visitors)
       .set({
         isAccountedFor: data.isAccountedFor,
         // Note: visitors table doesn't have accountedBy, accountedAt, musterPoint columns
         // These would need to be added to the schema if you want to track them
       })
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, personId)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.id, personId)
       ))
       .returning();
     
@@ -1254,11 +1238,10 @@ export class DatabaseService {
   async getCheckedInContractors(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // Get customer's contractor company IDs first
+    // Get all contractor company IDs (no customer filter needed in isolated DB)
     const customerCompanies = await db
-      .select({ id: schema.contractorCompanies.id })
-      .from(schema.contractorCompanies)
-      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+      .select({ id: isolatedSchema.contractorCompanies.id })
+      .from(isolatedSchema.contractorCompanies);
     
     const companyIds = customerCompanies.map(c => c.id);
     
@@ -1269,22 +1252,22 @@ export class DatabaseService {
     // Then get checked-in workers from those companies
     return await db
       .select()
-      .from(schema.contractorWorkers)
+      .from(isolatedSchema.contractorWorkers)
       .where(and(
-        eq(schema.contractorWorkers.isCheckedIn, true),
-        inArray(schema.contractorWorkers.companyId, companyIds)
+        eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
+        inArray(isolatedSchema.contractorWorkers.companyId, companyIds)
       ))
-      .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
+      .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
   }
 
   async createContractorCompany(context: CustomerContext, insertCompany: any): Promise<any> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const [newCompany] = await db
-      .insert(schema.contractorCompanies)
+      .insert(isolatedSchema.contractorCompanies)
       .values({
         ...insertCompany,
-        customerId: context.customerId, // Ensure customer isolation
+        // No customerId needed - isolated database
       })
       .returning();
     
@@ -1297,10 +1280,10 @@ export class DatabaseService {
     // First verify the company belongs to this customer
     const company = await db
       .select()
-      .from(schema.contractorCompanies)
+      .from(isolatedSchema.contractorCompanies)
       .where(and(
-        eq(schema.contractorCompanies.id, companyId),
-        eq(schema.contractorCompanies.customerId, context.customerId)
+        eq(isolatedSchema.contractorCompanies.id, companyId),
+        eq(isolatedSchema.contractorCompanies.customerId, context.customerId)
       ));
     
     if (company.length === 0) {
@@ -1309,9 +1292,9 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.companyId, companyId))
-      .orderBy(asc(schema.contractorWorkers.firstName), asc(schema.contractorWorkers.lastName));
+      .from(isolatedSchema.contractorWorkers)
+      .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
+      .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
   }
 
   async getContractorVisitHistory(context: CustomerContext, workerId: string): Promise<any[]> {
@@ -1321,9 +1304,9 @@ export class DatabaseService {
       // Query contractor visits for this worker
       const visits = await db
         .select()
-        .from(schema.contractorVisits)
-        .where(eq(schema.contractorVisits.workerId, workerId))
-        .orderBy(desc(schema.contractorVisits.checkedInAt));
+        .from(isolatedSchema.contractorVisits)
+        .where(eq(isolatedSchema.contractorVisits.workerId, workerId))
+        .orderBy(desc(isolatedSchema.contractorVisits.checkedInAt));
       
       console.log(`📋 Found ${visits.length} visit records for worker ${workerId}`);
       return visits;
@@ -1338,7 +1321,7 @@ export class DatabaseService {
     
     try {
       const [newVisit] = await db
-        .insert(schema.contractorVisits)
+        .insert(isolatedSchema.contractorVisits)
         .values(visitData)
         .returning();
       
@@ -1355,9 +1338,9 @@ export class DatabaseService {
     
     try {
       const [updatedVisit] = await db
-        .update(schema.contractorVisits)
+        .update(isolatedSchema.contractorVisits)
         .set(updates)
-        .where(eq(schema.contractorVisits.id, visitId))
+        .where(eq(isolatedSchema.contractorVisits.id, visitId))
         .returning();
       
       console.log(`📋 Updated visit record ${visitId}`);
@@ -1374,12 +1357,12 @@ export class DatabaseService {
     try {
       const [currentVisit] = await db
         .select()
-        .from(schema.contractorVisits)
+        .from(isolatedSchema.contractorVisits)
         .where(and(
-          eq(schema.contractorVisits.workerId, workerId),
-          isNull(schema.contractorVisits.checkedOutAt)
+          eq(isolatedSchema.contractorVisits.workerId, workerId),
+          isNull(isolatedSchema.contractorVisits.checkedOutAt)
         ))
-        .orderBy(desc(schema.contractorVisits.checkedInAt))
+        .orderBy(desc(isolatedSchema.contractorVisits.checkedInAt))
         .limit(1);
       
       return currentVisit || null;
@@ -1395,10 +1378,10 @@ export class DatabaseService {
     // Verify the company belongs to this customer
     const company = await db
       .select()
-      .from(schema.contractorCompanies)
+      .from(isolatedSchema.contractorCompanies)
       .where(and(
-        eq(schema.contractorCompanies.id, insertWorker.companyId),
-        eq(schema.contractorCompanies.customerId, context.customerId)
+        eq(isolatedSchema.contractorCompanies.id, insertWorker.companyId),
+        eq(isolatedSchema.contractorCompanies.customerId, context.customerId)
       ));
     
     if (company.length === 0) {
@@ -1406,7 +1389,7 @@ export class DatabaseService {
     }
     
     const [newWorker] = await db
-      .insert(schema.contractorWorkers)
+      .insert(isolatedSchema.contractorWorkers)
       .values(insertWorker)
       .returning();
     
@@ -1417,11 +1400,11 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     const [updatedCompany] = await db
-      .update(schema.contractorCompanies)
+      .update(isolatedSchema.contractorCompanies)
       .set(updates)
       .where(and(
-        eq(schema.contractorCompanies.id, companyId),
-        eq(schema.contractorCompanies.customerId, context.customerId)
+        eq(isolatedSchema.contractorCompanies.id, companyId),
+        eq(isolatedSchema.contractorCompanies.customerId, context.customerId)
       ))
       .returning();
     
@@ -1434,15 +1417,15 @@ export class DatabaseService {
     // Get all contractor companies
     const companies = await db
       .select()
-      .from(schema.contractorCompanies);
+      .from(isolatedSchema.contractorCompanies);
     
     // For each company, count workers and get document status
     const companiesWithCounts = await Promise.all(
       companies.map(async (company) => {
         const workersCount = await db
           .select({ count: sql<number>`count(*)` })
-          .from(schema.contractorWorkers)
-          .where(eq(schema.contractorWorkers.companyId, company.id));
+          .from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.companyId, company.id));
         
         return {
           ...company,
@@ -1460,10 +1443,10 @@ export class DatabaseService {
     
     const [visitor] = await db
       .select()
-      .from(schema.visitors)
+      .from(isolatedSchema.visitors)
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.id, id)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.id, id)
       ));
     
     return visitor || undefined;
@@ -1474,10 +1457,10 @@ export class DatabaseService {
     
     const [visitor] = await db
       .select()
-      .from(schema.visitors)
+      .from(isolatedSchema.visitors)
       .where(and(
-        eq(schema.visitors.customerId, context.customerId),
-        eq(schema.visitors.qrCode, qrCode)
+        eq(isolatedSchema.visitors.customerId, context.customerId),
+        eq(isolatedSchema.visitors.qrCode, qrCode)
       ));
     
     return visitor || undefined;
@@ -1490,7 +1473,7 @@ export class DatabaseService {
     // TODO: Add customer isolation when reports schema is updated with customerId
     return await db
       .select()
-      .from(schema.reports);
+      .from(isolatedSchema.reports);
   }
 
   // Card Offences Methods - Customer Isolated
@@ -1499,9 +1482,9 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.cardOffences)
-      .where(eq(schema.cardOffences.customerId, context.customerId))
-      .orderBy(schema.cardOffences.cardType, schema.cardOffences.offenceName);
+      .from(isolatedSchema.cardOffences)
+      .where(eq(isolatedSchema.cardOffences.customerId, context.customerId))
+      .orderBy(isolatedSchema.cardOffences.cardType, isolatedSchema.cardOffences.offenceName);
   }
 
   // Get all contractor workers for current customer 
@@ -1511,8 +1494,8 @@ export class DatabaseService {
     // First get all companies for this customer
     const companies = await db
       .select()
-      .from(schema.contractorCompanies)
-      .where(eq(schema.contractorCompanies.customerId, context.customerId));
+      .from(isolatedSchema.contractorCompanies)
+      .where(eq(isolatedSchema.contractorCompanies.customerId, context.customerId));
     
     if (companies.length === 0) {
       return []; // No companies, no workers
@@ -1523,9 +1506,9 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.contractorWorkers)
-      .where(inArray(schema.contractorWorkers.companyId, companyIds))
-      .orderBy(asc(schema.contractorWorkers.firstName));
+      .from(isolatedSchema.contractorWorkers)
+      .where(inArray(isolatedSchema.contractorWorkers.companyId, companyIds))
+      .orderBy(asc(isolatedSchema.contractorWorkers.firstName));
   }
 
   // Card issues methods
@@ -1546,7 +1529,7 @@ export class DatabaseService {
     
     console.log("🔴 Final customer card issue data:", cardIssueData);
     
-    const [issue] = await db.insert(schema.cardIssues).values(cardIssueData).returning();
+    const [issue] = await db.insert(isolatedSchema.cardIssues).values(cardIssueData).returning();
     
     // Update worker's card status
     await this.updateWorkerCardStatus(context, data.workerId, data.cardType as "red" | "yellow", data.issuedBy);
@@ -1574,9 +1557,9 @@ export class DatabaseService {
     console.log(`🔴 Updating worker ${workerId} card status to ${cardType}`);
 
     await db
-      .update(schema.contractorWorkers)
+      .update(isolatedSchema.contractorWorkers)
       .set(updateData)
-      .where(eq(schema.contractorWorkers.id, workerId));
+      .where(eq(isolatedSchema.contractorWorkers.id, workerId));
       
     console.log(`✅ Worker card status updated successfully`);
   }
@@ -1588,8 +1571,8 @@ export class DatabaseService {
       // Check if offences already exist for this customer
       const existingOffences = await db
         .select()
-        .from(schema.cardOffences)
-        .where(eq(schema.cardOffences.customerId, context.customerId))
+        .from(isolatedSchema.cardOffences)
+        .where(eq(isolatedSchema.cardOffences.customerId, context.customerId))
         .limit(1);
       
       if (existingOffences.length > 0) {
@@ -1625,7 +1608,7 @@ export class DatabaseService {
 
       // Insert Red Card offences
       for (const offence of redCardOffences) {
-        await db.insert(schema.cardOffences).values({
+        await db.insert(isolatedSchema.cardOffences).values({
           customerId: context.customerId,
           offenceName: offence.offenceName,
           offenceDescription: offence.offenceDescription,
@@ -1637,7 +1620,7 @@ export class DatabaseService {
 
       // Insert Yellow Card offences
       for (const offence of yellowCardOffences) {
-        await db.insert(schema.cardOffences).values({
+        await db.insert(isolatedSchema.cardOffences).values({
           customerId: context.customerId,
           offenceName: offence.offenceName,
           offenceDescription: offence.offenceDescription,
@@ -1745,9 +1728,9 @@ export class DatabaseService {
       }
       
       const [updated] = await db
-        .update(schema.contractorWorkers)
+        .update(isolatedSchema.contractorWorkers)
         .set(updateData)
-        .where(eq(schema.contractorWorkers.id, id))
+        .where(eq(isolatedSchema.contractorWorkers.id, id))
         .returning();
       
       if (!updated) return undefined;
@@ -1766,7 +1749,7 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(data.customerId);
     
     const created = await db
-      .insert(schema.co2EmissionsData)
+      .insert(isolatedSchema.co2EmissionsData)
       .values(data)
       .returning();
     
@@ -1778,13 +1761,13 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.co2EmissionsData)
+      .from(isolatedSchema.co2EmissionsData)
       .where(and(
-        eq(schema.co2EmissionsData.customerId, customerId),
-        eq(schema.co2EmissionsData.companyId, companyId),
-        eq(schema.co2EmissionsData.isActive, true)
+        eq(isolatedSchema.co2EmissionsData.customerId, customerId),
+        eq(isolatedSchema.co2EmissionsData.companyId, companyId),
+        eq(isolatedSchema.co2EmissionsData.isActive, true)
       ))
-      .orderBy(desc(schema.co2EmissionsData.calculatedAt));
+      .orderBy(desc(isolatedSchema.co2EmissionsData.calculatedAt));
   }
 
   async getCO2EmissionsByWorker(customerId: string, workerId: string): Promise<CO2EmissionsData[]> {
@@ -1792,13 +1775,13 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.co2EmissionsData)
+      .from(isolatedSchema.co2EmissionsData)
       .where(and(
-        eq(schema.co2EmissionsData.customerId, customerId),
-        eq(schema.co2EmissionsData.workerId, workerId),
-        eq(schema.co2EmissionsData.isActive, true)
+        eq(isolatedSchema.co2EmissionsData.customerId, customerId),
+        eq(isolatedSchema.co2EmissionsData.workerId, workerId),
+        eq(isolatedSchema.co2EmissionsData.isActive, true)
       ))
-      .orderBy(desc(schema.co2EmissionsData.calculatedAt));
+      .orderBy(desc(isolatedSchema.co2EmissionsData.calculatedAt));
   }
 
   async getWorkersByCompany(context: CustomerContext, companyId: string): Promise<ContractorWorker[]> {
@@ -1806,8 +1789,8 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(schema.contractorWorkers)
-      .where(eq(schema.contractorWorkers.companyId, companyId));
+      .from(isolatedSchema.contractorWorkers)
+      .where(eq(isolatedSchema.contractorWorkers.companyId, companyId));
   }
 
   async getContractorCompany(context: CustomerContext, companyId: string): Promise<ContractorCompany | undefined> {
@@ -1815,8 +1798,8 @@ export class DatabaseService {
     
     const companies = await db
       .select()
-      .from(schema.contractorCompanies)
-      .where(eq(schema.contractorCompanies.id, companyId))
+      .from(isolatedSchema.contractorCompanies)
+      .where(eq(isolatedSchema.contractorCompanies.id, companyId))
       .limit(1);
     
     return companies[0];
@@ -1832,12 +1815,12 @@ export class DatabaseService {
     
     const summaries = await db
       .select()
-      .from(schema.co2MonthlySummaries)
+      .from(isolatedSchema.co2MonthlySummaries)
       .where(and(
-        eq(schema.co2MonthlySummaries.customerId, customerId),
-        eq(schema.co2MonthlySummaries.companyId, companyId),
-        eq(schema.co2MonthlySummaries.year, year),
-        eq(schema.co2MonthlySummaries.month, month)
+        eq(isolatedSchema.co2MonthlySummaries.customerId, customerId),
+        eq(isolatedSchema.co2MonthlySummaries.companyId, companyId),
+        eq(isolatedSchema.co2MonthlySummaries.year, year),
+        eq(isolatedSchema.co2MonthlySummaries.month, month)
       ))
       .limit(1);
     
@@ -1855,16 +1838,16 @@ export class DatabaseService {
     if (existing) {
       // Update existing
       const updated = await db
-        .update(schema.co2MonthlySummaries)
+        .update(isolatedSchema.co2MonthlySummaries)
         .set({ ...data, updatedAt: new Date() })
-        .where(eq(schema.co2MonthlySummaries.id, existing.id))
+        .where(eq(isolatedSchema.co2MonthlySummaries.id, existing.id))
         .returning();
       
       return updated[0];
     } else {
       // Create new
       const created = await db
-        .insert(schema.co2MonthlySummaries)
+        .insert(isolatedSchema.co2MonthlySummaries)
         .values(data)
         .returning();
       
@@ -1876,7 +1859,7 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(data.customerId);
     
     const created = await db
-      .insert(schema.co2SustainabilityReports)
+      .insert(isolatedSchema.co2SustainabilityReports)
       .values(data)
       .returning();
     
@@ -1889,17 +1872,17 @@ export class DatabaseService {
   ): Promise<CO2SustainabilityReport[]> {
     const db = await customerDbService.getCustomerDatabase(customerId);
     
-    const whereConditions = [eq(schema.co2SustainabilityReports.customerId, customerId)];
+    const whereConditions = [eq(isolatedSchema.co2SustainabilityReports.customerId, customerId)];
     
     if (companyId) {
-      whereConditions.push(eq(schema.co2SustainabilityReports.companyId, companyId));
+      whereConditions.push(eq(isolatedSchema.co2SustainabilityReports.companyId, companyId));
     }
     
     return await db
       .select()
-      .from(schema.co2SustainabilityReports)
+      .from(isolatedSchema.co2SustainabilityReports)
       .where(and(...whereConditions))
-      .orderBy(desc(schema.co2SustainabilityReports.generatedAt));
+      .orderBy(desc(isolatedSchema.co2SustainabilityReports.generatedAt));
   }
 
   /**
