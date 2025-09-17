@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, User, LogIn, Building } from "lucide-react";
+import { Lock, User, LogIn, Building, ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -188,6 +191,70 @@ export default function Login() {
               )}
             </Button>
           </form>
+          
+          <div className="space-y-4">
+            <div className="relative">
+              <Separator className="my-4" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="bg-white dark:bg-slate-800 px-4 text-sm text-slate-500 dark:text-slate-400">
+                  New to VisiGate Pro?
+                </span>
+              </div>
+            </div>
+            
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
+              <div className="text-center space-y-4">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Sparkles className="text-blue-600" size={20} />
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    14-Day Free Trial
+                  </Badge>
+                  <Sparkles className="text-blue-600" size={20} />
+                </div>
+                
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                  Transform Your Workplace Management
+                </h3>
+                
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Join thousands of companies using VisiGate Pro for visitor management, 
+                  staff tracking, and workplace security. Start your free trial today!
+                </p>
+                
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <Shield className="text-green-600" size={16} />
+                    <span>Enterprise security & compliance</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <Zap className="text-blue-600" size={16} />
+                    <span>5-minute setup, immediate results</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <Lock className="text-purple-600" size={16} />
+                    <span>No commitment • Cancel anytime</span>
+                  </div>
+                </div>
+                
+                <Link href="/signup">
+                  <Button 
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 mt-4"
+                    data-testid="button-start-trial"
+                  >
+                    <Sparkles className="mr-2" size={18} />
+                    Start Free 14-Day Trial
+                    <ArrowRight className="ml-2" size={18} />
+                  </Button>
+                </Link>
+                
+                <div className="text-center">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Only £49.95/month after trial • No setup fees
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">

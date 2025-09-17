@@ -2,7 +2,7 @@
   {
     "id": "aea47885-0257-4b8b-a4ee-a1791d1d5655",
     "username": "Andy",
-    "password": "$2b$10$deeRrc0eARc/V..0xahtjOYirhbAuE929ekmt3nZJzqfdcgsbtqNG",
+    "password": "$2b$10$Vro.4.2sbjUGi9/BqCoOLuMEkQ1RDlhAqR0pu6Uco2UUgwINlAddW",
     "email": null,
     "role": "user",
     "isActive": true,
@@ -12,7 +12,7 @@
   {
     "id": "9a09df1c-f6e3-4de2-aa13-8d6ebdb53480",
     "username": "Emma",
-    "password": "$2b$10$gFTyolaKypoMbSW76UcZBOTu0Lnrc1T9ailzpWzegkkc66p3y/akG",
+    "password": "$2b$10$mW86i6fUcrBL82KFUvV59.n2TipQHCUvA67BISRq2xQodGmEpy7Na",
     "email": null,
     "role": "user",
     "isActive": true,
@@ -22,7 +22,7 @@
   {
     "id": "f0fec8be-ba9d-401f-a2d9-bfad8b9e3726",
     "username": "TestUser",
-    "password": "$2b$10$XbtgAN8QQdXRWQ3lW3d3suAH/BKBwclOQLTlwgtkHjf4bRXzH9kUy",
+    "password": "$2b$10$v5ZD4DBR5lTia/HhTW9WhO/gW0fudEiPogOv0eg3451X1Ft/wdora",
     "email": null,
     "role": "user",
     "isActive": true,

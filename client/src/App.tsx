@@ -35,6 +35,9 @@ import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
 import MarketingPage from "@/pages/MarketingPage";
 import AISettings from "@/pages/AISettings";
 import Billing from "@/pages/Billing";
+import Signup from "@/pages/Signup";
+import SignupPayment from "@/pages/SignupPayment";
+import Welcome from "@/pages/Welcome";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -56,6 +59,36 @@ function Router() {
   // Public marketing page - no authentication required
   if (window.location.pathname === '/marketing') {
     return <MarketingPage />;
+  }
+  
+  // Public onboarding pages - no authentication required
+  if (window.location.pathname === '/signup') {
+    return <Signup />;
+  }
+  
+  if (window.location.pathname === '/signup/payment') {
+    return <SignupPayment />;
+  }
+  
+  // SECURITY FIX: Add missing onboarding success route
+  if (window.location.pathname === '/onboarding/success') {
+    const OnboardingSuccess = lazy(() => import("./pages/OnboardingSuccess"));
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-slate-600 dark:text-slate-400">Processing your account setup...</p>
+          </div>
+        </div>
+      }>
+        <OnboardingSuccess />
+      </Suspense>
+    );
+  }
+  
+  if (window.location.pathname === '/welcome') {
+    return <Welcome />;
   }
   
   // Public induction system - no authentication required

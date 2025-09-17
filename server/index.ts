@@ -78,32 +78,19 @@ app.use(session({
   rolling: false // Prevent session ID churn on every request
 }));
 
-// Session debugging middleware - BEFORE loadUser
+// SECURITY FIX: Minimal session debugging that never exposes sensitive data
 app.use((req, res, next) => {
-  const sessionId = req.sessionID;
-  const userId = req.session?.userId;
-  const hasSession = !!req.session;
-  const cookieHeader = req.headers.cookie;
-  
-  // Log detailed session info for API routes
-  if (req.path.startsWith('/api')) {
-    console.log(`🔍 Session Debug [${req.method} ${req.path}]:`, {
-      sessionId: sessionId ? sessionId.substring(0, 8) + '...' : 'NONE',
-      userId: userId || 'NONE',
-      hasSession,
-      cookies: cookieHeader ? 'present' : 'MISSING',
-      sessionCookie: cookieHeader?.includes('connect.sid') ? 'present' : 'MISSING',
-      userAgent: req.headers['user-agent'] ? req.headers['user-agent'].substring(0, 50) + '...' : 'missing'
-    });
+  // Only enable detailed debugging in development and never log sensitive data
+  if (process.env.NODE_ENV === 'development' && req.path.startsWith('/api')) {
+    const hasSession = !!req.session;
+    const hasUserId = !!req.session?.userId;
     
-    // Log full cookie details for auth routes
-    if (req.path.includes('/auth/')) {
-      console.log(`🍪 Cookie Debug [${req.path}]:`, {
-        fullCookieHeader: cookieHeader,
-        sessionObj: req.session ? 'exists' : 'MISSING',
-        sessionKeys: req.session ? Object.keys(req.session) : 'none'
-      });
-    }
+    console.log(`🔍 Session Debug [${req.method} ${req.path}]:`, {
+      hasSession,
+      hasUserId,
+      // SECURITY: Never log actual session IDs, cookie values, or session data
+      sessionExists: hasSession ? 'yes' : 'no'
+    });
   }
   next();
 });
