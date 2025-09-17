@@ -97,18 +97,45 @@ export class SimpleDatabaseService {
     const existing = await this.getCompanySettings(context);
     
     if (existing) {
-      // Update existing settings (no customerId filter needed in isolated DB)
-      const updated = await customerDb
-        .update(isolatedSchema.companySettings)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(isolatedSchema.companySettings.id, existing.id))
-        .returning();
-      
-      console.log(`✅ Updated company settings for customer: ${context.customerId}`);
-      return updated[0];
+      try {
+        // Update existing settings (no customerId filter needed in isolated DB)
+        const updated = await customerDb
+          .update(isolatedSchema.companySettings)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(isolatedSchema.companySettings.id, existing.id))
+          .returning();
+        
+        console.log(`✅ Updated company settings for customer: ${context.customerId}`);
+        return updated[0];
+      } catch (error: any) {
+        // Handle schema mismatches gracefully for UPDATE operations
+        if (error.code === '42703') {
+          console.warn(`⚠️ Column error during update for ${context.customerId}: ${error.message}`);
+          console.warn(`⚠️ Filtering out problematic fields and retrying update...`);
+          
+          // Get list of safe fields that exist in database by trying a simpler update
+          const safeUpdates = await this.filterSafeFields(customerDb, updates);
+          
+          if (Object.keys(safeUpdates).length > 0) {
+            const retryUpdated = await customerDb
+              .update(isolatedSchema.companySettings)
+              .set({ ...safeUpdates, updatedAt: new Date() })
+              .where(eq(isolatedSchema.companySettings.id, existing.id))
+              .returning();
+            
+            console.log(`✅ Updated company settings (filtered) for customer: ${context.customerId}`);
+            return retryUpdated[0];
+          } else {
+            console.warn(`⚠️ No safe fields to update for customer: ${context.customerId}`);
+            return existing;
+          }
+        }
+        throw error; // Re-throw non-schema errors
+      }
     } else {
-      // Create new settings for this customer with UK H&S rules
-      const defaultHSRules = `# Health & Safety Rules and Regulations
+      try {
+        // Create new settings for this customer with UK H&S rules
+        const defaultHSRules = `# Health & Safety Rules and Regulations
 
 ## General Safety Rules
 
@@ -199,21 +226,120 @@ These rules comply with:
 **Health & Safety Officer:** Contact via reception
 
 By entering our premises, you agree to comply with all health and safety rules.`;
-      
-      const created = await customerDb
-        .insert(isolatedSchema.companySettings)
-        .values({
-          companyName: "Default Company",
-          hsRulesEnabled: true,
-          hsRulesContent: defaultHSRules,
-          hsRulesRequireAcceptance: false,
-          ...updates,
-        })
-        .returning();
-      
-      console.log(`✅ Created new company settings for customer: ${context.customerId}`);
-      return created[0];
+        
+        const created = await customerDb
+          .insert(isolatedSchema.companySettings)
+          .values({
+            companyName: "Default Company",
+            hsRulesEnabled: true,
+            hsRulesContent: defaultHSRules,
+            hsRulesRequireAcceptance: false,
+            ...updates,
+          })
+          .returning();
+        
+        console.log(`✅ Created new company settings for customer: ${context.customerId}`);
+        return created[0];
+      } catch (error: any) {
+        // Handle schema mismatches gracefully for INSERT operations
+        if (error.code === '42703') {
+          console.warn(`⚠️ Column error during insert for ${context.customerId}: ${error.message}`);
+          console.warn(`⚠️ Filtering out problematic fields and retrying insert...`);
+          
+          // Get list of safe fields for INSERT
+          const safeUpdates = await this.filterSafeFields(customerDb, updates);
+          
+          const defaultHSRules = "# Health & Safety Rules\nPlease follow all safety procedures.";
+          
+          const retryCreated = await customerDb
+            .insert(isolatedSchema.companySettings)
+            .values({
+              companyName: "Default Company",
+              hsRulesEnabled: true,
+              hsRulesContent: defaultHSRules,
+              hsRulesRequireAcceptance: false,
+              ...safeUpdates,
+            })
+            .returning();
+          
+          console.log(`✅ Created company settings (filtered) for customer: ${context.customerId}`);
+          return retryCreated[0];
+        }
+        throw error; // Re-throw non-schema errors
+      }
     }
+  }
+
+  /**
+   * Filter out fields that don't exist in the database schema
+   * This prevents PostgreSQL column errors (42703) during updates
+   */
+  private async filterSafeFields(customerDb: any, updates: Partial<InsertCompanySettings>): Promise<Partial<InsertCompanySettings>> {
+    // Core fields that should always exist in company_settings table
+    const coreFields = [
+      'companyName', 'logoUrl', 'address', 'phone', 'website', 'email',
+      'emailReportsEnabled', 'reportFrequency', 'hsRulesEnabled', 'hsRulesContent',
+      'backgroundColor', 'foregroundColor', 'accentColor', 'theme',
+      'selectedPrinter', 'enableQrCodes', 'updatedAt',
+      // ID Card & Print Settings
+      'idCardPrinter', 'idCardPrintQuality', 'id_card_print_quality',
+      // BioStar Integration
+      'biostarEnabled', 'biostar_enabled', 'biostarApiUrl', 'biostarApiKey',
+      // SMTP Settings
+      'smtpHost', 'smtpPort', 'smtpUsername', 'smtpPassword', 'smtpFromEmail',
+      // Daily Reset Settings
+      'dailyResetEnabled', 'dailyResetTime', 'lastDailyReset',
+      // Visitor Pass Settings
+      'visitorPassEnabled', 'visitorPassTemplate'
+    ];
+    
+    // Check which fields from the update actually exist in the database
+    try {
+      const tableInfo = await customerDb.execute(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'company_settings'
+      `);
+      
+      const existingColumns = new Set(tableInfo.rows.map((row: any) => {
+        // Convert PostgreSQL column names to camelCase to match our schema
+        const pgColumnName = row.column_name;
+        return this.toCamelCase(pgColumnName);
+      }));
+      
+      // Filter updates to only include existing columns
+      const safeUpdates: Partial<InsertCompanySettings> = {};
+      
+      for (const [key, value] of Object.entries(updates)) {
+        if (existingColumns.has(key) || coreFields.includes(key)) {
+          (safeUpdates as any)[key] = value;
+        } else {
+          console.warn(`⚠️ Skipping field '${key}' - column does not exist in database`);
+        }
+      }
+      
+      console.log(`✅ Filtered ${Object.keys(updates).length} fields to ${Object.keys(safeUpdates).length} safe fields`);
+      return safeUpdates;
+    } catch (error) {
+      // If we can't check columns, fall back to core fields only
+      console.warn(`⚠️ Could not check database columns, using core fields only`);
+      
+      const safeUpdates: Partial<InsertCompanySettings> = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (coreFields.includes(key)) {
+          (safeUpdates as any)[key] = value;
+        }
+      }
+      
+      return safeUpdates;
+    }
+  }
+
+  /**
+   * Convert snake_case to camelCase for column name matching
+   */
+  private toCamelCase(str: string): string {
+    return str.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
   }
 }
 

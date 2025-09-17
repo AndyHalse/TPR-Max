@@ -2,6 +2,8 @@ import { eq } from 'drizzle-orm';
 import type { CustomerDatabaseService } from './customerDatabase';
 import { contractorMigrations } from './contractorMigrations';
 import { cleanupMigrations } from './cleanupMigrations';
+import { settingsColumnMigrations } from './settingsColumnMigration';
+import { comprehensiveSettingsMigrations } from './comprehensiveSettingsMigration';
 
 /**
  * Lightweight Migration Framework for Isolated Customer Databases
@@ -130,6 +132,8 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     rebuildCompanySettingsMigration,
     ...contractorMigrations,
     ...cleanupMigrations,
+    ...settingsColumnMigrations,
+    ...comprehensiveSettingsMigrations,
     addMissingCompanySettingsColumnsMigration,
   ];
 

@@ -1801,6 +1801,295 @@ export class DatabaseService {
   }
 
   /**
+   * AI GENERATED IMAGES METHODS - Customer Isolated
+   */
+  async createAiGeneratedImage(
+    context: CustomerContext, 
+    imageData: Omit<any, 'id' | 'generatedAt' | 'createdAt'>
+  ): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [created] = await db
+      .insert(isolatedSchema.aiGeneratedImages)
+      .values(imageData)
+      .returning();
+    
+    return created;
+  }
+
+  async getAiGeneratedImages(
+    context: CustomerContext, 
+    slideType?: string
+  ): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    let query = db
+      .select()
+      .from(isolatedSchema.aiGeneratedImages)
+      .where(eq(isolatedSchema.aiGeneratedImages.isActive, true));
+    
+    if (slideType) {
+      query = query.where(and(
+        eq(isolatedSchema.aiGeneratedImages.isActive, true),
+        eq(isolatedSchema.aiGeneratedImages.slideType, slideType)
+      ));
+    }
+    
+    return await query.orderBy(isolatedSchema.aiGeneratedImages.generatedAt);
+  }
+
+  async getAiGeneratedImageById(
+    context: CustomerContext, 
+    id: string
+  ): Promise<any | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [image] = await db
+      .select()
+      .from(isolatedSchema.aiGeneratedImages)
+      .where(and(
+        eq(isolatedSchema.aiGeneratedImages.id, id),
+        eq(isolatedSchema.aiGeneratedImages.isActive, true)
+      ))
+      .limit(1);
+    
+    return image;
+  }
+
+  async getAiGeneratedImageBySlideType(
+    context: CustomerContext, 
+    slideType: string
+  ): Promise<any | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [image] = await db
+      .select()
+      .from(isolatedSchema.aiGeneratedImages)
+      .where(and(
+        eq(isolatedSchema.aiGeneratedImages.slideType, slideType),
+        eq(isolatedSchema.aiGeneratedImages.isActive, true)
+      ))
+      .orderBy(isolatedSchema.aiGeneratedImages.generatedAt)
+      .limit(1);
+    
+    return image;
+  }
+
+  /**
+   * INDUCTION SETTINGS METHODS - Customer Isolated
+   */
+  async getInductionSettings(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.inductionSettings)
+      .orderBy(isolatedSchema.inductionSettings.roleType);
+  }
+
+  async getInductionSettingsByRole(
+    context: CustomerContext, 
+    roleType: string
+  ): Promise<any | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [setting] = await db
+      .select()
+      .from(isolatedSchema.inductionSettings)
+      .where(eq(isolatedSchema.inductionSettings.roleType, roleType))
+      .limit(1);
+    
+    return setting;
+  }
+
+  async getInductionQuestions(
+    context: CustomerContext, 
+    roleType: string
+  ): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.inductionQuestions)
+      .where(eq(isolatedSchema.inductionQuestions.roleType, roleType))
+      .orderBy(isolatedSchema.inductionQuestions.orderIndex);
+  }
+
+  /**
+   * HELP SYSTEM METHODS - Customer Isolated
+   */
+  async getHelpCategories(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.helpCategories)
+      .where(eq(isolatedSchema.helpCategories.isActive, true))
+      .orderBy(isolatedSchema.helpCategories.sortOrder, isolatedSchema.helpCategories.name);
+  }
+
+  async getHelpArticlesFeatured(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.helpArticles)
+      .where(and(
+        eq(isolatedSchema.helpArticles.isPublished, true),
+        eq(isolatedSchema.helpArticles.isFeatured, true)
+      ))
+      .orderBy(isolatedSchema.helpArticles.helpfulCount, isolatedSchema.helpArticles.viewCount)
+      .limit(10);
+  }
+
+  async getHelpArticlesContextual(
+    context: CustomerContext, 
+    page: string
+  ): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.helpArticles)
+      .where(and(
+        eq(isolatedSchema.helpArticles.isPublished, true),
+        sql`${page} = ANY(${isolatedSchema.helpArticles.targetPages})`
+      ))
+      .orderBy(isolatedSchema.helpArticles.sortOrder, isolatedSchema.helpArticles.helpfulCount)
+      .limit(5);
+  }
+
+  async getHelpArticlesGeneral(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.helpArticles)
+      .where(and(
+        eq(isolatedSchema.helpArticles.isPublished, true),
+        eq(isolatedSchema.helpArticles.isQuickStart, true)
+      ))
+      .orderBy(isolatedSchema.helpArticles.sortOrder, isolatedSchema.helpArticles.helpfulCount)
+      .limit(5);
+  }
+
+  async searchHelpArticles(
+    context: CustomerContext, 
+    query: string
+  ): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    if (!query || query.length < 3) {
+      return [];
+    }
+    
+    return await db
+      .select()
+      .from(isolatedSchema.helpArticles)
+      .where(and(
+        eq(isolatedSchema.helpArticles.isPublished, true),
+        sql`(
+          LOWER(${isolatedSchema.helpArticles.title}) LIKE LOWER(${'%' + query + '%'}) OR 
+          LOWER(${isolatedSchema.helpArticles.content}) LIKE LOWER(${'%' + query + '%'}) OR 
+          LOWER(${isolatedSchema.helpArticles.summary}) LIKE LOWER(${'%' + query + '%'}) OR 
+          EXISTS (SELECT 1 FROM unnest(${isolatedSchema.helpArticles.searchKeywords}) AS keyword WHERE LOWER(keyword) LIKE LOWER(${'%' + query + '%'}))
+        )`
+      ))
+      .orderBy(isolatedSchema.helpArticles.helpfulCount, isolatedSchema.helpArticles.viewCount)
+      .limit(20);
+  }
+
+  async createHelpUserInteraction(
+    context: CustomerContext, 
+    interactionData: any
+  ): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [created] = await db
+      .insert(isolatedSchema.helpUserInteractions)
+      .values(interactionData)
+      .returning();
+    
+    return created;
+  }
+
+  async updateHelpArticleViewCount(
+    context: CustomerContext, 
+    articleId: string
+  ): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    await db
+      .update(isolatedSchema.helpArticles)
+      .set({ 
+        viewCount: sql`${isolatedSchema.helpArticles.viewCount} + 1`,
+        lastViewedAt: new Date()
+      })
+      .where(eq(isolatedSchema.helpArticles.id, articleId));
+  }
+
+  async updateHelpArticleHelpfulCount(
+    context: CustomerContext, 
+    articleId: string,
+    isHelpful: boolean
+  ): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updateField = isHelpful 
+      ? { helpfulCount: sql`${isolatedSchema.helpArticles.helpfulCount} + 1` }
+      : { notHelpfulCount: sql`${isolatedSchema.helpArticles.notHelpfulCount} + 1` };
+    
+    await db
+      .update(isolatedSchema.helpArticles)
+      .set(updateField)
+      .where(eq(isolatedSchema.helpArticles.id, articleId));
+  }
+
+  /**
+   * CONTRACTOR WORKER METHODS - Customer Isolated
+   */
+  async getContractorWorkerById(
+    context: CustomerContext, 
+    workerId: string
+  ): Promise<any | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [worker] = await db
+      .select()
+      .from(isolatedSchema.contractorWorkers)
+      .where(eq(isolatedSchema.contractorWorkers.id, workerId))
+      .limit(1);
+    
+    return worker;
+  }
+
+  async updateContractorWorkerHsRules(
+    context: CustomerContext,
+    workerId: string,
+    updates: { hsRulesAccepted: boolean; hsRulesAcceptedAt: Date; hsRulesAcceptanceToken: null }
+  ): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    await db
+      .update(isolatedSchema.contractorWorkers)
+      .set(updates)
+      .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+  }
+
+  async getContractorWorkersByCompany(
+    context: CustomerContext,
+    companyId: string
+  ): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.contractorWorkers)
+      .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
+      .orderBy(isolatedSchema.contractorWorkers.firstName, isolatedSchema.contractorWorkers.lastName);
+  }
+
+  /**
    * DEVELOPMENT HELPER: Create temporary customer context for current development setup
    */
   createDevelopmentContext(): CustomerContext {

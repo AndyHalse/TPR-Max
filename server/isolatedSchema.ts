@@ -1152,15 +1152,102 @@ export const documentAutoFillMapping = pgTable("document_auto_fill_mapping", {
 // AI Generated Images - For storing AI-generated images for induction videos
 export const aiGeneratedImages = pgTable("ai_generated_images", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  prompt: text("prompt").notNull(),
+  slideType: text("slide_type").notNull(), // ppe, emergency, hazard, site_rules, legal_framework
+  title: text("title").notNull(),
+  description: text("description").notNull(),
   imageUrl: text("image_url").notNull(),
-  imageType: text("image_type").notNull(), // safety_icon, hazard_warning, equipment_illustration, etc.
-  category: text("category").notNull(), // safety, equipment, procedures, environment
-  tags: text("tags").array().default([]), // ["construction", "ppe", "hard_hat"]
-  aiModel: text("ai_model").default("dall-e-3"), // dall-e-3, midjourney, stable-diffusion
-  generationTime: integer("generation_time_ms"), // Time taken to generate in milliseconds
-  usageCount: integer("usage_count").default(0), // How many times this image has been used
+  dallePrompt: text("dalle_prompt").notNull(), // The prompt used to generate the image
+  dalleRevision: text("dalle_revision").default("dall-e-3"), // DALL-E model version used
+  imageSize: text("image_size").default("1024x1024"), // Generated image dimensions
+  quality: text("quality").default("standard"), // standard or hd
+  style: text("style").default("vivid"), // vivid or natural
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
   isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Help System Tables - Customer Isolated
+export const helpCategories = pgTable("help_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  icon: text("icon").default("HelpCircle"), // Lucide icon name
+  color: text("color").default("blue"), // UI color theme
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const helpArticles = pgTable("help_articles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").notNull().references(() => helpCategories.id),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(), // URL-friendly identifier
+  summary: text("summary"), // Short description for search results
+  content: text("content").notNull(), // Full article content (Markdown supported)
+  contentType: text("content_type").default("markdown"), // markdown, html, video
+  videoUrl: text("video_url"), // Optional embedded video
+  // Targeting and visibility
+  targetPages: text("target_pages").array().default([]), // Pages where this article is contextually relevant
+  targetFeatures: text("target_features").array().default([]), // Features this article applies to
+  difficulty: text("difficulty").default("beginner"), // beginner, intermediate, advanced
+  estimatedReadTime: integer("estimated_read_time").default(5), // minutes
+  // SEO and search
+  searchKeywords: text("search_keywords").array().default([]), // Additional search terms
+  tags: text("tags").array().default([]), // Categorization tags
+  // Analytics and feedback
+  viewCount: integer("view_count").default(0),
+  helpfulCount: integer("helpful_count").default(0),
+  notHelpfulCount: integer("not_helpful_count").default(0),
+  lastViewedAt: timestamp("last_viewed_at"),
+  // Publishing
+  isPublished: boolean("is_published").default(true),
+  publishedAt: timestamp("published_at"),
+  authorId: varchar("author_id").references(() => users.id),
+  // Ordering and priority
+  sortOrder: integer("sort_order").default(0),
+  isFeatured: boolean("is_featured").default(false), // Show in prominently
+  isQuickStart: boolean("is_quick_start").default(false), // Part of onboarding
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const helpUserInteractions = pgTable("help_user_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // NULL for anonymous/guest interactions
+  articleId: varchar("article_id").notNull().references(() => helpArticles.id),
+  // Interaction type and details
+  interactionType: text("interaction_type").notNull(), // view, helpful, not_helpful, search, complete
+  sessionId: text("session_id"), // Group interactions by user session
+  timeSpent: integer("time_spent"), // seconds spent viewing article
+  // Contextual information
+  pageContext: text("page_context"), // Which page they were on when accessing help
+  searchQuery: text("search_query"), // What they searched for to find this article
+  // Feedback
+  feedbackRating: integer("feedback_rating"), // 1-5 rating
+  feedbackComments: text("feedback_comments"), // Optional user feedback
+  // Completion tracking (for tutorials/guides)
+  isCompleted: boolean("is_completed").default(false),
+  completedSteps: text("completed_steps").array().default([]), // For multi-step guides
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const helpOnboardingProgress = pgTable("help_onboarding_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  // Onboarding steps and progress
+  currentStep: integer("current_step").default(1),
+  completedSteps: text("completed_steps").array().default([]), // Array of completed step IDs
+  skippedSteps: text("skipped_steps").array().default([]), // Steps user chose to skip
+  totalSteps: integer("total_steps").default(10), // Total steps in onboarding
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  // Progress tracking
+  timeSpent: integer("time_spent").default(0), // Total time in seconds
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  // Feature-specific onboarding completion
+  featureOnboardingCompleted: text("feature_onboarding_completed").array().default([]), // Features user has completed onboarding for
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1401,6 +1488,35 @@ export const insertDocumentAutoFillMappingSchema = createInsertSchema(documentAu
 
 export const insertAiGeneratedImageSchema = createInsertSchema(aiGeneratedImages).omit({
   id: true,
+  generatedAt: true,
+  createdAt: true,
+});
+
+export const insertHelpCategorySchema = createInsertSchema(helpCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHelpArticleSchema = createInsertSchema(helpArticles).omit({
+  id: true,
+  viewCount: true,
+  helpfulCount: true,
+  notHelpfulCount: true,
+  lastViewedAt: true,
+  publishedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHelpUserInteractionSchema = createInsertSchema(helpUserInteractions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertHelpOnboardingProgressSchema = createInsertSchema(helpOnboardingProgress).omit({
+  id: true,
+  lastActiveAt: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -1503,3 +1619,13 @@ export type DocumentAutoFillMapping = typeof documentAutoFillMapping.$inferSelec
 export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFillMappingSchema>;
 export type AiGeneratedImage = typeof aiGeneratedImages.$inferSelect;
 export type InsertAiGeneratedImage = z.infer<typeof insertAiGeneratedImageSchema>;
+
+// Help system types
+export type HelpCategory = typeof helpCategories.$inferSelect;
+export type InsertHelpCategory = z.infer<typeof insertHelpCategorySchema>;
+export type HelpArticle = typeof helpArticles.$inferSelect;
+export type InsertHelpArticle = z.infer<typeof insertHelpArticleSchema>;
+export type HelpUserInteraction = typeof helpUserInteractions.$inferSelect;
+export type InsertHelpUserInteraction = z.infer<typeof insertHelpUserInteractionSchema>;
+export type HelpOnboardingProgress = typeof helpOnboardingProgress.$inferSelect;
+export type InsertHelpOnboardingProgress = z.infer<typeof insertHelpOnboardingProgressSchema>;

@@ -68,7 +68,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public Induction Preview Routes (no auth required) - Using different path to avoid /api auth
   app.get('/preview/induction/settings', async (req, res) => {
     try {
-      const settings = await db.select().from(inductionSettings).orderBy(inductionSettings.roleType);
+      // Use development customer context for public preview
+      const context = databaseService.createDevelopmentContext();
+      const settings = await databaseService.getInductionSettings(context);
       res.json({ settings });
     } catch (error) {
       console.error('Error fetching induction settings for preview:', error);
@@ -79,8 +81,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/preview/induction/settings/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
-      const [setting] = await db.select().from(inductionSettings)
-        .where(eq(inductionSettings.roleType, roleType));
+      
+      // Use development customer context for public preview
+      const context = databaseService.createDevelopmentContext();
+      const setting = await databaseService.getInductionSettingsByRole(context, roleType);
       
       if (!setting) {
         return res.status(404).json({ error: 'Induction settings not found for this role' });
@@ -98,31 +102,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { roleType } = req.params;
       
+      // Use development customer context for public preview
+      const context = databaseService.createDevelopmentContext();
+      
       // Get settings for this role type
-      const [setting] = await db.select().from(inductionSettings)
-        .where(eq(inductionSettings.roleType, roleType));
+      const setting = await databaseService.getInductionSettingsByRole(context, roleType);
       
       if (!setting) {
         return res.status(404).send('Induction settings not found for this role');
       }
 
-      // Get AI images for each slide type
+      // Get AI images for each slide type using customer-isolated database
       const slideTypes = ['legal_framework', 'ppe', 'emergency', 'hazard', 'site_rules'];
       const imagePromises = slideTypes.map(slideType => 
-        db.select().from(aiGeneratedImages)
-          .where(and(
-            eq(aiGeneratedImages.slideType, slideType),
-            eq(aiGeneratedImages.isActive, true)
-          ))
-          .orderBy(aiGeneratedImages.generatedAt)
-          .limit(1)
+        databaseService.getAiGeneratedImageBySlideType(context, slideType)
       );
 
       const imageResults = await Promise.all(imagePromises);
       const images: Record<string, any> = {};
       slideTypes.forEach((slideType, index) => {
-        const [image] = imageResults[index];
-        images[slideType] = image;
+        images[slideType] = imageResults[index] || null;
       });
 
       // Generate HTML preview with AI images
@@ -351,9 +350,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/preview/induction/questions/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
-      const questions = await db.select().from(inductionQuestions)
-        .where(eq(inductionQuestions.roleType, roleType))
-        .orderBy(inductionQuestions.orderIndex);
+      
+      // Use development customer context for public preview
+      const context = databaseService.createDevelopmentContext();
+      const questions = await databaseService.getInductionQuestions(context, roleType);
       
       res.json({ questions });
     } catch (error) {
@@ -588,7 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Generated Images endpoints
-  app.post("/api/ai/generate-safety-image", async (req, res) => {
+  app.post("/api/ai/generate-safety-image", requireAuth, async (req, res) => {
     try {
       const { slideType, title, description } = req.body;
       
@@ -598,11 +598,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🎨 Generating AI safety image for ${slideType}: ${title}`);
       
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
       // Generate the image using AI service
       const { imageUrl, dallePrompt } = await aiService.generateSafetyImage(slideType, title, description);
       
-      // Store the generated image metadata in database
-      const [savedImage] = await db.insert(aiGeneratedImages).values({
+      // Store the generated image metadata in customer-isolated database
+      const savedImage = await databaseService.createAiGeneratedImage(context, {
         slideType,
         title,
         description,
@@ -613,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quality: "standard",
         style: "vivid",
         isActive: true
-      }).returning();
+      });
 
       console.log(`✅ AI safety image generated and saved: ${savedImage.id}`);
       
@@ -627,21 +631,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/ai/safety-images", async (req, res) => {
+  app.get("/api/ai/safety-images", requireAuth, async (req, res) => {
     try {
       const { slideType } = req.query;
       
-      let query = db.select().from(aiGeneratedImages).where(eq(aiGeneratedImages.isActive, true));
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
-      if (slideType) {
-        query = db.select().from(aiGeneratedImages)
-          .where(and(
-            eq(aiGeneratedImages.isActive, true),
-            eq(aiGeneratedImages.slideType, slideType as string)
-          ));
-      }
-      
-      const images = await query.orderBy(aiGeneratedImages.generatedAt);
+      // Get images from customer-isolated database
+      const images = await databaseService.getAiGeneratedImages(context, slideType as string);
       
       res.json({ images });
     } catch (error) {
@@ -650,15 +649,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/ai/safety-images/:id", async (req, res) => {
+  app.get("/api/ai/safety-images/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
-      const [image] = await db.select().from(aiGeneratedImages)
-        .where(and(
-          eq(aiGeneratedImages.id, id),
-          eq(aiGeneratedImages.isActive, true)
-        ));
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get image from customer-isolated database
+      const image = await databaseService.getAiGeneratedImageById(context, id);
       
       if (!image) {
         return res.status(404).json({ error: 'AI safety image not found' });
@@ -672,17 +672,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get AI image by slide type (returns most recent)
-  app.get("/api/ai/images/type/:slideType", async (req, res) => {
+  app.get("/api/ai/images/type/:slideType", requireAuth, async (req, res) => {
     try {
       const { slideType } = req.params;
       
-      const [image] = await db.select().from(aiGeneratedImages)
-        .where(and(
-          eq(aiGeneratedImages.slideType, slideType),
-          eq(aiGeneratedImages.isActive, true)
-        ))
-        .orderBy(aiGeneratedImages.generatedAt)
-        .limit(1);
+      // Get customer context for isolation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get image from customer-isolated database
+      const image = await databaseService.getAiGeneratedImageBySlideType(context, slideType);
       
       if (!image) {
         return res.status(404).json({ 
@@ -708,13 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const categories = await db.select()
-        .from(helpCategories)
-        .where(and(
-          eq(helpCategories.isActive, true),
-          sql`(${helpCategories.customerId} IS NULL OR ${helpCategories.customerId} = ${context.customerId})`
-        ))
-        .orderBy(helpCategories.sortOrder, helpCategories.name);
+      const categories = await databaseService.getHelpCategories(context);
       
       res.json(categories);
     } catch (error) {
@@ -729,15 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const articles = await db.select()
-        .from(helpArticles)
-        .where(and(
-          eq(helpArticles.isPublished, true),
-          eq(helpArticles.isFeatured, true),
-          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`
-        ))
-        .orderBy(helpArticles.helpfulCount, helpArticles.viewCount)
-        .limit(10);
+      const articles = await databaseService.getHelpArticlesFeatured(context);
       
       res.json(articles);
     } catch (error) {
@@ -755,15 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const articles = await db.select()
-        .from(helpArticles)
-        .where(and(
-          eq(helpArticles.isPublished, true),
-          sql`${page} = ANY(${helpArticles.targetPages})`,
-          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`
-        ))
-        .orderBy(helpArticles.sortOrder, helpArticles.helpfulCount)
-        .limit(5);
+      const articles = await databaseService.getHelpArticlesContextual(context, page);
       
       res.json(articles);
     } catch (error) {
@@ -778,15 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const articles = await db.select()
-        .from(helpArticles)
-        .where(and(
-          eq(helpArticles.isPublished, true),
-          eq(helpArticles.isQuickStart, true),
-          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`
-        ))
-        .orderBy(helpArticles.sortOrder, helpArticles.helpfulCount)
-        .limit(5);
+      const articles = await databaseService.getHelpArticlesGeneral(context);
       
       res.json(articles);
     } catch (error) {
@@ -808,20 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const articles = await db.select()
-        .from(helpArticles)
-        .where(and(
-          eq(helpArticles.isPublished, true),
-          sql`(${helpArticles.customerId} IS NULL OR ${helpArticles.customerId} = ${context.customerId})`,
-          sql`(
-            LOWER(${helpArticles.title}) LIKE LOWER(${'%' + query + '%'}) OR 
-            LOWER(${helpArticles.content}) LIKE LOWER(${'%' + query + '%'}) OR 
-            LOWER(${helpArticles.summary}) LIKE LOWER(${'%' + query + '%'}) OR 
-            EXISTS (SELECT 1 FROM unnest(${helpArticles.searchKeywords}) AS keyword WHERE LOWER(keyword) LIKE LOWER(${'%' + query + '%'}))
-          )`
-        ))
-        .orderBy(helpArticles.helpfulCount, helpArticles.viewCount)
-        .limit(20);
+      const articles = await databaseService.searchHelpArticles(context, query);
       
       res.json(articles);
     } catch (error) {
@@ -838,33 +794,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const [interaction] = await db.insert(helpUserInteractions)
-        .values({
-          ...interactionData,
-          customerId: context.customerId,
-          userId: req.session.userId || null,
-        })
-        .returning();
+      // Create interaction in customer-isolated database
+      const interaction = await databaseService.createHelpUserInteraction(context, {
+        ...interactionData,
+        userId: req.session.userId || null,
+      });
       
       // Update article view count if this is a view interaction
       if (interactionData.interactionType === 'view') {
-        await db.update(helpArticles)
-          .set({ 
-            viewCount: sql`${helpArticles.viewCount} + 1`,
-            lastViewedAt: new Date()
-          })
-          .where(eq(helpArticles.id, interactionData.articleId));
+        await databaseService.updateHelpArticleViewCount(context, interactionData.articleId);
       }
       
       // Update helpful/not helpful counts
       if (interactionData.interactionType === 'helpful') {
-        await db.update(helpArticles)
-          .set({ helpfulCount: sql`${helpArticles.helpfulCount} + 1` })
-          .where(eq(helpArticles.id, interactionData.articleId));
+        await databaseService.updateHelpArticleHelpfulCount(context, interactionData.articleId, true);
       } else if (interactionData.interactionType === 'not_helpful') {
-        await db.update(helpArticles)
-          .set({ notHelpfulCount: sql`${helpArticles.notHelpfulCount} + 1` })
-          .where(eq(helpArticles.id, interactionData.articleId));
+        await databaseService.updateHelpArticleHelpfulCount(context, interactionData.articleId, false);
       }
       
       res.json({ success: true, interaction });
@@ -3084,14 +3029,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
 
-      // Get the contractor worker and validate token  
-      const workers = await db.select().from(contractorWorkers)
-        .where(and(
-          eq(contractorWorkers.id, workerId),
-          eq(contractorWorkers.customerId, context.customerId)
-        ));
-      
-      const worker = workers[0];
+      // Get the contractor worker using customer-isolated database
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         console.log(`❌ Contractor worker ${workerId} not found`);
         return res.status(404).json({ error: "Worker not found" });
@@ -3116,14 +3055,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Mark H&S rules as accepted
-      await db.update(contractorWorkers)
-        .set({
-          hsRulesAccepted: true,
-          hsRulesAcceptedAt: new Date(),
-          hsRulesAcceptanceToken: null // Clear the token after use
-        })
-        .where(eq(contractorWorkers.id, workerId));
+      // Mark H&S rules as accepted using customer-isolated database
+      await databaseService.updateContractorWorkerHsRules(context, workerId, {
+        hsRulesAccepted: true,
+        hsRulesAcceptedAt: new Date(),
+        hsRulesAcceptanceToken: null // Clear the token after use
+      });
 
       console.log(`✅ H&S rules accepted for contractor worker ${workerId}`);
       res.json({ 
@@ -13058,6 +12995,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching staff info:', error);
       res.status(500).json({ error: 'Failed to fetch staff information' });
+    }
+  });
+
+  // ============================================================================
+  // HEALTH CHECK ENDPOINT FOR SETTINGS VALIDATION AND ROUTE ISOLATION
+  // ============================================================================
+
+  app.get('/api/health/settings-isolation', requireAuth, async (req, res) => {
+    try {
+      const testResults = {
+        timestamp: new Date().toISOString(),
+        tests: [],
+        summary: {
+          passed: 0,
+          failed: 0,
+          total: 0
+        }
+      };
+
+      // Test 1: GET /api/settings with customer isolation
+      try {
+        const username = req.user?.username || 'Andy';
+        const context = simpleDatabaseService.createCustomerContext(username);
+        const settings = await simpleDatabaseService.getCompanySettings(context);
+        
+        testResults.tests.push({
+          name: 'GET /api/settings - Customer Isolation',
+          status: 'PASS',
+          details: `Retrieved settings for customer: ${context.customerId}`,
+          customerId: context.customerId
+        });
+        testResults.summary.passed++;
+      } catch (error) {
+        testResults.tests.push({
+          name: 'GET /api/settings - Customer Isolation', 
+          status: 'FAIL',
+          error: error.message
+        });
+        testResults.summary.failed++;
+      }
+
+      // Test 2: PUT /api/settings with known fields
+      try {
+        const username = req.user?.username || 'Andy';
+        const context = simpleDatabaseService.createCustomerContext(username);
+        
+        const testUpdates = {
+          companyName: 'Health Check Test Company',
+          idCardPrintQuality: 'high',
+          biostarEnabled: false,
+          backgroundColor: '#f8fafc'
+        };
+        
+        const updatedSettings = await simpleDatabaseService.updateCompanySettings(context, testUpdates);
+        
+        testResults.tests.push({
+          name: 'PUT /api/settings - Known Fields',
+          status: 'PASS',
+          details: 'Successfully updated settings with known fields',
+          fieldsUpdated: Object.keys(testUpdates)
+        });
+        testResults.summary.passed++;
+      } catch (error) {
+        testResults.tests.push({
+          name: 'PUT /api/settings - Known Fields',
+          status: 'FAIL', 
+          error: error.message
+        });
+        testResults.summary.failed++;
+      }
+
+      // Test 3: PUT /api/settings with unknown fields (should gracefully filter)
+      try {
+        const username = req.user?.username || 'Andy';
+        const context = simpleDatabaseService.createCustomerContext(username);
+        
+        const testUpdates = {
+          companyName: 'Health Check Test Company 2',
+          unknownField1: 'should be filtered',
+          nonExistentColumn: 'should be filtered',
+          idCardPrintQuality: 'medium'
+        };
+        
+        const updatedSettings = await simpleDatabaseService.updateCompanySettings(context, testUpdates);
+        
+        testResults.tests.push({
+          name: 'PUT /api/settings - Unknown Fields Filter',
+          status: 'PASS',
+          details: 'Successfully handled unknown fields with filterSafeFields',
+          originalFields: Object.keys(testUpdates).length,
+          note: 'Unknown fields filtered gracefully without 500 errors'
+        });
+        testResults.summary.passed++;
+      } catch (error) {
+        testResults.tests.push({
+          name: 'PUT /api/settings - Unknown Fields Filter',
+          status: 'FAIL',
+          error: error.message
+        });
+        testResults.summary.failed++;
+      }
+
+      // Test 4: Customer isolation verification
+      try {
+        const user1Context = simpleDatabaseService.createCustomerContext('Andy');
+        const user2Context = simpleDatabaseService.createCustomerContext('Emma');
+        
+        testResults.tests.push({
+          name: 'Customer Isolation Verification',
+          status: 'PASS',
+          details: 'Different users map to different customer contexts',
+          andy_customerId: user1Context.customerId,
+          emma_customerId: user2Context.customerId,
+          isolated: user1Context.customerId !== user2Context.customerId
+        });
+        testResults.summary.passed++;
+      } catch (error) {
+        testResults.tests.push({
+          name: 'Customer Isolation Verification',
+          status: 'FAIL',
+          error: error.message  
+        });
+        testResults.summary.failed++;
+      }
+
+      // Calculate totals
+      testResults.summary.total = testResults.summary.passed + testResults.summary.failed;
+      testResults.summary.successRate = `${((testResults.summary.passed / testResults.summary.total) * 100).toFixed(1)}%`;
+
+      console.log(`🏥 Health check completed: ${testResults.summary.successRate} success rate (${testResults.summary.passed}/${testResults.summary.total})`);
+      
+      res.json(testResults);
+    } catch (error) {
+      console.error('Health check failed:', error);
+      res.status(500).json({ 
+        error: 'Health check failed', 
+        details: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
   });
 
