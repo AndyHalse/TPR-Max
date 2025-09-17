@@ -1166,6 +1166,90 @@ export const aiGeneratedImages = pgTable("ai_generated_images", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ==============================================
+// CUSTOMER SAAS INFRASTRUCTURE TABLES (Per Customer Database)
+// ==============================================
+
+// Customer API Keys Management - Encrypted storage for customer API integrations
+export const customerApiKeys = pgTable("customer_api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // API Key Details
+  keyName: text("key_name").notNull(), // User-friendly name for the key
+  service: text("service").notNull(), // Service/integration name (e.g., "stripe", "openai", "twilio")
+  keyType: text("key_type").notNull(), // "api_key", "secret_key", "auth_token", "webhook_secret"
+  // Encrypted Storage - CRITICAL: Keys must be encrypted at rest
+  encryptedApiKey: text("encrypted_api_key").notNull(), // AES-256 encrypted API key
+  encryptionIv: text("encryption_iv").notNull(), // Initialization vector for encryption
+  keyFingerprint: text("key_fingerprint").notNull(), // SHA-256 hash for verification (first 8 chars visible)
+  // Key Management
+  isActive: boolean("is_active").notNull().default(true),
+  isTestKey: boolean("is_test_key").notNull().default(false), // Sandbox/test environment key
+  expiresAt: timestamp("expires_at"), // Optional expiration date
+  // Usage Tracking
+  lastUsed: timestamp("last_used"),
+  usageCount: integer("usage_count").notNull().default(0),
+  lastRequestIp: text("last_request_ip"),
+  // Security & Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  rotatedFrom: varchar("rotated_from"), // Previous key ID if rotated
+  rotationReason: text("rotation_reason"), // Reason for key rotation
+  // Key Permissions & Scope
+  permissions: text("permissions").array().notNull().default([]), // Scoped permissions for this key
+  allowedIps: text("allowed_ips").array().default([]), // IP whitelist (optional)
+  rateLimit: integer("rate_limit").default(1000), // Requests per hour limit
+  // Metadata
+  description: text("description"), // Purpose or use case description
+  tags: text("tags").array().default([]), // Tags for organization
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Feature Usage Analytics - Track customer feature adoption and usage patterns
+export const featureUsageAnalytics = pgTable("feature_usage_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Time Period
+  date: timestamp("date").notNull(), // Date of usage (daily aggregation)
+  period: text("period").notNull().default("daily"), // "hourly", "daily", "weekly", "monthly"
+  // Feature Identification
+  feature: text("feature").notNull(), // Feature name/identifier
+  featureCategory: text("feature_category").notNull(), // "core", "advanced", "integration", "reporting"
+  subFeature: text("sub_feature"), // Specific sub-feature if applicable
+  // Usage Metrics
+  usageCount: integer("usage_count").notNull().default(0), // Number of times used
+  uniqueUsers: integer("unique_users").notNull().default(0), // Number of unique users who used feature
+  sessionCount: integer("session_count").notNull().default(0), // Number of sessions where feature was used
+  totalDurationMinutes: integer("total_duration_minutes").default(0), // Total time spent using feature
+  // User Context
+  primaryUserId: varchar("primary_user_id").references(() => users.id), // Most active user for this feature
+  userRoles: text("user_roles").array().default([]), // Roles of users who used this feature
+  tenantIds: text("tenant_ids").array().default([]), // Tenant companies that used this feature
+  // Success & Error Metrics
+  successfulOperations: integer("successful_operations").default(0),
+  failedOperations: integer("failed_operations").default(0),
+  errorRate: text("error_rate").default("0.00"), // Percentage as decimal string
+  // Performance Metrics
+  averageResponseTimeMs: integer("average_response_time_ms").default(0),
+  slowestResponseTimeMs: integer("slowest_response_time_ms").default(0),
+  fastestResponseTimeMs: integer("fastest_response_time_ms").default(0),
+  // Business Context
+  businessValue: text("business_value"), // Estimated business impact
+  conversionImpact: text("conversion_impact"), // Impact on trial-to-paid conversion
+  retentionImpact: text("retention_impact"), // Impact on customer retention
+  // Comparison Metrics
+  previousPeriodUsage: integer("previous_period_usage").default(0),
+  usageGrowth: text("usage_growth").default("0.00"), // Growth percentage as decimal
+  industryBenchmark: text("industry_benchmark"), // Comparison to industry averages
+  // Feature Flags & Configuration
+  featureFlags: text("feature_flags").array().default([]), // Active feature flags during usage
+  configuration: text("configuration"), // JSON of relevant feature configuration
+  // Last Activity
+  firstUsed: timestamp("first_used"), // First time this feature was used this period
+  lastUsed: timestamp("last_used"), // Most recent usage in this period
+  peakUsageHour: integer("peak_usage_hour"), // Hour of day with most usage (0-23)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Help System Tables - Customer Isolated
 export const helpCategories = pgTable("help_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1521,6 +1605,25 @@ export const insertHelpOnboardingProgressSchema = createInsertSchema(helpOnboard
   updatedAt: true,
 });
 
+// ==============================================
+// CUSTOMER SAAS INFRASTRUCTURE - ZOD VALIDATION SCHEMAS
+// ==============================================
+
+// Customer API Keys Validation
+export const insertCustomerApiKeySchema = createInsertSchema(customerApiKeys).omit({
+  id: true,
+  usageCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Feature Usage Analytics Validation
+export const insertFeatureUsageAnalyticsSchema = createInsertSchema(featureUsageAnalytics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertMeetingRoomSchema = createInsertSchema(meetingRooms).omit({
   id: true,
   createdAt: true,
@@ -1629,3 +1732,15 @@ export type HelpUserInteraction = typeof helpUserInteractions.$inferSelect;
 export type InsertHelpUserInteraction = z.infer<typeof insertHelpUserInteractionSchema>;
 export type HelpOnboardingProgress = typeof helpOnboardingProgress.$inferSelect;
 export type InsertHelpOnboardingProgress = z.infer<typeof insertHelpOnboardingProgressSchema>;
+
+// ==============================================
+// CUSTOMER SAAS INFRASTRUCTURE - TYPESCRIPT TYPES
+// ==============================================
+
+// Customer API Keys Types
+export type CustomerApiKey = typeof customerApiKeys.$inferSelect;
+export type InsertCustomerApiKey = z.infer<typeof insertCustomerApiKeySchema>;
+
+// Feature Usage Analytics Types
+export type FeatureUsageAnalytics = typeof featureUsageAnalytics.$inferSelect;
+export type InsertFeatureUsageAnalytics = z.infer<typeof insertFeatureUsageAnalyticsSchema>;

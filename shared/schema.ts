@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, numeric, index, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -26,7 +26,128 @@ export const customers = pgTable("customers", {
   apiKey: text("api_key"), // For customer integrations
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Critical indexes for customer management
+  companyNameIdx: index("customers_company_name_idx").on(table.companyName),
+  slugIdx: index("customers_slug_idx").on(table.slug),
+  isActiveIdx: index("customers_is_active_idx").on(table.isActive),
+}));
+
+// Stripe Webhook Events - Critical for billing idempotency and replay safety
+export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Stripe event identification  
+  eventId: text("event_id").notNull().unique(), // Stripe event ID for deduplication
+  eventType: text("event_type").notNull(), // invoice.payment_succeeded, customer.subscription.updated, etc.
+  customerId: varchar("customer_id").references(() => customers.id), // NULL for non-customer events
+  // Event payload and processing
+  payloadHash: text("payload_hash").notNull(), // SHA-256 hash for integrity verification
+  rawPayload: text("raw_payload").notNull(), // Full Stripe webhook payload as JSON
+  // Processing status
+  status: text("status").notNull().default("pending"), // pending, processed, failed, ignored
+  processedAt: timestamp("processed_at"),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0).notNull(),
+  maxRetries: integer("max_retries").default(3).notNull(),
+  // Stripe metadata
+  apiVersion: text("api_version"), // Stripe API version
+  livemode: boolean("livemode").default(false).notNull(),
+  // Audit trail
+  webhookEndpoint: text("webhook_endpoint"), // Which endpoint received this event
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  // Critical indexes for webhook processing performance
+  eventIdIdx: index("stripe_webhook_events_event_id_idx").on(table.eventId),
+  statusIdx: index("stripe_webhook_events_status_idx").on(table.status),
+  customerIdIdx: index("stripe_webhook_events_customer_id_idx").on(table.customerId),
+  createdAtIdx: index("stripe_webhook_events_created_at_idx").on(table.createdAt),
+}));
+
+// Customer API Keys - Enhanced for proper key management and security
+export const customerApiKeys = pgTable("customer_api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // Key identification and metadata
+  keyName: text("key_name").notNull(), // User-friendly name like "Production API", "Mobile App"
+  keyDescription: text("key_description"), // Optional description of key purpose
+  serviceType: text("service_type").notNull().default("api"), // api, webhook, integration, mobile
+  // Enhanced key management fields
+  keyVersion: integer("key_version").notNull().default(1), // For key rotation tracking
+  kmsKeyId: text("kms_key_id"), // AWS KMS or similar key management service ID
+  last4: text("last4").notNull(), // Last 4 characters for display/identification (NOT for security)
+  encryptedKey: text("encrypted_key").notNull(), // AES-256 encrypted actual API key
+  initializationVector: text("initialization_vector").notNull(), // IV for AES encryption
+  keyFingerprint: text("key_fingerprint").notNull().unique(), // SHA-256 hash for duplicate detection
+  // Security and access control
+  permissions: text("permissions").array().notNull().default(["read"]), // ["read", "write", "admin", "billing"]
+  allowedOrigins: text("allowed_origins").array().default([]), // CORS origins for browser keys
+  ipWhitelist: text("ip_whitelist").array().default([]), // IP addresses allowed to use this key
+  rateLimit: integer("rate_limit").default(1000), // Requests per hour limit
+  // Status and lifecycle
+  status: text("status").notNull().default("active"), // active, inactive, revoked, expired
+  expiresAt: timestamp("expires_at"), // Optional expiration date
+  lastUsedAt: timestamp("last_used_at"), // Track actual usage for security monitoring
+  usageCount: integer("usage_count").default(0), // Total requests made with this key
+  // Key rotation and security audit
+  previousKeyId: varchar("previous_key_id").references(() => customerApiKeys.id), // For rotation tracking
+  rotationScheduledFor: timestamp("rotation_scheduled_for"), // Automatic rotation date
+  decryptAuditLog: text("decrypt_audit_log").array().default([]), // Audit log of decrypt operations
+  // Admin tracking
+  createdBy: varchar("created_by"), // User ID who created the key
+  revokedBy: varchar("revoked_by"), // User ID who revoked the key
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"), // Why was the key revoked
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  // Critical indexes for API key lookups
+  customerIdIdx: index("customer_api_keys_customer_id_idx").on(table.customerId),
+  fingerprintIdx: index("customer_api_keys_fingerprint_idx").on(table.keyFingerprint),
+  statusIdx: index("customer_api_keys_status_idx").on(table.status),
+  lastUsedIdx: index("customer_api_keys_last_used_at_idx").on(table.lastUsedAt),
+}));
+
+// Customer API Key Access Logs - Security auditing for all API key usage
+export const customerApiKeyAccessLogs = pgTable("customer_api_key_access_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  apiKeyId: varchar("api_key_id").notNull().references(() => customerApiKeys.id),
+  // Request details
+  requestMethod: text("request_method").notNull(), // GET, POST, PUT, DELETE
+  requestPath: text("request_path").notNull(), // API endpoint accessed
+  requestHeaders: text("request_headers"), // JSON of relevant headers
+  userAgent: text("user_agent"),
+  // Network and security info
+  ipAddress: text("ip_address").notNull(),
+  country: text("country"), // GeoIP country
+  city: text("city"), // GeoIP city
+  // Response details
+  responseStatus: integer("response_status").notNull(), // HTTP status code
+  responseTime: integer("response_time"), // Response time in milliseconds
+  bytesTransferred: integer("bytes_transferred"), // Response size in bytes
+  // Rate limiting and quotas
+  rateLimitHit: boolean("rate_limit_hit").default(false).notNull(),
+  quotaUsed: integer("quota_used"), // How much of monthly quota was used
+  quotaRemaining: integer("quota_remaining"), // How much quota remains
+  // Security flags
+  suspiciousActivity: boolean("suspicious_activity").default(false).notNull(),
+  blockedReason: text("blocked_reason"), // If request was blocked, why?
+  // Billing and usage tracking
+  billableOperation: boolean("billable_operation").default(true).notNull(),
+  operationCost: numeric("operation_cost", { precision: 10, scale: 4 }).default("0.0000"), // Cost in credits/dollars
+  // Timestamps
+  accessedAt: timestamp("accessed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Critical indexes for security monitoring and billing
+  customerIdIdx: index("customer_api_key_access_logs_customer_id_idx").on(table.customerId),
+  apiKeyIdIdx: index("customer_api_key_access_logs_api_key_id_idx").on(table.apiKeyId),
+  accessedAtIdx: index("customer_api_key_access_logs_accessed_at_idx").on(table.accessedAt),
+  ipAddressIdx: index("customer_api_key_access_logs_ip_address_idx").on(table.ipAddress),
+  suspiciousIdx: index("customer_api_key_access_logs_suspicious_idx").on(table.suspiciousActivity),
+  responseStatusIdx: index("customer_api_key_access_logs_response_status_idx").on(table.responseStatus),
+}));
 
 export const staff = pgTable("staff", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -231,6 +352,295 @@ export const preBookings = pgTable("pre_bookings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ==============================================
+// PROFESSIONAL SAAS INFRASTRUCTURE TABLES
+// ==============================================
+
+// Subscription Plans - Define available SaaS plans
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(), // "Starter", "Professional", "Enterprise"
+  displayName: text("display_name").notNull(), // "VisiGate Pro Starter"
+  description: text("description"),
+  // Pricing - Using numeric for proper financial calculations
+  monthlyPrice: numeric("monthly_price", { precision: 10, scale: 2 }).notNull(), // Precise decimal handling for billing
+  yearlyPrice: numeric("yearly_price", { precision: 10, scale: 2 }), // Optional yearly pricing
+  currency: text("currency").notNull().default("GBP"),
+  // Feature Limits
+  maxVisitorsPerMonth: integer("max_visitors_per_month").notNull().default(1000),
+  maxStaff: integer("max_staff").notNull().default(50),
+  maxMeetingRooms: integer("max_meeting_rooms").notNull().default(10),
+  maxTenants: integer("max_tenants").notNull().default(5),
+  maxStorageGb: integer("max_storage_gb").notNull().default(10),
+  // Feature Flags - JSON array of enabled features
+  features: text("features").array().notNull().default([]), // ["api_access", "advanced_reporting", "custom_branding"]
+  // Plan Configuration
+  isActive: boolean("is_active").notNull().default(true),
+  isPopular: boolean("is_popular").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  // Trial Configuration
+  trialDays: integer("trial_days").notNull().default(14),
+  // Stripe Integration
+  stripeProductId: text("stripe_product_id").unique(),
+  stripePriceIdMonthly: text("stripe_price_id_monthly").unique(),
+  stripePriceIdYearly: text("stripe_price_id_yearly").unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Customer Subscriptions - Track customer subscription status
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  planId: varchar("plan_id").notNull().references(() => subscriptionPlans.id),
+  // Subscription Status
+  status: text("status").notNull().default("active"), // active, past_due, canceled, unpaid, trialing, incomplete
+  // Billing Cycle
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  billingCycle: text("billing_cycle").notNull().default("monthly"), // monthly, yearly
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  canceledAt: timestamp("canceled_at"),
+  cancellationReason: text("cancellation_reason"),
+  // Trial Management
+  trialStart: timestamp("trial_start"),
+  trialEnd: timestamp("trial_end"),
+  trialExtensions: integer("trial_extensions").default(0),
+  // Payment Integration
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  stripeCustomerId: text("stripe_customer_id"),
+  // Usage-based billing
+  meteredUsage: boolean("metered_usage").default(false),
+  lastUsageReset: timestamp("last_usage_reset"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Customer Invoices - Track billing and payment history
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id),
+  // Invoice Details
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(), // Total amount with proper decimal precision
+  currency: text("currency").notNull().default("GBP"),
+  tax: numeric("tax", { precision: 10, scale: 2 }).default("0.00"), // Tax amount with precision
+  taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).default("0.0000"), // Tax rate as decimal (e.g., 0.2000 for 20%)
+  // Payment Status
+  status: text("status").notNull().default("pending"), // pending, paid, failed, refunded, voided
+  dueDate: timestamp("due_date").notNull(),
+  paidAt: timestamp("paid_at"),
+  // Stripe Integration
+  stripeInvoiceId: text("stripe_invoice_id").unique(),
+  stripeChargeId: text("stripe_charge_id"),
+  // Invoice Line Items (JSON)
+  lineItems: text("line_items").notNull(), // JSON array of billing items
+  // Payment Details
+  paymentMethod: text("payment_method"), // card, bank_transfer, etc.
+  paymentMethodLast4: text("payment_method_last4"),
+  // Refund tracking
+  refundAmount: numeric("refund_amount", { precision: 10, scale: 2 }).default("0.00"),
+  refundReason: text("refund_reason"),
+  refundedAt: timestamp("refunded_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Customer Payment Methods - Store customer payment information
+export const paymentMethods = pgTable("payment_methods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // Payment Method Details
+  type: text("type").notNull(), // card, bank_account, paypal
+  cardBrand: text("card_brand"), // visa, mastercard, amex, etc.
+  cardLast4: text("card_last4"),
+  cardExpMonth: integer("card_exp_month"),
+  cardExpYear: integer("card_exp_year"),
+  cardCountry: text("card_country"),
+  // Bank Details (for bank transfers)
+  bankName: text("bank_name"),
+  bankLast4: text("bank_last4"),
+  // Status
+  isDefault: boolean("is_default").notNull().default(false),
+  isExpired: boolean("is_expired").notNull().default(false),
+  // Stripe Integration
+  stripePaymentMethodId: text("stripe_payment_method_id").unique(),
+  // Security
+  fingerprint: text("fingerprint"), // Stripe fingerprint for duplicate detection
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Usage Tracking - Monitor customer usage against plan limits
+export const usageTracking = pgTable("usage_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // Time Period
+  period: text("period").notNull(), // "2024-09" for monthly tracking
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  // Usage Metrics
+  visitorsCount: integer("visitors_count").notNull().default(0),
+  staffCount: integer("staff_count").notNull().default(0),
+  meetingRoomsCount: integer("meeting_rooms_count").notNull().default(0),
+  tenantsCount: integer("tenants_count").notNull().default(0),
+  storageUsedMb: integer("storage_used_mb").notNull().default(0),
+  // API Usage
+  apiRequestsCount: integer("api_requests_count").notNull().default(0),
+  emailsSent: integer("emails_sent").notNull().default(0),
+  smsSent: integer("sms_sent").notNull().default(0),
+  // Advanced Features Usage
+  reportsGenerated: integer("reports_generated").notNull().default(0),
+  documentsProcessed: integer("documents_processed").notNull().default(0),
+  biometricScans: integer("biometric_scans").notNull().default(0),
+  // Overage Tracking
+  isOverLimit: boolean("is_over_limit").notNull().default(false),
+  overageCharges: numeric("overage_charges", { precision: 10, scale: 2 }).default("0.00"), // Additional charges for overages
+  // Last Updated
+  lastCalculated: timestamp("last_calculated").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Developer Access Logs - Track developer/support access to customer data
+export const developerAccessLogs = pgTable("developer_access_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Developer/Support User
+  developerId: varchar("developer_id").notNull(), // Internal staff user ID
+  developerName: text("developer_name").notNull(),
+  developerEmail: text("developer_email").notNull(),
+  // Customer Accessed
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  customerName: text("customer_name").notNull(), // Store for audit trail
+  // Access Details
+  action: text("action").notNull(), // "database_access", "settings_view", "data_export", "debug_session"
+  reason: text("reason").notNull(), // Required justification for access
+  accessLevel: text("access_level").notNull(), // "read_only", "limited_write", "full_access"
+  // Technical Details
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent"),
+  sessionDuration: text("session_duration"), // Duration of access in minutes
+  // Data Accessed
+  tablesAccessed: text("tables_accessed").array().default([]), // List of database tables accessed
+  dataExported: boolean("data_exported").default(false),
+  exportDetails: text("export_details"), // What data was exported
+  // Approval & Review
+  approvedBy: text("approved_by"), // Manager who approved the access
+  reviewedAt: timestamp("reviewed_at"),
+  // Session Management
+  sessionStart: timestamp("session_start").defaultNow().notNull(),
+  sessionEnd: timestamp("session_end"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Support Sessions - Track customer support interactions
+export const supportSessions = pgTable("support_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // Support Staff
+  supportUserId: varchar("support_user_id").notNull(), // Internal support staff ID
+  supportUserName: text("support_user_name").notNull(),
+  supportUserEmail: text("support_user_email").notNull(),
+  // Session Details
+  sessionType: text("session_type").notNull(), // "chat", "call", "screenshare", "email", "emergency"
+  priority: text("priority").notNull().default("medium"), // "low", "medium", "high", "urgent"
+  category: text("category").notNull(), // "technical", "billing", "onboarding", "feature_request"
+  reason: text("reason").notNull(),
+  // Session Management
+  status: text("status").notNull().default("active"), // "active", "resolved", "escalated", "closed"
+  sessionStart: timestamp("session_start").defaultNow().notNull(),
+  sessionEnd: timestamp("session_end"),
+  durationMinutes: integer("duration_minutes"),
+  // Customer Satisfaction
+  customerRating: integer("customer_rating"), // 1-5 rating
+  customerFeedback: text("customer_feedback"),
+  // Technical Details
+  issueResolved: boolean("issue_resolved").default(false),
+  followUpRequired: boolean("follow_up_required").default(false),
+  followUpDate: timestamp("follow_up_date"),
+  // Notes & Documentation
+  notes: text("notes"), // Internal support notes
+  resolution: text("resolution"), // How the issue was resolved
+  // Integration Details
+  zendeskTicketId: text("zendesk_ticket_id"), // If using Zendesk
+  slackThreadId: text("slack_thread_id"), // If using Slack for internal coordination
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Customer Onboarding Progress - Track customer onboarding journey
+export const onboardingProgress = pgTable("onboarding_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // Progress Tracking
+  currentStep: integer("current_step").notNull().default(1),
+  totalSteps: integer("total_steps").notNull().default(10),
+  stepsCompleted: text("steps_completed").array().notNull().default([]), // Array of completed step IDs
+  // Step Details
+  currentStepName: text("current_step_name"), // "Company Setup", "User Creation", "Integration Setup"
+  currentStepDescription: text("current_step_description"),
+  // Completion Status
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  // Onboarding Experience
+  assignedOnboardingSpecialist: text("assigned_onboarding_specialist"),
+  scheduledCallAt: timestamp("scheduled_call_at"),
+  onboardingCallCompleted: boolean("onboarding_call_completed").default(false),
+  // Customer Feedback
+  experienceRating: integer("experience_rating"), // 1-5 rating of onboarding experience
+  experienceFeedback: text("experience_feedback"),
+  // Obstacles & Support
+  stuckOnStep: integer("stuck_on_step"), // Step where customer is struggling
+  supportTicketsCreated: integer("support_tickets_created").default(0),
+  // Timeline Tracking
+  expectedCompletionDate: timestamp("expected_completion_date"),
+  actualCompletionDate: timestamp("actual_completion_date"),
+  onboardingStarted: timestamp("onboarding_started").defaultNow().notNull(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Trial Tracking - Monitor trial usage and conversion
+export const trialTracking = pgTable("trial_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id),
+  // Trial Period
+  trialStart: timestamp("trial_start").notNull(),
+  trialEnd: timestamp("trial_end").notNull(),
+  originalTrialDays: integer("original_trial_days").notNull().default(14),
+  // Extensions
+  trialExtensions: integer("trial_extensions").notNull().default(0),
+  totalExtensionDays: integer("total_extension_days").notNull().default(0),
+  extensionReason: text("extension_reason"), // Reason for trial extension
+  // Usage During Trial
+  visitorsCreatedDuringTrial: integer("visitors_created_during_trial").default(0),
+  staffCreatedDuringTrial: integer("staff_created_during_trial").default(0),
+  loginsDuringTrial: integer("logins_during_trial").default(0),
+  lastLoginDuringTrial: timestamp("last_login_during_trial"),
+  // Feature Adoption
+  featuresUsed: text("features_used").array().default([]), // Features customer explored during trial
+  integrationsConnected: integer("integrations_connected").default(0),
+  // Engagement Metrics
+  daysActive: integer("days_active").default(0), // Number of days customer was active during trial
+  supportInteractions: integer("support_interactions").default(0),
+  documentsUploaded: integer("documents_uploaded").default(0),
+  // Conversion Tracking
+  hasConverted: boolean("has_converted").default(false),
+  conversionDate: timestamp("conversion_date"),
+  convertedToPlan: varchar("converted_to_plan").references(() => subscriptionPlans.id),
+  // Communication
+  reminderEmailsSent: integer("reminder_emails_sent").default(0),
+  lastReminderSent: timestamp("last_reminder_sent"),
+  // Trial Outcome
+  trialOutcome: text("trial_outcome"), // "converted", "expired", "cancelled", "extended"
+  cancellationReason: text("cancellation_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Customer schema exports
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
@@ -281,6 +691,67 @@ export const insertStaffAttendanceHistorySchema = createInsertSchema(staffAttend
 
 export type StaffAttendanceHistory = typeof staffAttendanceHistory.$inferSelect;
 export type InsertStaffAttendanceHistory = z.infer<typeof insertStaffAttendanceHistorySchema>;
+
+// ==============================================
+// NEW SaaS INFRASTRUCTURE ZOD SCHEMAS  
+// ==============================================
+
+// Stripe Webhook Event schemas
+export const insertStripeWebhookEventSchema = createInsertSchema(stripeWebhookEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertStripeWebhookEvent = z.infer<typeof insertStripeWebhookEventSchema>;
+export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;
+
+// Customer API Key schemas with enhanced validation
+export const insertCustomerApiKeySchema = createInsertSchema(customerApiKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  keyFingerprint: true, // Generated server-side
+  encryptedKey: true, // Generated server-side
+  initializationVector: true, // Generated server-side
+  usageCount: true, // Updated server-side
+  lastUsedAt: true, // Updated server-side
+}).extend({
+  keyName: z.string().min(1).max(100, "Key name must be 1-100 characters"),
+  keyDescription: z.string().max(500, "Description must be under 500 characters").optional(),
+  serviceType: z.enum(["api", "webhook", "integration", "mobile"]).default("api"),
+  permissions: z.array(z.enum(["read", "write", "admin", "billing"])).min(1, "At least one permission required"),
+  allowedOrigins: z.array(z.string().url("Must be valid URL")).optional(),
+  ipWhitelist: z.array(z.string().ip("Must be valid IP address")).optional(),
+  rateLimit: z.number().min(1).max(100000, "Rate limit must be 1-100,000 requests").default(1000),
+  status: z.enum(["active", "inactive", "revoked", "expired"]).default("active"),
+  expiresAt: z.date().optional(),
+});
+export type InsertCustomerApiKey = z.infer<typeof insertCustomerApiKeySchema>;
+export type CustomerApiKey = typeof customerApiKeys.$inferSelect;
+
+// Customer API Key Access Log schemas
+export const insertCustomerApiKeyAccessLogSchema = createInsertSchema(customerApiKeyAccessLogs).omit({
+  id: true,
+  createdAt: true,
+  accessedAt: true, // Set server-side
+}).extend({
+  requestMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]),
+  requestPath: z.string().min(1, "Request path is required"),
+  responseStatus: z.number().min(100).max(599, "Must be valid HTTP status code"),
+  responseTime: z.number().min(0, "Response time cannot be negative").optional(),
+  bytesTransferred: z.number().min(0, "Bytes transferred cannot be negative").optional(),
+  operationCost: z.string().refine((val) => {
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0;
+  }, "Must be a valid positive decimal number").optional(),
+  ipAddress: z.string().ip("Must be valid IP address"),
+  country: z.string().length(2, "Must be 2-letter country code").optional(),
+  city: z.string().max(100, "City name too long").optional(),
+});
+export type InsertCustomerApiKeyAccessLog = z.infer<typeof insertCustomerApiKeyAccessLogSchema>;
+export type CustomerApiKeyAccessLog = typeof customerApiKeyAccessLogs.$inferSelect;
+
+
 
 // Departments table for dynamic department management
 export const departments = pgTable("departments", {
@@ -533,6 +1004,74 @@ export const companySettings = pgTable("company_settings", {
   featureInductionSettings: boolean("feature_induction_settings").default(true),
   featureKiosk: boolean("feature_kiosk").default(true),
   featureAiDemo: boolean("feature_ai_demo").default(true),
+  
+  // ==============================================
+  // PROFESSIONAL SAAS INFRASTRUCTURE FIELDS
+  // ==============================================
+  
+  // Subscription & Plan Management
+  subscriptionTier: text("subscription_tier").default("trial"), // trial, starter, professional, enterprise, custom
+  subscriptionStatus: text("subscription_status").default("trialing"), // trialing, active, past_due, canceled
+  planFeatures: text("plan_features").array().default([]), // Array of enabled features based on subscription
+  trialEndsAt: timestamp("trial_ends_at"),
+  subscriptionEndsAt: timestamp("subscription_ends_at"),
+  
+  // Billing & Payment Configuration
+  billingEmail: text("billing_email"), // Primary billing contact email
+  billingContactName: text("billing_contact_name"), // Name of billing contact person
+  invoicePrefix: text("invoice_prefix").default("INV"), // Custom invoice number prefix
+  nextInvoiceNumber: integer("next_invoice_number").default(1), // Auto-increment for invoice numbering
+  taxId: text("tax_id"), // Company tax/VAT registration number
+  billingAddress: text("billing_address"), // Full billing address
+  billingCountry: text("billing_country").default("GB"), // ISO country code
+  preferredCurrency: text("preferred_currency").default("GBP"), // ISO currency code
+  
+  // API Keys & Integration Status
+  apiKeysConfigured: boolean("api_keys_configured").default(false), // Has customer configured API keys
+  integrationsEnabled: text("integrations_enabled").array().default([]), // List of active integrations
+  webhookUrl: text("webhook_url"), // Customer webhook endpoint for notifications
+  webhookSecret: text("webhook_secret"), // Webhook verification secret
+  apiRateLimit: integer("api_rate_limit").default(1000), // Requests per hour
+  lastApiActivity: timestamp("last_api_activity"), // Last API usage timestamp
+  
+  // Usage Limits & Monitoring
+  currentMonthVisitors: integer("current_month_visitors").default(0), // Track monthly visitor count
+  currentMonthApiCalls: integer("current_month_api_calls").default(0), // Track monthly API usage
+  planLimitVisitors: integer("plan_limit_visitors").default(1000), // Plan limit for visitors
+  planLimitStaff: integer("plan_limit_staff").default(50), // Plan limit for staff
+  planLimitMeetingRooms: integer("plan_limit_meeting_rooms").default(10), // Plan limit for meeting rooms
+  planLimitStorageGb: integer("plan_limit_storage_gb").default(10), // Plan storage limit in GB
+  
+  // Customer Support & Success
+  supportTier: text("support_tier").default("email"), // email, chat, phone, dedicated
+  customerSuccessManager: text("customer_success_manager"), // Assigned CSM name
+  lastSupportInteraction: timestamp("last_support_interaction"), // Last support contact
+  supportSatisfactionRating: integer("support_satisfaction_rating"), // 1-5 rating
+  healthScore: integer("health_score").default(100), // Customer health score (0-100)
+  riskLevel: text("risk_level").default("low"), // low, medium, high, critical
+  
+  // Onboarding & Activation
+  onboardingStatus: text("onboarding_status").default("not_started"), // not_started, in_progress, completed
+  onboardingProgress: integer("onboarding_progress").default(0), // Percentage complete (0-100)
+  activationDate: timestamp("activation_date"), // When customer became active
+  firstVisitorCreated: timestamp("first_visitor_created"), // Product adoption milestone
+  firstStaffMemberAdded: timestamp("first_staff_member_added"), // Product adoption milestone
+  timeToValue: text("time_to_value"), // Days from signup to first value
+  
+  // Advanced Feature Configuration
+  customBrandingEnabled: boolean("custom_branding_enabled").default(false), // White-label branding
+  ssoEnabled: boolean("sso_enabled").default(false), // Single sign-on integration
+  auditLogsEnabled: boolean("audit_logs_enabled").default(false), // Advanced audit logging
+  dataExportEnabled: boolean("data_export_enabled").default(true), // Allow data exports
+  customFieldsEnabled: boolean("custom_fields_enabled").default(false), // Custom visitor/staff fields
+  advancedReportingEnabled: boolean("advanced_reporting_enabled").default(false), // Enhanced analytics
+  
+  // Compliance & Security
+  dataProcessingRegion: text("data_processing_region").default("EU"), // EU, US, APAC for data residency
+  complianceFrameworks: text("compliance_frameworks").array().default([]), // GDPR, SOC2, HIPAA, ISO27001
+  dataRetentionPeriod: integer("data_retention_period").default(365), // Days to retain customer data
+  encryptionLevel: text("encryption_level").default("AES256"), // Encryption standard in use
+  lastSecurityAudit: timestamp("last_security_audit"), // Last security audit date
   
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1324,6 +1863,77 @@ export const enhancedCompanyDetails = pgTable("enhanced_company_details", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ==============================================
+// PROFESSIONAL SAAS INFRASTRUCTURE - ZOD VALIDATION SCHEMAS
+// ==============================================
+
+// Subscription Plans Validation
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Customer Subscriptions Validation
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Customer Invoices Validation
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Customer Payment Methods Validation
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Usage Tracking Validation
+export const insertUsageTrackingSchema = createInsertSchema(usageTracking).omit({
+  id: true,
+  lastCalculated: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Developer Access Logs Validation
+export const insertDeveloperAccessLogSchema = createInsertSchema(developerAccessLogs).omit({
+  id: true,
+  sessionStart: true,
+  createdAt: true,
+});
+
+// Support Sessions Validation
+export const insertSupportSessionSchema = createInsertSchema(supportSessions).omit({
+  id: true,
+  sessionStart: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Customer Onboarding Progress Validation
+export const insertOnboardingProgressSchema = createInsertSchema(onboardingProgress).omit({
+  id: true,
+  onboardingStarted: true,
+  lastActivityAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Trial Tracking Validation
+export const insertTrialTrackingSchema = createInsertSchema(trialTracking).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Create insert schemas for new tables
 export const insertCardOffenceSchema = createInsertSchema(cardOffences).omit({
   id: true,
@@ -1382,6 +1992,38 @@ export const insertInductionAnswerSchema = createInsertSchema(inductionAnswers).
   id: true,
   answeredAt: true,
 });
+
+// ==============================================
+// PROFESSIONAL SAAS INFRASTRUCTURE - TYPESCRIPT TYPES
+// ==============================================
+
+// Subscription Management Types
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+
+// Billing & Payment Types
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+
+// Usage & Analytics Types
+export type UsageTracking = typeof usageTracking.$inferSelect;
+export type InsertUsageTracking = z.infer<typeof insertUsageTrackingSchema>;
+
+// Developer Access & Support Types
+export type DeveloperAccessLog = typeof developerAccessLogs.$inferSelect;
+export type InsertDeveloperAccessLog = z.infer<typeof insertDeveloperAccessLogSchema>;
+export type SupportSession = typeof supportSessions.$inferSelect;
+export type InsertSupportSession = z.infer<typeof insertSupportSessionSchema>;
+
+// Customer Onboarding Types
+export type OnboardingProgress = typeof onboardingProgress.$inferSelect;
+export type InsertOnboardingProgress = z.infer<typeof insertOnboardingProgressSchema>;
+export type TrialTracking = typeof trialTracking.$inferSelect;
+export type InsertTrialTracking = z.infer<typeof insertTrialTrackingSchema>;
 
 // Types for new tables
 export type CardOffence = typeof cardOffences.$inferSelect;
