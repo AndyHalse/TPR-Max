@@ -6,12 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, User, LogIn } from "lucide-react";
+import { Lock, User, LogIn, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const [credentials, setCredentials] = useState({ username: "Andy", password: "Kubo1966&&" });
+  const [credentials, setCredentials] = useState({ 
+    companyName: "Andy Development Corp", 
+    username: "Andy", 
+    password: "Kubo1966&&" 
+  });
   const [error, setError] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -22,20 +26,20 @@ export default function Login() {
     e.preventDefault();
     setError("");
     
-    console.log("🔍 Login form submitted with:", credentials);
+    // Starting authentication process...
     
-    if (!credentials.username || !credentials.password) {
-      console.log("❌ Missing credentials");
-      setError("Please enter both username and password");
+    if (!credentials.companyName || !credentials.username || !credentials.password) {
+      // Missing required fields
+      setError("Please enter company name, username, and password");
       return;
     }
     
-    console.log("✅ Starting direct login...");
+    // Authenticating user...
     setIsLoading(true);
     
     // Direct fetch approach to bypass any mutation issues
     try {
-      console.log("🚀 Making direct fetch request...");
+      // Making authentication request...
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -45,16 +49,14 @@ export default function Login() {
         credentials: "include",
       });
       
-      console.log("📥 Response status:", response.status);
       const data = await response.json();
-      console.log("📥 Response data:", data);
       
       if (response.ok && data.success) {
-        console.log("🎉 Login successful!");
+        // Authentication successful
         
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${data.user.username}!`,
+          description: `Welcome back, ${data.user.username} at ${data.customer?.companyName || credentials.companyName}!`,
         });
         
         // Set the auth data in cache AND invalidate to ensure fresh fetch
@@ -63,10 +65,10 @@ export default function Login() {
         // Force invalidation to ensure Router sees the updated auth state
         await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
         
-        console.log("🔄 Redirecting to dashboard...");
+        // Redirecting to dashboard...
         setLocation("/");
       } else {
-        console.log("❌ Login failed:", data);
+        // Authentication failed
         setError(data.error || "Login failed");
         toast({
           title: "Login Failed",
@@ -75,7 +77,7 @@ export default function Login() {
         });
       }
     } catch (error) {
-      console.log("💥 Network error:", error);
+      // Network error occurred
       setError("Network error occurred");
       toast({
         title: "Login Failed",
@@ -99,7 +101,7 @@ export default function Login() {
               VisiGate Pro
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
-              Developer Access Portal
+              SaaS Customer Portal
             </CardDescription>
           </div>
         </CardHeader>
@@ -111,10 +113,27 @@ export default function Login() {
             </Alert>
           )}
           
-          <form onSubmit={(e) => {
-            console.log("📋 Form onSubmit triggered");
-            handleSubmit(e);
-          }} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="companyName" className="text-slate-700 dark:text-slate-300">
+                Company Name
+              </Label>
+              <div className="relative">
+                <Building className="absolute left-3 top-3 text-slate-400" size={18} />
+                <Input
+                  id="companyName"
+                  type="text"
+                  placeholder="Enter your company name"
+                  className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
+                  value={credentials.companyName}
+                  onChange={(e) => setCredentials(prev => ({ ...prev, companyName: e.target.value }))}
+                  data-testid="input-company-name"
+                  disabled={isLoading}
+                  autoFocus
+                />
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="username" className="text-slate-700 dark:text-slate-300">
                 Username
@@ -130,7 +149,6 @@ export default function Login() {
                   onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
                   data-testid="input-username"
                   disabled={isLoading}
-                  autoFocus
                 />
               </div>
             </div>
@@ -173,7 +191,7 @@ export default function Login() {
           
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Secure developer access • VisiGate Pro
+              Secure multi-tenant access • VisiGate Pro
             </p>
           </div>
         </CardContent>

@@ -419,51 +419,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { companyName, username, password } = req.body;
       
-      if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
+      // Validate all 3 required fields
+      if (!companyName || !username || !password) {
+        return res.status(400).json({ 
+          error: "Company name, username, and password are all required",
+          missing: {
+            companyName: !companyName,
+            username: !username,
+            password: !password
+          }
+        });
       }
 
-      const user = await AuthService.authenticateUser(username, password);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
+      console.log(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
+
+      // Use new 3-field authentication
+      const authResult = await AuthService.authenticateUser(companyName, username, password);
+      if (!authResult) {
+        console.log(`❌ 3-Field authentication failed: Company="${companyName}", Username="${username}"`);
+        return res.status(401).json({ error: "Invalid company name, username, or password" });
       }
 
-      console.log(`🔐 Login attempt for user: ${username} (ID: ${user.id})`);
+      const { user, customer } = authResult;
 
-      // Simple session approach - avoid regeneration complexity
-      // Clear any existing userId first
-      delete req.session.userId;
-      
-      // Set the userId directly on the existing session
-      req.session.userId = user.id;
-      
-      console.log(`📝 Setting session.userId = ${user.id} for user: ${username}`);
-      
-      // Explicitly save the session with verification
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          console.error("❌ Session save error:", saveErr);
-          return res.status(500).json({ error: "Failed to establish session" });
+      console.log(`🔐 Login successful for user: ${username} (ID: ${user.id}) at company: ${customer.companyName} (ID: ${customer.id})`);
+
+      // SECURITY FIX: Regenerate session ID to prevent session fixation attacks
+      req.session.regenerate((regenerateErr) => {
+        if (regenerateErr) {
+          console.error("❌ Session regeneration error:", regenerateErr);
+          return res.status(500).json({ error: "Failed to create secure session" });
         }
         
-        // Verify the userId was actually saved
-        const savedUserId = req.session.userId;
-        console.log(`✅ Session saved successfully - userId: ${savedUserId}, username: ${username}`);
+        console.log(`🔄 Session ID regenerated for security`);
         
-        if (savedUserId !== user.id) {
-          console.error("❌ Session userId mismatch after save!", { expected: user.id, actual: savedUserId });
-          return res.status(500).json({ error: "Session persistence failed" });
-        }
+        // Set complete session context for SaaS isolation AFTER regeneration
+        req.session.userId = user.id;
+        req.session.customerId = customer.id;
+        req.session.companyName = customer.companyName;
         
-        res.json({ 
-          success: true, 
-          user: { id: user.id, username: user.username }
+        console.log(`📝 Setting session context:`, {
+          userId: user.id,
+          customerId: customer.id,
+          companyName: customer.companyName,
+          username: username
+        });
+        
+        // Explicitly save the session with verification
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ Session save error:", saveErr);
+            return res.status(500).json({ error: "Failed to establish session" });
+          }
+          
+          // Verify all session data was saved correctly
+          const savedUserId = req.session.userId;
+          const savedCustomerId = req.session.customerId;
+          const savedCompanyName = req.session.companyName;
+          
+          console.log(`✅ Session saved successfully:`, {
+            userId: savedUserId,
+            customerId: savedCustomerId,
+            companyName: savedCompanyName,
+            username: username
+          });
+          
+          if (savedUserId !== user.id || savedCustomerId !== customer.id) {
+            console.error("❌ Session data mismatch after save!", { 
+              expected: { userId: user.id, customerId: customer.id },
+              actual: { userId: savedUserId, customerId: savedCustomerId }
+            });
+            return res.status(500).json({ error: "Session persistence failed" });
+          }
+          
+          // Return successful login with complete user and customer context
+          res.json({ 
+            success: true, 
+            user: { 
+              id: user.id, 
+              username: user.username,
+              customerId: customer.id
+            },
+            customer: {
+              id: customer.id,
+              companyName: customer.companyName,
+              slug: customer.slug
+            }
+          });
         });
       });
     } catch (error) {
-      console.error("❌ Login error:", error);
+      console.error("❌ 3-Field login error:", error);
       res.status(500).json({ error: "Login failed" });
     }
   });
