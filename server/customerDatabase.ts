@@ -64,20 +64,33 @@ export class CustomerDatabaseService {
       throw new Error(`Customer not found and cannot be auto-created: ${customerId}`);
     }
 
-    // Test connection and provision database if needed
-    let databaseUrl = customer.databaseUrl;
-    const connectionWorks = await databaseProvisioningService.testCustomerDatabase(databaseUrl);
+    // Test connection and provision database if needed  
+    const connectionWorks = await databaseProvisioningService.testCustomerDatabase(customerId);
     
     if (!connectionWorks) {
       console.log(`🏗️ Database not accessible for customer ${customerId}, provisioning...`);
-      databaseUrl = await databaseProvisioningService.provisionCustomerDatabase(customerId);
+      const databaseUrl = await databaseProvisioningService.provisionCustomerDatabase(customerId);
       
       // Update customer record with new database URL
       await this.updateCustomerDatabaseUrl(customerId, databaseUrl);
     }
 
-    // Create new connection pool for this customer using isolated schema
-    const pool = new Pool({ connectionString: databaseUrl });
+    // Create new connection pool for this customer using schema-based isolation
+    const baseUrl = customer.databaseUrl;
+    let pool: Pool;
+    
+    if (process.env.NODE_ENV === 'production') {
+      // Production: Each customer has their own database
+      pool = new Pool({ connectionString: customer.databaseUrl });
+    } else {
+      // Development: Use schema-based isolation with search_path
+      const schemaName = `c_${customerId.replace(/-/g, '_').toLowerCase().substring(0, 8)}`;
+      pool = new Pool({ 
+        connectionString: baseUrl,
+        options: `-c search_path=${schemaName},public`
+      });
+    }
+    
     const db = drizzle({ client: pool, schema: isolatedSchema });
 
     // Store connections for reuse

@@ -649,6 +649,125 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   updatedAt: true,
 });
 
+// Customer Onboarding API Schemas
+export const customerOnboardingRequestSchema = z.object({
+  // Company Details
+  companyName: z.string()
+    .min(2, "Company name must be at least 2 characters")
+    .max(100, "Company name must be less than 100 characters")
+    .regex(/^[a-zA-Z0-9\s&.-]+$/, "Company name contains invalid characters"),
+  contactEmail: z.string()
+    .email("Valid email address required")
+    .max(255, "Email address too long"),
+  
+  // Admin User Details
+  adminUsername: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(50, "Username must be less than 50 characters")
+    .regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens"),
+  adminEmail: z.string()
+    .email("Valid admin email address required")
+    .max(255, "Admin email address too long"),
+  adminPassword: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password must be less than 128 characters")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one lowercase letter, one uppercase letter, and one number"),
+  adminFirstName: z.string()
+    .min(1, "First name is required")
+    .max(50, "First name must be less than 50 characters"),
+  adminLastName: z.string()
+    .min(1, "Last name is required")
+    .max(50, "Last name must be less than 50 characters"),
+  
+  // Subscription & Trial Configuration
+  planType: z.enum(["trial", "basic", "professional", "enterprise"])
+    .default("trial"),
+  trialDays: z.number()
+    .min(0, "Trial days cannot be negative")
+    .max(90, "Trial days cannot exceed 90")
+    .default(14),
+  
+  // Optional Company Configuration
+  industry: z.string()
+    .max(100, "Industry must be less than 100 characters")
+    .optional(),
+  employeeCount: z.number()
+    .min(1, "Employee count must be at least 1")
+    .max(10000, "Employee count cannot exceed 10,000")
+    .optional(),
+  address: z.string()
+    .max(500, "Address must be less than 500 characters")
+    .optional(),
+  phone: z.string()
+    .max(20, "Phone number must be less than 20 characters")
+    .optional(),
+  website: z.string()
+    .url("Must be a valid website URL")
+    .max(255, "Website URL must be less than 255 characters")
+    .optional(),
+  
+  // System Configuration
+  timezone: z.string()
+    .max(50, "Timezone must be less than 50 characters")
+    .default("Europe/London"),
+  currency: z.string()
+    .length(3, "Currency must be a 3-letter code")
+    .regex(/^[A-Z]{3}$/, "Currency must be uppercase 3-letter code")
+    .default("GBP"),
+});
+
+export const customerOnboardingResponseSchema = z.object({
+  success: z.boolean(),
+  customerId: z.string(),
+  customer: z.object({
+    id: z.string(),
+    companyName: z.string(),
+    slug: z.string(),
+    contactEmail: z.string(),
+    isActive: z.boolean(),
+    onboardingCompleted: z.boolean(),
+    planType: z.string(),
+    trialExpiresAt: z.date().optional(),
+  }),
+  adminUser: z.object({
+    id: z.string(),
+    username: z.string(),
+    firstName: z.string(),
+    lastName: z.string(),
+    email: z.string(),
+    accessLevel: z.string(),
+  }),
+  loginUrl: z.string(),
+  credentials: z.object({
+    companyName: z.string(),
+    username: z.string(),
+    temporaryPassword: z.string().optional(), // Only included if password was auto-generated
+  }),
+  message: z.string(),
+});
+
+export const customerOnboardingErrorSchema = z.object({
+  success: z.literal(false),
+  error: z.string(),
+  code: z.enum([
+    "VALIDATION_ERROR",
+    "COMPANY_EXISTS", 
+    "ADMIN_USER_EXISTS",
+    "DATABASE_PROVISIONING_FAILED",
+    "USER_CREATION_FAILED",
+    "SETTINGS_INITIALIZATION_FAILED",
+    "ROLLBACK_FAILED",
+    "INTERNAL_ERROR"
+  ]),
+  details: z.any().optional(),
+  partialState: z.object({
+    customerCreated: z.boolean(),
+    databaseProvisioned: z.boolean(),
+    adminUserCreated: z.boolean(),
+    settingsInitialized: z.boolean(),
+  }).optional(),
+});
+
 export const insertStaffSchema = createInsertSchema(staff).omit({
   id: true,
   createdAt: true,
@@ -683,6 +802,11 @@ export type Visitor = typeof visitors.$inferSelect;
 export type InsertVisitor = z.infer<typeof insertVisitorSchema>;
 export type VisitorHistory = typeof visitorHistory.$inferSelect;
 export type InsertVisitorHistory = z.infer<typeof insertVisitorHistorySchema>;
+
+// Customer Onboarding API Types
+export type CustomerOnboardingRequest = z.infer<typeof customerOnboardingRequestSchema>;
+export type CustomerOnboardingResponse = z.infer<typeof customerOnboardingResponseSchema>;
+export type CustomerOnboardingError = z.infer<typeof customerOnboardingErrorSchema>;
 
 export const insertStaffAttendanceHistorySchema = createInsertSchema(staffAttendanceHistory).omit({
   id: true,

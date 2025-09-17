@@ -40,7 +40,13 @@ import {
   contractorWorkers,
   contractorCompanies,
   insertWorkerDocumentAssignmentSchema,
-  insertWorkerDocumentAcceptanceSchema
+  insertWorkerDocumentAcceptanceSchema,
+  customerOnboardingRequestSchema,
+  customerOnboardingResponseSchema,
+  customerOnboardingErrorSchema,
+  type CustomerOnboardingRequest,
+  type CustomerOnboardingResponse,
+  type CustomerOnboardingError
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -61,7 +67,11 @@ import { AuthService, requireAuth } from "./auth";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { Pool } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import * as sharedSchema from '@shared/schema';
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
+import { customerOnboardingService } from "./customerOnboardingService";
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -409,6 +419,263 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       res.status(500).json({ error: 'Failed to process contact request' });
+    }
+  });
+
+  // ============================================
+  // CUSTOMER ONBOARDING API ENDPOINTS
+  // ============================================
+  
+  // Rate limiting for onboarding endpoint
+  const onboardingAttempts = new Map<string, number>();
+  const ONBOARDING_RATE_LIMIT = 3; // Max 3 attempts per hour per IP
+  const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
+
+  // Secured customer provisioning endpoint (auth required)
+  app.post('/api/onboarding/provision-customer', async (req, res) => {
+    try {
+      // Security: Rate limiting by IP address
+      const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+      const currentTime = Date.now();
+      const attemptKey = `${clientIp}_${Math.floor(currentTime / RATE_LIMIT_WINDOW)}`;
+      
+      const attempts = onboardingAttempts.get(attemptKey) || 0;
+      if (attempts >= ONBOARDING_RATE_LIMIT) {
+        console.warn(`🚨 Rate limit exceeded for IP: ${clientIp}`);
+        return res.status(429).json({
+          success: false,
+          error: 'Rate limit exceeded. Please try again later.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        } as CustomerOnboardingError);
+      }
+
+      // Security: Basic authentication check
+      const authHeader = req.headers.authorization;
+      const adminToken = process.env.ADMIN_ONBOARDING_TOKEN || 'dev-admin-token';
+      
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.warn(`🚨 Unauthorized onboarding attempt from IP: ${clientIp}`);
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          code: 'AUTHENTICATION_REQUIRED'
+        } as CustomerOnboardingError);
+      }
+
+      const token = authHeader.split(' ')[1];
+      if (token !== adminToken) {
+        console.warn(`🚨 Invalid token used for onboarding from IP: ${clientIp}`);
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid authentication token',
+          code: 'INVALID_TOKEN'
+        } as CustomerOnboardingError);
+      }
+
+      // Increment rate limit counter
+      onboardingAttempts.set(attemptKey, attempts + 1);
+
+      console.log(`🚀 AUTHENTICATED ONBOARDING - Customer onboarding request received from ${clientIp}`);
+      
+      // Validate request body with comprehensive schema
+      const onboardingRequest = customerOnboardingRequestSchema.parse(req.body);
+      
+      // Security: Sanitize company name for logging (remove potential secrets)
+      const safeCompanyName = onboardingRequest.companyName.replace(/[^\w\s-]/g, '').trim();
+      console.log(`📋 Validated onboarding request for: ${safeCompanyName}`);
+      
+      // Provision customer using comprehensive service
+      const response = await customerOnboardingService.provisionCustomer(onboardingRequest);
+      
+      console.log(`✅ Customer onboarding completed successfully: ${safeCompanyName}`);
+      
+      // Return success response (sanitize response to prevent credential leakage)
+      const sanitizedResponse = {
+        ...response,
+        credentials: process.env.NODE_ENV === 'development' ? response.credentials : undefined
+      };
+      res.status(201).json(sanitizedResponse);
+      
+    } catch (error) {
+      console.error('❌ Customer onboarding failed:', error);
+      
+      // Handle validation errors
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          code: 'VALIDATION_ERROR',
+          details: error.errors
+        } as CustomerOnboardingError);
+      }
+      
+      // Handle structured onboarding errors
+      if (error && typeof error === 'object' && 'success' in error && error.success === false) {
+        const onboardingError = error as CustomerOnboardingError;
+        
+        // Determine appropriate HTTP status based on error code
+        let statusCode = 500;
+        switch (onboardingError.code) {
+          case 'COMPANY_EXISTS':
+          case 'ADMIN_USER_EXISTS':
+            statusCode = 409; // Conflict
+            break;
+          case 'VALIDATION_ERROR':
+            statusCode = 400; // Bad Request
+            break;
+          case 'DATABASE_PROVISIONING_FAILED':
+          case 'USER_CREATION_FAILED':
+          case 'SETTINGS_INITIALIZATION_FAILED':
+          case 'ROLLBACK_FAILED':
+          case 'INTERNAL_ERROR':
+          default:
+            statusCode = 500; // Internal Server Error
+            break;
+        }
+        
+        return res.status(statusCode).json(onboardingError);
+      }
+      
+      // Handle unexpected errors
+      res.status(500).json({
+        success: false,
+        error: 'An unexpected error occurred during customer onboarding',
+        code: 'INTERNAL_ERROR',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      } as CustomerOnboardingError);
+    }
+  });
+
+  // Development customer provisioning endpoint (development only)
+  app.post('/api/onboarding/provision-dev-customer', async (req, res) => {
+    // Only allow in development environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Endpoint not available in production' });
+    }
+    
+    try {
+      const { customerId, companyName, adminUsername } = req.body;
+      
+      if (!customerId || !companyName || !adminUsername) {
+        return res.status(400).json({ 
+          error: 'customerId, companyName, and adminUsername are required for development customer creation' 
+        });
+      }
+      
+      console.log(`🔧 Creating development customer: ${customerId} - ${companyName}`);
+      
+      // Create development customer request
+      const devRequest: CustomerOnboardingRequest = {
+        companyName,
+        contactEmail: `dev+${customerId}@visigatepro.local`,
+        adminUsername,
+        adminEmail: `admin+${customerId}@visigatepro.local`,
+        adminPassword: 'DevPassword123!',
+        adminFirstName: 'Admin',
+        adminLastName: 'User',
+        planType: 'trial',
+        trialDays: 30,
+        industry: 'Development Testing',
+        employeeCount: 10,
+        timezone: 'Europe/London',
+        currency: 'GBP'
+      };
+      
+      // Provision development customer
+      const response = await customerOnboardingService.provisionCustomer(devRequest);
+      
+      console.log(`✅ Development customer created successfully: ${response.customer.companyName}`);
+      
+      res.status(201).json({
+        ...response,
+        developmentInfo: {
+          message: 'Development customer created',
+          customerId: response.customerId,
+          adminCredentials: {
+            companyName: response.customer.companyName,
+            username: adminUsername,
+            password: 'DevPassword123!' // Only in development
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Development customer creation failed:', error);
+      res.status(500).json({ 
+        error: 'Failed to create development customer',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      });
+    }
+  });
+
+  // Customer onboarding status check endpoint (public for status checks)
+  app.get('/api/onboarding/status/:companySlug', async (req, res) => {
+    try {
+      const { companySlug } = req.params;
+      
+      if (!companySlug) {
+        return res.status(400).json({ error: 'Company slug is required' });
+      }
+      
+      console.log(`🔍 Checking onboarding status for company slug: ${companySlug}`);
+      
+      // Look up customer by slug in management database
+      const managementDbUrl = process.env.DATABASE_URL;
+      if (!managementDbUrl) {
+        return res.status(500).json({ error: 'Database configuration error' });
+      }
+
+      const managementPool = new Pool({ connectionString: managementDbUrl });
+      const managementDb = drizzle({ client: managementPool, schema: sharedSchema });
+
+      try {
+        const customers = await managementDb
+          .select({
+            id: sharedSchema.customers.id,
+            companyName: sharedSchema.customers.companyName,
+            slug: sharedSchema.customers.slug,
+            isActive: sharedSchema.customers.isActive,
+            onboardingCompleted: sharedSchema.customers.onboardingCompleted,
+            createdAt: sharedSchema.customers.createdAt
+          })
+          .from(sharedSchema.customers)
+          .where(eq(sharedSchema.customers.slug, companySlug))
+          .limit(1);
+
+        if (customers.length === 0) {
+          return res.status(404).json({ 
+            error: 'Company not found',
+            companySlug 
+          });
+        }
+
+        const customer = customers[0];
+        
+        res.json({
+          success: true,
+          customer: {
+            id: customer.id,
+            companyName: customer.companyName,
+            slug: customer.slug,
+            isActive: customer.isActive,
+            onboardingCompleted: customer.onboardingCompleted,
+            createdAt: customer.createdAt
+          },
+          loginUrl: process.env.NODE_ENV === 'production' 
+            ? `https://${customer.slug}.visigatepro.app/login`
+            : `${process.env.FRONTEND_URL || 'http://localhost:5000'}/login`
+        });
+        
+      } finally {
+        await managementPool.end();
+      }
+      
+    } catch (error) {
+      console.error('❌ Error checking onboarding status:', error);
+      res.status(500).json({ 
+        error: 'Failed to check onboarding status',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      });
     }
   });
 

@@ -49,42 +49,92 @@ export class DatabaseProvisioningService {
       url.pathname = `/${dbName}`;
       return url.toString();
     } else {
-      // Development: Use same database (we'll use schema prefixing)
+      // Development: Use same database with schema isolation
       return baseUrl;
     }
   }
 
   /**
+   * Generate schema name for customer in development
+   * Format: c_<first8chars-of-customerId> for brevity and PostgreSQL compatibility
+   */
+  private generateSchemaName(customerId: string): string {
+    // Use first 8 characters + sanitize for PostgreSQL identifier rules
+    const schemaPrefix = customerId.replace(/-/g, '_').toLowerCase().substring(0, 8);
+    return `c_${schemaPrefix}`;
+  }
+
+  /**
+   * Create customer-specific database connection with proper schema isolation
+   */
+  private async createCustomerConnection(customerId: string): Promise<{ pool: Pool; db: ReturnType<typeof drizzle>; schemaName: string | null }> {
+    const databaseUrl = this.generateDatabaseUrl(customerId);
+    
+    if (process.env.NODE_ENV === 'production') {
+      // Production: Each customer has their own database
+      const pool = new Pool({ connectionString: databaseUrl });
+      const db = drizzle({ client: pool, schema: isolatedSchema });
+      return { pool, db, schemaName: null };
+    } else {
+      // Development: Use schema-based isolation
+      const schemaName = this.generateSchemaName(customerId);
+      
+      // Create connection with schema search path
+      const pool = new Pool({ 
+        connectionString: databaseUrl,
+        options: `-c search_path=${schemaName},public`
+      });
+      
+      const db = drizzle({ client: pool, schema: isolatedSchema });
+      return { pool, db, schemaName };
+    }
+  }
+
+  /**
    * Create a new database for a customer
-   * This provisions the complete schema structure
+   * This provisions the complete schema structure with proper isolation
    */
   async provisionCustomerDatabase(customerId: string): Promise<string> {
     console.log(`🏗️ Provisioning database for customer: ${customerId}`);
 
+    let pool: Pool | null = null;
+    
     try {
       const databaseUrl = this.generateDatabaseUrl(customerId);
       
-      // Connect to the new database URL
-      const pool = new Pool({ connectionString: databaseUrl });
-      const db = drizzle({ client: pool, schema: isolatedSchema });
-
-      // In development, we use the same database
-      // In production, we would create the database first
+      // Production: Create actual separate database
       if (process.env.NODE_ENV === 'production') {
         await this.createProductionDatabase(customerId);
       }
 
-      // Create all tables for this customer's database
-      await this.createCustomerSchema(db, customerId);
+      // Create customer connection with proper isolation
+      const connection = await this.createCustomerConnection(customerId);
+      pool = connection.pool;
+      const db = connection.db;
+      const schemaName = connection.schemaName;
+
+      // Development: Create customer schema if needed
+      if (process.env.NODE_ENV !== 'production' && schemaName) {
+        await this.createCustomerSchema(db, schemaName);
+        console.log(`✅ Created isolated schema: ${schemaName} for customer: ${customerId}`);
+      }
+
+      // Create all tables for this customer's database/schema
+      await this.createAllTables(db);
       
-      // Close the connection
-      await pool.end();
+      // Seed with default data
+      await this.seedDefaultData(db, customerId);
       
       console.log(`✅ Database provisioned successfully for customer: ${customerId}`);
       return databaseUrl;
     } catch (error) {
       console.error(`❌ Failed to provision database for customer ${customerId}:`, error);
       throw new Error(`Database provisioning failed: ${error}`);
+    } finally {
+      // Always close the pool
+      if (pool) {
+        await pool.end();
+      }
     }
   }
 
@@ -107,67 +157,33 @@ export class DatabaseProvisioningService {
   }
 
   /**
-   * Create the complete schema for a customer's database
-   * This includes all tables without customerId fields
+   * Create the PostgreSQL schema for a customer (development only)
+   * This provides complete data isolation between customers
    */
-  private async createCustomerSchema(db: ReturnType<typeof drizzle>, customerId: string): Promise<void> {
-    console.log(`📋 Creating schema for customer: ${customerId}`);
+  private async createCustomerSchema(db: ReturnType<typeof drizzle>, schemaName: string): Promise<void> {
+    console.log(`📋 Creating PostgreSQL schema: ${schemaName}`);
 
     try {
-      // Drop and recreate tables (for development/testing)
-      await this.dropExistingTables(db);
+      // Create schema if it doesn't exist (safe operation)
+      await db.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(schemaName)}`);
       
-      // Create all tables using the isolated schema
-      await this.createAllTables(db);
-      
-      // Seed with default data
-      await this.seedDefaultData(db, customerId);
-      
-      console.log(`✅ Schema created successfully for customer: ${customerId}`);
+      console.log(`✅ PostgreSQL schema created: ${schemaName}`);
     } catch (error) {
-      console.error(`❌ Failed to create schema for customer ${customerId}:`, error);
+      console.error(`❌ Failed to create schema ${schemaName}:`, error);
       throw error;
     }
   }
 
   /**
-   * Drop existing tables (for development/migration purposes)
+   * REMOVED: dropExistingTables function
+   * 
+   * This function was dangerous as it destroyed data across all customers
+   * in development environments. We now use schema-based isolation and
+   * CREATE TABLE IF NOT EXISTS for safe provisioning.
+   * 
+   * Tables are now created using idempotent CREATE TABLE IF NOT EXISTS
+   * statements within customer-specific schemas, ensuring complete isolation.
    */
-  private async dropExistingTables(db: ReturnType<typeof drizzle>): Promise<void> {
-    const tables = [
-      'worker_document_acceptances',
-      'worker_document_assignments', 
-      'contractor_visits',
-      'contractor_workers',
-      'contractor_companies',
-      'visitor_history',
-      'visitors',
-      'staff_attendance_history',
-      'staff_sessions',
-      'staff',
-      'room_booking_attendees',
-      'room_booking_waitlist',
-      'room_bookings',
-      'meeting_rooms',
-      'pre_bookings',
-      'contractor_pre_bookings',
-      'departments',
-      'tenant_companies',
-      'building_settings',
-      'company_settings',
-      'users',
-      'evacuation_accountability'
-    ];
-
-    for (const table of tables) {
-      try {
-        await db.execute(sql`DROP TABLE IF EXISTS ${sql.identifier(table)} CASCADE`);
-      } catch (error) {
-        // Ignore errors for non-existent tables
-        console.log(`Table ${table} doesn't exist, skipping...`);
-      }
-    }
-  }
 
   /**
    * Create all tables using the isolated schema
@@ -181,31 +197,152 @@ export class DatabaseProvisioningService {
     // For now, we'll use a simplified approach
     // In production, you'd use proper Drizzle migrations
     
-    // Company Settings table
+    // Company Settings table - Complete schema from isolatedSchema.ts
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS company_settings (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         company_name text NOT NULL DEFAULT 'TechCorp Ltd',
         logo_url text,
+        -- Company contact information
         address text DEFAULT '',
         phone text DEFAULT '',
         website text DEFAULT '',
         email text DEFAULT '',
+        -- Email and report settings
         email_reports_enabled boolean DEFAULT false,
         report_frequency text DEFAULT 'weekly',
         report_recipients text[] DEFAULT ARRAY['admin@company.com'],
         last_report_sent timestamp,
+        -- SMTP Configuration (Industry Standard)
+        smtp_host text DEFAULT '',
+        smtp_port text DEFAULT '587',
+        smtp_security text DEFAULT 'STARTTLS',
+        smtp_username text DEFAULT '',
+        smtp_password text DEFAULT '',
+        smtp_from_email text DEFAULT '',
+        smtp_from_name text DEFAULT '',
+        smtp_reply_to text DEFAULT '',
+        smtp_auth_method text DEFAULT 'LOGIN',
+        smtp_connection_timeout text DEFAULT '30',
+        smtp_test_email_sent boolean DEFAULT false,
+        smtp_last_tested timestamp,
+        -- Daily Reset / End of Day Configuration
         enable_daily_reset boolean DEFAULT true,
         daily_reset_time text DEFAULT '00:00',
         daily_reset_timezone text DEFAULT 'Europe/London',
+        grace_period_minutes text DEFAULT '15',
+        enable_weekend_reset boolean DEFAULT false,
+        enable_holiday_reset boolean DEFAULT false,
+        notify_forgotten_checkouts boolean DEFAULT true,
+        last_daily_reset timestamp,
+        allow_manual_reset boolean DEFAULT true,
+        reset_log_retention_days text DEFAULT '90',
+        enable_24x7_operations boolean DEFAULT false,
+        alert_before_reset boolean DEFAULT true,
+        alert_minutes_before text DEFAULT '30',
+        -- Branding settings
         background_color text DEFAULT '#f8fafc',
         foreground_color text DEFAULT '#1e293b',
         variable_text_color text DEFAULT '#374151',
         accent_color text DEFAULT '#3b82f6',
         banner_url text,
         theme text DEFAULT 'light',
+        -- Printer settings
         selected_printer text DEFAULT 'PDF Printer',
         enable_qr_codes boolean DEFAULT true,
+        enable_2d_barcodes boolean DEFAULT false,
+        barcode_format text DEFAULT 'QR_CODE',
+        print_quality text DEFAULT 'normal',
+        -- ID Card printer settings
+        id_card_printer text DEFAULT '',
+        id_card_print_quality text DEFAULT 'high',
+        id_card_paper_size text DEFAULT 'cr80',
+        id_card_orientation text DEFAULT 'landscape',
+        id_card_design text DEFAULT '[]',
+        -- Thermal Pass Designs
+        visitor_pass_design text DEFAULT '[]',
+        contractor_pass_design text DEFAULT '[]',
+        -- Thermal Printer Settings
+        thermal_selected_printer text DEFAULT 'tec',
+        thermal_print_method text DEFAULT 'direct',
+        thermal_print_quality text DEFAULT 'reception',
+        thermal_printer_settings text DEFAULT '{}',
+        -- Suprema Biostar integration settings
+        biostar_enabled boolean DEFAULT false,
+        biostar_server_url text DEFAULT '',
+        biostar_api_key text DEFAULT '',
+        biostar_username text DEFAULT '',
+        biostar_password text DEFAULT '',
+        biostar_database_id text DEFAULT '1',
+        biostar_sync_interval text DEFAULT '300',
+        -- Biometric reader device settings
+        biometric_devices text[] DEFAULT ARRAY[]::text[],
+        reader_settings text DEFAULT '{}',
+        -- AI and Video Generation Settings
+        openai_model text DEFAULT 'gpt-5',
+        openai_temperature text DEFAULT '0.7',
+        openai_max_tokens text DEFAULT '4000',
+        video_quality_preference text DEFAULT 'high',
+        enable_advanced_video_features boolean DEFAULT true,
+        default_video_length text DEFAULT '15',
+        ai_instructions_prompt text DEFAULT 'Create comprehensive, engaging safety induction content',
+        -- QR Code Reader Integration Settings
+        qr_reader_enabled boolean DEFAULT false,
+        qr_reader_device text DEFAULT 'auto',
+        qr_code_format text DEFAULT 'visigate',
+        qr_reader_settings text DEFAULT '{}',
+        -- Suprema CLUe Cloud Platform Integration
+        clue_enabled boolean DEFAULT false,
+        clue_api_url text DEFAULT 'https://api.suprema-clue.com',
+        clue_api_key text DEFAULT '',
+        clue_api_secret text DEFAULT '',
+        clue_organization_id text DEFAULT '',
+        clue_webhook_secret text DEFAULT '',
+        clue_dynamic_qr_enabled boolean DEFAULT true,
+        clue_qr_validity_minutes text DEFAULT '60',
+        clue_device_groups text[] DEFAULT ARRAY[]::text[],
+        clue_sync_interval text DEFAULT '300',
+        clue_auto_register_visitors boolean DEFAULT true,
+        clue_auto_delete_expired boolean DEFAULT true,
+        clue_test_mode boolean DEFAULT false,
+        clue_last_sync timestamp,
+        -- E-Pass Configuration Settings
+        e_pass_enabled boolean DEFAULT false,
+        e_pass_delivery_method text DEFAULT 'both',
+        e_pass_email_template text DEFAULT 'default',
+        e_pass_sms_template text DEFAULT 'default',
+        e_pass_auto_checkout boolean DEFAULT true,
+        e_pass_checkout_reminder_minutes text DEFAULT '30',
+        e_pass_host_notification_enabled boolean DEFAULT true,
+        e_pass_host_notification_delay text DEFAULT '60',
+        -- Twilio SMS Configuration
+        twilio_enabled boolean DEFAULT false,
+        twilio_account_sid text DEFAULT '',
+        twilio_auth_token text DEFAULT '',
+        twilio_phone_number text DEFAULT '',
+        twilio_messaging_service_sid text DEFAULT '',
+        -- Geofencing Configuration
+        geofencing_enabled boolean DEFAULT false,
+        geofence_radius text DEFAULT '100',
+        geofence_lat text DEFAULT '',
+        geofence_lng text DEFAULT '',
+        -- BioStar X-Station 2 Integration
+        x_station_enabled boolean DEFAULT false,
+        x_station_devices text[] DEFAULT ARRAY[]::text[],
+        x_station_checkout_mode text DEFAULT 'qr',
+        x_station_api_endpoint text DEFAULT '',
+        -- Health & Safety Rules
+        hs_rules_enabled boolean DEFAULT true,
+        hs_rules_content text DEFAULT '',
+        hs_rules_url text DEFAULT '',
+        hs_rules_require_acceptance boolean DEFAULT false,
+        -- Feature Toggles
+        feature_multi_tenant boolean DEFAULT true,
+        feature_meeting_rooms boolean DEFAULT true,
+        feature_time_attendance boolean DEFAULT true,
+        feature_induction_settings boolean DEFAULT true,
+        feature_kiosk boolean DEFAULT true,
+        feature_ai_demo boolean DEFAULT true,
         created_at timestamp DEFAULT now() NOT NULL,
         updated_at timestamp DEFAULT now() NOT NULL
       )
@@ -348,6 +485,23 @@ export class DatabaseProvisioningService {
       )
     `);
 
+    // Meeting Rooms table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS meeting_rooms (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        description text,
+        capacity integer NOT NULL,
+        location text,
+        equipment text[] DEFAULT ARRAY[]::text[],
+        is_active boolean DEFAULT true NOT NULL,
+        tenant_company_id varchar REFERENCES tenant_companies(id),
+        hourly_rate double precision DEFAULT 0,
+        created_at timestamp DEFAULT now() NOT NULL,
+        updated_at timestamp DEFAULT now() NOT NULL
+      )
+    `);
+
     console.log('✅ Database tables created successfully');
   }
 
@@ -365,22 +519,8 @@ export class DatabaseProvisioningService {
         ON CONFLICT DO NOTHING
       `);
 
-      // Create default departments
-      const defaultDepartments = [
-        { name: 'Administration', color: 'bg-blue-500' },
-        { name: 'Human Resources', color: 'bg-green-500' },
-        { name: 'Information Technology', color: 'bg-purple-500' },
-        { name: 'Operations', color: 'bg-orange-500' },
-        { name: 'Security', color: 'bg-red-500' }
-      ];
-
-      for (const dept of defaultDepartments) {
-        await db.execute(sql`
-          INSERT INTO departments (name, color)
-          VALUES (${dept.name}, ${dept.color})
-          ON CONFLICT (name) DO NOTHING
-        `);
-      }
+      // Note: Default departments are created by CustomerOnboardingService.initializeCompanyDefaults()
+      // to avoid duplicate constraint violations
 
       console.log(`✅ Default data seeded for customer: ${customerId}`);
     } catch (error) {
@@ -390,63 +530,90 @@ export class DatabaseProvisioningService {
   }
 
   /**
-   * Test database connection for a customer
+   * Test database connection for a customer with proper schema isolation
    */
-  async testCustomerDatabase(databaseUrl: string): Promise<boolean> {
+  async testCustomerDatabase(customerId: string): Promise<boolean> {
+    let pool: Pool | null = null;
+    
     try {
-      const pool = new Pool({ connectionString: databaseUrl });
-      const db = drizzle({ client: pool, schema: isolatedSchema });
+      const connection = await this.createCustomerConnection(customerId);
+      pool = connection.pool;
+      const db = connection.db;
       
       // Test connection by running a simple query
       await db.execute(sql`SELECT 1`);
       
-      await pool.end();
       return true;
     } catch (error) {
-      console.error('Database connection test failed:', error);
+      console.error(`Database connection test failed for customer ${customerId}:`, error);
       return false;
+    } finally {
+      if (pool) {
+        await pool.end();
+      }
     }
   }
 
   /**
-   * Delete a customer's database (use with extreme caution)
+   * Delete a customer's database/schema (use with extreme caution)
+   * Safe implementation that only affects the specific customer
    */
-  async deleteCustomerDatabase(customerId: string, databaseUrl: string): Promise<void> {
+  async deleteCustomerDatabase(customerId: string): Promise<void> {
     console.log(`🗑️ WARNING: Deleting database for customer: ${customerId}`);
     
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Database deletion not allowed in production without additional safeguards');
     }
 
+    let pool: Pool | null = null;
+    
     try {
-      const pool = new Pool({ connectionString: databaseUrl });
-      const db = drizzle({ client: pool, schema: isolatedSchema });
+      const connection = await this.createCustomerConnection(customerId);
+      pool = connection.pool;
+      const db = connection.db;
+      const schemaName = connection.schemaName;
 
-      // Drop all tables
-      await this.dropExistingTables(db);
+      if (process.env.NODE_ENV !== 'production' && schemaName) {
+        // Development: Drop the customer's schema (safe - only affects this customer)
+        await db.execute(sql`DROP SCHEMA IF EXISTS ${sql.identifier(schemaName)} CASCADE`);
+        console.log(`✅ Schema ${schemaName} deleted for customer: ${customerId}`);
+      } else {
+        // Production: Would drop entire database (not implemented for safety)
+        throw new Error('Production database deletion requires additional implementation and safeguards');
+      }
       
-      await pool.end();
-      
-      console.log(`✅ Database deleted for customer: ${customerId}`);
     } catch (error) {
       console.error(`❌ Failed to delete database for customer ${customerId}:`, error);
       throw error;
+    } finally {
+      if (pool) {
+        await pool.end();
+      }
     }
   }
 
   /**
-   * Create backup of customer database
+   * Create backup of customer database with proper isolation
    */
-  async backupCustomerDatabase(customerId: string, databaseUrl: string): Promise<string> {
+  async backupCustomerDatabase(customerId: string): Promise<string> {
     console.log(`💾 Creating backup for customer: ${customerId}`);
     
-    // This would implement actual backup logic
-    // For now, return a mock backup identifier
+    // Generate unique backup identifier
     const backupId = `backup_${customerId}_${Date.now()}`;
     
     try {
-      // Implementation would use pg_dump or similar
-      // const backupPath = await this.executePgDump(databaseUrl, backupId);
+      // Implementation would use pg_dump with schema-specific backup
+      // For development: pg_dump --schema=c_<customerId>
+      // For production: pg_dump entire customer database
+      
+      if (process.env.NODE_ENV !== 'production') {
+        const schemaName = this.generateSchemaName(customerId);
+        console.log(`📋 Would backup schema: ${schemaName}`);
+        // TODO: Implement schema-specific backup using pg_dump --schema=${schemaName}
+      } else {
+        console.log(`📋 Would backup entire database for customer: ${customerId}`);
+        // TODO: Implement full database backup
+      }
       
       console.log(`✅ Backup created for customer ${customerId}: ${backupId}`);
       return backupId;
@@ -457,14 +624,24 @@ export class DatabaseProvisioningService {
   }
 
   /**
-   * Restore customer database from backup
+   * Restore customer database from backup with proper isolation
    */
-  async restoreCustomerDatabase(customerId: string, databaseUrl: string, backupId: string): Promise<void> {
+  async restoreCustomerDatabase(customerId: string, backupId: string): Promise<void> {
     console.log(`🔄 Restoring backup ${backupId} for customer: ${customerId}`);
     
     try {
-      // Implementation would use pg_restore or similar
-      // await this.executePgRestore(databaseUrl, backupId);
+      // Implementation would use pg_restore with schema-specific restore
+      // For development: restore to specific schema
+      // For production: restore entire customer database
+      
+      if (process.env.NODE_ENV !== 'production') {
+        const schemaName = this.generateSchemaName(customerId);
+        console.log(`📋 Would restore to schema: ${schemaName}`);
+        // TODO: Implement schema-specific restore
+      } else {
+        console.log(`📋 Would restore entire database for customer: ${customerId}`);
+        // TODO: Implement full database restore
+      }
       
       console.log(`✅ Database restored for customer ${customerId} from backup: ${backupId}`);
     } catch (error) {
