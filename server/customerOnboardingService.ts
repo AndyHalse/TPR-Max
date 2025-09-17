@@ -8,6 +8,7 @@ import { CustomerDatabaseService } from './customerDatabase';
 import { DatabaseProvisioningService } from './databaseProvisioningService';
 import { AuthService } from './auth';
 import { EmailService } from './emailService';
+import { stripeService } from './stripeService';
 
 import * as sharedSchema from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
@@ -45,6 +46,17 @@ export class CustomerOnboardingService {
   }
 
   /**
+   * Check if Stripe is available and configured
+   */
+  private async isStripeAvailable(): Promise<boolean> {
+    try {
+      return stripeService.isAvailable();
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Main customer onboarding method with comprehensive rollback
    */
   async provisionCustomer(request: CustomerOnboardingRequest): Promise<CustomerOnboardingResponse> {
@@ -53,10 +65,13 @@ export class CustomerOnboardingService {
       databaseProvisioned: false,
       adminUserCreated: false,
       settingsInitialized: false,
+      stripeCustomerCreated: false,
+      subscriptionCreated: false,
       customerId: '',
       customerSlug: '',
       databaseUrl: '',
-      adminUserId: ''
+      adminUserId: '',
+      stripeCustomerId: ''
     };
 
     try {
@@ -93,7 +108,29 @@ export class CustomerOnboardingService {
       
       console.log(`✅ Company defaults initialized: ${customerId}`);
       
-      // Step 6: Finalize onboarding
+      // Step 6: Create Stripe customer (conditional on Stripe availability)
+      let stripeCustomerResult: any = null;
+      if (await this.isStripeAvailable()) {
+        stripeCustomerResult = await this.createStripeCustomer(customerId, request);
+        if (stripeCustomerResult.success && stripeCustomerResult.stripeCustomer) {
+          provisioiningState.stripeCustomerCreated = true;
+          provisioiningState.stripeCustomerId = stripeCustomerResult.stripeCustomer.id;
+          console.log(`✅ Stripe customer created: ${stripeCustomerResult.stripeCustomer.id}`);
+          
+          // Step 7: Create subscription if not trial-only
+          if (request.planType !== 'trial' || request.createSubscription) {
+            await this.createStripeSubscription(customerId, stripeCustomerResult.stripeCustomer.id, request);
+            provisioiningState.subscriptionCreated = true;
+            console.log(`✅ Stripe subscription created for customer: ${customerId}`);
+          }
+        } else {
+          console.warn(`⚠️ Stripe customer creation returned unsuccessful result for ${customerId}`);
+        }
+      } else {
+        console.warn(`⚠️ Stripe not available - skipping customer and subscription creation for development mode`);
+      }
+      
+      // Step 8: Finalize onboarding
       await this.finalizeOnboarding(customerId);
       
       console.log(`🎉 Customer onboarding completed successfully: ${customer.companyName}`);
@@ -328,6 +365,119 @@ export class CustomerOnboardingService {
         .values(room);
     }
   }
+
+  /**
+   * Create Stripe customer for billing integration (with null safety)
+   */
+  private async createStripeCustomer(customerId: string, request: CustomerOnboardingRequest) {
+    try {
+      console.log(`🔄 Creating Stripe customer for: ${request.companyName}`);
+
+      const result = await stripeService.createCustomer({
+        email: request.contactEmail,
+        name: `${request.adminFirstName} ${request.adminLastName}`,
+        companyName: request.companyName,
+        customerId,
+        phone: request.phone,
+        address: request.address ? {
+          line1: request.address,
+          country: 'GB' // Default to UK
+        } : undefined
+      });
+
+      // Note: stripeService.createCustomer already atomically updates the customer record
+      // with the Stripe customer ID, so no additional database update is needed here
+      if (!result.success) {
+        console.warn(`⚠️ Stripe customer creation was not successful for ${customerId}: ${result.error || 'Unknown error'}`);
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error(`Failed to create Stripe customer for ${customerId}:`, error);
+      // In development mode, don't fail the entire onboarding if Stripe is unavailable
+      if (process.env.NODE_ENV !== 'production' && error.message?.includes('Stripe not configured')) {
+        console.warn(`⚠️ Stripe unavailable in development mode - continuing onboarding without billing integration`);
+        return { success: false, error: 'Stripe not configured', stripeCustomer: null };
+      }
+      throw new Error(`Stripe customer creation failed: ${error}`);
+    }
+  }
+
+  /**
+   * Create Stripe subscription during onboarding
+   */
+  private async createStripeSubscription(customerId: string, stripeCustomerId: string, request: CustomerOnboardingRequest) {
+    try {
+      console.log(`🔄 Creating Stripe subscription for customer: ${customerId}`);
+
+      // Ensure VisiGate Pro subscription plan exists
+      const managementDbUrl = process.env.DATABASE_URL;
+      if (!managementDbUrl) {
+        throw new Error("DATABASE_URL must be set for management database");
+      }
+
+      const managementPool = new Pool({ connectionString: managementDbUrl });
+      const managementDb = drizzle({ client: managementPool, schema: sharedSchema });
+
+      try {
+        // Try to ensure plans exist first
+        const planResult = await stripeService.ensureSubscriptionPlans();
+        if (!planResult.success && process.env.NODE_ENV === 'production') {
+          throw new Error('Failed to ensure VisiGate Pro subscription plan exists');
+        }
+
+        const [plan] = await managementDb
+          .select()
+          .from(sharedSchema.subscriptionPlans)
+          .where(eq(sharedSchema.subscriptionPlans.name, 'visigate_pro'))
+          .limit(1);
+
+        if (!plan) {
+          // Create fallback plan if database query fails but Stripe setup succeeded
+          if (planResult.success && planResult.subscriptionPlan) {
+            // Plan was just created, use it
+            const fallbackPlan = planResult.subscriptionPlan;
+            plan = fallbackPlan;
+          } else {
+            throw new Error('VisiGate Pro subscription plan not found and could not be created. Please run setup first.');
+          }
+        }
+
+        const priceId = request.billingCycle === 'yearly' && plan.stripePriceIdYearly
+          ? plan.stripePriceIdYearly
+          : plan.stripePriceIdMonthly;
+
+        if (!priceId) {
+          throw new Error(`No Stripe price ID found for billing cycle: ${request.billingCycle || 'monthly'}`);
+        }
+
+        const result = await stripeService.createSubscription({
+          customerId,
+          stripeCustomerId,
+          priceId,
+          billingCycle: request.billingCycle || 'monthly',
+          trialDays: request.trialDays || 14
+        });
+
+        console.log(`✅ Stripe subscription created: ${result.subscription.id}`);
+        return result;
+
+      } finally {
+        await managementPool.end();
+      }
+
+    } catch (error) {
+      console.error(`Failed to create Stripe subscription for ${customerId}:`, error);
+      throw new Error(`Stripe subscription creation failed: ${error}`);
+    }
+  }
+
+  /**
+   * NOTE: updateCustomerStripeId method removed - stripeService.createCustomer
+   * now handles Stripe customer ID persistence atomically to prevent race conditions
+   * and ensure single point of truth for customer creation.
+   */
 
   /**
    * Finalize onboarding process

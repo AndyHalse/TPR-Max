@@ -72,9 +72,13 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as sharedSchema from '@shared/schema';
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
 import { customerOnboardingService } from "./customerOnboardingService";
+import { registerBillingRoutes } from "./billingRoutes";
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register billing routes (includes Stripe webhook)
+  registerBillingRoutes(app);
+  
   // Public Induction Preview Routes (no auth required) - Using different path to avoid /api auth
   app.get('/preview/induction/settings', async (req, res) => {
     try {

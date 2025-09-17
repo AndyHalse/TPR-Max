@@ -34,6 +34,7 @@ import Login from "@/pages/Login";
 import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
 import MarketingPage from "@/pages/MarketingPage";
 import AISettings from "@/pages/AISettings";
+import Billing from "@/pages/Billing";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -164,6 +165,7 @@ function Router() {
             <Route path="/induction-settings" component={InductionSettings} />
             <Route path="/meeting-rooms" component={MeetingRooms} />
             <Route path="/ai-demo" component={AIDemo} />
+            <Route path="/billing" component={Billing} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

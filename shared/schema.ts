@@ -24,6 +24,8 @@ export const customers = pgTable("customers", {
   // Security & API
   apiKeyEnabled: boolean("api_key_enabled").default(false),
   apiKey: text("api_key"), // For customer integrations
+  // Stripe Integration
+  stripeCustomerId: text("stripe_customer_id").unique(), // Stripe customer ID for billing
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -714,6 +716,10 @@ export const customerOnboardingRequestSchema = z.object({
     .length(3, "Currency must be a 3-letter code")
     .regex(/^[A-Z]{3}$/, "Currency must be uppercase 3-letter code")
     .default("GBP"),
+  
+  // Billing Configuration
+  billingCycle: z.enum(["monthly", "yearly"]).default("monthly").optional(),
+  createSubscription: z.boolean().default(true).optional(),
 });
 
 export const customerOnboardingResponseSchema = z.object({
