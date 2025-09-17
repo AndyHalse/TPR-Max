@@ -181,7 +181,6 @@ export class DatabaseService {
     if (updated[0]) {
       // Create attendance history record
       await db.insert(isolatedSchema.staffAttendanceHistory).values({
-        customerId: context.customerId,
         staffId: id,
         checkInTime: new Date(),
         department: updated[0].department,
@@ -264,7 +263,6 @@ export class DatabaseService {
       .select()
       .from(isolatedSchema.visitors)
       .where(and(
-        eq(isolatedSchema.visitors.customerId, context.customerId),
         gte(isolatedSchema.visitors.checkedInAt, today),
         lt(isolatedSchema.visitors.checkedInAt, tomorrow)
       ))
@@ -290,7 +288,6 @@ export class DatabaseService {
       .insert(isolatedSchema.visitors)
       .values({
         ...insertVisitor,
-        customerId: context.customerId,
         qrCode,
       })
       .returning();
@@ -331,10 +328,7 @@ export class DatabaseService {
     const updated = await db
       .update(isolatedSchema.visitors)
       .set({ ...updates, updatedAt: new Date() })
-      .where(and(
-        eq(isolatedSchema.visitors.customerId, context.customerId),
-        eq(isolatedSchema.visitors.id, id)
-      ))
+      .where(eq(isolatedSchema.visitors.id, id))
       .returning();
     
     return updated[0];
@@ -356,10 +350,7 @@ export class DatabaseService {
         checkoutType: 'user',
         updatedAt: new Date()
       })
-      .where(and(
-        eq(isolatedSchema.visitors.customerId, context.customerId),
-        eq(isolatedSchema.visitors.id, id)
-      ))
+      .where(eq(isolatedSchema.visitors.id, id))
       .returning();
     
     // Update the existing visitor history record with checkout time
@@ -369,7 +360,6 @@ export class DatabaseService {
         .select()
         .from(isolatedSchema.visitorHistory)
         .where(and(
-          eq(isolatedSchema.visitorHistory.customerId, context.customerId),
           eq(isolatedSchema.visitorHistory.visitorId, id),
           isNull(isolatedSchema.visitorHistory.checkOutTime)
         ))
@@ -549,10 +539,7 @@ export class DatabaseService {
         hsRulesAcceptanceToken: updates.hsRulesAcceptanceToken,
         updatedAt: new Date()
       })
-      .where(and(
-        eq(isolatedSchema.visitors.customerId, context.customerId),
-        eq(isolatedSchema.visitors.id, id)
-      ))
+      .where(eq(isolatedSchema.visitors.id, id))
       .returning();
     
     const visitor = updated[0];
@@ -1410,10 +1397,10 @@ export class DatabaseService {
   async getAllCardOffences(context: CustomerContext): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // In isolated customer databases, no customerId filter needed
     return await db
       .select()
       .from(isolatedSchema.cardOffences)
-      .where(eq(isolatedSchema.cardOffences.customerId, context.customerId))
       .orderBy(isolatedSchema.cardOffences.cardType, isolatedSchema.cardOffences.offenceName);
   }
 
@@ -1421,17 +1408,16 @@ export class DatabaseService {
   async getAllContractorWorkers(context: CustomerContext): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // First get all companies for this customer
+    // In isolated customer databases, no customerId filter needed - all companies belong to this customer
     const companies = await db
       .select()
-      .from(isolatedSchema.contractorCompanies)
-      .where(eq(isolatedSchema.contractorCompanies.customerId, context.customerId));
+      .from(isolatedSchema.contractorCompanies);
     
     if (companies.length === 0) {
       return []; // No companies, no workers
     }
     
-    // Get workers for all companies belonging to this customer
+    // Get workers for all companies
     const companyIds = companies.map(c => c.id);
     
     return await db
@@ -1451,7 +1437,6 @@ export class DatabaseService {
     const cardIssueData = {
       ...data,
       id: randomUUID(),
-      customerId: context.customerId,
       issuedAt: data.issuedAt || new Date(),
       photos: data.photos || [],
       status: data.status || "active"
