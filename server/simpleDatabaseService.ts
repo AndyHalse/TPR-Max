@@ -72,25 +72,24 @@ export class SimpleDatabaseService {
   ): Promise<CompanySettings | undefined> {
     console.log(`💾 Updating company settings for customer: ${context.customerId}`);
     
+    // Use customer isolated database
+    const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+    
     // First, try to get existing settings
     const existing = await this.getCompanySettings(context);
     
     if (existing) {
-      // Update existing settings
-      const updated = await db
-        .update(schema.companySettings)
+      // Update existing settings (no customerId filter needed in isolated DB)
+      const updated = await customerDb
+        .update(isolatedSchema.companySettings)
         .set({ ...updates, updatedAt: new Date() })
-        .where(and(
-          eq(schema.companySettings.customerId, context.customerId),
-          eq(schema.companySettings.id, existing.id)
-        ))
+        .where(eq(isolatedSchema.companySettings.id, existing.id))
         .returning();
       
       console.log(`✅ Updated company settings for customer: ${context.customerId}`);
       return updated[0];
     } else {
       // Create new settings for this customer with UK H&S rules
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       const defaultHSRules = `# Health & Safety Rules and Regulations
 
 ## General Safety Rules
@@ -183,10 +182,9 @@ These rules comply with:
 
 By entering our premises, you agree to comply with all health and safety rules.`;
       
-      const created = await db
-        .insert(schema.companySettings)
+      const created = await customerDb
+        .insert(isolatedSchema.companySettings)
         .values({
-          customerId: context.customerId,
           companyName: "Default Company",
           hsRulesEnabled: true,
           hsRulesContent: defaultHSRules,

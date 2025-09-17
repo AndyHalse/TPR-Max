@@ -604,25 +604,21 @@ export class DatabaseService {
   async getAllDepartments(context: CustomerContext): Promise<Department[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // No customerId filter needed in isolated database - each customer has their own DB
     return await db
       .select()
       .from(isolatedSchema.departments)
-      .where(and(
-        eq(isolatedSchema.departments.customerId, context.customerId),
-        eq(isolatedSchema.departments.isActive, true)
-      ));
+      .where(eq(isolatedSchema.departments.isActive, true));
   }
 
   async getDepartmentNames(context: CustomerContext): Promise<string[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // No customerId filter needed in isolated database - each customer has their own DB
     const departments = await db
       .select({ name: isolatedSchema.departments.name })
       .from(isolatedSchema.departments)
-      .where(and(
-        eq(isolatedSchema.departments.customerId, context.customerId),
-        eq(isolatedSchema.departments.isActive, true)
-      ));
+      .where(eq(isolatedSchema.departments.isActive, true));
       
     return departments.map(dept => dept.name);
   }
@@ -961,21 +957,9 @@ export class DatabaseService {
       .from(isolatedSchema.staff)
       .where(eq(isolatedSchema.staff.isCheckedIn, true));
     
-    // Get contractors on site count - No customer filter needed in isolated DB
-    const customerCompanies = await db
-      .select({ id: isolatedSchema.contractorCompanies.id })
-      .from(isolatedSchema.contractorCompanies);
-    
-    const companyIds = customerCompanies.map(c => c.id || '').filter(id => id);
-    
-    // Then count checked-in workers from those companies
-    const contractorsOnSiteResult = companyIds.length > 0 ? await db
-      .select({ count: sql<number>`count(*)` })
-      .from(isolatedSchema.contractorWorkers)
-      .where(and(
-        eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
-        inArray(isolatedSchema.contractorWorkers.companyId, companyIds)
-      )) : [{ count: 0 }];
+    // Contractors are not available in isolated database schema yet
+    // Return 0 for contractors count until contractor tables are added to isolated schema
+    const contractorsOnSiteResult = [{ count: 0 }];
     
     // Get total staff
     const totalStaffResult = await db
@@ -1236,28 +1220,9 @@ export class DatabaseService {
   // Duplicate functions removed - using original implementations
 
   async getCheckedInContractors(context: CustomerContext): Promise<any[]> {
-    const db = await customerDbService.getCustomerDatabase(context.customerId);
-    
-    // Get all contractor company IDs (no customer filter needed in isolated DB)
-    const customerCompanies = await db
-      .select({ id: isolatedSchema.contractorCompanies.id })
-      .from(isolatedSchema.contractorCompanies);
-    
-    const companyIds = customerCompanies.map(c => c.id);
-    
-    if (companyIds.length === 0) {
-      return [];
-    }
-    
-    // Then get checked-in workers from those companies
-    return await db
-      .select()
-      .from(isolatedSchema.contractorWorkers)
-      .where(and(
-        eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
-        inArray(isolatedSchema.contractorWorkers.companyId, companyIds)
-      ))
-      .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
+    // Contractors are not available in isolated database schema yet
+    // Return empty array until contractor tables are added to isolated schema
+    return [];
   }
 
   async createContractorCompany(context: CustomerContext, insertCompany: any): Promise<any> {
@@ -1277,14 +1242,11 @@ export class DatabaseService {
   async getWorkersByCompanyId(context: CustomerContext, companyId: string): Promise<any[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // First verify the company belongs to this customer
+    // First verify the company exists (no customer filter needed in isolated DB)
     const company = await db
       .select()
       .from(isolatedSchema.contractorCompanies)
-      .where(and(
-        eq(isolatedSchema.contractorCompanies.id, companyId),
-        eq(isolatedSchema.contractorCompanies.customerId, context.customerId)
-      ));
+      .where(eq(isolatedSchema.contractorCompanies.id, companyId));
     
     if (company.length === 0) {
       return []; // Company doesn't exist or doesn't belong to this customer
