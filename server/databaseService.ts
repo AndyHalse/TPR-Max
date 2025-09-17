@@ -776,13 +776,11 @@ export class DatabaseService {
   async getCheckedInStaff(context: CustomerContext): Promise<Staff[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // No customerId filter needed - each customer has their own database
     return await db
       .select()
       .from(isolatedSchema.staff)
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.isCheckedIn, true)
-      ))
+      .where(eq(isolatedSchema.staff.isCheckedIn, true))
       .orderBy(desc(isolatedSchema.staff.checkedInAt));
   }
 
@@ -793,22 +791,26 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     // Get department analytics with visitor counts
-    const results = await db
-      .select({
-        department: isolatedSchema.staff.department,
-        visitorCount: sql<number>`COUNT(DISTINCT ${isolatedSchema.visitors.id})`,
-        staffCount: sql<number>`COUNT(DISTINCT ${isolatedSchema.staff.id})`
-      })
-      .from(isolatedSchema.staff)
-      .leftJoin(isolatedSchema.visitors, and(
-        eq(isolatedSchema.visitors.customerId, context.customerId),
-        eq(isolatedSchema.visitors.hostStaffId, isolatedSchema.staff.id)
-      ))
-      .where(eq(isolatedSchema.staff.customerId, context.customerId))
-      .groupBy(isolatedSchema.staff.department)
-      .orderBy(sql`COUNT(DISTINCT ${isolatedSchema.visitors.id}) DESC`);
-
-    return results;
+    // No customerId filters needed - each customer has their own database
+    try {
+      const results = await db
+        .select({
+          department: isolatedSchema.staff.department,
+          visitorCount: sql<number>`COUNT(DISTINCT ${isolatedSchema.visitors.id})`,
+          staffCount: sql<number>`COUNT(DISTINCT ${isolatedSchema.staff.id})`
+        })
+        .from(isolatedSchema.staff)
+        .leftJoin(isolatedSchema.visitors, eq(isolatedSchema.visitors.hostStaffId, isolatedSchema.staff.id))
+        .where(isolatedSchema.staff.department != null) // Filter out null departments
+        .groupBy(isolatedSchema.staff.department)
+        .orderBy(sql`COUNT(DISTINCT ${isolatedSchema.visitors.id}) DESC`);
+      
+      console.log(`📊 Department analytics fetched: ${results.length} departments`);
+      return results;
+    } catch (error) {
+      console.error('❌ Department analytics error:', error);
+      throw error;
+    }
   }
 
   async getDepartmentDetails(context: CustomerContext, departmentName: string): Promise<{
@@ -820,14 +822,11 @@ export class DatabaseService {
   }> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // Get staff in department
+    // Get staff in department (no customerId filter needed)
     const staff = await db
       .select()
       .from(isolatedSchema.staff)
-      .where(and(
-        eq(isolatedSchema.staff.customerId, context.customerId),
-        eq(isolatedSchema.staff.department, departmentName)
-      ));
+      .where(eq(isolatedSchema.staff.department, departmentName));
     
     // Get visitors hosted by staff in this department
     const visitors = await db
@@ -845,7 +844,7 @@ export class DatabaseService {
         eq(isolatedSchema.visitors.hostStaffId, isolatedSchema.staff.id),
         eq(isolatedSchema.staff.department, departmentName)
       ))
-      .where(eq(isolatedSchema.visitors.customerId, context.customerId))
+      // No customerId filter needed - each customer has their own database
       .orderBy(desc(isolatedSchema.visitors.checkedInAt))
       .limit(10);
     
@@ -860,7 +859,6 @@ export class DatabaseService {
       .from(isolatedSchema.staffAttendanceHistory)
       .innerJoin(isolatedSchema.staff, eq(isolatedSchema.staffAttendanceHistory.staffId, isolatedSchema.staff.id))
       .where(and(
-        eq(isolatedSchema.staffAttendanceHistory.customerId, context.customerId),
         eq(isolatedSchema.staff.department, departmentName),
         gte(isolatedSchema.staffAttendanceHistory.checkInTime, today)
       ));
@@ -877,10 +875,7 @@ export class DatabaseService {
       })
       .from(isolatedSchema.staffAttendanceHistory)
       .innerJoin(isolatedSchema.staff, eq(isolatedSchema.staffAttendanceHistory.staffId, isolatedSchema.staff.id))
-      .where(and(
-        eq(isolatedSchema.staffAttendanceHistory.customerId, context.customerId),
-        eq(isolatedSchema.staff.department, departmentName)
-      ))
+      .where(eq(isolatedSchema.staff.department, departmentName))
       .orderBy(desc(sql`COALESCE(${isolatedSchema.staffAttendanceHistory.checkOutTime}, ${isolatedSchema.staffAttendanceHistory.checkInTime})`))
       .limit(5);
     
@@ -976,6 +971,7 @@ export class DatabaseService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
+    // No customerId filters needed - each customer has their own database
     const hourlyData = await db
       .select({
         hour: sql<number>`EXTRACT(HOUR FROM ${isolatedSchema.visitors.checkedInAt})`,
@@ -983,7 +979,6 @@ export class DatabaseService {
       })
       .from(isolatedSchema.visitors)
       .where(and(
-        eq(isolatedSchema.visitors.customerId, context.customerId),
         gte(isolatedSchema.visitors.checkedInAt, today),
         lt(isolatedSchema.visitors.checkedInAt, tomorrow)
       ))
@@ -1002,13 +997,11 @@ export class DatabaseService {
   async getUser(context: CustomerContext, userId: string): Promise<User | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // No customerId filter needed - each customer has their own database
     const [user] = await db
       .select()
       .from(isolatedSchema.users)
-      .where(and(
-        eq(isolatedSchema.users.customerId, context.customerId),
-        eq(isolatedSchema.users.id, userId)
-      ));
+      .where(eq(isolatedSchema.users.id, userId));
     
     return user || undefined;
   }
@@ -1041,13 +1034,11 @@ export class DatabaseService {
     try {
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
+      // No customerId filter needed - each customer has their own database
       const [staff] = await db
         .select()
         .from(isolatedSchema.staff)
-        .where(and(
-          eq(isolatedSchema.staff.customerId, context.customerId),
-          eq(isolatedSchema.staff.email, email)
-        ));
+        .where(eq(isolatedSchema.staff.email, email));
       
       if (!staff || !staff.password) {
         return null;

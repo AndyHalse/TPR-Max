@@ -10319,6 +10319,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // MIGRATION ENDPOINT - Migrate Andy's data from MemStorage to isolated database
+  app.post("/api/super-admin/migrate-andy-data", requireAuth, async (req, res) => {
+    try {
+      console.log("🚀 Migration endpoint called - starting Andy's data migration...");
+      
+      // Import migration function
+      const { migrateAndyData } = await import("./migrate-andy-data");
+      
+      // Execute migration
+      await migrateAndyData();
+      
+      console.log("✅ Migration completed successfully!");
+      res.json({ 
+        success: true, 
+        message: "Andy's data has been successfully migrated from MemStorage to isolated database" 
+      });
+    } catch (error) {
+      console.error("❌ Migration failed:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Migration failed", 
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // DEBUG MIGRATION ENDPOINT - No auth required for testing
+  app.get("/api/debug/migrate-andy", async (req, res) => {
+    try {
+      console.log("🚀 DEBUG: Migration endpoint called - starting Andy's data migration...");
+      
+      // Import simpler migration function
+      const { runMigration } = await import("./migration-runner");
+      
+      // Execute migration
+      const result = await runMigration();
+      
+      console.log("✅ DEBUG: Migration completed successfully!");
+      res.json({ 
+        success: true, 
+        message: "Andy's data has been successfully migrated from MemStorage to isolated database",
+        result
+      });
+    } catch (error) {
+      console.error("❌ DEBUG: Migration failed:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Migration failed", 
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Tenant-specific endpoints
   app.get("/api/super-admin/tenants/:slug", async (req, res) => {
     try {

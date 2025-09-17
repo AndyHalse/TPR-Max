@@ -56,14 +56,23 @@ export class SimpleDatabaseService {
   async getCompanySettings(context: CustomerContext): Promise<CompanySettings | undefined> {
     console.log(`🔍 Getting company settings for customer: ${context.customerId}`);
     
-    // Use customer isolated database - no customerId filter needed
-    const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const settings = await customerDb
-      .select()
-      .from(isolatedSchema.companySettings)
-      .limit(1);
-    
-    return settings[0];
+    try {
+      // Use customer isolated database - no customerId filter needed
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const settings = await customerDb
+        .select()
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      
+      return settings[0];
+    } catch (error: any) {
+      // Handle schema mismatches gracefully (e.g., missing columns like last_daily_reset)
+      if (error.code === '42703') {
+        console.warn(`⚠️ Schema mismatch in company settings for ${context.customerId}: ${error.message}`);
+        return undefined; // Return undefined instead of crashing
+      }
+      throw error; // Re-throw non-schema errors
+    }
   }
 
   async updateCompanySettings(
