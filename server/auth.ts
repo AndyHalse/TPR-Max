@@ -240,27 +240,52 @@ export class AuthService {
 }
 
 /**
- * Middleware to check if user is authenticated
+ * Middleware to check if user is authenticated with proper tenant context
+ * PRODUCTION SECURITY: Enforces BOTH userId AND customerId for complete SaaS isolation
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.session || !req.session.userId) {
-    return res.status(401).json({ error: 'Authentication required' });
+  if (!req.session || !req.session.userId || !req.session.customerId) {
+    console.log('🚨 SECURITY: requireAuth failed - missing tenant context:', {
+      hasSession: !!req.session,
+      hasUserId: !!(req.session && req.session.userId),
+      hasCustomerId: !!(req.session && req.session.customerId),
+      sessionId: req.session ? req.sessionID : 'none'
+    });
+    return res.status(401).json({ error: 'Authentication required - proper tenant context missing' });
   }
+  
+  // Log successful authentication with tenant context
+  console.log('✅ SECURITY: requireAuth passed - tenant context verified:', {
+    userId: req.session.userId,
+    customerId: req.session.customerId,
+    sessionId: req.sessionID
+  });
+  
   next();
 }
 
 /**
- * Middleware to load user from session
+ * Middleware to load user from session using customer-specific database
  */
 export async function loadUser(req: Request, res: Response, next: NextFunction) {
-  if (req.session && req.session.userId) {
+  if (req.session && req.session.userId && req.session.customerId) {
     try {
-      const user = await storage.getUser(req.session.userId);
-      if (user) {
-        req.user = user;
+      // Use customer-specific database to load user
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(req.session.customerId);
+      
+      const users = await customerDb
+        .select()
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, req.session.userId))
+        .limit(1);
+      
+      if (users[0]) {
+        req.user = users[0] as any;
+        req.customerId = req.session.customerId;
       }
     } catch (error) {
-      console.error('Failed to load user from session:', error);
+      console.error('Failed to load user from customer-specific session:', error);
     }
   }
   next();

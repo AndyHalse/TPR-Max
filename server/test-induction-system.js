@@ -38,11 +38,21 @@ class InductionSystemValidator {
     console.log('🔧 Testing Backend API Endpoints...');
     
     try {
-      // Test login first to get authentication
+      // Test login first to get authentication - using secure 3-field credentials
+      const testCompanyName = process.env.TEST_COMPANY_NAME || 'ACS Safety & Security Ltd';
+      const testUsername = process.env.TEST_USER_USERNAME || 'andy';
+      const testPassword = process.env.TEST_USER_PASSWORD || (() => {
+        throw new Error('🚨 SECURITY: TEST_USER_PASSWORD environment variable must be set for testing');
+      })();
+      
       const loginResponse = await fetch(`${this.baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'Andy', password: 'Kubo1966&&' })
+        body: JSON.stringify({ 
+          companyName: testCompanyName,
+          username: testUsername, 
+          password: testPassword 
+        })
       });
       
       const loginData = await loginResponse.json();

@@ -64,6 +64,8 @@ import { EmailService, emailService } from "./emailService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth } from "./auth";
+import { CustomerDatabaseService } from "./customerDatabase";
+import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
@@ -1233,10 +1235,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    console.log(`🔍 /api/auth/me called - session.userId: ${req.session?.userId}`);
+    console.log(`🔍 /api/auth/me called - session.userId: ${req.session?.userId}, customerId: ${req.session?.customerId}`);
     
-    if (!req.session.userId) {
-      // If no session, suggest session refresh to clear old cookies
+    if (!req.session.userId || !req.session.customerId) {
+      // If no session or customer context, suggest session refresh to clear old cookies
       return res.status(401).json({ 
         error: "Not authenticated",
         suggestion: "session_refresh_needed" 
@@ -1244,23 +1246,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      console.log(`🔍 Attempting to load user with ID: ${req.session.userId}`);
+      console.log(`🔍 Attempting to load user with ID: ${req.session.userId} from customer DB: ${req.session.customerId}`);
       
-      // Load user from storage (same storage layer used in login)
-      const user = await storage.getUser(req.session.userId);
+      // Load user from customer-specific database instead of shared storage
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(req.session.customerId);
+      
+      const users = await customerDb
+        .select()
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, req.session.userId))
+        .limit(1);
+      
+      const user = users[0];
       
       console.log(`🔍 User lookup result:`, user ? `Found user: ${user.username}` : 'User not found');
       
       if (!user) {
-        return res.status(401).json({ error: "User not found" });
+        return res.status(401).json({ error: "User not found in customer database" });
       }
       
-      console.log(`✅ User authenticated successfully: ${user.username} (ID: ${user.id})`);
+      console.log(`✅ User authenticated successfully: ${user.username} (ID: ${user.id}) from customer DB`);
       
       res.json({ 
         id: user.id, 
         username: user.username, 
-        customerId: user.customerId || 'dev-customer-001'
+        customerId: req.session.customerId
       });
     } catch (error) {
       console.error('Error in /api/auth/me:', error);
