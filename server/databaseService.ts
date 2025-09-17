@@ -17,29 +17,26 @@ import type {
   InsertTenantCompany,
   PreBooking,
   InsertPreBooking,
-  ContractorWorker,
-  InsertContractorWorker,
-  ContractorCompany,
-  CO2EmissionsData,
-  InsertCO2EmissionsData,
-  CO2MonthlySummary,
-  InsertCO2MonthlySummary,
-  CO2SustainabilityReport,
-  InsertCO2SustainabilityReport,
-  CardIssue,
-  InsertCardIssue,
-} from "@shared/schema";
-import * as schema from "@shared/schema";
+} from "./isolatedSchema";
+import * as isolatedSchema from "./isolatedSchema";
+import * as sharedSchema from "@shared/schema"; // Keep for management operations
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 
 /**
  * CUSTOMER-ISOLATED DATABASE SERVICE
  * 
- * This service replaces the shared MemStorage system with proper customer database isolation.
- * Every operation is scoped to a specific customer, ensuring complete data separation.
+ * This service provides database operations for customer-isolated databases.
+ * Each customer has their own separate PostgreSQL database, eliminating the need
+ * for customerId fields in queries.
  * 
- * Each method requires CustomerContext to enforce customer isolation.
+ * Key Features:
+ * - True database-level isolation per customer
+ * - No customerId filters needed (each DB belongs to one customer)
+ * - Complete data separation at the infrastructure level
+ * - Tenant-level isolation within customer databases
+ * 
+ * Each method requires CustomerContext to route to the correct customer database.
  */
 export class DatabaseService {
   
@@ -49,10 +46,10 @@ export class DatabaseService {
   async getCompanySettings(context: CustomerContext): Promise<CompanySettings | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    // No customerId filter needed - each customer has their own database
     const settings = await db
       .select()
-      .from(schema.companySettings)
-      .where(eq(schema.companySettings.customerId, context.customerId))
+      .from(isolatedSchema.companySettings)
       .limit(1);
     
     return settings[0];
@@ -68,25 +65,19 @@ export class DatabaseService {
     const existing = await this.getCompanySettings(context);
     
     if (existing) {
-      // Update existing settings
+      // Update existing settings (no customerId filter needed)
       const updated = await db
-        .update(schema.companySettings)
+        .update(isolatedSchema.companySettings)
         .set({ ...updates, updatedAt: new Date() })
-        .where(and(
-          eq(schema.companySettings.customerId, context.customerId),
-          eq(schema.companySettings.id, existing.id)
-        ))
+        .where(eq(isolatedSchema.companySettings.id, existing.id))
         .returning();
       
       return updated[0];
     } else {
-      // Create new settings for this customer
+      // Create new settings (no customerId needed)
       const created = await db
-        .insert(schema.companySettings)
-        .values({
-          customerId: context.customerId,
-          ...updates,
-        })
+        .insert(isolatedSchema.companySettings)
+        .values(updates)
         .returning();
       
       return created[0];
@@ -100,20 +91,16 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     if (context.tenantId) {
+      // Filter by tenant within this customer's database
       return await db
         .select()
-        .from(schema.staff)
-        .where(
-          and(
-            eq(schema.staff.customerId, context.customerId),
-            eq(schema.staff.tenantCompanyId, context.tenantId)
-          )
-        );
+        .from(isolatedSchema.staff)
+        .where(eq(isolatedSchema.staff.tenantCompanyId, context.tenantId));
     } else {
+      // Get all staff in this customer's database
       return await db
         .select()
-        .from(schema.staff)
-        .where(eq(schema.staff.customerId, context.customerId));
+        .from(isolatedSchema.staff);
     }
   }
 
