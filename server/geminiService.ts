@@ -1,27 +1,50 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { Visitor, Staff, CompanySettings, AiGeneratedImage, InsertAiGeneratedImage } from '@shared/schema';
+import { databaseService } from './databaseService';
+import type { CustomerContext } from './customerDatabase';
 
 // DON'T DELETE THIS COMMENT
 // Follow these instructions when using this blueprint:
 // - Note that the newest Gemini model series is "gemini-2.5-flash" or gemini-2.5-pro"
 //   - do not change this unless explicitly requested by the user
 
-// This API key is from Gemini Developer API Key, not vertex AI API Key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
-// GeminiService initialized - configuration logging disabled for security
+// AI service now uses customer-specific API keys from database instead of environment variables
 
 export class GeminiService {
 
   /**
-   * Generate AI safety images for H&S induction slides using Gemini
+   * Get customer's Gemini API key from secure database storage
+   */
+  private async getCustomerGeminiKey(context: CustomerContext): Promise<string> {
+    const apiKeys = await databaseService.getCustomerApiKeys(context);
+    const geminiKey = apiKeys.find(key => key.serviceType === 'gemini');
+    
+    if (!geminiKey) {
+      throw new Error('No Gemini API key configured for this customer. Please configure your Gemini API key in Settings.');
+    }
+    
+    // Decrypt the key using fixed encryption utils
+    const { decryptData } = await import('./utils/encryption');
+    return decryptData(
+      geminiKey.encryptedKey,
+      geminiKey.initializationVector,
+      geminiKey.authTag
+    );
+  }
+
+  /**
+   * Generate AI safety images for H&S induction slides using customer's Gemini key
    */
   async generateSafetyImage(
+    context: CustomerContext,
     slideType: string,
     title: string,
     description: string
   ): Promise<{ imageUrl: string; dallePrompt: string }> {
     try {
+      // Get customer's Gemini API key from database
+      const customerGeminiKey = await this.getCustomerGeminiKey(context);
+      const ai = new GoogleGenAI({ apiKey: customerGeminiKey });
       const prompts = {
         ppe: "Professional workplace safety scene showing workers wearing complete PPE (hard hat, high-visibility vest, safety boots, safety glasses, work gloves) in a modern industrial setting. Clean, well-lit environment with safety signage visible. Photorealistic style with bright lighting showing proper safety compliance.",
         emergency: "Emergency evacuation scene in a modern workplace showing clearly marked emergency exits, fire alarm points, and assembly point signs. Workers calmly following evacuation procedures. Bright, clear lighting with visible safety equipment like fire extinguishers and first aid stations.",
@@ -86,6 +109,7 @@ export class GeminiService {
    * AI-powered competitive analysis using Gemini
    */
   async generateCompetitiveAnalysis(
+    context: CustomerContext,
     companySize: number,
     currentSystem: string,
     monthlyVisitors: number
@@ -98,6 +122,10 @@ export class GeminiService {
     marketPosition: string;
   }> {
     try {
+      // Get customer's Gemini API key from database
+      const customerGeminiKey = await this.getCustomerGeminiKey(context);
+      const ai = new GoogleGenAI({ apiKey: customerGeminiKey });
+      
       const prompt = `
         Generate a competitive analysis for VisiGate Pro against ${currentSystem} for a company with ${companySize} employees processing ${monthlyVisitors} monthly visitors.
 
@@ -182,6 +210,7 @@ export class GeminiService {
    * Generate sales pitch using Gemini
    */
   async generateSalesPitch(
+    context: CustomerContext,
     companyName: string,
     industry: string,
     companySize: number,
@@ -196,6 +225,10 @@ export class GeminiService {
     nextSteps: string[];
   }> {
     try {
+      // Get customer's Gemini API key from database
+      const customerGeminiKey = await this.getCustomerGeminiKey(context);
+      const ai = new GoogleGenAI({ apiKey: customerGeminiKey });
+      
       const prompt = `
         Generate a customized sales pitch for VisiGate Pro visitor management system for:
         
@@ -308,6 +341,7 @@ export class GeminiService {
    * Generate visitor insights using Gemini
    */
   async generateVisitorInsights(
+    context: CustomerContext,
     totalVisitors: number,
     todayCheckins: number,
     peakHours: any[],
@@ -321,6 +355,10 @@ export class GeminiService {
     predictiveInsights: string;
   }> {
     try {
+      // Get customer's Gemini API key from database
+      const customerGeminiKey = await this.getCustomerGeminiKey(context);
+      const ai = new GoogleGenAI({ apiKey: customerGeminiKey });
+      
       const prompt = `
         Analyze visitor management data and provide insights for:
         - Total Visitors: ${totalVisitors}
@@ -398,6 +436,7 @@ export class GeminiService {
    * Generate predictive analytics using Gemini
    */
   async generatePredictiveAnalytics(
+    context: CustomerContext,
     historicalData: any,
     currentTrends: any
   ): Promise<{
@@ -408,6 +447,10 @@ export class GeminiService {
     actionableInsights: string[];
   }> {
     try {
+      // Get customer's Gemini API key from database
+      const customerGeminiKey = await this.getCustomerGeminiKey(context);
+      const ai = new GoogleGenAI({ apiKey: customerGeminiKey });
+      
       const prompt = `
         Based on historical visitor data and current trends, provide predictive analytics:
         

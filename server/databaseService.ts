@@ -2090,6 +2090,234 @@ export class DatabaseService {
   }
 
   /**
+   * CUSTOMER API KEY MANAGEMENT METHODS - Customer Isolated
+   */
+  async getCustomerApiKeys(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // No customerId filter needed - each customer has their own database
+    const apiKeys = await db
+      .select()
+      .from(sharedSchema.customerApiKeys)
+      .where(eq(sharedSchema.customerApiKeys.status, 'active'))
+      .orderBy(desc(sharedSchema.customerApiKeys.createdAt));
+    
+    return apiKeys;
+  }
+
+  async getApiKeyByFingerprint(context: CustomerContext, fingerprint: string): Promise<any | null> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [apiKey] = await db
+      .select()
+      .from(sharedSchema.customerApiKeys)
+      .where(eq(sharedSchema.customerApiKeys.keyFingerprint, fingerprint))
+      .limit(1);
+    
+    return apiKey || null;
+  }
+
+  async upsertCustomerApiKey(context: CustomerContext, keyData: any): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Check if key with this service type already exists
+    const [existingKey] = await db
+      .select()
+      .from(sharedSchema.customerApiKeys)
+      .where(eq(sharedSchema.customerApiKeys.serviceType, keyData.serviceType))
+      .limit(1);
+    
+    if (existingKey) {
+      // Update existing key
+      const [updated] = await db
+        .update(sharedSchema.customerApiKeys)
+        .set({
+          ...keyData,
+          keyVersion: (existingKey.keyVersion || 1) + 1,
+          previousKeyId: existingKey.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(sharedSchema.customerApiKeys.id, existingKey.id))
+        .returning();
+      
+      return updated;
+    } else {
+      // Insert new key
+      const id = randomUUID();
+      const [created] = await db
+        .insert(sharedSchema.customerApiKeys)
+        .values({
+          id,
+          customerId: context.customerId, // Add customerId for the shared schema
+          ...keyData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      
+      return created;
+    }
+  }
+
+  async updateApiKeyLastUsed(context: CustomerContext, serviceType: string): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    await db
+      .update(sharedSchema.customerApiKeys)
+      .set({
+        lastUsedAt: new Date(),
+        usageCount: sql`${sharedSchema.customerApiKeys.usageCount} + 1`,
+      })
+      .where(eq(sharedSchema.customerApiKeys.serviceType, serviceType));
+  }
+
+  async logApiKeyAccess(context: CustomerContext, logData: {
+    serviceType: string;
+    action: string;
+    success: boolean;
+    userId: string;
+    ipAddress: string;
+  }): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Find the API key ID for this service type
+    const [apiKey] = await db
+      .select()
+      .from(sharedSchema.customerApiKeys)
+      .where(eq(sharedSchema.customerApiKeys.serviceType, logData.serviceType))
+      .limit(1);
+    
+    if (apiKey) {
+      await db
+        .insert(sharedSchema.customerApiKeyAccessLogs)
+        .values({
+          id: randomUUID(),
+          customerId: context.customerId,
+          apiKeyId: apiKey.id,
+          requestMethod: 'POST',
+          requestPath: '/api/settings/ai-keys/test',
+          ipAddress: logData.ipAddress,
+          responseStatus: logData.success ? 200 : 400,
+          suspiciousActivity: false,
+          billableOperation: false,
+          operationCost: '0.0000',
+          accessedAt: new Date(),
+          createdAt: new Date(),
+        });
+    }
+  }
+
+  async revokeCustomerApiKey(context: CustomerContext, serviceType: string, revokeData: {
+    revokedBy: string;
+    revocationReason: string;
+  }): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const result = await db
+      .update(sharedSchema.customerApiKeys)
+      .set({
+        status: 'revoked',
+        revokedBy: revokeData.revokedBy,
+        revokedAt: new Date(),
+        revocationReason: revokeData.revocationReason,
+        updatedAt: new Date(),
+      })
+      .where(eq(sharedSchema.customerApiKeys.serviceType, serviceType))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  /**
+   * CUSTOMER API KEYS METHODS - Critical for AI Settings Security
+   */
+  async getCustomerApiKeys(context: CustomerContext): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(sharedSchema.customerApiKeys)
+      .where(and(
+        eq(sharedSchema.customerApiKeys.customerId, context.customerId),
+        eq(sharedSchema.customerApiKeys.status, 'active')
+      ))
+      .orderBy(desc(sharedSchema.customerApiKeys.createdAt));
+  }
+
+  async upsertCustomerApiKey(context: CustomerContext, keyData: any): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Check if a key for this service type already exists
+    const [existingKey] = await db
+      .select()
+      .from(sharedSchema.customerApiKeys)
+      .where(and(
+        eq(sharedSchema.customerApiKeys.customerId, context.customerId),
+        eq(sharedSchema.customerApiKeys.serviceType, keyData.serviceType)
+      ))
+      .limit(1);
+    
+    if (existingKey) {
+      // Update existing key
+      const [updated] = await db
+        .update(sharedSchema.customerApiKeys)
+        .set({
+          ...keyData,
+          customerId: context.customerId,
+          updatedAt: new Date(),
+        })
+        .where(eq(sharedSchema.customerApiKeys.id, existingKey.id))
+        .returning();
+      return updated;
+    } else {
+      // Insert new key
+      const [created] = await db
+        .insert(sharedSchema.customerApiKeys)
+        .values({
+          id: randomUUID(),
+          ...keyData,
+          customerId: context.customerId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async getApiKeyByFingerprint(context: CustomerContext, fingerprint: string): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const [key] = await db
+      .select()
+      .from(sharedSchema.customerApiKeys)
+      .where(and(
+        eq(sharedSchema.customerApiKeys.customerId, context.customerId),
+        eq(sharedSchema.customerApiKeys.keyFingerprint, fingerprint)
+      ))
+      .limit(1);
+    
+    return key;
+  }
+
+  async updateApiKeyLastUsed(context: CustomerContext, serviceType: string): Promise<void> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    await db
+      .update(sharedSchema.customerApiKeys)
+      .set({
+        lastUsedAt: new Date(),
+        usageCount: sql`${sharedSchema.customerApiKeys.usageCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(sharedSchema.customerApiKeys.customerId, context.customerId),
+        eq(sharedSchema.customerApiKeys.serviceType, serviceType),
+        eq(sharedSchema.customerApiKeys.status, 'active')
+      ));
+  }
+
+  /**
    * DEVELOPMENT HELPER: Create temporary customer context for current development setup
    */
   createDevelopmentContext(): CustomerContext {

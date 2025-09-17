@@ -78,6 +78,7 @@ export const customerApiKeys = pgTable("customer_api_keys", {
   last4: text("last4").notNull(), // Last 4 characters for display/identification (NOT for security)
   encryptedKey: text("encrypted_key").notNull(), // AES-256 encrypted actual API key
   initializationVector: text("initialization_vector").notNull(), // IV for AES encryption
+  authTag: text("auth_tag").notNull(), // GCM authentication tag for encryption integrity
   keyFingerprint: text("key_fingerprint").notNull().unique(), // SHA-256 hash for duplicate detection
   // Security and access control
   permissions: text("permissions").array().notNull().default(["read"]), // ["read", "write", "admin", "billing"]

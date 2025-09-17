@@ -18,7 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot } from "lucide-react";
+import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
 import { DefaultTemplateManager } from "@/components/DefaultTemplateManager";
@@ -622,16 +623,28 @@ export default function Settings() {
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-fixed">Settings</h2>
-        <Button
-          onClick={handleSave}
-          disabled={updateSettingsMutation.isPending || Object.keys(formData).length === 0}
-          variant="outline"
-          className="border-green-200 text-green-700 hover:bg-green-50 font-medium transition-all duration-300"
-          data-testid="button-save-settings"
-        >
-          <Save className="mr-2" size={16} />
-          {Object.keys(formData).length === 0 ? 'All Settings Auto-Saved' : 'Save Remaining Changes'}
-        </Button>
+        <div className="flex items-center gap-3">
+          <Link to="/settings/ai">
+            <Button
+              variant="outline"
+              className="border-purple-200 text-purple-700 hover:bg-purple-50 font-medium transition-all duration-300"
+              data-testid="link-ai-settings"
+            >
+              <Bot className="mr-2" size={16} />
+              AI Settings
+            </Button>
+          </Link>
+          <Button
+            onClick={handleSave}
+            disabled={updateSettingsMutation.isPending || Object.keys(formData).length === 0}
+            variant="outline"
+            className="border-green-200 text-green-700 hover:bg-green-50 font-medium transition-all duration-300"
+            data-testid="button-save-settings"
+          >
+            <Save className="mr-2" size={16} />
+            {Object.keys(formData).length === 0 ? 'All Settings Auto-Saved' : 'Save Remaining Changes'}
+          </Button>
+        </div>
       </div>
 
       {/* Auto-save information banner */}

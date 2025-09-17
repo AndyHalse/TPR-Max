@@ -33,6 +33,7 @@ import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
 import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
 import MarketingPage from "@/pages/MarketingPage";
+import AISettings from "@/pages/AISettings";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -154,6 +155,7 @@ function Router() {
             <Route path="/reports" component={Reports} />
             <Route path="/time-attendance" component={TimeAttendance} />
             <Route path="/settings" component={Settings} />
+            <Route path="/settings/ai" component={AISettings} />
             <Route path="/multi-tenant" component={SuperAdmin} />
             <Route path="/tenant/:slug/dashboard" component={TenantDashboard} />
             <Route path="/tenant/:slug/settings" component={TenantSettings} />

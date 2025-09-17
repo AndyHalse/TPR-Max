@@ -1,5 +1,6 @@
 import { GeminiService } from './geminiService';
 import type { Visitor, Staff, CompanySettings, AiGeneratedImage, InsertAiGeneratedImage } from '@shared/schema';
+import type { CustomerContext } from './customerDatabase';
 
 // Using Google Gemini AI instead of OpenAI to avoid quota limits
 const geminiService = new GeminiService();
@@ -10,17 +11,19 @@ export class AIService {
    * Generate AI safety images for H&S induction slides using Gemini
    */
   async generateSafetyImage(
+    context: CustomerContext,
     slideType: string,
     title: string,
     description: string
   ): Promise<{ imageUrl: string; dallePrompt: string }> {
-    return await geminiService.generateSafetyImage(slideType, title, description);
+    return await geminiService.generateSafetyImage(context, slideType, title, description);
   }
 
   /**
    * AI-powered competitive analysis using Gemini
    */
   async generateCompetitiveAnalysis(
+    context: CustomerContext,
     companySize: number,
     currentSystem: string,
     monthlyVisitors: number
@@ -32,7 +35,7 @@ export class AIService {
     competitiveEdge: string[];
     marketPosition: string;
   }> {
-    return await geminiService.generateCompetitiveAnalysis(companySize, currentSystem, monthlyVisitors);
+    return await geminiService.generateCompetitiveAnalysis(context, companySize, currentSystem, monthlyVisitors);
   }
 
   /**
@@ -110,6 +113,7 @@ export class AIService {
    * Generate sales pitch using Gemini
    */
   async generateSalesPitch(
+    context: CustomerContext,
     companyName: string,
     industry: string,
     companySize: number,
@@ -123,13 +127,14 @@ export class AIService {
     competitiveAdvantages: string[];
     nextSteps: string[];
   }> {
-    return await geminiService.generateSalesPitch(companyName, industry, companySize, currentChallenges, budget);
+    return await geminiService.generateSalesPitch(context, companyName, industry, companySize, currentChallenges, budget);
   }
 
   /**
    * Generate visitor insights using Gemini
    */
   async generateVisitorInsights(
+    context: CustomerContext,
     totalVisitors: number,
     todayCheckins: number,
     peakHours: any[],
@@ -142,13 +147,14 @@ export class AIService {
     efficiencyTips: string[];
     predictiveInsights: string;
   }> {
-    return await geminiService.generateVisitorInsights(totalVisitors, todayCheckins, peakHours, departmentData);
+    return await geminiService.generateVisitorInsights(context, totalVisitors, todayCheckins, peakHours, departmentData);
   }
 
   /**
    * Generate predictive analytics using Gemini
    */
   async generatePredictiveAnalytics(
+    context: CustomerContext,
     historicalData: any,
     currentTrends: any
   ): Promise<{
@@ -158,7 +164,7 @@ export class AIService {
     riskAssessment: string;
     actionableInsights: string[];
   }> {
-    return await geminiService.generatePredictiveAnalytics(historicalData, currentTrends);
+    return await geminiService.generatePredictiveAnalytics(context, historicalData, currentTrends);
   }
 
   /**

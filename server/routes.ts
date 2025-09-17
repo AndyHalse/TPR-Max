@@ -646,12 +646,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🎨 Generating AI safety image for ${slideType}: ${title}`);
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
-      // Generate the image using AI service
-      const { imageUrl, dallePrompt } = await aiService.generateSafetyImage(slideType, title, description);
+      // Generate the image using AI service with customer context
+      const { imageUrl, dallePrompt } = await aiService.generateSafetyImage(context, slideType, title, description);
       
       // Store the generated image metadata in customer-isolated database
       const savedImage = await databaseService.createAiGeneratedImage(context, {
@@ -683,9 +685,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { slideType } = req.query;
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get images from customer-isolated database
       const images = await databaseService.getAiGeneratedImages(context, slideType as string);
@@ -701,9 +705,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get image from customer-isolated database
       const image = await databaseService.getAiGeneratedImageById(context, id);
@@ -724,9 +730,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { slideType } = req.params;
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get image from customer-isolated database
       const image = await databaseService.getAiGeneratedImageBySlideType(context, slideType);
@@ -751,9 +759,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Help System endpoints
   app.get("/api/help/categories", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       const categories = await databaseService.getHelpCategories(context);
       
@@ -766,9 +776,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/help/articles/featured", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       const articles = await databaseService.getHelpArticlesFeatured(context);
       
@@ -784,9 +796,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { location } = req.query;
       const page = location && typeof location === 'string' ? location.replace('/', '') : '';
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       const articles = await databaseService.getHelpArticlesContextual(context, page);
       
@@ -821,9 +835,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       const articles = await databaseService.searchHelpArticles(context, query);
       
@@ -838,9 +854,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const interactionData = insertHelpUserInteractionSchema.parse(req.body);
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Create interaction in customer-isolated database
       const interaction = await databaseService.createHelpUserInteraction(context, {
@@ -1271,9 +1289,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const activatedBy = req.user?.username || 'System Administrator';
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get all people currently on site
       const checkedInStaff = await databaseService.getCheckedInStaff(context);
@@ -3073,9 +3093,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Token is required" });
       }
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
 
       // Get the contractor worker using customer-isolated database
       const worker = await databaseService.getContractorWorkerById(context, workerId);
@@ -3176,9 +3198,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const signature = req.headers["x-clue-signature"] as string;
       const payload = JSON.stringify(req.body);
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get company settings for CLUe configuration
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -3238,9 +3262,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Visitor ID is required" });
       }
       
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get company settings and visitor
       const [companySettings, visitor] = await Promise.all([
@@ -3299,9 +3325,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test CLUe connection
   app.post("/api/clue/test-connection", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get company settings
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -3331,9 +3359,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync with CLUe platform
   app.post("/api/clue/sync", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get company settings and current people
       const [companySettings, visitors, staff] = await Promise.all([
@@ -3375,9 +3405,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get CLUe devices
   app.get("/api/clue/devices", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get company settings
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -3833,6 +3865,301 @@ export async function registerRoutes(app: Express): Promise<Server> {
           workflow: false,
         }
       });
+    }
+  });
+
+  // AI Settings API Endpoints for secure API key management
+  app.get("/api/settings/ai-keys", requireAuth, async (req, res) => {
+    try {
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
+      
+      // Import encryption utilities
+      const { decryptData } = await import("./utils/encryption");
+      
+      // Get API keys for this customer (encrypted)
+      const apiKeys = await databaseService.getCustomerApiKeys(context);
+      
+      // Format response with masked keys and status info
+      const openaiKey = apiKeys.find(key => key.serviceType === 'openai');
+      const geminiKey = apiKeys.find(key => key.serviceType === 'gemini');
+      
+      const formatKeyStatus = (key: any) => {
+        if (!key) {
+          return {
+            hasKey: false,
+            last4: '',
+            isActive: false,
+            lastUsed: null,
+            usageCount: 0,
+            status: 'inactive'
+          };
+        }
+        
+        return {
+          id: key.id,
+          hasKey: true,
+          last4: key.last4,
+          isActive: key.status === 'active',
+          lastUsed: key.lastUsedAt,
+          usageCount: key.usageCount || 0,
+          status: key.status
+        };
+      };
+
+      res.json({
+        openai: { serviceType: 'openai', ...formatKeyStatus(openaiKey) },
+        gemini: { serviceType: 'gemini', ...formatKeyStatus(geminiKey) }
+      });
+    } catch (error) {
+      console.error("Error fetching AI keys:", error);
+      res.status(500).json({ error: "Failed to fetch API keys" });
+    }
+  });
+
+  app.put("/api/settings/ai-keys", requireAuth, async (req, res) => {
+    try {
+      const { openaiKey, geminiKey } = req.body;
+      
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
+      
+      // Import encryption utilities
+      const { 
+        encryptData, 
+        generateKeyFingerprint, 
+        getKeyLast4, 
+        validateApiKeyFormat,
+        generateAuditLogEntry 
+      } = await import("./utils/encryption");
+      
+      const results = [];
+      
+      // Process OpenAI key if provided
+      if (openaiKey && openaiKey.trim()) {
+        if (!validateApiKeyFormat(openaiKey, 'openai')) {
+          return res.status(400).json({ error: "Invalid OpenAI API key format" });
+        }
+        
+        const encrypted = encryptData(openaiKey);
+        const fingerprint = generateKeyFingerprint(openaiKey);
+        const last4 = getKeyLast4(openaiKey);
+        
+        // Check if key already exists by fingerprint
+        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
+        if (existingKey && existingKey.serviceType === 'openai') {
+          return res.status(400).json({ error: "This OpenAI key is already registered" });
+        }
+        
+        const keyData = {
+          keyName: 'OpenAI API Key',
+          keyDescription: 'OpenAI API key for GPT models and text generation',
+          serviceType: 'openai',
+          last4,
+          encryptedKey: encrypted.encryptedData,
+          initializationVector: encrypted.iv,
+          authTag: encrypted.authTag, // FIXED: Store authTag for GCM decryption
+          keyFingerprint: fingerprint,
+          status: 'active',
+          createdBy: req.user?.id || username,
+          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'openai')]
+        };
+        
+        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
+        results.push({ service: 'openai', success: true, id: savedKey.id });
+      }
+      
+      // Process Gemini key if provided
+      if (geminiKey && geminiKey.trim()) {
+        if (!validateApiKeyFormat(geminiKey, 'gemini')) {
+          return res.status(400).json({ error: "Invalid Gemini API key format" });
+        }
+        
+        const encrypted = encryptData(geminiKey);
+        const fingerprint = generateKeyFingerprint(geminiKey);
+        const last4 = getKeyLast4(geminiKey);
+        
+        // Check if key already exists by fingerprint
+        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
+        if (existingKey && existingKey.serviceType === 'gemini') {
+          return res.status(400).json({ error: "This Gemini key is already registered" });
+        }
+        
+        const keyData = {
+          keyName: 'Gemini API Key',
+          keyDescription: 'Google Gemini API key for text and image generation',
+          serviceType: 'gemini',
+          last4,
+          encryptedKey: encrypted.encryptedData,
+          initializationVector: encrypted.iv,
+          authTag: encrypted.authTag, // FIXED: Store authTag for GCM decryption
+          keyFingerprint: fingerprint,
+          status: 'active',
+          createdBy: req.user?.id || username,
+          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'gemini')]
+        };
+        
+        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
+        results.push({ service: 'gemini', success: true, id: savedKey.id });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "API keys saved successfully",
+        results 
+      });
+    } catch (error) {
+      console.error("Error saving AI keys:", error);
+      res.status(500).json({ error: "Failed to save API keys" });
+    }
+  });
+
+  app.post("/api/settings/ai-keys/test", requireAuth, async (req, res) => {
+    try {
+      const { serviceType, tempKey } = req.body;
+      
+      if (!serviceType || !['openai', 'gemini'].includes(serviceType)) {
+        return res.status(400).json({ error: "Invalid service type" });
+      }
+      
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
+      
+      let testKey = tempKey;
+      
+      // If no temp key provided, get stored key
+      if (!testKey) {
+        const { decryptData } = await import("./utils/encryption");
+        const apiKeys = await databaseService.getCustomerApiKeys(context);
+        const storedKey = apiKeys.find(key => key.serviceType === serviceType);
+        
+        if (!storedKey) {
+          return res.status(400).json({ error: `No ${serviceType} key configured` });
+        }
+        
+        try {
+          testKey = decryptData(
+            storedKey.encryptedKey,
+            storedKey.initializationVector,
+            storedKey.authTag || ''
+          );
+        } catch (decryptError) {
+          return res.status(500).json({ error: "Failed to decrypt stored key" });
+        }
+      }
+      
+      // Test the API key
+      let testResult: { success: boolean; message: string; model?: string };
+      
+      if (serviceType === 'openai') {
+        // Test OpenAI API key
+        try {
+          const OpenAI = (await import("openai")).default;
+          const openai = new OpenAI({ apiKey: testKey });
+          
+          const response = await openai.models.list();
+          const models = response.data;
+          
+          testResult = {
+            success: true,
+            message: `OpenAI connection successful. ${models.length} models available.`,
+            model: models[0]?.id || 'gpt-3.5-turbo'
+          };
+          
+          // Update last used timestamp for stored keys
+          if (!tempKey) {
+            await databaseService.updateApiKeyLastUsed(context, serviceType);
+          }
+        } catch (error: any) {
+          testResult = {
+            success: false,
+            message: `OpenAI connection failed: ${error.message}`
+          };
+        }
+      } else if (serviceType === 'gemini') {
+        // Test Gemini API key
+        try {
+          const { GoogleGenAI } = await import("@google/genai");
+          const genai = new GoogleGenAI({ apiKey: testKey });
+          
+          // Try to list available models
+          const models = await genai.models.list();
+          const modelList = Array.from(models);
+          
+          testResult = {
+            success: true,
+            message: `Gemini connection successful. ${modelList.length} models available.`,
+            model: modelList[0]?.name || 'gemini-pro'
+          };
+          
+          // Update last used timestamp for stored keys
+          if (!tempKey) {
+            await databaseService.updateApiKeyLastUsed(context, serviceType);
+          }
+        } catch (error: any) {
+          testResult = {
+            success: false,
+            message: `Gemini connection failed: ${error.message}`
+          };
+        }
+      }
+      
+      // Log the test attempt
+      await databaseService.logApiKeyAccess(context, {
+        serviceType,
+        action: 'test',
+        success: testResult.success,
+        userId: req.user?.id || username,
+        ipAddress: req.ip || 'unknown'
+      });
+      
+      res.json(testResult);
+    } catch (error) {
+      console.error("Error testing AI key:", error);
+      res.status(500).json({ error: "Failed to test API key" });
+    }
+  });
+
+  app.delete("/api/settings/ai-keys/:serviceType", requireAuth, async (req, res) => {
+    try {
+      const { serviceType } = req.params;
+      
+      if (!['openai', 'gemini'].includes(serviceType)) {
+        return res.status(400).json({ error: "Invalid service type" });
+      }
+      
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
+      
+      // Revoke the API key
+      const success = await databaseService.revokeCustomerApiKey(context, serviceType, {
+        revokedBy: req.user?.id || username,
+        revocationReason: 'User requested revocation'
+      });
+      
+      if (!success) {
+        return res.status(404).json({ error: `No ${serviceType} key found to revoke` });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `${serviceType} API key has been revoked successfully` 
+      });
+    } catch (error) {
+      console.error("Error revoking AI key:", error);
+      res.status(500).json({ error: "Failed to revoke API key" });
     }
   });
 
@@ -6888,9 +7215,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       const { postcode, transportMethod, workingDaysPerMonth } = req.body;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Get company settings for address
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -6933,9 +7262,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { companyId } = req.params;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
 
       const summary = await co2Calculator.getCompanyCO2Summary(context.customerId, companyId);
 
@@ -6954,9 +7285,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { workerId } = req.params;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
 
       const co2Data = await databaseService.getCO2EmissionsByWorker(context.customerId, workerId);
       const suggestions = await co2Calculator.getReductionSuggestions(context.customerId, workerId);
@@ -6980,9 +7313,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { companyId } = req.params;
       const { reportType = 'monthly' } = req.body;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
 
       const report = await co2Calculator.generateSustainabilityReport(
         context.customerId,
@@ -7006,9 +7341,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { companyId } = req.params;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
 
       const reports = await databaseService.getSustainabilityReports(context.customerId, companyId);
 
@@ -7046,9 +7383,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { reportId } = req.params;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
 
       const reports = await databaseService.getSustainabilityReports(context.customerId);
       const report = reports.find(r => r.id === reportId);
@@ -7091,9 +7430,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { year, month, companyId } = req.query;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
 
       const summary = await databaseService.getMonthlySummary(
         context.customerId,
@@ -7118,9 +7459,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       const { transportMethod, postcode } = req.body;
 
-      // Get customer context for isolation
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // FIXED: Get customer context using authenticated session customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
       
       // Update worker postcode if provided
       if (postcode) {
