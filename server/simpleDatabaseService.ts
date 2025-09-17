@@ -37,7 +37,8 @@ export class SimpleDatabaseService {
     // Map usernames to customer IDs for proper isolation
     const customerMapping: { [key: string]: string } = {
       "Andy": "dev-customer-001",
-      "Emma": "dev-customer-002"
+      "Emma": "dev-customer-002",
+      "TestUser": "test-customer-trial"
     };
     
     const customerId = customerMapping[username] || "dev-customer-001";
