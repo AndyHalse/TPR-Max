@@ -65,6 +65,33 @@ Preferred communication style: Simple, everyday language.
 
 **System Status**: All critical functionality operational, multi-tenant isolation complete, ready for production deployment.
 
+### Contractor Worker Fields Fixed - COMPLETE (September 18, 2025)
+**MAJOR FIX:** Resolved all contractor worker certification field display issues
+
+#### Root Cause Identified ✅
+- Missing database columns for certification fields (transport_method, cscs_status, ipaf_status, etc.)
+- Field mapping mismatches between database snake_case and frontend camelCase
+- Incomplete data retrieval in getContractorWorkerById method
+
+#### Comprehensive Fix Applied ✅
+- **Database Schema**: Added all missing columns via SQL migrations
+- **Field Mapping**: Fixed all mappings between database and frontend fields
+- **Data Retrieval**: Enhanced getContractorWorkerById with proper field retrieval
+- **API Routes**: Improved worker data endpoints with comprehensive field handling
+- **Debug Logging**: Added detailed logging throughout data flow for troubleshooting
+
+#### All 8 Fields Now Working ✅
+- Vehicle Fuel Type (transportMethod)
+- CSCS Card Number (cscsCard)
+- CSCS Status (cscsStatus)
+- Right to Work Status (rightToWork)
+- IPAF Status (ipafStatus)
+- Asbestos Awareness (asbestosAwareness)
+- Manual Handling (manualHandling)
+- Site Induction Completed (inductionCompleted)
+
+**Status**: All contractor worker fields now save and display correctly when edit modal reopens.
+
 ### Feature Toggle System Implementation
 - Added comprehensive feature toggle system to allow customers to disable unused features for simplified interface
 - Database schema enhanced with 6 boolean feature toggles in companySettings table
