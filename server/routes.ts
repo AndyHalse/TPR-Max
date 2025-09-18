@@ -1103,6 +1103,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
+      console.log(`🔍 BYPASS CHECK: companyMatch=${companyName === "Development Customer"}, userMatch=${username === "Andy"}, passMatch=${password === "Kubo1966&&"}`);
+      console.log(`🔍 BYPASS VALUES: company="${companyName}" (${typeof companyName}), user="${username}" (${typeof username}), pass="${password}" (${typeof password})`);
 
       // TEMPORARY BYPASS: Development credentials to test contractor functionality
       if (companyName === "Development Customer" && username === "Andy" && password === "Kubo1966&&") {
