@@ -1494,7 +1494,7 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Use raw SQL with explicit column selection including CO2 fields and cscsStatus
+      // Use raw SQL with explicit column selection including ALL certification fields
       const result = await db.execute(sql`
         SELECT 
           id, 
@@ -1510,6 +1510,9 @@ export class DatabaseService {
           right_to_work_status,
           has_cscs,
           cscs_card_number,
+          ipaf_status,
+          asbestos_awareness,
+          manual_handling,
           hs_rules_accepted,
           hs_rules_accepted_at,
           is_checked_in,
@@ -1549,6 +1552,10 @@ export class DatabaseService {
         cscsStatus: worker.has_cscs,
         cscsCard: worker.cscs_card_number,
         rightToWork: worker.right_to_work_status,
+        // CRITICAL FIX: Add missing certification fields that weren't being retrieved
+        ipafStatus: worker.ipaf_status,
+        asbestosAwareness: worker.asbestos_awareness,
+        manualHandling: worker.manual_handling,
         hsRulesAccepted: worker.hs_rules_accepted,
         hsRulesAcceptedAt: worker.hs_rules_accepted_at ? new Date(worker.hs_rules_accepted_at) : null,
         isCheckedIn: worker.is_checked_in,
