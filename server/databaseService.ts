@@ -1581,6 +1581,7 @@ export class DatabaseService {
         createdAt: worker.createdAt || new Date(),
         updatedAt: worker.updatedAt || new Date(),
         // FIXED: Add frontend compatibility mappings
+        currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker), // Calculate if missing
         inductionCompleted: worker.siteInductionCompleted || false, // Map DB field to frontend field
         phone: worker.phoneNumber, // Add phone alias for compatibility
       } as ContractorWorker;
