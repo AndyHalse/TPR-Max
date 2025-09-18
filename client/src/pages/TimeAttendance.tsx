@@ -4,7 +4,7 @@ import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Clock, Download, Calendar, Users, FileText, Eye, BarChart3, TrendingUp } from "lucide-react";
 import { format, formatDuration, intervalToDuration } from "date-fns";
 
@@ -346,6 +346,9 @@ export default function TimeAttendance() {
               <TrendingUp className="text-blue-500" size={20} />
               Detailed Report: {selectedStaff?.staffName}
             </DialogTitle>
+            <DialogDescription>
+              View detailed time attendance records and sessions for this staff member.
+            </DialogDescription>
           </DialogHeader>
           
           {selectedStaff && (

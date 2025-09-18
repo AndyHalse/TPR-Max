@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -195,6 +195,9 @@ export default function SuperAdmin() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Tenant Company</DialogTitle>
+              <DialogDescription>
+                Create a new tenant company with their contact information and settings.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddTenant} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

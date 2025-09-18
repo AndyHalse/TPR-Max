@@ -4,7 +4,7 @@ import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, Al
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -1267,6 +1267,9 @@ export default function Dashboard() {
               <UsersRound className="text-blue-600" size={24} />
               Current Visitors ({currentVisitors?.length || 0})
             </DialogTitle>
+            <DialogDescription>
+              View and manage all visitors currently on-site. Check out visitors when they leave.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
             {currentVisitors && currentVisitors.length > 0 ? (
@@ -1328,6 +1331,9 @@ export default function Dashboard() {
               <AtSign className="text-green-600" size={24} />
               Today's Check-ins ({todayVisitors?.length || 0})
             </DialogTitle>
+            <DialogDescription>
+              View all visitors who checked in today, including their check-in and check-out times.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {todayVisitors && todayVisitors.length > 0 ? (
@@ -1380,6 +1386,9 @@ export default function Dashboard() {
               <BadgeInfo className="text-purple-600" size={24} />
               Staff On-Site ({checkedInStaff?.length || 0})
             </DialogTitle>
+            <DialogDescription>
+              View all staff members currently checked in and on-site.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {checkedInStaff && checkedInStaff.length > 0 ? (
@@ -1436,6 +1445,9 @@ export default function Dashboard() {
                   </Badge>
                 )}
               </DialogTitle>
+              <DialogDescription>
+                View detailed information about staff members and visitors in this department.
+              </DialogDescription>
             </DialogHeader>
             
             {departmentDetailsLoading || !departmentDetails ? (

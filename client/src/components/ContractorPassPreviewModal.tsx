@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Printer, X, Check, Building2, HardHat, Shield } from "lucide-react";
 import type { ContractorWorker } from "@shared/schema";
 
@@ -233,6 +233,9 @@ export default function ContractorPassPreviewModal({
             <HardHat className="text-orange-600" size={24} />
             Contractor Pass Preview
           </DialogTitle>
+          <DialogDescription>
+            Preview and print the contractor access pass with worker details and safety certifications.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">

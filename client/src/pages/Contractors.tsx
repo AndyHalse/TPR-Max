@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -792,6 +792,9 @@ export default function Contractors() {
               <Building2 className="h-5 w-5" />
               Add New Contractor Company
             </DialogTitle>
+            <DialogDescription>
+              Create a new contractor company profile with contact information and compliance details.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -996,6 +999,9 @@ export default function Contractors() {
               <Building2 className="h-5 w-5" />
               Contractor Details: {selectedContractor?.name}
             </DialogTitle>
+            <DialogDescription>
+              View detailed information about this contractor including company details and compliance status.
+            </DialogDescription>
           </DialogHeader>
           
           {selectedContractor && (
@@ -1155,6 +1161,9 @@ export default function Contractors() {
                 <Users className="h-5 w-5" />
                 Manage Workers: {selectedContractor?.name}
               </DialogTitle>
+            <DialogDescription>
+              Manage all workers for this contractor company, view their certifications and safety status.
+            </DialogDescription>
               <Button
                 onClick={() => {
                   setWorkerForm({ ...workerForm, companyId: selectedContractor?.id || "" });

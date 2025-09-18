@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -347,6 +347,9 @@ export default function ContractorDetails() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Issue Red or Yellow Card</DialogTitle>
+                <DialogDescription>
+                  Issue a safety violation card to a contractor worker for non-compliance or safety infractions.
+                </DialogDescription>
               </DialogHeader>
               <Form {...cardIssueForm}>
                 <form onSubmit={cardIssueForm.handleSubmit(handleIssueCard)} className="space-y-4">
@@ -474,6 +477,9 @@ export default function ContractorDetails() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Worker Certification</DialogTitle>
+                <DialogDescription>
+                  Add a professional certification or training qualification for a contractor worker.
+                </DialogDescription>
               </DialogHeader>
               <Form {...certificationForm}>
                 <form onSubmit={certificationForm.handleSubmit(handleAddCertification)} className="space-y-4">

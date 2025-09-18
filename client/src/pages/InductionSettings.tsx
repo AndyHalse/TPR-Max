@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Users, Video, FileQuestion, Settings, Save, Sparkles, Play, Eye, Monitor, Clock, Film, Presentation, ImageIcon, X } from "lucide-react";
@@ -728,6 +728,9 @@ export default function InductionSettings() {
                 <Play className="h-5 w-5" />
                 {previewRole && `${previewRole.charAt(0).toUpperCase() + previewRole.slice(1)} Induction Preview`}
               </DialogTitle>
+              <DialogDescription>
+                Preview how the induction process will appear to users with this role.
+              </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-hidden">
               {previewRole && (

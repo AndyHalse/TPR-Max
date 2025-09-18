@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -234,6 +234,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
               <HardHat className="h-5 w-5" />
               Edit Contractor Profile
             </DialogTitle>
+            <DialogDescription>
+              Update contractor worker details, certifications, safety training, and compliance status.
+            </DialogDescription>
           </DialogHeader>
 
         <Tabs defaultValue="profile" className="flex-1 overflow-hidden flex flex-col">
