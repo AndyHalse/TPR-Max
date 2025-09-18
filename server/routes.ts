@@ -5423,6 +5423,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const workerId = req.params.id;
       
+      console.log(`📋 API ROUTE - Getting contractor worker with ID: ${workerId}`);
+      
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
@@ -5431,19 +5433,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const worker = await databaseService.getContractorWorkerById(context, workerId);
       
       if (!worker) {
+        console.log(`❌ API ROUTE - Worker not found: ${workerId}`);
         return res.status(404).json({ error: "Contractor worker not found" });
       }
 
       // CRITICAL FIX: Database service already returns correctly mapped fields
-      // Just return the worker data as-is since databaseService handles all field mapping
+      // Log all fields to verify they're properly mapped
+      console.log(`✅ API ROUTE - Retrieved contractor worker:`, {
+        id: worker.id,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
+        transportMethod: worker.transportMethod,
+        cscsCard: worker.cscsCard,
+        cscsStatus: worker.cscsStatus,
+        rightToWork: worker.rightToWork,
+        ipafStatus: worker.ipafStatus,
+        asbestosAwareness: worker.asbestosAwareness,
+        manualHandling: worker.manualHandling,
+        inductionCompleted: worker.inductionCompleted,
+        phone: worker.phone,
+        email: worker.email,
+        postcode: worker.postcode,
+      });
+      
+      // Ensure all fields are included in the response
       const responseWorker = {
-        ...worker
+        ...worker,
+        // Explicitly include all critical fields with fallback values
+        transportMethod: worker.transportMethod || 'car_diesel',
+        cscsCard: worker.cscsCard || '',
+        cscsStatus: worker.cscsStatus || 'pending',
+        rightToWork: worker.rightToWork || 'pending',
+        ipafStatus: worker.ipafStatus || 'none',
+        asbestosAwareness: worker.asbestosAwareness || false,
+        manualHandling: worker.manualHandling || false,
+        inductionCompleted: worker.inductionCompleted || false,
       };
 
-      console.log(`✅ Retrieved contractor worker: ${worker.firstName} ${worker.lastName}`);
+      console.log(`✅ API ROUTE - Sending response for worker: ${worker.firstName} ${worker.lastName}`);
       res.json(responseWorker);
     } catch (error) {
-      console.error("Error fetching contractor worker:", error);
+      console.error("❌ API ROUTE - Error fetching contractor worker:", error);
       res.status(500).json({ error: "Failed to fetch contractor worker" });
     }
   });

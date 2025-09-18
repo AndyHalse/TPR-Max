@@ -604,11 +604,18 @@ export const contractorWorkers = pgTable("contractor_workers", {
   toolboxTalkCompletedAt: timestamp("toolbox_talk_completed_at"),
   // Competency and qualifications tracking
   cscsCard: text("cscs_card_number"),
-  cscsStatus: boolean("has_cscs").default(false), // Change to boolean to match DB
-  // Note: cscs_expiry column doesn't exist in database - removed
-  // Note: IPAF fields don't exist in database - removed to prevent errors
-  // Note: Training certificates (asbestos_awareness, manual_handling) don't exist in DB
-  // These fields are removed to prevent schema mismatch errors
+  cscsStatus: text("cscs_status").default("pending"), // pending, valid, expired
+  // Note: Removed cscs_expiry as it doesn't exist in DB yet
+  // IPAF certification for working at height
+  ipafStatus: text("ipaf_status").default("none"), // none, 3a, 3b, 1+, expired
+  // Note: Removed ipaf_expiry as it doesn't exist in DB yet
+  // Training certificates
+  asbestosAwareness: boolean("asbestos_awareness").default(false),
+  manualHandling: boolean("manual_handling").default(false),
+  workingAtHeight: boolean("working_at_height").default(false),
+  // Note: Removed expiry dates as they don't exist in DB yet
+  // Transport and emissions tracking
+  transportMethod: text("transport_method").default("car_diesel"), // car_diesel, car_petrol, electric_car, public_transport, motorcycle
   // Status and approval
   workerStatus: text("worker_status").notNull().default("pending"), // pending, approved, suspended, rejected, banned
   approvedBy: varchar("approved_by").references(() => users.id),

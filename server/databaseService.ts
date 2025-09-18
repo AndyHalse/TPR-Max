@@ -1585,12 +1585,27 @@ export class DatabaseService {
       console.log(`  - cscsStatus: ${updates.cscsStatus} (schema field name)`);
       console.log(`  - inductionCompleted: ${updates.inductionCompleted}`);
       
-      // CRITICAL FIX: Use ALL fields from updates instead of hardcoding specific ones
-      // This ensures postcode and other fields are properly saved
+      // CRITICAL FIX: Map frontend field names to database column names
       const updateData: any = { 
-        ...updates, // Copy ALL fields from updates
+        ...updates,
+        // Map frontend fields to database column names
+        transport_method: updates.transportMethod || updates.transport_method,
+        cscs_status: updates.cscsStatus || updates.cscs_status,
+        cscs_card_number: updates.cscsCard || updates.cscs_card_number,
+        right_to_work_status: updates.rightToWork || updates.right_to_work_status,
+        ipaf_status: updates.ipafStatus || updates.ipaf_status,
+        asbestos_awareness: updates.asbestosAwareness !== undefined ? updates.asbestosAwareness : updates.asbestos_awareness,
+        manual_handling: updates.manualHandling !== undefined ? updates.manualHandling : updates.manual_handling,
+        site_induction_completed: updates.inductionCompleted !== undefined ? updates.inductionCompleted : updates.site_induction_completed,
         updatedAt: new Date() 
       };
+      
+      // Remove undefined mappings
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
       
       console.log(`🔄 Updating contractor worker ${id} with data:`, updateData);
       console.log(`🔍 DATABASE SERVICE - About to send to SQL with keys:`, Object.keys(updateData));
@@ -1623,9 +1638,17 @@ export class DatabaseService {
       // CRITICAL FIX: Map database fields back to UI field names
       const mappedResult = {
         ...updated,
-        // Map database field names back to UI field names
-        inductionCompleted: updated.siteInductionCompleted, // Map DB field to UI field
-        phoneNumber: updated.phoneNumber, // Keep consistent
+        // Map database field names back to frontend field names
+        transportMethod: updated.transport_method || updated.transportMethod,
+        cscsCard: updated.cscs_card_number || updated.cscsCard,
+        cscsStatus: updated.cscs_status || updated.cscsStatus,
+        rightToWork: updated.right_to_work_status || updated.rightToWork,
+        ipafStatus: updated.ipaf_status || updated.ipafStatus,
+        asbestosAwareness: updated.asbestos_awareness !== undefined ? updated.asbestos_awareness : updated.asbestosAwareness,
+        manualHandling: updated.manual_handling !== undefined ? updated.manual_handling : updated.manualHandling,
+        inductionCompleted: updated.site_induction_completed !== undefined ? updated.site_induction_completed : updated.inductionCompleted,
+        phoneNumber: updated.phoneNumber,
+        phone: updated.phone_number || updated.phoneNumber, // Map phone_number to phone for frontend
       } as ContractorWorker;
       
       console.log(`✅ DATABASE SERVICE - Mapped result for UI:`);
@@ -2075,13 +2098,63 @@ export class DatabaseService {
   ): Promise<any | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    console.log(`🔍 DATABASE SERVICE - Getting contractor worker by ID: ${workerId}`);
+    
     const [worker] = await db
       .select()
       .from(isolatedSchema.contractorWorkers)
       .where(eq(isolatedSchema.contractorWorkers.id, workerId))
       .limit(1);
     
-    return worker;
+    if (!worker) {
+      console.log(`❌ DATABASE SERVICE - Worker not found: ${workerId}`);
+      return undefined;
+    }
+    
+    console.log(`✅ DATABASE SERVICE - Retrieved worker from DB:`, {
+      id: worker.id,
+      firstName: worker.firstName,
+      lastName: worker.lastName,
+      transport_method: worker.transport_method,
+      cscs_card_number: worker.cscs_card_number,
+      cscs_status: worker.cscs_status,
+      right_to_work_status: worker.right_to_work_status,
+      ipaf_status: worker.ipaf_status,
+      asbestos_awareness: worker.asbestos_awareness,
+      manual_handling: worker.manual_handling,
+      site_induction_completed: worker.site_induction_completed,
+    });
+    
+    // CRITICAL FIX: Map database fields to frontend field names
+    const mappedWorker = {
+      ...worker,
+      // Map database column names to frontend field names
+      transportMethod: worker.transport_method || worker.transportMethod || 'car_diesel',
+      cscsCard: worker.cscs_card_number || worker.cscsCard || '',
+      cscsStatus: worker.cscs_status || worker.cscsStatus || 'pending',
+      rightToWork: worker.right_to_work_status || worker.rightToWork || 'pending',
+      ipafStatus: worker.ipaf_status || worker.ipafStatus || 'none',
+      asbestosAwareness: worker.asbestos_awareness !== undefined ? worker.asbestos_awareness : (worker.asbestosAwareness || false),
+      manualHandling: worker.manual_handling !== undefined ? worker.manual_handling : (worker.manualHandling || false),
+      inductionCompleted: worker.site_induction_completed !== undefined ? worker.site_induction_completed : (worker.inductionCompleted || false),
+      phone: worker.phone_number || worker.phoneNumber || '', // Map phone_number to phone for frontend
+    };
+    
+    console.log(`✅ DATABASE SERVICE - Mapped worker for frontend:`, {
+      id: mappedWorker.id,
+      firstName: mappedWorker.firstName,
+      lastName: mappedWorker.lastName,
+      transportMethod: mappedWorker.transportMethod,
+      cscsCard: mappedWorker.cscsCard,
+      cscsStatus: mappedWorker.cscsStatus,
+      rightToWork: mappedWorker.rightToWork,
+      ipafStatus: mappedWorker.ipafStatus,
+      asbestosAwareness: mappedWorker.asbestosAwareness,
+      manualHandling: mappedWorker.manualHandling,
+      inductionCompleted: mappedWorker.inductionCompleted,
+    });
+    
+    return mappedWorker;
   }
 
   async updateContractorWorkerHsRules(
