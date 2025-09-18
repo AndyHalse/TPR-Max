@@ -2250,6 +2250,9 @@ export default function Contractors() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Select Host for {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName}</DialogTitle>
+            <DialogDescription>
+              Choose which staff member will be hosting this contractor worker during their visit today.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-slate-600">

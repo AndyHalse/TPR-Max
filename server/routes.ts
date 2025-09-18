@@ -36,6 +36,10 @@ import {
   insertUkHSDocumentTemplateSchema,
   insertWorkerDocumentAssignmentSchema,
   insertWorkerDocumentAcceptanceSchema,
+  workerDocumentAssignments,
+  ukHSDocumentTemplates,
+  contractorWorkers,
+  contractorCompanies,
   customerOnboardingRequestSchema,
   customerOnboardingResponseSchema,
   customerOnboardingErrorSchema,
@@ -8666,7 +8670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select({ count: sql<number>`count(*)` })
         .from(workerDocumentAssignments)
         .where(and(
-          eq(workerDocumentAssignments.documentTemplateId, templateId),
+          eq(workerDocumentAssignments.templateId, templateId),
           eq(workerDocumentAssignments.customerId, context.customerId),
           eq(workerDocumentAssignments.isActive, true),
           sql`${workerDocumentAssignments.status} IN ('pending', 'sent')`
@@ -8925,7 +8929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .from(workerDocumentAssignments)
               .where(and(
                 eq(workerDocumentAssignments.workerId, workerId),
-                eq(workerDocumentAssignments.documentTemplateId, templateId),
+                eq(workerDocumentAssignments.templateId, templateId),
                 eq(workerDocumentAssignments.customerId, context.customerId),
                 eq(workerDocumentAssignments.isActive, true),
                 // Only prevent duplicates for non-completed assignments
@@ -8962,7 +8966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customerId: context.customerId,
               workerId,
               companyId: worker.companyId,
-              documentTemplateId: templateId,
+              templateId: templateId,
               assignedBy: userId,
               dueDate: dueDate ? new Date(dueDate) : null,
               acceptanceToken,
@@ -9028,7 +9032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           template: ukHSDocumentTemplates
         })
         .from(workerDocumentAssignments)
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
         .where(and(
           eq(workerDocumentAssignments.workerId, workerId),
           eq(workerDocumentAssignments.customerId, context.customerId),
@@ -9062,7 +9066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         })
         .from(workerDocumentAssignments)
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
         .where(and(
           eq(workerDocumentAssignments.companyId, companyId),
@@ -9117,7 +9121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 company: contractorCompanies
               })
               .from(workerDocumentAssignments)
-              .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+              .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
               .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
               .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
               .where(and(
@@ -9214,7 +9218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: contractorCompanies
         })
         .from(workerDocumentAssignments)
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
         .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
@@ -9686,7 +9690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .from(workerDocumentAssignments)
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
           inArray(workerDocumentAssignments.id, assignmentIds),
@@ -9777,7 +9781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .from(workerDocumentAssignments)
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
           eq(workerDocumentAssignments.companyId, companyId),
