@@ -1571,6 +1571,13 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
+      console.log(`🔍 DATABASE SERVICE - Received updates for worker ${id}:`, updates);
+      console.log(`🔍 DATABASE SERVICE - Update keys:`, Object.keys(updates));
+      console.log(`🔍 DATABASE SERVICE - Checking for critical fields:`);
+      console.log(`  - rightToWork: ${updates.rightToWork} (schema field name)`);
+      console.log(`  - cscsStatus: ${updates.cscsStatus} (schema field name)`);
+      console.log(`  - siteInductionCompleted: ${updates.siteInductionCompleted}`);
+      
       // CRITICAL FIX: Use ALL fields from updates instead of hardcoding specific ones
       // This ensures postcode and other fields are properly saved
       const updateData: any = { 
@@ -1579,11 +1586,14 @@ export class DatabaseService {
       };
       
       console.log(`🔄 Updating contractor worker ${id} with data:`, updateData);
+      console.log(`🔍 DATABASE SERVICE - About to send to SQL with keys:`, Object.keys(updateData));
       
       // If no actual updates provided, return existing record
       if (Object.keys(updates).length === 0) {
         return this.getContractorWorkerById(context, id);
       }
+      
+      console.log(`🔍 DATABASE SERVICE - Executing SQL UPDATE...`);
       
       const [updated] = await db
         .update(isolatedSchema.contractorWorkers)
@@ -1591,12 +1601,30 @@ export class DatabaseService {
         .where(eq(isolatedSchema.contractorWorkers.id, id))
         .returning();
       
-      if (!updated) return undefined;
+      console.log(`🔍 DATABASE SERVICE - SQL UPDATE completed. Result:`, updated);
+      
+      if (!updated) {
+        console.error(`❌ DATABASE SERVICE - No record returned from SQL UPDATE for worker ${id}`);
+        return undefined;
+      }
+      
+      console.log(`✅ DATABASE SERVICE - Successfully updated worker. Result fields:`);
+      console.log(`  - rightToWork: ${updated.rightToWork}`);
+      console.log(`  - cscsStatus: ${updated.cscsStatus}`);
+      console.log(`  - siteInductionCompleted: ${updated.siteInductionCompleted}`);
       
       return updated as ContractorWorker;
     } catch (error) {
-      console.error('Error updating contractor worker:', error);
-      return undefined;
+      console.error(`❌ DATABASE SERVICE - CRITICAL ERROR updating contractor worker ${id}:`, error);
+      console.error(`❌ DATABASE SERVICE - Error details:`, {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail,
+        hint: error?.hint,
+        constraint: error?.constraint
+      });
+      console.error(`❌ DATABASE SERVICE - Failed updateData:`, updates);
+      throw error; // Re-throw to surface in route logs
     }
   }
 

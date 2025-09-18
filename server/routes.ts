@@ -5483,7 +5483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emergencyContactPhone: 'emergencyContactPhone',
         emergencyContactRelationship: 'emergencyContactRelationship',
         transportMethod: 'transportMethod',
-        rightToWork: 'rightToWorkStatus', // Maps to right_to_work_status column in isolatedSchema
+        rightToWork: 'rightToWork', // Maps to right_to_work_status column in isolatedSchema
         cscsCard: 'cscsCard' // Maps to cscs_card_number in schema
       };
       
@@ -5498,8 +5498,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // cscsStatus: Convert string status to boolean and map to correct database column property name
       if (uiData.cscsStatus !== undefined) {
-        mappedData.hasCscs = uiData.cscsStatus === 'valid';
-        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' → hasCscs: ${mappedData.hasCscs}`);
+        mappedData.cscsStatus = uiData.cscsStatus === 'valid';
+        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' → cscsStatus: ${mappedData.cscsStatus}`);
       }
       
       // inductionCompleted: Map to correct database column property name
@@ -5520,11 +5520,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       mappedData.updatedAt = new Date();
       
       console.log('🗃️ Final mapped data for database:', mappedData);
+      console.log('🔍 ROUTE - About to validate with Zod schema...');
+      console.log('🔍 ROUTE - Critical fields before validation:');
+      console.log(`  - rightToWork: ${mappedData.rightToWork}`);
+      console.log(`  - cscsStatus: ${mappedData.cscsStatus}`);
+      console.log(`  - siteInductionCompleted: ${mappedData.siteInductionCompleted}`);
       
       // Validate mapped data with schema
       const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
       
+      // CRITICAL FIX: Ensure siteInductionCompleted field is preserved after Zod validation
+      // The insertContractorWorkerSchema may be missing this field, so we manually preserve it
+      if (mappedData.siteInductionCompleted !== undefined) {
+        validatedData.siteInductionCompleted = mappedData.siteInductionCompleted;
+        console.log(`🔧 MANUAL FIX: Preserved siteInductionCompleted: ${validatedData.siteInductionCompleted}`);
+      }
+      
+      console.log('🔍 ROUTE - Zod validation completed. Result:');
+      console.log('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
+      console.log('🔍 ROUTE - Critical fields after validation:');
+      console.log(`  - rightToWork: ${validatedData.rightToWork}`);
+      console.log(`  - cscsStatus: ${validatedData.cscsStatus}`);
+      console.log(`  - siteInductionCompleted: ${validatedData.siteInductionCompleted}`);
+      
+      console.log('🔍 ROUTE - About to call databaseService.updateContractorWorker with:', validatedData);
+      
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);
+      
+      console.log('🔍 ROUTE - databaseService.updateContractorWorker returned:', updatedWorker);
       
       if (!updatedWorker) {
         return res.status(404).json({ error: 'Contractor worker not found' });
