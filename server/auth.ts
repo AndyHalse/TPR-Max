@@ -107,29 +107,28 @@ export class AuthService {
 
   /**
    * Lookup customer by company name (case-insensitive)
+   * Uses existing working database connection instead of creating new Pool
    */
   private static async lookupCustomerByCompanyName(companyName: string): Promise<Customer | null> {
-    const managementDbUrl = process.env.DATABASE_URL;
-    if (!managementDbUrl) {
-      throw new Error("DATABASE_URL must be set for management database");
-    }
-
-    const managementPool = new Pool({ connectionString: managementDbUrl });
-    const managementDb = drizzle({ client: managementPool, schema });
-
     try {
+      // Import the working database connection instead of creating a new Pool
+      const { db } = await import('./db');
+      
+      console.log(`🔍 Looking up customer: "${companyName}" using working database connection`);
+      
       // Case-insensitive search for company name
-      const customers = await managementDb
+      const customers = await db
         .select()
         .from(schema.customers)
         .where(sql`LOWER(${schema.customers.companyName}) = LOWER(${companyName})`)
         .limit(1);
 
-      await managementPool.end();
-      return customers[0] || null;
+      const customer = customers[0] || null;
+      console.log(customer ? `✅ Found customer: ${customer.companyName} (ID: ${customer.id})` : `❌ Customer not found: "${companyName}"`);
+      
+      return customer;
     } catch (error) {
-      await managementPool.end();
-      console.error(`Error looking up customer by company name: ${error}`);
+      console.error(`🚨 Error looking up customer by company name: ${error}`);
       return null;
     }
   }
@@ -168,7 +167,77 @@ export class AuthService {
   }
 
   /**
-   * Initialize developer users for testing multi-customer isolation
+   * Ensure development customers exist in the database
+   */
+  private static async ensureCustomersExist(): Promise<void> {
+    try {
+      const { db } = await import('./db');
+      console.log('🔧 Ensuring development customers exist...');
+
+      // Customer data for development
+      const developmentCustomers = [
+        {
+          id: 'dev-customer-001',
+          companyName: 'Development Customer',
+          slug: 'development-customer',
+          adminEmail: 'admin@devcustomer.com',
+          subscriptionPlan: 'development' as any,
+          subscriptionStatus: 'active' as any,
+          databaseUrl: process.env.DATABASE_URL || '',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: 'dev-customer-002',
+          companyName: 'Customer Two',
+          slug: 'customer-two',
+          adminEmail: 'admin@customer2.com',
+          subscriptionPlan: 'development' as any,
+          subscriptionStatus: 'active' as any,
+          databaseUrl: process.env.DATABASE_URL || '',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: 'test-customer-trial',
+          companyName: 'Test Trial Customer',
+          slug: 'test-trial-customer',
+          adminEmail: 'admin@testtrial.com',
+          subscriptionPlan: 'trial' as any,
+          subscriptionStatus: 'active' as any,
+          databaseUrl: process.env.DATABASE_URL || '',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+
+      for (const customerData of developmentCustomers) {
+        // Check if customer exists
+        const existing = await db
+          .select()
+          .from(schema.customers)
+          .where(eq(schema.customers.id, customerData.id))
+          .limit(1);
+
+        if (!existing[0]) {
+          // Create customer
+          await db
+            .insert(schema.customers)
+            .values(customerData)
+            .onConflictDoNothing();
+          console.log(`✅ Created customer: ${customerData.companyName}`);
+        } else {
+          console.log(`✅ Customer already exists: ${customerData.companyName}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring customers exist:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize developer users and customers for testing multi-customer isolation
    * Only runs in development/test environments for security
    */
   static async initializeDeveloperUser(): Promise<void> {
@@ -178,6 +247,10 @@ export class AuthService {
     }
     
     try {
+      // First ensure the customers exist
+      await this.ensureCustomersExist();
+      
+      console.log('🔧 Initializing developer users...');
       // Get passwords from environment variables - no fallbacks in production
       const andyPassword = process.env.DEV_ANDY_PASSWORD || 'Kubo1966&&';
       const emmaPassword = process.env.DEV_EMMA_PASSWORD || 'Kubo1976&&';

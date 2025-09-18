@@ -112,37 +112,34 @@ export class CustomerDatabaseService {
 
   /**
    * Get customer information from the main management database
-   * This is the only shared database - it only stores customer metadata
+   * Uses working database connection instead of creating new Pool
    */
   private async getCustomerInfo(customerId: string): Promise<Customer | null> {
-    // Use main management database URL for customer lookups
-    const managementDbUrl = process.env.DATABASE_URL;
-    if (!managementDbUrl) {
-      throw new Error("DATABASE_URL must be set for management database");
-    }
-
-    const managementPool = new Pool({ connectionString: managementDbUrl });
-    const managementDb = drizzle({ client: managementPool, schema });
-
     try {
-      const customers = await managementDb
+      // Import the working database connection instead of creating a new Pool
+      const { db } = await import('./db');
+      
+      console.log(`🔍 Looking up customer info: "${customerId}" using working database connection`);
+
+      const customers = await db
         .select()
         .from(schema.customers)
         .where(eq(schema.customers.id, customerId))
         .limit(1);
 
-      await managementPool.end(); // Close management connection
-      return customers[0] || null;
+      const customer = customers[0] || null;
+      console.log(customer ? `✅ Found customer info: ${customer.companyName}` : `❌ Customer not found: ${customerId}`);
+      
+      return customer;
     } catch (error) {
-      await managementPool.end();
-      console.error(`Error fetching customer info: ${error}`);
+      console.error(`🚨 Error fetching customer info: ${error}`);
       return null;
     }
   }
 
   /**
    * Create a new customer with their own database
-   * This will be called during customer onboarding
+   * Uses working database connection instead of creating new Pool
    */
   async createCustomer(customerData: {
     companyName: string;
@@ -150,17 +147,14 @@ export class CustomerDatabaseService {
     contactEmail: string;
     databaseUrl: string;
   }): Promise<Customer> {
-    const managementDbUrl = process.env.DATABASE_URL;
-    if (!managementDbUrl) {
-      throw new Error("DATABASE_URL must be set for management database");
-    }
-
-    const managementPool = new Pool({ connectionString: managementDbUrl });
-    const managementDb = drizzle({ client: managementPool, schema });
-
     try {
+      // Import the working database connection instead of creating a new Pool
+      const { db } = await import('./db');
+      
+      console.log(`🔧 Creating customer: "${customerData.companyName}" using working database connection`);
+
       // Insert new customer into management database
-      const [newCustomer] = await managementDb
+      const [newCustomer] = await db
         .insert(schema.customers)
         .values({
           companyName: customerData.companyName,
@@ -172,39 +166,35 @@ export class CustomerDatabaseService {
         })
         .returning();
 
-      await managementPool.end();
-
       console.log(`✅ Created new customer: ${customerData.companyName} (${newCustomer.id})`);
       return newCustomer;
     } catch (error) {
-      await managementPool.end();
+      console.error(`🚨 Failed to create customer: ${error}`);
       throw new Error(`Failed to create customer: ${error}`);
     }
   }
 
   /**
    * Get all active customers (for management/admin purposes)
+   * Uses working database connection instead of creating new Pool
    */
   async getAllCustomers(): Promise<Customer[]> {
-    const managementDbUrl = process.env.DATABASE_URL;
-    if (!managementDbUrl) {
-      throw new Error("DATABASE_URL must be set for management database");
-    }
-
-    const managementPool = new Pool({ connectionString: managementDbUrl });
-    const managementDb = drizzle({ client: managementPool, schema });
-
     try {
-      const customers = await managementDb
+      // Import the working database connection instead of creating a new Pool
+      const { db } = await import('./db');
+      
+      console.log(`🔍 Getting all customers using working database connection`);
+
+      const customers = await db
         .select()
         .from(schema.customers)
         .where(eq(schema.customers.isActive, true));
 
-      await managementPool.end();
+      console.log(`✅ Found ${customers.length} active customers`);
       return customers;
     } catch (error) {
-      await managementPool.end();
-      throw new Error(`Failed to fetch customers: ${error}`);
+      console.error(`🚨 Error fetching customers: ${error}`);
+      return [];
     }
   }
 
