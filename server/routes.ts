@@ -5420,29 +5420,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Update contractor worker endpoint
   app.put('/api/contractors/workers/:id', requireAuth, async (req, res) => {
+    // Declare mappedData outside try block so it's accessible in catch block
+    let mappedData: any = {};
+    
     try {
       const workerId = req.params.id;
-      const updateData = insertContractorWorkerSchema.partial().parse(req.body);
+      console.log('🔄 Updating contractor worker', workerId, 'with data:', req.body);
       
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, updateData);
+      // Field mapping from UI field names to database field names
+      const uiData = req.body;
+      
+      // Direct field mappings (no conversion needed)
+      const directFieldMappings = {
+        companyId: 'companyId',
+        firstName: 'firstName', 
+        lastName: 'lastName',
+        email: 'email',
+        phoneNumber: 'phone', // Map phoneNumber to phone field in schema
+        phone: 'phone', // Direct mapping
+        homeAddress: 'homeAddress',
+        postcode: 'postcode',
+        jobTitle: 'jobTitle',
+        department: 'department',
+        emergencyContactName: 'emergencyContactName',
+        emergencyContactPhone: 'emergencyContactPhone',
+        emergencyContactRelationship: 'emergencyContactRelationship',
+        transportMethod: 'transportMethod',
+        rightToWork: 'rightToWork', // Maps to right_to_work_status (text) in schema
+        cscsCard: 'cscsCard' // Maps to cscs_card_number in schema
+      };
+      
+      // Apply direct mappings
+      Object.entries(directFieldMappings).forEach(([uiField, dbField]) => {
+        if (uiData[uiField] !== undefined) {
+          mappedData[dbField] = uiData[uiField];
+        }
+      });
+      
+      // Special field mappings with type conversions
+      
+      // cscsStatus: Convert string status to boolean (valid → true, others → false)
+      if (uiData.cscsStatus !== undefined) {
+        mappedData.cscsStatus = uiData.cscsStatus === 'valid';
+        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' → ${mappedData.cscsStatus}`);
+      }
+      
+      // inductionCompleted: Direct mapping to inductionCompleted field
+      if (uiData.inductionCompleted !== undefined) {
+        mappedData.inductionCompleted = uiData.inductionCompleted;
+        console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → inductionCompleted: ${mappedData.inductionCompleted}`);
+      }
+      
+      // Boolean fields that can be passed through directly (only include fields that exist in database schema)
+      const booleanFields = ['workingAtHeight', 'isCheckedIn', 'hsRulesAccepted'];
+      booleanFields.forEach(field => {
+        if (uiData[field] !== undefined) {
+          mappedData[field] = uiData[field];
+        }
+      });
+      
+      // Always set updatedAt
+      mappedData.updatedAt = new Date();
+      
+      console.log('🗃️ Final mapped data for database:', mappedData);
+      
+      // Validate mapped data with schema
+      const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
+      
+      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);
       
       if (!updatedWorker) {
         return res.status(404).json({ error: 'Contractor worker not found' });
       }
 
-      res.json({ success: true, worker: updatedWorker });
+      // Response field mapping: Convert database field names back to UI field names
+      const responseData = {
+        ...updatedWorker,
+        // Map database fields back to UI field names
+        cscsStatus: updatedWorker.cscsStatus, // Keep as string value from database
+        inductionCompleted: updatedWorker.inductionCompleted, // Direct mapping
+      };
+
+      res.json({ success: true, worker: responseData });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('❌ Zod validation error for contractor worker update:', error.errors);
+        console.error('❌ Mapped data that failed validation:', mappedData);
         return res.status(400).json({ 
           error: 'Invalid data', 
           details: error.errors 
         });
       }
-      console.error('Error updating contractor worker:', error);
+      console.error('❌ Database error updating contractor worker:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
