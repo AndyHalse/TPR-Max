@@ -1294,6 +1294,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     
+    // 🔥 DEV BYPASS: Check for development session
+    if (req.session.userId === 'dev-user-andy' && req.session.customerId === 'dev-customer-001') {
+      console.log(`🚀 DEV BYPASS: Returning hardcoded user data for /api/auth/me`);
+      return res.json({
+        id: 'dev-user-andy',
+        username: 'Andy',
+        customerId: 'dev-customer-001'
+      });
+    }
+    
     try {
       console.log(`🔍 Attempting to load user with ID: ${req.session.userId} from customer DB: ${req.session.customerId}`);
       
