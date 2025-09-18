@@ -1532,7 +1532,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   redCardBanUntil: timestamp("red_card_ban_until"), // When red card ban expires
   // Site-specific status
   isPreRegistered: boolean("is_pre_registered").default(false),
-  inductionCompleted: boolean("induction_completed").default(false),
+  inductionCompleted: boolean("site_induction_completed").default(false),
   inductionCompletedAt: timestamp("induction_completed_at"),
   // H&S Rules acceptance tracking (same as visitors)
   hsRulesAccepted: boolean("hs_rules_accepted").default(false).notNull(),

@@ -1457,12 +1457,171 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkersByCompanyId(companyId: string): Promise<ContractorWorker[]> {
-    return await db.select().from(contractorWorkers).where(eq(contractorWorkers.companyId, companyId));
+    const workers = await db.select().from(contractorWorkers).where(eq(contractorWorkers.companyId, companyId));
+    
+    // Apply the same field mapping logic as getContractorWorkerById method
+    return workers.map(worker => {
+      const mappedWorker = {
+        id: worker.id,
+        companyId: worker.companyId,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
+        email: worker.email,
+        phoneNumber: worker.phoneNumber,
+        mobileNumber: worker.mobileNumber,
+        homeAddress: worker.homeAddress,
+        postcode: worker.postcode,
+        dateOfBirth: worker.dateOfBirth,
+        nationalInsuranceNumber: worker.nationalInsuranceNumber,
+        photoUrl: worker.photoUrl,
+        jobTitle: worker.jobTitle,
+        department: worker.department,
+        skillsAndCertifications: worker.skillsAndCertifications || [],
+        emergencyContactName: worker.emergencyContactName,
+        emergencyContactPhone: worker.emergencyContactPhone,
+        emergencyContactRelationship: worker.emergencyContactRelationship,
+        isCheckedIn: worker.isCheckedIn || false,
+        checkedInAt: worker.checkedInAt,
+        checkedOutAt: worker.checkedOutAt,
+        checkoutType: worker.checkoutType,
+        lastVisitDate: worker.lastVisitDate,
+        visitCount: worker.visitCount || 0,
+        isAccountedFor: worker.isAccountedFor || false,
+        rightToWork: worker.rightToWork || 'pending',
+        rightToWorkDocumentType: worker.rightToWorkDocumentType,
+        rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
+        rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
+        rightToWorkVerifiedBy: worker.rightToWorkVerifiedBy,
+        rightToWorkVerifiedAt: worker.rightToWorkVerifiedAt,
+        rightToWorkDocumentUrl: worker.rightToWorkDocumentUrl,
+        workingPattern: worker.workingPattern || 'full_time',
+        hourlyRate: worker.hourlyRate,
+        startDate: worker.startDate,
+        expectedEndDate: worker.expectedEndDate,
+        hasOccupationalHealthClearance: worker.hasOccupationalHealthClearance || false,
+        occupationalHealthExpiryDate: worker.occupationalHealthExpiryDate,
+        medicalRestrictions: worker.medicalRestrictions,
+        siteInductionRequired: worker.siteInductionRequired ?? true,
+        siteInductionCompleted: worker.siteInductionCompleted || false,
+        siteInductionCompletedAt: worker.siteInductionCompletedAt,
+        siteInductionExpiryDate: worker.siteInductionExpiryDate,
+        toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
+        toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
+        cscsCard: worker.cscsCard || '',
+        cscsStatus: worker.cscsStatus || 'pending',
+        ipafStatus: worker.ipafStatus || 'none',
+        asbestosAwareness: worker.asbestosAwareness || false,
+        manualHandling: worker.manualHandling || false,
+        workingAtHeight: worker.workingAtHeight || false,
+        transportMethod: worker.transportMethod || 'car_diesel',
+        workerStatus: worker.workerStatus || 'pending',
+        approvedBy: worker.approvedBy,
+        approvedAt: worker.approvedAt,
+        suspendedReason: worker.suspendedReason,
+        bannedUntil: worker.bannedUntil,
+        aiRiskScore: worker.aiRiskScore || 0,
+        riskFactors: worker.riskFactors || [],
+        lastRiskAssessment: worker.lastRiskAssessment,
+        documentsComplete: worker.documentsComplete || false,
+        documentsLastChecked: worker.documentsLastChecked,
+        complianceScore: worker.complianceScore || 0,
+        isActive: worker.isActive ?? true,
+        createdAt: worker.createdAt || new Date(),
+        updatedAt: worker.updatedAt || new Date(),
+        // CRITICAL FIX: Calculate currentCardStatus if missing  
+        currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
+        // CRITICAL FIX: Map frontend compatibility fields
+        inductionCompleted: worker.siteInductionCompleted || false,
+        phone: worker.phoneNumber,
+      } as ContractorWorker;
+      
+      return mappedWorker;
+    });
   }
 
   async getContractorWorkerById(id: string): Promise<ContractorWorker | undefined> {
     const [worker] = await db.select().from(contractorWorkers).where(eq(contractorWorkers.id, id));
-    return worker || undefined;
+    
+    if (!worker) {
+      return undefined;
+    }
+    
+    // Apply the same field mapping logic as getWorkersByCompanyId method
+    const mappedWorker = {
+      id: worker.id,
+      companyId: worker.companyId,
+      firstName: worker.firstName,
+      lastName: worker.lastName,
+      email: worker.email,
+      phoneNumber: worker.phoneNumber,
+      mobileNumber: worker.mobileNumber,
+      homeAddress: worker.homeAddress,
+      postcode: worker.postcode,
+      dateOfBirth: worker.dateOfBirth,
+      nationalInsuranceNumber: worker.nationalInsuranceNumber,
+      photoUrl: worker.photoUrl,
+      jobTitle: worker.jobTitle,
+      department: worker.department,
+      skillsAndCertifications: worker.skillsAndCertifications || [],
+      emergencyContactName: worker.emergencyContactName,
+      emergencyContactPhone: worker.emergencyContactPhone,
+      emergencyContactRelationship: worker.emergencyContactRelationship,
+      isCheckedIn: worker.isCheckedIn || false,
+      checkedInAt: worker.checkedInAt,
+      checkedOutAt: worker.checkedOutAt,
+      checkoutType: worker.checkoutType,
+      lastVisitDate: worker.lastVisitDate,
+      visitCount: worker.visitCount || 0,
+      isAccountedFor: worker.isAccountedFor || false,
+      rightToWork: worker.rightToWork || 'pending',
+      rightToWorkDocumentType: worker.rightToWorkDocumentType,
+      rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
+      rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
+      rightToWorkVerifiedBy: worker.rightToWorkVerifiedBy,
+      rightToWorkVerifiedAt: worker.rightToWorkVerifiedAt,
+      rightToWorkDocumentUrl: worker.rightToWorkDocumentUrl,
+      workingPattern: worker.workingPattern || 'full_time',
+      hourlyRate: worker.hourlyRate,
+      startDate: worker.startDate,
+      expectedEndDate: worker.expectedEndDate,
+      hasOccupationalHealthClearance: worker.hasOccupationalHealthClearance || false,
+      occupationalHealthExpiryDate: worker.occupationalHealthExpiryDate,
+      medicalRestrictions: worker.medicalRestrictions,
+      siteInductionRequired: worker.siteInductionRequired ?? true,
+      siteInductionCompleted: worker.siteInductionCompleted || false,
+      siteInductionCompletedAt: worker.siteInductionCompletedAt,
+      siteInductionExpiryDate: worker.siteInductionExpiryDate,
+      toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
+      toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
+      cscsCard: worker.cscsCard || '',
+      cscsStatus: worker.cscsStatus || 'pending',
+      ipafStatus: worker.ipafStatus || 'none',
+      asbestosAwareness: worker.asbestosAwareness || false,
+      manualHandling: worker.manualHandling || false,
+      workingAtHeight: worker.workingAtHeight || false,
+      transportMethod: worker.transportMethod || 'car_diesel',
+      workerStatus: worker.workerStatus || 'pending',
+      approvedBy: worker.approvedBy,
+      approvedAt: worker.approvedAt,
+      suspendedReason: worker.suspendedReason,
+      bannedUntil: worker.bannedUntil,
+      aiRiskScore: worker.aiRiskScore || 0,
+      riskFactors: worker.riskFactors || [],
+      lastRiskAssessment: worker.lastRiskAssessment,
+      documentsComplete: worker.documentsComplete || false,
+      documentsLastChecked: worker.documentsLastChecked,
+      complianceScore: worker.complianceScore || 0,
+      isActive: worker.isActive ?? true,
+      createdAt: worker.createdAt || new Date(),
+      updatedAt: worker.updatedAt || new Date(),
+      // CRITICAL FIX: Calculate currentCardStatus if missing  
+      currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
+      // CRITICAL FIX: Map frontend compatibility fields
+      inductionCompleted: worker.siteInductionCompleted || false,
+      phone: worker.phoneNumber,
+    } as ContractorWorker;
+    
+    return mappedWorker;
   }
 
   async createContractorWorker(insertWorker: InsertContractorWorker): Promise<ContractorWorker> {

@@ -1147,24 +1147,121 @@ export class DatabaseService {
     return newCompany;
   }
 
-  async getWorkersByCompanyId(context: CustomerContext, companyId: string): Promise<any[]> {
+  async getWorkersByCompanyId(context: CustomerContext, companyId: string): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // First verify the company exists (no customer filter needed in isolated DB)
-    const company = await db
-      .select()
-      .from(isolatedSchema.contractorCompanies)
-      .where(eq(isolatedSchema.contractorCompanies.id, companyId));
-    
-    if (company.length === 0) {
-      return []; // Company doesn't exist or doesn't belong to this customer
+    try {
+      // First verify the company exists (no customer filter needed in isolated DB)
+      const company = await db
+        .select()
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, companyId));
+      
+      if (company.length === 0) {
+        console.log(`🔍 WORKERS BY COMPANY ID: Company ${companyId} not found`);
+        return []; // Company doesn't exist or doesn't belong to this customer
+      }
+      
+      // Get raw worker data
+      const workers = await db
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
+        .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
+      
+      console.log(`🔍 WORKERS BY COMPANY ID: Found ${workers.length} workers for company ${companyId}`);
+      
+      // Map each worker using the same logic as getContractorWorkerById
+      const mappedWorkers = workers.map(worker => {
+        console.log(`🔍 MAPPING WORKER: ${worker.id} - ${worker.firstName} ${worker.lastName}`);
+        console.log(`🔍 KEY FIELDS: currentCardStatus=${worker.currentCardStatus}, rightToWork=${worker.rightToWork}, siteInductionCompleted=${worker.siteInductionCompleted}`);
+        
+        // FIXED: Properly map database fields to frontend format with correct field names
+        const mappedWorker = {
+          id: worker.id,
+          companyId: worker.companyId,
+          firstName: worker.firstName,
+          lastName: worker.lastName,
+          email: worker.email,
+          phoneNumber: worker.phoneNumber,
+          mobileNumber: worker.mobileNumber,
+          homeAddress: worker.homeAddress,
+          postcode: worker.postcode,
+          dateOfBirth: worker.dateOfBirth,
+          nationalInsuranceNumber: worker.nationalInsuranceNumber,
+          photoUrl: worker.photoUrl,
+          jobTitle: worker.jobTitle,
+          department: worker.department,
+          skillsAndCertifications: worker.skillsAndCertifications || [],
+          emergencyContactName: worker.emergencyContactName,
+          emergencyContactPhone: worker.emergencyContactPhone,
+          emergencyContactRelationship: worker.emergencyContactRelationship,
+          isCheckedIn: worker.isCheckedIn || false,
+          checkedInAt: worker.checkedInAt,
+          checkedOutAt: worker.checkedOutAt,
+          checkoutType: worker.checkoutType,
+          lastVisitDate: worker.lastVisitDate,
+          visitCount: worker.visitCount || 0,
+          isAccountedFor: worker.isAccountedFor || false,
+          rightToWork: worker.rightToWork || 'pending',
+          rightToWorkDocumentType: worker.rightToWorkDocumentType,
+          rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
+          rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
+          rightToWorkVerifiedBy: worker.rightToWorkVerifiedBy,
+          rightToWorkVerifiedAt: worker.rightToWorkVerifiedAt,
+          rightToWorkDocumentUrl: worker.rightToWorkDocumentUrl,
+          workingPattern: worker.workingPattern || 'full_time',
+          hourlyRate: worker.hourlyRate,
+          startDate: worker.startDate,
+          expectedEndDate: worker.expectedEndDate,
+          hasOccupationalHealthClearance: worker.hasOccupationalHealthClearance || false,
+          occupationalHealthExpiryDate: worker.occupationalHealthExpiryDate,
+          medicalRestrictions: worker.medicalRestrictions,
+          siteInductionRequired: worker.siteInductionRequired ?? true,
+          siteInductionCompleted: worker.siteInductionCompleted || false,
+          siteInductionCompletedAt: worker.siteInductionCompletedAt,
+          siteInductionExpiryDate: worker.siteInductionExpiryDate,
+          toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
+          toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
+          cscsCard: worker.cscsCard || '',
+          cscsStatus: worker.cscsStatus || 'pending',
+          ipafStatus: worker.ipafStatus || 'none',
+          asbestosAwareness: worker.asbestosAwareness || false,
+          manualHandling: worker.manualHandling || false,
+          workingAtHeight: worker.workingAtHeight || false,
+          transportMethod: worker.transportMethod || 'car_diesel',
+          workerStatus: worker.workerStatus || 'pending',
+          approvedBy: worker.approvedBy,
+          approvedAt: worker.approvedAt,
+          suspendedReason: worker.suspendedReason,
+          bannedUntil: worker.bannedUntil,
+          aiRiskScore: worker.aiRiskScore || 0,
+          riskFactors: worker.riskFactors || [],
+          lastRiskAssessment: worker.lastRiskAssessment,
+          documentsComplete: worker.documentsComplete || false,
+          documentsLastChecked: worker.documentsLastChecked,
+          complianceScore: worker.complianceScore || 0,
+          isActive: worker.isActive ?? true,
+          createdAt: worker.createdAt || new Date(),
+          updatedAt: worker.updatedAt || new Date(),
+          // CRITICAL FIX: Calculate currentCardStatus if missing  
+          currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
+          // CRITICAL FIX: Map frontend compatibility fields
+          inductionCompleted: worker.siteInductionCompleted || false,
+          phone: worker.phoneNumber,
+        } as ContractorWorker;
+        
+        console.log(`✅ MAPPED WORKER: ${mappedWorker.id} - currentCardStatus=${mappedWorker.currentCardStatus}, inductionCompleted=${mappedWorker.inductionCompleted}`);
+        
+        return mappedWorker;
+      });
+      
+      console.log(`✅ WORKERS BY COMPANY ID: Successfully mapped ${mappedWorkers.length} workers with currentCardStatus`);
+      return mappedWorkers;
+    } catch (error) {
+      console.error('Error getting workers by company ID:', error);
+      return [];
     }
-    
-    return await db
-      .select()
-      .from(isolatedSchema.contractorWorkers)
-      .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
-      .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
   }
 
   async getContractorVisitHistory(context: CustomerContext, workerId: string): Promise<any[]> {
@@ -1904,10 +2001,107 @@ export class DatabaseService {
   async getWorkersByCompany(context: CustomerContext, companyId: string): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    return await db
-      .select()
-      .from(isolatedSchema.contractorWorkers)
-      .where(eq(isolatedSchema.contractorWorkers.companyId, companyId));
+    try {
+      // Get raw worker data
+      const workers = await db
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
+        .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
+      
+      console.log(`🔍 WORKERS BY COMPANY: Found ${workers.length} workers for company ${companyId}`);
+      
+      // Map each worker using the same logic as getContractorWorkerById
+      const mappedWorkers = workers.map(worker => {
+        console.log(`🔍 MAPPING WORKER: ${worker.id} - ${worker.firstName} ${worker.lastName}`);
+        console.log(`🔍 KEY FIELDS: currentCardStatus=${worker.currentCardStatus}, rightToWork=${worker.rightToWork}, siteInductionCompleted=${worker.siteInductionCompleted}`);
+        
+        // FIXED: Properly map database fields to frontend format with correct field names
+        const mappedWorker = {
+          id: worker.id,
+          companyId: worker.companyId,
+          firstName: worker.firstName,
+          lastName: worker.lastName,
+          email: worker.email,
+          phoneNumber: worker.phoneNumber,
+          mobileNumber: worker.mobileNumber,
+          homeAddress: worker.homeAddress,
+          postcode: worker.postcode,
+          dateOfBirth: worker.dateOfBirth,
+          nationalInsuranceNumber: worker.nationalInsuranceNumber,
+          photoUrl: worker.photoUrl,
+          jobTitle: worker.jobTitle,
+          department: worker.department,
+          skillsAndCertifications: worker.skillsAndCertifications || [],
+          emergencyContactName: worker.emergencyContactName,
+          emergencyContactPhone: worker.emergencyContactPhone,
+          emergencyContactRelationship: worker.emergencyContactRelationship,
+          isCheckedIn: worker.isCheckedIn || false,
+          checkedInAt: worker.checkedInAt,
+          checkedOutAt: worker.checkedOutAt,
+          checkoutType: worker.checkoutType,
+          lastVisitDate: worker.lastVisitDate,
+          visitCount: worker.visitCount || 0,
+          isAccountedFor: worker.isAccountedFor || false,
+          rightToWork: worker.rightToWork || 'pending',
+          rightToWorkDocumentType: worker.rightToWorkDocumentType,
+          rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
+          rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
+          rightToWorkVerifiedBy: worker.rightToWorkVerifiedBy,
+          rightToWorkVerifiedAt: worker.rightToWorkVerifiedAt,
+          rightToWorkDocumentUrl: worker.rightToWorkDocumentUrl,
+          workingPattern: worker.workingPattern || 'full_time',
+          hourlyRate: worker.hourlyRate,
+          startDate: worker.startDate,
+          expectedEndDate: worker.expectedEndDate,
+          hasOccupationalHealthClearance: worker.hasOccupationalHealthClearance || false,
+          occupationalHealthExpiryDate: worker.occupationalHealthExpiryDate,
+          medicalRestrictions: worker.medicalRestrictions,
+          siteInductionRequired: worker.siteInductionRequired ?? true,
+          siteInductionCompleted: worker.siteInductionCompleted || false,
+          siteInductionCompletedAt: worker.siteInductionCompletedAt,
+          siteInductionExpiryDate: worker.siteInductionExpiryDate,
+          toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
+          toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
+          cscsCard: worker.cscsCard || '',
+          cscsStatus: worker.cscsStatus || 'pending',
+          ipafStatus: worker.ipafStatus || 'none',
+          asbestosAwareness: worker.asbestosAwareness || false,
+          manualHandling: worker.manualHandling || false,
+          workingAtHeight: worker.workingAtHeight || false,
+          transportMethod: worker.transportMethod || 'car_diesel',
+          workerStatus: worker.workerStatus || 'pending',
+          approvedBy: worker.approvedBy,
+          approvedAt: worker.approvedAt,
+          suspendedReason: worker.suspendedReason,
+          bannedUntil: worker.bannedUntil,
+          aiRiskScore: worker.aiRiskScore || 0,
+          riskFactors: worker.riskFactors || [],
+          lastRiskAssessment: worker.lastRiskAssessment,
+          documentsComplete: worker.documentsComplete || false,
+          documentsLastChecked: worker.documentsLastChecked,
+          complianceScore: worker.complianceScore || 0,
+          isActive: worker.isActive ?? true,
+          createdAt: worker.createdAt || new Date(),
+          updatedAt: worker.updatedAt || new Date(),
+          // CRITICAL FIX: Calculate currentCardStatus if missing
+          currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
+          // CRITICAL FIX: Map frontend compatibility fields
+          inductionCompleted: worker.siteInductionCompleted || false,
+          phone: worker.phoneNumber,
+        } as ContractorWorker;
+        
+        console.log(`✅ MAPPED WORKER: ${mappedWorker.id} - currentCardStatus=${mappedWorker.currentCardStatus}, inductionCompleted=${mappedWorker.inductionCompleted}`);
+        
+        return mappedWorker;
+      });
+      
+      console.log(`✅ WORKERS BY COMPANY: Successfully mapped ${mappedWorkers.length} workers`);
+      return mappedWorkers;
+    } catch (error) {
+      console.error('Error getting workers by company:', error);
+      return [];
+    }
   }
 
   async getContractorCompany(context: CustomerContext, companyId: string): Promise<ContractorCompany | undefined> {
