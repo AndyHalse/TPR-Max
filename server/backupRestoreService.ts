@@ -258,7 +258,7 @@ export class BackupRestoreService {
       users: exportData.users?.length || 0,
       tenantCompanies: exportData.tenantCompanies?.length || 0,
       preBookings: exportData.preBookings?.length || 0,
-      staffAttendanceHistory: exportData.staffAttendanceHistory?.length || 0
+      staffSessions: exportData.staffSessions?.length || 0
     };
   }
 
@@ -339,7 +339,7 @@ export class BackupRestoreService {
       users: 0,
       tenantCompanies: 0,
       preBookings: 0,
-      staffAttendanceHistory: 0
+      staffSessions: 0
     };
   }
 
@@ -379,7 +379,7 @@ export interface TableStats {
   users: number;
   tenantCompanies: number;
   preBookings: number;
-  staffAttendanceHistory: number;
+  staffSessions: number;
 }
 
 export interface TestResult {

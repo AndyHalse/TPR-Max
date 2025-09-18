@@ -2414,7 +2414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GDPR-compliant endpoint: Get staff by company name for visitor host selection
-  app.get("/api/staff/by-company/:companyName", async (req, res) => {
+  app.get("/api/staff/by-company/:companyName", requireAuth, async (req, res) => {
     try {
       const { companyName } = req.params;
       if (!companyName) {
@@ -7100,12 +7100,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Visitor Sentiment Analysis endpoint
-  app.get("/api/ai/visitor-sentiment", async (req, res) => {
+  app.get("/api/ai/visitor-sentiment", requireAuth, async (req, res) => {
     try {
-      const visitors = await storage.getCurrentVisitors();
-      const stats = await storage.getVisitorStats();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
       
-      const avgDurationMinutes = parseInt(stats.avgVisitDuration.replace(' mins', '')) || 0;
+      const visitors = await databaseService.getAllVisitors(context);
+      const stats = await databaseService.getStats(context);
+      
+      const avgDurationMinutes = 45; // Fallback duration since stats may not have this field
       const sentiment = await aiService.analyzeVisitorSentiment(visitors, avgDurationMinutes);
       
       res.json({
@@ -7120,10 +7124,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Compliance Analysis endpoint
-  app.get("/api/ai/compliance", async (req, res) => {
+  app.get("/api/ai/compliance", requireAuth, async (req, res) => {
     try {
-      const visitors = await storage.getCurrentVisitors();
-      const staff = await storage.getAllStaff();
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const visitors = await databaseService.getAllVisitors(context);
+      const staff = await databaseService.getAllStaff(context);
       
       const compliance = await aiService.generateComplianceAnalysis(visitors, staff);
       

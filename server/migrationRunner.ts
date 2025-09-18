@@ -4,6 +4,7 @@ import { contractorMigrations } from './contractorMigrations';
 import { cleanupMigrations } from './cleanupMigrations';
 import { settingsColumnMigrations } from './settingsColumnMigration';
 import { comprehensiveSettingsMigrations } from './comprehensiveSettingsMigration';
+import { staffSessionsMigrations } from './staffSessionsMigration';
 
 /**
  * Lightweight Migration Framework for Isolated Customer Databases
@@ -135,6 +136,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     ...settingsColumnMigrations,
     ...comprehensiveSettingsMigrations,
     addMissingCompanySettingsColumnsMigration,
+    ...staffSessionsMigrations,
   ];
 
   allMigrations.forEach(migration => {

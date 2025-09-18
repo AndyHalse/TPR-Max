@@ -442,6 +442,21 @@ export class DatabaseProvisioningService {
       )
     `);
 
+    // Staff Sessions table for historical tracking of check-ins/outs
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS staff_sessions (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        staff_id varchar NOT NULL REFERENCES staff(id),
+        check_in_time timestamp NOT NULL,
+        check_out_time timestamp,
+        is_manual boolean NOT NULL DEFAULT false,
+        check_in_method text DEFAULT 'card',
+        check_out_method text,
+        notes text,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+
     // Visitors table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS visitors (

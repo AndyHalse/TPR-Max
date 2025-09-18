@@ -89,7 +89,7 @@ export class DatabaseMigrationService {
         staff: [],
         visitors: [],
         visitorHistory: [],
-        staffAttendanceHistory: [],
+        staffSessions: [],
         departments: [],
         users: [],
         tenantCompanies: [],
@@ -123,11 +123,11 @@ export class DatabaseMigrationService {
         .from(sharedSchema.visitorHistory)
         .where(eq(sharedSchema.visitorHistory.customerId, customerId));
 
-      // Export staff attendance history
-      exportData.staffAttendanceHistory = await db
+      // Export staff sessions history
+      exportData.staffSessions = await db
         .select()
-        .from(sharedSchema.staffAttendanceHistory)
-        .where(eq(sharedSchema.staffAttendanceHistory.customerId, customerId));
+        .from(sharedSchema.staffSessions)
+        .where(eq(sharedSchema.staffSessions.customerId, customerId));
 
       // Export departments
       exportData.departments = await db
@@ -276,14 +276,14 @@ export class DatabaseMigrationService {
         await db.insert(isolatedSchema.visitorHistory).values(historyToImport);
       }
 
-      // Import staff attendance history (remove customerId)
-      if (exportData.staffAttendanceHistory.length > 0) {
-        const attendanceToImport = exportData.staffAttendanceHistory.map(attendance => {
-          const { customerId: _, ...attendanceWithoutCustomerId } = attendance;
-          return attendanceWithoutCustomerId;
+      // Import staff sessions history (remove customerId)
+      if (exportData.staffSessions.length > 0) {
+        const sessionsToImport = exportData.staffSessions.map(session => {
+          const { customerId: _, ...sessionWithoutCustomerId } = session;
+          return sessionWithoutCustomerId;
         });
         
-        await db.insert(isolatedSchema.staffAttendanceHistory).values(attendanceToImport);
+        await db.insert(isolatedSchema.staffSessions).values(sessionsToImport);
       }
 
       // Import pre-bookings (remove customerId)
@@ -326,7 +326,7 @@ export class DatabaseMigrationService {
         users: await this.countRecords(db, isolatedSchema.users),
         tenantCompanies: await this.countRecords(db, isolatedSchema.tenantCompanies),
         preBookings: await this.countRecords(db, isolatedSchema.preBookings),
-        staffAttendanceHistory: await this.countRecords(db, isolatedSchema.staffAttendanceHistory)
+        staffSessions: await this.countRecords(db, isolatedSchema.staffSessions)
       };
 
       // Compare with original counts
@@ -339,7 +339,7 @@ export class DatabaseMigrationService {
         users: originalData.users.length,
         tenantCompanies: originalData.tenantCompanies.length,
         preBookings: originalData.preBookings.length,
-        staffAttendanceHistory: originalData.staffAttendanceHistory.length
+        staffSessions: originalData.staffSessions.length
       };
 
       const isValid = Object.keys(expectedCounts).every(table => {
@@ -487,7 +487,7 @@ export interface CustomerExportData {
   staff: any[];
   visitors: any[];
   visitorHistory: any[];
-  staffAttendanceHistory: any[];
+  staffSessions: any[];
   departments: any[];
   users: any[];
   tenantCompanies: any[];
