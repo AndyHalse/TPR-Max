@@ -1662,6 +1662,45 @@ export class DatabaseService {
       if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
       if (updates.postcode !== undefined) updateData.postcode = updates.postcode;
       
+      // AUTOMATIC CARD STATUS CALCULATION
+      console.log(`🔍 AUTO-CALC: Starting automatic card status calculation for worker ${id}`);
+      try {
+        // Get current worker data to check all compliance fields
+        console.log(`🔍 AUTO-CALC: Fetching current worker data for ${id}`);
+        const currentWorker = await this.getContractorWorkerById(context, id);
+        console.log(`🔍 AUTO-CALC: Current worker data:`, currentWorker ? 'FOUND' : 'NOT FOUND');
+        
+        if (currentWorker) {
+          console.log(`🔍 AUTO-CALC: Worker compliance data:`, {
+            siteInductionCompleted: currentWorker.siteInductionCompleted,
+            rightToWork: currentWorker.rightToWork,
+            cscsStatus: currentWorker.cscsStatus,
+            bannedUntil: currentWorker.bannedUntil
+          });
+          
+          // Merge current worker data with updates
+          const mergedData = { ...currentWorker, ...updateData };
+          console.log(`🔍 AUTO-CALC: Merged data for calculation:`, {
+            siteInductionCompleted: mergedData.siteInductionCompleted,
+            rightToWork: mergedData.rightToWork,
+            cscsStatus: mergedData.cscsStatus,
+            bannedUntil: mergedData.bannedUntil
+          });
+          
+          // Calculate card status based on compliance
+          const calculatedStatus = this.calculateWorkerCardStatus(mergedData);
+          
+          // Set the calculated status
+          updateData.currentCardStatus = calculatedStatus;
+          
+          console.log(`✅ AUTO-CALCULATED: Worker ${id} card status = '${calculatedStatus}' based on compliance`);
+        } else {
+          console.log(`❌ AUTO-CALC: Could not fetch current worker data for ${id}`);
+        }
+      } catch (error) {
+        console.error(`❌ AUTO-CALC: Error during automatic card status calculation:`, error);
+      }
+      
       // No need to remove undefined since we only add defined values
       
       console.log(`🔄 Updating contractor worker ${id} with data:`, updateData);
@@ -1761,12 +1800,14 @@ export class DatabaseService {
         createdAt: updated.createdAt,
         updatedAt: updated.updatedAt,
         // FIXED: Map key fields properly for frontend
+        currentCardStatus: updated.currentCardStatus, // Include calculated card status
         inductionCompleted: updated.siteInductionCompleted, // Map DB field to frontend field
         phone: updated.phoneNumber, // Add phone alias for compatibility
       } as ContractorWorker;
       
       console.log(`✅ DATABASE SERVICE - Mapped result for UI:`);
       console.log(`  - inductionCompleted (UI field): ${mappedResult.inductionCompleted}`);
+      console.log(`  - currentCardStatus (UI field): ${mappedResult.currentCardStatus}`);
       
       return mappedResult;
     } catch (error) {
@@ -1781,6 +1822,42 @@ export class DatabaseService {
       console.error(`❌ DATABASE SERVICE - Failed updateData:`, updates);
       throw error; // Re-throw to surface in route logs
     }
+  }
+
+  /**
+   * WORKER CARD STATUS CALCULATION - Helper Method
+   */
+  private calculateWorkerCardStatus(workerData: any): 'red' | 'yellow' | 'clear' {
+    // Check for red card conditions (banned/critical non-compliance)
+    if (workerData.bannedUntil && new Date(workerData.bannedUntil) > new Date()) {
+      return 'red'; // Currently banned
+    }
+    
+    if (workerData.rightToWork === 'expired' || workerData.rightToWork === 'missing') {
+      return 'red'; // Critical compliance failure
+    }
+    
+    // Check for yellow card conditions (warnings/expiring)
+    if (workerData.rightToWork === 'expiring' || 
+        workerData.cscsStatus === 'expired' || 
+        workerData.ipafStatus === 'expired') {
+      return 'yellow'; // Warning - expiring credentials
+    }
+    
+    // Check for missing induction (critical requirement)
+    if (!workerData.siteInductionCompleted) {
+      return 'yellow'; // Cannot check in without induction
+    }
+    
+    // All compliance checks passed - worker is clear to work
+    if (workerData.rightToWork === 'valid' && 
+        workerData.siteInductionCompleted === true &&
+        (workerData.cscsStatus === 'valid' || workerData.cscsStatus === 'pending')) {
+      return 'clear'; // Green card - compliant and ready to check in
+    }
+    
+    // Default to yellow if we can't determine status
+    return 'yellow';
   }
 
   /**
