@@ -62,7 +62,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { EmailService, emailService } from "./emailService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
-import { AuthService, requireAuth } from "./auth";
+import { AuthService, requireAuth, isDevAuthBypass, getDevUser, isValidDevCredentials } from "./auth";
 import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
@@ -1103,23 +1103,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
-      console.log(`🔍 BYPASS CHECK: companyMatch=${companyName === "Development Customer"}, userMatch=${username === "Andy"}, passMatch=${password === "Kubo1966&&"}`);
-      console.log(`🔍 BYPASS VALUES: company="${companyName}" (${typeof companyName}), user="${username}" (${typeof username}), pass="${password}" (${typeof password})`);
 
-      // TEMPORARY BYPASS: Development credentials to test contractor functionality
-      if (companyName === "Development Customer" && username === "Andy" && password === "Kubo1966&&") {
-        console.log(`🚀 DEV BYPASS: Using hardcoded authentication for testing`);
+      // DEV AUTH BYPASS: Check for development authentication  
+      if (isDevAuthBypass() && isValidDevCredentials(companyName, username, password)) {
+        console.log(`🚀 DEV BYPASS: Using centralized development authentication`);
         
+        const devUser = getDevUser();
         const authResult = {
           user: {
-            id: "dev-user-andy",
-            username: "Andy",
-            companyName: "Development Customer",
+            id: devUser.id,
+            username: devUser.username,
+            companyName: devUser.companyName,
             role: "admin"
           },
           customer: {
-            id: "dev-customer-001",
-            companyName: "Development Customer"
+            id: devUser.customerId,
+            companyName: devUser.companyName
           }
         };
 
@@ -1294,13 +1293,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     
-    // 🔥 DEV BYPASS: Check for development session
-    if (req.session.userId === 'dev-user-andy' && req.session.customerId === 'dev-customer-001') {
-      console.log(`🚀 DEV BYPASS: Returning hardcoded user data for /api/auth/me`);
+    // DEV AUTH BYPASS: Return dev user data without database access
+    if (isDevAuthBypass() && req.session.userId && req.session.customerId) {
+      console.log(`🚀 AUTH_ME_BYPASS: Returning dev user data for session verification`);
+      const devUser = getDevUser();
       return res.json({
-        id: 'dev-user-andy',
-        username: 'Andy',
-        customerId: 'dev-customer-001'
+        id: devUser.id,
+        username: devUser.username,
+        customerId: devUser.customerId
       });
     }
     

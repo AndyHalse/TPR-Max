@@ -9,6 +9,27 @@ import { eq, sql } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
 
+// Dev Auth Bypass - centralized development authentication
+export function isDevAuthBypass(): boolean {
+  // Auto-enable when Neon database is disabled or DEV_AUTH_BYPASS is set
+  return process.env.NODE_ENV === 'development' || process.env.DEV_AUTH_BYPASS === 'true';
+}
+
+export function getDevUser() {
+  return {
+    id: 'dev-user-andy',
+    username: 'Andy',
+    customerId: 'dev-customer-001',
+    companyName: 'Development Customer'
+  };
+}
+
+export function isValidDevCredentials(company: string, username: string, password: string): boolean {
+  return company === 'Development Customer' && 
+         username === 'Andy' && 
+         password === 'Kubo1966&&';
+}
+
 // Extend session interface
 declare module 'express-session' {
   interface SessionData {
