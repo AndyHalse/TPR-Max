@@ -1494,7 +1494,7 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Use raw SQL with explicit column selection including CO2 fields
+      // Use raw SQL with explicit column selection including CO2 fields and cscsStatus
       const result = await db.execute(sql`
         SELECT 
           id, 
@@ -1502,12 +1502,14 @@ export class DatabaseService {
           first_name, 
           last_name, 
           email, 
-          phone, 
+          phone_number,
           photo_url,
           postcode,
           transport_method,
-          induction_completed,
+          site_induction_completed,
           right_to_work_status,
+          has_cscs,
+          cscs_card_number,
           hs_rules_accepted,
           hs_rules_accepted_at,
           is_checked_in,
@@ -1536,13 +1538,16 @@ export class DatabaseService {
         firstName: worker.first_name,
         lastName: worker.last_name,
         email: worker.email,
-        phone: worker.phone,
+        phone: worker.phone_number,
         photoUrl: worker.photo_url,
         // CRITICAL CO2 FIELDS - Previously missing!
         postcode: worker.postcode,
         transportMethod: worker.transport_method,
-        // Critical validation fields that were missing!
-        inductionCompleted: worker.induction_completed,
+        // FIXED: Map site_induction_completed to inductionCompleted for consistency
+        inductionCompleted: worker.site_induction_completed,
+        // FIXED: Add missing cscsStatus field
+        cscsStatus: worker.has_cscs,
+        cscsCard: worker.cscs_card_number,
         rightToWork: worker.right_to_work_status,
         hsRulesAccepted: worker.hs_rules_accepted,
         hsRulesAcceptedAt: worker.hs_rules_accepted_at ? new Date(worker.hs_rules_accepted_at) : null,

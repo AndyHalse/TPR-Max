@@ -5418,6 +5418,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get individual contractor worker by ID endpoint - CRITICAL MISSING ENDPOINT ADDED
+  app.get('/api/contractors/workers/:id', requireAuth, async (req, res) => {
+    try {
+      const workerId = req.params.id;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get worker from customer-isolated database service
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
+      
+      if (!worker) {
+        return res.status(404).json({ error: "Contractor worker not found" });
+      }
+
+      // Convert boolean fields back to UI-expected format for consistency
+      const responseWorker = {
+        ...worker,
+        // Convert boolean cscsStatus back to string for UI consistency
+        cscsStatus: worker.cscsStatus ? 'valid' : 'invalid'
+      };
+
+      console.log(`✅ Retrieved contractor worker: ${worker.firstName} ${worker.lastName}`);
+      res.json(responseWorker);
+    } catch (error) {
+      console.error("Error fetching contractor worker:", error);
+      res.status(500).json({ error: "Failed to fetch contractor worker" });
+    }
+  });
+
   // Update contractor worker endpoint
   app.put('/api/contractors/workers/:id', requireAuth, async (req, res) => {
     // Declare mappedData outside try block so it's accessible in catch block
@@ -5441,7 +5472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: 'lastName',
         email: 'email',
         phoneNumber: 'phone', // Map phoneNumber to phone field in schema
-        phone: 'phone', // Direct mapping
+        phone: 'phoneNumber', // Direct mapping to phone_number field
         homeAddress: 'homeAddress',
         postcode: 'postcode',
         jobTitle: 'jobTitle',
@@ -5469,10 +5500,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' → ${mappedData.cscsStatus}`);
       }
       
-      // inductionCompleted: Direct mapping to inductionCompleted field
+      // inductionCompleted: Map to siteInductionCompleted field (matches isolated schema)
       if (uiData.inductionCompleted !== undefined) {
-        mappedData.inductionCompleted = uiData.inductionCompleted;
-        console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → inductionCompleted: ${mappedData.inductionCompleted}`);
+        mappedData.siteInductionCompleted = uiData.inductionCompleted;
+        console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → siteInductionCompleted: ${mappedData.siteInductionCompleted}`);
       }
       
       // Boolean fields that can be passed through directly (only include fields that exist in database schema)
