@@ -239,34 +239,23 @@ export const ensureContractorTablesMigration: Migration = {
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         worker_id VARCHAR NOT NULL REFERENCES contractor_workers(id),
         company_id VARCHAR NOT NULL REFERENCES contractor_companies(id),
-        -- Visit timing
+        purpose TEXT DEFAULT 'Work',
         checked_in_at TIMESTAMP NOT NULL DEFAULT NOW(),
         checked_out_at TIMESTAMP,
-        -- Visit details
-        purpose TEXT,
-        location TEXT,
-        supervisor_name TEXT,
-        supervisor_contact TEXT,
-        -- Safety and compliance
-        ppe_check_completed BOOLEAN DEFAULT false,
-        ppe_check_notes TEXT,
-        site_induction_required BOOLEAN DEFAULT false,
-        site_induction_completed BOOLEAN DEFAULT false,
-        -- Risk assessment
-        risk_assessment_required BOOLEAN DEFAULT false,
-        risk_assessment_completed BOOLEAN DEFAULT false,
-        risk_assessment_notes TEXT,
-        -- Check-out information
-        checkout_type TEXT,
-        checkout_notes TEXT,
-        -- Emergency muster tracking
-        is_accounted_for BOOLEAN DEFAULT false NOT NULL,
-        -- Visit metadata
-        weather_conditions TEXT,
-        work_area TEXT,
-        tools_and_equipment TEXT[] DEFAULT ARRAY[]::TEXT[],
-        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+        duration TEXT, -- calculated field - CRITICAL MISSING COLUMN
+        host_staff_id VARCHAR REFERENCES staff(id),
+        host_name TEXT,
+        hs_rules_accepted BOOLEAN DEFAULT false,
+        hs_rules_accepted_at TIMESTAMP,
+        induction_completed BOOLEAN DEFAULT false,
+        induction_completed_at TIMESTAMP,
+        e_pass_sent BOOLEAN DEFAULT false,
+        e_pass_sent_at TIMESTAMP,
+        checkout_type TEXT, -- manual, auto, overnight
+        qr_code TEXT UNIQUE,
+        pass_url TEXT, -- URL to generated pass
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
 
@@ -370,7 +359,111 @@ export const ensureContractorTablesMigration: Migration = {
   }
 };
 
+// Migration to create UK H&S document system tables
+export const createUKHSDocumentSystemMigration: Migration = {
+  version: '20250918_004_create_uk_hs_document_system',
+  description: 'Create UK H&S document system tables: uk_hs_document_templates, worker_document_assignments, worker_document_acceptances, document_auto_fill_mapping',
+  async up(db: any) {
+    console.log('🔄 Creating UK H&S document system tables...');
+
+    // Add pgcrypto extension for UUID generation
+    await ensurePgcrypto(db);
+
+    // Create uk_hs_document_templates table
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS uk_hs_document_templates (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        template_name TEXT NOT NULL,
+        document_type TEXT NOT NULL, -- "right_to_work", "health_safety_training", "competency_certificate", etc.
+        description TEXT,
+        is_required BOOLEAN DEFAULT true,
+        category TEXT NOT NULL, -- "legal_compliance", "safety_training", "competency", "identification"
+        validity_period_months INTEGER DEFAULT 12,
+        reminder_days_before INTEGER DEFAULT 30,
+        allowed_file_types TEXT[] DEFAULT ARRAY['pdf', 'jpg', 'png']::TEXT[],
+        max_file_size_mb INTEGER DEFAULT 10,
+        auto_fill_enabled BOOLEAN DEFAULT false,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // Create worker_document_assignments table - CRITICAL MISSING TABLE
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS worker_document_assignments (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        worker_id VARCHAR NOT NULL REFERENCES contractor_workers(id),
+        template_id VARCHAR NOT NULL REFERENCES uk_hs_document_templates(id),
+        assigned_by VARCHAR NOT NULL REFERENCES users(id),
+        assigned_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        due_date TIMESTAMP NOT NULL,
+        status TEXT DEFAULT 'pending', -- pending, submitted, approved, rejected, expired
+        priority TEXT DEFAULT 'normal', -- low, normal, high, urgent
+        notes TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // Create worker_document_acceptances table
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS worker_document_acceptances (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        assignment_id VARCHAR NOT NULL REFERENCES worker_document_assignments(id),
+        worker_id VARCHAR NOT NULL REFERENCES contractor_workers(id),
+        template_id VARCHAR NOT NULL REFERENCES uk_hs_document_templates(id),
+        document_url TEXT NOT NULL,
+        original_file_name TEXT NOT NULL,
+        file_size_bytes INTEGER NOT NULL,
+        file_type TEXT NOT NULL, -- pdf, jpg, png, etc.
+        submitted_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        submitted_by VARCHAR NOT NULL REFERENCES contractor_workers(id),
+        -- Review and approval
+        reviewed_by VARCHAR REFERENCES users(id),
+        reviewed_at TIMESTAMP,
+        status TEXT DEFAULT 'pending', -- pending, approved, rejected, expired
+        approval_comments TEXT,
+        rejection_reason TEXT,
+        expiry_date TIMESTAMP,
+        -- Auto-fill and AI processing
+        auto_fill_data TEXT, -- JSON string of extracted data
+        ai_analysis_result TEXT, -- JSON string of AI document analysis
+        ai_confidence_score INTEGER DEFAULT 0, -- 0-100 AI confidence
+        -- Document metadata
+        extracted_text TEXT, -- OCR extracted text for search
+        document_hash TEXT, -- File hash for duplicate detection
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // Create document_auto_fill_mapping table
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS document_auto_fill_mapping (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        template_id VARCHAR NOT NULL REFERENCES uk_hs_document_templates(id),
+        field_name TEXT NOT NULL, -- "passport_number", "driving_licence_number", "expiry_date", etc.
+        field_type TEXT NOT NULL, -- "text", "date", "number", "email"
+        extraction_pattern TEXT, -- Regex pattern for extraction
+        ocr_region TEXT, -- JSON: {"x": 100, "y": 200, "width": 300, "height": 50}
+        is_required BOOLEAN DEFAULT false,
+        validation_rules TEXT, -- JSON: validation rules for the field
+        target_worker_field TEXT, -- Field in contractor_workers table to update
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    console.log('✅ Created UK H&S document system tables successfully');
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
-  ensureContractorTablesMigration
+  ensureContractorTablesMigration,
+  createUKHSDocumentSystemMigration
 ];
