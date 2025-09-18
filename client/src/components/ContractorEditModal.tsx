@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import type { ContractorWorker, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
+import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
 import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -58,6 +59,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     asbestosAwareness: worker?.asbestosAwareness || false,
     manualHandling: worker?.manualHandling || false,
     inductionCompleted: worker?.inductionCompleted || false,
+    companyId: worker?.companyId || '',
   });
 
   // Update form data when worker changes
@@ -77,6 +79,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         asbestosAwareness: worker.asbestosAwareness || false,
         manualHandling: worker.manualHandling || false,
         inductionCompleted: worker.inductionCompleted || false,
+        companyId: worker.companyId || '',
       });
     }
   }, [worker]);
@@ -95,6 +98,12 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     enabled: !!worker?.id,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+  });
+
+  // Fetch contractor companies for company selection dropdown
+  const { data: companies = [] } = useQuery<ContractorCompany[]>({
+    queryKey: ['/api/contractors'],
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Update worker mutation
@@ -288,6 +297,25 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                     </div>
                   </div>
 
+                  <div>
+                    <Label htmlFor="company">Company *</Label>
+                    <Select
+                      value={formData.companyId}
+                      onValueChange={(value) => handleInputChange('companyId', value)}
+                    >
+                      <SelectTrigger data-testid="select-contractor-company">
+                        <SelectValue placeholder="Select company..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.companyName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="email">Email Address</Label>
@@ -347,19 +375,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </div>
                 </div>
 
-                {/* Company Information */}
+                {/* Work Details */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-700">Company Information</h3>
-                  
-                  <div>
-                    <Label>Company</Label>
-                    <Input
-                      value={companyName}
-                      disabled
-                      className="bg-slate-50"
-                      data-testid="input-contractor-company"
-                    />
-                  </div>
+                  <h3 className="font-semibold text-slate-700">Work Details</h3>
                 </div>
 
                 {/* Certifications & Compliance */}

@@ -1071,7 +1071,7 @@ export const contractorPreBookings = pgTable("contractor_prebookings", {
 // UK H&S Document System - Template based document management
 export const ukHSDocumentTemplates = pgTable("uk_hs_document_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  templateName: text("template_name").notNull(),
+  documentName: text("document_name").notNull(),
   documentType: text("document_type").notNull(), // "right_to_work", "health_safety_training", "competency_certificate", etc.
   description: text("description"),
   isRequired: boolean("is_required").default(true),
