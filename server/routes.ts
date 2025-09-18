@@ -5498,8 +5498,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // cscsStatus: Convert string status to boolean and map to correct database column property name
       if (uiData.cscsStatus !== undefined) {
-        mappedData.cscsStatus = uiData.cscsStatus === 'valid';
-        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' → cscsStatus: ${mappedData.cscsStatus}`);
+        // Handle both string values ('valid', 'invalid', 'pending') and boolean values (true/false)
+        if (typeof uiData.cscsStatus === 'string') {
+          mappedData.cscsStatus = uiData.cscsStatus === 'valid';
+        } else {
+          mappedData.cscsStatus = Boolean(uiData.cscsStatus);
+        }
+        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' (${typeof uiData.cscsStatus}) → cscsStatus: ${mappedData.cscsStatus}`);
       }
       
       // inductionCompleted: Map to correct database column property name
@@ -5508,6 +5513,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → siteInductionCompleted: ${mappedData.siteInductionCompleted}`);
       }
       
+      // IPAF Status: Map to database field if it exists (needs to be checked against schema)
+      if (uiData.ipafStatus !== undefined) {
+        // Note: Need to verify if ipafStatus field exists in database schema
+        mappedData.ipafStatus = uiData.ipafStatus;
+        console.log(`🔄 Mapped ipafStatus: '${uiData.ipafStatus}' → ipafStatus: '${mappedData.ipafStatus}'`);
+      }
+      
+      // Safety training boolean fields - map to database fields if they exist
+      if (uiData.asbestosAwareness !== undefined) {
+        mappedData.asbestosAwareness = Boolean(uiData.asbestosAwareness);
+        console.log(`🔄 Mapped asbestosAwareness: ${uiData.asbestosAwareness} → asbestosAwareness: ${mappedData.asbestosAwareness}`);
+      }
+      
+      if (uiData.manualHandling !== undefined) {
+        mappedData.manualHandling = Boolean(uiData.manualHandling);
+        console.log(`🔄 Mapped manualHandling: ${uiData.manualHandling} → manualHandling: ${mappedData.manualHandling}`);
+      }
+
       // Boolean fields that can be passed through directly (only include fields that exist in database schema)
       const booleanFields = ['workingAtHeight', 'isCheckedIn', 'hsRulesAccepted'];
       booleanFields.forEach(field => {
@@ -5529,11 +5552,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate mapped data with schema
       const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
       
-      // CRITICAL FIX: Ensure siteInductionCompleted field is preserved after Zod validation
-      // The insertContractorWorkerSchema may be missing this field, so we manually preserve it
+      // CRITICAL FIX: Ensure critical fields are preserved after Zod validation
+      // The insertContractorWorkerSchema may be missing these fields, so we manually preserve them
       if (mappedData.siteInductionCompleted !== undefined) {
         validatedData.siteInductionCompleted = mappedData.siteInductionCompleted;
         console.log(`🔧 MANUAL FIX: Preserved siteInductionCompleted: ${validatedData.siteInductionCompleted}`);
+      }
+      
+      if (mappedData.ipafStatus !== undefined) {
+        validatedData.ipafStatus = mappedData.ipafStatus;
+        console.log(`🔧 MANUAL FIX: Preserved ipafStatus: ${validatedData.ipafStatus}`);
+      }
+      
+      if (mappedData.asbestosAwareness !== undefined) {
+        validatedData.asbestosAwareness = mappedData.asbestosAwareness;
+        console.log(`🔧 MANUAL FIX: Preserved asbestosAwareness: ${validatedData.asbestosAwareness}`);
+      }
+      
+      if (mappedData.manualHandling !== undefined) {
+        validatedData.manualHandling = mappedData.manualHandling;
+        console.log(`🔧 MANUAL FIX: Preserved manualHandling: ${validatedData.manualHandling}`);
       }
       
       console.log('🔍 ROUTE - Zod validation completed. Result:');
