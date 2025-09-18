@@ -2504,29 +2504,29 @@ export class DatabaseService {
       id: worker.id,
       firstName: worker.firstName,
       lastName: worker.lastName,
-      transport_method: worker.transport_method,
-      cscs_card_number: worker.cscs_card_number,
-      cscs_status: worker.cscs_status,
-      right_to_work_status: worker.right_to_work_status,
-      ipaf_status: worker.ipaf_status,
-      asbestos_awareness: worker.asbestos_awareness,
-      manual_handling: worker.manual_handling,
-      site_induction_completed: worker.site_induction_completed,
+      transportMethod: worker.transportMethod,
+      cscsCard: worker.cscsCard,
+      cscsStatus: worker.cscsStatus,
+      rightToWork: worker.rightToWork,
+      ipafStatus: worker.ipafStatus,
+      asbestosAwareness: worker.asbestosAwareness,
+      manualHandling: worker.manualHandling,
+      siteInductionCompleted: worker.siteInductionCompleted,
     });
     
     // CRITICAL FIX: Map database fields to frontend field names
     const mappedWorker = {
       ...worker,
       // Map database column names to frontend field names
-      transportMethod: worker.transport_method || worker.transportMethod || 'car_diesel',
-      cscsCard: worker.cscs_card_number || worker.cscsCard || '',
-      cscsStatus: worker.cscs_status || worker.cscsStatus || 'pending',
-      rightToWork: worker.right_to_work_status || worker.rightToWork || 'pending',
-      ipafStatus: worker.ipaf_status || worker.ipafStatus || 'none',
-      asbestosAwareness: worker.asbestos_awareness !== undefined ? worker.asbestos_awareness : (worker.asbestosAwareness || false),
-      manualHandling: worker.manual_handling !== undefined ? worker.manual_handling : (worker.manualHandling || false),
-      inductionCompleted: worker.site_induction_completed !== undefined ? worker.site_induction_completed : (worker.inductionCompleted || false),
-      phone: worker.phone_number || worker.phoneNumber || '', // Map phone_number to phone for frontend
+      transportMethod: worker.transportMethod || 'car_diesel',
+      cscsCard: worker.cscsCard || '',
+      cscsStatus: worker.cscsStatus || 'pending',
+      rightToWork: worker.rightToWork || 'pending',
+      ipafStatus: worker.ipafStatus || 'none',
+      asbestosAwareness: worker.asbestosAwareness || false,
+      manualHandling: worker.manualHandling || false,
+      inductionCompleted: worker.siteInductionCompleted || false,
+      phone: worker.phoneNumber || '', // Map phoneNumber to phone for frontend
     };
     
     console.log(`✅ DATABASE SERVICE - Mapped worker for frontend:`, {

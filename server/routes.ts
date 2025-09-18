@@ -10128,8 +10128,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔄 Starting contractor check-in for: ${worker.firstName} ${worker.lastName} from ${company.name}`);
       
-      // Generate QR code
+      // Generate QR code and pass URL
       const qrCode = `CONTRACTOR-${workerId}-${Date.now()}`;
+      const passUrl = `${process.env.REPLIT_DOMAINS || process.env.APP_URL || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`}/pass/contractor/${workerId}`;
       
       // Mark worker as checked in using customer-isolated database service
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
@@ -10149,7 +10150,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hostStaffId: hostStaffId,
         hostName: hostName,
         hsRulesAccepted: worker.hsRulesAccepted || hsRulesAccepted || false,
-        qrCode: qrCode
+        qrCode: qrCode,
+        passUrl: passUrl
       };
       
       await databaseService.createContractorVisit(context, visitData);
@@ -10201,7 +10203,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`📧 Sending contractor e-pass to ${worker.email} for H&S acceptance and check-in completion`);
             
             const emailService = new EmailService();
-            const passUrl = `${process.env.REPLIT_DOMAINS || process.env.APP_URL || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`}/pass/contractor/${workerId}`;
             
             emailSentSuccessfully = await emailService.sendContractorEPass(
               worker.email,
