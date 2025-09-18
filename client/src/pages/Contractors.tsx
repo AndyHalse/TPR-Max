@@ -1400,6 +1400,9 @@ export default function Contractors() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Issue Red or Yellow Card</DialogTitle>
+            <DialogDescription>
+              Issue a safety card to a worker for violations or incidents.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
@@ -1469,6 +1472,9 @@ export default function Contractors() {
               <User className="h-5 w-5" />
               Worker Details: {selectedWorker?.firstName} {selectedWorker?.lastName}
             </DialogTitle>
+            <DialogDescription>
+              View detailed information about this worker including personal information, qualifications, and compliance status.
+            </DialogDescription>
           </DialogHeader>
 
           {selectedWorker && (
@@ -1761,6 +1767,9 @@ export default function Contractors() {
               <FileText className="h-5 w-5" />
               Document Details: {selectedDocument?.documentName}
             </DialogTitle>
+            <DialogDescription>
+              View document details, approval status, and approval history for this compliance document.
+            </DialogDescription>
           </DialogHeader>
 
           {selectedDocument && (

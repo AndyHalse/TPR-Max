@@ -7708,9 +7708,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mappedContractorData = {
         ...contractorData,
         companyName: contractorData.name, // Map name to companyName for isolated schema
+        contactEmail: contractorData.email, // Map email to contactEmail for isolated schema
       };
-      // Remove the original name field since isolated schema uses companyName
+      // Remove the original fields since isolated schema uses different field names
       delete mappedContractorData.name;
+      delete mappedContractorData.email;
       
       console.log("🔍 DEBUG: Mapped contractor data for isolated schema:", JSON.stringify(mappedContractorData, null, 2));
       
