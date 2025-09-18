@@ -733,7 +733,7 @@ export const createUKHSDocumentSystemMigration: Migration = {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS uk_hs_document_templates (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        template_name TEXT NOT NULL,
+        document_name TEXT NOT NULL,
         document_type TEXT NOT NULL,
         description TEXT,
         is_required BOOLEAN DEFAULT true,

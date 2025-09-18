@@ -578,8 +578,8 @@ export const contractorWorkers = pgTable("contractor_workers", {
   visitCount: integer("visit_count").default(0),
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
-  // Right to work verification
-  rightToWorkStatus: text("right_to_work_status").default("pending"), // pending, verified, expired, invalid
+  // Right to work verification  
+  rightToWork: text("right_to_work").default("pending"), // pending, verified, expired, invalid
   rightToWorkDocumentType: text("right_to_work_document_type"), // passport, driving_licence, birth_certificate_ni, etc.
   rightToWorkDocumentNumber: text("right_to_work_document_number"),
   rightToWorkExpiryDate: timestamp("right_to_work_expiry_date"),
@@ -596,6 +596,8 @@ export const contractorWorkers = pgTable("contractor_workers", {
   occupationalHealthExpiryDate: timestamp("occupational_health_expiry_date"),
   medicalRestrictions: text("medical_restrictions"),
   // Induction and training status
+  inductionCompleted: boolean("induction_completed").default(false),
+  inductionCompletedAt: timestamp("induction_completed_at"),
   siteInductionRequired: boolean("site_induction_required").default(true),
   siteInductionCompleted: boolean("site_induction_completed").default(false),
   siteInductionCompletedAt: timestamp("site_induction_completed_at"),
@@ -603,10 +605,17 @@ export const contractorWorkers = pgTable("contractor_workers", {
   toolboxTalkCompleted: boolean("toolbox_talk_completed").default(false),
   toolboxTalkCompletedAt: timestamp("toolbox_talk_completed_at"),
   // Competency and qualifications tracking
-  hasCSCS: boolean("has_cscs").default(false),
-  cscsCardNumber: text("cscs_card_number"),
-  cscsExpiryDate: timestamp("cscs_expiry_date"),
-  cscsCardType: text("cscs_card_type"), // Green, Blue, Gold, etc.
+  cscsCard: text("cscs_card"),
+  cscsStatus: text("cscs_status").default("missing"), // valid, expired, expiring, missing
+  cscsExpiry: timestamp("cscs_expiry"),
+  ipafCard: text("ipaf_card"),
+  ipafStatus: text("ipaf_status").default("missing"), // valid, expired, expiring, missing
+  ipafExpiry: timestamp("ipaf_expiry"),
+  // Training certificates
+  asbestosAwareness: boolean("asbestos_awareness").default(false),
+  asbestosExpiry: timestamp("asbestos_expiry"),
+  manualHandling: boolean("manual_handling").default(false),
+  manualHandlingExpiry: timestamp("manual_handling_expiry"),
   // Status and approval
   workerStatus: text("worker_status").notNull().default("pending"), // pending, approved, suspended, rejected, banned
   approvedBy: varchar("approved_by").references(() => users.id),
