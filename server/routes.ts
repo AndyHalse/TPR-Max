@@ -1141,6 +1141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             console.log(`✅ DEV BYPASS: Login successful for ${username} at ${companyName}`);
             return res.json({ 
+              success: true,
               message: "Login successful", 
               user: { 
                 id: authResult.user.id,
