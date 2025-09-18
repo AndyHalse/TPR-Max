@@ -1337,7 +1337,7 @@ export const contractorCompanies = pgTable("contractor_companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // CUSTOMER ISOLATION: Each contractor company belongs to a specific customer
   customerId: varchar("customer_id").notNull().references(() => customers.id),
-  name: text("name").notNull(),
+  name: text("company_name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
   address: text("address"),

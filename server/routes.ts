@@ -7695,11 +7695,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId: context.customerId
       };
       
+      // DEBUG: Log the request body to see what's actually being sent
+      console.log("🔍 DEBUG: Request body received:", JSON.stringify(req.body, null, 2));
+      console.log("🔍 DEBUG: Data with customerId:", JSON.stringify(requestDataWithCustomerId, null, 2));
+      
       // Parse and validate contractor data
       const contractorData = insertContractorCompanySchema.parse(requestDataWithCustomerId);
       
+      console.log("🔍 DEBUG: Validated contractor data:", JSON.stringify(contractorData, null, 2));
+      
+      // Map shared schema format to isolated schema format
+      const mappedContractorData = {
+        ...contractorData,
+        companyName: contractorData.name, // Map name to companyName for isolated schema
+      };
+      // Remove the original name field since isolated schema uses companyName
+      delete mappedContractorData.name;
+      
+      console.log("🔍 DEBUG: Mapped contractor data for isolated schema:", JSON.stringify(mappedContractorData, null, 2));
+      
       // Use customer-isolated database service
-      const contractor = await databaseService.createContractorCompany(context, contractorData);
+      const contractor = await databaseService.createContractorCompany(context, mappedContractorData);
       res.json(contractor);
     } catch (error) {
       if (error instanceof z.ZodError) {
