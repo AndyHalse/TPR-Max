@@ -363,6 +363,20 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
  */
 export async function loadUser(req: Request, res: Response, next: NextFunction) {
   if (req.session && req.session.userId && req.session.customerId) {
+    // DEV AUTH BYPASS: Skip database loading in dev mode
+    if (isDevAuthBypass() && req.session.userId === 'dev-user-andy' && req.session.customerId === 'dev-customer-001') {
+      console.log('🚀 LOADUSER_BYPASS: Skipping database user loading in dev mode');
+      const devUser = getDevUser();
+      req.user = {
+        id: devUser.id,
+        username: devUser.username,
+        role: 'admin'
+      } as any;
+      req.customerId = devUser.customerId;
+      next();
+      return;
+    }
+
     try {
       // Use customer-specific database to load user
       const customerDbService = CustomerDatabaseService.getInstance();
