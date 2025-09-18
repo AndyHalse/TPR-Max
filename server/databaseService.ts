@@ -1494,76 +1494,100 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Use raw SQL with explicit column selection including ALL certification fields
-      const result = await db.execute(sql`
-        SELECT 
-          id, 
-          company_id, 
-          first_name, 
-          last_name, 
-          email, 
-          phone_number,
-          photo_url,
-          postcode,
-          transport_method,
-          site_induction_completed,
-          right_to_work_status,
-          has_cscs,
-          cscs_card_number,
-          ipaf_status,
-          asbestos_awareness,
-          manual_handling,
-          hs_rules_accepted,
-          hs_rules_accepted_at,
-          is_checked_in,
-          checked_in_at,
-          checked_out_at,
-          created_at,
-          updated_at
-        FROM contractor_workers 
-        WHERE id = ${id} 
-        LIMIT 1
-      `);
-      const worker = result.rows[0] as any;
+      // FIXED: Use Drizzle ORM instead of raw SQL for better type safety and correct field mapping
+      const workers = await db
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, id))
+        .limit(1);
       
-      // Debug: Log what fields are actually returned
-      if (worker) {
-        console.log(`🔍 DEBUG: Worker data keys: ${Object.keys(worker).join(', ')}`);
-        console.log(`🔍 DEBUG: Postcode value: "${worker.postcode}", Transport: "${worker.transport_method}"`);
+      const worker = workers[0];
+      
+      if (!worker) {
+        console.log(`🔍 DEBUG: No worker found with id: ${id}`);
+        return undefined;
       }
       
-      if (!worker) return undefined;
+      // Debug: Log what fields are actually returned
+      console.log(`🔍 DEBUG: Worker found, mapping fields for frontend...`);
+      console.log(`🔍 DEBUG: Key fields - postcode: "${worker.postcode}", transportMethod: "${worker.transportMethod}", cscsStatus: "${worker.cscsStatus}", inductionCompleted: ${worker.siteInductionCompleted}`);
       
-      // Convert snake_case to camelCase for proper ContractorWorker format
-      return {
+      // FIXED: Properly map database fields to frontend format with correct field names
+      const mappedWorker = {
         id: worker.id,
-        companyId: worker.company_id,
-        firstName: worker.first_name,
-        lastName: worker.last_name,
+        companyId: worker.companyId,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
         email: worker.email,
-        phone: worker.phone_number,
-        photoUrl: worker.photo_url,
-        // CRITICAL CO2 FIELDS - Previously missing!
+        phoneNumber: worker.phoneNumber,
+        mobileNumber: worker.mobileNumber,
+        homeAddress: worker.homeAddress,
         postcode: worker.postcode,
-        transportMethod: worker.transport_method,
-        // FIXED: Map site_induction_completed to inductionCompleted for consistency
-        inductionCompleted: worker.site_induction_completed,
-        // FIXED: Add missing cscsStatus field
-        cscsStatus: worker.has_cscs,
-        cscsCard: worker.cscs_card_number,
-        rightToWork: worker.right_to_work_status,
-        // CRITICAL FIX: Add missing certification fields that weren't being retrieved
-        ipafStatus: worker.ipaf_status,
-        asbestosAwareness: worker.asbestos_awareness,
-        manualHandling: worker.manual_handling,
-        hsRulesAccepted: worker.hs_rules_accepted,
-        hsRulesAcceptedAt: worker.hs_rules_accepted_at ? new Date(worker.hs_rules_accepted_at) : null,
-        isCheckedIn: worker.is_checked_in,
-        checkedInAt: worker.checked_in_at ? new Date(worker.checked_in_at) : null,
-        checkedOutAt: worker.checked_out_at ? new Date(worker.checked_out_at) : null,
-        createdAt: worker.created_at ? new Date(worker.created_at) : new Date(),
-        updatedAt: worker.updated_at ? new Date(worker.updated_at) : new Date(),
+        dateOfBirth: worker.dateOfBirth,
+        nationalInsuranceNumber: worker.nationalInsuranceNumber,
+        photoUrl: worker.photoUrl,
+        jobTitle: worker.jobTitle,
+        department: worker.department,
+        skillsAndCertifications: worker.skillsAndCertifications || [],
+        emergencyContactName: worker.emergencyContactName,
+        emergencyContactPhone: worker.emergencyContactPhone,
+        emergencyContactRelationship: worker.emergencyContactRelationship,
+        isCheckedIn: worker.isCheckedIn || false,
+        checkedInAt: worker.checkedInAt,
+        checkedOutAt: worker.checkedOutAt,
+        checkoutType: worker.checkoutType,
+        lastVisitDate: worker.lastVisitDate,
+        visitCount: worker.visitCount || 0,
+        isAccountedFor: worker.isAccountedFor || false,
+        rightToWork: worker.rightToWork || 'pending', // FIXED: Correct field mapping
+        rightToWorkDocumentType: worker.rightToWorkDocumentType,
+        rightToWorkDocumentNumber: worker.rightToWorkDocumentNumber,
+        rightToWorkExpiryDate: worker.rightToWorkExpiryDate,
+        rightToWorkVerifiedBy: worker.rightToWorkVerifiedBy,
+        rightToWorkVerifiedAt: worker.rightToWorkVerifiedAt,
+        rightToWorkDocumentUrl: worker.rightToWorkDocumentUrl,
+        workingPattern: worker.workingPattern || 'full_time',
+        hourlyRate: worker.hourlyRate,
+        startDate: worker.startDate,
+        expectedEndDate: worker.expectedEndDate,
+        hasOccupationalHealthClearance: worker.hasOccupationalHealthClearance || false,
+        occupationalHealthExpiryDate: worker.occupationalHealthExpiryDate,
+        medicalRestrictions: worker.medicalRestrictions,
+        siteInductionRequired: worker.siteInductionRequired ?? true,
+        siteInductionCompleted: worker.siteInductionCompleted || false,
+        siteInductionCompletedAt: worker.siteInductionCompletedAt,
+        siteInductionExpiryDate: worker.siteInductionExpiryDate,
+        toolboxTalkCompleted: worker.toolboxTalkCompleted || false,
+        toolboxTalkCompletedAt: worker.toolboxTalkCompletedAt,
+        cscsCard: worker.cscsCard || '', // FIXED: Correct field mapping
+        cscsStatus: worker.cscsStatus || 'pending', // FIXED: Correct field mapping - should be string not boolean
+        ipafStatus: worker.ipafStatus || 'none',
+        asbestosAwareness: worker.asbestosAwareness || false,
+        manualHandling: worker.manualHandling || false,
+        workingAtHeight: worker.workingAtHeight || false,
+        transportMethod: worker.transportMethod || 'car_diesel', // FIXED: Correct field mapping
+        workerStatus: worker.workerStatus || 'pending',
+        approvedBy: worker.approvedBy,
+        approvedAt: worker.approvedAt,
+        suspendedReason: worker.suspendedReason,
+        bannedUntil: worker.bannedUntil,
+        aiRiskScore: worker.aiRiskScore || 0,
+        riskFactors: worker.riskFactors || [],
+        lastRiskAssessment: worker.lastRiskAssessment,
+        documentsComplete: worker.documentsComplete || false,
+        documentsLastChecked: worker.documentsLastChecked,
+        complianceScore: worker.complianceScore || 0,
+        isActive: worker.isActive ?? true,
+        createdAt: worker.createdAt || new Date(),
+        updatedAt: worker.updatedAt || new Date(),
+        // FIXED: Add frontend compatibility mappings
+        inductionCompleted: worker.siteInductionCompleted || false, // Map DB field to frontend field
+        phone: worker.phoneNumber, // Add phone alias for compatibility
       } as ContractorWorker;
+      
+      console.log(`✅ DEBUG: Successfully mapped worker. Key fields - inductionCompleted: ${mappedWorker.inductionCompleted}, cscsStatus: ${mappedWorker.cscsStatus}, transportMethod: ${mappedWorker.transportMethod}`);
+      
+      return mappedWorker;
     } catch (error) {
       console.error('Error getting contractor worker:', error);
       return undefined;
@@ -1585,27 +1609,60 @@ export class DatabaseService {
       console.log(`  - cscsStatus: ${updates.cscsStatus} (schema field name)`);
       console.log(`  - inductionCompleted: ${updates.inductionCompleted}`);
       
-      // CRITICAL FIX: Map frontend field names to database column names
-      const updateData: any = { 
-        ...updates,
-        // Map frontend fields to database column names
-        transport_method: updates.transportMethod || updates.transport_method,
-        cscs_status: updates.cscsStatus || updates.cscs_status,
-        cscs_card_number: updates.cscsCard || updates.cscs_card_number,
-        right_to_work_status: updates.rightToWork || updates.right_to_work_status,
-        ipaf_status: updates.ipafStatus || updates.ipaf_status,
-        asbestos_awareness: updates.asbestosAwareness !== undefined ? updates.asbestosAwareness : updates.asbestos_awareness,
-        manual_handling: updates.manualHandling !== undefined ? updates.manualHandling : updates.manual_handling,
-        site_induction_completed: updates.inductionCompleted !== undefined ? updates.inductionCompleted : updates.site_induction_completed,
-        updatedAt: new Date() 
+      // FIXED: Only map frontend fields to database column names - NO DUPLICATES
+      const updateData: any = {
+        updatedAt: new Date()
       };
       
-      // Remove undefined mappings
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key] === undefined) {
-          delete updateData[key];
-        }
-      });
+      // Explicitly map ONLY the frontend fields we need to database column names
+      if (updates.transportMethod !== undefined) {
+        updateData.transportMethod = updates.transportMethod;
+      }
+      if (updates.cscsCard !== undefined) {
+        updateData.cscsCard = updates.cscsCard;
+      }
+      if (updates.cscsStatus !== undefined) {
+        // FIXED: cscsStatus should be stored as string (pending, valid, expired), not boolean
+        updateData.cscsStatus = typeof updates.cscsStatus === 'boolean' 
+          ? (updates.cscsStatus ? 'valid' : 'pending') 
+          : updates.cscsStatus;
+      }
+      if (updates.rightToWork !== undefined) {
+        updateData.rightToWork = updates.rightToWork;
+      }
+      if (updates.inductionCompleted !== undefined) {
+        // FIXED: inductionCompleted should be stored as boolean
+        updateData.siteInductionCompleted = typeof updates.inductionCompleted === 'string' 
+          ? (updates.inductionCompleted === 'true') 
+          : Boolean(updates.inductionCompleted);
+      }
+      if (updates.ipafStatus !== undefined) {
+        updateData.ipafStatus = updates.ipafStatus;
+      }
+      if (updates.asbestosAwareness !== undefined) {
+        updateData.asbestosAwareness = typeof updates.asbestosAwareness === 'string' 
+          ? (updates.asbestosAwareness === 'true') 
+          : Boolean(updates.asbestosAwareness);
+      }
+      if (updates.manualHandling !== undefined) {
+        updateData.manualHandling = typeof updates.manualHandling === 'string' 
+          ? (updates.manualHandling === 'true') 
+          : Boolean(updates.manualHandling);
+      }
+      if (updates.workingAtHeight !== undefined) {
+        updateData.workingAtHeight = typeof updates.workingAtHeight === 'string' 
+          ? (updates.workingAtHeight === 'true') 
+          : Boolean(updates.workingAtHeight);
+      }
+      
+      // Add any other simple field mappings
+      if (updates.firstName !== undefined) updateData.firstName = updates.firstName;
+      if (updates.lastName !== undefined) updateData.lastName = updates.lastName;
+      if (updates.email !== undefined) updateData.email = updates.email;
+      if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
+      if (updates.postcode !== undefined) updateData.postcode = updates.postcode;
+      
+      // No need to remove undefined since we only add defined values
       
       console.log(`🔄 Updating contractor worker ${id} with data:`, updateData);
       console.log(`🔍 DATABASE SERVICE - About to send to SQL with keys:`, Object.keys(updateData));
@@ -1635,20 +1692,77 @@ export class DatabaseService {
       console.log(`  - cscsStatus: ${updated.cscsStatus}`);
       console.log(`  - siteInductionCompleted (DB field): ${updated.siteInductionCompleted}`);
       
-      // CRITICAL FIX: Map database fields back to UI field names
+      // FIXED: Properly map database fields back to frontend format
       const mappedResult = {
-        ...updated,
-        // Map database field names back to frontend field names
-        transportMethod: updated.transport_method || updated.transportMethod,
-        cscsCard: updated.cscs_card_number || updated.cscsCard,
-        cscsStatus: updated.cscs_status || updated.cscsStatus,
-        rightToWork: updated.right_to_work_status || updated.rightToWork,
-        ipafStatus: updated.ipaf_status || updated.ipafStatus,
-        asbestosAwareness: updated.asbestos_awareness !== undefined ? updated.asbestos_awareness : updated.asbestosAwareness,
-        manualHandling: updated.manual_handling !== undefined ? updated.manual_handling : updated.manualHandling,
-        inductionCompleted: updated.site_induction_completed !== undefined ? updated.site_induction_completed : updated.inductionCompleted,
+        id: updated.id,
+        companyId: updated.companyId,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        email: updated.email,
         phoneNumber: updated.phoneNumber,
-        phone: updated.phone_number || updated.phoneNumber, // Map phone_number to phone for frontend
+        mobileNumber: updated.mobileNumber,
+        homeAddress: updated.homeAddress,
+        postcode: updated.postcode,
+        dateOfBirth: updated.dateOfBirth,
+        nationalInsuranceNumber: updated.nationalInsuranceNumber,
+        photoUrl: updated.photoUrl,
+        jobTitle: updated.jobTitle,
+        department: updated.department,
+        skillsAndCertifications: updated.skillsAndCertifications,
+        emergencyContactName: updated.emergencyContactName,
+        emergencyContactPhone: updated.emergencyContactPhone,
+        emergencyContactRelationship: updated.emergencyContactRelationship,
+        isCheckedIn: updated.isCheckedIn,
+        checkedInAt: updated.checkedInAt,
+        checkedOutAt: updated.checkedOutAt,
+        checkoutType: updated.checkoutType,
+        lastVisitDate: updated.lastVisitDate,
+        visitCount: updated.visitCount,
+        isAccountedFor: updated.isAccountedFor,
+        rightToWork: updated.rightToWork,
+        rightToWorkDocumentType: updated.rightToWorkDocumentType,
+        rightToWorkDocumentNumber: updated.rightToWorkDocumentNumber,
+        rightToWorkExpiryDate: updated.rightToWorkExpiryDate,
+        rightToWorkVerifiedBy: updated.rightToWorkVerifiedBy,
+        rightToWorkVerifiedAt: updated.rightToWorkVerifiedAt,
+        rightToWorkDocumentUrl: updated.rightToWorkDocumentUrl,
+        workingPattern: updated.workingPattern,
+        hourlyRate: updated.hourlyRate,
+        startDate: updated.startDate,
+        expectedEndDate: updated.expectedEndDate,
+        hasOccupationalHealthClearance: updated.hasOccupationalHealthClearance,
+        occupationalHealthExpiryDate: updated.occupationalHealthExpiryDate,
+        medicalRestrictions: updated.medicalRestrictions,
+        siteInductionRequired: updated.siteInductionRequired,
+        siteInductionCompleted: updated.siteInductionCompleted,
+        siteInductionCompletedAt: updated.siteInductionCompletedAt,
+        siteInductionExpiryDate: updated.siteInductionExpiryDate,
+        toolboxTalkCompleted: updated.toolboxTalkCompleted,
+        toolboxTalkCompletedAt: updated.toolboxTalkCompletedAt,
+        cscsCard: updated.cscsCard,
+        cscsStatus: updated.cscsStatus,
+        ipafStatus: updated.ipafStatus,
+        asbestosAwareness: updated.asbestosAwareness,
+        manualHandling: updated.manualHandling,
+        workingAtHeight: updated.workingAtHeight,
+        transportMethod: updated.transportMethod,
+        workerStatus: updated.workerStatus,
+        approvedBy: updated.approvedBy,
+        approvedAt: updated.approvedAt,
+        suspendedReason: updated.suspendedReason,
+        bannedUntil: updated.bannedUntil,
+        aiRiskScore: updated.aiRiskScore,
+        riskFactors: updated.riskFactors,
+        lastRiskAssessment: updated.lastRiskAssessment,
+        documentsComplete: updated.documentsComplete,
+        documentsLastChecked: updated.documentsLastChecked,
+        complianceScore: updated.complianceScore,
+        isActive: updated.isActive,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+        // FIXED: Map key fields properly for frontend
+        inductionCompleted: updated.siteInductionCompleted, // Map DB field to frontend field
+        phone: updated.phoneNumber, // Add phone alias for compatibility
       } as ContractorWorker;
       
       console.log(`✅ DATABASE SERVICE - Mapped result for UI:`);
