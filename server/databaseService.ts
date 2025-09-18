@@ -1390,6 +1390,9 @@ export class DatabaseService {
         
         return {
           ...company,
+          // Map database fields to frontend expected fields
+          name: company.companyName, // Map companyName from DB to name for frontend
+          email: company.contactEmail, // Map contactEmail from DB to email for frontend
           workersCount: parseInt(String(workersCount[0]?.count)) || 0,
           documentsStatus: {} // Empty for now since documents system is optional
         };
