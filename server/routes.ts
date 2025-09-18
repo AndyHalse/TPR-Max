@@ -5437,8 +5437,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Convert boolean fields back to UI-expected format for consistency
       const responseWorker = {
         ...worker,
-        // Convert boolean cscsStatus back to string for UI consistency
-        cscsStatus: worker.cscsStatus ? 'valid' : 'invalid'
+        // Convert boolean hasCscs back to string cscsStatus for UI consistency
+        cscsStatus: worker.hasCscs ? 'valid' : 'invalid',
+        // Map rightToWorkStatus back to rightToWork for UI consistency
+        rightToWork: worker.rightToWorkStatus
       };
 
       console.log(`✅ Retrieved contractor worker: ${worker.firstName} ${worker.lastName}`);
@@ -5481,7 +5483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emergencyContactPhone: 'emergencyContactPhone',
         emergencyContactRelationship: 'emergencyContactRelationship',
         transportMethod: 'transportMethod',
-        rightToWork: 'rightToWork', // Maps to right_to_work_status (text) in schema
+        rightToWork: 'rightToWorkStatus', // Maps to right_to_work_status column in isolatedSchema
         cscsCard: 'cscsCard' // Maps to cscs_card_number in schema
       };
       
@@ -5494,13 +5496,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Special field mappings with type conversions
       
-      // cscsStatus: Convert string status to boolean (valid → true, others → false)
+      // cscsStatus: Convert string status to boolean and map to correct database column property name
       if (uiData.cscsStatus !== undefined) {
-        mappedData.cscsStatus = uiData.cscsStatus === 'valid';
-        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' → ${mappedData.cscsStatus}`);
+        mappedData.hasCscs = uiData.cscsStatus === 'valid';
+        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' → hasCscs: ${mappedData.hasCscs}`);
       }
       
-      // inductionCompleted: Map to siteInductionCompleted field (matches isolated schema)
+      // inductionCompleted: Map to correct database column property name
       if (uiData.inductionCompleted !== undefined) {
         mappedData.siteInductionCompleted = uiData.inductionCompleted;
         console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → siteInductionCompleted: ${mappedData.siteInductionCompleted}`);
