@@ -33,12 +33,7 @@ import {
   insertHelpArticleSchema,
   insertHelpUserInteractionSchema,
   insertHelpOnboardingProgressSchema,
-  ukHSDocumentTemplates,
   insertUkHSDocumentTemplateSchema,
-  workerDocumentAssignments,
-  workerDocumentAcceptances,
-  contractorWorkers,
-  contractorCompanies,
   insertWorkerDocumentAssignmentSchema,
   insertWorkerDocumentAcceptanceSchema,
   customerOnboardingRequestSchema,
@@ -9648,9 +9643,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         assignments = await db
           .select()
-          .from(workerDocumentAssignments)
-          .where(eq(workerDocumentAssignments.customerId, context.customerId))
-          .limit(100); // Limit for performance
+          .from(isolatedSchema.workerDocumentAssignments)
+          .limit(100); // Limit for performance - no customerId filter needed in isolated DB
           
         console.log(`🔍 DEBUG: Found ${assignments.length} assignments in database`);
       } catch (dbError) {
