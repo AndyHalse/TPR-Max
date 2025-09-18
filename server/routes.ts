@@ -5434,13 +5434,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Contractor worker not found" });
       }
 
-      // Convert boolean fields back to UI-expected format for consistency
+      // CRITICAL FIX: Database service already returns correctly mapped fields
+      // Just return the worker data as-is since databaseService handles all field mapping
       const responseWorker = {
-        ...worker,
-        // Convert boolean hasCscs back to string cscsStatus for UI consistency
-        cscsStatus: worker.hasCscs ? 'valid' : 'invalid',
-        // Map rightToWorkStatus back to rightToWork for UI consistency
-        rightToWork: worker.rightToWorkStatus
+        ...worker
       };
 
       console.log(`✅ Retrieved contractor worker: ${worker.firstName} ${worker.lastName}`);
