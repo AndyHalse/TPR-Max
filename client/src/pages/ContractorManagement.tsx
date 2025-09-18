@@ -7,7 +7,7 @@ import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
@@ -475,10 +475,10 @@ export default function ContractorManagement() {
       safetyRating: company?.complianceScore || 'N/A'
     };
   }).filter(contractor => 
-    contractor.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contractor.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contractor.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contractor.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    (contractor.firstName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (contractor.lastName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (contractor.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (contractor.email || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getSafetyRatingColor = (rating: string) => {
@@ -850,14 +850,14 @@ export default function ContractorManagement() {
             <div className="flex justify-between items-center">
               <div className="text-sm text-slate-600">
                 Showing {showAllCompanies ? companies.filter(company => 
-                  company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
+                  (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
                 ).length : Math.min(6, companies.filter(company => 
-                  company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
+                  (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
                 ).length)} of {companies.filter(company => 
-                  company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
+                  (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
                 ).length} contractor companies
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
@@ -873,8 +873,8 @@ export default function ContractorManagement() {
             {/* Companies Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {companies.filter(company => 
-                company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (company.contactEmail || company.email)?.toLowerCase().includes(searchTerm.toLowerCase())
+                (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
               ).slice(0, showAllCompanies ? companies.length : 6).map((company) => (
                 <GlassCard key={company.id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="space-y-3">
@@ -966,8 +966,8 @@ export default function ContractorManagement() {
             </div>
 
             {companies.filter(company => 
-              company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              company.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+              (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (company.contactEmail || "").toLowerCase().includes(searchTerm.toLowerCase())
             ).length === 0 && (
               <div className="text-center py-8 text-slate-500">
                 {searchTerm ? `No contractor companies found matching "${searchTerm}"` : "No contractor companies found"}
@@ -1020,6 +1020,9 @@ export default function ContractorManagement() {
               <Building2 className="h-5 w-5" />
               Add New Contractor Company
             </DialogTitle>
+            <DialogDescription>
+              Add a new contractor company to the system with contact details and service information.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -1198,6 +1201,9 @@ export default function ContractorManagement() {
               <User className="h-5 w-5" />
               Add New Worker to {selectedContractor?.name}
             </DialogTitle>
+            <DialogDescription>
+              Add a new worker to this contractor company with their personal details and certifications.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
