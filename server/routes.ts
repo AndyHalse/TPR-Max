@@ -5507,10 +5507,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' (${typeof uiData.cscsStatus}) → cscsStatus: ${mappedData.cscsStatus}`);
       }
       
-      // inductionCompleted: Map to correct database column property name
+      // inductionCompleted: Pass through directly - field name matches database
       if (uiData.inductionCompleted !== undefined) {
-        mappedData.siteInductionCompleted = uiData.inductionCompleted;
-        console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → siteInductionCompleted: ${mappedData.siteInductionCompleted}`);
+        mappedData.inductionCompleted = uiData.inductionCompleted;
+        console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → inductionCompleted: ${mappedData.inductionCompleted}`);
       }
       
       // IPAF Status: Map to database field if it exists (needs to be checked against schema)
@@ -5554,9 +5554,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // CRITICAL FIX: Ensure critical fields are preserved after Zod validation
       // The insertContractorWorkerSchema may be missing these fields, so we manually preserve them
-      if (mappedData.siteInductionCompleted !== undefined) {
-        validatedData.siteInductionCompleted = mappedData.siteInductionCompleted;
-        console.log(`🔧 MANUAL FIX: Preserved siteInductionCompleted: ${validatedData.siteInductionCompleted}`);
+      if (mappedData.inductionCompleted !== undefined) {
+        validatedData.inductionCompleted = mappedData.inductionCompleted;
+        console.log(`🔧 MANUAL FIX: Preserved inductionCompleted: ${validatedData.inductionCompleted}`);
       }
       
       if (mappedData.ipafStatus !== undefined) {
