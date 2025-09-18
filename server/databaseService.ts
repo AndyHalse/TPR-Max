@@ -1611,9 +1611,20 @@ export class DatabaseService {
       console.log(`✅ DATABASE SERVICE - Successfully updated worker. Result fields:`);
       console.log(`  - rightToWork: ${updated.rightToWork}`);
       console.log(`  - cscsStatus: ${updated.cscsStatus}`);
-      console.log(`  - inductionCompleted: ${updated.inductionCompleted}`);
+      console.log(`  - siteInductionCompleted (DB field): ${updated.siteInductionCompleted}`);
       
-      return updated as ContractorWorker;
+      // CRITICAL FIX: Map database fields back to UI field names
+      const mappedResult = {
+        ...updated,
+        // Map database field names back to UI field names
+        inductionCompleted: updated.siteInductionCompleted, // Map DB field to UI field
+        phoneNumber: updated.phoneNumber, // Keep consistent
+      } as ContractorWorker;
+      
+      console.log(`✅ DATABASE SERVICE - Mapped result for UI:`);
+      console.log(`  - inductionCompleted (UI field): ${mappedResult.inductionCompleted}`);
+      
+      return mappedResult;
     } catch (error) {
       console.error(`❌ DATABASE SERVICE - CRITICAL ERROR updating contractor worker ${id}:`, error);
       console.error(`❌ DATABASE SERVICE - Error details:`, {
