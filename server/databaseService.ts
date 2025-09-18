@@ -1576,7 +1576,7 @@ export class DatabaseService {
       console.log(`🔍 DATABASE SERVICE - Checking for critical fields:`);
       console.log(`  - rightToWork: ${updates.rightToWork} (schema field name)`);
       console.log(`  - cscsStatus: ${updates.cscsStatus} (schema field name)`);
-      console.log(`  - siteInductionCompleted: ${updates.siteInductionCompleted}`);
+      console.log(`  - inductionCompleted: ${updates.inductionCompleted}`);
       
       // CRITICAL FIX: Use ALL fields from updates instead of hardcoding specific ones
       // This ensures postcode and other fields are properly saved
@@ -1611,7 +1611,7 @@ export class DatabaseService {
       console.log(`✅ DATABASE SERVICE - Successfully updated worker. Result fields:`);
       console.log(`  - rightToWork: ${updated.rightToWork}`);
       console.log(`  - cscsStatus: ${updated.cscsStatus}`);
-      console.log(`  - siteInductionCompleted: ${updated.siteInductionCompleted}`);
+      console.log(`  - inductionCompleted: ${updated.inductionCompleted}`);
       
       return updated as ContractorWorker;
     } catch (error) {

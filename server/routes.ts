@@ -5547,7 +5547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔍 ROUTE - Critical fields before validation:');
       console.log(`  - rightToWork: ${mappedData.rightToWork}`);
       console.log(`  - cscsStatus: ${mappedData.cscsStatus}`);
-      console.log(`  - siteInductionCompleted: ${mappedData.siteInductionCompleted}`);
+      console.log(`  - inductionCompleted: ${mappedData.inductionCompleted}`);
       
       // Validate mapped data with schema
       const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
@@ -5579,7 +5579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔍 ROUTE - Critical fields after validation:');
       console.log(`  - rightToWork: ${validatedData.rightToWork}`);
       console.log(`  - cscsStatus: ${validatedData.cscsStatus}`);
-      console.log(`  - siteInductionCompleted: ${validatedData.siteInductionCompleted}`);
+      console.log(`  - inductionCompleted: ${validatedData.inductionCompleted}`);
       
       console.log('🔍 ROUTE - About to call databaseService.updateContractorWorker with:', validatedData);
       
