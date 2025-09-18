@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,16 +14,41 @@ import { Link } from "wouter";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const [credentials, setCredentials] = useState({ 
-    companyName: "Andy Development Corp", 
-    username: "Andy", 
-    password: "Kubo1966&&" 
+  
+  // Load safe credentials from localStorage (never password)
+  const loadStoredCredentials = () => {
+    try {
+      const storedCredentials = localStorage.getItem('visigate-login');
+      if (storedCredentials) {
+        const parsed = JSON.parse(storedCredentials);
+        return {
+          companyName: parsed.companyName || "Development Customer",
+          username: parsed.username || "Andy"
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load stored credentials:', error);
+    }
+    return {
+      companyName: "Development Customer",
+      username: "Andy"
+    };
+  };
+  
+  const [credentials, setCredentials] = useState(() => {
+    const stored = loadStoredCredentials();
+    return {
+      companyName: stored.companyName,
+      username: stored.username,
+      password: "" // Always start with empty password for security
+    };
   });
   const [error, setError] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [isLoading, setIsLoading] = useState(false);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +81,16 @@ export default function Login() {
       
       if (response.ok && data.success) {
         // Authentication successful
+        
+        // Save only safe fields to localStorage (never password)
+        try {
+          localStorage.setItem('visigate-login', JSON.stringify({
+            companyName: credentials.companyName,
+            username: credentials.username
+          }));
+        } catch (error) {
+          console.warn('Failed to save credentials to localStorage:', error);
+        }
         
         toast({
           title: "Login Successful",
