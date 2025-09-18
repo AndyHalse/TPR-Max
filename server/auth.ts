@@ -74,6 +74,25 @@ export class AuthService {
     try {
       console.log(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
       
+      // DEV BYPASS CHECK FIRST!
+      if (isDevAuthBypass() && isValidDevCredentials(companyName, username, password)) {
+        console.log('🚀 DEV AUTH BYPASS: Using development authentication');
+        const devUser = getDevUser();
+        return {
+          user: {
+            id: devUser.id,
+            username: devUser.username,
+            password: '', // Never return actual password
+            customerId: devUser.customerId
+          },
+          customer: {
+            id: devUser.customerId,
+            companyName: devUser.companyName,
+            createdAt: new Date()
+          }
+        };
+      }
+      
       // Step 1: Lookup customer by company name (case-insensitive)
       const customer = await this.lookupCustomerByCompanyName(companyName);
       if (!customer) {
