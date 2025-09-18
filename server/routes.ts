@@ -9024,21 +9024,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { workerId } = req.params;
       const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      const context = databaseService.createDevelopmentContext();
       
-      const assignments = await db
-        .select({
-          assignment: workerDocumentAssignments,
-          template: ukHSDocumentTemplates
-        })
-        .from(workerDocumentAssignments)
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
-        .where(and(
-          eq(workerDocumentAssignments.workerId, workerId),
-          eq(workerDocumentAssignments.customerId, context.customerId),
-          eq(workerDocumentAssignments.isActive, true)
-        ))
-        .orderBy(workerDocumentAssignments.assignedAt);
+      const assignments = await databaseService.getWorkerDocumentAssignments(context, workerId);
       
       res.json(assignments);
     } catch (error) {

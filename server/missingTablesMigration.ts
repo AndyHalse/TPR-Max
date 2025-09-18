@@ -462,8 +462,54 @@ export const createUKHSDocumentSystemMigration: Migration = {
   }
 };
 
+// Migration to add missing e_pass_sent column to existing contractor_visits table
+export const addEPassSentColumnMigration: Migration = {
+  version: '20250918_005_add_e_pass_sent_column',
+  description: 'Add missing e_pass_sent column to contractor_visits table',
+  async up(db: any) {
+    console.log('🔄 Adding missing e_pass_sent column to contractor_visits table...');
+
+    try {
+      // Add e_pass_sent column if it doesn't exist
+      await db.execute(`
+        ALTER TABLE contractor_visits 
+        ADD COLUMN IF NOT EXISTS e_pass_sent BOOLEAN DEFAULT false
+      `);
+
+      // Add e_pass_sent_at column if it doesn't exist
+      await db.execute(`
+        ALTER TABLE contractor_visits 
+        ADD COLUMN IF NOT EXISTS e_pass_sent_at TIMESTAMP
+      `);
+
+      // Add qr_code column if it doesn't exist
+      await db.execute(`
+        ALTER TABLE contractor_visits 
+        ADD COLUMN IF NOT EXISTS qr_code TEXT UNIQUE
+      `);
+
+      // Add pass_url column if it doesn't exist
+      await db.execute(`
+        ALTER TABLE contractor_visits 
+        ADD COLUMN IF NOT EXISTS pass_url TEXT
+      `);
+
+      console.log('✅ Successfully added e_pass_sent, e_pass_sent_at, qr_code, and pass_url columns to contractor_visits table');
+    } catch (error: any) {
+      if (error?.code === '42701') {
+        // Column already exists
+        console.log('✅ e_pass_sent columns already exist in contractor_visits table');
+      } else {
+        console.error('Error adding e_pass_sent columns:', error);
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
-  createUKHSDocumentSystemMigration
+  createUKHSDocumentSystemMigration,
+  addEPassSentColumnMigration
 ];

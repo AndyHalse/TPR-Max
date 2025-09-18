@@ -1773,6 +1773,41 @@ export class DatabaseService {
     return await query.orderBy(isolatedSchema.aiGeneratedImages.generatedAt);
   }
 
+  /**
+   * WORKER DOCUMENT ASSIGNMENTS METHODS - Customer Isolated
+   */
+  async getWorkerDocumentAssignments(
+    context: CustomerContext,
+    workerId: string
+  ): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      // Get all document assignments for this worker using customer-isolated database
+      const assignments = await db
+        .select({
+          assignment: isolatedSchema.workerDocumentAssignments,
+          template: isolatedSchema.ukHSDocumentTemplates
+        })
+        .from(isolatedSchema.workerDocumentAssignments)
+        .innerJoin(
+          isolatedSchema.ukHSDocumentTemplates, 
+          eq(isolatedSchema.workerDocumentAssignments.templateId, isolatedSchema.ukHSDocumentTemplates.id)
+        )
+        .where(and(
+          eq(isolatedSchema.workerDocumentAssignments.workerId, workerId),
+          eq(isolatedSchema.workerDocumentAssignments.isActive, true)
+        ))
+        .orderBy(isolatedSchema.workerDocumentAssignments.assignedAt);
+      
+      console.log(`📋 Found ${assignments.length} document assignments for worker ${workerId}`);
+      return assignments;
+    } catch (error) {
+      console.error('Error fetching worker document assignments:', error);
+      return [];
+    }
+  }
+
   async getAiGeneratedImageById(
     context: CustomerContext, 
     id: string
