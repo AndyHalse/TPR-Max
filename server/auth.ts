@@ -15,6 +15,21 @@ export function isDevAuthBypass(): boolean {
   return process.env.NODE_ENV === 'development' || process.env.DEV_AUTH_BYPASS === 'true';
 }
 
+// Dev Data Bypass - centralized development data bypass
+export function isDevDataBypass(): boolean {
+  // Auto-enable when Neon database is disabled or DEV_DATA_BYPASS is set
+  return process.env.NODE_ENV === 'development' || process.env.DEV_DATA_BYPASS === 'true';
+}
+
+// Check if an error is related to Neon database being disabled
+export function isNeonDisabledError(error: any): boolean {
+  const errorMessage = error?.message || error?.toString() || '';
+  return errorMessage.includes('The endpoint has been disabled') ||
+         errorMessage.includes('Enable it using Neon API and retry') ||
+         errorMessage.includes('Failed to create customer') ||
+         errorMessage.includes('Error fetching customer info');
+}
+
 export function getDevUser() {
   return {
     id: 'dev-user-andy',
@@ -28,6 +43,299 @@ export function isValidDevCredentials(company: string, username: string, passwor
   return company === 'Development Customer' && 
          username === 'Andy' && 
          password === 'Kubo1966&&';
+}
+
+// Mock Data Generation Functions for Development Bypass
+export function getMockDepartmentAnalytics() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock department analytics');
+  return [
+    { department: 'Engineering', count: 12, checkedIn: 8 },
+    { department: 'Operations', count: 15, checkedIn: 11 },
+    { department: 'Safety', count: 6, checkedIn: 4 },
+    { department: 'Management', count: 8, checkedIn: 6 },
+    { department: 'Contractors', count: 22, checkedIn: 18 }
+  ];
+}
+
+export function getMockPeakHoursAnalytics() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock peak hours analytics');
+  return [
+    { hour: '08:00', checkIns: 15, checkOuts: 2 },
+    { hour: '09:00', checkIns: 23, checkOuts: 1 },
+    { hour: '10:00', checkIns: 8, checkOuts: 3 },
+    { hour: '11:00', checkIns: 5, checkOuts: 1 },
+    { hour: '12:00', checkIns: 3, checkOuts: 8 },
+    { hour: '13:00', checkIns: 7, checkOuts: 2 },
+    { hour: '14:00', checkIns: 4, checkOuts: 1 },
+    { hour: '15:00', checkIns: 2, checkOuts: 3 },
+    { hour: '16:00', checkIns: 1, checkOuts: 12 },
+    { hour: '17:00', checkIns: 0, checkOuts: 18 }
+  ];
+}
+
+export function getMockCheckedInStaff() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock checked-in staff');
+  return [
+    {
+      id: 'staff-001',
+      firstName: 'John',
+      lastName: 'Smith',
+      department: 'Engineering',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+      email: 'john.smith@company.com'
+    },
+    {
+      id: 'staff-002',
+      firstName: 'Sarah',
+      lastName: 'Johnson',
+      department: 'Operations',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+      email: 'sarah.johnson@company.com'
+    },
+    {
+      id: 'staff-003',
+      firstName: 'Mike',
+      lastName: 'Wilson',
+      department: 'Safety',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      email: 'mike.wilson@company.com'
+    }
+  ];
+}
+
+export function getMockCheckedInContractors() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock checked-in contractors');
+  return [
+    {
+      id: 'contractor-001',
+      firstName: 'David',
+      lastName: 'Brown',
+      companyName: 'ABC Construction',
+      cscsStatus: 'CLEAR - COMPLIANT',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
+      department: 'Contractors',
+      inductionCompleted: true,
+      transportMethod: 'car'
+    },
+    {
+      id: 'contractor-002',
+      firstName: 'Lisa',
+      lastName: 'Garcia',
+      companyName: 'XYZ Engineering',
+      cscsStatus: 'CLEAR - COMPLIANT',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000), // 1.5 hours ago
+      department: 'Contractors',
+      inductionCompleted: true,
+      transportMethod: 'public_transport'
+    },
+    {
+      id: 'contractor-003',
+      firstName: 'Robert',
+      lastName: 'Chen',
+      companyName: 'Tech Solutions Ltd',
+      cscsStatus: 'CLEAR - COMPLIANT',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
+      department: 'Contractors',
+      inductionCompleted: true,
+      transportMethod: 'bicycle'
+    }
+  ];
+}
+
+export function getMockCurrentVisitors() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock current visitors');
+  return [
+    {
+      id: 'visitor-001',
+      firstName: 'Emma',
+      lastName: 'Thompson',
+      company: 'Client Corp',
+      hostName: 'John Smith',
+      purpose: 'Business Meeting',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+      expectedCheckOut: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+      badgeNumber: 'V001'
+    },
+    {
+      id: 'visitor-002',
+      firstName: 'James',
+      lastName: 'Wilson',
+      company: 'Supplier Inc',
+      hostName: 'Sarah Johnson',
+      purpose: 'Site Inspection',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      expectedCheckOut: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
+      badgeNumber: 'V002'
+    }
+  ];
+}
+
+export function getMockRecentActivity() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock recent activity');
+  return [
+    {
+      id: 'activity-001',
+      type: 'checkin',
+      name: 'Robert Chen',
+      timestamp: new Date(Date.now() - 45 * 60 * 1000),
+      description: 'Contractor check-in: Tech Solutions Ltd'
+    },
+    {
+      id: 'activity-002',
+      type: 'checkin',
+      name: 'Emma Thompson',
+      timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000),
+      description: 'Visitor check-in: Client Corp'
+    },
+    {
+      id: 'activity-003',
+      type: 'checkout',
+      name: 'Mark Davis',
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      description: 'Staff check-out: Engineering'
+    },
+    {
+      id: 'activity-004',
+      type: 'staff_added',
+      name: 'System',
+      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+      description: 'New staff member added: Alice Cooper'
+    }
+  ];
+}
+
+export function getMockCompanyStats() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock company stats');
+  return {
+    currentVisitors: 2,
+    todayCheckIns: 15,
+    staffOnSite: 18,
+    averageVisitDuration: 145, // minutes
+    totalStaff: 42,
+    totalDepartments: 5
+  };
+}
+
+export function getMockCompanySettings() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock company settings');
+  return {
+    id: 'settings-001',
+    companyName: 'Development Corporation',
+    maxVisitors: 50,
+    workingHours: '08:00-17:00',
+    emergencyContact: '+44 123 456 7890',
+    allowedFileTypes: ['pdf', 'jpg', 'png'],
+    autoCheckoutHours: 24,
+    requireInduction: true,
+    enableBadgePrinting: true,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date()
+  };
+}
+
+export function getMockTodaysVisitors() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock today\'s visitors');
+  return [
+    {
+      id: 'visitor-001',
+      firstName: 'Emma',
+      lastName: 'Thompson',
+      company: 'Client Corp',
+      hostName: 'John Smith',
+      purpose: 'Business Meeting',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+      expectedCheckOut: new Date(Date.now() + 2 * 60 * 60 * 1000),
+      badgeNumber: 'V001',
+      createdAt: new Date()
+    },
+    {
+      id: 'visitor-002',
+      firstName: 'James',
+      lastName: 'Wilson',
+      company: 'Supplier Inc',
+      hostName: 'Sarah Johnson',
+      purpose: 'Site Inspection',
+      isCheckedIn: true,
+      checkedInAt: new Date(Date.now() - 30 * 60 * 1000),
+      expectedCheckOut: new Date(Date.now() + 3 * 60 * 60 * 1000),
+      badgeNumber: 'V002',
+      createdAt: new Date()
+    },
+    {
+      id: 'visitor-003',
+      firstName: 'Michael',
+      lastName: 'Davis',
+      company: 'Tech Partners',
+      hostName: 'Mike Wilson',
+      purpose: 'Delivery',
+      isCheckedIn: false,
+      checkedInAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
+      checkedOutAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      badgeNumber: 'V003',
+      createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000)
+    }
+  ];
+}
+
+export function getMockRoomBookings() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock room bookings for today');
+  return [
+    {
+      id: 'booking-001',
+      roomName: 'Conference Room A',
+      title: 'Team Meeting',
+      startTime: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour from now
+      endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+      organizer: 'John Smith',
+      attendees: 8,
+      status: 'confirmed',
+      createdAt: new Date()
+    },
+    {
+      id: 'booking-002',
+      roomName: 'Meeting Room B',
+      title: 'Client Presentation',
+      startTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
+      endTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
+      organizer: 'Sarah Johnson',
+      attendees: 4,
+      status: 'confirmed',
+      createdAt: new Date()
+    }
+  ];
+}
+
+export function getMockReceptionDiary() {
+  console.log('🚀 DEV_DATA_BYPASS: Returning mock reception diary');
+  return [
+    {
+      id: 'diary-001',
+      time: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
+      type: 'visitor_expected',
+      title: 'Expected Visitor: Alex Cooper',
+      description: 'Visitor from ABC Corp for 2:30 PM meeting',
+      priority: 'normal',
+      createdAt: new Date()
+    },
+    {
+      id: 'diary-002',
+      time: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+      type: 'delivery',
+      title: 'Package Delivery Expected',
+      description: 'Important delivery from FedEx',
+      priority: 'high',
+      createdAt: new Date()
+    }
+  ];
 }
 
 // Extend session interface
@@ -169,6 +477,18 @@ export class AuthService {
       return customer;
     } catch (error) {
       console.error(`🚨 Error looking up customer by company name: ${error}`);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock customer for company lookup');
+        // Return a mock customer for any company name in dev mode
+        return {
+          id: 'dev-customer-001',
+          companyName: companyName,
+          createdAt: new Date('2024-01-01')
+        };
+      }
+      
       return null;
     }
   }
@@ -202,6 +522,24 @@ export class AuthService {
       return user as User;
     } catch (error) {
       console.error('Error authenticating user in customer database:', error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock user authentication');
+        return {
+          id: 'dev-user-001',
+          username: username,
+          password: '', // Never return actual password
+          customerId: 'dev-customer-001',
+          email: 'dev@example.com',
+          firstName: 'Dev',
+          lastName: 'User',
+          accessLevel: 'admin',
+          isActive: true,
+          createdAt: new Date('2024-01-01')
+        } as User;
+      }
+      
       return null;
     }
   }

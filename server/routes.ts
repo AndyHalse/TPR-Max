@@ -62,7 +62,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { EmailService, emailService } from "./emailService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
-import { AuthService, requireAuth, isDevAuthBypass, getDevUser, isValidDevCredentials } from "./auth";
+import { AuthService, requireAuth, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isNeonDisabledError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
 import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
@@ -1654,6 +1654,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock stats");
+        const mockStats = getMockCompanyStats();
+        return res.json({
+          currentVisitors: mockStats.currentVisitors,
+          todayCheckins: mockStats.todayCheckIns,
+          staffOnSite: mockStats.staffOnSite,
+          totalStaff: mockStats.totalStaff,
+          contractorsOnSite: 3, // From our mock contractors
+          totalPeopleOnSite: mockStats.currentVisitors + mockStats.staffOnSite + 3,
+          totalCompanies: 4 // From our mock data
+        });
+      }
+      
       res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
@@ -1665,9 +1681,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
+      // DEV DATA BYPASS: Return mock recent activity data instead of empty array
+      if (isDevDataBypass()) {
+        console.log("🚀 DEV_DATA_BYPASS: Returning mock recent activity data");
+        return res.json(getMockRecentActivity());
+      }
+      
       // For now return empty until we implement customer-isolated activity
       res.json([]);
     } catch (error) {
+      console.error("Failed to fetch recent activity:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock recent activity");
+        return res.json(getMockRecentActivity());
+      }
+      
       res.status(500).json({ error: "Failed to fetch recent activity" });
     }
   });
@@ -1683,6 +1713,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(departmentData);
     } catch (error) {
       console.error("Failed to fetch department analytics:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock department analytics");
+        return res.json(getMockDepartmentAnalytics());
+      }
+      
       res.status(500).json({ error: "Failed to fetch department analytics" });
     }
   });
@@ -1794,6 +1831,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(peakHoursData);
     } catch (error) {
       console.error("Failed to fetch peak hours analytics:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock peak hours analytics");
+        return res.json(getMockPeakHoursAnalytics());
+      }
+      
       res.status(500).json({ error: "Failed to fetch peak hours analytics" });
     }
   });
@@ -3211,6 +3255,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checkedInStaff = await databaseService.getCheckedInStaff(context);
       res.json(checkedInStaff);
     } catch (error) {
+      console.error("Failed to fetch checked-in staff:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock checked-in staff");
+        return res.json(getMockCheckedInStaff());
+      }
+      
       res.status(500).json({ error: "Failed to fetch checked-in staff" });
     }
   });
@@ -3225,6 +3277,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checkedInContractors = await databaseService.getCheckedInContractors(context);
       res.json(checkedInContractors);
     } catch (error) {
+      console.error("Failed to fetch checked-in contractors:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock checked-in contractors");
+        return res.json(getMockCheckedInContractors());
+      }
+      
       res.status(500).json({ error: "Failed to fetch checked-in contractors" });
     }
   });
@@ -3300,6 +3360,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const visitors = await databaseService.getCurrentVisitors(context);
       res.json(visitors);
     } catch (error) {
+      console.error("Failed to fetch current visitors:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock current visitors");
+        return res.json(getMockCurrentVisitors());
+      }
+      
       res.status(500).json({ error: "Failed to fetch current visitors" });
     }
   });
@@ -3314,6 +3382,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(todayVisitors);
     } catch (error) {
       console.error("Error fetching today visitors:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock today's visitors");
+        return res.json(getMockTodaysVisitors());
+      }
+      
       res.status(500).json({ error: "Failed to fetch today visitors" });
     }
   });
@@ -6628,6 +6703,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(allPreBookings);
     } catch (error) {
       console.error("Error fetching reception diary:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock reception diary");
+        return res.json(getMockReceptionDiary());
+      }
+      
       res.status(500).json({ error: "Failed to fetch reception diary" });
     }
   });
@@ -12171,6 +12253,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(transformedBookings);
     } catch (error) {
       console.error("Error fetching today's room bookings:", error);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock room bookings");
+        return res.json(getMockRoomBookings());
+      }
+      
       res.status(500).json({ error: "Failed to fetch today's room bookings" });
     }
   });

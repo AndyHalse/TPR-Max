@@ -69,33 +69,64 @@ export class CustomerDatabaseService {
     
     if (!connectionWorks) {
       console.log(`🏗️ Database not accessible for customer ${customerId}, provisioning...`);
-      const databaseUrl = await databaseProvisioningService.provisionCustomerDatabase(customerId);
       
-      // Update customer record with new database URL
-      await this.updateCustomerDatabaseUrl(customerId, databaseUrl);
+      try {
+        const databaseUrl = await databaseProvisioningService.provisionCustomerDatabase(customerId);
+        
+        // Update customer record with new database URL
+        await this.updateCustomerDatabaseUrl(customerId, databaseUrl);
+      } catch (error) {
+        console.error(`❌ Database provisioning failed: ${error}`);
+        
+        // DEV DATA BYPASS: Skip database provisioning if Neon is disabled
+        const { isDevDataBypass, isNeonDisabledError } = await import('./auth');
+        if (isDevDataBypass() && isNeonDisabledError(error)) {
+          console.log('🚀 DEV_DATA_BYPASS: Skipping database provisioning due to Neon database disabled');
+          // Continue with connection setup using the existing database URL
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Create new connection pool for this customer using schema-based isolation
     const baseUrl = customer.databaseUrl;
     let pool: Pool;
+    let db: ReturnType<typeof drizzle>;
     
-    if (process.env.NODE_ENV === 'production') {
-      // Production: Each customer has their own database
-      pool = new Pool({ connectionString: customer.databaseUrl });
-    } else {
-      // Development: Use schema-based isolation with search_path
-      const schemaName = `c_${customerId.replace(/-/g, '_').toLowerCase().substring(0, 8)}`;
-      pool = new Pool({ 
-        connectionString: baseUrl,
-        options: `-c search_path=${schemaName},public`
-      });
-    }
-    
-    const db = drizzle({ client: pool, schema: isolatedSchema });
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        // Production: Each customer has their own database
+        pool = new Pool({ connectionString: customer.databaseUrl });
+      } else {
+        // Development: Use schema-based isolation with search_path
+        const schemaName = `c_${customerId.replace(/-/g, '_').toLowerCase().substring(0, 8)}`;
+        pool = new Pool({ 
+          connectionString: baseUrl,
+          options: `-c search_path=${schemaName},public`
+        });
+      }
+      
+      db = drizzle({ client: pool, schema: isolatedSchema });
 
-    // Store connections for reuse
-    this.customerPools.set(customerId, pool);
-    this.customerConnections.set(customerId, db);
+      // Store connections for reuse
+      this.customerPools.set(customerId, pool);
+      this.customerConnections.set(customerId, db);
+    } catch (error) {
+      console.error(`❌ Failed to create database connection: ${error}`);
+      
+      // DEV DATA BYPASS: Return a mock database connection if Neon is disabled
+      const { isDevDataBypass, isNeonDisabledError } = await import('./auth');
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log('🚀 DEV_DATA_BYPASS: Creating mock database connection due to Neon database disabled');
+        // Return a mock database object that will be intercepted by endpoint bypass logic
+        const mockDb = {} as ReturnType<typeof drizzle>;
+        this.customerConnections.set(customerId, mockDb);
+        return mockDb;
+      }
+      
+      throw error;
+    }
 
     console.log(`✅ Connected to isolated database for customer: ${customer.companyName} (${customerId})`);
     
@@ -170,6 +201,30 @@ export class CustomerDatabaseService {
       return newCustomer;
     } catch (error) {
       console.error(`🚨 Failed to create customer: ${error}`);
+      
+      // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
+      const { isDevDataBypass, isNeonDisabledError } = await import('./auth');
+      if (isDevDataBypass() && isNeonDisabledError(error)) {
+        console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock customer creation');
+        return {
+          id: 'dev-customer-001',
+          companyName: customerData.companyName,
+          slug: customerData.slug,
+          contactEmail: customerData.contactEmail,
+          databaseUrl: customerData.databaseUrl,
+          isActive: true,
+          onboardingCompleted: false,
+          createdAt: new Date('2024-01-01'),
+          planType: 'premium',
+          subscriptionStatus: 'active',
+          maxTenants: 5,
+          maxUsersPerTenant: 50,
+          maxVisitorsPerMonth: 1000,
+          supportContactEmail: customerData.contactEmail,
+          apiKeyEnabled: true
+        } as Customer;
+      }
+      
       throw new Error(`Failed to create customer: ${error}`);
     }
   }
