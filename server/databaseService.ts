@@ -1128,9 +1128,42 @@ export class DatabaseService {
   // Duplicate functions removed - using original implementations
 
   async getCheckedInContractors(context: CustomerContext): Promise<any[]> {
-    // Contractors are not available in isolated database schema yet
-    // Return empty array until contractor tables are added to isolated schema
-    return [];
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    try {
+      // Get all checked-in contractor workers with their company information
+      const checkedInWorkers = await db
+        .select({
+          // Worker fields
+          id: isolatedSchema.contractorWorkers.id,
+          firstName: isolatedSchema.contractorWorkers.firstName,
+          lastName: isolatedSchema.contractorWorkers.lastName,
+          email: isolatedSchema.contractorWorkers.email,
+          isCheckedIn: isolatedSchema.contractorWorkers.isCheckedIn,
+          checkedInAt: isolatedSchema.contractorWorkers.checkedInAt,
+          hsRulesAccepted: isolatedSchema.contractorWorkers.hsRulesAccepted,
+          hsRulesAcceptedAt: isolatedSchema.contractorWorkers.hsRulesAcceptedAt,
+          currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus,
+          // Company fields
+          companyId: isolatedSchema.contractorCompanies.id,
+          companyName: isolatedSchema.contractorCompanies.companyName,
+          contactEmail: isolatedSchema.contractorCompanies.contactEmail,
+          contactPhone: isolatedSchema.contractorCompanies.contactPhone,
+        })
+        .from(isolatedSchema.contractorWorkers)
+        .innerJoin(
+          isolatedSchema.contractorCompanies,
+          eq(isolatedSchema.contractorWorkers.companyId, isolatedSchema.contractorCompanies.id)
+        )
+        .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true));
+
+      console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInWorkers.length} workers currently checked in`);
+      
+      return checkedInWorkers;
+    } catch (error) {
+      console.error("❌ Error getting checked-in contractors:", error);
+      throw error;
+    }
   }
 
   async createContractorCompany(context: CustomerContext, insertCompany: any): Promise<any> {
