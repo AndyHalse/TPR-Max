@@ -888,9 +888,9 @@ export class DatabaseService {
       .from(isolatedSchema.staff)
       .where(eq(isolatedSchema.staff.isCheckedIn, true));
     
-    // Contractors are not available in isolated database schema yet
-    // Return 0 for contractors count until contractor tables are added to isolated schema
-    const contractorsOnSiteResult = [{ count: 0 }];
+    // Get checked-in contractors count using the same method as /api/contractors/checked-in
+    const checkedInContractors = await this.getCheckedInContractors(context);
+    const contractorsOnSiteResult = [{ count: checkedInContractors.length }];
     
     // Get total staff
     const totalStaffResult = await db
