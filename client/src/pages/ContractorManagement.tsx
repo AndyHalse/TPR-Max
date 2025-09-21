@@ -242,6 +242,41 @@ export default function ContractorManagement() {
     },
   });
 
+  const updateContractorMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest("PUT", `/api/contractors/${id}`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Contractor company updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      setShowContractorEditModal(false);
+      setSelectedContractor(null);
+      setContractorForm({
+        name: "",
+        email: "",
+        contactFirstName: "",
+        contactLastName: "",
+        phone: "",
+        address: "",
+        postcode: "",
+        website: "",
+        description: "",
+        industry: "",
+        status: "pending"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Create worker mutation
   const createWorkerMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -1101,6 +1136,97 @@ export default function ContractorManagement() {
                 data-testid="input-edit-postcode"
               />
             </div>
+            <div className="col-span-2 space-y-2">
+              <label className="text-sm font-medium text-slate-700">Address *</label>
+              <Textarea
+                value={contractorForm.address}
+                onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })}
+                placeholder="123 Main Street, London, UK"
+                data-testid="input-edit-address"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Website</label>
+              <Input
+                value={contractorForm.website}
+                onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })}
+                placeholder="https://www.company.co.uk"
+                data-testid="input-edit-website"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Industry</label>
+              <Select
+                value={contractorForm.industry}
+                onValueChange={(value: string) => 
+                  setContractorForm({ ...contractorForm, industry: value })
+                }
+              >
+                <SelectTrigger data-testid="select-edit-industry">
+                  <SelectValue placeholder="Select industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="construction">Construction</SelectItem>
+                  <SelectItem value="electrical">Electrical</SelectItem>
+                  <SelectItem value="plumbing">Plumbing</SelectItem>
+                  <SelectItem value="hvac">HVAC</SelectItem>
+                  <SelectItem value="roofing">Roofing</SelectItem>
+                  <SelectItem value="painting">Painting</SelectItem>
+                  <SelectItem value="landscaping">Landscaping</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="cleaning">Cleaning</SelectItem>
+                  <SelectItem value="it">IT Services</SelectItem>
+                  <SelectItem value="catering">Catering</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-700">Description</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateDescription}
+                  disabled={isGeneratingDescription || !contractorForm.website || !contractorForm.name}
+                  className="text-xs"
+                  data-testid="button-edit-generate-description"
+                >
+                  {isGeneratingDescription ? (
+                    <>🤖 Generating...</>
+                  ) : (
+                    <>🤖 Auto-fill with AI</>
+                  )}
+                </Button>
+              </div>
+              <Textarea
+                value={contractorForm.description}
+                onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })}
+                placeholder="Brief description of company services and expertise..."
+                data-testid="input-edit-description"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Status</label>
+              <Select
+                value={contractorForm.status}
+                onValueChange={(value: "pending" | "approved" | "suspended") => 
+                  setContractorForm({ ...contractorForm, status: value })
+                }
+              >
+                <SelectTrigger data-testid="select-edit-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending Review</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button 
@@ -1113,15 +1239,17 @@ export default function ContractorManagement() {
             <Button 
               onClick={() => {
                 if (selectedContractor) {
-                  // Update contractor logic here
-                  console.log('Update contractor:', contractorForm);
-                  setShowContractorEditModal(false);
+                  updateContractorMutation.mutate({
+                    id: selectedContractor.id,
+                    data: contractorForm
+                  });
                 }
               }}
+              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || !contractorForm.phone || !contractorForm.address || updateContractorMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-update-contractor"
             >
-              Update Contractor
+              {updateContractorMutation.isPending ? "Updating..." : "Update Contractor"}
             </Button>
           </DialogFooter>
         </DialogContent>
