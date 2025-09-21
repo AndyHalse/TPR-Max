@@ -400,18 +400,28 @@ export default function ContractorManagement() {
     if (contractorToEdit) {
       setSelectedContractor(contractorToEdit);
       // Pre-fill form with existing contractor data
+      // Map from API response field names (isolated schema) to form field names
       setContractorForm({
-        name: contractorToEdit.name || "",
-        email: contractorToEdit.email || "",
+        name: contractorToEdit.companyName || contractorToEdit.name || "",
+        email: contractorToEdit.contactEmail || contractorToEdit.email || "",
         contactFirstName: contractorToEdit.contactFirstName || "",
         contactLastName: contractorToEdit.contactLastName || "",
-        phone: contractorToEdit.phone || "",
+        phone: contractorToEdit.contactPhone || contractorToEdit.phone || "",
         address: contractorToEdit.address || "",
         postcode: contractorToEdit.postcode || "",
         website: contractorToEdit.website || "",
         description: contractorToEdit.description || "",
         industry: contractorToEdit.industry || "",
         status: contractorToEdit.status || "pending"
+      });
+      
+      console.log('🔍 Pre-filling form with contractor data:', {
+        original: contractorToEdit,
+        mapped: {
+          name: contractorToEdit.companyName || contractorToEdit.name || "",
+          email: contractorToEdit.contactEmail || contractorToEdit.email || "",
+          phone: contractorToEdit.contactPhone || contractorToEdit.phone || "",
+        }
       });
       setShowContractorEditModal(true);
     }
@@ -1256,13 +1266,14 @@ export default function ContractorManagement() {
             <Button 
               onClick={() => {
                 if (selectedContractor) {
+                  console.log('🔍 Updating contractor with form data:', contractorForm);
                   updateContractorMutation.mutate({
                     id: selectedContractor.id,
                     data: contractorForm
                   });
                 }
               }}
-              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || !contractorForm.phone || !contractorForm.address || updateContractorMutation.isPending}
+              disabled={!contractorForm.name || !contractorForm.email || updateContractorMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-update-contractor"
             >

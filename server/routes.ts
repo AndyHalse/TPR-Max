@@ -8065,16 +8065,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/contractors/:id", async (req, res) => {
+  app.put("/api/contractors/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
       
-      const contractor = await storage.updateContractorCompany(id, updates);
+      console.log("🔍 DEBUG: Updating contractor with ID:", id);
+      console.log("🔍 DEBUG: Update data received:", JSON.stringify(updates, null, 2));
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      console.log("🔍 DEBUG: Customer context:", JSON.stringify(context, null, 2));
+      
+      // Map form field names to isolated schema field names
+      const mappedUpdates = {
+        companyName: updates.name,
+        contactEmail: updates.email, 
+        contactPhone: updates.phone,
+        address: updates.address,
+        postcode: updates.postcode,
+        website: updates.website,
+        description: updates.description,
+        status: updates.status,
+        // Note: industry field doesn't exist in isolated schema - skip it for now
+      };
+      
+      // Remove undefined values and empty strings for optional fields
+      const cleanUpdates = {};
+      Object.entries(mappedUpdates).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          // Keep empty strings for required fields, but convert empty strings to null for optional phone
+          if (key === 'contactPhone' && value === '') {
+            cleanUpdates[key] = null;
+          } else {
+            cleanUpdates[key] = value;
+          }
+        }
+      });
+      
+      console.log("🔍 DEBUG: Original updates:", JSON.stringify(updates, null, 2));
+      console.log("🔍 DEBUG: Mapped updates:", JSON.stringify(mappedUpdates, null, 2));
+      console.log("🔍 DEBUG: Clean updates:", JSON.stringify(cleanUpdates, null, 2));
+      
+      // Use customer-isolated database service 
+      const contractor = await databaseService.updateContractorCompany(context, id, cleanUpdates);
       
       if (!contractor) {
         return res.status(404).json({ error: "Contractor not found" });
       }
+      
+      console.log("✅ DEBUG: Contractor updated successfully:", JSON.stringify(contractor, null, 2));
       
       res.json(contractor);
     } catch (error) {

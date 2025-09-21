@@ -498,6 +498,7 @@ export const contractorCompanies = pgTable("contractor_companies", {
   address: text("address"),
   postcode: text("postcode"),
   website: text("website"),
+  description: text("description"), // Company description/services
   primaryContactName: text("primary_contact_name"),
   primaryContactEmail: text("primary_contact_email"),
   primaryContactPhone: text("primary_contact_phone"),
