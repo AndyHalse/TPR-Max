@@ -631,6 +631,12 @@ export const contractorWorkers = pgTable("contractor_workers", {
   documentsComplete: boolean("documents_complete").default(false),
   documentsLastChecked: timestamp("documents_last_checked"),
   complianceScore: integer("compliance_score").default(0), // 0-100 compliance score
+  // Health & Safety rules acceptance
+  hsRulesAccepted: boolean("hs_rules_accepted").default(false),
+  hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
+  hsRulesAcceptanceToken: text("hs_rules_acceptance_token"),
+  // Card status (calculated field for UI)
+  currentCardStatus: text("current_card_status").default("pending"), // clear, yellow, red, banned, pending
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
