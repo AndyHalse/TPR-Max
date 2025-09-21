@@ -8088,8 +8088,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         postcode: updates.postcode,
         website: updates.website,
         description: updates.description,
+        industry: updates.industry,
         status: updates.status,
-        // Note: industry field doesn't exist in isolated schema - skip it for now
       };
       
       // Remove undefined values and empty strings for optional fields
