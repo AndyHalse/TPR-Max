@@ -50,6 +50,10 @@ interface ContractorCompany {
   email: string;
   phone: string;
   address: string;
+  postcode?: string;
+  website?: string;
+  description?: string;
+  industry?: string;
   contactPerson: string;
   contactFirstName: string;
   contactLastName: string;
@@ -57,6 +61,10 @@ interface ContractorCompany {
   complianceScore: number;
   lastUpdated: string;
   workersCount: number;
+  publicLiabilityExpiry?: string;
+  employersLiabilityExpiry?: string;
+  healthSafetyExpiry?: string;
+  cisRegistration?: string;
   documentsStatus: {
     publicLiability: "valid" | "expiring" | "expired" | "missing";
     employersLiability: "valid" | "expiring" | "expired" | "missing";
@@ -1088,6 +1096,147 @@ export default function Contractors() {
               data-testid="button-save-contractor"
             >
               {createContractorMutation.isPending ? "Adding..." : "Add Contractor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Contractor Dialog */}
+      <Dialog open={showEditContractorModal} onOpenChange={setShowEditContractorModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Edit Contractor Company
+            </DialogTitle>
+            <DialogDescription>
+              Update contractor company profile with contact information and compliance details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Company Name *</label>
+              <Input
+                value={contractorForm.name}
+                onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
+                placeholder="ABC Construction Ltd"
+                data-testid="input-edit-company-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact First Name *</label>
+              <Input
+                value={contractorForm.contactFirstName}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })}
+                placeholder="John"
+                data-testid="input-edit-contact-first-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact Last Name *</label>
+              <Input
+                value={contractorForm.contactLastName}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })}
+                placeholder="Smith"
+                data-testid="input-edit-contact-last-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Email Address *</label>
+              <Input
+                type="email"
+                value={contractorForm.email}
+                onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
+                placeholder="admin@company.co.uk"
+                data-testid="input-edit-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Phone Number *</label>
+              <Input
+                type="tel"
+                value={contractorForm.phone}
+                onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
+                placeholder="+44 1234 567890"
+                data-testid="input-edit-phone"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Postcode</label>
+              <Input
+                value={contractorForm.postcode}
+                onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })}
+                placeholder="SW1A 1AA"
+                data-testid="input-edit-postcode"
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <label className="text-sm font-medium text-slate-700">Address *</label>
+              <Textarea
+                value={contractorForm.address}
+                onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })}
+                placeholder="123 Main Street, London, UK"
+                data-testid="input-edit-address"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Website</label>
+              <Input
+                value={contractorForm.website}
+                onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })}
+                placeholder="https://www.company.co.uk"
+                data-testid="input-edit-website"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Industry</label>
+              <Select
+                value={contractorForm.industry}
+                onValueChange={(value) => setContractorForm({ ...contractorForm, industry: value })}
+              >
+                <SelectTrigger data-testid="select-edit-industry">
+                  <SelectValue placeholder="Select industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="construction">Construction</SelectItem>
+                  <SelectItem value="electrical">Electrical</SelectItem>
+                  <SelectItem value="plumbing">Plumbing</SelectItem>
+                  <SelectItem value="roofing">Roofing</SelectItem>
+                  <SelectItem value="landscaping">Landscaping</SelectItem>
+                  <SelectItem value="mechanical">Mechanical</SelectItem>
+                  <SelectItem value="demolition">Demolition</SelectItem>
+                  <SelectItem value="painting">Painting & Decorating</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <label className="text-sm font-medium text-slate-700">Description</label>
+              <Textarea
+                value={contractorForm.description}
+                onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })}
+                placeholder="Brief description of company services and expertise..."
+                data-testid="input-edit-description"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditContractorModal(false)}
+              data-testid="button-cancel-edit"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateContractor}
+              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || !contractorForm.phone || !contractorForm.address || updateContractorMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-update-contractor"
+            >
+              {updateContractorMutation.isPending ? "Updating..." : "Update Contractor"}
             </Button>
           </DialogFooter>
         </DialogContent>
