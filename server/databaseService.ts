@@ -1796,6 +1796,23 @@ export class DatabaseService {
       if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
       if (updates.postcode !== undefined) updateData.postcode = updates.postcode;
       
+      // CRITICAL: Add missing check-in and H&S acceptance field mappings
+      if (updates.isCheckedIn !== undefined) {
+        updateData.isCheckedIn = Boolean(updates.isCheckedIn);
+      }
+      if (updates.checkedInAt !== undefined) {
+        updateData.checkedInAt = updates.checkedInAt;
+      }
+      if (updates.checkedOutAt !== undefined) {
+        updateData.checkedOutAt = updates.checkedOutAt;
+      }
+      if (updates.hsRulesAccepted !== undefined) {
+        updateData.hsRulesAccepted = Boolean(updates.hsRulesAccepted);
+      }
+      if (updates.hsRulesAcceptedAt !== undefined) {
+        updateData.hsRulesAcceptedAt = updates.hsRulesAcceptedAt;
+      }
+      
       // AUTOMATIC CARD STATUS CALCULATION
       console.log(`🔍 AUTO-CALC: Starting automatic card status calculation for worker ${id}`);
       try {
