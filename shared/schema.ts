@@ -1502,7 +1502,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   // Competence cards
   cscsCard: text("cscs_card"),
   cscsExpiry: timestamp("cscs_expiry"),
-  cscsStatus: boolean("cscs_status").default(false), // true = valid, false = expired/missing/pending
+  cscsStatus: text("cscs_status").default("none"), // valid, expired, pending, none
   ipafCard: text("ipaf_card"),
   ipafExpiry: timestamp("ipaf_expiry"),
   ipafStatus: text("ipaf_status").default("missing"),

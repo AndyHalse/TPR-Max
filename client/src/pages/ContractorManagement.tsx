@@ -401,11 +401,15 @@ export default function ContractorManagement() {
       setSelectedContractor(contractorToEdit);
       // Pre-fill form with existing contractor data
       // Map from API response field names (isolated schema) to form field names
+      const splitName = contractorToEdit.primaryContactName?.split(' ') || [];
+      const firstName = splitName[0] || contractorToEdit.contactFirstName || "";
+      const lastName = splitName.slice(1).join(' ') || contractorToEdit.contactLastName || "";
+      
       setContractorForm({
         name: contractorToEdit.companyName || contractorToEdit.name || "",
         email: contractorToEdit.contactEmail || contractorToEdit.email || "",
-        contactFirstName: contractorToEdit.contactFirstName || "",
-        contactLastName: contractorToEdit.contactLastName || "",
+        contactFirstName: firstName,
+        contactLastName: lastName,
         phone: contractorToEdit.contactPhone || contractorToEdit.phone || "",
         address: contractorToEdit.address || "",
         postcode: contractorToEdit.postcode || "",
@@ -1273,7 +1277,7 @@ export default function ContractorManagement() {
                   });
                 }
               }}
-              disabled={!contractorForm.name || !contractorForm.email || updateContractorMutation.isPending}
+              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || updateContractorMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-update-contractor"
             >

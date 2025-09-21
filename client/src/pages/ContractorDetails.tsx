@@ -44,6 +44,7 @@ export default function ContractorDetails() {
   const queryClient = useQueryClient();
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
+  const [addingWorker, setAddingWorker] = useState(false);
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
@@ -104,6 +105,44 @@ export default function ContractorDetails() {
     }
   });
 
+  // Form for adding workers
+  const workerForm = useForm({
+    resolver: zodResolver(z.object({
+      firstName: z.string().min(1, "First name is required"),
+      lastName: z.string().min(1, "Last name is required"),
+      email: z.string().email("Valid email is required").optional(),
+      phone: z.string().optional(),
+      postcode: z.string().min(1, "Postcode is required"),
+      transportMethod: z.enum(["car_diesel", "car_petrol", "electric_car", "public_transport", "motorcycle"]),
+      rightToWork: z.string().min(1, "Right to work status is required"),
+      cscsCard: z.string().optional(),
+      cscsStatus: z.enum(["valid", "expired", "none", "pending"]),
+      ipafStatus: z.enum(["valid", "expired", "none", "pending"]),
+      asbestosAwareness: z.boolean(),
+      manualHandling: z.boolean(),
+      workingAtHeight: z.boolean(),
+      inductionCompleted: z.boolean(),
+      isActive: z.boolean(),
+    })),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      postcode: "",
+      transportMethod: "car_diesel" as const,
+      rightToWork: "valid",
+      cscsCard: "",
+      cscsStatus: "valid" as const,
+      ipafStatus: "none" as const,
+      asbestosAwareness: false,
+      manualHandling: false,
+      workingAtHeight: false,
+      inductionCompleted: false,
+      isActive: true,
+    }
+  });
+
   // Issue card mutation
   const issueCardMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', `/api/card-issues`, data),
@@ -140,6 +179,24 @@ export default function ContractorDetails() {
     }
   });
 
+  // Add worker mutation
+  const addWorkerMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('POST', `/api/contractors/${id}/workers`, data),
+    onSuccess: () => {
+      toast({ title: "Worker added successfully" });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      setAddingWorker(false);
+      workerForm.reset();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to add worker", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
   const handleIssueCard = (data: any) => {
     // Prepare the data with required fields for the API
     const cardData = {
@@ -162,6 +219,16 @@ export default function ContractorDetails() {
     };
     console.log("🎓 Adding certification with data:", certData);
     addCertificationMutation.mutate(certData);
+  };
+
+  const handleAddWorker = (data: any) => {
+    // Prepare worker data
+    const workerData = {
+      ...data,
+      companyId: id,
+    };
+    console.log("👷 Adding worker with data:", workerData);
+    addWorkerMutation.mutate(workerData);
   };
 
   // Check-in mutation - sends e-pass directly like visitor flow
@@ -466,6 +533,14 @@ export default function ContractorDetails() {
               </Form>
             </DialogContent>
           </Dialog>
+          
+          <Button 
+            onClick={() => setAddingWorker(true)}
+            data-testid="button-add-worker"
+          >
+            <User className="w-4 h-4 mr-2" />
+            Add Worker
+          </Button>
           
           <Dialog open={addingCertification} onOpenChange={setAddingCertification}>
             <DialogTrigger asChild>
@@ -1013,6 +1088,311 @@ export default function ContractorDetails() {
           companyName={contractorData.name}
         />
       )}
+
+      {/* Add Worker Modal */}
+      <Dialog open={addingWorker} onOpenChange={setAddingWorker}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Worker</DialogTitle>
+            <DialogDescription>
+              Add a new contractor worker to {contractorData.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...workerForm}>
+            <form onSubmit={workerForm.handleSubmit(handleAddWorker)} className="space-y-4">
+              {/* Personal Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={workerForm.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name *</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-worker-first-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={workerForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name *</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-worker-last-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={workerForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" {...field} data-testid="input-worker-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={workerForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-worker-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={workerForm.control}
+                  name="postcode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Postcode *</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-worker-postcode" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={workerForm.control}
+                  name="transportMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Transport Method</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-worker-transport">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="car_diesel">Car (Diesel)</SelectItem>
+                          <SelectItem value="car_petrol">Car (Petrol)</SelectItem>
+                          <SelectItem value="electric_car">Electric Car</SelectItem>
+                          <SelectItem value="public_transport">Public Transport</SelectItem>
+                          <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={workerForm.control}
+                  name="rightToWork"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Right to Work *</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-worker-right-to-work" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={workerForm.control}
+                  name="cscsCard"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CSCS Card Number</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-worker-cscs-card" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={workerForm.control}
+                  name="cscsStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CSCS Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-worker-cscs-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="valid">Valid</SelectItem>
+                          <SelectItem value="expired">Expired</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={workerForm.control}
+                  name="ipafStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>IPAF Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-worker-ipaf-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="valid">Valid</SelectItem>
+                          <SelectItem value="expired">Expired</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Training Checkboxes */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Training & Certifications</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={workerForm.control}
+                    name="asbestosAwareness"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            data-testid="checkbox-worker-asbestos"
+                            className="mt-1"
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-sm font-normal">
+                            Asbestos Awareness
+                          </FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={workerForm.control}
+                    name="manualHandling"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            data-testid="checkbox-worker-manual-handling"
+                            className="mt-1"
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-sm font-normal">
+                            Manual Handling
+                          </FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={workerForm.control}
+                    name="workingAtHeight"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            data-testid="checkbox-worker-working-height"
+                            className="mt-1"
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-sm font-normal">
+                            Working at Height
+                          </FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={workerForm.control}
+                    name="inductionCompleted"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            data-testid="checkbox-worker-induction"
+                            className="mt-1"
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-sm font-normal">
+                            Induction Completed
+                          </FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAddingWorker(false)}
+                  data-testid="button-cancel-add-worker"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={addWorkerMutation.isPending}
+                  data-testid="button-submit-add-worker"
+                >
+                  {addWorkerMutation.isPending ? "Adding..." : "Add Worker"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {/* Host Selection Dialog for Contractor Check-in (Same as Visitors) */}
       <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>

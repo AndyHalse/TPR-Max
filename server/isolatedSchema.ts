@@ -495,10 +495,13 @@ export const contractorCompanies = pgTable("contractor_companies", {
   registrationNumber: text("registration_number"),
   contactEmail: text("contact_email").notNull(),
   contactPhone: text("contact_phone"),
+  contactFirstName: text("contact_first_name").notNull(),
+  contactLastName: text("contact_last_name").notNull(),
   address: text("address"),
   postcode: text("postcode"),
   website: text("website"),
   description: text("description"), // Company description/services
+  industry: text("industry"), // Construction, Engineering, Manufacturing, etc.
   primaryContactName: text("primary_contact_name"),
   primaryContactEmail: text("primary_contact_email"),
   primaryContactPhone: text("primary_contact_phone"),
