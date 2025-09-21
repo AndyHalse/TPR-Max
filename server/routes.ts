@@ -5678,14 +5678,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Special field mappings with type conversions
       
-      // cscsStatus: Convert string status to boolean and map to correct database column property name
+      // cscsStatus: Keep as string (valid, pending, expired, none) - DO NOT convert to boolean
       if (uiData.cscsStatus !== undefined) {
-        // Handle both string values ('valid', 'invalid', 'pending') and boolean values (true/false)
-        if (typeof uiData.cscsStatus === 'string') {
-          mappedData.cscsStatus = uiData.cscsStatus === 'valid';
-        } else {
-          mappedData.cscsStatus = Boolean(uiData.cscsStatus);
-        }
+        mappedData.cscsStatus = uiData.cscsStatus; // Keep as string
         console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' (${typeof uiData.cscsStatus}) → cscsStatus: ${mappedData.cscsStatus}`);
       }
       

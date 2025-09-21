@@ -977,6 +977,12 @@ export default function ContractorDetails() {
                       <label className="text-sm font-medium text-muted-foreground">Phone</label>
                       <p className="text-sm">{viewingWorker.phone || 'Not provided'}</p>
                     </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Home Postcode</label>
+                      <p className="text-sm" data-testid="text-worker-postcode">{viewingWorker.postcode || 'Not provided'}</p>
+                      <p className="text-xs text-muted-foreground">For CO2 emissions calculations</p>
+                    </div>
                   </div>
                 </div>
 

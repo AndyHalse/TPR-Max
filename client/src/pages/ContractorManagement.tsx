@@ -172,6 +172,7 @@ export default function ContractorManagement() {
     lastName: "",
     email: "",
     phone: "",
+    postcode: "", // HOME POSTCODE - MANDATORY for emissions calculations
     rightToWork: "pending" as "valid" | "expired" | "pending",
     cscsCard: "",
     cscsStatus: "pending" as "valid" | "expired" | "pending",
@@ -312,6 +313,7 @@ export default function ContractorManagement() {
         lastName: "",
         email: "",
         phone: "",
+        postcode: "", // Reset postcode field
         rightToWork: "pending",
         cscsCard: "",
         cscsStatus: "pending",
@@ -1518,6 +1520,16 @@ export default function ContractorManagement() {
                 placeholder="+44 1234 567890"
                 data-testid="input-worker-phone"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Home Postcode *</label>
+              <Input
+                value={workerForm.postcode}
+                onChange={(e) => setWorkerForm({ ...workerForm, postcode: e.target.value })}
+                placeholder="SW1A 1AA"
+                data-testid="input-worker-postcode"
+              />
+              <p className="text-xs text-slate-500">Required for CO2 emissions calculations</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Right to Work Status</label>
