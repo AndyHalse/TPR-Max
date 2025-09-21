@@ -34,7 +34,10 @@ import {
   Eye,
   X,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  UserPlus,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
@@ -71,6 +74,7 @@ export default function Contractors() {
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showWorkersModal, setShowWorkersModal] = useState(false);
+  const [showEditContractorModal, setShowEditContractorModal] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [showViewWorkerModal, setShowViewWorkerModal] = useState(false);
@@ -325,6 +329,84 @@ export default function Contractors() {
 
   const handleAddContractor = () => {
     createContractorMutation.mutate(contractorForm);
+  };
+
+  // Edit contractor mutation
+  const updateContractorMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (!selectedContractor?.id) throw new Error("No contractor selected");
+      return await apiRequest("PUT", `/api/contractors/${selectedContractor.id}`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Contractor details updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      setShowEditContractorModal(false);
+      setSelectedContractor(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete contractor mutation
+  const deleteContractorMutation = useMutation({
+    mutationFn: async (contractorId: string) => {
+      return await apiRequest("DELETE", `/api/contractors/${contractorId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Contractor deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditContractor = (contractor: ContractorCompany) => {
+    setSelectedContractor(contractor);
+    setContractorForm({
+      name: contractor.name || "",
+      email: contractor.email || "",
+      contactFirstName: contractor.contactFirstName || "",
+      contactLastName: contractor.contactLastName || "",
+      phone: contractor.phone || "",
+      address: contractor.address || "",
+      postcode: contractor.postcode || "",
+      website: contractor.website || "",
+      description: contractor.description || "",
+      industry: contractor.industry || "",
+      status: contractor.status || "pending",
+      complianceScore: contractor.complianceScore || 0,
+      publicLiabilityExpiry: contractor.publicLiabilityExpiry || "",
+      employersLiabilityExpiry: contractor.employersLiabilityExpiry || "",
+      healthSafetyExpiry: contractor.healthSafetyExpiry || "",
+      cisRegistration: contractor.cisRegistration || ""
+    });
+    setShowEditContractorModal(true);
+  };
+
+  const handleDeleteContractor = (contractorId: string) => {
+    if (confirm("Are you sure you want to delete this contractor? This action cannot be undone.")) {
+      deleteContractorMutation.mutate(contractorId);
+    }
+  };
+
+  const handleUpdateContractor = () => {
+    updateContractorMutation.mutate(contractorForm);
   };
 
   const handleAddWorker = () => {
@@ -754,16 +836,16 @@ export default function Contractors() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 lg:w-48">
+              <div className="grid grid-cols-2 gap-2 lg:w-60">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setLocation(`/contractors/${contractor.id}`)}
                   className="w-full"
-                  data-testid={`button-view-contractor-${contractor.id}`}
+                  data-testid={`button-workers-${contractor.id}`}
                 >
-                  <FileCheck className="mr-2" size={14} />
-                  View Details
+                  <Users className="mr-2" size={14} />
+                  Workers
                 </Button>
                 <Button
                   variant="outline"
@@ -773,10 +855,30 @@ export default function Contractors() {
                     setShowWorkersModal(true);
                   }}
                   className="w-full"
-                  data-testid={`button-manage-workers-${contractor.id}`}
+                  data-testid={`button-add-worker-${contractor.id}`}
                 >
-                  <Users className="mr-2" size={14} />
-                  Manage Workers
+                  <UserPlus className="mr-2" size={14} />
+                  Add Worker
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditContractor(contractor)}
+                  className="w-full"
+                  data-testid={`button-edit-contractor-${contractor.id}`}
+                >
+                  <Edit className="mr-2" size={14} />
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDeleteContractor(contractor.id)}
+                  className="w-full"
+                  data-testid={`button-delete-contractor-${contractor.id}`}
+                >
+                  <Trash2 className="mr-2" size={14} />
+                  Delete
                 </Button>
               </div>
             </div>
