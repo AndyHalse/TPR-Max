@@ -35,6 +35,7 @@ import {
   Mail,
   Plus,
   User,
+  Users,
   Leaf,
   Shield
 } from "lucide-react";
@@ -343,8 +344,26 @@ export default function ContractorManagement() {
   };
 
   const handleEditContractor = (contractorId: string) => {
-    // For now, navigate to details page where editing can be done
-    setLocation(`/contractors/${contractorId}`);
+    // Find the contractor to edit
+    const contractorToEdit = companies.find(c => c.id === contractorId);
+    if (contractorToEdit) {
+      setSelectedContractor(contractorToEdit);
+      // Pre-fill form with existing contractor data
+      setContractorForm({
+        name: contractorToEdit.name || "",
+        email: contractorToEdit.email || "",
+        contactFirstName: contractorToEdit.contactFirstName || "",
+        contactLastName: contractorToEdit.contactLastName || "",
+        phone: contractorToEdit.phone || "",
+        address: contractorToEdit.address || "",
+        postcode: contractorToEdit.postcode || "",
+        website: contractorToEdit.website || "",
+        description: contractorToEdit.description || "",
+        industry: contractorToEdit.industry || "",
+        status: contractorToEdit.status || "pending"
+      });
+      setShowContractorEditModal(true);
+    }
   };
 
   const handleDeleteContractor = (contractorId: string, contractorName: string) => {
@@ -914,9 +933,10 @@ export default function ContractorManagement() {
                           size="sm"
                           onClick={() => handleViewContractorDetails(company.id)}
                           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                          data-testid={`button-view-company-${company.id}`}
+                          data-testid={`button-workers-${company.id}`}
                         >
-                          View Details
+                          <Users className="h-3 w-3 mr-1" />
+                          Workers
                         </Button>
                         
                         <Button
@@ -1008,9 +1028,104 @@ export default function ContractorManagement() {
       <ContractorEditModal
         worker={selectedWorkerForEdit}
         companyName={selectedWorkerCompanyName}
-        open={showContractorEditModal}
+        open={false}
         onOpenChange={setShowContractorEditModal}
       />
+      
+      {/* Edit Contractor Dialog */}
+      <Dialog open={showContractorEditModal} onOpenChange={setShowContractorEditModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Edit Contractor Company
+            </DialogTitle>
+            <DialogDescription>
+              Update contractor company details and service information.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Company Name *</label>
+              <Input
+                value={contractorForm.name}
+                onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
+                placeholder="ABC Construction Ltd"
+                data-testid="input-edit-company-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact First Name *</label>
+              <Input
+                value={contractorForm.contactFirstName}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })}
+                placeholder="John"
+                data-testid="input-edit-contact-first-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact Last Name *</label>
+              <Input
+                value={contractorForm.contactLastName}
+                onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })}
+                placeholder="Smith"
+                data-testid="input-edit-contact-last-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Email Address *</label>
+              <Input
+                type="email"
+                value={contractorForm.email}
+                onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
+                placeholder="admin@company.co.uk"
+                data-testid="input-edit-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Phone Number *</label>
+              <Input
+                type="tel"
+                value={contractorForm.phone}
+                onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
+                placeholder="+44 1234 567890"
+                data-testid="input-edit-phone"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Postcode</label>
+              <Input
+                value={contractorForm.postcode}
+                onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })}
+                placeholder="SW1A 1AA"
+                data-testid="input-edit-postcode"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowContractorEditModal(false)}
+              data-testid="button-cancel-edit"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedContractor) {
+                  // Update contractor logic here
+                  console.log('Update contractor:', contractorForm);
+                  setShowContractorEditModal(false);
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-update-contractor"
+            >
+              Update Contractor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Add Contractor Dialog */}
       <Dialog open={showAddContractorDialog} onOpenChange={setShowAddContractorDialog}>
