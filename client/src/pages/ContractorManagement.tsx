@@ -58,6 +58,22 @@ export default function ContractorManagement() {
   const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs">("previous");
   const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Enhanced search filter function
+  const matchesSearch = (company: any, search: string) => {
+    if (!search) return true;
+    const searchLower = search.toLowerCase();
+    return (
+      (company.name || "").toLowerCase().includes(searchLower) ||
+      ((company.contactEmail || company.email) || "").toLowerCase().includes(searchLower) ||
+      (company.phone || "").toLowerCase().includes(searchLower) ||
+      (company.industry || "").toLowerCase().includes(searchLower) ||
+      (company.address || "").toLowerCase().includes(searchLower) ||
+      (company.description || "").toLowerCase().includes(searchLower) ||
+      (company.contactFirstName || "").toLowerCase().includes(searchLower) ||
+      (company.contactLastName || "").toLowerCase().includes(searchLower)
+    );
+  };
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [showAllWorkers, setShowAllWorkers] = useState(false);
   const [showAllCompanies, setShowAllCompanies] = useState(false);
@@ -894,7 +910,7 @@ export default function ContractorManagement() {
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by company name..."
+                placeholder="Search by company name, industry, phone, or email..."
                 className="pl-10"
                 data-testid="input-search-companies"
               />
@@ -904,14 +920,11 @@ export default function ContractorManagement() {
             <div className="flex justify-between items-center">
               <div className="text-sm text-slate-600">
                 Showing {showAllCompanies ? companies.filter(company => 
-                  (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
+                  matchesSearch(company, searchTerm)
                 ).length : Math.min(6, companies.filter(company => 
-                  (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
+                  matchesSearch(company, searchTerm)
                 ).length)} of {companies.filter(company => 
-                  (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
+                  matchesSearch(company, searchTerm)
                 ).length} contractor companies
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
@@ -927,8 +940,7 @@ export default function ContractorManagement() {
             {/* Companies Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {companies.filter(company => 
-                (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                ((company.contactEmail || company.email) || "").toLowerCase().includes(searchTerm.toLowerCase())
+                matchesSearch(company, searchTerm)
               ).slice(0, showAllCompanies ? companies.length : 6).map((company) => (
                 <GlassCard key={company.id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="space-y-3">
@@ -939,6 +951,11 @@ export default function ContractorManagement() {
                       </h3>
                       <p className="text-sm text-slate-600">{company.contactEmail || company.email}</p>
                       <p className="text-sm text-slate-600">{(company as any).contactPhone || company.phone || 'No phone provided'}</p>
+                      {company.industry && (
+                        <p className="text-sm text-blue-600 font-medium capitalize">
+                          {company.industry}
+                        </p>
+                      )}
                       <p className="text-xs text-slate-500">
                         Workers: {company.workersCount || 0}
                       </p>
