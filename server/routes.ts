@@ -5554,6 +5554,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all contractor workers - MUST COME BEFORE :id route
+  app.get("/api/contractors/workers/all", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Use customer-isolated database service to get all contractor workers
+      const workers = await databaseService.getAllContractorWorkers(context);
+      
+      console.log(`✅ Retrieved ${workers.length} contractor workers for customer ${context.customerId}`);
+      
+      res.json(workers);
+    } catch (error) {
+      console.error("Error fetching all workers:", error);
+      res.status(500).json({ error: "Failed to fetch all workers" });
+    }
+  });
+
   // Get individual contractor worker by ID endpoint - CRITICAL MISSING ENDPOINT ADDED
   app.get('/api/contractors/workers/:id', requireAuth, async (req, res) => {
     try {
@@ -8267,23 +8286,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contractor Worker endpoints
-  app.get("/api/contractors/workers/all", requireAuth, async (req, res) => {
-    try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      // Use customer-isolated database service to get all contractor workers
-      const workers = await databaseService.getAllContractorWorkers(context);
-      
-      console.log(`✅ Retrieved ${workers.length} contractor workers for customer ${context.customerId}`);
-      
-      res.json(workers);
-    } catch (error) {
-      console.error("Error fetching all workers:", error);
-      res.status(500).json({ error: "Failed to fetch all workers" });
-    }
-  });
 
   // ======================================
   // CO2 EMISSIONS TRACKING ENDPOINTS  

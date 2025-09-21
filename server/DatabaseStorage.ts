@@ -1,5 +1,8 @@
 // @ts-nocheck
 // Temporarily disabling TypeScript checking while fixing interface compliance issues
+
+// Missing imports for meeting rooms and room bookings
+import type { MeetingRoom, InsertMeetingRoom, RoomBooking, InsertRoomBooking, RoomBookingWithRelations, RoomBookingAttendee, InsertRoomBookingAttendee, RoomBookingWaitlist, InsertRoomBookingWaitlist } from "@shared/schema";
 import { db } from "./db";
 import { 
   staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
@@ -2883,5 +2886,21 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return updated;
     }
+  }
+
+  // ======= MISSING FUNCTION IMPLEMENTATIONS TO STOP CONSOLE ERRORS =======
+  
+  async getAllMeetingRooms(): Promise<MeetingRoom[]> {
+    // TODO: Implement proper meeting rooms database query
+    // For now, return empty array to stop console errors
+    console.log('⚠️ getAllMeetingRooms: Database implementation pending - returning empty array');
+    return [];
+  }
+
+  async getRoomBookings(startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]> {
+    // TODO: Implement proper room bookings database query with date filtering
+    // For now, return empty array to stop console errors
+    console.log('⚠️ getRoomBookings: Database implementation pending - returning empty array');
+    return [];
   }
 }
