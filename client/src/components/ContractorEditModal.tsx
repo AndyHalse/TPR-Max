@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,6 +44,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showHSModal, setShowHSModal] = useState(false);
+  const [manualNote, setManualNote] = useState('');
   
   const [formData, setFormData] = useState({
     firstName: worker?.firstName || '',
@@ -213,6 +214,32 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       toast({
         title: 'Error',
         description: error.message || 'Failed to resend H&S document',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Add manual note mutation
+  const addManualNoteMutation = useMutation({
+    mutationFn: async ({ workerId, notes }: { workerId: string; notes: string }) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${workerId}/notes`, {
+        changeType: 'manual_note',
+        notes: notes
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
+      setManualNote(''); // Clear the form
+      toast({
+        title: 'Success',
+        description: 'Note added successfully!',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to add note',
         variant: 'destructive',
       });
     },
@@ -850,6 +877,53 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
             </TabsContent>
 
             <TabsContent value="notes" className="space-y-4 px-1">
+              {/* Manual Note Form */}
+              <div className="bg-white/80 border border-slate-200 rounded-lg p-4">
+                <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                  <Edit3 className="h-4 w-4" />
+                  Add Manual Note
+                </h4>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (manualNote.trim()) {
+                    addManualNoteMutation.mutate({
+                      workerId: worker.id,
+                      notes: manualNote.trim()
+                    });
+                  }
+                }} className="space-y-3">
+                  <textarea
+                    value={manualNote}
+                    onChange={(e) => setManualNote(e.target.value)}
+                    placeholder="Type your note here... (date and time will be added automatically)"
+                    className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    rows={3}
+                    data-testid="textarea-manual-note"
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={!manualNote.trim() || addManualNoteMutation.isPending}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      data-testid="button-add-note"
+                    >
+                      {addManualNoteMutation.isPending ? (
+                        <>
+                          <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Note
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Audit Trail Display */}
               {notesLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
@@ -865,7 +939,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                 <div className="space-y-4">
                   <h4 className="font-medium text-slate-700 flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Audit Trail
+                    All Changes & Notes ({workerNotes.length})
                   </h4>
                   <ScrollArea className="h-96">
                     <div className="space-y-3">
@@ -874,16 +948,18 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <Badge variant={
-                                note.changeType === 'card_reset' ? 'destructive' : 
+                                note.changeType === 'card_reset' || note.changeType === 'card_status_change' ? 'destructive' : 
                                 note.changeType === 'certification_update' ? 'default' : 
                                 note.changeType === 'hs_acceptance' ? 'secondary' : 
+                                note.changeType === 'manual_note' ? 'default' :
                                 'outline'
                               }>
-                                {note.changeType === 'card_reset' && 'Card Reset'}
+                                {(note.changeType === 'card_reset' || note.changeType === 'card_status_change') && 'Card Status Changed'}
                                 {note.changeType === 'certification_update' && 'Certification Update'}
                                 {note.changeType === 'hs_acceptance' && 'H&S Acceptance'}
                                 {note.changeType === 'profile_update' && 'Profile Update'}
-                                {!['card_reset', 'certification_update', 'hs_acceptance', 'profile_update'].includes(note.changeType) && note.changeType}
+                                {note.changeType === 'manual_note' && 'Manual Note'}
+                                {!['card_reset', 'card_status_change', 'certification_update', 'hs_acceptance', 'profile_update', 'manual_note'].includes(note.changeType) && note.changeType}
                               </Badge>
                               <span className="text-sm text-slate-600">{note.changedBy || 'System'}</span>
                             </div>

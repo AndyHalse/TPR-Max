@@ -5846,6 +5846,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add manual note to worker endpoint
+  app.post('/api/contractors/workers/:id/notes', requireAuth, async (req, res) => {
+    try {
+      const workerId = req.params.id;
+      const { changeType, notes } = req.body;
+      
+      console.log('📝 Adding manual note for worker:', workerId);
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Validate required fields
+      if (!notes || notes.trim() === '') {
+        return res.status(400).json({ error: 'Note content is required' });
+      }
+      
+      // Create manual note entry in workerNotes
+      const noteData = {
+        workerId: workerId,
+        changeType: changeType || 'manual_note',
+        notes: notes.trim(),
+        changedBy: username || 'system'
+      };
+      
+      // Insert the note using direct database access
+      try {
+        const db = await customerDbService.getCustomerDatabase(context.customerId);
+        const [insertedNote] = await db.insert(isolatedSchema.workerNotes).values(noteData).returning();
+        console.log('✅ Created manual note successfully');
+        
+        res.json({ 
+          success: true, 
+          message: 'Note added successfully',
+          note: insertedNote 
+        });
+      } catch (noteError) {
+        console.error('❌ Failed to create manual note:', noteError);
+        res.status(500).json({ error: 'Failed to save note' });
+      }
+      
+    } catch (error) {
+      console.error('❌ Error adding manual note:', error);
+      res.status(500).json({ error: 'Failed to add note' });
+    }
+  });
+
   // Reports endpoints
   // Generate test data for load testing
   // Clear duplicate visitors endpoint
