@@ -106,6 +106,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
+  // Fetch worker notes/audit trail
+  const { data: workerNotes = [], isLoading: notesLoading, refetch: refetchNotes } = useQuery<any[]>({
+    queryKey: [`/api/contractors/workers/${worker?.id}/notes`],
+    enabled: !!worker?.id,
+    refetchOnMount: true,
+  });
+
   // Update worker mutation
   const updateWorkerMutation = useMutation({
     mutationFn: async (updates: Partial<ContractorWorker>) => {
@@ -249,7 +256,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
           </DialogHeader>
 
         <Tabs defaultValue="profile" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-1">
               <History className="h-4 w-4" />
@@ -263,6 +270,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
               H&S Documents
               <Badge variant="secondary" className="ml-1">
                 {hsAssignments.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="flex items-center gap-1">
+              <FileText className="h-4 w-4" />
+              Notes
+              <Badge variant="secondary" className="ml-1">
+                {workerNotes?.length || 0}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -831,6 +845,73 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="notes" className="space-y-4 px-1">
+              {notesLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="text-slate-500 mt-2">Loading audit trail...</p>
+                </div>
+              ) : workerNotes.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+                  <p className="text-lg font-medium">No audit trail entries</p>
+                  <p className="text-sm">Changes to this worker will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-slate-700 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Audit Trail
+                  </h4>
+                  <ScrollArea className="h-96">
+                    <div className="space-y-3">
+                      {workerNotes.map((note: any, index: number) => (
+                        <div key={note.id || index} className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={
+                                note.changeType === 'card_reset' ? 'destructive' : 
+                                note.changeType === 'certification_update' ? 'default' : 
+                                note.changeType === 'hs_acceptance' ? 'secondary' : 
+                                'outline'
+                              }>
+                                {note.changeType === 'card_reset' && 'Card Reset'}
+                                {note.changeType === 'certification_update' && 'Certification Update'}
+                                {note.changeType === 'hs_acceptance' && 'H&S Acceptance'}
+                                {note.changeType === 'profile_update' && 'Profile Update'}
+                                {!['card_reset', 'certification_update', 'hs_acceptance', 'profile_update'].includes(note.changeType) && note.changeType}
+                              </Badge>
+                              <span className="text-sm text-slate-600">{note.changedBy || 'System'}</span>
+                            </div>
+                            <span className="text-xs text-slate-500">
+                              {note.changedAt ? format(new Date(note.changedAt), 'MMM dd, yyyy HH:mm') : 'Unknown date'}
+                            </span>
+                          </div>
+                          
+                          {note.oldValue && note.newValue && (
+                            <div className="text-sm space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500">From:</span>
+                                <span className="bg-red-100 text-red-800 px-2 py-1 rounded">{note.oldValue}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500">To:</span>
+                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded">{note.newValue}</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {note.notes && (
+                            <p className="text-sm text-slate-600 mt-2 italic">"{note.notes}"</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </div>
               )}
             </TabsContent>

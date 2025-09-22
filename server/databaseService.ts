@@ -2622,6 +2622,16 @@ export class DatabaseService {
       .orderBy(isolatedSchema.contractorWorkers.firstName, isolatedSchema.contractorWorkers.lastName);
   }
 
+  async getWorkerNotes(context: CustomerContext, workerId: string): Promise<any[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.workerNotes)
+      .where(eq(isolatedSchema.workerNotes.workerId, workerId))
+      .orderBy(desc(isolatedSchema.workerNotes.changedAt));
+  }
+
   /**
    * CUSTOMER API KEY MANAGEMENT METHODS - Customer Isolated
    */

@@ -10562,6 +10562,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor worker notes/audit trail
+  app.get("/api/contractors/workers/:workerId/notes", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Get worker notes from customer-isolated database
+      const notes = await databaseService.getWorkerNotes(context, workerId);
+      
+      // Sort notes by date (most recent first)
+      const sortedNotes = notes.sort((a, b) => 
+        new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime()
+      );
+      
+      res.json(sortedNotes);
+    } catch (error) {
+      console.error("Error fetching worker notes:", error);
+      res.status(500).json({ error: "Failed to fetch worker notes" });
+    }
+  });
+
   // Helper function to calculate duration
   function calculateDuration(start: Date, end: Date): string {
     const diff = end.getTime() - start.getTime();
