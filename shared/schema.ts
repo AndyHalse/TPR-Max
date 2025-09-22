@@ -1600,6 +1600,33 @@ export const workerCompetencies = pgTable("worker_competencies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Worker Notes/Audit Trail table - for tracking all changes and card status updates
+export const workerNotes = pgTable("worker_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  // Change tracking details
+  changeType: text("change_type").notNull(), // card_status_change, profile_update, certification_update, hs_acceptance, manual_note
+  fieldChanged: text("field_changed"), // specific field that changed (email, cscsStatus, etc.)
+  oldValue: text("old_value"), // previous value
+  newValue: text("new_value"), // new value
+  // Note content
+  title: text("title").notNull(), // summary of the change
+  description: text("description"), // detailed description of the change
+  // User tracking
+  createdBy: varchar("created_by").notNull().references(() => users.id), // user who made the change
+  createdByName: text("created_by_name").notNull(), // cached user name for performance
+  // Metadata
+  ipAddress: text("ip_address"), // IP address of the change
+  userAgent: text("user_agent"), // browser/client info
+  source: text("source").default("manual").notNull(), // manual, system, email_acceptance, api
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  workerIdIdx: index("worker_notes_worker_id_idx").on(table.workerId),
+  changeTypeIdx: index("worker_notes_change_type_idx").on(table.changeType),
+  createdAtIdx: index("worker_notes_created_at_idx").on(table.createdAt),
+  createdByIdx: index("worker_notes_created_by_idx").on(table.createdBy),
+}));
+
 // NVQ Qualifications table for managing contractor qualifications
 export const nvqQualifications = pgTable("nvq_qualifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1655,6 +1682,11 @@ export const insertWorkerCompetencySchema = createInsertSchema(workerCompetencie
   createdAt: true,
 });
 
+export const insertWorkerNoteSchema = createInsertSchema(workerNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertDepartmentSchema = createInsertSchema(departments).omit({
   id: true,
   createdAt: true,
@@ -1702,6 +1734,8 @@ export type DocumentApproval = typeof documentApprovals.$inferSelect;
 export type InsertDocumentApproval = z.infer<typeof insertDocumentApprovalSchema>;
 export type DocumentType = typeof documentTypes.$inferSelect;
 export type InsertDocumentType = z.infer<typeof insertDocumentTypeSchema>;
+export type WorkerNote = typeof workerNotes.$inferSelect;
+export type InsertWorkerNote = z.infer<typeof insertWorkerNoteSchema>;
 export type WorkerCompetency = typeof workerCompetencies.$inferSelect;
 export type InsertWorkerCompetency = z.infer<typeof insertWorkerCompetencySchema>;
 export type NvqQualification = typeof nvqQualifications.$inferSelect;
