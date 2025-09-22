@@ -812,9 +812,8 @@ export default function ContractorManagement() {
                           className="flex-1 text-blue-600 hover:bg-blue-50"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedWorkerForEdit(contractor);
-                            setSelectedWorkerCompanyName(contractor.companyName);
-                            setShowContractorEditModal(true);
+                            setWorkerToEdit(contractor);
+                            setShowEditWorkerModal(true); // Fixed: Opens worker edit modal and sets correct worker
                           }}
                           data-testid={`button-edit-worker-${contractor.id}`}
                         >

@@ -1031,6 +1031,77 @@ export default function ContractorDetails() {
                         {viewingWorker.inductionCompleted ? 'Completed' : 'Pending'}
                       </Badge>
                     </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">CSCS Status</span>
+                      <Badge variant={
+                        viewingWorker.cscsStatus === 'valid' ? "default" : 
+                        viewingWorker.cscsStatus === 'expired' ? "destructive" : 
+                        "outline"
+                      }>
+                        {viewingWorker.cscsStatus || 'None'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">IPAF Status</span>
+                      <Badge variant={
+                        viewingWorker.ipafStatus && viewingWorker.ipafStatus !== 'none' && viewingWorker.ipafStatus !== 'expired' ? "default" : 
+                        viewingWorker.ipafStatus === 'expired' ? "destructive" :
+                        "outline"
+                      }>
+                        {viewingWorker.ipafStatus === 'none' ? 'None' : 
+                         viewingWorker.ipafStatus === '3a' ? '3a - Mobile Vertical' :
+                         viewingWorker.ipafStatus === '3b' ? '3b - Mobile Boom' :
+                         viewingWorker.ipafStatus === '1+' ? '1+ - Static Vertical' :
+                         viewingWorker.ipafStatus || 'None'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Transport Method</span>
+                      <Badge variant="outline">
+                        {viewingWorker.transportMethod === 'car_diesel' ? 'Diesel Car' :
+                         viewingWorker.transportMethod === 'car_petrol' ? 'Petrol Car' :
+                         viewingWorker.transportMethod === 'electric_car' ? 'Electric Car' :
+                         viewingWorker.transportMethod === 'van_diesel' ? 'Diesel Van' :
+                         viewingWorker.transportMethod === 'van_petrol' ? 'Petrol Van' :
+                         viewingWorker.transportMethod === 'electric_van' ? 'Electric Van' :
+                         viewingWorker.transportMethod === 'motorbike' ? 'Motorbike' :
+                         viewingWorker.transportMethod === 'public_transport' ? 'Public Transport' :
+                         viewingWorker.transportMethod === 'bicycle' ? 'Bicycle' :
+                         viewingWorker.transportMethod === 'walk' ? 'Walk' :
+                         'Not provided'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Safety Training & Compliance */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Safety Training & Compliance</h3>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Asbestos Awareness</span>
+                    <Badge variant={viewingWorker.asbestosAwareness ? "default" : "outline"}>
+                      {viewingWorker.asbestosAwareness ? 'Completed' : 'Not Completed'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Manual Handling</span>
+                    <Badge variant={viewingWorker.manualHandling ? "default" : "outline"}>
+                      {viewingWorker.manualHandling ? 'Completed' : 'Not Completed'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Working at Height</span>
+                    <Badge variant={viewingWorker.workingAtHeight ? "default" : "outline"}>
+                      {viewingWorker.workingAtHeight ? 'Completed' : 'Not Completed'}
+                    </Badge>
                   </div>
                 </div>
               </div>
