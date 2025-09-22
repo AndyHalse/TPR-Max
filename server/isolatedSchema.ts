@@ -645,6 +645,19 @@ export const contractorWorkers = pgTable("contractor_workers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Worker Notes - Audit trail for worker changes
+export const workerNotes = pgTable("worker_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  changeType: text("change_type").notNull(), // card_reset, certification_update, hs_acceptance, profile_update
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  notes: text("notes"),
+  changedBy: text("changed_by").notNull(), // Username of person who made the change
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Contractor Documents - Stores uploaded documents for contractors
 export const contractorDocuments = pgTable("contractor_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -1813,9 +1813,23 @@ export class DatabaseService {
         updateData.hsRulesAcceptedAt = updates.hsRulesAcceptedAt;
       }
       
-      // AUTOMATIC CARD STATUS CALCULATION
-      console.log(`🔍 AUTO-CALC: Starting automatic card status calculation for worker ${id}`);
-      try {
+      // Handle special update flags
+      const bypassAutoCalculation = (updates as any)._bypassAutoCalculation;
+      if (bypassAutoCalculation) {
+        console.log(`🔄 BYPASS: Skipping auto-calculation due to _bypassAutoCalculation flag`);
+        // Add direct card status from updates if provided
+        if (updates.currentCardStatus !== undefined) {
+          updateData.currentCardStatus = updates.currentCardStatus;
+        }
+        if (updates.redCardBanUntil !== undefined) {
+          updateData.bannedUntil = updates.redCardBanUntil;
+        }
+      }
+
+      // AUTOMATIC CARD STATUS CALCULATION (skip if bypassing)
+      if (!bypassAutoCalculation) {
+        console.log(`🔍 AUTO-CALC: Starting automatic card status calculation for worker ${id}`);
+        try {
         // Get current worker data to check all compliance fields
         console.log(`🔍 AUTO-CALC: Fetching current worker data for ${id}`);
         const currentWorker = await this.getContractorWorkerById(context, id);
@@ -1851,6 +1865,7 @@ export class DatabaseService {
       } catch (error) {
         console.error(`❌ AUTO-CALC: Error during automatic card status calculation:`, error);
       }
+      } // End of auto-calculation bypass check
       
       // No need to remove undefined since we only add defined values
       

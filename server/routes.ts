@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { databaseService } from "./databaseService";
 import { simpleDatabaseService } from "./simpleDatabaseService";
+import { customerDbService, type CustomerContext } from "./customerDatabase";
 import { 
   insertStaffSchema, 
   insertVisitorSchema, 
@@ -5802,37 +5803,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       
       // Get current worker data
-      const currentWorker = await databaseService.getContractorWorker(context, workerId);
+      const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
       if (!currentWorker) {
         return res.status(404).json({ error: 'Worker not found' });
       }
       
-      // Update worker status to yellow
+      // Update worker status to yellow (bypass auto-calculation)
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         currentCardStatus: 'yellow',
-        redCardBanUntil: null // Clear the ban
+        redCardBanUntil: null, // Clear the ban
+        _bypassAutoCalculation: true // Prevent auto-calculation from overriding manual reset
       });
       
       // Create audit trail entry in workerNotes
       const noteData = {
         workerId: workerId,
         changeType: 'card_status_change',
-        fieldChanged: 'currentCardStatus',
         oldValue: currentWorker.currentCardStatus || 'unknown',
         newValue: 'yellow',
-        title: 'Card Status Reset to Yellow',
-        description: `Card status reset from ${currentWorker.currentCardStatus || 'unknown'} to yellow. Ban lifted.`,
-        createdBy: req.session?.userId || 'system',
-        createdByName: username,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        source: 'manual'
+        notes: `Card status reset from ${currentWorker.currentCardStatus || 'unknown'} to yellow. Ban lifted. User: ${username}`,
+        changedBy: username || 'system' // Fixed: use correct database field name
       };
       
       // Insert the note - use direct database access since workerNotes might not be in databaseService yet
       try {
-        const db = await databaseService.getDatabase(context);
-        await db.insert(sharedSchema.workerNotes).values(noteData);
+        const db = await customerDbService.getCustomerDatabase(context.customerId);
+        await db.insert(isolatedSchema.workerNotes).values(noteData);
         console.log('✅ Created audit trail note for card reset');
       } catch (noteError) {
         console.error('⚠️ Failed to create audit note (continuing anyway):', noteError);
