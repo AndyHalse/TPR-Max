@@ -83,6 +83,7 @@ export default function ContractorManagement() {
   // Removed unused showEditWorkerModal and workerToEdit - now using comprehensive modal
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showContractorEditModal, setShowContractorEditModal] = useState(false);
+  const [showCompanyEditDialog, setShowCompanyEditDialog] = useState(false);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
   const [selectedWorkerCompanyName, setSelectedWorkerCompanyName] = useState<string>("");
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
@@ -268,7 +269,7 @@ export default function ContractorManagement() {
         description: "Contractor company updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
-      setShowContractorEditModal(false);
+      setShowCompanyEditDialog(false);
       setSelectedContractor(null);
       setContractorForm({
         name: "",
@@ -428,7 +429,7 @@ export default function ContractorManagement() {
           phone: contractorToEdit.contactPhone || contractorToEdit.phone || "",
         }
       });
-      setShowContractorEditModal(true);
+      setShowCompanyEditDialog(true);
     }
   };
 
@@ -1084,8 +1085,8 @@ export default function ContractorManagement() {
         onOpenChange={setShowContractorEditModal}
       />
       
-      {/* Edit Contractor Dialog */}
-      <Dialog open={showContractorEditModal} onOpenChange={setShowContractorEditModal}>
+      {/* Edit Contractor Company Dialog */}
+      <Dialog open={showCompanyEditDialog} onOpenChange={setShowCompanyEditDialog}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1248,7 +1249,7 @@ export default function ContractorManagement() {
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setShowContractorEditModal(false)}
+              onClick={() => setShowCompanyEditDialog(false)}
               data-testid="button-cancel-edit"
             >
               Cancel
