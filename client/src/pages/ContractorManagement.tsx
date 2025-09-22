@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
-import EditContractorWorkerModal from "@/components/EditContractorWorkerModal";
+// Removed EditContractorWorkerModal import - now using comprehensive ContractorEditModal
 import { ContractorEditModal } from "@/components/ContractorEditModal";
 import ContractorPreBooking from "@/components/ContractorPreBooking";
 import ContractorHSModal from "@/components/ContractorHSModal";
@@ -80,8 +80,7 @@ export default function ContractorManagement() {
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
-  const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
-  const [workerToEdit, setWorkerToEdit] = useState<ContractorWorker | null>(null);
+  // Removed unused showEditWorkerModal and workerToEdit - now using comprehensive modal
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showContractorEditModal, setShowContractorEditModal] = useState(false);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
@@ -445,15 +444,7 @@ export default function ContractorManagement() {
     }
   };
 
-  const handleEditWorker = (worker: ContractorWorker) => {
-    setWorkerToEdit(worker);
-    setShowEditWorkerModal(true);
-  };
-
-  const handleEditWorkerModalClose = () => {
-    setShowEditWorkerModal(false);
-    setWorkerToEdit(null);
-  };
+  // Removed unused handleEditWorker functions - now using comprehensive modal directly
 
   const checkInMutation = useMutation({
     mutationFn: async (workerId: string) => {
@@ -812,8 +803,9 @@ export default function ContractorManagement() {
                           className="flex-1 text-blue-600 hover:bg-blue-50"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setWorkerToEdit(contractor);
-                            setShowEditWorkerModal(true); // Fixed: Opens worker edit modal and sets correct worker
+                            setSelectedWorkerForEdit(contractor);
+                            setSelectedWorkerCompanyName(contractor.companyName);
+                            setShowContractorEditModal(true); // Use comprehensive modal with tabs
                           }}
                           data-testid={`button-edit-worker-${contractor.id}`}
                         >
@@ -1082,20 +1074,13 @@ export default function ContractorManagement() {
         />
       )}
 
-      {/* Edit Contractor Worker Modal */}
-      {workerToEdit && (
-        <EditContractorWorkerModal
-          isOpen={showEditWorkerModal}
-          onClose={handleEditWorkerModalClose}
-          worker={workerToEdit}
-        />
-      )}
+      {/* Removed simple EditContractorWorkerModal - now using comprehensive ContractorEditModal for all edits */}
       
       {/* Contractor Edit Modal with Check-in/out */}
       <ContractorEditModal
         worker={selectedWorkerForEdit}
         companyName={selectedWorkerCompanyName}
-        open={false}
+        open={showContractorEditModal}
         onOpenChange={setShowContractorEditModal}
       />
       
