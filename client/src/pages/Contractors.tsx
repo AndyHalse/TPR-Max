@@ -496,6 +496,28 @@ export default function Contractors() {
     },
   });
 
+  // Reset card to yellow mutation
+  const resetCardMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${workerId}/reset-card`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Card status reset successfully",
+        description: "Worker card has been reset to yellow status" 
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to reset card status", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
   const handleUpdateWorker = () => {
     updateWorkerMutation.mutate(editWorkerForm);
   };
@@ -1481,6 +1503,9 @@ export default function Contractors() {
                     onIssueCard={handleIssueCard}
                     onViewDetails={() => handleViewWorker(worker)}
                     onResendHSDocument={handleResendHSDocument}
+                    onResetCard={(workerId) => {
+                      resetCardMutation.mutate(workerId);
+                    }}
                     hsAssignments={allWorkerHSAssignments[worker.id] || []}
                   />
                 )) : (

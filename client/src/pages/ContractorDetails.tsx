@@ -290,6 +290,28 @@ export default function ContractorDetails() {
     }
   });
 
+  // Reset card to yellow mutation
+  const resetCardMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${workerId}/reset-card`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Card status reset successfully",
+        description: "Worker card has been reset to yellow status" 
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to reset card status", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
   // Host selection state for contractor check-in (same as visitor workflow)
   const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
   const [showHostSelection, setShowHostSelection] = useState(false);
@@ -748,8 +770,7 @@ export default function ContractorDetails() {
                     setIssuingCard(true);
                   }}
                   onResetCard={(workerId) => {
-                    // TODO: Implement card reset functionality
-                    toast({ title: "Card reset functionality coming soon!" });
+                    resetCardMutation.mutate(workerId);
                   }}
                   onViewDetails={(worker) => {
                     setViewingWorker(worker);
