@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import MemoryStore from "memorystore";
+import ConnectPgSimple from "connect-pg-simple";
+import { Pool } from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
@@ -29,13 +30,23 @@ const app = express();
 // Set trust proxy for proper session handling
 app.set('trust proxy', 1);
 
-// CORS middleware
+// CORS middleware - PRODUCTION READY
 app.use((req, res, next) => {
-  // Allow specific origin instead of wildcard when using credentials
   const origin = req.headers.origin;
-  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('replit.dev'))) {
+  
+  // Production CORS allowlist
+  const allowedOrigins = process.env.NODE_ENV === 'production' 
+    ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
+    : ['localhost', '127.0.0.1', 'replit.dev'];
+  
+  const isAllowed = allowedOrigins.some(allowedOrigin => 
+    origin?.includes(allowedOrigin)
+  );
+  
+  if (origin && isAllowed) {
     res.header('Access-Control-Allow-Origin', origin);
   }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -50,32 +61,59 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Enhanced session configuration with proper store and debugging
-const MemoryStoreSession = MemoryStore(session);
+// PRODUCTION-READY session configuration with PostgreSQL store
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Validate required session secret in production
+if (isProduction && !process.env.SESSION_SECRET) {
+  console.error('🔥 FATAL: SESSION_SECRET environment variable is required in production');
+  process.exit(1);
+}
+
+// Configure session store - PostgreSQL for production, development fallback
+let sessionStore;
+if (isProduction || process.env.USE_PG_SESSIONS === 'true') {
+  const PostgreSqlStore = ConnectPgSimple(session);
+  const sessionPool = new Pool({
+    connectionString: process.env.DATABASE_URL
+  });
+  
+  sessionStore = new PostgreSqlStore({
+    pool: sessionPool,
+    tableName: 'session',
+    createTableIfMissing: true,
+    schemaName: 'public'
+  });
+  
+  console.log('🔒 Using PostgreSQL session store for production security');
+} else {
+  // Development fallback - but warn about production readiness
+  const MemoryStore = require('memorystore');
+  const MemoryStoreSession = MemoryStore(session);
+  sessionStore = new MemoryStoreSession({
+    checkPeriod: 86400000,
+    max: 1000,
+    ttl: 24 * 60 * 60 * 1000
+  });
+  
+  console.log('⚠️ Using MemoryStore - NOT suitable for production deployment');
+}
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'visigate-pro-dev-secret-key-2024',
-  name: 'connect.sid', // Use default session cookie name
-  resave: false, // Prevent unnecessary session saves
+  name: 'visigate.session',
+  resave: false,
   saveUninitialized: false,
-  store: new MemoryStoreSession({
-    checkPeriod: 86400000, // prune expired entries every 24h
-    max: 1000, // max number of sessions
-    ttl: 24 * 60 * 60 * 1000, // 24 hours
-    dispose: function(key: string, sess: any) {
-      console.log('🗑️ Session disposed:', key.substring(0, 8) + '...', sess?.userId || 'no-user');
-    },
-    stale: false
-  }),
+  store: sessionStore,
   cookie: {
-    secure: false, // Set to true in production with HTTPS
+    secure: isProduction, // SECURITY: Always secure in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax', // Critical for cross-origin requests
-    path: '/', // Ensure cookie is sent with all requests
-    domain: undefined // Let the browser determine the domain
+    sameSite: isProduction ? 'strict' : 'lax', // Stricter in production
+    path: '/',
+    domain: undefined
   },
-  rolling: false // Prevent session ID churn on every request
+  rolling: false
 }));
 
 // SECURITY FIX: Minimal session debugging that never exposes sensitive data
