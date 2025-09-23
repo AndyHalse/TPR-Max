@@ -137,6 +137,11 @@ function createCSRFMiddleware() {
       return next();
     }
     
+    // Skip CSRF for development authentication (simpler dev workflow)
+    if (req.path === '/api/auth/login' && process.env.NODE_ENV !== 'production') {
+      return next();
+    }
+    
     // Skip CSRF for GET, HEAD, OPTIONS requests (safe methods)
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       return next();
