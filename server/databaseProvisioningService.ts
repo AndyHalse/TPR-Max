@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import { sql } from 'drizzle-orm';
 import ws from 'ws';
 import { randomUUID } from 'crypto';
+import fetch from 'node-fetch';
 import * as isolatedSchema from './isolatedSchema';
 import type { Customer } from '@shared/schema';
 
@@ -19,6 +20,7 @@ neonConfig.webSocketConstructor = ws;
  */
 export class DatabaseProvisioningService {
   private static instance: DatabaseProvisioningService;
+  private readonly neonApiUrl = 'https://console.neon.tech/api/v2';
 
   private constructor() {}
 
@@ -30,28 +32,261 @@ export class DatabaseProvisioningService {
   }
 
   /**
+   * Check if Neon API is available for production database provisioning
+   */
+  private isNeonApiAvailable(): boolean {
+    return !!(process.env.NEON_API_KEY && process.env.NEON_PROJECT_ID);
+  }
+
+  /**
+   * Create a new database using Neon API (Production only)
+   */
+  private async createNeonDatabase(customerId: string): Promise<{ databaseUrl: string; databaseId: string }> {
+    if (!this.isNeonApiAvailable()) {
+      throw new Error('NEON_API_KEY and NEON_PROJECT_ID environment variables required for production database provisioning');
+    }
+
+    const databaseName = `customer_${customerId.replace(/-/g, '_')}`;
+    
+    try {
+      console.log(`🌐 Creating Neon database: ${databaseName}`);
+      
+      const response = await fetch(`${this.neonApiUrl}/projects/${process.env.NEON_PROJECT_ID}/databases`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEON_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          database: {
+            name: databaseName,
+            owner_name: 'visigate_user' // Default database user
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Neon API error (${response.status}): ${errorText}`);
+      }
+
+      const result = await response.json() as { database: { id: string; name: string } };
+      console.log(`✅ Neon database created successfully: ${databaseName}`);
+      
+      // Generate connection URL using the created database
+      const baseUrl = process.env.DATABASE_URL;
+      if (!baseUrl) {
+        throw new Error('DATABASE_URL must be set');
+      }
+      
+      const url = new URL(baseUrl);
+      url.pathname = `/${databaseName}`;
+      
+      return {
+        databaseUrl: url.toString(),
+        databaseId: result.database.id
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to create Neon database for customer ${customerId}:`, error);
+      throw new Error(`Database provisioning failed: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Delete a database using Neon API (Production only)
+   */
+  private async deleteNeonDatabase(databaseId: string): Promise<void> {
+    if (!this.isNeonApiAvailable()) {
+      console.warn('⚠️ Neon API not available - cannot delete database in development');
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting Neon database: ${databaseId}`);
+      
+      const response = await fetch(`${this.neonApiUrl}/projects/${process.env.NEON_PROJECT_ID}/databases/${databaseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEON_API_KEY}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Neon API error (${response.status}): ${errorText}`);
+      }
+
+      console.log(`✅ Neon database deleted successfully: ${databaseId}`);
+    } catch (error) {
+      console.error(`❌ Failed to delete Neon database ${databaseId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Generate database URL for a new customer
    * In development, we'll simulate separate databases using different schemas
-   * In production, this would create actual separate PostgreSQL databases
+   * In production, uses actual separate PostgreSQL databases via Neon API
    */
-  private generateDatabaseUrl(customerId: string): string {
+  private async generateDatabaseUrl(customerId: string): Promise<{ databaseUrl: string; databaseId?: string }> {
     const baseUrl = process.env.DATABASE_URL;
     if (!baseUrl) {
       throw new Error('DATABASE_URL must be set');
     }
 
-    // For development, use same database but different schemas
-    // In production, this would be different database URLs
     if (process.env.NODE_ENV === 'production') {
-      // Production: Create actual separate database
-      const url = new URL(baseUrl);
-      const dbName = `customer_${customerId.replace(/-/g, '_')}`;
-      url.pathname = `/${dbName}`;
-      return url.toString();
+      // Production: Create actual separate database using Neon API
+      const { databaseUrl, databaseId } = await this.createNeonDatabase(customerId);
+      return { databaseUrl, databaseId };
     } else {
       // Development: Use same database with schema isolation
-      return baseUrl;
+      return { databaseUrl: baseUrl };
     }
+  }
+
+  /**
+   * Connection pool lifecycle management
+   */
+  private connectionPools = new Map<string, { pool: Pool; lastUsed: Date; customerId: string }>();
+  private readonly maxPoolAge = 30 * 60 * 1000; // 30 minutes
+  private readonly maxPoolsPerCustomer = 5;
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
+  /**
+   * Start connection pool lifecycle management
+   */
+  startPoolLifecycleManagement(): void {
+    if (this.cleanupInterval) {
+      return; // Already started
+    }
+
+    console.log('🔄 Starting connection pool lifecycle management...');
+    
+    // Clean up unused pools every 10 minutes
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupUnusedPools();
+    }, 10 * 60 * 1000);
+
+    // Graceful shutdown handling
+    process.on('SIGTERM', () => this.gracefulShutdown());
+    process.on('SIGINT', () => this.gracefulShutdown());
+  }
+
+  /**
+   * Get or create connection pool for customer
+   */
+  async getCustomerPool(customerId: string): Promise<Pool> {
+    const existingPool = this.connectionPools.get(customerId);
+    
+    if (existingPool) {
+      existingPool.lastUsed = new Date();
+      return existingPool.pool;
+    }
+
+    // Check pool limits per customer
+    const customerPools = Array.from(this.connectionPools.values())
+      .filter(p => p.customerId === customerId);
+    
+    if (customerPools.length >= this.maxPoolsPerCustomer) {
+      console.warn(`⚠️ Customer ${customerId} has reached max pool limit (${this.maxPoolsPerCustomer})`);
+      // Return the most recently used pool
+      const latestPool = customerPools.sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())[0];
+      latestPool.lastUsed = new Date();
+      return latestPool.pool;
+    }
+
+    // Create new pool
+    const { databaseUrl } = await this.generateDatabaseUrl(customerId);
+    
+    let pool: Pool;
+    
+    if (process.env.NODE_ENV === 'production') {
+      pool = new Pool({ 
+        connectionString: databaseUrl,
+        max: 10, // Maximum 10 connections per customer pool
+        idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+        connectionTimeoutMillis: 10000 // Timeout connection attempts after 10 seconds
+      });
+    } else {
+      const schemaName = this.generateSchemaName(customerId);
+      pool = new Pool({ 
+        connectionString: databaseUrl,
+        options: `-c search_path=${schemaName},public`,
+        max: 5, // Smaller pool for development
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000
+      });
+    }
+
+    this.connectionPools.set(customerId, {
+      pool,
+      lastUsed: new Date(),
+      customerId
+    });
+
+    console.log(`🏊 Created connection pool for customer: ${customerId} (total pools: ${this.connectionPools.size})`);
+    return pool;
+  }
+
+  /**
+   * Clean up unused connection pools
+   */
+  private async cleanupUnusedPools(): Promise<void> {
+    const now = new Date();
+    const poolsToCleanup: string[] = [];
+
+    for (const [customerId, poolInfo] of this.connectionPools.entries()) {
+      if (now.getTime() - poolInfo.lastUsed.getTime() > this.maxPoolAge) {
+        poolsToCleanup.push(customerId);
+      }
+    }
+
+    for (const customerId of poolsToCleanup) {
+      await this.closeCustomerPool(customerId);
+    }
+
+    if (poolsToCleanup.length > 0) {
+      console.log(`🧹 Cleaned up ${poolsToCleanup.length} unused connection pools`);
+    }
+  }
+
+  /**
+   * Close connection pool for specific customer
+   */
+  async closeCustomerPool(customerId: string): Promise<void> {
+    const poolInfo = this.connectionPools.get(customerId);
+    if (!poolInfo) {
+      return;
+    }
+
+    try {
+      await poolInfo.pool.end();
+      this.connectionPools.delete(customerId);
+      console.log(`🔌 Closed connection pool for customer: ${customerId}`);
+    } catch (error) {
+      console.error(`❌ Error closing pool for customer ${customerId}:`, error);
+    }
+  }
+
+  /**
+   * Graceful shutdown - close all connection pools
+   */
+  async gracefulShutdown(): Promise<void> {
+    console.log('🛑 Graceful shutdown: Closing all connection pools...');
+    
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+
+    const shutdownPromises = Array.from(this.connectionPools.keys())
+      .map(customerId => this.closeCustomerPool(customerId));
+
+    await Promise.allSettled(shutdownPromises);
+    console.log('✅ All connection pools closed');
   }
 
   /**
@@ -68,7 +303,7 @@ export class DatabaseProvisioningService {
    * Create customer-specific database connection with proper schema isolation
    */
   private async createCustomerConnection(customerId: string): Promise<{ pool: Pool; db: ReturnType<typeof drizzle>; schemaName: string | null }> {
-    const databaseUrl = this.generateDatabaseUrl(customerId);
+    const { databaseUrl } = await this.generateDatabaseUrl(customerId);
     
     if (process.env.NODE_ENV === 'production') {
       // Production: Each customer has their own database
@@ -100,7 +335,7 @@ export class DatabaseProvisioningService {
     let pool: Pool | null = null;
     
     try {
-      const databaseUrl = this.generateDatabaseUrl(customerId);
+      const { databaseUrl } = await this.generateDatabaseUrl(customerId);
       
       // Production: Create actual separate database
       if (process.env.NODE_ENV === 'production') {
