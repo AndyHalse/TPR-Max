@@ -1060,10 +1060,7 @@ export const insertUserInvitationSchema = createInsertSchema(userInvitations).om
   createdAt: true,
 });
 
-export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({
-  id: true,
-  updatedAt: true,
-});
+// REMOVED: Company Settings schema moved to isolatedSchema.ts for proper customer isolation
 
 export const insertReportSchema = createInsertSchema(reports).omit({
   id: true,
@@ -1100,8 +1097,7 @@ export type InsertEvacuationAccountability = z.infer<typeof insertEvacuationAcco
 export type User = typeof users.$inferSelect;
 export type SelectEvacuationAccountability = typeof evacuationAccountability.$inferSelect;
 export type UserInvitation = typeof userInvitations.$inferSelect;
-export type CompanySettings = typeof companySettings.$inferSelect;
-export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+// REMOVED: CompanySettings types moved to isolatedSchema.ts for proper customer isolation
 export type PrinterConfiguration = typeof printerConfigurations.$inferSelect;
 export type InsertPrinterConfiguration = z.infer<typeof insertPrinterConfigurationSchema>;
 export type Report = typeof reports.$inferSelect;
@@ -2593,8 +2589,7 @@ export type DocumentAutoFillMapping = typeof documentAutoFillMapping.$inferSelec
 export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFillMappingSchema>;
 
 // SECURITY: Company Settings Types with Sanitization
-export type CompanySettings = typeof companySettings.$inferSelect;
-export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+// REMOVED: CompanySettings types moved to isolatedSchema.ts for proper customer isolation
 
 // SECURITY: Sanitized Company Settings type - EXCLUDES sensitive fields for API responses
 export type SanitizedCompanySettings = Omit<CompanySettings, 

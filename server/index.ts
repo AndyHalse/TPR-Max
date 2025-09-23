@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "pg";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
+import crypto from "crypto";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
@@ -36,12 +39,26 @@ app.use((req, res, next) => {
   
   // Production CORS allowlist
   const allowedOrigins = process.env.NODE_ENV === 'production' 
-    ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
-    : ['localhost', '127.0.0.1', 'replit.dev'];
+    ? (process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [])
+    : ['http://localhost:5000', 'https://localhost:5000', 'http://127.0.0.1:5000', 'https://127.0.0.1:5000'];
   
-  const isAllowed = allowedOrigins.some(allowedOrigin => 
-    origin?.includes(allowedOrigin)
-  );
+  // SECURITY FIX: Exact origin matching to prevent subdomain attacks
+  const isAllowed = allowedOrigins.some(allowedOrigin => {
+    if (!origin) return false;
+    
+    // Parse origins to compare properly
+    try {
+      const originUrl = new URL(origin);
+      const allowedUrl = allowedOrigin.includes('://') ? new URL(allowedOrigin) : new URL(`https://${allowedOrigin}`);
+      
+      // Exact host and port matching (protocol flexible for dev)
+      return originUrl.hostname === allowedUrl.hostname && 
+             originUrl.port === allowedUrl.port;
+    } catch {
+      // Fallback to exact string matching for invalid URLs
+      return origin === allowedOrigin;
+    }
+  });
   
   if (origin && isAllowed) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -58,8 +75,89 @@ app.use((req, res, next) => {
   }
 });
 
+// SECURITY: Rate limiting for authentication and sensitive routes
+const authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs for auth
+  message: {
+    error: 'Too many authentication attempts, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Skip rate limiting for trusted internal calls
+  skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1'
+});
+
+const generalRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes  
+  max: 1000, // Limit each IP to 1000 requests per windowMs
+  message: {
+    error: 'Too many requests, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1'
+});
+
+// Apply rate limiting
+app.use('/api/auth', authRateLimit);
+app.use('/api/onboarding', authRateLimit);
+app.use('/api', generalRateLimit);
+
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// SECURITY: Modern CSRF Protection using double-submit cookie pattern
+function generateCSRFToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function createCSRFMiddleware() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Skip CSRF for Stripe webhooks (they use signature verification)
+    if (req.path === '/api/stripe/webhook') {
+      return next();
+    }
+    
+    // Skip CSRF for GET, HEAD, OPTIONS requests (safe methods)
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      return next();
+    }
+    
+    const token = req.headers['x-csrf-token'] as string;
+    const cookie = req.cookies?.['csrf-token'];
+    
+    // Check if token matches cookie (double-submit pattern)
+    if (!token || !cookie || token !== cookie) {
+      return res.status(403).json({ 
+        error: 'CSRF token missing or invalid',
+        code: 'CSRF_INVALID'
+      });
+    }
+    
+    next();
+  };
+}
+
+// CSRF token endpoint
+app.get('/api/csrf-token', (req, res) => {
+  const token = generateCSRFToken();
+  
+  res.cookie('csrf-token', token, {
+    httpOnly: false, // Client needs to read this for header
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 1000 // 1 hour
+  });
+  
+  res.json({ csrfToken: token });
+});
+
+// Apply CSRF protection to all routes except safe methods and excluded paths
+app.use(createCSRFMiddleware());
 
 // PRODUCTION-READY session configuration with PostgreSQL store
 const isProduction = process.env.NODE_ENV === 'production';
@@ -88,7 +186,7 @@ if (isProduction || process.env.USE_PG_SESSIONS === 'true') {
   console.log('🔒 Using PostgreSQL session store for production security');
 } else {
   // Development fallback - but warn about production readiness
-  const MemoryStore = require('memorystore');
+  const { default: MemoryStore } = await import('memorystore');
   const MemoryStoreSession = MemoryStore(session);
   sessionStore = new MemoryStoreSession({
     checkPeriod: 86400000,

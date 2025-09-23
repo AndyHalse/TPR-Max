@@ -4,10 +4,10 @@ import { storage } from "./storage";
 import { databaseService } from "./databaseService";
 import { simpleDatabaseService } from "./simpleDatabaseService";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
+import { insertCompanySettingsSchema } from "./isolatedSchema";
 import { 
   insertStaffSchema, 
   insertVisitorSchema, 
-  insertCompanySettingsSchema, 
   insertPreBookingSchema, 
   insertUserSchema, 
   insertUserInvitationSchema,
