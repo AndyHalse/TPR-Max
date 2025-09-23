@@ -11836,7 +11836,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tenantData = req.body;
       // Override frontend's fake customerId with the correct one
+      console.log(`🔍 Frontend sent customerId: ${tenantData.customerId}`);
+      console.log(`🔍 Context customerId: ${context.customerId}`);
       tenantData.customerId = context.customerId;
+      console.log(`🔍 Using final customerId: ${tenantData.customerId}`);
       
       const tenant = await storage.createTenantCompany(tenantData);
       console.log(`🏢 Created new tenant company: ${tenant.companyName} (${tenant.slug}) for customer: ${context.customerId}`);
