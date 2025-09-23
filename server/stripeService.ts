@@ -295,6 +295,7 @@ export class StripeService {
       country?: string;
       postal_code?: string;
     };
+    metadata?: Record<string, string>;
   }) {
     if (!this.isStripeAvailable()) {
       console.warn('⚠️ Stripe not configured - skipping customer creation in development mode');
@@ -318,7 +319,8 @@ export class StripeService {
           visigate_customer_id: data.customerId,
           company_name: data.companyName,
           plan_type: 'trial',
-          onboarded_at: new Date().toISOString()
+          onboarded_at: new Date().toISOString(),
+          ...data.metadata
         },
         preferred_locales: ['en-GB']
       });
@@ -489,6 +491,7 @@ export class StripeService {
     billingCycle: 'monthly' | 'yearly';
     successUrl: string;
     cancelUrl: string;
+    metadata?: Record<string, string>;
   }) {
     try {
       console.log(`🔄 Creating Stripe Checkout session for: ${data.customerId}`);
@@ -521,6 +524,7 @@ export class StripeService {
           visigate_customer_id: data.customerId,
           billing_cycle: data.billingCycle,
           company_name: customer.companyName,
+          ...data.metadata,
         },
         subscription_data: {
           metadata: {

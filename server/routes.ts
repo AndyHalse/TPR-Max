@@ -554,9 +554,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create Stripe customer and checkout session
-      const stripeCustomer = await stripeService.createCustomer({
+      const stripeCustomerResponse = await stripeService.createCustomer({
         email: signupSession.contactEmail,
         name: signupSession.companyName,
+        companyName: signupSession.companyName,
+        customerId: signupSession.customerId || 'temp-id',
         metadata: {
           signupSessionId: sessionId,
           companyName: signupSession.companyName,
@@ -564,9 +566,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
+      if (!stripeCustomerResponse.success || !stripeCustomerResponse.stripeCustomer) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create Stripe customer'
+        });
+      }
+
       // Create checkout session
-      const checkoutSession = await stripeService.createCheckoutSession({
-        customerId: stripeCustomer.id,
+      const checkoutSessionResponse = await stripeService.createCheckoutSession({
+        customerId: stripeCustomerResponse.stripeCustomer.id,
         priceId: process.env.STRIPE_PROFESSIONAL_PRICE_ID || 'price_1234567890', // Professional plan
         billingCycle: 'monthly',
         successUrl,
@@ -577,12 +586,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
+      if (!checkoutSessionResponse.success) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create checkout session'
+        });
+      }
+
       console.log(`💳 Stripe checkout session created for: ${signupSession.companyName}`);
       
       res.json({
         success: true,
-        checkoutUrl: checkoutSession.url,
-        sessionId: checkoutSession.id
+        checkoutUrl: checkoutSessionResponse.checkoutUrl,
+        sessionId: checkoutSessionResponse.sessionId
       });
       
     } catch (error) {
