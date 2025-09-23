@@ -653,15 +653,15 @@ export default function Dashboard() {
               </div>
             </GlassCard>
             
-            <GlassCard hover className="cursor-pointer dark:glass-dark" onClick={() => setOpenModal('total-people')}>
+            <GlassCard hover className="cursor-pointer dark:glass-dark" onClick={() => setLocation('/multi-tenant')}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-variable text-sm font-medium">Total People</p>
-                  <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-building-occupancy">
-                    {((stats?.currentVisitors || 0) + (stats?.staffOnSite || 0) + (stats?.contractorsOnSite || 0))}
+                  <p className="text-variable text-sm font-medium">Today's Activity</p>
+                  <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-tenant-activity">
+                    {stats?.todayCheckins || 0}
                   </p>
                   <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    All people on-site
+                    Today's check-ins
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
@@ -2352,7 +2352,7 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Equipment</span>
                     <span className="text-base">
-                      {meetingRooms?.find(room => room.name === selectedMeetingBooking.roomName)?.equipment?.join(', ') || 'Standard AV equipment'}
+                      {'Standard AV equipment'}
                     </span>
                   </div>
                 </div>
