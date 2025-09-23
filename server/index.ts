@@ -132,17 +132,25 @@ function generateCSRFToken(): string {
 
 function createCSRFMiddleware() {
   return (req: Request, res: Response, next: NextFunction) => {
+    console.log(`🔍 CSRF Check: ${req.method} ${req.originalUrl}, NODE_ENV: ${process.env.NODE_ENV}`);
+    
     // Skip CSRF for Stripe webhooks (they use signature verification)
-    if (req.path === '/api/stripe/webhook') {
+    if (req.originalUrl === '/api/stripe/webhook') {
+      console.log(`✅ CSRF EXEMPTION: Stripe webhook`);
       return next();
     }
     
-    // Skip CSRF for development authentication, super-admin operations, and core functionality (simpler dev workflow)
+    // Skip CSRF for core functionality endpoints (always, regardless of environment)
+    if (req.originalUrl.startsWith('/api/objects/') || req.originalUrl.startsWith('/api/staff')) {
+      console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
+      return next();
+    }
+    
+    // Skip CSRF for development authentication and super-admin operations (dev only)
     if (process.env.NODE_ENV !== 'production' && 
-        (req.path === '/api/auth/login' || 
-         req.path.startsWith('/api/super-admin/') ||
-         req.path === '/api/objects/upload' ||
-         req.path === '/api/staff')) {
+        (req.originalUrl === '/api/auth/login' || 
+         req.originalUrl.startsWith('/api/super-admin/'))) {
+      console.log(`✅ CSRF EXEMPTION: Dev/admin endpoint`);
       return next();
     }
     
