@@ -11823,11 +11823,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/super-admin/tenants", async (req, res) => {
+  app.post("/api/super-admin/tenants", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      // Only allow super admin access for Andy (dev-customer-001)
+      if (context.customerId !== 'dev-customer-001') {
+        return res.status(403).json({ error: 'Access denied - Super admin only' });
+      }
+      
       const tenantData = req.body;
+      // Override frontend's fake customerId with the correct one
+      tenantData.customerId = context.customerId;
+      
       const tenant = await storage.createTenantCompany(tenantData);
-      console.log(`🏢 Created new tenant company: ${tenant.companyName} (${tenant.slug})`);
+      console.log(`🏢 Created new tenant company: ${tenant.companyName} (${tenant.slug}) for customer: ${context.customerId}`);
       res.json(tenant);
     } catch (error) {
       console.error("Error creating tenant:", error);
