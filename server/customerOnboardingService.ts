@@ -427,18 +427,18 @@ export class CustomerOnboardingService {
           throw new Error('Failed to ensure VisiGate Pro subscription plan exists');
         }
 
-        const [plan] = await managementDb
+        let plan = await managementDb
           .select()
           .from(sharedSchema.subscriptionPlans)
           .where(eq(sharedSchema.subscriptionPlans.name, 'visigate_pro'))
-          .limit(1);
+          .limit(1)
+          .then(results => results[0]);
 
         if (!plan) {
           // Create fallback plan if database query fails but Stripe setup succeeded
           if (planResult.success && planResult.subscriptionPlan) {
             // Plan was just created, use it
-            const fallbackPlan = planResult.subscriptionPlan;
-            plan = fallbackPlan;
+            plan = planResult.subscriptionPlan;
           } else {
             throw new Error('VisiGate Pro subscription plan not found and could not be created. Please run setup first.');
           }
