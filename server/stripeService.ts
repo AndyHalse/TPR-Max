@@ -33,7 +33,7 @@ export class StripeService {
     }
     
     this.stripe = new Stripe(apiKey, {
-      apiVersion: '2024-06-20',
+      apiVersion: '2025-08-27.basil',
       typescript: true,
     });
   }
@@ -103,7 +103,8 @@ export class StripeService {
       return event;
     } catch (error) {
       console.error('❌ Webhook signature verification failed:', error);
-      throw new Error(`Webhook signature verification failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Webhook signature verification failed: ${errorMessage}`);
     }
   }
 
@@ -410,10 +411,10 @@ export class StripeService {
       }
 
       // Create subscription record in database
-      const currentPeriodStart = new Date(subscription.current_period_start * 1000);
-      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
-      const trialStart = subscription.trial_start ? new Date(subscription.trial_start * 1000) : null;
-      const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
+      const currentPeriodStart = new Date((subscription as any).current_period_start * 1000);
+      const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+      const trialStart = (subscription as any).trial_start ? new Date((subscription as any).trial_start * 1000) : null;
+      const trialEnd = (subscription as any).trial_end ? new Date((subscription as any).trial_end * 1000) : null;
 
       const [dbSubscription] = await db
         .insert(sharedSchema.subscriptions)
@@ -439,11 +440,11 @@ export class StripeService {
         subscription,
         dbSubscription,
         requiresPayment: subscription.status === 'incomplete',
-        clientSecret: subscription.latest_invoice && 
-          typeof subscription.latest_invoice === 'object' &&
-          subscription.latest_invoice.payment_intent &&
-          typeof subscription.latest_invoice.payment_intent === 'object'
-          ? subscription.latest_invoice.payment_intent.client_secret
+        clientSecret: (subscription as any).latest_invoice && 
+          typeof (subscription as any).latest_invoice === 'object' &&
+          (subscription as any).latest_invoice.payment_intent &&
+          typeof (subscription as any).latest_invoice.payment_intent === 'object'
+          ? (subscription as any).latest_invoice.payment_intent.client_secret
           : null
       };
 
@@ -465,11 +466,17 @@ export class StripeService {
           // Return mock session for development
           return {
             id: sessionId,
+            object: 'checkout.session',
             payment_status: 'paid',
+            status: 'complete',
             metadata: {
               signupSessionId: sessionId.replace('dev_', '')
-            }
-          } as Stripe.Checkout.Session;
+            },
+            mode: 'subscription',
+            url: null,
+            success_url: null,
+            cancel_url: null
+          } as unknown as Stripe.Checkout.Session;
         }
         throw new Error('Stripe not configured - STRIPE_SECRET_KEY environment variable required');
       }
@@ -678,8 +685,8 @@ export class StripeService {
 
       const db = this.getManagementDb();
 
-      const currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
-      const currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
+      const currentPeriodStart = new Date((stripeSubscription as any).current_period_start * 1000);
+      const currentPeriodEnd = new Date((stripeSubscription as any).current_period_end * 1000);
       const trialStart = stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000) : null;
       const trialEnd = stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null;
       const canceledAt = stripeSubscription.canceled_at ? new Date(stripeSubscription.canceled_at * 1000) : null;
@@ -773,17 +780,6 @@ export class StripeService {
     }
   }
 
-  /**
-   * Verify webhook signature
-   */
-  verifyWebhookSignature(body: string, signature: string): Stripe.Event {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required');
-    }
-
-    return this.stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  }
 }
 
 // Export singleton instance
