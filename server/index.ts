@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
+import { healthCheckService } from "./healthChecks";
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
@@ -32,6 +33,8 @@ const app = express();
 
 // Set trust proxy for proper session handling
 app.set('trust proxy', 1);
+
+// Health check endpoints are now registered in registerRoutes() for proper priority
 
 // CORS middleware - PRODUCTION READY
 app.use((req, res, next) => {

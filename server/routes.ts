@@ -79,6 +79,13 @@ import { stripeService } from "./stripeService";
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // AWS Health Check endpoints (HIGHEST PRIORITY - before any other routes)
+  // These endpoints are critical for load balancer health checks and monitoring
+  const { healthCheckService } = await import("./healthChecks");
+  app.get('/livez', healthCheckService.liveness.bind(healthCheckService));
+  app.get('/readyz', healthCheckService.readiness.bind(healthCheckService));
+  app.get('/healthz', healthCheckService.combined.bind(healthCheckService));
+  
   // Register billing routes (includes Stripe webhook)
   registerBillingRoutes(app);
   
