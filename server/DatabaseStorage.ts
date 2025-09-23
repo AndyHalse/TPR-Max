@@ -5,7 +5,7 @@
 import type { MeetingRoom, InsertMeetingRoom, RoomBooking, InsertRoomBooking, RoomBookingWithRelations, RoomBookingAttendee, InsertRoomBookingAttendee, RoomBookingWaitlist, InsertRoomBookingWaitlist } from "@shared/schema";
 import { db } from "./db";
 import { 
-  staff, staffSessions, visitors, users, companySettings, reports, preBookings, userInvitations,
+  staff, staffSessions, visitors, users, reports, preBookings, userInvitations,
   contractorCompanies, contractorWorkers, contractorVisits, complianceDocuments, documentTypes, workerCompetencies,
   documentApprovals, departments, cardOffences, cardIssues, workerCertifications, ramsDocuments,
   co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings
