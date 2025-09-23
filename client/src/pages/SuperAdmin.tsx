@@ -142,6 +142,7 @@ export default function SuperAdmin() {
       adminEmail: formData.get("adminEmail") as string,
       maxUsers: parseInt(formData.get("maxUsers") as string) || 50,
       maxVisitorsPerMonth: parseInt(formData.get("maxVisitorsPerMonth") as string) || 1000,
+      customerId: `tenant-${Date.now()}`, // Auto-generate unique customer ID
     };
 
     addTenantMutation.mutate(tenantData);
