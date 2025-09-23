@@ -11,14 +11,24 @@ import * as isolatedSchema from './isolatedSchema';
 
 // Dev Auth Bypass - centralized development authentication
 export function isDevAuthBypass(): boolean {
-  // Auto-enable when Neon database is disabled or DEV_AUTH_BYPASS is set
-  return process.env.NODE_ENV === 'development' || process.env.DEV_AUTH_BYPASS === 'true';
+  // SECURITY: Force disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+  
+  // Only enable in development with explicit flag
+  return process.env.NODE_ENV === 'development' && process.env.DEV_AUTH_BYPASS === 'true';
 }
 
 // Dev Data Bypass - centralized development data bypass
 export function isDevDataBypass(): boolean {
-  // Auto-enable when Neon database is disabled or DEV_DATA_BYPASS is set
-  return process.env.NODE_ENV === 'development' || process.env.DEV_DATA_BYPASS === 'true';
+  // SECURITY: Force disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+  
+  // Only enable in development with explicit flag
+  return process.env.NODE_ENV === 'development' && process.env.DEV_DATA_BYPASS === 'true';
 }
 
 // Check if an error is related to Neon database being disabled
@@ -31,6 +41,15 @@ export function isNeonDisabledError(error: any): boolean {
 }
 
 export function getDevUser() {
+  // SECURITY: Force disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Development user access disabled in production');
+  }
+  
+  if (!isDevAuthBypass()) {
+    throw new Error('Development user access disabled');
+  }
+  
   return {
     id: 'dev-user-andy',
     username: 'Andy',
@@ -40,6 +59,16 @@ export function getDevUser() {
 }
 
 export function isValidDevCredentials(company: string, username: string, password: string): boolean {
+  // SECURITY: Force disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+  
+  // Only allow in development with explicit bypass enabled
+  if (!isDevAuthBypass()) {
+    return false;
+  }
+  
   return company === 'Development Customer' && 
          username === 'Andy' && 
          password === 'Kubo1966&&';
