@@ -9,11 +9,16 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
 import { healthCheckService } from "./healthChecks";
+import { logger, requestLoggingMiddleware, securityLogger } from "./utils/logger";
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
-  console.error('🔥 Uncaught Exception:', error);
-  console.error('Stack trace:', error.stack);
+  logger.error('Uncaught Exception - Critical application error', {
+    error: error.message,
+    stack: error.stack,
+    critical: true,
+    eventType: 'uncaught_exception'
+  });
   // Don't exit the process in development to keep the server running
   if (process.env.NODE_ENV === 'production') {
     process.exit(1);
@@ -21,8 +26,12 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('🔥 Unhandled Rejection at:', promise);
-  console.error('Reason:', reason);
+  logger.error('Unhandled Promise Rejection - Potential memory leak', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+    critical: true,
+    eventType: 'unhandled_rejection'
+  });
   // Don't exit the process in development to keep the server running
   if (process.env.NODE_ENV === 'production') {
     process.exit(1);
@@ -35,6 +44,9 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Health check endpoints are now registered in registerRoutes() for proper priority
+
+// Structured logging middleware - AWS CloudWatch ready
+app.use(requestLoggingMiddleware);
 
 // CORS middleware - PRODUCTION READY
 app.use((req, res, next) => {
@@ -269,18 +281,21 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    console.log('🚀 Starting VisiGate Pro server...');
+    logger.info('Starting VisiGate Pro server', {
+      environment: process.env.NODE_ENV || 'development',
+      eventType: 'server_startup'
+    });
     
     // Initialize developer user
-    console.log('👤 Initializing developer user...');
+    logger.info('Initializing developer user');
     await AuthService.initializeDeveloperUser();
     
-    console.log('🛣️ Registering routes...');
+    logger.info('Registering routes');
     const server = await registerRoutes(app);
 
     // Seed induction questions on startup
     try {
-      console.log('🌱 Seeding induction questions...');
+      logger.info('Seeding induction questions');
       const { seedInductionQuestions } = await import("./seedInductionQuestions");
       await seedInductionQuestions();
       
@@ -342,7 +357,11 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
-      console.log('✅ ViliGate Pro server started successfully!');
+      logger.info('VisiGate Pro server started successfully', {
+        port: port,
+        environment: process.env.NODE_ENV || 'development',
+        eventType: 'server_ready'
+      });
       log(`serving on port ${port}`);
     });
   } catch (error) {
