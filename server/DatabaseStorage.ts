@@ -2831,13 +2831,6 @@ export class DatabaseStorage implements IStorage {
     return tenant;
   }
 
-  async getStaffByTenant(tenantId: string): Promise<Staff[]> {
-    return await db.select().from(staff).where(eq(staff.tenantCompanyId, tenantId));
-  }
-
-  async getVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    return await db.select().from(visitors).where(eq(visitors.visitingTenantId, tenantId));
-  }
 
   async getPreBookedVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
     return await db.select().from(visitors).where(
