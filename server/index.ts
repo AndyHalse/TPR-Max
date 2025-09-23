@@ -137,9 +137,12 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // Skip CSRF for development authentication and super-admin operations (simpler dev workflow)
+    // Skip CSRF for development authentication, super-admin operations, and core functionality (simpler dev workflow)
     if (process.env.NODE_ENV !== 'production' && 
-        (req.path === '/api/auth/login' || req.path.startsWith('/api/super-admin/'))) {
+        (req.path === '/api/auth/login' || 
+         req.path.startsWith('/api/super-admin/') ||
+         req.path === '/api/objects/upload' ||
+         req.path === '/api/staff')) {
       return next();
     }
     
