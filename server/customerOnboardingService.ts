@@ -222,7 +222,6 @@ export class CustomerOnboardingService {
         : null;
       
       const customerData: InsertCustomer = {
-        id: customerId,
         companyName: request.companyName,
         slug: customerSlug,
         contactEmail: request.contactEmail,
@@ -241,7 +240,7 @@ export class CustomerOnboardingService {
         .values(customerData)
         .returning();
       
-      return { customer, customerId };
+      return { customer, customerId: customer.id };
       
     } finally {
       await managementPool.end();
@@ -396,11 +395,11 @@ export class CustomerOnboardingService {
     } catch (error) {
       console.error(`Failed to create Stripe customer for ${customerId}:`, error);
       // In development mode, don't fail the entire onboarding if Stripe is unavailable
-      if (process.env.NODE_ENV !== 'production' && error.message?.includes('Stripe not configured')) {
+      if (process.env.NODE_ENV !== 'production' && (error instanceof Error && error.message?.includes('Stripe not configured'))) {
         console.warn(`⚠️ Stripe unavailable in development mode - continuing onboarding without billing integration`);
         return { success: false, error: 'Stripe not configured', stripeCustomer: null };
       }
-      throw new Error(`Stripe customer creation failed: ${error}`);
+      throw new Error(`Stripe customer creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -436,7 +435,7 @@ export class CustomerOnboardingService {
 
         if (!plan) {
           // Create fallback plan if database query fails but Stripe setup succeeded
-          if (planResult.success && planResult.subscriptionPlan) {
+          if (planResult.success && 'subscriptionPlan' in planResult && planResult.subscriptionPlan) {
             // Plan was just created, use it
             plan = planResult.subscriptionPlan;
           } else {

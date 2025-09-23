@@ -3108,11 +3108,6 @@ export class MemStorage implements IStorage {
     return existed;
   }
 
-  async getContractorVisitHistory(workerId: string, customerId?: string): Promise<ContractorVisit[]> {
-    // In MemStorage, return empty array as we don't track visit history in memory
-    // This would be properly implemented in DatabaseStorage
-    return [];
-  }
 
   async getAllContractorWorkers(): Promise<ContractorWorker[]> {
     return Array.from(this.contractorWorkers.values());
