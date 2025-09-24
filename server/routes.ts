@@ -5127,7 +5127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/settings", async (req, res) => {
+  app.put("/api/settings", requireAuth, async (req, res) => {
     try {
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
       
