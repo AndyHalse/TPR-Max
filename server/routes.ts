@@ -61,6 +61,7 @@ const staffAuthSchema = z.object({
 });
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { EmailService, emailService } from "./emailService";
+import { VoiceNotificationService } from "./voiceNotificationService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
 import { AuthService, requireAuth, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isNeonDisabledError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
@@ -3511,15 +3512,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // Send host notification if enabled
-        if (settings.ePassHostNotificationEnabled && host?.email) {
-          try {
-            await emailService.sendHostNotification(visitor, host, settings);
+        // Send host notification if enabled (Email + Voice)
+        if (settings.ePassHostNotificationEnabled && host) {
+          let notificationSent = false;
+          
+          // Try voice notification first if enabled and configured
+          if (host.voiceNotificationsEnabled && host.phoneNumber && 
+              (host.preferredNotificationMethod === 'voice' || host.preferredNotificationMethod === 'both')) {
+            try {
+              const voiceService = new VoiceNotificationService(databaseService);
+              const voiceNotification = await voiceService.sendVisitorArrivalNotification(host, visitor);
+              
+              if (voiceNotification) {
+                console.log(`📞 Voice notification sent to host ${host.firstName} ${host.lastName}`);
+                notificationSent = true;
+              } else {
+                console.log(`⚠️ Voice notification not sent - falling back to email`);
+              }
+            } catch (voiceError) {
+              console.error('Failed to send voice notification to host:', voiceError);
+              console.log(`📧 Falling back to email notification`);
+            }
+          }
+          
+          // Send email notification if voice failed or if email is preferred/both
+          if (host.email && (!notificationSent || 
+              host.preferredNotificationMethod === 'email' || 
+              host.preferredNotificationMethod === 'both' ||
+              !host.voiceNotificationsEnabled)) {
+            try {
+              await emailService.sendHostNotification(visitor, host, settings);
+              console.log(`✅ Email notification sent to host ${host.email}`);
+              notificationSent = true;
+            } catch (emailError) {
+              console.error('Failed to send email notification to host:', emailError);
+            }
+          }
+          
+          // Update visitor record if any notification was sent
+          if (notificationSent) {
             await databaseService.updateVisitor(context, visitor.id, {
               hostNotificationSent: true
             });
-          } catch (notifyError) {
-            console.error('Failed to send host notification:', notifyError);
           }
         }
         
