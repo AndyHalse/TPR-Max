@@ -562,7 +562,13 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Host Notifications:</strong> Instant alerts to hosts when visitors arrive with location tracking
+                        <strong>Voice Notifications:</strong> Automatic audio messages announce "visitor John Smith from ABC Company has arrived" directly to hosts via phone systems
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Phone System Integration:</strong> Seamlessly connects with 8x8, Avaya, and other enterprise phone systems for instant voice announcements
                       </span>
                     </div>
                   </div>
@@ -599,7 +605,7 @@ export default function MarketingPage() {
                         <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
                           <span className="text-sm font-semibold text-purple-600 dark:text-purple-300">3</span>
                         </div>
-                        <span className="text-slate-700 dark:text-slate-300">Automatic host notification</span>
+                        <span className="text-slate-700 dark:text-slate-300">Voice message: "Visitor John Smith from ABC Company has arrived"</span>
                       </div>
                     </div>
                   </div>
