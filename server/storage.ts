@@ -392,6 +392,34 @@ export interface IStorage {
   
   // Today's room bookings
   getTodayRoomBookings(): Promise<RoomBooking[]>;
+  
+  // Voice Notification methods
+  createVoiceNotificationLog(insertLog: InsertVoiceNotificationLog): Promise<string>;
+  updateVoiceNotificationLog(id: string, updates: Partial<InsertVoiceNotificationLog>): Promise<VoiceNotificationLog | undefined>;
+  getVoiceNotificationById(id: string): Promise<VoiceNotificationLog | undefined>;
+  getVoiceNotificationLogs(context: CustomerContext, options?: {
+    page?: number;
+    limit?: number;
+    staffId?: string;
+    status?: string;
+  }): Promise<{
+    logs: (VoiceNotificationLog & { staffName?: string })[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
+  getVoiceNotificationAnalytics(context: CustomerContext, options?: {
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalCalls: number;
+    successfulCalls: number;
+    failedCalls: number;
+    successRate: number;
+    avgDuration: number;
+    totalCost: number;
+    byType: Record<string, number>;
+  }>;
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";

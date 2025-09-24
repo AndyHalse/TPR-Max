@@ -56,7 +56,7 @@ interface EightByEightResponse {
 export interface VoiceNotificationRequest {
   staffId: string;
   visitorId?: string;
-  notificationType: 'visitor_arrival' | 'emergency_alert' | 'system_notification';
+  notificationType: 'visitor_arrival' | 'emergency_alert' | 'system_notification' | 'test_call';
   messageText?: string; // Custom message, otherwise generated
   voiceLanguage?: string; // Override staff preference
   voiceProfile?: string; // Override staff preference
@@ -90,7 +90,8 @@ export class VoiceNotificationService {
   async sendVisitorArrivalNotification(
     staff: Staff,
     visitor: Visitor,
-    customMessage?: string
+    customMessage?: string,
+    context?: CustomerContext
   ): Promise<VoiceNotificationLog | null> {
     try {
       // Check if staff has voice notifications enabled and phone number
@@ -112,7 +113,7 @@ export class VoiceNotificationService {
         voiceProfile: staff.voiceProfile || 'en-GB-Standard-A',
       };
 
-      return await this.sendVoiceNotification(request, staff);
+      return await this.sendVoiceNotification(request, staff, context);
     } catch (error) {
       console.error('Error sending visitor arrival voice notification:', error);
       return null;
@@ -124,7 +125,8 @@ export class VoiceNotificationService {
    */
   async sendEmergencyNotification(
     staff: Staff,
-    emergencyMessage: string
+    emergencyMessage: string,
+    context?: CustomerContext
   ): Promise<VoiceNotificationLog | null> {
     try {
       if (!staff.phoneNumber) {
@@ -141,7 +143,7 @@ export class VoiceNotificationService {
         urgentRetry: true,
       };
 
-      return await this.sendVoiceNotification(request, staff);
+      return await this.sendVoiceNotification(request, staff, context);
     } catch (error) {
       console.error('Error sending emergency voice notification:', error);
       return null;
@@ -151,23 +153,27 @@ export class VoiceNotificationService {
   /**
    * Test voice notification (for settings testing)
    */
-  async sendTestNotification(staff: Staff): Promise<VoiceNotificationLog | null> {
+  async sendTestNotification(
+    context: CustomerContext,
+    staff: Staff,
+    testMessage?: string
+  ): Promise<VoiceNotificationLog | null> {
     try {
       if (!staff.phoneNumber) {
         throw new Error('No phone number configured for voice notifications');
       }
 
-      const testMessage = `Hello ${staff.firstName}, this is a test call from VisiGate Pro. Your voice notifications are working correctly.`;
+      const message = testMessage || `Hello ${staff.firstName}, this is a test call from VisiGate Pro. Your voice notifications are working correctly.`;
 
       const request: VoiceNotificationRequest = {
         staffId: staff.id,
         notificationType: 'system_notification',
-        messageText: testMessage,
+        messageText: message,
         voiceLanguage: staff.voiceLanguage || 'en-GB',
         voiceProfile: staff.voiceProfile || 'en-GB-Standard-A',
       };
 
-      return await this.sendVoiceNotification(request, staff);
+      return await this.sendVoiceNotification(request, staff, context);
     } catch (error) {
       console.error('Error sending test voice notification:', error);
       throw error;
@@ -179,7 +185,8 @@ export class VoiceNotificationService {
    */
   private async sendVoiceNotification(
     request: VoiceNotificationRequest,
-    staff: Staff
+    staff: Staff,
+    context?: CustomerContext
   ): Promise<VoiceNotificationLog> {
     // Create initial log entry
     const logData: InsertVoiceNotificationLog = {

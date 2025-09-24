@@ -1699,6 +1699,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Voice Notification endpoints
+  app.get("/api/voice-notifications/logs", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const { page = 1, limit = 50, staffId, status } = req.query;
+      const logs = await databaseService.getVoiceNotificationLogs(context, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        staffId: staffId as string,
+        status: status as string
+      });
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to fetch voice notification logs:", error);
+      res.status(500).json({ error: "Failed to fetch voice notification logs" });
+    }
+  });
+
+  app.post("/api/voice-notifications/test", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const { staffId, customMessage } = req.body;
+      
+      if (!staffId) {
+        return res.status(400).json({ error: "Staff ID is required" });
+      }
+      
+      // Get staff member
+      const staff = await databaseService.getStaffById(context, staffId);
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      
+      // Check if voice notifications are enabled for this staff member
+      if (!staff.voiceNotificationsEnabled || !staff.phoneNumber) {
+        return res.status(400).json({ 
+          error: "Voice notifications not enabled or no phone number configured" 
+        });
+      }
+      
+      // Send test voice notification
+      const voiceService = new VoiceNotificationService(databaseService);
+      const testMessage = customMessage || `Hello ${staff.firstName}, this is a test call from VisiGate Pro voice notification system. Your notifications are working correctly.`;
+      
+      const notification = await voiceService.sendTestNotification(
+        context,
+        staff,
+        testMessage
+      );
+      
+      if (notification) {
+        res.json({ 
+          success: true, 
+          message: "Test voice notification sent successfully",
+          notificationId: notification.id 
+        });
+      } else {
+        res.status(500).json({ error: "Failed to send test voice notification" });
+      }
+    } catch (error) {
+      console.error("Failed to send test voice notification:", error);
+      res.status(500).json({ error: "Failed to send test voice notification" });
+    }
+  });
+
+  app.get("/api/voice-notifications/analytics", requireAuth, async (req, res) => {
+    try {
+      // Get customer context for isolation based on logged-in user
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      
+      const { startDate, endDate } = req.query;
+      
+      const analytics = await databaseService.getVoiceNotificationAnalytics(context, {
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined
+      });
+      
+      res.json(analytics);
+    } catch (error) {
+      console.error("Failed to fetch voice notification analytics:", error);
+      res.status(500).json({ error: "Failed to fetch voice notification analytics" });
+    }
+  });
+
   // Recent activity endpoint
   app.get("/api/activity/recent", requireAuth, async (req, res) => {
     try {
