@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CloudUpload, Upload, X, Shield } from "lucide-react";
+import { CloudUpload, Upload, X, Shield, Phone } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import type { InsertStaff } from "@shared/schema";
 
 interface AddStaffModalProps {
@@ -29,6 +30,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     accessLevel: "staff",
     password: "",
     isFireMarshal: false,
+    phoneNumber: "",
+    voiceNotificationsEnabled: false,
+    preferredNotificationMethod: "email",
+    voiceLanguage: "en-GB",
+    voiceProfile: "en-GB-Standard-A",
   });
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -54,6 +60,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         accessLevel: staffToEdit.accessLevel || "staff",
         password: "", // Never pre-fill password
         isFireMarshal: staffToEdit.isFireMarshal || false,
+        phoneNumber: staffToEdit.phoneNumber || "",
+        voiceNotificationsEnabled: staffToEdit.voiceNotificationsEnabled || false,
+        preferredNotificationMethod: staffToEdit.preferredNotificationMethod || "email",
+        voiceLanguage: staffToEdit.voiceLanguage || "en-GB",
+        voiceProfile: staffToEdit.voiceProfile || "en-GB-Standard-A",
       });
       setUploadedPhoto(staffToEdit.photoUrl || null);
     } else {
@@ -67,6 +78,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         accessLevel: "staff",
         password: "",
         isFireMarshal: false,
+        phoneNumber: "",
+        voiceNotificationsEnabled: false,
+        preferredNotificationMethod: "email",
+        voiceLanguage: "en-GB",
+        voiceProfile: "en-GB-Standard-A",
       });
       setUploadedPhoto(null);
     }
@@ -135,7 +151,22 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
   });
 
   const handleClose = () => {
-    setFormData({ firstName: "", lastName: "", email: "", department: "", employeeId: "", photoUrl: "", accessLevel: "staff", password: "", isFireMarshal: false });
+    setFormData({ 
+      firstName: "", 
+      lastName: "", 
+      email: "", 
+      department: "", 
+      employeeId: "", 
+      photoUrl: "", 
+      accessLevel: "staff", 
+      password: "", 
+      isFireMarshal: false,
+      phoneNumber: "",
+      voiceNotificationsEnabled: false,
+      preferredNotificationMethod: "email",
+      voiceLanguage: "en-GB",
+      voiceProfile: "en-GB-Standard-A",
+    });
     setUploadedPhoto(null);
     onClose();
   };
@@ -231,6 +262,16 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       return;
     }
 
+    // Validate phone number if voice notifications are enabled
+    if (formData.voiceNotificationsEnabled && !formData.phoneNumber.trim()) {
+      toast({
+        title: "Error",
+        description: "Phone number is required when voice notifications are enabled",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Generate employee ID if not provided
     const employeeId = formData.employeeId.trim() || 
       `${formData.department.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-3)}`;
@@ -244,6 +285,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       photoUrl: uploadedPhoto || undefined,
       accessLevel: formData.accessLevel,
       isFireMarshal: formData.isFireMarshal,
+      phoneNumber: formData.phoneNumber.trim() || null,
+      voiceNotificationsEnabled: formData.voiceNotificationsEnabled,
+      preferredNotificationMethod: formData.preferredNotificationMethod,
+      voiceLanguage: formData.voiceLanguage,
+      voiceProfile: formData.voiceProfile,
     };
 
     // Only include password if it's provided and user has admin/supervisor access
@@ -398,6 +444,108 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 Fire Marshals receive emergency notifications and can manage muster points during emergencies
               </p>
             </div>
+          </div>
+          
+          {/* Voice Notification Settings */}
+          <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center space-x-3">
+              <Phone className="h-5 w-5 text-blue-600" />
+              <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Voice Notifications
+              </Label>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-700">
+                Phone Number
+              </Label>
+              <Input
+                id="phoneNumber"
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                placeholder="+44 20 1234 5678"
+                data-testid="input-phone-number"
+              />
+              <p className="text-xs text-slate-500">
+                Required for voice notifications (UK format: +44...)
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <Label className="text-sm font-medium text-slate-700">
+                  Enable Voice Notifications
+                </Label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Receive automated voice calls when visitors arrive
+                </p>
+              </div>
+              <Switch
+                checked={formData.voiceNotificationsEnabled}
+                onCheckedChange={(checked) => handleInputChange("voiceNotificationsEnabled", checked.toString())}
+                data-testid="switch-voice-notifications"
+              />
+            </div>
+            
+            {formData.voiceNotificationsEnabled && formData.phoneNumber && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="preferredNotificationMethod" className="text-sm font-medium text-slate-700">
+                    Preferred Notification Method
+                  </Label>
+                  <Select value={formData.preferredNotificationMethod} onValueChange={(value) => handleInputChange("preferredNotificationMethod", value)}>
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-notification-method">
+                      <SelectValue placeholder="Select notification method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="email">Email Only</SelectItem>
+                      <SelectItem value="voice">Voice Call Only</SelectItem>
+                      <SelectItem value="both">Both Email & Voice</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="voiceLanguage" className="text-sm font-medium text-slate-700">
+                      Voice Language
+                    </Label>
+                    <Select value={formData.voiceLanguage} onValueChange={(value) => handleInputChange("voiceLanguage", value)}>
+                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-voice-language">
+                        <SelectValue placeholder="Select language" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en-GB">English (UK)</SelectItem>
+                        <SelectItem value="en-US">English (US)</SelectItem>
+                        <SelectItem value="fr-FR">French</SelectItem>
+                        <SelectItem value="de-DE">German</SelectItem>
+                        <SelectItem value="es-ES">Spanish</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="voiceProfile" className="text-sm font-medium text-slate-700">
+                      Voice Profile
+                    </Label>
+                    <Select value={formData.voiceProfile} onValueChange={(value) => handleInputChange("voiceProfile", value)}>
+                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-voice-profile">
+                        <SelectValue placeholder="Select voice" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en-GB-Standard-A">Standard Female (UK)</SelectItem>
+                        <SelectItem value="en-GB-Standard-B">Standard Male (UK)</SelectItem>
+                        <SelectItem value="en-GB-Neural2-A">Neural Female (UK)</SelectItem>
+                        <SelectItem value="en-GB-Neural2-B">Neural Male (UK)</SelectItem>
+                        <SelectItem value="en-GB-Neural2-C">Neural Female Alt (UK)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           
           {(formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && (
