@@ -183,6 +183,13 @@ export const staff = pgTable("staff", {
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),
+  // Voice notification settings
+  phoneNumber: text("phone_number"),
+  voiceNotificationsEnabled: boolean("voice_notifications_enabled").default(true).notNull(),
+  emailNotificationsEnabled: boolean("email_notifications_enabled").default(true).notNull(),
+  preferredNotificationMethod: text("preferred_notification_method").default("email"), // email, voice, both
+  voiceLanguage: text("voice_language").default("en-GB"), // Language code for 8x8 TTS
+  voiceProfile: text("voice_profile").default("en-GB-Standard-A"), // Voice profile for 8x8 TTS
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -202,6 +209,61 @@ export const staffSessions = pgTable("staff_sessions", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Voice Notification Logs - Track all voice notification attempts and results
+export const voiceNotificationLogs = pgTable("voice_notification_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // CUSTOMER ISOLATION: Each voice notification belongs to a specific customer
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // Notification details
+  staffId: varchar("staff_id").notNull().references(() => staff.id),
+  visitorId: varchar("visitor_id").references(() => visitors.id),
+  notificationType: text("notification_type").notNull(), // visitor_arrival, emergency_alert, system_notification
+  // Message content
+  messageText: text("message_text").notNull(),
+  voiceLanguage: text("voice_language").default("en-GB").notNull(),
+  voiceProfile: text("voice_profile").default("en-GB-Standard-A").notNull(),
+  // Phone call details
+  recipientPhoneNumber: text("recipient_phone_number").notNull(),
+  sourcePhoneNumber: text("source_phone_number"), // 8x8 source number used
+  // 8x8 API Details
+  eightByEightCallId: text("eight_by_eight_call_id"), // 8x8 call ID for tracking
+  eightByEightCallflowId: text("eight_by_eight_callflow_id"), // Callflow ID from 8x8
+  // Status and Results
+  status: text("status").notNull().default("pending"), // pending, sent, delivered, failed, busy, no_answer
+  deliveryAttempts: integer("delivery_attempts").default(1).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at").defaultNow().notNull(),
+  deliveredAt: timestamp("delivered_at"),
+  failedAt: timestamp("failed_at"),
+  // Error handling
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
+  // Call duration and metrics
+  callDurationSeconds: integer("call_duration_seconds"),
+  audioPlayedSuccessfully: boolean("audio_played_successfully").default(false),
+  // Retry logic
+  maxRetries: integer("max_retries").default(3).notNull(),
+  retryCount: integer("retry_count").default(0).notNull(),
+  nextRetryAt: timestamp("next_retry_at"),
+  // Billing and cost tracking
+  estimatedCost: numeric("estimated_cost", { precision: 10, scale: 4 }).default("0.0000"),
+  costCurrency: text("cost_currency").default("GBP"),
+  // Audit and compliance
+  triggeredBy: text("triggered_by"), // system_event, manual_trigger, emergency_protocol
+  triggeredByUserId: varchar("triggered_by_user_id"), // Admin who manually triggered
+  complianceFlags: text("compliance_flags").array().default([]), // GDPR compliance, call recording consent
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  // Critical indexes for voice notification performance and reporting
+  customerIdIdx: index("voice_notification_logs_customer_id_idx").on(table.customerId),
+  staffIdIdx: index("voice_notification_logs_staff_id_idx").on(table.staffId),
+  statusIdx: index("voice_notification_logs_status_idx").on(table.status),
+  createdAtIdx: index("voice_notification_logs_created_at_idx").on(table.createdAt),
+  eightByEightCallIdIdx: index("voice_notification_logs_8x8_call_id_idx").on(table.eightByEightCallId),
+  deliveryAttemptsIdx: index("voice_notification_logs_delivery_attempts_idx").on(table.deliveryAttempts),
+}));
 
 // Evacuation Accountability table for tracking people during emergency
 export const evacuationAccountability = pgTable("evacuation_accountability", {
@@ -2577,6 +2639,22 @@ export const insertDocumentAutoFillMappingSchema = createInsertSchema(documentAu
   createdAt: true,
   updatedAt: true,
 });
+
+// Insert schema for voice notification logs
+export const insertVoiceNotificationLogSchema = createInsertSchema(voiceNotificationLogs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  messageText: z.string().min(1, "Message text is required"),
+  recipientPhoneNumber: z.string().min(1, "Recipient phone number is required"),
+  notificationType: z.enum(["visitor_arrival", "emergency_alert", "system_notification"]),
+  status: z.enum(["pending", "sent", "delivered", "failed", "busy", "no_answer"]).default("pending"),
+});
+
+// Types for voice notification system
+export type VoiceNotificationLog = typeof voiceNotificationLogs.$inferSelect;
+export type InsertVoiceNotificationLog = z.infer<typeof insertVoiceNotificationLogSchema>;
 
 // Types for UK H&S document system
 export type UkHSDocumentTemplate = typeof ukHSDocumentTemplates.$inferSelect;
