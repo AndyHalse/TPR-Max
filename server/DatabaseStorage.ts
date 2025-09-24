@@ -8,7 +8,8 @@ import {
   staff, staffSessions, visitors, users, reports, preBookings, userInvitations,
   contractorCompanies, contractorWorkers, contractorVisits, complianceDocuments, documentTypes, workerCompetencies,
   documentApprovals, departments, cardOffences, cardIssues, workerCertifications, ramsDocuments,
-  co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings
+  co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings,
+  voiceNotificationLogs
 } from "@shared/schema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
@@ -20,10 +21,11 @@ import type {
   WorkerCertification, InsertWorkerCertification, RamsDocument, InsertRamsDocument,
   Co2Record, InsertCo2Record, LocalLabourRecord, InsertLocalLabourRecord,
   EnhancedCompanyDetails, InsertEnhancedCompanyDetails, NvqQualification, InsertNvqQualification,
-  TenantCompany, InsertTenantCompany, BuildingSettings, InsertBuildingSettings
+  TenantCompany, InsertTenantCompany, BuildingSettings, InsertBuildingSettings,
+  VoiceNotificationLog, InsertVoiceNotificationLog
 } from "@shared/schema";
 import type { IStorage } from "./storage";
-import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, count, isNotNull } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, lt, count, isNotNull, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -2895,5 +2897,161 @@ export class DatabaseStorage implements IStorage {
     // For now, return empty array to stop console errors
     console.log('⚠️ getRoomBookings: Database implementation pending - returning empty array');
     return [];
+  }
+
+  // ======= VOICE NOTIFICATION METHODS =======
+
+  async createVoiceNotificationLog(data: InsertVoiceNotificationLog): Promise<string> {
+    const [created] = await db.insert(voiceNotificationLogs).values({
+      id: randomUUID(),
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning({ id: voiceNotificationLogs.id });
+    
+    return created.id;
+  }
+
+  async updateVoiceNotificationLog(
+    id: string, 
+    updates: Partial<Omit<VoiceNotificationLog, 'id' | 'customerId' | 'createdAt'>>
+  ): Promise<VoiceNotificationLog> {
+    const [updated] = await db
+      .update(voiceNotificationLogs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(voiceNotificationLogs.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error(`Voice notification log with id ${id} not found`);
+    }
+    
+    return updated;
+  }
+
+  async getVoiceNotificationById(id: string): Promise<VoiceNotificationLog | undefined> {
+    const [log] = await db.select().from(voiceNotificationLogs).where(eq(voiceNotificationLogs.id, id));
+    return log;
+  }
+
+  async getVoiceNotificationsByStaff(staffId: string, limit: number = 10): Promise<VoiceNotificationLog[]> {
+    return await db
+      .select()
+      .from(voiceNotificationLogs)
+      .where(eq(voiceNotificationLogs.staffId, staffId))
+      .orderBy(desc(voiceNotificationLogs.createdAt))
+      .limit(limit);
+  }
+
+  async getVoiceNotificationStats(
+    customerId: string, 
+    startDate?: Date, 
+    endDate?: Date
+  ): Promise<{
+    total: number;
+    sent: number;
+    delivered: number;
+    failed: number;
+    avgDuration: number;
+    totalCost: number;
+    byType: Record<string, number>;
+  }> {
+    let query = db.select().from(voiceNotificationLogs).where(eq(voiceNotificationLogs.customerId, customerId));
+    
+    if (startDate) {
+      query = query.where(gte(voiceNotificationLogs.createdAt, startDate));
+    }
+    if (endDate) {
+      query = query.where(lte(voiceNotificationLogs.createdAt, endDate));
+    }
+
+    const logs = await query;
+    
+    const stats = {
+      total: logs.length,
+      sent: logs.filter(l => l.status === 'sent').length,
+      delivered: logs.filter(l => l.status === 'delivered').length,
+      failed: logs.filter(l => l.status === 'failed').length,
+      avgDuration: logs.reduce((sum, l) => sum + (l.callDurationSeconds || 0), 0) / logs.length || 0,
+      totalCost: logs.reduce((sum, l) => sum + parseFloat(l.estimatedCost || '0'), 0),
+      byType: logs.reduce((acc, l) => {
+        acc[l.notificationType] = (acc[l.notificationType] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    };
+    
+    return stats;
+  }
+
+  async getFailedVoiceNotifications(maxRetries: number): Promise<VoiceNotificationLog[]> {
+    return await db
+      .select()
+      .from(voiceNotificationLogs)
+      .where(
+        and(
+          eq(voiceNotificationLogs.status, 'failed'),
+          lt(voiceNotificationLogs.retryCount, maxRetries)
+        )
+      )
+      .orderBy(asc(voiceNotificationLogs.lastAttemptAt));
+  }
+
+  async getVoiceNotificationHistory(
+    customerId: string,
+    page: number = 1,
+    limit: number = 50,
+    staffId?: string,
+    status?: string,
+    notificationType?: string
+  ): Promise<{
+    logs: (VoiceNotificationLog & { staffName: string })[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const offset = (page - 1) * limit;
+    let baseQuery = db
+      .select({
+        log: voiceNotificationLogs,
+        staffName: sql<string>`CONCAT(${staff.firstName}, ' ', ${staff.lastName})`.as('staffName'),
+      })
+      .from(voiceNotificationLogs)
+      .innerJoin(staff, eq(voiceNotificationLogs.staffId, staff.id))
+      .where(eq(voiceNotificationLogs.customerId, customerId));
+
+    // Apply filters
+    if (staffId) {
+      baseQuery = baseQuery.where(eq(voiceNotificationLogs.staffId, staffId));
+    }
+    if (status) {
+      baseQuery = baseQuery.where(eq(voiceNotificationLogs.status, status));
+    }
+    if (notificationType) {
+      baseQuery = baseQuery.where(eq(voiceNotificationLogs.notificationType, notificationType));
+    }
+
+    // Get total count for pagination
+    const [{ count: total }] = await db
+      .select({ count: count() })
+      .from(voiceNotificationLogs)
+      .where(eq(voiceNotificationLogs.customerId, customerId));
+
+    // Get paginated results
+    const results = await baseQuery
+      .orderBy(desc(voiceNotificationLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const logs = results.map(r => ({
+      ...r.log,
+      staffName: r.staffName,
+    }));
+
+    return {
+      logs,
+      total,
+      page,
+      limit,
+    };
   }
 }
