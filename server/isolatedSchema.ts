@@ -436,6 +436,18 @@ export const companySettings = pgTable("company_settings", {
   hsRulesUrl: text("hs_rules_url").default(""), // External URL for H&S rules if not using internal content
   hsRulesRequireAcceptance: boolean("hs_rules_require_acceptance").default(false),
   
+  // Phone System & Voice Notifications Configuration
+  phoneProvider: text("phone_provider").default("8x8"), // 8x8, twilio, ringcentral, vonage
+  voiceNotificationsEnabled: boolean("voice_notifications_enabled").default(false),
+  // 8x8 Voice API Configuration  
+  eightByXApiKey: text("eight_by_x_api_key").default(""),
+  eightByXApiSecret: text("eight_by_x_api_secret").default(""),
+  eightByXAccountId: text("eight_by_x_account_id").default(""),
+  eightByXBaseUrl: text("eight_by_x_base_url").default("https://vcc-eu.8x8.com/api/v1"),
+  // Voice Settings
+  defaultVoiceLanguage: text("default_voice_language").default("en-GB"), // en-GB, en-US, fr-FR, de-DE, es-ES, it-IT
+  defaultVoiceProfile: text("default_voice_profile").default("en-GB-Standard-A"), // Voice profile for text-to-speech
+  
   // Feature Toggles - Allow customers to disable unused features for simplified UI
   featureMultiTenant: boolean("feature_multi_tenant").default(true),
   featureMeetingRooms: boolean("feature_meeting_rooms").default(true),

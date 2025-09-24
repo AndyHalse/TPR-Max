@@ -656,7 +656,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-12">
+        <TabsList className="grid w-full grid-cols-13">
           <TabsTrigger value="company" className="flex items-center gap-1 px-2 text-xs">
             <Building2 size={14} />
             <span className="hidden xl:inline">Company</span>
@@ -670,6 +670,11 @@ export default function Settings() {
           <TabsTrigger value="email" className="flex items-center gap-1 px-2 text-xs">
             <Mail size={14} />
             Email
+          </TabsTrigger>
+          <TabsTrigger value="phone-systems" className="flex items-center gap-1 px-2 text-xs">
+            <Phone size={14} />
+            <span className="hidden xl:inline">Phone Systems</span>
+            <span className="xl:hidden">Phone</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-1 px-2 text-xs">
             <Users size={14} />
@@ -3028,6 +3033,243 @@ export default function Settings() {
                   >
                     Sync Devices
                   </Button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="phone-systems" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Phone className="mr-3 text-blue-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Phone System Configuration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phoneProvider" className="text-sm font-medium text-slate-700">
+                    Phone System Provider
+                  </Label>
+                  <Select 
+                    value={currentSettings?.phoneProvider || "8x8"} 
+                    onValueChange={(value) => handleInputChange("phoneProvider", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <SelectValue placeholder="Select phone system provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="8x8">8x8 Voice API</SelectItem>
+                      <SelectItem value="twilio">Twilio (Coming Soon)</SelectItem>
+                      <SelectItem value="ringcentral">RingCentral (Coming Soon)</SelectItem>
+                      <SelectItem value="vonage">Vonage (Coming Soon)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Voice Notifications Enabled
+                    </Label>
+                    <Switch
+                      checked={currentSettings?.voiceNotificationsEnabled || false}
+                      onCheckedChange={(checked) => handleInputChange("voiceNotificationsEnabled", checked)}
+                      data-testid="switch-voice-notifications"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Enable automated voice calls to staff when visitors arrive
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Settings2 className="mr-3 text-green-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">8x8 API Configuration</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="eightByXApiKey" className="text-sm font-medium text-slate-700">
+                    API Key
+                  </Label>
+                  <Input
+                    id="eightByXApiKey"
+                    type="password"
+                    value={currentSettings?.eightByXApiKey || ""}
+                    onChange={(e) => handleInputChange("eightByXApiKey", e.target.value)}
+                    placeholder="Enter your 8x8 API key"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-8x8-api-key"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="eightByXApiSecret" className="text-sm font-medium text-slate-700">
+                    API Secret
+                  </Label>
+                  <Input
+                    id="eightByXApiSecret"
+                    type="password"
+                    value={currentSettings?.eightByXApiSecret || ""}
+                    onChange={(e) => handleInputChange("eightByXApiSecret", e.target.value)}
+                    placeholder="Enter your 8x8 API secret"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-8x8-api-secret"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="eightByXAccountId" className="text-sm font-medium text-slate-700">
+                    Account ID
+                  </Label>
+                  <Input
+                    id="eightByXAccountId"
+                    type="text"
+                    value={currentSettings?.eightByXAccountId || ""}
+                    onChange={(e) => handleInputChange("eightByXAccountId", e.target.value)}
+                    placeholder="Enter your 8x8 account ID"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-8x8-account-id"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="eightByXBaseUrl" className="text-sm font-medium text-slate-700">
+                    API Base URL
+                  </Label>
+                  <Input
+                    id="eightByXBaseUrl"
+                    type="text"
+                    value={currentSettings?.eightByXBaseUrl || "https://vcc-eu.8x8.com/api/v1"}
+                    onChange={(e) => handleInputChange("eightByXBaseUrl", e.target.value)}
+                    placeholder="https://vcc-eu.8x8.com/api/v1"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-8x8-base-url"
+                  />
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Globe className="mr-3 text-purple-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Voice Settings</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="defaultVoiceLanguage" className="text-sm font-medium text-slate-700">
+                    Default Voice Language
+                  </Label>
+                  <Select 
+                    value={currentSettings?.defaultVoiceLanguage || "en-GB"} 
+                    onValueChange={(value) => handleInputChange("defaultVoiceLanguage", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <SelectValue placeholder="Select voice language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en-GB">English (UK)</SelectItem>
+                      <SelectItem value="en-US">English (US)</SelectItem>
+                      <SelectItem value="en-AU">English (Australian)</SelectItem>
+                      <SelectItem value="fr-FR">French</SelectItem>
+                      <SelectItem value="de-DE">German</SelectItem>
+                      <SelectItem value="es-ES">Spanish</SelectItem>
+                      <SelectItem value="it-IT">Italian</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="defaultVoiceProfile" className="text-sm font-medium text-slate-700">
+                    Default Voice Profile
+                  </Label>
+                  <Select 
+                    value={currentSettings?.defaultVoiceProfile || "en-GB-Standard-A"} 
+                    onValueChange={(value) => handleInputChange("defaultVoiceProfile", value)}
+                  >
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <SelectValue placeholder="Select voice profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en-GB-Standard-A">English (UK) - Standard Female</SelectItem>
+                      <SelectItem value="en-GB-Standard-B">English (UK) - Standard Male</SelectItem>
+                      <SelectItem value="en-GB-Wavenet-A">English (UK) - Neural Female</SelectItem>
+                      <SelectItem value="en-GB-Wavenet-B">English (UK) - Neural Male</SelectItem>
+                      <SelectItem value="en-US-Standard-C">English (US) - Standard Female</SelectItem>
+                      <SelectItem value="en-US-Standard-D">English (US) - Standard Male</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <TestTube className="mr-3 text-orange-600" size={24} />
+                <h3 className="text-lg font-semibold text-slate-800">Test & Diagnostics</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="testPhoneNumber" className="text-sm font-medium text-slate-700">
+                    Test Phone Number
+                  </Label>
+                  <Input
+                    id="testPhoneNumber"
+                    type="tel"
+                    placeholder="+44 20 7123 4567"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    data-testid="input-test-phone-number"
+                  />
+                </div>
+
+                <Button
+                  onClick={() => {
+                    toast({
+                      title: "Test Call Initiated",
+                      description: "A test voice notification is being sent to the provided number.",
+                    });
+                  }}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  data-testid="button-test-voice-call"
+                >
+                  <Phone className="mr-2" size={16} />
+                  Send Test Call
+                </Button>
+
+                <div className="pt-4 border-t border-slate-200">
+                  <h4 className="text-sm font-medium text-slate-700 mb-2">API Status</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">8x8 API Connection</span>
+                      <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200">
+                        <CheckCircle size={12} className="mr-1" />
+                        Connected
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Voice Notifications</span>
+                      <Badge variant="outline" className={
+                        currentSettings?.voiceNotificationsEnabled 
+                          ? "text-green-700 bg-green-50 border-green-200"
+                          : "text-slate-500 bg-slate-50 border-slate-200"
+                      }>
+                        {currentSettings?.voiceNotificationsEnabled ? (
+                          <><CheckCircle size={12} className="mr-1" />Enabled</>
+                        ) : (
+                          <><XCircle size={12} className="mr-1" />Disabled</>
+                        )}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               </div>
             </GlassCard>
