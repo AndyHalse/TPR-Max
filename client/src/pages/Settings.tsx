@@ -656,7 +656,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-13">
+        <TabsList className="flex w-full overflow-x-auto">
           <TabsTrigger value="company" className="flex items-center gap-1 px-2 text-xs">
             <Building2 size={14} />
             <span className="hidden xl:inline">Company</span>
