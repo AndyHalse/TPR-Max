@@ -62,7 +62,7 @@ import {
   Siren,
   Badge as BadgeIcon,
   UserPlus,
-  DollarSign,
+  PoundSterling,
   Timer as TimerIcon
 } from "lucide-react";
 
@@ -107,7 +107,7 @@ export default function MarketingPage() {
     const totalAnnualSavings = annualCostSavings + annualComplianceSavings;
     
     // VisiGate Pro annual cost (estimated based on company size)
-    const monthlySubscription = Math.min(companySize[0] * 12, 15000); // $12 per employee, capped at $15k
+    const monthlySubscription = Math.min(companySize[0] * 10, 12000); // £10 per employee, capped at £12k
     const annualSubscription = monthlySubscription * 12;
     
     // Net savings and ROI
@@ -1127,12 +1127,12 @@ export default function MarketingPage() {
                       Enterprise Architecture
                     </Badge>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                      Multi-Tenant Building Management
+                      Advanced Multi-Tenant Architecture
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Perfect for serviced offices, co-working spaces, and multi-building complexes. 
-                      Complete data isolation between tenants while maintaining centralized management 
-                      and reporting for property managers.
+                      Enterprise-grade multi-tenant solution with secure customer isolation and centralized management. 
+                      Perfect for serviced offices, co-working spaces, and property management companies requiring 
+                      complete data segregation while maintaining unified oversight and comprehensive reporting.
                     </p>
                   </div>
 
@@ -1140,19 +1140,19 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Data Isolation:</strong> Complete privacy between tenants with secure data partitioning
+                        <strong>Secure Customer Isolation:</strong> Enterprise-grade data partitioning with dedicated tenant databases
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Centralized Management:</strong> Building-wide oversight with tenant-specific permissions
+                        <strong>Super Admin Controls:</strong> Comprehensive tenant provisioning with real-time analytics across all customers
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Flexible Billing:</strong> Usage-based reporting for shared services and facilities
+                        <strong>AWS Production Ready:</strong> Scalable cloud infrastructure with automatic deployment and monitoring
                       </span>
                     </div>
                   </div>
@@ -1400,31 +1400,31 @@ export default function MarketingPage() {
                   <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
                     <Lock className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Security Features</h3>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Enterprise Security Features</h3>
                   <div className="space-y-3 text-left">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-sm">Multi-tenant database isolation</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-sm">Session-based authentication (PostgreSQL)</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-sm">CSRF protection & rate limiting</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-sm">AWS production deployment ready</span>
+                    </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300 text-sm">End-to-end encryption (AES-256)</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-sm">Multi-factor authentication</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-sm">Role-based access control</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-sm">Audit trail & logging</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-sm">Data residency controls</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-sm">Regular penetration testing</span>
+                      <span className="text-slate-700 dark:text-slate-300 text-sm">Enterprise audit logging</span>
                     </div>
                   </div>
                 </div>
@@ -1840,7 +1840,7 @@ export default function MarketingPage() {
                       </div>
                     </div>
                     <div className="flex items-start space-x-3">
-                      <DollarSign className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <PoundSterling className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
                       <div>
                         <span className="font-medium text-slate-900 dark:text-white">Insurance liability exposure</span>
                         <p className="text-sm text-slate-600 dark:text-slate-400">Comprehensive audit trails and safety compliance</p>
@@ -2051,7 +2051,7 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <Badge className="mb-4 text-white" style={{backgroundColor: '#2460A9'}} data-testid="badge-roi-calculator">
-              <DollarSign className="h-3 w-3 mr-1" />
+              <PoundSterling className="h-3 w-3 mr-1" />
               Calculate Your ROI
             </Badge>
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
@@ -2154,25 +2154,25 @@ export default function MarketingPage() {
                 <div className="space-y-4" data-testid="control-hourly-cost">
                   <div className="flex justify-between items-center">
                     <label className="text-lg font-medium text-slate-700 dark:text-slate-300">
-                      <DollarSign className="inline h-5 w-5 mr-2" />
+                      <PoundSterling className="inline h-5 w-5 mr-2" />
                       Hourly Admin Cost
                     </label>
                     <span className="text-xl font-bold text-slate-900 dark:text-white" data-testid="value-hourly-cost">
-                      ${hourlyCost[0]}/hour
+                      £{hourlyCost[0]}/hour
                     </span>
                   </div>
                   <Slider
                     value={hourlyCost}
                     onValueChange={setHourlyCost}
                     min={15}
-                    max={75}
+                    max={60}
                     step={5}
                     className="w-full"
                     data-testid="slider-hourly-cost"
                   />
                   <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
-                    <span>$15</span>
-                    <span>$75</span>
+                    <span>£15</span>
+                    <span>£60</span>
                   </div>
                 </div>
 
@@ -2210,21 +2210,21 @@ export default function MarketingPage() {
                       Cost per Incident
                     </label>
                     <span className="text-xl font-bold text-slate-900 dark:text-white" data-testid="value-incident-cost">
-                      ${incidentCost[0].toLocaleString()}
+                      £{incidentCost[0].toLocaleString()}
                     </span>
                   </div>
                   <Slider
                     value={incidentCost}
                     onValueChange={setIncidentCost}
                     min={1000}
-                    max={50000}
+                    max={40000}
                     step={1000}
                     className="w-full"
                     data-testid="slider-incident-cost"
                   />
                   <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
-                    <span>$1K</span>
-                    <span>$50K</span>
+                    <span>£1K</span>
+                    <span>£40K</span>
                   </div>
                 </div>
               </div>
@@ -2246,7 +2246,7 @@ export default function MarketingPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-4 bg-white/70 dark:bg-slate-800/70 rounded-xl" data-testid="metric-annual-savings">
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
-                      ${roiMetrics.totalAnnualSavings.toLocaleString()}
+                      £{roiMetrics.totalAnnualSavings.toLocaleString()}
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-400">Annual Savings</div>
                   </div>
