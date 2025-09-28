@@ -3,8 +3,8 @@ import type { Request, Response, NextFunction } from 'express';
 import type { User, Customer } from '@shared/schema';
 import { storage } from './storage';
 import { CustomerDatabaseService } from './customerDatabase';
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
@@ -31,13 +31,13 @@ export function isDevDataBypass(): boolean {
   return process.env.NODE_ENV === 'development' && process.env.DEV_DATA_BYPASS === 'true';
 }
 
-// Check if an error is related to Neon database being disabled
-export function isNeonDisabledError(error: any): boolean {
+// Check if an error is related to database connectivity issues
+export function isDatabaseConnectionError(error: any): boolean {
   const errorMessage = error?.message || error?.toString() || '';
-  return errorMessage.includes('The endpoint has been disabled') ||
-         errorMessage.includes('Enable it using Neon API and retry') ||
+  return errorMessage.includes('connection') ||
          errorMessage.includes('Failed to create customer') ||
-         errorMessage.includes('Error fetching customer info');
+         errorMessage.includes('Error fetching customer info') ||
+         errorMessage.includes('database');
 }
 
 export function getDevUser() {
@@ -508,7 +508,7 @@ export class AuthService {
       console.error(`🚨 Error looking up customer by company name: ${error}`);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock customer for company lookup');
         // Return a mock customer for any company name in dev mode
         return {
@@ -553,7 +553,7 @@ export class AuthService {
       console.error('Error authenticating user in customer database:', error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock user authentication');
         return {
           id: 'dev-user-001',

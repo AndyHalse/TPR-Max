@@ -1,12 +1,9 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
-import ws from 'ws';
 import { randomUUID } from 'crypto';
 import { customerDbService } from './customerDatabase';
 import { databaseMigrationService } from './databaseMigrationService';
-
-neonConfig.webSocketConstructor = ws;
 
 /**
  * BACKUP AND RESTORE SERVICE

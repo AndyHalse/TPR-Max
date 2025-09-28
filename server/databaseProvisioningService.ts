@@ -1,13 +1,10 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
-import ws from 'ws';
 import { randomUUID } from 'crypto';
 import fetch from 'node-fetch';
 import * as isolatedSchema from './isolatedSchema';
 import type { Customer } from '@shared/schema';
-
-neonConfig.webSocketConstructor = ws;
 
 /**
  * DATABASE PROVISIONING SERVICE

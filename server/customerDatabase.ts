@@ -1,14 +1,11 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
-import ws from "ws";
 import * as schema from "@shared/schema";
 import * as isolatedSchema from "./isolatedSchema";
 import type { Customer } from "@shared/schema";
 import { databaseProvisioningService } from "./databaseProvisioningService";
 import { createMigrationRunner } from "./migrationRunner";
-
-neonConfig.webSocketConstructor = ws;
 
 /**
  * CUSTOMER DATABASE ISOLATION SERVICE
@@ -79,8 +76,8 @@ export class CustomerDatabaseService {
         console.error(`❌ Database provisioning failed: ${error}`);
         
         // DEV DATA BYPASS: Skip database provisioning if Neon is disabled
-        const { isDevDataBypass, isNeonDisabledError } = await import('./auth');
-        if (isDevDataBypass() && isNeonDisabledError(error)) {
+        const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
+        if (isDevDataBypass() && isDatabaseConnectionError(error)) {
           console.log('🚀 DEV_DATA_BYPASS: Skipping database provisioning due to Neon database disabled');
           // Continue with connection setup using the existing database URL
         } else {
@@ -116,8 +113,8 @@ export class CustomerDatabaseService {
       console.error(`❌ Failed to create database connection: ${error}`);
       
       // DEV DATA BYPASS: Return a mock database connection if Neon is disabled
-      const { isDevDataBypass, isNeonDisabledError } = await import('./auth');
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log('🚀 DEV_DATA_BYPASS: Creating mock database connection due to Neon database disabled');
         // Return a mock database object that will be intercepted by endpoint bypass logic
         const mockDb = {} as ReturnType<typeof drizzle>;
@@ -203,8 +200,8 @@ export class CustomerDatabaseService {
       console.error(`🚨 Failed to create customer: ${error}`);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      const { isDevDataBypass, isNeonDisabledError } = await import('./auth');
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock customer creation');
         return {
           id: 'dev-customer-001',

@@ -64,7 +64,7 @@ import { EmailService, emailService } from "./emailService";
 import { VoiceNotificationService } from "./voiceNotificationService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
-import { AuthService, requireAuth, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isNeonDisabledError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
+import { AuthService, requireAuth, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isDatabaseConnectionError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
 import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
@@ -1692,7 +1692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching stats:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock stats");
         const mockStats = getMockCompanyStats();
         return res.json({
@@ -1821,7 +1821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Failed to fetch recent activity:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock recent activity");
         return res.json(getMockRecentActivity());
       }
@@ -1843,7 +1843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Failed to fetch department analytics:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock department analytics");
         return res.json(getMockDepartmentAnalytics());
       }
@@ -1961,7 +1961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Failed to fetch peak hours analytics:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock peak hours analytics");
         return res.json(getMockPeakHoursAnalytics());
       }
@@ -3386,7 +3386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Failed to fetch checked-in staff:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock checked-in staff");
         return res.json(getMockCheckedInStaff());
       }
@@ -3408,7 +3408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Failed to fetch checked-in contractors:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock checked-in contractors");
         return res.json(getMockCheckedInContractors());
       }
@@ -3491,7 +3491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Failed to fetch current visitors:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock current visitors");
         return res.json(getMockCurrentVisitors());
       }
@@ -3512,7 +3512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching today visitors:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock today's visitors");
         return res.json(getMockTodaysVisitors());
       }
@@ -6981,7 +6981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching reception diary:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock reception diary");
         return res.json(getMockReceptionDiary());
       }
@@ -12595,7 +12595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching today's room bookings:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
-      if (isDevDataBypass() && isNeonDisabledError(error)) {
+      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock room bookings");
         return res.json(getMockRoomBookings());
       }
