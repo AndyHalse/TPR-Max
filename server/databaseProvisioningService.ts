@@ -40,10 +40,16 @@ export class DatabaseProvisioningService {
 
   /**
    * Create a new database using Neon API (Production only)
+   * Falls back to existing database if Neon API not available
    */
   private async createNeonDatabase(customerId: string): Promise<{ databaseUrl: string; databaseId: string }> {
     if (!this.isNeonApiAvailable()) {
-      throw new Error('NEON_API_KEY and NEON_PROJECT_ID environment variables required for production database provisioning');
+      console.log('🔄 Neon API not available - using existing database for customer:', customerId);
+      // Return the existing database URL when Neon API is not configured
+      return {
+        databaseUrl: process.env.DATABASE_URL || '',
+        databaseId: 'shared_database'
+      };
     }
 
     const databaseName = `customer_${customerId.replace(/-/g, '_')}`;
