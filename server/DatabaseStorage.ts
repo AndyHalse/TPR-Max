@@ -11,6 +11,7 @@ import {
   co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings,
   voiceNotificationLogs
 } from "@shared/schema";
+import { meetingRooms, roomBookings } from "./isolatedSchema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation,
@@ -2893,10 +2894,80 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRoomBookings(startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]> {
-    // TODO: Implement proper room bookings database query with date filtering
-    // For now, return empty array to stop console errors
-    console.log('⚠️ getRoomBookings: Database implementation pending - returning empty array');
-    return [];
+    try {
+      let query = db
+        .select({
+          id: roomBookings.id,
+          meetingRoomId: roomBookings.meetingRoomId,
+          bookedByStaffId: roomBookings.bookedByStaffId,
+          tenantCompanyId: roomBookings.tenantCompanyId,
+          title: roomBookings.title,
+          description: roomBookings.description,
+          startTime: roomBookings.startTime,
+          endTime: roomBookings.endTime,
+          isRecurring: roomBookings.isRecurring,
+          recurrencePattern: roomBookings.recurrencePattern,
+          status: roomBookings.status,
+          attendeeCount: roomBookings.attendeeCount,
+          setupRequirements: roomBookings.setupRequirements,
+          isPrivate: roomBookings.isPrivate,
+          createdAt: roomBookings.createdAt,
+          updatedAt: roomBookings.updatedAt,
+          // Join room data
+          room: {
+            id: meetingRooms.id,
+            name: meetingRooms.name,
+            description: meetingRooms.description,
+            capacity: meetingRooms.capacity,
+            location: meetingRooms.location,
+            equipment: meetingRooms.equipment,
+            isActive: meetingRooms.isActive,
+            tenantCompanyId: meetingRooms.tenantCompanyId,
+            hourlyRate: meetingRooms.hourlyRate,
+            createdAt: meetingRooms.createdAt,
+            updatedAt: meetingRooms.updatedAt,
+          },
+          // Join organizer/booker staff data
+          organizer: {
+            id: staff.id,
+            firstName: staff.firstName,
+            lastName: staff.lastName,
+            email: staff.email,
+            department: staff.department,
+            isActive: staff.isActive,
+            accessLevel: staff.accessLevel,
+            role: staff.role,
+            phone: staff.phone,
+          }
+        })
+        .from(roomBookings)
+        .leftJoin(meetingRooms, eq(roomBookings.meetingRoomId, meetingRooms.id))
+        .leftJoin(staff, eq(roomBookings.bookedByStaffId, staff.id));
+
+      // Apply date filtering if provided
+      if (startDate) {
+        query = query.where(gte(roomBookings.startTime, startDate));
+      }
+      if (endDate) {
+        query = query.where(lte(roomBookings.endTime, endDate));
+      }
+
+      // Order by start time
+      query = query.orderBy(asc(roomBookings.startTime));
+
+      const results = await query;
+      
+      // Transform results to match expected type
+      return results.map(result => ({
+        ...result,
+        room: result.room || null,
+        organizer: result.organizer || null,
+      })) as RoomBookingWithRelations[];
+      
+    } catch (error) {
+      console.error('❌ Error fetching room bookings:', error);
+      return [];
+    }
   }
 
   // ======= VOICE NOTIFICATION METHODS =======
