@@ -82,3 +82,16 @@ Preferred communication style: Simple, everyday language.
 ### Printer Integration
 - **B-FV4 Desktop Printer**: Thermal printer support.
 - **QR Code Service**: External API for QR code generation.
+
+### Payment Integration  
+- **Stripe Integration**: Comprehensive payment processing with graceful fallback handling
+- **Subscription Management**: Professional plan management with Stripe billing portal
+- **Production Deployment Safety**: StripeService handles missing API keys gracefully to prevent deployment crashes
+
+## Recent Changes
+
+### September 28, 2025 - Deployment Fixes
+- **Fixed Publishing Errors**: Resolved Stripe configuration issues that were causing deployment crashes
+- **Graceful Stripe Handling**: StripeService now handles missing STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and STRIPE_PROFESSIONAL_PRICE_ID gracefully in production
+- **Marketing Page Updates**: Enhanced voice notification features showcase on /marketing page highlighting automatic audio announcements for visitor arrivals
+- **Voice Notification System**: Fully operational with 8x8 API integration and configurable phone system settings

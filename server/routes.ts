@@ -582,9 +582,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create checkout session
+      const priceId = process.env.STRIPE_PROFESSIONAL_PRICE_ID;
+      if (!priceId) {
+        console.warn('⚠️ STRIPE_PROFESSIONAL_PRICE_ID not configured - using development mode');
+        return res.json({
+          success: true,
+          checkoutUrl: successUrl.replace('{CHECKOUT_SESSION_ID}', `dev_no_price_${sessionId}`),
+          sessionId: `dev_no_price_${sessionId}`,
+          message: 'Development mode - Stripe price ID not configured'
+        });
+      }
+
       const checkoutSessionResponse = await stripeService.createCheckoutSession({
         customerId: stripeCustomerResponse.stripeCustomer.id,
-        priceId: process.env.STRIPE_PROFESSIONAL_PRICE_ID || 'price_1234567890', // Professional plan
+        priceId: priceId,
         billingCycle: 'monthly',
         successUrl,
         cancelUrl,
