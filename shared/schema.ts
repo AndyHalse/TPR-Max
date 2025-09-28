@@ -2669,41 +2669,6 @@ export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFil
 // SECURITY: Company Settings Types with Sanitization
 // REMOVED: CompanySettings types moved to isolatedSchema.ts for proper customer isolation
 
-// SECURITY: Sanitized Company Settings type - EXCLUDES sensitive fields for API responses
-export type SanitizedCompanySettings = Omit<CompanySettings, 
-  | 'smtpPassword'
-  | 'smtpUsername' 
-  | 'biostarPassword'
-  | 'biostarApiKey'
-  | 'clueApiKey'
-  | 'clueApiSecret'
-  | 'clueWebhookSecret'
-  | 'twilioAuthToken'
->;
+// REMOVED: CompanySettings sanitization types moved to isolatedSchema.ts for proper customer isolation
 
-/**
- * SECURITY: Sanitize company settings for API responses
- * This function removes sensitive fields like passwords, API keys, and secrets
- * to prevent accidental exposure through API endpoints.
- * 
- * @param settings Raw company settings from database
- * @returns Sanitized settings safe for API responses
- */
-export function sanitizeCompanySettings(settings: CompanySettings | null | undefined): SanitizedCompanySettings | null {
-  if (!settings) return null;
-  
-  // Create a copy and remove sensitive fields
-  const { 
-    smtpPassword,
-    smtpUsername,
-    biostarPassword,
-    biostarApiKey,
-    clueApiKey,
-    clueApiSecret,
-    clueWebhookSecret,
-    twilioAuthToken,
-    ...sanitizedSettings 
-  } = settings;
-  
-  return sanitizedSettings;
-}
+// REMOVED: CompanySettings sanitization function moved to isolatedSchema.ts for proper customer isolation

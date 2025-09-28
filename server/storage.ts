@@ -5,8 +5,6 @@ import type {
   InsertVisitor, 
   User, 
   InsertUser, 
-  CompanySettings, 
-  InsertCompanySettings, 
   PrinterConfiguration,
   InsertPrinterConfiguration,
   Report, 
@@ -44,8 +42,20 @@ import type {
   RoomBookingWaitlist,
   InsertRoomBookingWaitlist,
   ContractorPreBooking,
-  InsertContractorPreBooking
+  InsertContractorPreBooking,
+  VoiceNotificationLog,
+  InsertVoiceNotificationLog
 } from "@shared/schema";
+
+// Import customer isolation types
+import type { 
+  CompanySettings, 
+  InsertCompanySettings 
+} from "./isolatedSchema";
+
+// Import customer context type  
+import type { CustomerContext } from './customerDatabase';
+
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import fs from "fs";

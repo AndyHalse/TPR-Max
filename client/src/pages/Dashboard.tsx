@@ -93,7 +93,7 @@ export default function Dashboard() {
     color: string;
   }>>({
     queryKey: ["/api/analytics/departments"],
-    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    refetchInterval: 60000, // Refresh every 60 seconds to reduce server load
     enabled: !!currentUser,
   });
 
