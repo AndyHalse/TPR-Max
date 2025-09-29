@@ -1945,22 +1945,33 @@ This email was sent automatically by VisiGate Pro`;
       const companyName = companySettings?.companyName || 'VisiGate Pro';
       const inviterName = invitedBy?.username || 'Administrator';
       
-      // Create secure invitation URL
+      // Use company branding settings
+      const primaryColor = companySettings?.primaryColor || '#3b82f6';
+      const secondaryColor = companySettings?.secondaryColor || '#64748b';
+      const logoUrl = companySettings?.logoUrl || '';
+      
+      // Create secure invitation URL - always use the production domain
       const baseUrl = process.env.NODE_ENV === 'production' 
         ? process.env.BASE_URL || 'https://your-app.replit.app'
-        : 'http://localhost:5000';
+        : 'https://workspace--5000.local-corp.replit.dev';
       
       const invitationUrl = `${baseUrl}/invite/accept?token=${token}`;
       
       const subject = `You're invited to join ${companyName} on VisiGate Pro`;
       
       const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 0; border-radius: 12px; overflow: hidden;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%); padding: 0; border-radius: 12px; overflow: hidden;">
           <!-- Header -->
           <div style="background: white; padding: 32px; text-align: center;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: bold;">
-              🚪
-            </div>
+            ${logoUrl ? `
+              <div style="margin: 0 auto 24px;">
+                <img src="${logoUrl}" alt="${companyName} Logo" style="max-height: 80px; max-width: 200px; height: auto; width: auto;" />
+              </div>
+            ` : `
+              <div style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%); color: white; width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: bold;">
+                🚪
+              </div>
+            `}
             <h1 style="color: #1e293b; margin: 0 0 8px; font-size: 28px; font-weight: 700;">
               Welcome to ${companyName}
             </h1>
@@ -1991,7 +2002,7 @@ This email was sent automatically by VisiGate Pro`;
             
             <div style="text-align: center; margin: 32px 0;">
               <a href="${invitationUrl}" 
-                 style="display: inline-block; background: white; color: #667eea; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
+                 style="display: inline-block; background: white; color: ${primaryColor}; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
                 Accept Invitation
               </a>
             </div>
