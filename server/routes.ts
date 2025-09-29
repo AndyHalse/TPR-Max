@@ -4735,20 +4735,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION AND SECURITY SANITIZATION!
   app.get("/api/settings", async (req, res) => {
     try {
-      // Import the simplified database service and sanitization helper
+      // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      const { sanitizeCompanySettings } = await import("@shared/schema");
       
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Get raw settings and sanitize before returning to API
-      const rawSettings = await simpleDatabaseService.getCompanySettings(context);
-      const sanitizedSettings = sanitizeCompanySettings(rawSettings);
+      // Get company settings for customer
+      const settings = await simpleDatabaseService.getCompanySettings(context);
       
-      console.log(`🎨 Loading SANITIZED company settings FOR CUSTOMER: ${context.customerId}`);
-      res.json(sanitizedSettings);
+      console.log(`🎨 Loading company settings FOR CUSTOMER: ${context.customerId}`);
+      res.json(settings || {});
     } catch (error) {
       console.error('Settings fetch error:', error);
       res.status(500).json({ error: "Failed to fetch company settings" });
