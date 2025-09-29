@@ -148,11 +148,10 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // Skip CSRF for development authentication and super-admin operations (dev only)
-    if (process.env.NODE_ENV !== 'production' && 
-        (req.originalUrl === '/api/auth/login' || 
-         req.originalUrl.startsWith('/api/super-admin/'))) {
-      console.log(`✅ CSRF EXEMPTION: Dev/admin endpoint`);
+    // Skip CSRF for login endpoint (always) and super-admin operations (dev only)
+    if (req.originalUrl === '/api/auth/login' || 
+        (process.env.NODE_ENV !== 'production' && req.originalUrl.startsWith('/api/super-admin/'))) {
+      console.log(`✅ CSRF EXEMPTION: Login/admin endpoint`);
       return next();
     }
     
