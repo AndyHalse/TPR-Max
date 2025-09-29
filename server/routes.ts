@@ -8033,9 +8033,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username, email, password, and role are required" });
       }
 
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
+      // Get customer context for isolation based on logged-in user
+      const loggedInUsername = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(loggedInUsername);
+
+      // Check if user already exists in customer database
+      const existingUserByUsername = await databaseService.getUserByUsername(context, username);
+      if (existingUserByUsername) {
+        return res.status(400).json({ error: "A user with this username already exists" });
+      }
+
+      const existingUserByEmail = await databaseService.getUserByEmail(context, email);
+      if (existingUserByEmail) {
         return res.status(400).json({ error: "A user with this email already exists" });
       }
 
@@ -8043,14 +8052,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bcrypt = await import('bcryptjs');
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create user directly
-      const newUser = await storage.createUser({
+      // Create user in customer-isolated database
+      const newUser = await databaseService.createUser(context, {
         username,
         email,
         password: hashedPassword,
         role,
         firstName: firstName || "",
         lastName: lastName || "",
+        customerId: context.customerId,
       });
 
       res.json({ 
