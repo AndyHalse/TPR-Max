@@ -8024,6 +8024,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual user creation endpoint (backup option when email invitations fail)
+  app.post("/api/users/manual", requireAuth, async (req, res) => {
+    try {
+      const { username, email, password, role, firstName, lastName } = req.body;
+      
+      if (!username || !email || !password || !role) {
+        return res.status(400).json({ error: "Username, email, password, and role are required" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "A user with this email already exists" });
+      }
+
+      // Hash password
+      const bcrypt = await import('bcryptjs');
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user directly
+      const newUser = await storage.createUser({
+        username,
+        email,
+        password: hashedPassword,
+        role,
+        firstName: firstName || "",
+        lastName: lastName || "",
+      });
+
+      res.json({ 
+        success: true, 
+        user: { 
+          id: newUser.id, 
+          username: newUser.username, 
+          email: newUser.email,
+          role: newUser.role
+        }
+      });
+    } catch (error) {
+      console.error("Failed to create user manually:", error);
+      res.status(500).json({ error: "Failed to create user account" });
+    }
+  });
+
   // Contractor Company endpoints
   app.get("/api/contractors", requireAuth, async (req, res) => {
     try {

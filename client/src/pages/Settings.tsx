@@ -35,6 +35,15 @@ export default function Settings() {
   const [showAddEmailDialog, setShowAddEmailDialog] = useState(false);
   const [newEmailRecipient, setNewEmailRecipient] = useState("");
   const [inviteForm, setInviteForm] = useState({ email: "", role: "user" });
+  const [showManualUserDialog, setShowManualUserDialog] = useState(false);
+  const [manualUserForm, setManualUserForm] = useState({ 
+    username: "", 
+    email: "", 
+    password: "", 
+    role: "user",
+    firstName: "",
+    lastName: ""
+  });
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
   const [showManualResetDialog, setShowManualResetDialog] = useState(false);
@@ -78,6 +87,97 @@ export default function Settings() {
 
   const { data: departments } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
+  });
+
+  // User invitation mutation
+  const inviteMutation = useMutation({
+    mutationFn: async (data: { email: string; role: string }) => {
+      const response = await apiRequest("POST", "/api/invitations", data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        const error = new Error(errorData.error || "Failed to send invitation");
+        (error as any).response = { status: response.status };
+        (error as any).serverMessage = errorData.error;
+        throw error;
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setInviteForm({ email: "", role: "user" });
+      toast({
+        title: "Invitation Sent",
+        description: "User invitation has been sent successfully.",
+      });
+    },
+    onError: (error: any) => {
+      const serverMessage = error?.serverMessage || error?.message;
+      let errorMessage = "Failed to send invitation";
+      let actionGuidance = "";
+
+      if (error?.response?.status === 400) {
+        errorMessage = serverMessage || "An invitation already exists for this email address";
+        actionGuidance = " Use the 'Add Manually' option to create the account directly.";
+      } else if (serverMessage?.includes("email") || serverMessage?.includes("SMTP")) {
+        errorMessage = "Email delivery failed";
+        actionGuidance = " Use the 'Add Manually' button as a backup option.";
+      } else {
+        errorMessage = serverMessage || "Failed to send invitation";
+        actionGuidance = " You can try the 'Add Manually' option instead.";
+      }
+
+      toast({
+        title: "Invitation Failed",
+        description: errorMessage + actionGuidance,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Manual user creation mutation (backup option)
+  const manualUserMutation = useMutation({
+    mutationFn: async (data: { 
+      username: string; 
+      email: string; 
+      password: string; 
+      role: string;
+      firstName: string;
+      lastName: string;
+    }) => {
+      const response = await apiRequest("POST", "/api/users/manual", data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        const error = new Error(errorData.error || "Failed to create user account");
+        (error as any).response = { status: response.status };
+        (error as any).serverMessage = errorData.error;
+        throw error;
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setManualUserForm({ 
+        username: "", 
+        email: "", 
+        password: "", 
+        role: "user",
+        firstName: "",
+        lastName: ""
+      });
+      setShowManualUserDialog(false);
+      toast({
+        title: "User Created",
+        description: "User account has been created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      const serverMessage = error?.serverMessage || error?.message;
+      const errorMessage = serverMessage || "Failed to create user account";
+
+      toast({
+        title: "User Creation Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
   });
 
   // Backup mutation
@@ -275,26 +375,6 @@ export default function Settings() {
     },
   });
 
-  const inviteMutation = useMutation({
-    mutationFn: async (inviteData: { email: string; role: string }) => {
-      const response = await apiRequest("POST", "/api/invitations", inviteData);
-      return response;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Invitation sent successfully!",
-      });
-      setInviteForm({ email: "", role: "user" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send invitation",
-        variant: "destructive",
-      });
-    },
-  });
 
   const manualResetMutation = useMutation({
     mutationFn: async () => {
@@ -3284,14 +3364,26 @@ export default function Settings() {
                   <Users className="mr-3 text-blue-600" size={24} />
                   <h3 className="text-lg font-semibold text-slate-800">User Management</h3>
                 </div>
-                <Button
-                  size="sm"
-                  className="gradient-blue text-white"
-                  data-testid="button-invite-user"
-                >
-                  <UserPlus className="mr-2" size={16} />
-                  Invite User
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowManualUserDialog(true)}
+                    data-testid="button-manual-user"
+                  >
+                    <UserPlus className="mr-2" size={16} />
+                    Add Manually
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gradient-blue text-white"
+                    onClick={() => setShowAddEmailDialog(true)}
+                    data-testid="button-invite-user"
+                  >
+                    <Mail className="mr-2" size={16} />
+                    Send Invitation
+                  </Button>
+                </div>
               </div>
               
               <div className="space-y-4">
@@ -3325,7 +3417,15 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold text-slate-800">Invite New User</h3>
               </div>
               
-              <form className="space-y-4">
+              <form 
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (inviteForm.email && inviteForm.role) {
+                    inviteMutation.mutate(inviteForm);
+                  }
+                }}
+              >
                 <div className="space-y-2">
                   <Label htmlFor="inviteEmail" className="text-sm font-medium text-slate-700">
                     Email Address
@@ -3334,6 +3434,8 @@ export default function Settings() {
                     id="inviteEmail"
                     type="email"
                     placeholder="user@example.com"
+                    value={inviteForm.email}
+                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                     data-testid="input-invite-email"
                     required
@@ -3344,7 +3446,7 @@ export default function Settings() {
                   <Label htmlFor="userRole" className="text-sm font-medium text-slate-700">
                     User Role
                   </Label>
-                  <Select>
+                  <Select value={inviteForm.role} onValueChange={(value) => setInviteForm({ ...inviteForm, role: value })}>
                     <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-user-role">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
@@ -3358,9 +3460,10 @@ export default function Settings() {
                 <Button 
                   type="submit" 
                   className="w-full gradient-blue text-white"
+                  disabled={inviteMutation.isPending || !inviteForm.email || !inviteForm.role}
                   data-testid="button-send-invitation"
                 >
-                  Send Invitation
+                  {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
                 </Button>
               </form>
               
@@ -4416,6 +4519,233 @@ export default function Settings() {
                 data-testid="button-save-department"
               >
                 {departmentMutation.isPending ? "Saving..." : departmentToEdit ? "Update" : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Invitation Dialog */}
+      <Dialog open={showAddEmailDialog} onOpenChange={setShowAddEmailDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="text-blue-600" size={24} />
+              Send User Invitation
+            </DialogTitle>
+            <DialogDescription>
+              Send an email invitation to create a new user account. They'll receive setup instructions.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form 
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (inviteForm.email && inviteForm.role) {
+                inviteMutation.mutate(inviteForm);
+              }
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="inviteEmail" className="text-sm font-medium">
+                Email Address
+              </Label>
+              <Input
+                id="inviteEmail"
+                type="email"
+                placeholder="user@example.com"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                className="w-full"
+                data-testid="input-invite-email"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="userRole" className="text-sm font-medium">
+                User Role
+              </Label>
+              <Select value={inviteForm.role} onValueChange={(value) => setInviteForm({ ...inviteForm, role: value })}>
+                <SelectTrigger className="w-full" data-testid="select-user-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Standard User</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-700">
+                <strong>Email Process:</strong> The user will receive an invitation email with setup instructions. 
+                If email delivery fails, use the "Add Manually" option instead.
+              </p>
+            </div>
+            
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddEmailDialog(false)}
+                data-testid="button-cancel-invitation"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="gradient-blue text-white"
+                disabled={inviteMutation.isPending || !inviteForm.email || !inviteForm.role}
+                data-testid="button-send-invitation"
+              >
+                {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual User Creation Dialog */}
+      <Dialog open={showManualUserDialog} onOpenChange={setShowManualUserDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="text-blue-600" size={24} />
+              Create User Account Manually
+            </DialogTitle>
+            <DialogDescription>
+              Create a user account directly as a backup when email invitations aren't working.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form 
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (manualUserForm.username && manualUserForm.email && manualUserForm.password && manualUserForm.role) {
+                manualUserMutation.mutate(manualUserForm);
+              }
+            }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="manualFirstName" className="text-sm font-medium">
+                  First Name
+                </Label>
+                <Input
+                  id="manualFirstName"
+                  type="text"
+                  placeholder="John"
+                  value={manualUserForm.firstName}
+                  onChange={(e) => setManualUserForm({ ...manualUserForm, firstName: e.target.value })}
+                  className="w-full"
+                  data-testid="input-manual-first-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manualLastName" className="text-sm font-medium">
+                  Last Name
+                </Label>
+                <Input
+                  id="manualLastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={manualUserForm.lastName}
+                  onChange={(e) => setManualUserForm({ ...manualUserForm, lastName: e.target.value })}
+                  className="w-full"
+                  data-testid="input-manual-last-name"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="manualUsername" className="text-sm font-medium">
+                Username *
+              </Label>
+              <Input
+                id="manualUsername"
+                type="text"
+                placeholder="johndoe"
+                value={manualUserForm.username}
+                onChange={(e) => setManualUserForm({ ...manualUserForm, username: e.target.value })}
+                className="w-full"
+                data-testid="input-manual-username"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="manualEmail" className="text-sm font-medium">
+                Email Address *
+              </Label>
+              <Input
+                id="manualEmail"
+                type="email"
+                placeholder="john@example.com"
+                value={manualUserForm.email}
+                onChange={(e) => setManualUserForm({ ...manualUserForm, email: e.target.value })}
+                className="w-full"
+                data-testid="input-manual-email"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="manualPassword" className="text-sm font-medium">
+                Password *
+              </Label>
+              <Input
+                id="manualPassword"
+                type="password"
+                placeholder="Secure password"
+                value={manualUserForm.password}
+                onChange={(e) => setManualUserForm({ ...manualUserForm, password: e.target.value })}
+                className="w-full"
+                data-testid="input-manual-password"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="manualRole" className="text-sm font-medium">
+                User Role *
+              </Label>
+              <Select value={manualUserForm.role} onValueChange={(value) => setManualUserForm({ ...manualUserForm, role: value })}>
+                <SelectTrigger className="w-full" data-testid="select-manual-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Standard User</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-700">
+                <strong>Note:</strong> This creates the account immediately without email verification. 
+                Use this option when email invitations aren't working.
+              </p>
+            </div>
+            
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowManualUserDialog(false)}
+                data-testid="button-cancel-manual-user"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="gradient-blue text-white"
+                disabled={manualUserMutation.isPending || !manualUserForm.username || !manualUserForm.email || !manualUserForm.password || !manualUserForm.role}
+                data-testid="button-create-manual-user"
+              >
+                {manualUserMutation.isPending ? "Creating..." : "Create User"}
               </Button>
             </DialogFooter>
           </form>

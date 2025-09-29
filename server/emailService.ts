@@ -1930,6 +1930,122 @@ This email was sent automatically by VisiGate Pro`;
       return false;
     }
   }
+
+  /**
+   * Send user invitation email with secure access token
+   */
+  async sendUserInvitation(
+    userEmail: string, 
+    role: string, 
+    token: string, 
+    invitedBy: any, 
+    companySettings: any
+  ): Promise<boolean> {
+    try {
+      const companyName = companySettings?.companyName || 'VisiGate Pro';
+      const inviterName = invitedBy?.username || 'Administrator';
+      
+      // Create secure invitation URL
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? process.env.BASE_URL || 'https://your-app.replit.app'
+        : 'http://localhost:5000';
+      
+      const invitationUrl = `${baseUrl}/invite/accept?token=${token}`;
+      
+      const subject = `You're invited to join ${companyName} on VisiGate Pro`;
+      
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 0; border-radius: 12px; overflow: hidden;">
+          <!-- Header -->
+          <div style="background: white; padding: 32px; text-align: center;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: bold;">
+              🚪
+            </div>
+            <h1 style="color: #1e293b; margin: 0 0 8px; font-size: 28px; font-weight: 700;">
+              Welcome to ${companyName}
+            </h1>
+            <p style="color: #64748b; margin: 0; font-size: 16px;">
+              You've been invited to join our visitor management system
+            </p>
+          </div>
+          
+          <!-- Content -->
+          <div style="padding: 32px; color: white;">
+            <div style="background: rgba(255, 255, 255, 0.1); padding: 24px; border-radius: 8px; margin-bottom: 24px;">
+              <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600;">Invitation Details</h2>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                <span style="font-weight: 500;">Role:</span>
+                <span style="background: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 16px; font-size: 14px; font-weight: 500;">
+                  ${role === 'admin' ? 'Administrator' : 'Standard User'}
+                </span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                <span style="font-weight: 500;">Invited by:</span>
+                <span>${inviterName}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-weight: 500;">Company:</span>
+                <span>${companyName}</span>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${invitationUrl}" 
+                 style="display: inline-block; background: white; color: #667eea; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
+                Accept Invitation
+              </a>
+            </div>
+            
+            <div style="background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 8px; font-size: 14px;">
+              <h3 style="margin: 0 0 12px; font-size: 16px; font-weight: 600;">What's next?</h3>
+              <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+                <li>Click the invitation link above</li>
+                <li>Create your secure password</li>
+                <li>Access your dashboard based on your role</li>
+                <li>Start managing visitors and staff</li>
+              </ul>
+            </div>
+            
+            <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.2); font-size: 12px; color: rgba(255, 255, 255, 0.8); text-align: center;">
+              <p style="margin: 0 0 8px;">This invitation expires in 7 days for security.</p>
+              <p style="margin: 0;">If you didn't expect this invitation, please ignore this email.</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const text = `
+You're invited to join ${companyName} on VisiGate Pro
+
+Invitation Details:
+- Role: ${role === 'admin' ? 'Administrator' : 'Standard User'}
+- Invited by: ${inviterName}
+- Company: ${companyName}
+
+To accept this invitation, visit: ${invitationUrl}
+
+What's next?
+1. Click the invitation link
+2. Create your secure password  
+3. Access your dashboard based on your role
+4. Start managing visitors and staff
+
+This invitation expires in 7 days for security.
+If you didn't expect this invitation, please ignore this email.
+      `;
+
+      return await this.sendEmail({
+        to: userEmail,
+        subject,
+        html,
+        text,
+        companyName
+      });
+    } catch (error) {
+      console.error('Failed to send user invitation email:', error);
+      return false;
+    }
+  }
 }
 
 export { EmailService };
