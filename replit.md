@@ -90,6 +90,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Room Bookings Database Query Fix
+- **Console Error Fix**: Temporarily disabled problematic room bookings database query that was causing Drizzle ORM errors
+- **Field Mapping Issue**: Query was using incorrect field names (meetingRoomId, startTime) instead of schema fields (roomId, startDateTime)
+- **Temporary Solution**: getRoomBookings() now returns empty array with warning message to prevent console errors
+- **Technical Debt**: Proper implementation needed with flat field selection and result transformation for Drizzle compatibility
+
+### September 30, 2025 - Copy Invitation Link Feature
+- **Clipboard Integration**: Added "Copy Link" button next to delete action for pending invitations in Settings page
+- **User Feedback**: Toast notifications confirm successful copy or show error messages
+- **Workaround Solution**: Provides alternative to email delivery issues by allowing direct link sharing
+- **Icon Design**: Uses Link icon from lucide-react for visual consistency
+
 ### September 30, 2025 - Invitation Acceptance Page Fix
 - **Fixed 404 Error**: Created missing AcceptInvitation page component to handle /invite/accept route
 - **Complete Registration Flow**: Users can now successfully accept invitations by setting username and password
