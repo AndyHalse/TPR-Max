@@ -322,7 +322,7 @@ export default function PreBooking() {
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       toast({
         title: "Success",
-        description: "Visitor invitation sent with meeting room details!",
+        description: "Visitor invitation sent successfully!",
       });
     },
     onError: () => {
