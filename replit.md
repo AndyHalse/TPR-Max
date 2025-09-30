@@ -90,6 +90,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Invitation Acceptance Page Fix
+- **Fixed 404 Error**: Created missing AcceptInvitation page component to handle /invite/accept route
+- **Complete Registration Flow**: Users can now successfully accept invitations by setting username and password
+- **Form Validation**: Password confirmation with Zod schema validation ensures strong passwords
+- **Success Feedback**: Clear success message and automatic redirect to login page after account creation
+- **Error Handling**: Comprehensive error states for invalid/expired tokens and server errors
+- **Public Route**: Added /invite/accept as public route (no authentication required) similar to other public pages
+
 ### September 30, 2025 - Pending Invitation Management
 - **Enhanced User List Display**: Settings page now shows both active users and pending invitations in unified list
 - **Visual Differentiation**: Pending invitations display with amber avatar and "Awaiting" badge vs blue avatar for active users
