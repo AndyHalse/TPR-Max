@@ -755,6 +755,24 @@ export class DatabaseService {
     return deleted.length > 0;
   }
 
+  async updateUser(context: CustomerContext, userId: string, updateData: Partial<InsertUser>): Promise<User | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // If password is provided, hash it
+    const dataToUpdate: any = { ...updateData };
+    if (updateData.password) {
+      dataToUpdate.password = await bcrypt.hash(updateData.password, 10);
+    }
+    
+    const updated = await db
+      .update(isolatedSchema.users)
+      .set(dataToUpdate)
+      .where(eq(isolatedSchema.users.id, userId))
+      .returning();
+    
+    return updated[0];
+  }
+
   /**
    * STAFF HELPER METHODS - Customer Isolated
    */
