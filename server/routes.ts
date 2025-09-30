@@ -8064,6 +8064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: '',
         status: 'pending' as const,
         invitedAt: inv.createdAt,
+        invitationToken: inv.token, // Include token for generating invitation link
       }));
 
       // Combine and return

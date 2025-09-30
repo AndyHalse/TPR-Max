@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
@@ -109,9 +109,29 @@ export default function Settings() {
     lastName?: string;
     status: 'active' | 'pending';
     invitedAt?: Date;
+    invitationToken?: string; // Token for generating invitation link
   }>>({
     queryKey: ["/api/users"],
   });
+
+  // Function to copy invitation link
+  const copyInvitationLink = (token: string) => {
+    const baseUrl = window.location.origin;
+    const invitationUrl = `${baseUrl}/invite/accept?token=${token}`;
+    
+    navigator.clipboard.writeText(invitationUrl).then(() => {
+      toast({
+        title: "Link Copied!",
+        description: "Invitation link has been copied to clipboard.",
+      });
+    }).catch(() => {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy link to clipboard. Please try again.",
+        variant: "destructive",
+      });
+    });
+  };
 
   // User invitation mutation
   const inviteMutation = useMutation({
@@ -3562,19 +3582,35 @@ export default function Settings() {
                             {currentUser?.role === 'admin' && (
                               <>
                                 {isPending ? (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      if (confirm(`Are you sure you want to delete the invitation for ${user.email}?`)) {
-                                        deleteInvitationMutation.mutate(user.id);
-                                      }
-                                    }}
-                                    disabled={deleteInvitationMutation.isPending}
-                                    data-testid={`button-delete-invitation-${user.id}`}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                  </Button>
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        if (user.invitationToken) {
+                                          copyInvitationLink(user.invitationToken);
+                                        }
+                                      }}
+                                      disabled={!user.invitationToken}
+                                      title="Copy invitation link"
+                                      data-testid={`button-copy-invitation-${user.id}`}
+                                    >
+                                      <Copy className="h-4 w-4 text-blue-500" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to delete the invitation for ${user.email}?`)) {
+                                          deleteInvitationMutation.mutate(user.id);
+                                        }
+                                      }}
+                                      disabled={deleteInvitationMutation.isPending}
+                                      data-testid={`button-delete-invitation-${user.id}`}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  </>
                                 ) : (
                                   <>
                                     <Button
