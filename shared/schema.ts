@@ -1145,6 +1145,7 @@ export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   emailSent: true,
   emailSentAt: true,
   createdAt: true,
+  meetingRoomId: true,
 });
 
 export const insertEvacuationAccountabilitySchema = createInsertSchema(evacuationAccountability).omit({

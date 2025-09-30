@@ -551,7 +551,8 @@ export default function PreBooking() {
               </Select>
             </div>
             
-            <div className="space-y-2">
+            {/* Meeting Room selector temporarily hidden - database doesn't support meeting_room_id column yet */}
+            {/* <div className="space-y-2">
               <Label htmlFor="meetingRoomId" className="text-sm font-medium text-slate-700">
                 Meeting Room (Optional)
               </Label>
@@ -574,7 +575,7 @@ export default function PreBooking() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -673,9 +674,10 @@ export default function PreBooking() {
                       <p className="text-sm text-slate-600">{booking.company}</p>
                       <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
                       <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
-                      {booking.meetingRoomId && (
+                      {/* Meeting room display hidden - database doesn't support meeting_room_id yet */}
+                      {/* {booking.meetingRoomId && (
                         <p className="text-sm text-slate-600">Room: {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.name} - {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.location}</p>
-                      )}
+                      )} */}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking)}`}>
@@ -741,9 +743,10 @@ export default function PreBooking() {
                     <p className="text-sm text-slate-600">{booking.company}</p>
                     <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
                     <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
-                    {booking.meetingRoomId && (
+                    {/* Meeting room display hidden - database doesn't support meeting_room_id yet */}
+                    {/* {booking.meetingRoomId && (
                       <p className="text-sm text-slate-600">Room: {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.name} - {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.location}</p>
-                    )}
+                    )} */}
                     {booking.purpose && <p className="text-sm text-slate-600 mt-1">Purpose: {booking.purpose}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-2">
