@@ -89,6 +89,18 @@ export default function Settings() {
     queryKey: ["/api/departments"],
   });
 
+  // Fetch all users
+  const { data: users, isLoading: usersLoading } = useQuery<Array<{
+    id: string;
+    username: string;
+    email: string;
+    role: string;
+    firstName?: string;
+    lastName?: string;
+  }>>({
+    queryKey: ["/api/users"],
+  });
+
   // User invitation mutation
   const inviteMutation = useMutation({
     mutationFn: async (data: { email: string; role: string }) => {
@@ -163,6 +175,7 @@ export default function Settings() {
         lastName: ""
       });
       setShowManualUserDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
         title: "User Created",
         description: "User account has been created successfully.",
@@ -175,6 +188,32 @@ export default function Settings() {
       toast({
         title: "User Creation Failed",
         description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest("DELETE", `/api/users/${userId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete user");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "User Deleted",
+        description: "User has been removed successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete user",
         variant: "destructive",
       });
     },
@@ -3387,27 +3426,72 @@ export default function Settings() {
               </div>
               
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">A</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800">Andy (You)</p>
-                      <p className="text-sm text-slate-600">Administrator</p>
-                    </div>
+                {usersLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="mx-auto text-slate-400 mb-4 animate-spin" size={32} />
+                    <p className="text-slate-600">Loading users...</p>
                   </div>
-                  <Badge variant="default">Admin</Badge>
-                </div>
-                
-                <div className="text-center py-8">
-                  <Shield className="mx-auto text-slate-400 mb-4" size={48} />
-                  <p className="text-slate-600 mb-4">No additional users yet</p>
-                  <Button variant="outline" size="sm">
-                    <UserPlus className="mr-2" size={16} />
-                    Send First Invitation
-                  </Button>
-                </div>
+                ) : users && users.length > 0 ? (
+                  <>
+                    {users.map((user) => {
+                      const isCurrentUser = user.id === currentUser?.id;
+                      const initials = user.firstName && user.lastName 
+                        ? `${user.firstName[0]}${user.lastName[0]}`
+                        : user.username.substring(0, 2).toUpperCase();
+                      const displayName = user.firstName && user.lastName
+                        ? `${user.firstName} ${user.lastName}${isCurrentUser ? ' (You)' : ''}`
+                        : `${user.username}${isCurrentUser ? ' (You)' : ''}`;
+                      
+                      return (
+                        <div key={user.id} className="flex items-center justify-between p-3 bg-white/50 rounded-lg" data-testid={`user-item-${user.id}`}>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-sm font-bold">{initials}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-800">{displayName}</p>
+                              <p className="text-sm text-slate-600">{user.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                              {user.role === 'admin' ? 'Admin' : 'User'}
+                            </Badge>
+                            {!isCurrentUser && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete ${displayName}?`)) {
+                                    deleteUserMutation.mutate(user.id);
+                                  }
+                                }}
+                                disabled={deleteUserMutation.isPending}
+                                data-testid={`button-delete-user-${user.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <Shield className="mx-auto text-slate-400 mb-4" size={48} />
+                    <p className="text-slate-600 mb-4">No users yet</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowAddEmailDialog(true)}
+                      data-testid="button-send-first-invitation"
+                    >
+                      <UserPlus className="mr-2" size={16} />
+                      Send First Invitation
+                    </Button>
+                  </div>
+                )}
               </div>
             </GlassCard>
             
