@@ -1966,6 +1966,9 @@ This email was sent automatically by VisiGate Pro`;
       
       const invitationUrl = `${baseUrl}/invite/accept?token=${token}`;
       
+      // Log the invitation URL for verification
+      console.log(`📧 Invitation URL generated: ${invitationUrl}`);
+      
       const subject = `You're invited to join ${companyName} on VisiGate Pro`;
       
       const html = `
