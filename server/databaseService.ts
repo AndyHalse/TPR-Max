@@ -706,6 +706,18 @@ export class DatabaseService {
     return users[0];
   }
 
+  async getUserByEmail(context: CustomerContext, email: string): Promise<User | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const users = await db
+      .select()
+      .from(isolatedSchema.users)
+      .where(eq(isolatedSchema.users.email, email))
+      .limit(1);
+    
+    return users[0];
+  }
+
   async createUser(context: CustomerContext, insertUser: InsertUser): Promise<User> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
