@@ -417,13 +417,19 @@ export default function PreBooking() {
 
   const getStatusColor = (booking: PreBooking) => {
     if (booking.isCheckedIn) return "bg-green-100 text-green-800";
-    if (new Date(booking.visitDate) < new Date()) return "bg-red-100 text-red-800";
+    const visitDateTime = new Date(booking.visitDate);
+    const now = new Date();
+    const hoursSinceVisit = (now.getTime() - visitDateTime.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceVisit > 2) return "bg-red-100 text-red-800";
     return "bg-blue-100 text-blue-800";
   };
 
   const getStatusText = (booking: PreBooking) => {
     if (booking.isCheckedIn) return "Checked In";
-    if (new Date(booking.visitDate) < new Date()) return "Expired";
+    const visitDateTime = new Date(booking.visitDate);
+    const now = new Date();
+    const hoursSinceVisit = (now.getTime() - visitDateTime.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceVisit > 2) return "Expired";
     return "Pending";
   };
 

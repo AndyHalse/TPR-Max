@@ -300,32 +300,6 @@ export default function Visitors() {
   const [preBookSearchTerm, setPreBookSearchTerm] = useState("");
   const [showVisitorSearch, setShowVisitorSearch] = useState(false);
 
-  // Test data generation mutation
-  const generateTestDataMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/test-data/visitors");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
-      if (isTenantView) {
-        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
-      }
-      toast({
-        title: "Success!",
-        description: `Generated ${data.visitors?.length || 30} test visitors for load testing`,
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to generate test data",
-        variant: "destructive",
-      });
-    },
-  });
 
   // GDPR Fix: Get staff by company for walk-in visitors
   const { data: walkInStaff } = useQuery<Staff[]>({
@@ -815,13 +789,19 @@ export default function Visitors() {
 
   const getStatusColor = (booking: PreBooking) => {
     if (booking.isCheckedIn) return "bg-green-100 text-green-800";
-    if (new Date(booking.visitDate) < new Date()) return "bg-red-100 text-red-800";
+    const visitDateTime = new Date(booking.visitDate);
+    const now = new Date();
+    const hoursSinceVisit = (now.getTime() - visitDateTime.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceVisit > 2) return "bg-red-100 text-red-800";
     return "bg-blue-100 text-blue-800";
   };
 
   const getStatusText = (booking: PreBooking) => {
     if (booking.isCheckedIn) return "Checked In";
-    if (new Date(booking.visitDate) < new Date()) return "Expired";
+    const visitDateTime = new Date(booking.visitDate);
+    const now = new Date();
+    const hoursSinceVisit = (now.getTime() - visitDateTime.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceVisit > 2) return "Expired";
     return "Pending";
   };
 
@@ -833,16 +813,6 @@ export default function Visitors() {
     <div className="space-y-6 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-fixed">Visitor Management</h1>
-        <Button
-          onClick={() => generateTestDataMutation.mutate()}
-          disabled={generateTestDataMutation.isPending}
-          variant="outline"
-          size="sm"
-          className="bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
-          data-testid="button-generate-test-data"
-        >
-          {generateTestDataMutation.isPending ? "Generating..." : "Generate 30 Test Visitors"}
-        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
