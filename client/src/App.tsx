@@ -38,6 +38,7 @@ import Billing from "@/pages/Billing";
 import Signup from "@/pages/Signup";
 import SignupPayment from "@/pages/SignupPayment";
 import Welcome from "@/pages/Welcome";
+import AcceptInvitation from "@/pages/AcceptInvitation";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -46,6 +47,11 @@ function Router() {
   // Special case: Fire Marshal emergency access with token
   if (window.location.pathname === '/fire-marshal' && emergencyToken) {
     return <FireMarshalMuster token={emergencyToken} />;
+  }
+  
+  // Invitation acceptance - public route with token (no authentication required)
+  if (window.location.pathname === '/invite/accept') {
+    return <AcceptInvitation />;
   }
   
   // H&S Document acceptance - public route with token (no authentication required)
