@@ -90,6 +90,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Pending Invitation Management
+- **Enhanced User List Display**: Settings page now shows both active users and pending invitations in unified list
+- **Visual Differentiation**: Pending invitations display with amber avatar and "Awaiting" badge vs blue avatar for active users
+- **Invitation Deletion**: Admins can delete pending invitations with confirmation dialog and proper multi-tenant isolation
+- **Database Schema**: Added userInvitations table to isolated schema for proper customer database isolation
+- **API Updates**: GET /api/users returns both active users (status='active') and pending invitations (status='pending')
+- **Security**: All invitation operations properly isolated by customer database with no cross-tenant data leakage
+
 ### September 30, 2025 - Email Invitation Fixes
 - **Invitation URL Fix**: Corrected invitation link to use proper Replit domain (REPLIT_DOMAINS) instead of broken local-corp.replit.dev URL
 - **Smart Logo Handling**: Email template now validates logo URLs and only displays valid http/https URLs, showing emoji fallback for invalid/local paths
