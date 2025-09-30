@@ -90,6 +90,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Meeting Room UI Disabled in Pre-booking
+- **UI Elements Hidden**: Temporarily disabled meeting room selector and display in PreBooking.tsx due to database column mismatch
+- **Schema Fix**: Omitted meetingRoomId from insertPreBookingSchema to prevent "column meeting_room_id does not exist" errors
+- **Toast Message Updated**: Changed "Visitor invitation sent with meeting room details!" to "Visitor invitation sent successfully!"
+- **User Experience**: Meeting room functionality hidden until proper database migration can be performed
+- **Technical Implementation**: All meeting room elements commented out with clear explanations for future re-enablement
+- **Impact**: Pre-booking system now fully functional without 500 database errors
+
 ### September 30, 2025 - Pre-booking CSRF Protection Fix
 - **Fixed Pre-booking Creation Error**: Resolved 403 Forbidden error preventing visitor pre-bookings from being created
 - **CSRF Exemption**: Added `/api/prebookings` to CSRF exemption list as core functionality endpoint
