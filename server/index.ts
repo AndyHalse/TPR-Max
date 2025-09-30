@@ -143,7 +143,8 @@ function createCSRFMiddleware() {
     // Skip CSRF for core functionality endpoints (always, regardless of environment)
     if (req.originalUrl.startsWith('/api/objects/') || 
         req.originalUrl.startsWith('/api/staff') ||
-        req.originalUrl.startsWith('/api/visitors')) {
+        req.originalUrl.startsWith('/api/visitors') ||
+        req.originalUrl.startsWith('/api/prebookings')) {
       console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }

@@ -90,6 +90,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Pre-booking CSRF Protection Fix
+- **Fixed Pre-booking Creation Error**: Resolved 403 Forbidden error preventing visitor pre-bookings from being created
+- **CSRF Exemption**: Added `/api/prebookings` to CSRF exemption list as core functionality endpoint
+- **Database Column Issue**: Identified "meeting_room_id" column discrepancy in customer databases vs schema
+- **Security Maintained**: Pre-bookings remain protected by authentication while removing incorrect CSRF blocking
+- **Impact**: Users can now successfully create visitor pre-bookings without 403 errors
+
+### September 30, 2025 - Comprehensive Help Documentation Update
+- **New User Management Article**: Added "Managing User Accounts and Invitations" guide covering invitation workflow, copy link feature, and account editing
+- **User Roles Article**: Created "User Roles and Permissions" documentation explaining Admin vs User roles and access control
+- **Troubleshooting Guide**: Added "Invitation and User Account Issues" article with solutions for common invitation problems
+- **Copy Link Documentation**: All help articles now document the copy invitation link workaround feature
+- **Featured Articles**: User management article marked as featured for prominent visibility in help panel
+- **Contextual Help**: Articles appear automatically on Settings page for relevant context
+
 ### September 30, 2025 - Room Bookings Database Query Fix
 - **Console Error Fix**: Temporarily disabled problematic room bookings database query that was causing Drizzle ORM errors
 - **Field Mapping Issue**: Query was using incorrect field names (meetingRoomId, startTime) instead of schema fields (roomId, startDateTime)
