@@ -8033,9 +8033,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username, email, password, and role are required" });
       }
 
-      // Get customer context for isolation based on logged-in user
-      const loggedInUsername = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(loggedInUsername);
+      // Get customer context for isolation using the authenticated user's real customerId
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Missing tenant context" });
+      }
+      const context = { customerId: req.session.customerId };
 
       // Check if user already exists in customer database
       const existingUserByUsername = await databaseService.getUserByUsername(context, username);
