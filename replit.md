@@ -90,6 +90,12 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Email Invitation Fixes
+- **Invitation URL Fix**: Corrected invitation link to use proper Replit domain (REPLIT_DOMAINS) instead of broken local-corp.replit.dev URL
+- **Smart Logo Handling**: Email template now validates logo URLs and only displays valid http/https URLs, showing emoji fallback for invalid/local paths
+- **Environment Detection**: Proper base URL generation for development (REPLIT_DOMAINS) and production (BASE_URL) environments
+- **Debugging Support**: Added logging for invitation URL generation to monitor and verify correct domain usage
+
 ### September 30, 2025 - Complete User Management System with Editing
 - **User Editing Functionality**: Full user editing with role-based permissions - admins can edit all user details including passwords and roles
 - **Admin-Only Role Changes**: Security layer ensures only admin users can change user roles, preventing privilege escalation
