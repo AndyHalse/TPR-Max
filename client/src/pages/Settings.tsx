@@ -44,6 +44,16 @@ export default function Settings() {
     firstName: "",
     lastName: ""
   });
+  const [showEditUserDialog, setShowEditUserDialog] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<any>(null);
+  const [editUserForm, setEditUserForm] = useState({ 
+    username: "", 
+    email: "", 
+    password: "", 
+    role: "user",
+    firstName: "",
+    lastName: ""
+  });
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
   const [showManualResetDialog, setShowManualResetDialog] = useState(false);
@@ -214,6 +224,53 @@ export default function Settings() {
       toast({
         title: "Delete Failed",
         description: error.message || "Failed to delete user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Edit user mutation
+  const editUserMutation = useMutation({
+    mutationFn: async (data: { 
+      userId: string;
+      username: string; 
+      email: string; 
+      password?: string; 
+      role: string;
+      firstName: string;
+      lastName: string;
+    }) => {
+      const { userId, ...updateData } = data;
+      // Don't send password if it's empty
+      const payload = data.password ? updateData : { ...updateData, password: undefined };
+      const response = await apiRequest("PUT", `/api/users/${userId}`, payload);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update user");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setShowEditUserDialog(false);
+      setUserToEdit(null);
+      setEditUserForm({
+        username: "",
+        email: "",
+        password: "",
+        role: "user",
+        firstName: "",
+        lastName: ""
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "User Updated",
+        description: "The user has been successfully updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user. Please try again.",
         variant: "destructive",
       });
     },
@@ -3457,20 +3514,43 @@ export default function Settings() {
                             <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                               {user.role === 'admin' ? 'Admin' : 'User'}
                             </Badge>
-                            {!isCurrentUser && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to delete ${displayName}?`)) {
-                                    deleteUserMutation.mutate(user.id);
-                                  }
-                                }}
-                                disabled={deleteUserMutation.isPending}
-                                data-testid={`button-delete-user-${user.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
+                            {currentUser?.role === 'admin' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setUserToEdit(user);
+                                    setEditUserForm({
+                                      username: user.username,
+                                      email: user.email || "",
+                                      password: "",
+                                      role: user.role,
+                                      firstName: user.firstName || "",
+                                      lastName: user.lastName || ""
+                                    });
+                                    setShowEditUserDialog(true);
+                                  }}
+                                  data-testid={`button-edit-user-${user.id}`}
+                                >
+                                  <Edit className="h-4 w-4 text-blue-500" />
+                                </Button>
+                                {!isCurrentUser && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to delete ${displayName}?`)) {
+                                        deleteUserMutation.mutate(user.id);
+                                      }
+                                    }}
+                                    disabled={deleteUserMutation.isPending}
+                                    data-testid={`button-delete-user-${user.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -4830,6 +4910,154 @@ export default function Settings() {
                 data-testid="button-create-manual-user"
               >
                 {manualUserMutation.isPending ? "Creating..." : "Create User"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="text-blue-600" size={24} />
+              Edit User Account
+            </DialogTitle>
+            <DialogDescription>
+              Update user information and permissions. Leave password blank to keep current password.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form 
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (userToEdit && editUserForm.username && editUserForm.email && editUserForm.role) {
+                editUserMutation.mutate({
+                  userId: userToEdit.id,
+                  ...editUserForm
+                });
+              }
+            }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editFirstName" className="text-sm font-medium">
+                  First Name
+                </Label>
+                <Input
+                  id="editFirstName"
+                  type="text"
+                  placeholder="John"
+                  value={editUserForm.firstName}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, firstName: e.target.value })}
+                  className="w-full"
+                  data-testid="input-edit-first-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editLastName" className="text-sm font-medium">
+                  Last Name
+                </Label>
+                <Input
+                  id="editLastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={editUserForm.lastName}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, lastName: e.target.value })}
+                  className="w-full"
+                  data-testid="input-edit-last-name"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editUsername" className="text-sm font-medium">
+                Username *
+              </Label>
+              <Input
+                id="editUsername"
+                type="text"
+                placeholder="johndoe"
+                value={editUserForm.username}
+                onChange={(e) => setEditUserForm({ ...editUserForm, username: e.target.value })}
+                className="w-full"
+                data-testid="input-edit-username"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editEmail" className="text-sm font-medium">
+                Email Address *
+              </Label>
+              <Input
+                id="editEmail"
+                type="email"
+                placeholder="john@example.com"
+                value={editUserForm.email}
+                onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                className="w-full"
+                data-testid="input-edit-email"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editPassword" className="text-sm font-medium">
+                New Password (Optional)
+              </Label>
+              <Input
+                id="editPassword"
+                type="password"
+                placeholder="Leave blank to keep current password"
+                value={editUserForm.password}
+                onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
+                className="w-full"
+                data-testid="input-edit-password"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editRole" className="text-sm font-medium">
+                User Role *
+              </Label>
+              <Select value={editUserForm.role} onValueChange={(value) => setEditUserForm({ ...editUserForm, role: value })}>
+                <SelectTrigger className="w-full" data-testid="select-edit-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Standard User</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {currentUser?.role !== 'admin' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-700">
+                  <strong>Note:</strong> Only administrators can change user roles.
+                </p>
+              </div>
+            )}
+            
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditUserDialog(false)}
+                data-testid="button-cancel-edit-user"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="gradient-blue text-white"
+                disabled={editUserMutation.isPending || !editUserForm.username || !editUserForm.email || !editUserForm.role}
+                data-testid="button-update-user"
+              >
+                {editUserMutation.isPending ? "Updating..." : "Update User"}
               </Button>
             </DialogFooter>
           </form>
