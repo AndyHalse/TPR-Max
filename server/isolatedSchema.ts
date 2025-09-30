@@ -229,6 +229,18 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// User invitations table - for managing pending user invitations
+export const userInvitations = pgTable("user_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("user"), // admin, user
+  invitedBy: varchar("invited_by").references(() => users.id),
+  token: text("token").notNull().unique(),
+  expires: timestamp("expires").notNull(),
+  used: boolean("used").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Multi-Tenant Serviced Office Management
 // Tenant Companies - Each company renting space in the building
 export const tenantCompanies = pgTable("tenant_companies", {

@@ -774,6 +774,36 @@ export class DatabaseService {
   }
 
   /**
+   * USER INVITATION METHODS - Customer Isolated
+   */
+  async getPendingInvitations(context: CustomerContext) {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const now = new Date();
+    return await db
+      .select()
+      .from(isolatedSchema.userInvitations)
+      .where(
+        and(
+          eq(isolatedSchema.userInvitations.used, false),
+          gte(isolatedSchema.userInvitations.expires, now)
+        )
+      )
+      .orderBy(desc(isolatedSchema.userInvitations.createdAt));
+  }
+
+  async deleteInvitation(context: CustomerContext, invitationId: string): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const deleted = await db
+      .delete(isolatedSchema.userInvitations)
+      .where(eq(isolatedSchema.userInvitations.id, invitationId))
+      .returning();
+    
+    return deleted.length > 0;
+  }
+
+  /**
    * STAFF HELPER METHODS - Customer Isolated
    */
   async getCheckedInStaff(context: CustomerContext): Promise<Staff[]> {

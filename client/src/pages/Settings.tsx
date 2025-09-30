@@ -99,7 +99,7 @@ export default function Settings() {
     queryKey: ["/api/departments"],
   });
 
-  // Fetch all users
+  // Fetch all users and pending invitations
   const { data: users, isLoading: usersLoading } = useQuery<Array<{
     id: string;
     username: string;
@@ -107,6 +107,8 @@ export default function Settings() {
     role: string;
     firstName?: string;
     lastName?: string;
+    status: 'active' | 'pending';
+    invitedAt?: Date;
   }>>({
     queryKey: ["/api/users"],
   });
@@ -234,6 +236,32 @@ export default function Settings() {
       toast({
         title: "Delete Failed",
         description: error.message || "Failed to delete user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete invitation mutation
+  const deleteInvitationMutation = useMutation({
+    mutationFn: async (invitationId: string) => {
+      const response = await apiRequest("DELETE", `/api/invitations/${invitationId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete invitation");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Invitation Deleted",
+        description: "Pending invitation has been removed successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete invitation",
         variant: "destructive",
       });
     },
@@ -3502,6 +3530,7 @@ export default function Settings() {
                   <>
                     {users.map((user) => {
                       const isCurrentUser = user.id === currentUser?.id;
+                      const isPending = user.status === 'pending';
                       const initials = user.firstName && user.lastName 
                         ? `${user.firstName[0]}${user.lastName[0]}`
                         : user.username.substring(0, 2).toUpperCase();
@@ -3512,7 +3541,7 @@ export default function Settings() {
                       return (
                         <div key={user.id} className="flex items-center justify-between p-3 bg-white/50 rounded-lg" data-testid={`user-item-${user.id}`}>
                           <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                            <div className={`w-8 h-8 ${isPending ? 'bg-amber-500' : 'bg-blue-500'} rounded-full flex items-center justify-center`}>
                               <span className="text-white text-sm font-bold">{initials}</span>
                             </div>
                             <div>
@@ -3521,44 +3550,68 @@ export default function Settings() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                              {user.role === 'admin' ? 'Admin' : 'User'}
-                            </Badge>
+                            {isPending ? (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                                Awaiting
+                              </Badge>
+                            ) : (
+                              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                                {user.role === 'admin' ? 'Admin' : 'User'}
+                              </Badge>
+                            )}
                             {currentUser?.role === 'admin' && (
                               <>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setUserToEdit(user);
-                                    setEditUserForm({
-                                      username: user.username,
-                                      email: user.email || "",
-                                      password: "",
-                                      role: user.role,
-                                      firstName: user.firstName || "",
-                                      lastName: user.lastName || ""
-                                    });
-                                    setShowEditUserDialog(true);
-                                  }}
-                                  data-testid={`button-edit-user-${user.id}`}
-                                >
-                                  <Edit className="h-4 w-4 text-blue-500" />
-                                </Button>
-                                {!isCurrentUser && (
+                                {isPending ? (
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => {
-                                      if (confirm(`Are you sure you want to delete ${displayName}?`)) {
-                                        deleteUserMutation.mutate(user.id);
+                                      if (confirm(`Are you sure you want to delete the invitation for ${user.email}?`)) {
+                                        deleteInvitationMutation.mutate(user.id);
                                       }
                                     }}
-                                    disabled={deleteUserMutation.isPending}
-                                    data-testid={`button-delete-user-${user.id}`}
+                                    disabled={deleteInvitationMutation.isPending}
+                                    data-testid={`button-delete-invitation-${user.id}`}
                                   >
                                     <Trash2 className="h-4 w-4 text-red-500" />
                                   </Button>
+                                ) : (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setUserToEdit(user);
+                                        setEditUserForm({
+                                          username: user.username,
+                                          email: user.email || "",
+                                          password: "",
+                                          role: user.role,
+                                          firstName: user.firstName || "",
+                                          lastName: user.lastName || ""
+                                        });
+                                        setShowEditUserDialog(true);
+                                      }}
+                                      data-testid={`button-edit-user-${user.id}`}
+                                    >
+                                      <Edit className="h-4 w-4 text-blue-500" />
+                                    </Button>
+                                    {!isCurrentUser && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          if (confirm(`Are you sure you want to delete ${displayName}?`)) {
+                                            deleteUserMutation.mutate(user.id);
+                                          }
+                                        }}
+                                        disabled={deleteUserMutation.isPending}
+                                        data-testid={`button-delete-user-${user.id}`}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
                               </>
                             )}

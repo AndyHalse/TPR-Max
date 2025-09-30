@@ -8012,8 +8012,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/invitations/:id", requireAuth, async (req, res) => {
     try {
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Missing tenant context" });
+      }
+      const context = { customerId: req.session.customerId };
+      
       const { id } = req.params;
-      const success = await storage.deleteUserInvitation(id);
+      const success = await databaseService.deleteInvitation(context, id);
       
       if (!success) {
         return res.status(404).json({ error: "Invitation not found" });
@@ -8026,7 +8031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all users
+  // Get all users and pending invitations
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
       if (!req.session?.customerId) {
@@ -8034,6 +8039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const context = { customerId: req.session.customerId };
 
+      // Get actual users
       const users = await databaseService.getAllUsers(context);
       
       // Don't send password hashes to the client
@@ -8044,9 +8050,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        status: 'active' as const,
       }));
 
-      res.json(safeUsers);
+      // Get pending invitations
+      const pendingInvitations = await databaseService.getPendingInvitations(context);
+      const safePendingInvitations = pendingInvitations.map(inv => ({
+        id: inv.id,
+        username: inv.email.split('@')[0], // Use email prefix as temporary username
+        email: inv.email,
+        role: inv.role,
+        firstName: '',
+        lastName: '',
+        status: 'pending' as const,
+        invitedAt: inv.createdAt,
+      }));
+
+      // Combine and return
+      res.json([...safeUsers, ...safePendingInvitations]);
     } catch (error) {
       console.error("Failed to fetch users:", error);
       res.status(500).json({ error: "Failed to fetch users" });
