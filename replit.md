@@ -90,6 +90,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Complete Meeting Room Logic Removal
+- **Critical Fix**: Removed ALL meeting room logic from backend and database queries to prevent 500 errors
+- **Schema Changes**: Commented out `meetingRoomId` column in Drizzle schemas (shared/schema.ts, server/isolatedSchema.ts)
+- **Backend Fixes**: Updated server/routes.ts to not attempt meeting room lookups, always passing null to email service
+- **Storage Fix**: Updated server/storage.ts MemStorage to not reference meetingRoomId
+- **Database Queries**: All Drizzle INSERT/SELECT operations now exclude meeting_room_id column completely
+- **Impact**: Pre-booking system now fully functional without any database column errors
+
 ### September 30, 2025 - Meeting Room UI Disabled in Pre-booking
 - **UI Elements Hidden**: Temporarily disabled meeting room selector and display in PreBooking.tsx due to database column mismatch
 - **Schema Fix**: Omitted meetingRoomId from insertPreBookingSchema to prevent "column meeting_room_id does not exist" errors

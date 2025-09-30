@@ -1547,7 +1547,8 @@ export class MemStorage implements IStorage {
       visitDate: insertPreBooking.visitDate,
       visitTime: insertPreBooking.visitTime || null,
       hostStaffId: insertPreBooking.hostStaffId || null,
-      meetingRoomId: insertPreBooking.meetingRoomId || null,
+      // Meeting room feature temporarily disabled - database column doesn't exist yet
+      // meetingRoomId: insertPreBooking.meetingRoomId || null,
       tenantCompanyId: insertPreBooking.tenantCompanyId || null,
       qrCode,
       status: 'pending',

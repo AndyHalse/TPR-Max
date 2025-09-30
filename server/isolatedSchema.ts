@@ -188,8 +188,8 @@ export const preBookings = pgTable("pre_bookings", {
   visitDate: timestamp("visit_date").notNull(),
   visitTime: text("visit_time"), // Store time as string for UI compatibility
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
-  // Meeting room for the visit (optional)
-  meetingRoomId: varchar("meeting_room_id").references(() => meetingRooms.id),
+  // Meeting room feature temporarily disabled - database column doesn't exist yet
+  // meetingRoomId: varchar("meeting_room_id").references(() => meetingRooms.id),
   // Multi-Tenant: Link pre-booking to tenant company
   tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   qrCode: text("qr_code").notNull(),

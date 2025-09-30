@@ -6690,7 +6690,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hostStaff = preBooking.hostStaffId ? await storage.getStaffById(preBooking.hostStaffId) : undefined;
       }
       
-      const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
+      // Meeting room feature temporarily disabled - database doesn't support meeting_room_id yet
+      // const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
+      const meetingRoom = null;
       
       if (hostStaff) {
         // Send visitor invitation email with meeting room details
@@ -6748,9 +6750,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invitation already sent" });
       }
       
-      // Get host staff and meeting room details
+      // Get host staff details
       const hostStaff = await storage.getStaffById(preBooking.hostStaffId!);
-      const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
+      // Meeting room feature temporarily disabled - database doesn't support meeting_room_id yet
+      // const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
+      const meetingRoom = null;
       
       if (!hostStaff) {
         return res.status(400).json({ error: "Host staff not found" });
