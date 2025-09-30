@@ -8109,6 +8109,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user
+  app.put("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Missing tenant context" });
+      }
+      const context = { customerId: req.session.customerId };
+      
+      const { id } = req.params;
+      const { username, email, firstName, lastName, role, password } = req.body;
+      
+      // Get current user to check permissions
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(req.session.customerId);
+      const currentUsers = await customerDb
+        .select()
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, req.session.userId))
+        .limit(1);
+      
+      const currentUser = currentUsers[0];
+      if (!currentUser) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      // Only admins can change user roles
+      if (role && currentUser.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can change user roles" });
+      }
+
+      // Build update object
+      const updateData: any = {};
+      if (username) updateData.username = username;
+      if (email) updateData.email = email;
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (role && currentUser.role === 'admin') updateData.role = role;
+      if (password) updateData.password = password; // Will be hashed in updateUser
+
+      const updatedUser = await databaseService.updateUser(context, id, updateData);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ 
+        success: true, 
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          role: updatedUser.role
+        }
+      });
+    } catch (error) {
+      console.error("Failed to update user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
   // Delete user
   app.delete("/api/users/:id", requireAuth, async (req, res) => {
     try {
