@@ -1549,7 +1549,8 @@ export class MemStorage implements IStorage {
       hostStaffId: insertPreBooking.hostStaffId || null,
       // Meeting room feature temporarily disabled - database column doesn't exist yet
       // meetingRoomId: insertPreBooking.meetingRoomId || null,
-      tenantCompanyId: insertPreBooking.tenantCompanyId || null,
+      // Multi-tenant feature temporarily disabled - database column doesn't exist yet
+      // tenantCompanyId: insertPreBooking.tenantCompanyId || null,
       qrCode,
       status: 'pending',
       isCheckedIn: false,

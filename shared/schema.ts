@@ -405,8 +405,8 @@ export const preBookings = pgTable("pre_bookings", {
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
   // Meeting room feature temporarily disabled - database column doesn't exist yet
   // meetingRoomId: varchar("meeting_room_id").references(() => meetingRooms.id),
-  // Multi-Tenant: Link pre-booking to tenant company
-  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
+  // Multi-Tenant feature temporarily disabled - database column doesn't exist yet
+  // tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   qrCode: text("qr_code").notNull(),
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
   isCheckedIn: boolean("is_checked_in").default(false).notNull(),
