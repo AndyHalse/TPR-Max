@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,16 @@ const acceptInvitationSchema = z.object({
 
 type AcceptInvitationForm = z.infer<typeof acceptInvitationSchema>;
 
+// Helper function to get CSRF token from cookie
+function getCsrfToken(): string | null {
+  const cookies = document.cookie.split(';');
+  const csrfCookie = cookies.find(c => c.trim().startsWith('csrf-token='));
+  if (csrfCookie) {
+    return csrfCookie.split('=')[1];
+  }
+  return null;
+}
+
 export default function AcceptInvitation() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -30,6 +40,13 @@ export default function AcceptInvitation() {
   // Extract token from URL query params
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get("token");
+
+  // Fetch CSRF token on component mount
+  useEffect(() => {
+    fetch('/api/csrf-token', { credentials: 'include' })
+      .then(res => res.json())
+      .catch(err => console.error('Failed to fetch CSRF token:', err));
+  }, []);
 
   const form = useForm<AcceptInvitationForm>({
     resolver: zodResolver(acceptInvitationSchema),
@@ -53,11 +70,19 @@ export default function AcceptInvitation() {
     setIsLoading(true);
 
     try {
+      // Get CSRF token and add to headers
+      const csrfToken = getCsrfToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
+      }
+
       const response = await fetch("/api/invitations/accept", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           token,
           username: data.username,
