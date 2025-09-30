@@ -932,20 +932,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined> {
-    const [preBooking] = await db.select().from(preBookings).where(eq(preBookings.qrCode, qrCode));
-    return preBooking || undefined;
+    // QR code feature disabled - column doesn't exist in database
+    return undefined;
   }
 
   async createPreBooking(insertPreBooking: InsertPreBooking): Promise<PreBooking> {
     const id = randomUUID();
-    const qrCode = `PRE_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
     
     const [newPreBooking] = await db
       .insert(preBookings)
       .values({
         ...insertPreBooking,
         id,
-        qrCode,
       })
       .returning();
     

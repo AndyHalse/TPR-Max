@@ -1530,12 +1530,12 @@ export class MemStorage implements IStorage {
   }
 
   async getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined> {
-    return Array.from(this.preBookings.values()).find(booking => booking.qrCode === qrCode);
+    // QR code feature disabled - column doesn't exist in database
+    return undefined;
   }
 
   async createPreBooking(insertPreBooking: InsertPreBooking): Promise<PreBooking> {
     const id = randomUUID();
-    const qrCode = `PRE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const preBooking: PreBooking = {
       id,
@@ -1547,18 +1547,19 @@ export class MemStorage implements IStorage {
       visitDate: insertPreBooking.visitDate,
       visitTime: insertPreBooking.visitTime || null,
       hostStaffId: insertPreBooking.hostStaffId || null,
-      // Meeting room feature temporarily disabled - database column doesn't exist yet
-      // meetingRoomId: insertPreBooking.meetingRoomId || null,
-      // Multi-tenant feature temporarily disabled - database column doesn't exist yet
-      // tenantCompanyId: insertPreBooking.tenantCompanyId || null,
-      qrCode,
-      status: 'pending',
+      hostName: insertPreBooking.hostName || null,
       isCheckedIn: false,
-      checkedInAt: null,
-      visitorId: null,
-      emailSent: false,
-      emailSentAt: null,
       createdAt: new Date(),
+      updatedAt: new Date(),
+      // === DISABLED: Columns below don't exist in actual database ===
+      // meetingRoomId: insertPreBooking.meetingRoomId || null,
+      // tenantCompanyId: insertPreBooking.tenantCompanyId || null,
+      // qrCode,
+      // status: 'pending',
+      // checkedInAt: null,
+      // visitorId: null,
+      // emailSent: false,
+      // emailSentAt: null,
     };
     
     this.preBookings.set(id, preBooking);

@@ -391,6 +391,7 @@ export const staffAttendanceHistory = pgTable("staff_attendance_history", {
 });
 
 // Pre-bookings table for visitor appointments
+// NOTE: Schema aligned with actual database columns only (no speculative fields)
 export const preBookings = pgTable("pre_bookings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // CUSTOMER ISOLATION: Each pre-booking belongs to a specific customer
@@ -403,18 +404,19 @@ export const preBookings = pgTable("pre_bookings", {
   visitDate: timestamp("visit_date").notNull(),
   visitTime: text("visit_time"), // Store time as string for UI compatibility
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
-  // Meeting room feature temporarily disabled - database column doesn't exist yet
-  // meetingRoomId: varchar("meeting_room_id").references(() => meetingRooms.id),
-  // Multi-Tenant feature temporarily disabled - database column doesn't exist yet
-  // tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
-  qrCode: text("qr_code").notNull(),
-  status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
+  hostName: text("host_name"),
   isCheckedIn: boolean("is_checked_in").default(false).notNull(),
-  checkedInAt: timestamp("checked_in_at"),
-  visitorId: varchar("visitor_id").references(() => visitors.id), // Link to visitor when checked in
-  emailSent: boolean("email_sent").default(false),
-  emailSentAt: timestamp("email_sent_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // === DISABLED: Columns below don't exist in actual database ===
+  // meetingRoomId: varchar("meeting_room_id").references(() => meetingRooms.id),
+  // tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
+  // qrCode: text("qr_code").notNull(),
+  // status: text("status").notNull().default("pending"),
+  // checkedInAt: timestamp("checked_in_at"),
+  // visitorId: varchar("visitor_id").references(() => visitors.id),
+  // emailSent: boolean("email_sent").default(false),
+  // emailSentAt: timestamp("email_sent_at"),
 });
 
 // ==============================================
