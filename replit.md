@@ -90,6 +90,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### September 30, 2025 - Pre-booking Database Schema & Reception Diary Fixes
+- **Database Column Type Fix**: Changed pre_bookings.visit_date from `date` to `timestamp with time zone` to store both date and time
+- **Old visitor_name Column Removed**: Dropped obsolete visitor_name column that was causing NOT NULL constraint violations
+- **Updated Existing Records**: Set default time of 09:00 for existing pre-bookings that had no time component
+- **Reception Diary Filter Fix**: Fixed "Tomorrow" view in Dashboard Reception Diary to correctly add 1 day to date range
+- **Expired Status Logic**: Changed expired status to only show after 2 hours past visit time, preventing premature "Expired" badges
+- **Test Visitor Button Removed**: Removed "Generate 30 Test Visitors" button from Visitor Management page as requested
+- **Impact**: Pre-bookings now display correct visit times, Reception Diary shows tomorrow's appointments properly, and expired status is accurate
+
 ### September 30, 2025 - Complete Meeting Room Logic Removal
 - **Critical Fix**: Removed ALL meeting room logic from backend and database queries to prevent 500 errors
 - **Schema Changes**: Commented out `meetingRoomId` column in Drizzle schemas (shared/schema.ts, server/isolatedSchema.ts)
