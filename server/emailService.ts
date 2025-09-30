@@ -1948,12 +1948,21 @@ This email was sent automatically by VisiGate Pro`;
       // Use company branding settings
       const primaryColor = companySettings?.primaryColor || '#3b82f6';
       const secondaryColor = companySettings?.secondaryColor || '#64748b';
-      const logoUrl = companySettings?.logoUrl || '';
+      // Only use logo if it's a valid http/https URL (not local file path)
+      const logoUrl = companySettings?.logoUrl && 
+                      (companySettings.logoUrl.startsWith('http://') || companySettings.logoUrl.startsWith('https://')) 
+                      ? companySettings.logoUrl 
+                      : '';
       
-      // Create secure invitation URL - always use the production domain
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? process.env.BASE_URL || 'https://your-app.replit.app'
-        : 'https://workspace--5000.local-corp.replit.dev';
+      // Create secure invitation URL - use proper domain based on environment
+      let baseUrl: string;
+      if (process.env.NODE_ENV === 'production') {
+        baseUrl = process.env.BASE_URL || 'https://your-app.replit.app';
+      } else {
+        // In development, use REPLIT_DOMAINS for correct URL
+        const replitDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
+        baseUrl = replitDomain ? `https://${replitDomain}` : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+      }
       
       const invitationUrl = `${baseUrl}/invite/accept?token=${token}`;
       
