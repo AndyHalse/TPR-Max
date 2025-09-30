@@ -136,13 +136,23 @@ export default function Settings() {
       let errorMessage = "Failed to send invitation";
       let actionGuidance = "";
 
-      if (error?.response?.status === 400) {
-        errorMessage = serverMessage || "An invitation already exists for this email address";
+      // Check for duplicate invitation (400 error with specific message)
+      if (error?.response?.status === 400 && serverMessage?.includes("already exists")) {
+        errorMessage = serverMessage;
         actionGuidance = " Use the 'Add Manually' option to create the account directly.";
-      } else if (serverMessage?.includes("email") || serverMessage?.includes("SMTP")) {
+      } 
+      // Check for email/SMTP errors (but not duplicate email errors)
+      else if ((serverMessage?.includes("SMTP") || serverMessage?.includes("delivery")) && !serverMessage?.includes("already exists")) {
         errorMessage = "Email delivery failed";
         actionGuidance = " Use the 'Add Manually' button as a backup option.";
-      } else {
+      } 
+      // Generic 400 errors (validation, etc)
+      else if (error?.response?.status === 400) {
+        errorMessage = serverMessage || "Invalid request";
+        actionGuidance = " Please check the information and try again.";
+      } 
+      // All other errors
+      else {
         errorMessage = serverMessage || "Failed to send invitation";
         actionGuidance = " You can try the 'Add Manually' option instead.";
       }
