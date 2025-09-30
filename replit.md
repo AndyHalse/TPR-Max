@@ -90,13 +90,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### September 30, 2025 - User Management System Complete
-- **Dynamic User Display**: Settings page now fetches and displays all users from customer database with real-time updates
-- **User Deletion**: Implemented complete user deletion functionality with confirmation dialogs and proper security checks
-- **CSRF Protection**: Added comprehensive CSRF token support for all mutating requests (POST/PUT/DELETE)
+### September 30, 2025 - Complete User Management System with Editing
+- **User Editing Functionality**: Full user editing with role-based permissions - admins can edit all user details including passwords and roles
+- **Admin-Only Role Changes**: Security layer ensures only admin users can change user roles, preventing privilege escalation
+- **Optional Password Updates**: Edit users without changing passwords (leave blank to keep current password)
+- **Role-Based UI Controls**: Edit buttons only visible to admin users, enforcing access control at UI level
+- **Dynamic User Display**: Settings page fetches and displays all users from customer database with real-time updates
+- **User Deletion**: Complete user deletion functionality with confirmation dialogs and proper security checks
+- **CSRF Protection**: Comprehensive CSRF token support for all mutating requests (POST/PUT/DELETE)
 - **Database Isolation Fix**: Fixed critical bug where manual user creation was writing to public schema; now properly uses session-based customer context
-- **API Endpoints**: Added GET /api/users and DELETE /api/users/:id with proper authentication and authorization
-- **Multi-tenant Security**: All user operations now properly isolated by customer database with UUID-based schema names
+- **API Endpoints**: Added GET /api/users, POST /api/users/manual, PUT /api/users/:id, and DELETE /api/users/:id with proper authentication and authorization
+- **Multi-tenant Security**: All user operations properly isolated by customer database with UUID-based schema names
+- **Enhanced Auth Response**: /api/auth/me now returns user role for client-side authorization checks
 
 ### September 28, 2025 - Deployment Fixes
 - **Fixed Publishing Errors**: Resolved Stripe configuration issues that were causing deployment crashes

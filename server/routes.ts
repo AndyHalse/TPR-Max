@@ -1337,7 +1337,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({
         id: devUser.id,
         username: devUser.username,
-        customerId: devUser.customerId
+        customerId: devUser.customerId,
+        role: 'admin' // Dev user is always admin
       });
     }
     
@@ -1367,7 +1368,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         id: user.id, 
         username: user.username, 
-        customerId: req.session.customerId
+        customerId: req.session.customerId,
+        role: user.role
       });
     } catch (error) {
       console.error('Error in /api/auth/me:', error);

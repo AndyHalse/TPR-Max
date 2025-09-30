@@ -71,7 +71,7 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get current user to access customerId
-  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
+  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role: string }>({
     queryKey: ["/api/auth/me"],
   });
 
