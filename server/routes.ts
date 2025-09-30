@@ -8024,6 +8024,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all users
+  app.get("/api/users", requireAuth, async (req, res) => {
+    try {
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Missing tenant context" });
+      }
+      const context = { customerId: req.session.customerId };
+
+      const users = await databaseService.getAllUsers(context);
+      
+      // Don't send password hashes to the client
+      const safeUsers = users.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      }));
+
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
   // Manual user creation endpoint (backup option when email invitations fail)
   app.post("/api/users/manual", requireAuth, async (req, res) => {
     try {
@@ -8071,12 +8098,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: newUser.id, 
           username: newUser.username, 
           email: newUser.email,
-          role: newUser.role
+          role: newUser.role,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
         }
       });
     } catch (error) {
       console.error("Failed to create user manually:", error);
       res.status(500).json({ error: "Failed to create user account" });
+    }
+  });
+
+  // Delete user
+  app.delete("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Missing tenant context" });
+      }
+      const context = { customerId: req.session.customerId };
+      
+      const { id } = req.params;
+      
+      // Prevent deleting yourself
+      if (id === req.session.userId) {
+        return res.status(400).json({ error: "You cannot delete your own account" });
+      }
+
+      const success = await databaseService.deleteUser(context, id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 

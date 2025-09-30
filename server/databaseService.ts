@@ -735,6 +735,26 @@ export class DatabaseService {
     return created[0];
   }
 
+  async getAllUsers(context: CustomerContext): Promise<User[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    return await db
+      .select()
+      .from(isolatedSchema.users)
+      .orderBy(isolatedSchema.users.username);
+  }
+
+  async deleteUser(context: CustomerContext, userId: string): Promise<boolean> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const deleted = await db
+      .delete(isolatedSchema.users)
+      .where(eq(isolatedSchema.users.id, userId))
+      .returning();
+    
+    return deleted.length > 0;
+  }
+
   /**
    * STAFF HELPER METHODS - Customer Isolated
    */
