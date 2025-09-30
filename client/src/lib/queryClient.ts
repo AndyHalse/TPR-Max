@@ -7,6 +7,15 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function getCsrfToken(): string | null {
+  const cookies = document.cookie.split(';');
+  const csrfCookie = cookies.find(c => c.trim().startsWith('csrf-token='));
+  if (csrfCookie) {
+    return csrfCookie.split('=')[1];
+  }
+  return null;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -14,9 +23,20 @@ export async function apiRequest(
 ): Promise<Response> {
   try {
     console.log(`🚀 Making ${method} request to:`, url);
+    
+    const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
+    
+    // Add CSRF token for non-safe methods (POST, PUT, DELETE, PATCH)
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
+      }
+    }
+    
     const res = await fetch(url, {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
+      headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
     });

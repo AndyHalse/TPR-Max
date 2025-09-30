@@ -1,7 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -208,6 +208,13 @@ function Router() {
 }
 
 function App() {
+  // Fetch CSRF token on app initialization
+  useEffect(() => {
+    fetch('/api/csrf-token', { credentials: 'include' })
+      .then(res => res.json())
+      .catch(err => console.error('Failed to fetch CSRF token:', err));
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
