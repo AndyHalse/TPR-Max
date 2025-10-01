@@ -91,6 +91,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 01, 2025 - Room Booking Security and Multi-tenant Isolation Fixes
+- **CRITICAL SECURITY FIX**: Eliminated tenant spoofing vulnerability in POST /api/room-bookings by removing fallback to client-provided tenantCompanyId
+- **Tenant Ownership Verification**: Added mandatory tenant ownership check in PATCH /api/room-bookings/:id to prevent cross-tenant updates
+- **Data Isolation**: GET /api/room-bookings/today now properly filters by tenant using getRoomBookingsByTenant()
+- **Availability Check Security**: checkRoomAvailability now properly filters by tenantId for accurate multi-tenant conflict detection
+- **Field Name Fixes**: Corrected startDateTime/endDateTime → startTime/endTime mapping throughout the system
+- **Validation**: Added required field validation for POST requests
+- **Data Integrity**: Invalid booking records (missing start/end times) are now filtered out instead of silently coerced
+- **Authentication**: Added requireAuth middleware to POST, PATCH, and GET /today endpoints
+- **Frontend**: Added null safety checks for date parsing in RoomBookingForm
+- **Impact**: Room booking system now enforces strict multi-tenant isolation, preventing cross-tenant data access and ensuring data consistency
+
 ### October 01, 2025 - Pre-booking Multi-tenant Isolation Fix
 - **CRITICAL FIX**: All pre-booking endpoints now properly filter by customer tenant for true data isolation
 - **Customer-Filtered Methods**: Added getAllPreBookingsByCustomer(), getUpcomingPreBookingsByCustomer(), and getReceptionDiaryByCustomer() to DatabaseStorage and MemStorage

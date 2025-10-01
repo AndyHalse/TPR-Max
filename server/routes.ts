@@ -12795,46 +12795,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Today's Room Bookings - specific route must come before parameterized route
   app.get("/api/room-bookings/today", requireAuth, async (req, res) => {
     try {
+      // SECURITY: Strictly use authenticated user's tenant context
+      const tenantCompanyId = req.context?.customerId;
+      if (!tenantCompanyId) {
+        return res.status(403).json({ error: "Tenant context required" });
+      }
+      
       // Get today's date range
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
       
-      // Get room bookings with joined room and organizer data
-      const bookings = await storage.getRoomBookings(startOfDay, endOfDay);
+      // Get room bookings with joined room and organizer data, filtered by tenant
+      const bookings = await storage.getRoomBookingsByTenant(tenantCompanyId, startOfDay, endOfDay);
       
       // Transform data to match frontend expectations
-      const transformedBookings = bookings.map(booking => {
-        const startDateTime = new Date(booking.startDateTime);
-        const endDateTime = new Date(booking.endDateTime);
-        
-        return {
-          id: booking.id,
-          title: booking.title,
-          description: booking.description,
-          date: startDateTime.toISOString().split('T')[0], // YYYY-MM-DD format
-          startTime: startDateTime.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-          }), // HH:MM format
-          endTime: endDateTime.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-          }), // HH:MM format
-          roomName: booking.room?.name || 'Unknown Room',
-          organizer: booking.organizer ? 
-            `${booking.organizer.firstName} ${booking.organizer.lastName}` : 
-            'Unknown Organizer',
-          attendees: booking.attendeeEmails || [],
-          expectedAttendees: booking.expectedAttendees || 0,
-          status: booking.status,
-          requiresCatering: booking.requiresCatering,
-          cateringNotes: booking.cateringNotes,
-          specialRequirements: booking.specialRequirements
-        };
-      });
+      const transformedBookings = bookings
+        .filter(booking => booking.startTime && booking.endTime) // Skip invalid records
+        .map(booking => {
+          const startDateTime = new Date(booking.startTime);
+          const endDateTime = new Date(booking.endTime);
+          
+          return {
+            id: booking.id,
+            title: booking.title,
+            description: booking.description,
+            date: startDateTime.toISOString().split('T')[0], // YYYY-MM-DD format
+            startTime: startDateTime.toLocaleTimeString('en-GB', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false 
+            }), // HH:MM format
+            endTime: endDateTime.toLocaleTimeString('en-GB', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false 
+            }), // HH:MM format
+            roomName: booking.room?.name || 'Unknown Room',
+            organizer: booking.organizer ? 
+              `${booking.organizer.firstName} ${booking.organizer.lastName}` : 
+              'Unknown Organizer',
+            attendees: booking.attendeeEmails || [],
+            expectedAttendees: booking.expectedAttendees || 0,
+            status: booking.status,
+            requiresCatering: booking.requiresCatering,
+            cateringNotes: booking.cateringNotes,
+            specialRequirements: booking.specialRequirements
+          };
+        });
       
       res.json(transformedBookings);
     } catch (error) {
@@ -12866,17 +12874,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/room-bookings", async (req, res) => {
+  app.post("/api/room-bookings", requireAuth, async (req, res) => {
     try {
       const bookingData = req.body;
       
-      // Check room availability first
+      // SECURITY: Strictly use authenticated user's tenant context - no fallback
+      const tenantCompanyId = req.context?.customerId;
+      if (!tenantCompanyId) {
+        return res.status(403).json({ error: "Tenant context required" });
+      }
+      
+      const bookedByStaffId = req.user?.id || bookingData.bookedByStaffId;
+      
+      // Validate required fields
+      if (!bookingData.roomId || !bookingData.startDateTime || !bookingData.endDateTime) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Check room availability first with MANDATORY tenant isolation
       const isAvailable = await storage.checkRoomAvailability(
         bookingData.roomId,
         new Date(bookingData.startDateTime),
         new Date(bookingData.endDateTime),
         undefined,
-        req.user?.tenantCompanyId
+        tenantCompanyId
       );
 
       if (!isAvailable) {
@@ -12885,8 +12906,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Create the booking
-      const booking = await storage.createRoomBooking(bookingData);
+      // Create the booking with tenant isolation
+      const booking = await storage.createRoomBooking({
+        ...bookingData,
+        tenantCompanyId,
+        bookedByStaffId,
+      });
       
       // Create attendee records if staff or external attendees provided
       const staffAttendeeIds = bookingData.staffAttendeeIds || [];
@@ -12925,27 +12950,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/room-bookings/:id", async (req, res) => {
+  app.patch("/api/room-bookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
       
+      // SECURITY: Strictly use authenticated user's tenant context
+      const tenantCompanyId = req.context?.customerId;
+      if (!tenantCompanyId) {
+        return res.status(403).json({ error: "Tenant context required" });
+      }
+      
+      // SECURITY: Verify tenant ownership before any updates
+      const currentBooking = await storage.getRoomBookingById(id);
+      if (!currentBooking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      // CRITICAL: Enforce tenant isolation - prevent cross-tenant updates
+      if (currentBooking.tenantCompanyId !== tenantCompanyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       // If updating time, check availability
       if (updates.startDateTime || updates.endDateTime) {
-        const currentBooking = await storage.getRoomBookingById(id);
-        if (!currentBooking) {
-          return res.status(404).json({ error: "Room booking not found" });
-        }
-
-        const startTime = updates.startDateTime ? new Date(updates.startDateTime) : new Date(currentBooking.startDateTime);
-        const endTime = updates.endDateTime ? new Date(updates.endDateTime) : new Date(currentBooking.endDateTime);
+        const startTime = updates.startDateTime ? new Date(updates.startDateTime) : new Date(currentBooking.startTime);
+        const endTime = updates.endDateTime ? new Date(updates.endDateTime) : new Date(currentBooking.endTime);
 
         const isAvailable = await storage.checkRoomAvailability(
-          currentBooking.roomId,
+          currentBooking.meetingRoomId,
           startTime,
           endTime,
           id, // Exclude current booking from availability check
-          req.user?.tenantCompanyId
+          tenantCompanyId
         );
 
         if (!isAvailable) {

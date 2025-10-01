@@ -3178,25 +3178,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean> {
-    // Check for overlapping bookings
-    let query = db
-      .select()
-      .from(roomBookings)
-      .where(
-        and(
-          eq(roomBookings.meetingRoomId, roomId),
-          // Check for time overlap: new booking overlaps if it starts before existing ends AND ends after existing starts
-          sql`${roomBookings.startTime} < ${endTime}`,
-          sql`${roomBookings.endTime} > ${startTime}`
-        )
-      );
+    // Build conditions array for multi-tenant isolation
+    const conditions = [
+      eq(roomBookings.meetingRoomId, roomId),
+      // Check for time overlap: new booking overlaps if it starts before existing ends AND ends after existing starts
+      sql`${roomBookings.startTime} < ${endTime}`,
+      sql`${roomBookings.endTime} > ${startTime}`
+    ];
+
+    // CRITICAL: Filter by tenant for multi-tenant isolation
+    if (tenantId) {
+      conditions.push(eq(roomBookings.tenantCompanyId, tenantId));
+    }
 
     // If updating an existing booking, exclude it from the check
     if (excludeBookingId) {
-      query = query.where(sql`${roomBookings.id} != ${excludeBookingId}`);
+      conditions.push(sql`${roomBookings.id} != ${excludeBookingId}`);
     }
 
-    const conflicts = await query;
+    const conflicts = await db
+      .select()
+      .from(roomBookings)
+      .where(and(...conditions));
     
     // Room is available if there are no conflicts
     return conflicts.length === 0;
