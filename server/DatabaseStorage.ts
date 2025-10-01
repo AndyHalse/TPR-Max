@@ -3119,4 +3119,45 @@ export class DatabaseStorage implements IStorage {
       limit,
     };
   }
+
+  // Meeting Room methods - stub implementations
+  async getAllMeetingRooms(): Promise<any[]> {
+    console.log("⚠️ getAllMeetingRooms: Database implementation pending - returning empty array");
+    return [];
+  }
+
+  async getMeetingRoomById(id: string): Promise<any | undefined> {
+    console.log("⚠️ getMeetingRoomById: Database implementation pending - returning undefined");
+    return undefined;
+  }
+
+  async getMeetingRoomsByTenant(tenantId: string): Promise<any[]> {
+    console.log("⚠️ getMeetingRoomsByTenant: Database implementation pending - returning empty array");
+    return [];
+  }
+
+  async getSharedMeetingRooms(): Promise<any[]> {
+    console.log("⚠️ getSharedMeetingRooms: Database implementation pending - returning empty array");
+    return [];
+  }
+
+  async createMeetingRoom(insertRoom: any): Promise<any> {
+    console.log("⚠️ createMeetingRoom: Database implementation pending - operation not supported");
+    throw new Error("Meeting room creation is not yet implemented in the database storage");
+  }
+
+  async updateMeetingRoom(id: string, updates: any): Promise<any | undefined> {
+    console.log("⚠️ updateMeetingRoom: Database implementation pending - operation not supported");
+    throw new Error("Meeting room update is not yet implemented in the database storage");
+  }
+
+  async deleteMeetingRoom(id: string): Promise<boolean> {
+    console.log("⚠️ deleteMeetingRoom: Database implementation pending - operation not supported");
+    throw new Error("Meeting room deletion is not yet implemented in the database storage");
+  }
+
+  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean> {
+    console.log("⚠️ checkRoomAvailability: Database implementation pending - returning true");
+    return true;
+  }
 }
