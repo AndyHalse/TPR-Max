@@ -6262,12 +6262,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reports", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       
-      // For now return empty until we implement customer-isolated reports
-      res.json([]);
+      // Get reports filtered by customerId
+      const reports = await storage.getReportsByCustomer(context.customerId);
+      res.json(reports);
     } catch (error) {
+      console.error("Error fetching reports:", error);
       res.status(500).json({ error: "Failed to fetch reports" });
     }
   });
@@ -6275,8 +6279,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/reports/generate", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       
       const { reportType, dateFrom, dateTo } = req.body;
       
@@ -6287,8 +6293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
       
-      // Get data for the report
-      const allVisitors = await storage.getAllVisitors();
+      // Get customer-isolated visitor data for the report
+      const allVisitors = await databaseService.getAllVisitors(context);
       const visitorsInRange = allVisitors.filter(v => 
         v.checkedInAt >= fromDate && v.checkedInAt <= toDate
       );
@@ -6305,6 +6311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const avgDurationHours = (avgDurationMs / (1000 * 60 * 60)).toFixed(1);
       
       const report = await storage.createReport({
+        customerId: context.customerId,
         reportType,
         generatedAt: new Date(),
         dateFrom: fromDate,
@@ -6322,7 +6329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/reports/:id/email", async (req, res) => {
+  app.post("/api/reports/:id/email", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { recipients } = req.body;
@@ -6331,15 +6338,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Valid recipients are required" });
       }
       
-      // Get report and settings
-      const reports = await storage.getAllReports();
-      const report = reports.find(r => r.id === id);
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      // Get customer context for isolation
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // Get report filtered by customer
+      const reports = await storage.getReportsByCustomer(context.customerId);
+      const report = reports.find(r => r.id === id);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -6351,9 +6358,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Company settings not found" });
       }
       
-      // Get report data
-      const allVisitors = await storage.getAllVisitors();
-      const staff = await storage.getAllStaff();
+      // Get customer-isolated report data
+      const allVisitors = await databaseService.getAllVisitors(context);
+      const staff = await databaseService.getStaffMembers(context);
       const visitorsInRange = allVisitors.filter(v => 
         v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
       );
@@ -6379,6 +6386,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const emailSent = await emailService.sendReport(report, settings, recipients, reportData);
       
       if (emailSent) {
+        // Belt-and-braces: verify customerId before update
+        if (report.customerId !== context.customerId) {
+          return res.status(403).json({ error: "Unauthorized access to report" });
+        }
         await storage.updateReport(id, {
           emailSent: true,
           emailSentAt: new Date(),
@@ -6393,19 +6404,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add route for viewing reports
-  app.get("/api/reports/:id/view", async (req, res) => {
+  app.get("/api/reports/:id/view", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
-      // Get report and settings
-      const reports = await storage.getAllReports();
-      const report = reports.find(r => r.id === id);
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      // Get customer context for isolation
+      if (!req.user?.username) {
+        return res.status(401).send("<h1>Unauthorized</h1><p>Please log in to view this report.</p>");
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
+      // Get report filtered by customer
+      const reports = await storage.getReportsByCustomer(context.customerId);
+      const report = reports.find(r => r.id === id);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -6413,9 +6424,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).send("<h1>Report Not Found</h1><p>The requested report could not be found.</p>");
       }
       
-      // Get report data
-      const allVisitors = await storage.getAllVisitors();
-      const staff = await storage.getAllStaff();
+      // Get customer-isolated report data
+      const allVisitors = await databaseService.getAllVisitors(context);
+      const staff = await databaseService.getStaffMembers(context);
       const visitorsInRange = allVisitors.filter(v => 
         v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
       );

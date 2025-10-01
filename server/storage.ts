@@ -146,6 +146,7 @@ export interface IStorage {
 
   // Report methods  
   getAllReports(): Promise<Report[]>;
+  getReportsByCustomer(customerId: string): Promise<Report[]>;
   createReport(report: Omit<Report, 'id'>): Promise<Report>;
   updateReport(id: string, updates: Partial<Report>): Promise<Report | undefined>;
 
@@ -1472,6 +1473,12 @@ export class MemStorage implements IStorage {
   // Report methods
   async getAllReports(): Promise<Report[]> {
     return Array.from(this.reports.values())
+      .sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
+  }
+
+  async getReportsByCustomer(customerId: string): Promise<Report[]> {
+    return Array.from(this.reports.values())
+      .filter(report => report.customerId === customerId)
       .sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
   }
 

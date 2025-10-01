@@ -1100,6 +1100,7 @@ export const userInvitations = pgTable("user_invitations", {
 
 export const reports = pgTable("reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   reportType: text("report_type").notNull(), // daily, weekly, monthly, manual
   generatedAt: timestamp("generated_at").defaultNow().notNull(),
   dateFrom: timestamp("date_from").notNull(),
