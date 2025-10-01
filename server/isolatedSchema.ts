@@ -504,6 +504,11 @@ export const roomBookings = pgTable("room_bookings", {
   attendeeCount: integer("attendee_count").default(1),
   setupRequirements: text("setup_requirements").array().default([]),
   isPrivate: boolean("is_private").default(false),
+  expectedAttendees: integer("expected_attendees").notNull().default(1),
+  attendeeEmails: text("attendee_emails").array().default([]),
+  requiresCatering: boolean("requires_catering").notNull().default(false),
+  cateringNotes: text("catering_notes"),
+  specialRequirements: text("special_requirements"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

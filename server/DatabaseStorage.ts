@@ -3213,6 +3213,11 @@ export class DatabaseStorage implements IStorage {
         endTime: new Date(bookingData.endDateTime),
         bookedByStaffId: bookingData.bookedByStaffId,
         tenantCompanyId: bookingData.tenantCompanyId,
+        expectedAttendees: bookingData.expectedAttendees || bookingData.attendeeCount || 1,
+        attendeeEmails: bookingData.attendeeEmails || [],
+        requiresCatering: bookingData.requiresCatering || false,
+        cateringNotes: bookingData.cateringNotes || null,
+        specialRequirements: bookingData.specialRequirements || null,
         attendeeCount: bookingData.attendeeCount || 1,
         setupRequirements: bookingData.setupRequirements || [],
         isPrivate: bookingData.isPrivate || false,
@@ -3307,8 +3312,20 @@ export class DatabaseStorage implements IStorage {
         tenantCompanyId: roomBookings.tenantCompanyId,
         attendeeCount: roomBookings.attendeeCount,
         status: roomBookings.status,
-        room: meetingRooms,
-        organizer: staff,
+        room: {
+          id: meetingRooms.id,
+          name: meetingRooms.name,
+          capacity: meetingRooms.capacity,
+          location: meetingRooms.location,
+          equipment: meetingRooms.equipment,
+        },
+        organizer: {
+          id: staff.id,
+          firstName: staff.firstName,
+          lastName: staff.lastName,
+          email: staff.email,
+          department: staff.department,
+        },
       })
       .from(roomBookings)
       .leftJoin(meetingRooms, eq(roomBookings.meetingRoomId, meetingRooms.id))
