@@ -3120,44 +3120,85 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Meeting Room methods - stub implementations
+  // Meeting Room methods - Full database implementation
   async getAllMeetingRooms(): Promise<any[]> {
-    console.log("⚠️ getAllMeetingRooms: Database implementation pending - returning empty array");
-    return [];
+    return await db.select().from(meetingRooms).orderBy(asc(meetingRooms.name));
   }
 
   async getMeetingRoomById(id: string): Promise<any | undefined> {
-    console.log("⚠️ getMeetingRoomById: Database implementation pending - returning undefined");
-    return undefined;
+    const rooms = await db
+      .select()
+      .from(meetingRooms)
+      .where(eq(meetingRooms.id, id))
+      .limit(1);
+    return rooms[0];
   }
 
   async getMeetingRoomsByTenant(tenantId: string): Promise<any[]> {
-    console.log("⚠️ getMeetingRoomsByTenant: Database implementation pending - returning empty array");
-    return [];
+    return await db
+      .select()
+      .from(meetingRooms)
+      .where(eq(meetingRooms.tenantCompanyId, tenantId))
+      .orderBy(asc(meetingRooms.name));
   }
 
   async getSharedMeetingRooms(): Promise<any[]> {
-    console.log("⚠️ getSharedMeetingRooms: Database implementation pending - returning empty array");
-    return [];
+    return await db
+      .select()
+      .from(meetingRooms)
+      .where(eq(meetingRooms.isShared, true))
+      .orderBy(asc(meetingRooms.name));
   }
 
   async createMeetingRoom(insertRoom: any): Promise<any> {
-    console.log("⚠️ createMeetingRoom: Database implementation pending - operation not supported");
-    throw new Error("Meeting room creation is not yet implemented in the database storage");
+    const [newRoom] = await db
+      .insert(meetingRooms)
+      .values(insertRoom)
+      .returning();
+    return newRoom;
   }
 
   async updateMeetingRoom(id: string, updates: any): Promise<any | undefined> {
-    console.log("⚠️ updateMeetingRoom: Database implementation pending - operation not supported");
-    throw new Error("Meeting room update is not yet implemented in the database storage");
+    const [updated] = await db
+      .update(meetingRooms)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(meetingRooms.id, id))
+      .returning();
+    return updated;
   }
 
   async deleteMeetingRoom(id: string): Promise<boolean> {
-    console.log("⚠️ deleteMeetingRoom: Database implementation pending - operation not supported");
-    throw new Error("Meeting room deletion is not yet implemented in the database storage");
+    const result = await db
+      .delete(meetingRooms)
+      .where(eq(meetingRooms.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean> {
-    console.log("⚠️ checkRoomAvailability: Database implementation pending - returning true");
-    return true;
+    // Check for overlapping bookings
+    let query = db
+      .select()
+      .from(roomBookings)
+      .where(
+        and(
+          eq(roomBookings.meetingRoomId, roomId),
+          // Check for time overlap: new booking overlaps if it starts before existing ends AND ends after existing starts
+          sql`${roomBookings.startTime} < ${endTime}`,
+          sql`${roomBookings.endTime} > ${startTime}`
+        )
+      );
+
+    // If updating an existing booking, exclude it from the check
+    if (excludeBookingId) {
+      query = query.where(sql`${roomBookings.id} != ${excludeBookingId}`);
+    }
+
+    const conflicts = await query;
+    
+    // Room is available if there are no conflicts
+    return conflicts.length === 0;
   }
 }
