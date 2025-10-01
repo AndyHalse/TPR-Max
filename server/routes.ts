@@ -6360,7 +6360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get customer-isolated report data
       const allVisitors = await databaseService.getAllVisitors(context);
-      const staff = await databaseService.getStaffMembers(context);
+      const staff = await databaseService.getAllStaff(context);
       const visitorsInRange = allVisitors.filter(v => 
         v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
       );
@@ -6426,7 +6426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get customer-isolated report data
       const allVisitors = await databaseService.getAllVisitors(context);
-      const staff = await databaseService.getStaffMembers(context);
+      const staff = await databaseService.getAllStaff(context);
       const visitorsInRange = allVisitors.filter(v => 
         v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
       );

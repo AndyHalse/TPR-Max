@@ -869,6 +869,15 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
+  async getReportsByCustomer(customerId: string): Promise<Report[]> {
+    const results = await db
+      .select()
+      .from(reports)
+      .where(eq(reports.customerId, customerId))
+      .orderBy(desc(reports.generatedAt));
+    return results;
+  }
+
   async createReport(report: Omit<Report, 'id'>): Promise<Report> {
     const id = randomUUID();
     

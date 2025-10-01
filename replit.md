@@ -28,11 +28,10 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage Architecture
 - **Database**: PostgreSQL, configured for multi-tenant architecture
 - **ORM**: Drizzle ORM with schema-first approach
-- **Schema Design**: Tables for staff, visitors, and users (for authentication)
 - **Migration Strategy**: Drizzle Kit for database schema migrations
 
 ### Authentication & Authorization
-- **Planned Implementation**: Session-based authentication with connect-pg-simple for PostgreSQL session storage.
+- **Implementation**: Session-based authentication with `connect-pg-simple` for PostgreSQL session storage.
 - **Multi-tenancy**: Database-level isolation with tenant-specific connections.
 
 ### UI/UX Design Patterns
@@ -41,14 +40,15 @@ Preferred communication style: Simple, everyday language.
 - **Accessibility**: Radix UI primitives for ARIA compliance.
 - **Component Architecture**: Atomic design with reusable UI components.
 
-### Integration Capabilities
-- **Multi-Method Thermal Printing**: Solutions for SaaS-to-local printer challenges, including direct, browser, and Windows printing. Supports TEC/Toshiba and Zebra thermal printers.
-- **Print Quality Management**: Dynamic presets.
-- **Print Job Tracking**: Real-time status monitoring.
-- **Printer Health Monitoring**: Diagnostics and test printing.
-- **QR Code Generation**: External service integration for visitor tracking.
-- **Real-time Updates**: React Query for optimistic updates.
+### Technical Implementations
+- **Multi-Method Thermal Printing**: Solutions for SaaS-to-local printer challenges, including direct, browser, and Windows printing, supporting TEC/Toshiba and Zebra thermal printers. Includes print quality management, job tracking, and printer health monitoring.
+- **QR Code Generation**: Integrated for visitor tracking.
+- **Real-time Updates**: Optimistic updates via React Query.
 - **Feature Toggle System**: Allows customers to disable unused features via database-stored boolean toggles, affecting UI navigation and dashboard rendering.
+- **Reports System**: Fully operational with multi-tenant isolation, enabling generation, viewing, and emailing of reports.
+- **Pre-booking System**: Supports visitor pre-bookings, including handling visit dates/times and managing invitations.
+- **User Management**: Comprehensive system for managing user accounts, roles, invitations, and deletion, with proper multi-tenant isolation and CSRF protection.
+- **Voice Notification System**: Fully operational with 8x8 API integration and configurable phone system settings for visitor arrival announcements.
 
 ## External Dependencies
 
@@ -59,7 +59,7 @@ Preferred communication style: Simple, everyday language.
 - **wouter**: React routing library.
 
 ### UI Component Libraries
-- **@radix-ui/react-***: Accessible UI primitives (Dialog, Dropdown, Select, etc.).
+- **@radix-ui/react-***: Accessible UI primitives.
 - **tailwindcss**: Utility-first CSS framework.
 - **class-variance-authority**: Type-safe variant-based component styling.
 - **lucide-react**: Icon library.
@@ -83,102 +83,8 @@ Preferred communication style: Simple, everyday language.
 - **B-FV4 Desktop Printer**: Thermal printer support.
 - **QR Code Service**: External API for QR code generation.
 
-### Payment Integration  
-- **Stripe Integration**: Comprehensive payment processing with graceful fallback handling
-- **Subscription Management**: Professional plan management with Stripe billing portal
-- **Production Deployment Safety**: StripeService handles missing API keys gracefully to prevent deployment crashes
+### Payment Integration
+- **Stripe Integration**: Comprehensive payment processing and subscription management with graceful fallback handling.
 
-## Recent Changes
-
-### September 30, 2025 - Pre-booking Database Schema & Reception Diary Fixes
-- **Database Column Type Fix**: Changed pre_bookings.visit_date from `date` to `timestamp with time zone` to store both date and time
-- **Old visitor_name Column Removed**: Dropped obsolete visitor_name column that was causing NOT NULL constraint violations
-- **Updated Existing Records**: Set default time of 09:00 for existing pre-bookings that had no time component
-- **Reception Diary Filter Fix**: Fixed "Tomorrow" view in Dashboard Reception Diary to correctly add 1 day to date range
-- **Expired Status Logic**: Changed expired status to only show after 2 hours past visit time, preventing premature "Expired" badges
-- **Test Visitor Button Removed**: Removed "Generate 30 Test Visitors" button from Visitor Management page as requested
-- **Impact**: Pre-bookings now display correct visit times, Reception Diary shows tomorrow's appointments properly, and expired status is accurate
-
-### September 30, 2025 - Complete Meeting Room Logic Removal
-- **Critical Fix**: Removed ALL meeting room logic from backend and database queries to prevent 500 errors
-- **Schema Changes**: Commented out `meetingRoomId` column in Drizzle schemas (shared/schema.ts, server/isolatedSchema.ts)
-- **Backend Fixes**: Updated server/routes.ts to not attempt meeting room lookups, always passing null to email service
-- **Storage Fix**: Updated server/storage.ts MemStorage to not reference meetingRoomId
-- **Database Queries**: All Drizzle INSERT/SELECT operations now exclude meeting_room_id column completely
-- **Impact**: Pre-booking system now fully functional without any database column errors
-
-### September 30, 2025 - Meeting Room UI Disabled in Pre-booking
-- **UI Elements Hidden**: Temporarily disabled meeting room selector and display in PreBooking.tsx due to database column mismatch
-- **Schema Fix**: Omitted meetingRoomId from insertPreBookingSchema to prevent "column meeting_room_id does not exist" errors
-- **Toast Message Updated**: Changed "Visitor invitation sent with meeting room details!" to "Visitor invitation sent successfully!"
-- **User Experience**: Meeting room functionality hidden until proper database migration can be performed
-- **Technical Implementation**: All meeting room elements commented out with clear explanations for future re-enablement
-- **Impact**: Pre-booking system now fully functional without 500 database errors
-
-### September 30, 2025 - Pre-booking CSRF Protection Fix
-- **Fixed Pre-booking Creation Error**: Resolved 403 Forbidden error preventing visitor pre-bookings from being created
-- **CSRF Exemption**: Added `/api/prebookings` to CSRF exemption list as core functionality endpoint
-- **Database Column Issue**: Identified "meeting_room_id" column discrepancy in customer databases vs schema
-- **Security Maintained**: Pre-bookings remain protected by authentication while removing incorrect CSRF blocking
-- **Impact**: Users can now successfully create visitor pre-bookings without 403 errors
-
-### September 30, 2025 - Comprehensive Help Documentation Update
-- **New User Management Article**: Added "Managing User Accounts and Invitations" guide covering invitation workflow, copy link feature, and account editing
-- **User Roles Article**: Created "User Roles and Permissions" documentation explaining Admin vs User roles and access control
-- **Troubleshooting Guide**: Added "Invitation and User Account Issues" article with solutions for common invitation problems
-- **Copy Link Documentation**: All help articles now document the copy invitation link workaround feature
-- **Featured Articles**: User management article marked as featured for prominent visibility in help panel
-- **Contextual Help**: Articles appear automatically on Settings page for relevant context
-
-### September 30, 2025 - Room Bookings Database Query Fix
-- **Console Error Fix**: Temporarily disabled problematic room bookings database query that was causing Drizzle ORM errors
-- **Field Mapping Issue**: Query was using incorrect field names (meetingRoomId, startTime) instead of schema fields (roomId, startDateTime)
-- **Temporary Solution**: getRoomBookings() now returns empty array with warning message to prevent console errors
-- **Technical Debt**: Proper implementation needed with flat field selection and result transformation for Drizzle compatibility
-
-### September 30, 2025 - Copy Invitation Link Feature
-- **Clipboard Integration**: Added "Copy Link" button next to delete action for pending invitations in Settings page
-- **User Feedback**: Toast notifications confirm successful copy or show error messages
-- **Workaround Solution**: Provides alternative to email delivery issues by allowing direct link sharing
-- **Icon Design**: Uses Link icon from lucide-react for visual consistency
-
-### September 30, 2025 - Invitation Acceptance Page Fix
-- **Fixed 404 Error**: Created missing AcceptInvitation page component to handle /invite/accept route
-- **Complete Registration Flow**: Users can now successfully accept invitations by setting username and password
-- **Form Validation**: Password confirmation with Zod schema validation ensures strong passwords
-- **Success Feedback**: Clear success message and automatic redirect to login page after account creation
-- **Error Handling**: Comprehensive error states for invalid/expired tokens and server errors
-- **Public Route**: Added /invite/accept as public route (no authentication required) similar to other public pages
-
-### September 30, 2025 - Pending Invitation Management
-- **Enhanced User List Display**: Settings page now shows both active users and pending invitations in unified list
-- **Visual Differentiation**: Pending invitations display with amber avatar and "Awaiting" badge vs blue avatar for active users
-- **Invitation Deletion**: Admins can delete pending invitations with confirmation dialog and proper multi-tenant isolation
-- **Database Schema**: Added userInvitations table to isolated schema for proper customer database isolation
-- **API Updates**: GET /api/users returns both active users (status='active') and pending invitations (status='pending')
-- **Security**: All invitation operations properly isolated by customer database with no cross-tenant data leakage
-
-### September 30, 2025 - Email Invitation Fixes
-- **Invitation URL Fix**: Corrected invitation link to use proper Replit domain (REPLIT_DOMAINS) instead of broken local-corp.replit.dev URL
-- **Smart Logo Handling**: Email template now validates logo URLs and only displays valid http/https URLs, showing emoji fallback for invalid/local paths
-- **Environment Detection**: Proper base URL generation for development (REPLIT_DOMAINS) and production (BASE_URL) environments
-- **Debugging Support**: Added logging for invitation URL generation to monitor and verify correct domain usage
-
-### September 30, 2025 - Complete User Management System with Editing
-- **User Editing Functionality**: Full user editing with role-based permissions - admins can edit all user details including passwords and roles
-- **Admin-Only Role Changes**: Security layer ensures only admin users can change user roles, preventing privilege escalation
-- **Optional Password Updates**: Edit users without changing passwords (leave blank to keep current password)
-- **Role-Based UI Controls**: Edit buttons only visible to admin users, enforcing access control at UI level
-- **Dynamic User Display**: Settings page fetches and displays all users from customer database with real-time updates
-- **User Deletion**: Complete user deletion functionality with confirmation dialogs and proper security checks
-- **CSRF Protection**: Comprehensive CSRF token support for all mutating requests (POST/PUT/DELETE)
-- **Database Isolation Fix**: Fixed critical bug where manual user creation was writing to public schema; now properly uses session-based customer context
-- **API Endpoints**: Added GET /api/users, POST /api/users/manual, PUT /api/users/:id, and DELETE /api/users/:id with proper authentication and authorization
-- **Multi-tenant Security**: All user operations properly isolated by customer database with UUID-based schema names
-- **Enhanced Auth Response**: /api/auth/me now returns user role for client-side authorization checks
-
-### September 28, 2025 - Deployment Fixes
-- **Fixed Publishing Errors**: Resolved Stripe configuration issues that were causing deployment crashes
-- **Graceful Stripe Handling**: StripeService now handles missing STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and STRIPE_PROFESSIONAL_PRICE_ID gracefully in production
-- **Marketing Page Updates**: Enhanced voice notification features showcase on /marketing page highlighting automatic audio announcements for visitor arrivals
-- **Voice Notification System**: Fully operational with 8x8 API integration and configurable phone system settings
+### Communication Integration
+- **8x8 API**: Integrated for voice notification features.
