@@ -905,12 +905,56 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
+  async getAllPreBookingsByCustomer(customerId: string): Promise<PreBooking[]> {
+    const results = await db
+      .select()
+      .from(preBookings)
+      .where(eq(preBookings.customerId, customerId))
+      .orderBy(desc(preBookings.visitDate));
+    return results;
+  }
+
   async getUpcomingPreBookings(): Promise<PreBooking[]> {
     const now = new Date();
     const results = await db
       .select()
       .from(preBookings)
       .where(gte(preBookings.visitDate, now))
+      .orderBy(asc(preBookings.visitDate));
+    
+    return results;
+  }
+
+  async getUpcomingPreBookingsByCustomer(customerId: string): Promise<PreBooking[]> {
+    const now = new Date();
+    const results = await db
+      .select()
+      .from(preBookings)
+      .where(
+        and(
+          eq(preBookings.customerId, customerId),
+          gte(preBookings.visitDate, now)
+        )
+      )
+      .orderBy(asc(preBookings.visitDate));
+    
+    return results;
+  }
+
+  async getReceptionDiaryByCustomer(customerId: string, startDate: Date, daysAhead: number): Promise<PreBooking[]> {
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + daysAhead);
+    
+    const results = await db
+      .select()
+      .from(preBookings)
+      .where(
+        and(
+          eq(preBookings.customerId, customerId),
+          gte(preBookings.visitDate, startDate),
+          lte(preBookings.visitDate, endDate)
+        )
+      )
       .orderBy(asc(preBookings.visitDate));
     
     return results;

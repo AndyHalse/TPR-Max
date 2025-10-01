@@ -6602,36 +6602,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   
   // Pre-booking endpoints
-  app.get("/api/prebookings", async (req, res) => {
+  app.get("/api/prebookings", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      
       // Check if prebookings methods exist in storage
-      if (typeof storage.getAllPreBookings === 'function') {
-        const preBookings = await storage.getAllPreBookings();
+      if (typeof storage.getAllPreBookingsByCustomer === 'function') {
+        const preBookings = await storage.getAllPreBookingsByCustomer(context.customerId);
         res.json(preBookings);
       } else {
         // Return empty array if prebookings not implemented
-        console.log("⚠️ getAllPreBookings not implemented - returning empty array");
+        console.log("⚠️ getAllPreBookingsByCustomer not implemented - returning empty array");
         res.json([]);
       }
     } catch (error) {
-      console.log("⚠️ getAllPreBookings failed - returning empty array:", error.message);
+      console.log("⚠️ getAllPreBookingsByCustomer failed - returning empty array:", error.message);
       res.json([]);
     }
   });
 
-  app.get("/api/prebookings/upcoming", async (req, res) => {
+  app.get("/api/prebookings/upcoming", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      
       // Check if prebookings methods exist in storage
-      if (typeof storage.getUpcomingPreBookings === 'function') {
-        const preBookings = await storage.getUpcomingPreBookings();
+      if (typeof storage.getUpcomingPreBookingsByCustomer === 'function') {
+        const preBookings = await storage.getUpcomingPreBookingsByCustomer(context.customerId);
         res.json(preBookings);
       } else {
         // Return empty array if prebookings not implemented
-        console.log("⚠️ getUpcomingPreBookings not implemented - returning empty array");
+        console.log("⚠️ getUpcomingPreBookingsByCustomer not implemented - returning empty array");
         res.json([]);
       }
     } catch (error) {
-      console.log("⚠️ getUpcomingPreBookings failed - returning empty array:", error.message);
+      console.log("⚠️ getUpcomingPreBookingsByCustomer failed - returning empty array:", error.message);
       res.json([]);
     }
   });
@@ -6997,15 +7009,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reception Diary: All pre-bookings across all tenants for main reception
-  app.get("/api/reception/diary", async (req, res) => {
+  // Reception Diary: Customer-isolated pre-bookings for reception
+  app.get("/api/reception/diary", requireAuth, async (req, res) => {
     try {
+      // Get customer context for isolation
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      
       const { date, days = 7 } = req.query;
       const targetDate = date ? new Date(date as string) : new Date();
       const daysAhead = parseInt(days as string) || 7;
       
-      // Get all pre-bookings for the specified period
-      const allPreBookings = await storage.getReceptionDiary(targetDate, daysAhead);
+      // Get customer-filtered pre-bookings for the specified period
+      const allPreBookings = await storage.getReceptionDiaryByCustomer(context.customerId, targetDate, daysAhead);
       
       res.json(allPreBookings);
     } catch (error) {

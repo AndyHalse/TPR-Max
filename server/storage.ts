@@ -152,7 +152,10 @@ export interface IStorage {
 
   // PreBooking methods
   getAllPreBookings(): Promise<PreBooking[]>;
+  getAllPreBookingsByCustomer(customerId: string): Promise<PreBooking[]>;
   getUpcomingPreBookings(): Promise<PreBooking[]>;
+  getUpcomingPreBookingsByCustomer(customerId: string): Promise<PreBooking[]>;
+  getReceptionDiaryByCustomer(customerId: string, startDate: Date, daysAhead: number): Promise<PreBooking[]>;
   getPreBookingsByDate(date: Date): Promise<PreBooking[]>;
   getPreBookingById(id: string): Promise<PreBooking | undefined>;
   getPreBookingByQrCode(qrCode: string): Promise<PreBooking | undefined>;
@@ -1511,10 +1514,35 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime());
   }
 
+  async getAllPreBookingsByCustomer(customerId: string): Promise<PreBooking[]> {
+    return Array.from(this.preBookings.values())
+      .filter(booking => booking.customerId === customerId)
+      .sort((a, b) => new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime());
+  }
+
   async getUpcomingPreBookings(): Promise<PreBooking[]> {
     const now = new Date();
     return Array.from(this.preBookings.values())
       .filter(booking => new Date(booking.visitDate) >= now && !booking.isCheckedIn)
+      .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
+  }
+
+  async getUpcomingPreBookingsByCustomer(customerId: string): Promise<PreBooking[]> {
+    const now = new Date();
+    return Array.from(this.preBookings.values())
+      .filter(booking => booking.customerId === customerId && new Date(booking.visitDate) >= now && !booking.isCheckedIn)
+      .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
+  }
+
+  async getReceptionDiaryByCustomer(customerId: string, startDate: Date, daysAhead: number): Promise<PreBooking[]> {
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + daysAhead);
+    
+    return Array.from(this.preBookings.values())
+      .filter(booking => {
+        const bookingDate = new Date(booking.visitDate);
+        return booking.customerId === customerId && bookingDate >= startDate && bookingDate <= endDate;
+      })
       .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
   }
 

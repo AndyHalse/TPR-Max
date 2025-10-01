@@ -88,3 +88,23 @@ Preferred communication style: Simple, everyday language.
 
 ### Communication Integration
 - **8x8 API**: Integrated for voice notification features.
+
+## Recent Changes
+
+### October 01, 2025 - Pre-booking Multi-tenant Isolation Fix
+- **CRITICAL FIX**: All pre-booking endpoints now properly filter by customer tenant for true data isolation
+- **Customer-Filtered Methods**: Added getAllPreBookingsByCustomer(), getUpcomingPreBookingsByCustomer(), and getReceptionDiaryByCustomer() to DatabaseStorage and MemStorage
+- **Security Enhancement**: Added requireAuth middleware to /api/prebookings, /api/prebookings/upcoming, and /api/reception/diary endpoints
+- **Reception Diary Fix**: Dashboard reception diary now only shows pre-bookings for the logged-in customer
+- **Visitor Management Fix**: Pre-booking tab now only shows pre-bookings for the logged-in customer
+- **Database Separation**: Production and development databases are completely separate - pre-bookings must be created in each environment individually
+- **Impact**: Each customer can now only see and manage their own pre-bookings, preventing cross-tenant data exposure
+
+### October 01, 2025 - Reports System Complete with Multi-tenant Isolation
+- **Reports System Fully Operational**: All report endpoints now working correctly with proper customer isolation
+- **Database Schema Fix**: Added customerId column to reports table for multi-tenant data isolation
+- **Customer-Filtered Queries**: Implemented getReportsByCustomer(customerId) method in DatabaseStorage for tenant-safe report retrieval
+- **Security Enhancement**: All report endpoints use requireAuth middleware
+- **Method Naming Fix**: Corrected databaseService.getStaffMembers() to getAllStaff() in report view and email endpoints
+- **Defense-in-Depth Security**: Report updates verify report.customerId matches session context.customerId before allowing operations
+- **Impact**: Reports page fully functional with listing, generation, viewing, and emailing capabilities - all properly isolated by customer
