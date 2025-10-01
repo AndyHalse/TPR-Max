@@ -140,7 +140,7 @@ export function RoomBookingForm({
 
   // Update form when editing
   useEffect(() => {
-    if (editBooking) {
+    if (editBooking && editBooking.startDateTime && editBooking.endDateTime) {
       const startDate = parseISO(editBooking.startDateTime);
       const endDate = parseISO(editBooking.endDateTime);
       
@@ -645,7 +645,10 @@ export function RoomBookingForm({
                                 >
                                   <div className="font-medium">{conflict.title}</div>
                                   <div className="text-muted-foreground">
-                                    {format(parseISO(conflict.startDateTime), 'HH:mm')} - {format(parseISO(conflict.endDateTime), 'HH:mm')}
+                                    {conflict.startDateTime && conflict.endDateTime ? 
+                                      `${format(parseISO(conflict.startDateTime), 'HH:mm')} - ${format(parseISO(conflict.endDateTime), 'HH:mm')}` : 
+                                      'Time not available'
+                                    }
                                   </div>
                                 </div>
                               ))}
