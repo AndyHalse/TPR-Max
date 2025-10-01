@@ -3201,4 +3201,225 @@ export class DatabaseStorage implements IStorage {
     // Room is available if there are no conflicts
     return conflicts.length === 0;
   }
+
+  async createRoomBooking(bookingData: any): Promise<any> {
+    const [newBooking] = await db
+      .insert(roomBookings)
+      .values({
+        meetingRoomId: bookingData.roomId,
+        title: bookingData.title,
+        description: bookingData.description,
+        startTime: new Date(bookingData.startDateTime),
+        endTime: new Date(bookingData.endDateTime),
+        bookedByStaffId: bookingData.bookedByStaffId,
+        tenantCompanyId: bookingData.tenantCompanyId,
+        attendeeCount: bookingData.attendeeCount || 1,
+        setupRequirements: bookingData.setupRequirements || [],
+        isPrivate: bookingData.isPrivate || false,
+        status: 'confirmed',
+      })
+      .returning();
+    return newBooking;
+  }
+
+  async getRoomBookingById(id: string): Promise<any | undefined> {
+    const [booking] = await db
+      .select({
+        id: roomBookings.id,
+        meetingRoomId: roomBookings.meetingRoomId,
+        title: roomBookings.title,
+        description: roomBookings.description,
+        startTime: roomBookings.startTime,
+        endTime: roomBookings.endTime,
+        bookedByStaffId: roomBookings.bookedByStaffId,
+        tenantCompanyId: roomBookings.tenantCompanyId,
+        attendeeCount: roomBookings.attendeeCount,
+        setupRequirements: roomBookings.setupRequirements,
+        isPrivate: roomBookings.isPrivate,
+        status: roomBookings.status,
+        isRecurring: roomBookings.isRecurring,
+        recurrencePattern: roomBookings.recurrencePattern,
+        createdAt: roomBookings.createdAt,
+        updatedAt: roomBookings.updatedAt,
+        room: meetingRooms,
+        organizer: staff,
+      })
+      .from(roomBookings)
+      .leftJoin(meetingRooms, eq(roomBookings.meetingRoomId, meetingRooms.id))
+      .leftJoin(staff, eq(roomBookings.bookedByStaffId, staff.id))
+      .where(eq(roomBookings.id, id));
+    
+    return booking;
+  }
+
+  async updateRoomBooking(id: string, updates: any): Promise<any | undefined> {
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+    
+    if (updates.title) updateData.title = updates.title;
+    if (updates.description) updateData.description = updates.description;
+    if (updates.startDateTime) updateData.startTime = new Date(updates.startDateTime);
+    if (updates.endDateTime) updateData.endTime = new Date(updates.endDateTime);
+    if (updates.status) updateData.status = updates.status;
+    if (updates.setupRequirements) updateData.setupRequirements = updates.setupRequirements;
+    if (updates.isPrivate !== undefined) updateData.isPrivate = updates.isPrivate;
+
+    const [updated] = await db
+      .update(roomBookings)
+      .set(updateData)
+      .where(eq(roomBookings.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  async cancelRoomBooking(id: string, cancelledBy: string): Promise<any | undefined> {
+    const [cancelled] = await db
+      .update(roomBookings)
+      .set({
+        status: 'cancelled',
+        updatedAt: new Date(),
+      })
+      .where(eq(roomBookings.id, id))
+      .returning();
+    
+    return cancelled;
+  }
+
+  async deleteRoomBooking(id: string): Promise<boolean> {
+    const result = await db
+      .delete(roomBookings)
+      .where(eq(roomBookings.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getRoomBookings(startDate?: Date, endDate?: Date): Promise<any[]> {
+    let query = db
+      .select({
+        id: roomBookings.id,
+        meetingRoomId: roomBookings.meetingRoomId,
+        title: roomBookings.title,
+        description: roomBookings.description,
+        startTime: roomBookings.startTime,
+        endTime: roomBookings.endTime,
+        bookedByStaffId: roomBookings.bookedByStaffId,
+        tenantCompanyId: roomBookings.tenantCompanyId,
+        attendeeCount: roomBookings.attendeeCount,
+        status: roomBookings.status,
+        room: meetingRooms,
+        organizer: staff,
+      })
+      .from(roomBookings)
+      .leftJoin(meetingRooms, eq(roomBookings.meetingRoomId, meetingRooms.id))
+      .leftJoin(staff, eq(roomBookings.bookedByStaffId, staff.id));
+
+    if (startDate && endDate) {
+      query = query.where(
+        and(
+          sql`${roomBookings.startTime} >= ${startDate}`,
+          sql`${roomBookings.endTime} <= ${endDate}`
+        )
+      );
+    }
+
+    return await query.orderBy(asc(roomBookings.startTime));
+  }
+
+  async getRoomBookingsByRoom(roomId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
+    let query = db
+      .select()
+      .from(roomBookings)
+      .where(eq(roomBookings.meetingRoomId, roomId));
+
+    if (startDate && endDate) {
+      query = query.where(
+        and(
+          eq(roomBookings.meetingRoomId, roomId),
+          sql`${roomBookings.startTime} >= ${startDate}`,
+          sql`${roomBookings.endTime} <= ${endDate}`
+        )
+      );
+    }
+
+    return await query.orderBy(asc(roomBookings.startTime));
+  }
+
+  async getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
+    let query = db
+      .select()
+      .from(roomBookings)
+      .where(eq(roomBookings.tenantCompanyId, tenantId));
+
+    if (startDate && endDate) {
+      query = query.where(
+        and(
+          eq(roomBookings.tenantCompanyId, tenantId),
+          sql`${roomBookings.startTime} >= ${startDate}`,
+          sql`${roomBookings.endTime} <= ${endDate}`
+        )
+      );
+    }
+
+    return await query.orderBy(asc(roomBookings.startTime));
+  }
+
+  async createBookingAttendees(bookingId: string, staffIds: string[], externalEmails: string[]): Promise<void> {
+    const attendees: any[] = [];
+    
+    staffIds.forEach(staffId => {
+      attendees.push({
+        id: sql`gen_random_uuid()`,
+        bookingId,
+        staffId,
+        email: null,
+      });
+    });
+    
+    externalEmails.forEach(email => {
+      attendees.push({
+        id: sql`gen_random_uuid()`,
+        bookingId,
+        staffId: null,
+        email,
+      });
+    });
+
+    if (attendees.length > 0) {
+      await db.execute(sql`
+        INSERT INTO room_booking_attendees (id, booking_id, staff_id, email)
+        VALUES ${sql.join(
+          attendees.map(a => 
+            sql`(gen_random_uuid(), ${bookingId}, ${a.staffId}, ${a.email})`
+          ),
+          sql`, `
+        )}
+      `);
+    }
+  }
+
+  async getBookingAttendees(bookingId: string): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT * FROM room_booking_attendees
+      WHERE booking_id = ${bookingId}
+    `);
+    return result.rows as any[];
+  }
+
+  async removeBookingAttendee(attendeeId: string): Promise<boolean> {
+    const result = await db.execute(sql`
+      DELETE FROM room_booking_attendees
+      WHERE id = ${attendeeId}
+    `);
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getStaffByIds(ids: string[]): Promise<any[]> {
+    if (ids.length === 0) return [];
+    
+    return await db
+      .select()
+      .from(staff)
+      .where(sql`${staff.id} = ANY(${ids})`);
+  }
 }
