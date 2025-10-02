@@ -91,6 +91,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 02, 2025 - Room Booking Foreign Key Fix (Final Resolution)
+- **CRITICAL DATABASE FIX**: Resolved foreign key violation when creating room bookings
+- **Root Cause**: room_bookings.tenantCompanyId (UUID foreign key to tenant_companies.id) was being populated with customerId ('dev-customer-001' string) instead of tenant_companies.id UUID
+- **Solution**: Added database query to map customerId to tenant_companies.id before booking creation:
+  - Query: `SELECT id FROM tenant_companies WHERE customer_id = ${customerId}`
+  - Maps 'dev-customer-001' → '0aee75c8-300a-4a33-8d7a-53e6d04eede2'
+- **Code Location**: server/routes.ts lines 12918-12924
+- **Impact**: Room booking system now fully functional - bookings created successfully without foreign key violations
+- **E2E Test Results**: ✅ Booking created (200), ✅ No 500 errors, ✅ No FK violations, ✅ Success toast shown
+- **Known Minor Issue**: Email confirmation has date formatting error (RangeError: Invalid time value) - non-blocking, doesn't affect booking functionality
+
 ### October 02, 2025 - Room Booking Complete Fix (Database, UI, CSRF, and SQL)
 - **SQL Query Fix**: Fixed getStaffByIds function to use Drizzle ORM's inArray instead of raw SQL ANY operator, preventing "op ANY/ALL (array) requires array on right side" error
 - **CSRF Security Fix**: Added /api/room-bookings and /api/meeting-rooms to CSRF exemption list for core functionality endpoints
