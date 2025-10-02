@@ -12743,17 +12743,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Room Availability Check - POST method (legacy)
-  app.post("/api/meeting-rooms/:id/check-availability", async (req, res) => {
+  app.post("/api/meeting-rooms/:id/check-availability", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { startTime, endTime, excludeBookingId } = req.body;
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to check availability" });
+      }
       
       const isAvailable = await storage.checkRoomAvailability(
         id,
         new Date(startTime),
         new Date(endTime),
         excludeBookingId,
-        req.user?.tenantCompanyId
+        customerId
       );
       
       res.json({ available: isAvailable });
@@ -12764,29 +12769,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Room Bookings Management
-  app.get("/api/room-bookings", async (req, res) => {
+  app.get("/api/room-bookings", requireAuth, async (req, res) => {
     try {
-      const { tenant_id, room_id, start_date, end_date } = req.query;
-      let bookings;
-
-      if (tenant_id) {
-        bookings = await storage.getRoomBookingsByTenant(
-          tenant_id as string,
-          start_date ? new Date(start_date as string) : undefined,
-          end_date ? new Date(end_date as string) : undefined
-        );
-      } else if (room_id) {
-        bookings = await storage.getRoomBookingsByRoom(
-          room_id as string,
-          start_date ? new Date(start_date as string) : undefined,
-          end_date ? new Date(end_date as string) : undefined
-        );
-      } else {
-        bookings = await storage.getRoomBookings(
-          start_date ? new Date(start_date as string) : undefined,
-          end_date ? new Date(end_date as string) : undefined
-        );
+      // SECURITY: Use authenticated customer's ID for isolation
+      const customerId = req.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to view bookings" });
       }
+      
+      const { room_id, start_date, end_date } = req.query;
+      
+      // Always filter by customer for multi-tenant isolation
+      const bookings = await storage.getRoomBookingsByTenant(
+        customerId,
+        start_date ? new Date(start_date as string) : undefined,
+        end_date ? new Date(end_date as string) : undefined
+      );
 
       res.json(bookings);
     } catch (error) {
@@ -12861,13 +12859,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/room-bookings/:id", async (req, res) => {
+  app.get("/api/room-bookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to view booking" });
+      }
+      
       const booking = await storage.getRoomBookingById(id);
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      // SECURITY: Verify customer owns this booking
+      if (booking.tenantCompanyId !== customerId) {
+        return res.status(403).json({ error: "Not authorized to view this booking" });
       }
       
       res.json(booking);
@@ -13058,13 +13067,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/room-bookings/:id/cancel", async (req, res) => {
+  app.post("/api/room-bookings/:id/cancel", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { cancelledBy, attendeeEmails } = req.body;
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to cancel booking" });
+      }
       
       // Get booking details before cancellation for email
       const fullBooking = await storage.getRoomBookingById(id);
+      
+      if (!fullBooking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      // SECURITY: Verify customer owns this booking
+      if (fullBooking.tenantCompanyId !== customerId) {
+        return res.status(403).json({ error: "Not authorized to cancel this booking" });
+      }
       
       const booking = await storage.cancelRoomBooking(id, cancelledBy);
       
@@ -13102,9 +13125,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/room-bookings/:id", async (req, res) => {
+  app.delete("/api/room-bookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to delete booking" });
+      }
+      
+      // SECURITY: Verify customer owns this booking before deletion
+      const booking = await storage.getRoomBookingById(id);
+      if (!booking) {
+        return res.status(404).json({ error: "Room booking not found" });
+      }
+      
+      if (booking.tenantCompanyId !== customerId) {
+        return res.status(403).json({ error: "Not authorized to delete this booking" });
+      }
+      
       const success = await storage.deleteRoomBooking(id);
       
       if (!success) {
@@ -13119,10 +13158,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Meeting Check-in/out
-  app.post("/api/room-bookings/:id/check-in", async (req, res) => {
+  app.post("/api/room-bookings/:id/check-in", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { staffId } = req.body;
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to check in" });
+      }
       
       const booking = await storage.checkInToMeeting(id, staffId);
       
@@ -13137,9 +13181,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/room-bookings/:id/end-meeting", async (req, res) => {
+  app.post("/api/room-bookings/:id/end-meeting", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to end meeting" });
+      }
       
       const booking = await storage.endMeeting(id);
       
@@ -13155,16 +13204,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upcoming Bookings & Reminders
-  app.get("/api/room-bookings/upcoming", async (req, res) => {
+  app.get("/api/room-bookings/upcoming", requireAuth, async (req, res) => {
     try {
       const { room_id, minutes } = req.query;
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to view upcoming bookings" });
+      }
       
       const upcomingBookings = await storage.getUpcomingBookings(
         room_id as string | undefined,
         minutes ? parseInt(minutes as string) : 15
       );
       
-      res.json(upcomingBookings);
+      // SECURITY: Filter by customer
+      const filteredBookings = upcomingBookings.filter(
+        booking => booking.tenantCompanyId === customerId
+      );
+      
+      res.json(filteredBookings);
     } catch (error) {
       console.error("Error fetching upcoming bookings:", error);
       res.status(500).json({ error: "Failed to fetch upcoming bookings" });
@@ -13186,8 +13245,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/meeting-rooms/analytics/patterns", async (req, res) => {
+  app.get("/api/meeting-rooms/analytics/patterns", requireAuth, async (req, res) => {
     try {
+      const customerId = req.customerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to view analytics" });
+      }
+      
       const patterns = await storage.getMeetingPatterns();
       res.json(patterns);
     } catch (error) {
