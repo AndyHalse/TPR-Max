@@ -144,7 +144,9 @@ function createCSRFMiddleware() {
     if (req.originalUrl.startsWith('/api/objects/') || 
         req.originalUrl.startsWith('/api/staff') ||
         req.originalUrl.startsWith('/api/visitors') ||
-        req.originalUrl.startsWith('/api/prebookings')) {
+        req.originalUrl.startsWith('/api/prebookings') ||
+        req.originalUrl.startsWith('/api/room-bookings') ||
+        req.originalUrl.startsWith('/api/meeting-rooms')) {
       console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }

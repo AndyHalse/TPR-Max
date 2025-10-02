@@ -91,7 +91,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### October 02, 2025 - Room Booking Database Schema and UI Fixes
+### October 02, 2025 - Room Booking Complete Fix (Database, UI, and CSRF)
+- **CSRF Security Fix**: Added /api/room-bookings and /api/meeting-rooms to CSRF exemption list for core functionality endpoints
 - **Database Schema Fix**: Added all missing voice notification columns to staff table:
   - phone_number (TEXT)
   - voice_notifications_enabled (BOOLEAN DEFAULT true)
@@ -103,7 +104,7 @@ Preferred communication style: Simple, everyday language.
 - **Frontend Field Name Compatibility**: Updated RoomBookingCalendar to handle both startDateTime/endDateTime and startTime/endTime field name variations from API
 - **Null Safety**: Added comprehensive null checks and error handling in formatTime and formatDuration functions
 - **Component Syntax Fix**: Corrected BookingCard component closure from arrow function to regular function syntax
-- **Impact**: Room booking system now works end-to-end with proper database schema, no runtime errors, and bookings display correctly in calendar/list views
+- **Impact**: Room booking system now fully operational - bookings can be created, viewed, and managed without errors
 
 ### October 01, 2025 - Room Booking Security and Multi-tenant Isolation Fixes
 - **CRITICAL SECURITY FIX**: Eliminated tenant spoofing vulnerability in POST /api/room-bookings by removing fallback to client-provided tenantCompanyId
