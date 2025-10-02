@@ -91,7 +91,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### October 02, 2025 - Room Booking Complete Fix (Database, UI, and CSRF)
+### October 02, 2025 - Room Booking Complete Fix (Database, UI, CSRF, and SQL)
+- **SQL Query Fix**: Fixed getStaffByIds function to use Drizzle ORM's inArray instead of raw SQL ANY operator, preventing "op ANY/ALL (array) requires array on right side" error
 - **CSRF Security Fix**: Added /api/room-bookings and /api/meeting-rooms to CSRF exemption list for core functionality endpoints
 - **Database Schema Fix**: Added all missing voice notification columns to staff table:
   - phone_number (TEXT)

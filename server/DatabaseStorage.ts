@@ -26,7 +26,7 @@ import type {
   VoiceNotificationLog, InsertVoiceNotificationLog
 } from "@shared/schema";
 import type { IStorage } from "./storage";
-import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, lt, count, isNotNull, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, lt, count, isNotNull, sql, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -3406,11 +3406,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStaffByIds(ids: string[]): Promise<any[]> {
-    if (ids.length === 0) return [];
+    if (!ids || ids.length === 0) return [];
     
     return await db
       .select()
       .from(staff)
-      .where(sql`${staff.id} = ANY(${ids})`);
+      .where(inArray(staff.id, ids));
   }
 }
