@@ -12901,8 +12901,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Unable to identify staff member for booking" });
       }
       
-      // Use staff member's tenantCompanyId if they have one (nullable field)
-      const tenantCompanyId = staffMember?.tenantCompanyId || null;
+      // CRITICAL FIX: Use authenticated customer's ID for tenant isolation (same as availability check endpoint)
+      const tenantCompanyId = customerId;
       
       // Validate required fields
       if (!bookingData.roomId || !bookingData.startDateTime || !bookingData.endDateTime) {
