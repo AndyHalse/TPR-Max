@@ -305,6 +305,11 @@ export class DatabaseStorage implements IStorage {
     return staffMember || undefined;
   }
 
+  async getStaffByUserId(userId: string): Promise<Staff | undefined> {
+    const [staffMember] = await db.select().from(staff).where(eq(staff.userId, userId));
+    return staffMember || undefined;
+  }
+
   async createStaff(insertStaff: InsertStaff): Promise<Staff> {
     const id = randomUUID();
     

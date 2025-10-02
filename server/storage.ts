@@ -77,6 +77,7 @@ export interface IStorage {
   getAllStaff(): Promise<Staff[]>;
   getStaffById(id: string): Promise<Staff | undefined>;
   getStaffByEmail(email: string): Promise<Staff | undefined>;
+  getStaffByUserId(userId: string): Promise<Staff | undefined>;
   createStaff(insertStaff: InsertStaff): Promise<Staff>;
   updateStaff(id: string, updates: Partial<InsertStaff>): Promise<Staff | undefined>;
   deleteStaff(id: string): Promise<boolean>;
@@ -940,6 +941,10 @@ export class MemStorage implements IStorage {
 
   async getStaffByEmail(email: string): Promise<Staff | undefined> {
     return Array.from(this.staffMembers.values()).find(staff => staff.email === email);
+  }
+
+  async getStaffByUserId(userId: string): Promise<Staff | undefined> {
+    return Array.from(this.staffMembers.values()).find(staff => staff.userId === userId);
   }
 
   async createStaff(insertStaff: InsertStaff): Promise<Staff> {

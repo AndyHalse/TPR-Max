@@ -91,6 +91,20 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 02, 2025 - Room Booking Database Schema and UI Fixes
+- **Database Schema Fix**: Added all missing voice notification columns to staff table:
+  - phone_number (TEXT)
+  - voice_notifications_enabled (BOOLEAN DEFAULT true)
+  - email_notifications_enabled (BOOLEAN DEFAULT true)
+  - preferred_notification_method (TEXT DEFAULT 'email')
+  - voice_language (TEXT DEFAULT 'en-GB')
+  - voice_profile (TEXT DEFAULT 'en-GB-Standard-A')
+- **User Linking**: Properly linked Andy's staff record to user account (staff.user_id = 'cae5bcaa-1319-489b-ab0d-6e02e491fa66')
+- **Frontend Field Name Compatibility**: Updated RoomBookingCalendar to handle both startDateTime/endDateTime and startTime/endTime field name variations from API
+- **Null Safety**: Added comprehensive null checks and error handling in formatTime and formatDuration functions
+- **Component Syntax Fix**: Corrected BookingCard component closure from arrow function to regular function syntax
+- **Impact**: Room booking system now works end-to-end with proper database schema, no runtime errors, and bookings display correctly in calendar/list views
+
 ### October 01, 2025 - Room Booking Security and Multi-tenant Isolation Fixes
 - **CRITICAL SECURITY FIX**: Eliminated tenant spoofing vulnerability in POST /api/room-bookings by removing fallback to client-provided tenantCompanyId
 - **Tenant Ownership Verification**: Added mandatory tenant ownership check in PATCH /api/room-bookings/:id to prevent cross-tenant updates

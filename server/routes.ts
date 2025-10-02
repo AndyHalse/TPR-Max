@@ -12882,19 +12882,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bookingData = req.body;
       
       // SECURITY: Strictly use authenticated user's customer context - no fallback
-      const tenantCompanyId = req.customerId;
-      if (!tenantCompanyId) {
+      const customerId = req.customerId;
+      if (!customerId) {
         return res.status(401).json({ error: "Please log in to create a booking" });
       }
       
-      const bookedByStaffId = req.user?.id || bookingData.bookedByStaffId;
+      // Find staff member by user ID (users and staff are separate tables)
+      let bookedByStaffId = bookingData.bookedByStaffId;
+      let staffMember = null;
+      if (!bookedByStaffId && req.user?.id) {
+        staffMember = await storage.getStaffByUserId(req.user.id);
+        if (staffMember) {
+          bookedByStaffId = staffMember.id;
+        }
+      }
+      
+      if (!bookedByStaffId) {
+        return res.status(400).json({ error: "Unable to identify staff member for booking" });
+      }
+      
+      // Use staff member's tenantCompanyId if they have one (nullable field)
+      const tenantCompanyId = staffMember?.tenantCompanyId || null;
       
       // Validate required fields
       if (!bookingData.roomId || !bookingData.startDateTime || !bookingData.endDateTime) {
         return res.status(400).json({ error: "Missing required fields" });
       }
       
-      // Check room availability first with MANDATORY tenant isolation
+      // Check room availability first with MANDATORY customer isolation
       const isAvailable = await storage.checkRoomAvailability(
         bookingData.roomId,
         new Date(bookingData.startDateTime),

@@ -66,7 +66,13 @@ export function RoomBookingCalendar({
 
   // Group bookings by date
   const bookingsByDate = bookings.reduce((acc, booking) => {
-    const dateKey = format(parseISO(booking.startDateTime as any), 'yyyy-MM-dd');
+    // Handle both startDateTime and startTime field names
+    const startField = (booking as any).startDateTime || (booking as any).startTime;
+    
+    // Skip bookings with missing start time
+    if (!startField) return acc;
+    
+    const dateKey = format(parseISO(startField), 'yyyy-MM-dd');
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(booking);
     return acc;
@@ -97,44 +103,59 @@ export function RoomBookingCalendar({
     }
   };
 
-  const formatTime = (dateTime: string) => {
-    return format(parseISO(dateTime), 'HH:mm');
+  const formatTime = (dateTime: string | undefined | null) => {
+    if (!dateTime) return 'N/A';
+    try {
+      return format(parseISO(dateTime), 'HH:mm');
+    } catch {
+      return 'N/A';
+    }
   };
 
-  const formatDuration = (start: string, end: string) => {
-    const startTime = parseISO(start);
-    const endTime = parseISO(end);
-    const durationMs = endTime.getTime() - startTime.getTime();
-    const hours = Math.floor(durationMs / (1000 * 60 * 60));
-    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+  const formatDuration = (start: string | undefined | null, end: string | undefined | null) => {
+    if (!start || !end) return 'N/A';
+    try {
+      const startTime = parseISO(start);
+      const endTime = parseISO(end);
+      const durationMs = endTime.getTime() - startTime.getTime();
+      const hours = Math.floor(durationMs / (1000 * 60 * 60));
+      const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hours === 0) return `${minutes}m`;
+      if (minutes === 0) return `${hours}h`;
+      return `${hours}h ${minutes}m`;
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const BookingCard = ({ booking }: { booking: BookingWithDetails }) => {
+    // Handle both startDateTime/endDateTime and startTime/endTime field names
+    const startField = (booking as any).startDateTime || (booking as any).startTime;
+    const endField = (booking as any).endDateTime || (booking as any).endTime;
     
-    if (hours === 0) return `${minutes}m`;
-    if (minutes === 0) return `${hours}h`;
-    return `${hours}h ${minutes}m`;
-  };
-
-  const BookingCard = ({ booking }: { booking: BookingWithDetails }) => (
-    <Card className="mb-3 hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h4 className="font-semibold text-lg mb-1" data-testid={`booking-title-${booking.id}`}>
-              {booking.title}
-            </h4>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <Clock className="h-4 w-4" />
-              <span data-testid={`booking-time-${booking.id}`}>
-                {formatTime(booking.startDateTime as any)} - {formatTime(booking.endDateTime as any)}
-              </span>
-              <span className="text-xs bg-muted px-2 py-1 rounded">
-                {formatDuration(booking.startDateTime as any, booking.endDateTime as any)}
-              </span>
+    return (
+      <Card className="mb-3 hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+              <h4 className="font-semibold text-lg mb-1" data-testid={`booking-title-${booking.id}`}>
+                {booking.title}
+              </h4>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                <Clock className="h-4 w-4" />
+                <span data-testid={`booking-time-${booking.id}`}>
+                  {formatTime(startField)} - {formatTime(endField)}
+                </span>
+                <span className="text-xs bg-muted px-2 py-1 rounded">
+                  {formatDuration(startField, endField)}
+                </span>
+              </div>
             </div>
+            <Badge className={getStatusColor(booking.status)} data-testid={`booking-status-${booking.id}`}>
+              {booking.status}
+            </Badge>
           </div>
-          <Badge className={getStatusColor(booking.status)} data-testid={`booking-status-${booking.id}`}>
-            {booking.status}
-          </Badge>
-        </div>
 
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
@@ -194,7 +215,8 @@ export function RoomBookingCalendar({
         </div>
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
