@@ -12695,7 +12695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Room Availability Check - GET with query parameters
-  app.get("/api/room-bookings/check-availability", async (req, res) => {
+  app.get("/api/room-bookings/check-availability", requireAuth, async (req, res) => {
     try {
       const { roomId, startDateTime, endDateTime, excludeBookingId } = req.query;
       
@@ -12705,12 +12705,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // SECURITY: Use authenticated user's customer context
+      const tenantCompanyId = req.customerId;
+      
       const isAvailable = await storage.checkRoomAvailability(
         roomId as string,
         new Date(startDateTime as string),
         new Date(endDateTime as string),
         excludeBookingId as string,
-        req.user?.tenantCompanyId
+        tenantCompanyId
       );
       
       if (isAvailable) {
@@ -12795,10 +12798,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Today's Room Bookings - specific route must come before parameterized route
   app.get("/api/room-bookings/today", requireAuth, async (req, res) => {
     try {
-      // SECURITY: Strictly use authenticated user's tenant context
-      const tenantCompanyId = req.context?.customerId;
+      // SECURITY: Strictly use authenticated user's customer context
+      const tenantCompanyId = req.customerId;
       if (!tenantCompanyId) {
-        return res.status(403).json({ error: "Tenant context required" });
+        return res.status(401).json({ error: "Please log in to view bookings" });
       }
       
       // Get today's date range
@@ -12878,10 +12881,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const bookingData = req.body;
       
-      // SECURITY: Strictly use authenticated user's tenant context - no fallback
-      const tenantCompanyId = req.context?.customerId;
+      // SECURITY: Strictly use authenticated user's customer context - no fallback
+      const tenantCompanyId = req.customerId;
       if (!tenantCompanyId) {
-        return res.status(403).json({ error: "Tenant context required" });
+        return res.status(401).json({ error: "Please log in to create a booking" });
       }
       
       const bookedByStaffId = req.user?.id || bookingData.bookedByStaffId;
@@ -12955,10 +12958,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
       
-      // SECURITY: Strictly use authenticated user's tenant context
-      const tenantCompanyId = req.context?.customerId;
+      // SECURITY: Strictly use authenticated user's customer context
+      const tenantCompanyId = req.customerId;
       if (!tenantCompanyId) {
-        return res.status(403).json({ error: "Tenant context required" });
+        return res.status(401).json({ error: "Please log in to update bookings" });
       }
       
       // SECURITY: Verify tenant ownership before any updates
@@ -12967,9 +12970,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Room booking not found" });
       }
       
-      // CRITICAL: Enforce tenant isolation - prevent cross-tenant updates
+      // CRITICAL: Enforce data isolation - prevent unauthorized updates
       if (currentBooking.tenantCompanyId !== tenantCompanyId) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "You don't have permission to modify this booking" });
       }
       
       // If updating time, check availability
