@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { databaseService } from "./databaseService";
 import { simpleDatabaseService } from "./simpleDatabaseService";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
-import { insertCompanySettingsSchema } from "./isolatedSchema";
+import { insertCompanySettingsSchema, tenantCompanies } from "./isolatedSchema";
+import { sql } from "drizzle-orm";
 import { 
   insertStaffSchema, 
   insertVisitorSchema, 
@@ -12910,8 +12911,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Unable to identify staff member for booking" });
       }
       
-      // CRITICAL FIX: Use authenticated customer's ID for tenant isolation (same as availability check endpoint)
-      const tenantCompanyId = customerId;
+      // CRITICAL FIX: Get tenant company ID from customer ID (database has customer_id column)
+      // Query tenant_companies to find the row where customer_id = req.customerId
+      const tenantCompanyResult = await db
+        .select({ id: tenantCompanies.id })
+        .from(tenantCompanies)
+        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
+        .limit(1);
+      
+      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId; // Fallback to customerId for availability check compatibility
       
       // Validate required fields
       if (!bookingData.roomId || !bookingData.startDateTime || !bookingData.endDateTime) {
