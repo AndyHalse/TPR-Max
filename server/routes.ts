@@ -12970,8 +12970,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const staffAttendeeIds = bookingData.staffAttendeeIds || [];
       const externalAttendeeEmails = bookingData.externalAttendeeEmails || [];
       
+      console.log("📋 Booking attendees data:", { 
+        bookingId: booking.id, 
+        staffAttendeeIds, 
+        externalAttendeeEmails,
+        staffCount: staffAttendeeIds.length,
+        externalCount: externalAttendeeEmails.length 
+      });
+      
       if (staffAttendeeIds.length > 0 || externalAttendeeEmails.length > 0) {
+        console.log("✅ Calling createBookingAttendees...");
         await storage.createBookingAttendees(booking.id, staffAttendeeIds, externalAttendeeEmails);
+        console.log("✅ createBookingAttendees completed");
+      } else {
+        console.log("⚠️ No attendees to create - arrays are empty");
       }
       
       // Get full booking details for email

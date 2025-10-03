@@ -11,7 +11,7 @@ import {
   co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings,
   voiceNotificationLogs
 } from "@shared/schema";
-import { meetingRooms, roomBookings } from "./isolatedSchema";
+import { meetingRooms, roomBookings, roomBookingAttendees } from "./isolatedSchema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation,
@@ -3262,7 +3262,14 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(staff, eq(roomBookings.bookedByStaffId, staff.id))
       .where(eq(roomBookings.id, id));
     
-    return booking;
+    if (!booking) return undefined;
+    
+    const attendees = await this.getBookingAttendees(id);
+    
+    return {
+      ...booking,
+      attendees,
+    };
   }
 
   async updateRoomBooking(id: string, updates: any): Promise<any | undefined> {
@@ -3418,23 +3425,79 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    return await query.orderBy(asc(roomBookings.startTime));
+    const bookings = await query.orderBy(asc(roomBookings.startTime));
+    
+    // Fetch attendees for each booking
+    const bookingsWithAttendees = await Promise.all(
+      bookings.map(async (booking) => {
+        const attendees = await this.getBookingAttendees(booking.id);
+        return {
+          ...booking,
+          attendees,
+        };
+      })
+    );
+    
+    return bookingsWithAttendees;
   }
 
   async createBookingAttendees(bookingId: string, staffIds: string[], externalEmails: string[]): Promise<void> {
-    // Note: room_booking_attendees table doesn't exist yet - attendee management is TODO
-    // For now, we'll skip this functionality
-    return;
+    console.log("🔧 createBookingAttendees called:", { bookingId, staffIds, externalEmails });
+    const attendeesToInsert: any[] = [];
+    
+    for (const staffId of staffIds) {
+      console.log("🔍 Looking up staff member:", staffId);
+      const [staffMember] = await db.select().from(staff).where(eq(staff.id, staffId));
+      if (staffMember) {
+        console.log("✅ Found staff member:", staffMember.firstName, staffMember.lastName);
+        attendeesToInsert.push({
+          bookingId,
+          staffId: staffMember.id,
+          email: staffMember.email,
+          name: `${staffMember.firstName} ${staffMember.lastName}`,
+          isOrganizer: false,
+          responseStatus: 'pending',
+        });
+      } else {
+        console.log("❌ Staff member not found:", staffId);
+      }
+    }
+    
+    for (const email of externalEmails) {
+      console.log("➕ Adding external attendee:", email);
+      attendeesToInsert.push({
+        bookingId,
+        staffId: null,
+        email,
+        name: email.split('@')[0],
+        isOrganizer: false,
+        responseStatus: 'pending',
+      });
+    }
+    
+    console.log("💾 Attendees to insert:", attendeesToInsert.length, attendeesToInsert);
+    
+    if (attendeesToInsert.length > 0) {
+      const result = await db.insert(roomBookingAttendees).values(attendeesToInsert).returning();
+      console.log("✅ Inserted attendees:", result.length);
+    } else {
+      console.log("⚠️ No attendees to insert");
+    }
   }
 
   async getBookingAttendees(bookingId: string): Promise<any[]> {
-    // Note: room_booking_attendees table doesn't exist yet - attendee management is TODO
-    return [];
+    const attendees = await db
+      .select()
+      .from(roomBookingAttendees)
+      .where(eq(roomBookingAttendees.bookingId, bookingId));
+    return attendees;
   }
 
   async removeBookingAttendee(attendeeId: string): Promise<boolean> {
-    // Note: room_booking_attendees table doesn't exist yet - attendee management is TODO
-    return true;
+    const result = await db
+      .delete(roomBookingAttendees)
+      .where(eq(roomBookingAttendees.id, attendeeId));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   async getStaffByIds(ids: string[]): Promise<any[]> {

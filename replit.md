@@ -91,6 +91,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 03, 2025 - Room Booking Staff Attendees Complete Implementation
+- **FEATURE COMPLETE**: Staff attendees for room bookings now fully functional
+- **Database**: Created room_booking_attendees table with proper foreign keys
+- **Backend Methods**: Implemented createBookingAttendees, getBookingAttendees, removeBookingAttendee
+- **Critical Fix #1**: Updated getRoomBookingsByTenant to fetch attendees for each booking (using Promise.all)
+- **Critical Fix #2**: Updated handleBookingEdit in MeetingRooms.tsx to pass attendees array to form
+- **Data Flow**: POST creates attendees → GET fetches with attendees → Edit form populates checkboxes
+- **E2E Test**: ✅ Complete flow verified - create booking with attendees → edit shows checkboxes checked
+- **Code Locations**:
+  - server/DatabaseStorage.ts: getRoomBookingsByTenant (lines 3433-3444), createBookingAttendees, getBookingAttendees
+  - server/routes.ts: POST /api/room-bookings attendee creation logic
+  - client/src/pages/MeetingRooms.tsx: handleBookingEdit attendees mapping (line 206)
+  - client/src/components/RoomBookingForm.tsx: attendee extraction logic (lines 147-176)
+- **Impact**: Staff members can now be properly tracked as meeting attendees with full persistence and edit support
+
 ### October 03, 2025 - Room Booking View and Edit Dialog Fixes
 - **VIEW/EDIT FUNCTIONALITY FIX**: Separated View and Edit actions with proper dialogs
 - **Root Cause**: Both View and Edit buttons were calling the same handler and opening an unpopulated edit form

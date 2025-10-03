@@ -200,6 +200,7 @@ export default function MeetingRooms() {
       bookedByStaffId: booking.bookedByStaffId,
       startDateTime: booking.startTime,
       endDateTime: booking.endTime,
+      attendees: booking.attendees || [], // Pass attendees array for form to extract staffAttendeeIds
     };
     setEditBooking(mappedBooking);
     setIsBookingFormOpen(true);

@@ -513,6 +513,19 @@ export const roomBookings = pgTable("room_bookings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Room Booking Attendees
+export const roomBookingAttendees = pgTable("room_booking_attendees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").notNull().references(() => roomBookings.id, { onDelete: 'cascade' }),
+  staffId: varchar("staff_id").references(() => staff.id),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  isOrganizer: boolean("is_organizer").default(false).notNull(),
+  responseStatus: text("response_status").default("pending").notNull(),
+  responseAt: timestamp("response_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // CONTRACTOR MANAGEMENT SYSTEM
 // Core contractor tables
 

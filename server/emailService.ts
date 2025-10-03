@@ -567,8 +567,11 @@ For questions about this report, please contact the administrator.
       return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
 
-    const startDate = new Date(booking.startDateTime);
-    const endDate = new Date(booking.endDateTime);
+    const bookingStartTime = booking.startTime || booking.startDateTime;
+    const bookingEndTime = booking.endTime || booking.endDateTime;
+    
+    const startDate = new Date(bookingStartTime);
+    const endDate = new Date(bookingEndTime);
     const now = new Date();
 
     // Generate unique UID for the event
@@ -612,12 +615,15 @@ For questions about this report, please contact the administrator.
       }).format(date);
     };
 
-    const startTime = formatDateTime(new Date(booking.startDateTime));
+    const bookingStartTime = booking.startTime || booking.startDateTime;
+    const bookingEndTime = booking.endTime || booking.endDateTime;
+    
+    const startTime = formatDateTime(new Date(bookingStartTime));
     const endTime = new Intl.DateTimeFormat('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: 'Europe/London'
-    }).format(new Date(booking.endDateTime));
+    }).format(new Date(bookingEndTime));
 
     const subject = `Meeting Room Confirmed: ${booking.title}`;
     
@@ -715,8 +721,11 @@ For questions about this report, please contact the administrator.
       return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
 
-    const startDate = new Date(booking.startDateTime);
-    const endDate = new Date(booking.endDateTime);
+    const bookingStartTime = booking.startTime || booking.startDateTime;
+    const bookingEndTime = booking.endTime || booking.endDateTime;
+    
+    const startDate = new Date(bookingStartTime);
+    const endDate = new Date(bookingEndTime);
     const now = new Date();
 
     // Use same UID as original event for proper cancellation
