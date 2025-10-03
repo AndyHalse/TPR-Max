@@ -582,44 +582,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Create checkout session
-      const priceId = process.env.STRIPE_PROFESSIONAL_PRICE_ID;
-      if (!priceId) {
-        console.warn('⚠️ STRIPE_PROFESSIONAL_PRICE_ID not configured - using development mode');
-        return res.json({
-          success: true,
-          checkoutUrl: successUrl.replace('{CHECKOUT_SESSION_ID}', `dev_no_price_${sessionId}`),
-          sessionId: `dev_no_price_${sessionId}`,
-          message: 'Development mode - Stripe price ID not configured'
-        });
-      }
-
-      const checkoutSessionResponse = await stripeService.createCheckoutSession({
-        customerId: stripeCustomerResponse.stripeCustomer.id,
-        priceId: priceId,
-        billingCycle: 'monthly',
-        successUrl,
-        cancelUrl,
-        metadata: {
-          signupSessionId: sessionId,
-          companyName: signupSession.companyName
-        }
-      });
-
-      if (!checkoutSessionResponse.success) {
+      // Get Professional Plan (single plan) from database
+      const managementDbUrl = process.env.DATABASE_URL;
+      if (!managementDbUrl) {
         return res.status(500).json({
           success: false,
-          error: 'Failed to create checkout session'
+          error: 'Database configuration error'
         });
       }
 
-      console.log(`💳 Stripe checkout session created for: ${signupSession.companyName}`);
-      
-      res.json({
-        success: true,
-        checkoutUrl: checkoutSessionResponse.checkoutUrl,
-        sessionId: checkoutSessionResponse.sessionId
-      });
+      const { Pool } = await import('@neondatabase/serverless');
+      const { drizzle } = await import('drizzle-orm/neon-serverless');
+      const { eq } = await import('drizzle-orm');
+      const sharedSchema = await import('@shared/schema');
+
+      const managementPool = new Pool({ connectionString: managementDbUrl });
+      const db = drizzle({ client: managementPool, schema: sharedSchema });
+
+      try {
+        const [plan] = await db
+          .select()
+          .from(sharedSchema.subscriptionPlans)
+          .where(eq(sharedSchema.subscriptionPlans.name, 'professional'))
+          .limit(1);
+
+        if (!plan || !plan.stripePriceIdMonthly) {
+          console.error('⚠️ Professional Plan not found or missing Stripe price ID');
+          return res.json({
+            success: true,
+            checkoutUrl: successUrl.replace('{CHECKOUT_SESSION_ID}', `dev_no_plan_${sessionId}`),
+            sessionId: `dev_no_plan_${sessionId}`,
+            message: 'Development mode - Professional Plan not configured'
+          });
+        }
+
+        const checkoutSessionResponse = await stripeService.createCheckoutSession({
+          customerId: stripeCustomerResponse.stripeCustomer.id,
+          priceId: plan.stripePriceIdMonthly,
+          billingCycle: 'monthly',
+          successUrl,
+          cancelUrl,
+          metadata: {
+            signupSessionId: sessionId,
+            companyName: signupSession.companyName
+          }
+        });
+
+        if (!checkoutSessionResponse.success) {
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to create checkout session'
+          });
+        }
+
+        console.log(`💳 Stripe checkout session created for: ${signupSession.companyName}`);
+        
+        res.json({
+          success: true,
+          checkoutUrl: checkoutSessionResponse.checkoutUrl,
+          sessionId: checkoutSessionResponse.sessionId
+        });
+
+      } finally {
+        await managementPool.end();
+      }
       
     } catch (error) {
       console.error('❌ Error creating checkout session:', error);
