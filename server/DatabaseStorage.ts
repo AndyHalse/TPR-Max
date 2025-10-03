@@ -3372,8 +3372,40 @@ export class DatabaseStorage implements IStorage {
 
   async getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
     let query = db
-      .select()
+      .select({
+        id: roomBookings.id,
+        meetingRoomId: roomBookings.meetingRoomId,
+        title: roomBookings.title,
+        description: roomBookings.description,
+        startTime: roomBookings.startTime,
+        endTime: roomBookings.endTime,
+        bookedByStaffId: roomBookings.bookedByStaffId,
+        tenantCompanyId: roomBookings.tenantCompanyId,
+        attendeeCount: roomBookings.attendeeCount,
+        expectedAttendees: roomBookings.expectedAttendees,
+        status: roomBookings.status,
+        requiresCatering: roomBookings.requiresCatering,
+        cateringNotes: roomBookings.cateringNotes,
+        specialRequirements: roomBookings.specialRequirements,
+        attendeeEmails: roomBookings.attendeeEmails,
+        room: {
+          id: meetingRooms.id,
+          name: meetingRooms.name,
+          capacity: meetingRooms.capacity,
+          location: meetingRooms.location,
+          equipment: meetingRooms.equipment,
+        },
+        organizer: {
+          id: staff.id,
+          firstName: staff.firstName,
+          lastName: staff.lastName,
+          email: staff.email,
+          department: staff.department,
+        },
+      })
       .from(roomBookings)
+      .leftJoin(meetingRooms, eq(roomBookings.meetingRoomId, meetingRooms.id))
+      .leftJoin(staff, eq(roomBookings.bookedByStaffId, staff.id))
       .where(eq(roomBookings.tenantCompanyId, tenantId));
 
     if (startDate && endDate) {
