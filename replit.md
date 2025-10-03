@@ -91,6 +91,20 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 03, 2025 - Room Booking Display Fix (Calendar & Dashboard)
+- **CRITICAL DISPLAY FIX**: Resolved issue where bookings weren't showing on calendar or dashboard
+- **Root Cause #1**: GET /api/room-bookings and GET /api/room-bookings/today were filtering by customerId instead of tenant_company_id UUID
+- **Root Cause #2**: getRoomBookingsByTenant method wasn't joining room and organizer data, causing "Cannot read properties of undefined" errors
+- **Solution Applied**:
+  1. Added customerId → tenant_company_id mapping in both GET endpoints (same fix as POST endpoint)
+  2. Updated getRoomBookingsByTenant to include leftJoin for meetingRooms and staff tables
+- **Code Locations**: 
+  - server/routes.ts lines 12787-12793 (GET /api/room-bookings)
+  - server/routes.ts lines 12819-12825 (GET /api/room-bookings/today)
+  - server/DatabaseStorage.ts lines 3376-3425 (getRoomBookingsByTenant with joins)
+- **Impact**: Bookings now display correctly on both calendar and dashboard with complete details (room name, location, organizer, time)
+- **E2E Test Results**: ✅ Dashboard shows meeting count, ✅ Calendar displays bookings, ✅ Room names visible, ✅ Organizer names visible, ✅ No undefined errors
+
 ### October 02, 2025 - Room Booking Foreign Key Fix (Final Resolution)
 - **CRITICAL DATABASE FIX**: Resolved foreign key violation when creating room bookings
 - **Root Cause**: room_bookings.tenantCompanyId (UUID foreign key to tenant_companies.id) was being populated with customerId ('dev-customer-001' string) instead of tenant_companies.id UUID
