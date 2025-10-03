@@ -65,26 +65,33 @@ export function registerBillingRoutes(app: Express) {
       const managementPool = new Pool({ connectionString: managementDbUrl });
       const db = drizzle({ client: managementPool, schema: sharedSchema });
 
-      const plans = await db
+      // Get the single Professional Plan only
+      const [plan] = await db
         .select()
         .from(sharedSchema.subscriptionPlans)
-        .where(eq(sharedSchema.subscriptionPlans.isActive, true))
-        .orderBy(sharedSchema.subscriptionPlans.sortOrder);
+        .where(eq(sharedSchema.subscriptionPlans.name, 'professional'))
+        .limit(1);
 
       await managementPool.end();
 
+      if (!plan) {
+        return res.status(404).json({
+          success: false,
+          error: 'Professional Plan not configured'
+        });
+      }
+
+      // Return single plan in array format for compatibility
       res.json({
         success: true,
-        plans: plans.map(plan => ({
+        plan: {
           id: plan.id,
           name: plan.name,
           displayName: plan.displayName,
           description: plan.description,
           monthlyPrice: plan.monthlyPrice,
-          yearlyPrice: plan.yearlyPrice,
           currency: plan.currency,
           features: plan.features,
-          isPopular: plan.isPopular,
           trialDays: plan.trialDays,
           limits: {
             maxVisitorsPerMonth: plan.maxVisitorsPerMonth,
@@ -93,7 +100,7 @@ export function registerBillingRoutes(app: Express) {
             maxTenants: plan.maxTenants,
             maxStorageGb: plan.maxStorageGb
           }
-        }))
+        }
       });
 
     } catch (error) {
