@@ -117,12 +117,12 @@ export class CustomerOnboardingService {
           provisioiningState.stripeCustomerId = stripeCustomerResult.stripeCustomer.id;
           console.log(`✅ Stripe customer created: ${stripeCustomerResult.stripeCustomer.id}`);
           
-          // Step 7: Create subscription if not trial-only
-          if (request.planType !== 'trial' || request.createSubscription) {
-            await this.createStripeSubscription(customerId, stripeCustomerResult.stripeCustomer.id, request);
-            provisioiningState.subscriptionCreated = true;
-            console.log(`✅ Stripe subscription created for customer: ${customerId}`);
-          }
+          // Step 7: Always create subscription with 14-day trial for all new customers
+          // Single plan: Professional at £49.95/month with 14-day trial
+          await this.createStripeSubscription(customerId, stripeCustomerResult.stripeCustomer.id, request);
+          provisioiningState.subscriptionCreated = true;
+          console.log(`✅ Stripe subscription created for customer: ${customerId} (Professional Plan with 14-day trial)`);
+
         } else {
           console.warn(`⚠️ Stripe customer creation returned unsuccessful result for ${customerId}`);
         }
@@ -146,10 +146,8 @@ export class CustomerOnboardingService {
           contactEmail: customer.contactEmail,
           isActive: customer.isActive,
           onboardingCompleted: true,
-          planType: request.planType,
-          trialExpiresAt: request.planType === 'trial' 
-            ? new Date(Date.now() + request.trialDays * 24 * 60 * 60 * 1000)
-            : undefined,
+          planType: 'professional',
+          trialExpiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         },
         adminUser: {
           id: adminUserId,
@@ -216,10 +214,8 @@ export class CustomerOnboardingService {
       const customerId = randomUUID();
       const customerSlug = this.generateCustomerSlug(request.companyName);
       
-      // Calculate trial expiration
-      const trialExpiresAt = request.planType === 'trial' 
-        ? new Date(Date.now() + request.trialDays * 24 * 60 * 60 * 1000)
-        : null;
+      // All customers get 14-day trial with Professional Plan
+      const trialExpiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
       
       const customerData: InsertCustomer = {
         companyName: request.companyName,
@@ -420,43 +416,31 @@ export class CustomerOnboardingService {
       const managementDb = drizzle({ client: managementPool, schema: sharedSchema });
 
       try {
-        // Try to ensure plans exist first
-        const planResult = await stripeService.ensureSubscriptionPlans();
-        if (!planResult.success && process.env.NODE_ENV === 'production') {
-          throw new Error('Failed to ensure VisiGate Pro subscription plan exists');
-        }
-
-        let plan = await managementDb
+        // Get the single Professional Plan from database
+        const plan = await managementDb
           .select()
           .from(sharedSchema.subscriptionPlans)
-          .where(eq(sharedSchema.subscriptionPlans.name, 'visigate_pro'))
+          .where(eq(sharedSchema.subscriptionPlans.name, 'professional'))
           .limit(1)
           .then(results => results[0]);
 
         if (!plan) {
-          // Create fallback plan if database query fails but Stripe setup succeeded
-          if (planResult.success && 'subscriptionPlan' in planResult && planResult.subscriptionPlan) {
-            // Plan was just created, use it
-            plan = planResult.subscriptionPlan;
-          } else {
-            throw new Error('VisiGate Pro subscription plan not found and could not be created. Please run setup first.');
-          }
+          throw new Error('Professional Plan not found. Please ensure subscription plan is seeded in database.');
         }
 
-        const priceId = request.billingCycle === 'yearly' && plan.stripePriceIdYearly
-          ? plan.stripePriceIdYearly
-          : plan.stripePriceIdMonthly;
+        // Always use monthly billing for the single plan
+        const priceId = plan.stripePriceIdMonthly;
 
         if (!priceId) {
-          throw new Error(`No Stripe price ID found for billing cycle: ${request.billingCycle || 'monthly'}`);
+          throw new Error('No Stripe monthly price ID found for Professional Plan');
         }
 
         const result = await stripeService.createSubscription({
           customerId,
           stripeCustomerId,
           priceId,
-          billingCycle: request.billingCycle || 'monthly',
-          trialDays: request.trialDays || 14
+          billingCycle: 'monthly',
+          trialDays: 14  // Fixed 14-day trial for all customers
         });
 
         console.log(`✅ Stripe subscription created: ${result.subscription.id}`);
