@@ -91,6 +91,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### October 03, 2025 - Room Booking View and Edit Dialog Fixes
+- **VIEW/EDIT FUNCTIONALITY FIX**: Separated View and Edit actions with proper dialogs
+- **Root Cause**: Both View and Edit buttons were calling the same handler and opening an unpopulated edit form
+- **Solution Applied**:
+  1. Created separate handlers: handleBookingView, handleBookingEdit, handleBookingCancel
+  2. Added new read-only View dialog showing complete booking details (room, organizer, times, attendees, etc.)
+  3. Fixed Edit form population by mapping API response fields to form expected fields:
+     - meetingRoomId → roomId
+     - startTime → startDateTime
+     - endTime → endDateTime
+  4. Updated RoomBookingCalendar component to use separate props for each action
+- **Code Locations**:
+  - client/src/components/RoomBookingCalendar.tsx (button handlers updated)
+  - client/src/pages/MeetingRooms.tsx (separate handlers and view dialog added)
+- **Impact**: View button now shows read-only booking details, Edit button opens pre-populated form
+- **E2E Test Results**: ✅ View dialog shows all details, ✅ Edit form properly populated with booking data
+
 ### October 03, 2025 - Room Booking Display Fix (Calendar & Dashboard)
 - **CRITICAL DISPLAY FIX**: Resolved issue where bookings weren't showing on calendar or dashboard
 - **Root Cause #1**: GET /api/room-bookings and GET /api/room-bookings/today were filtering by customerId instead of tenant_company_id UUID
