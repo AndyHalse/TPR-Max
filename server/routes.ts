@@ -12780,9 +12780,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { room_id, start_date, end_date } = req.query;
       
+      // Map customerId to tenant_company_id for database query
+      const tenantCompanyResult = await db
+        .select({ id: tenantCompanies.id })
+        .from(tenantCompanies)
+        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
+        .limit(1);
+      
+      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId;
+      
       // Always filter by customer for multi-tenant isolation
       const bookings = await storage.getRoomBookingsByTenant(
-        customerId,
+        tenantCompanyId,
         start_date ? new Date(start_date as string) : undefined,
         end_date ? new Date(end_date as string) : undefined
       );
@@ -12798,10 +12807,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/room-bookings/today", requireAuth, async (req, res) => {
     try {
       // SECURITY: Strictly use authenticated user's customer context
-      const tenantCompanyId = req.customerId;
-      if (!tenantCompanyId) {
+      const customerId = req.customerId;
+      if (!customerId) {
         return res.status(401).json({ error: "Please log in to view bookings" });
       }
+      
+      // Map customerId to tenant_company_id for database query
+      const tenantCompanyResult = await db
+        .select({ id: tenantCompanies.id })
+        .from(tenantCompanies)
+        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
+        .limit(1);
+      
+      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId;
       
       // Get today's date range
       const today = new Date();
