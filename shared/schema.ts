@@ -67,7 +67,7 @@ export const stripeWebhookEvents = pgTable("stripe_webhook_events", {
 }));
 
 // Customer API Keys - Enhanced for proper key management and security
-export const customerApiKeys = pgTable("customer_api_keys", {
+export const customerApiKeys: any = pgTable("customer_api_keys", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").notNull().references(() => customers.id),
   // Key identification and metadata
@@ -1147,7 +1147,6 @@ export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   emailSent: true,
   emailSentAt: true,
   createdAt: true,
-  meetingRoomId: true,
 });
 
 export const insertEvacuationAccountabilitySchema = createInsertSchema(evacuationAccountability).omit({
