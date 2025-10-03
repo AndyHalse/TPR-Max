@@ -24,14 +24,18 @@ interface BookingWithDetails extends RoomBooking {
 
 interface RoomBookingCalendarProps {
   selectedRoomId?: string;
-  onBookingSelect?: (booking: BookingWithDetails) => void;
+  onBookingView?: (booking: BookingWithDetails) => void;
+  onBookingEdit?: (booking: BookingWithDetails) => void;
+  onBookingCancel?: (booking: BookingWithDetails) => void;
   onCreateBooking?: (date: Date, roomId?: string) => void;
   tenantId?: string;
 }
 
 export function RoomBookingCalendar({
   selectedRoomId,
-  onBookingSelect,
+  onBookingView,
+  onBookingEdit,
+  onBookingCancel,
   onCreateBooking,
   tenantId
 }: RoomBookingCalendarProps) {
@@ -183,7 +187,7 @@ export function RoomBookingCalendar({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onBookingSelect?.(booking)}
+            onClick={() => onBookingView?.(booking)}
             data-testid={`button-view-${booking.id}`}
           >
             <Eye className="h-4 w-4 mr-1" />
@@ -194,7 +198,7 @@ export function RoomBookingCalendar({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onBookingSelect?.(booking)}
+                onClick={() => onBookingEdit?.(booking)}
                 data-testid={`button-edit-${booking.id}`}
               >
                 <Edit className="h-4 w-4 mr-1" />
@@ -204,7 +208,7 @@ export function RoomBookingCalendar({
                 variant="outline"
                 size="sm"
                 className="text-red-600 hover:text-red-700"
-                onClick={() => onBookingSelect?.(booking)}
+                onClick={() => onBookingCancel?.(booking)}
                 data-testid={`button-cancel-${booking.id}`}
               >
                 <Trash2 className="h-4 w-4 mr-1" />

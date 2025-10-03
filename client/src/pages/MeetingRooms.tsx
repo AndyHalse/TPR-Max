@@ -184,9 +184,44 @@ export default function MeetingRooms() {
     setIsBookingFormOpen(true);
   };
 
-  const handleBookingSelect = (booking: any) => {
-    setEditBooking(booking);
+  const [viewBooking, setViewBooking] = useState<any>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
+  const handleBookingView = (booking: any) => {
+    setViewBooking(booking);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleBookingEdit = (booking: any) => {
+    // Map API response fields to form expected fields
+    const mappedBooking = {
+      ...booking,
+      roomId: booking.meetingRoomId,
+      bookedByStaffId: booking.bookedByStaffId,
+      startDateTime: booking.startTime,
+      endDateTime: booking.endTime,
+    };
+    setEditBooking(mappedBooking);
     setIsBookingFormOpen(true);
+  };
+
+  const handleBookingCancel = async (booking: any) => {
+    if (confirm('Are you sure you want to cancel this booking?')) {
+      try {
+        await apiRequest('DELETE', `/api/room-bookings/${booking.id}`);
+        queryClient.invalidateQueries({ queryKey: ['/api/room-bookings'] });
+        toast({
+          title: 'Booking Cancelled',
+          description: 'The booking has been cancelled successfully.',
+        });
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   if (isLoading) {
@@ -666,7 +701,9 @@ export default function MeetingRooms() {
         <TabsContent value="bookings" className="space-y-6">
           <RoomBookingCalendar
             selectedRoomId={selectedRoom?.id}
-            onBookingSelect={handleBookingSelect}
+            onBookingView={handleBookingView}
+            onBookingEdit={handleBookingEdit}
+            onBookingCancel={handleBookingCancel}
             onCreateBooking={handleCreateBooking}
             tenantId="0f97f5a9-2b83-45ae-9ebf-cead4a9abd6a"
           />
@@ -681,6 +718,118 @@ export default function MeetingRooms() {
         selectedRoomId={selectedRoom?.id}
         editBooking={editBooking}
       />
+
+      {/* View Booking Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-view-booking">
+          <DialogHeader>
+            <DialogTitle data-testid="text-view-title">Booking Details</DialogTitle>
+          </DialogHeader>
+          {viewBooking && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Title</h4>
+                  <p className="text-lg font-semibold" data-testid="text-booking-title">{viewBooking.title}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
+                  <Badge className="mt-1" data-testid="badge-booking-status">{viewBooking.status}</Badge>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Room</h4>
+                  <p className="font-medium" data-testid="text-booking-room">
+                    {viewBooking.room?.name || 'Unknown Room'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{viewBooking.room?.location}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Organizer</h4>
+                  <p className="font-medium" data-testid="text-booking-organizer">
+                    {viewBooking.organizer ? 
+                      `${viewBooking.organizer.firstName} ${viewBooking.organizer.lastName}` : 
+                      'Unknown'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{viewBooking.organizer?.email}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Start Time</h4>
+                  <p className="font-medium" data-testid="text-booking-start">
+                    {viewBooking.startTime ? new Date(viewBooking.startTime).toLocaleString() : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">End Time</h4>
+                  <p className="font-medium" data-testid="text-booking-end">
+                    {viewBooking.endTime ? new Date(viewBooking.endTime).toLocaleString() : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Expected Attendees</h4>
+                <p className="font-medium" data-testid="text-booking-attendees">
+                  {viewBooking.expectedAttendees || 1} people
+                </p>
+              </div>
+
+              {viewBooking.description && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Description</h4>
+                    <p className="mt-1" data-testid="text-booking-description">{viewBooking.description}</p>
+                  </div>
+                </>
+              )}
+
+              {viewBooking.requiresCatering && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Catering</h4>
+                    <p className="mt-1">Required</p>
+                    {viewBooking.cateringNotes && (
+                      <p className="text-sm text-muted-foreground mt-1">{viewBooking.cateringNotes}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {viewBooking.specialRequirements && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Special Requirements</h4>
+                    <p className="mt-1">{viewBooking.specialRequirements}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsViewDialogOpen(false)}
+              data-testid="button-close-view"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
