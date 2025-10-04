@@ -15338,6 +15338,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DUPLICATE ROUTE REMOVED - Main /api/settings route handles company settings
   // ============================================================================
 
+  // Diagnostic endpoint for debugging production environment issues
+  app.get("/api/diagnostics/environment", async (req, res) => {
+    try {
+      const diagnostics = {
+        environment: {
+          NODE_ENV: process.env.NODE_ENV || 'not set (defaults to development)',
+          has_DATABASE_URL: !!process.env.DATABASE_URL,
+          DEV_AUTH_BYPASS: process.env.DEV_AUTH_BYPASS || 'not set',
+        },
+        session: {
+          authenticated: !!req.user,
+          userId: req.userId || 'not set',
+          customerId: req.customerId || 'not set',
+          companyName: req.user?.companyName || 'not set',
+          username: req.user?.username || 'not set',
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      // If authenticated, get booking count for this customer
+      if (req.customerId) {
+        try {
+          const tenantCompanyResult = await db
+            .select({ id: sharedSchema.tenantCompanies.id })
+            .from(sharedSchema.tenantCompanies)
+            .where(sql`${sharedSchema.tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${req.customerId})`)
+            .limit(1);
+          
+          const tenantCompanyId = tenantCompanyResult[0]?.id;
+          
+          if (tenantCompanyId) {
+            const bookingsCount = await db
+              .select({ count: sql`count(*)` })
+              .from(isolatedSchema.roomBookings)
+              .where(eq(isolatedSchema.roomBookings.tenantCompanyId, tenantCompanyId));
+            
+            diagnostics.database = {
+              tenantCompanyId,
+              roomBookingsCount: Number(bookingsCount[0]?.count || 0)
+            };
+          }
+        } catch (dbError) {
+          diagnostics.database = {
+            error: 'Failed to query database',
+            message: dbError.message
+          };
+        }
+      }
+
+      res.json(diagnostics);
+    } catch (error) {
+      res.status(500).json({ 
+        error: 'Diagnostics failed', 
+        details: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
