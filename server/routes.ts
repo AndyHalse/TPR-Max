@@ -12733,7 +12733,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // SECURITY: Use authenticated user's customer context
-      const tenantCompanyId = req.customerId;
+      const customerId = req.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Please log in to check availability" });
+      }
+      
+      // CRITICAL FIX: Map customerId to tenant_company_id (same logic as POST booking)
+      const tenantCompanyResult = await db
+        .select({ id: tenantCompanies.id })
+        .from(tenantCompanies)
+        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
+        .limit(1);
+      
+      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId;
       
       const isAvailable = await storage.checkRoomAvailability(
         roomId as string,

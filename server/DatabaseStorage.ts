@@ -3183,9 +3183,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean> {
+    console.log("🔍 Checking room availability:", {
+      roomId,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      excludeBookingId,
+      tenantId
+    });
+
     // Build conditions array for multi-tenant isolation
     const conditions = [
       eq(roomBookings.meetingRoomId, roomId),
+      sql`${roomBookings.status} != 'cancelled'`, // Exclude cancelled bookings
       // Check for time overlap: new booking overlaps if it starts before existing ends AND ends after existing starts
       sql`${roomBookings.startTime} < ${endTime}`,
       sql`${roomBookings.endTime} > ${startTime}`
@@ -3206,8 +3215,19 @@ export class DatabaseStorage implements IStorage {
       .from(roomBookings)
       .where(and(...conditions));
     
+    console.log(`🔍 Found ${conflicts.length} conflicting bookings:`, conflicts.map(c => ({
+      id: c.id,
+      title: c.title,
+      start: c.startTime,
+      end: c.endTime,
+      status: c.status,
+      tenantCompanyId: c.tenantCompanyId
+    })));
+    
     // Room is available if there are no conflicts
-    return conflicts.length === 0;
+    const isAvailable = conflicts.length === 0;
+    console.log(`🔍 Availability result: ${isAvailable ? '✅ AVAILABLE' : '❌ NOT AVAILABLE'}`);
+    return isAvailable;
   }
 
   async createRoomBooking(bookingData: any): Promise<any> {
