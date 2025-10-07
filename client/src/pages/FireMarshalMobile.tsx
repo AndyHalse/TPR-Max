@@ -281,13 +281,13 @@ export default function FireMarshalMobile() {
       <div className="px-4 pb-3 space-y-3">
         {/* Muster Point Selection */}
         <Select value={selectedMusterPoint} onValueChange={setSelectedMusterPoint}>
-          <SelectTrigger className="w-full bg-white" data-testid="select-muster-mobile">
-            <MapPin className="h-4 w-4 mr-2" />
+          <SelectTrigger className="w-full bg-white h-12 text-base" data-testid="select-muster-mobile">
+            <MapPin className="h-5 w-5 mr-2" />
             <SelectValue placeholder="Select Muster Point" />
           </SelectTrigger>
           <SelectContent>
             {evacuationData?.musterPoints?.map((point) => (
-              <SelectItem key={point} value={point}>
+              <SelectItem key={point} value={point} className="text-base py-3">
                 {point}
               </SelectItem>
             ))}
@@ -309,28 +309,28 @@ export default function FireMarshalMobile() {
         {/* Filter Tabs */}
         <div className="flex gap-2 bg-white rounded-lg p-1">
           <Button
-            size="sm"
+            size="default"
             variant={filterType === 'unaccounted' ? 'default' : 'ghost'}
             onClick={() => setFilterType('unaccounted')}
-            className="flex-1 text-xs"
+            className="flex-1 text-sm h-12"
             data-testid="filter-unaccounted-mobile"
           >
             Missing ({evacuationData?.unaccounted || 0})
           </Button>
           <Button
-            size="sm"
+            size="default"
             variant={filterType === 'accounted' ? 'default' : 'ghost'}
             onClick={() => setFilterType('accounted')}
-            className="flex-1 text-xs"
+            className="flex-1 text-sm h-12"
             data-testid="filter-accounted-mobile"
           >
             Safe ({evacuationData?.accountedFor || 0})
           </Button>
           <Button
-            size="sm"
+            size="default"
             variant={filterType === 'all' ? 'default' : 'ghost'}
             onClick={() => setFilterType('all')}
-            className="flex-1 text-xs"
+            className="flex-1 text-sm h-12"
             data-testid="filter-all-mobile"
           >
             All ({evacuationData?.totalOnSite || 0})
@@ -393,7 +393,8 @@ export default function FireMarshalMobile() {
               {!person.isAccountedFor && expandedCards.has(person.id) && (
                 <div className="mt-4 pt-4 border-t">
                   <Button
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg font-semibold"
+                    size="lg"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!marshalName) {
@@ -413,9 +414,9 @@ export default function FireMarshalMobile() {
                     data-testid={`button-mark-safe-mobile-${person.id}`}
                   >
                     {markSafeMutation.isPending ? (
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
                     ) : (
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      <CheckCircle2 className="h-5 w-5 mr-2" />
                     )}
                     Mark Safe at {selectedMusterPoint}
                   </Button>

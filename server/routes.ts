@@ -2489,7 +2489,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { musterPoint, evacuationId, marshalName: providedMarshal } = req.body;
       const marshalName = providedMarshal || 'Fire Marshal';
       
+      console.log(`📍 Marking person safe - PersonID: ${personId}, EvacID: ${evacuationId}, Marshal: ${marshalName}`);
+      
       if (!evacuationId) {
+        console.error("❌ Evacuation ID missing in request");
         return res.status(400).json({ error: "Evacuation ID is required" });
       }
       
@@ -2511,7 +2514,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
         .returning();
 
+      console.log(`✅ Update result: ${result.length} rows updated`);
+
       if (result.length === 0) {
+        console.error(`❌ Person not found - PersonID: ${personId}, EvacID: ${evacuationId}`);
         return res.status(404).json({ error: "Person not found in evacuation" });
       }
       
@@ -2534,6 +2540,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(evacuations.evacuationId, evacuationId));
       
+      console.log(`✅ Person marked safe successfully - ${result[0].personName} at ${musterPoint}`);
+      
       res.json({ 
         success: true,
         message: `Person marked as safe at ${musterPoint}`,
@@ -2541,8 +2549,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         marshalName
       });
     } catch (error) {
-      console.error("Error marking person safe:", error);
-      res.status(500).json({ error: "Failed to update accountability" });
+      console.error("❌ Error marking person safe:", error);
+      console.error("Error details:", error instanceof Error ? error.message : String(error));
+      res.status(500).json({ error: "Failed to update accountability status" });
     }
   });
 
