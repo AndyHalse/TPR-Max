@@ -48,7 +48,11 @@ interface ActiveEvacuationResponse {
   startedAt?: string;
 }
 
-export default function FireMarshalMobile() {
+interface FireMarshalMobileProps {
+  token: string;
+}
+
+export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   const [marshalName, setMarshalName] = useState("");
@@ -73,13 +77,27 @@ export default function FireMarshalMobile() {
   const { data: evacuationData, refetch } = useQuery<EvacuationData>({
     queryKey: [`/api/emergency/accountability/${activeEvacuationId || ''}`],
     enabled: !!activeEvacuationId,
-    refetchInterval: 2000 // Refresh every 2 seconds for real-time updates
+    refetchInterval: 2000, // Refresh every 2 seconds for real-time updates
+    queryFn: async () => {
+      const response = await fetch(`/api/emergency/accountability/${activeEvacuationId}`, {
+        headers: { 'X-Emergency-Token': token }
+      });
+      if (!response.ok) throw new Error('Failed to fetch accountability data');
+      return response.json();
+    }
   });
 
   // Check for active evacuation
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
     queryKey: ["/api/emergency/active"],
-    refetchInterval: 5000
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const response = await fetch('/api/emergency/active', {
+        headers: { 'X-Emergency-Token': token }
+      });
+      if (!response.ok) throw new Error('Failed to check evacuation status');
+      return response.json();
+    }
   });
 
   useEffect(() => {
@@ -100,7 +118,10 @@ export default function FireMarshalMobile() {
     mutationFn: async ({ personId, musterPoint }: { personId: string; musterPoint: string }) => {
       const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Emergency-Token": token
+        },
         credentials: "include",
         body: JSON.stringify({ 
           musterPoint,

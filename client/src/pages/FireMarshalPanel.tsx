@@ -38,16 +38,20 @@ interface ActiveEvacuationResponse {
   startedAt?: string;
 }
 
-export default function FireMarshalPanel() {
+interface FireMarshalPanelProps {
+  token: string;
+}
+
+export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMusterPoint, setSelectedMusterPoint] = useState("all");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   
-  // Redirect to mobile view by default
+  // Redirect to mobile view by default with token
   useEffect(() => {
-    window.location.href = '/fire-marshal-mobile';
-  }, []);
+    window.location.href = `/fire-marshal-mobile?token=${token}`;
+  }, [token]);
   
   // Muster points from evacuation data or defaults
   const defaultMusterPoints = ["Main Car Park", "Side Entrance", "Rear Assembly"];

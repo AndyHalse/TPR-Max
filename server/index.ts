@@ -11,6 +11,15 @@ import { AuthService, loadUser } from "./auth";
 import { healthCheckService } from "./healthChecks";
 import { logger, requestLoggingMiddleware, securityLogger } from "./utils/logger";
 
+// Extend Express Request type for emergency token
+declare global {
+  namespace Express {
+    interface Request {
+      emergencyToken?: string;
+    }
+  }
+}
+
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception - Critical application error', {
@@ -140,9 +149,25 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // Skip CSRF for emergency Fire Marshal endpoints (time-critical emergency response)
-    if (req.originalUrl.startsWith('/api/emergency/')) {
-      console.log(`✅ CSRF EXEMPTION: Emergency Fire Marshal endpoint`);
+    // Emergency Fire Marshal read-only endpoints require valid emergency token
+    // But emergency activation requires normal authentication (admin only)
+    if (req.originalUrl.startsWith('/api/emergency/active') ||
+        req.originalUrl.startsWith('/api/emergency/accountability') ||
+        req.originalUrl.startsWith('/api/emergency/mark-safe')) {
+      // Check for emergency token in Authorization header or query parameter
+      const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
+      
+      if (!emergencyToken) {
+        console.log(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token`);
+        return res.status(401).json({ 
+          error: 'Emergency access requires valid token',
+          code: 'EMERGENCY_TOKEN_REQUIRED'
+        });
+      }
+      
+      // Store token in request for validation in routes
+      req.emergencyToken = emergencyToken;
+      console.log(`✅ CSRF EXEMPTION: Emergency Fire Marshal endpoint with token`);
       return next();
     }
     

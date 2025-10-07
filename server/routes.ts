@@ -2395,12 +2395,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get active evacuation status - no auth required for emergency access
+  // Get active evacuation status - requires valid emergency token
   app.get("/api/emergency/active", async (req, res) => {
     try {
+      // Validate emergency token
+      const emergencyToken = req.emergencyToken;
+      if (!emergencyToken) {
+        return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
+      }
+      
+      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+      if (!validatedStaff) {
+        return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+      }
+      
+      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed emergency/active`);
+      
       // Check for any active evacuations in the system
-      // Note: This endpoint is intentionally NOT requiring auth for emergency situations
-      // Fire Marshals may access this via emergency token links
       const activeEvacuations = await db
         .select()
         .from(evacuations)
@@ -2426,9 +2437,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get evacuation accountability list - no auth required for emergency access
+  // Get evacuation accountability list - requires valid emergency token
   app.get("/api/emergency/accountability/:evacuationId?", async (req, res) => {
     try {
+      // Validate emergency token
+      const emergencyToken = req.emergencyToken;
+      if (!emergencyToken) {
+        return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
+      }
+      
+      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+      if (!validatedStaff) {
+        return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+      }
+      
+      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed accountability list`);
+      
       const evacuationId = req.params.evacuationId;
       
       if (!evacuationId) {
@@ -2482,14 +2506,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Mark person as safe/accounted for - no auth required for emergency access
+  // Mark person as safe/accounted for - requires valid emergency token
   app.post("/api/emergency/mark-safe/:personId", async (req, res) => {
     try {
+      // Validate emergency token
+      const emergencyToken = req.emergencyToken;
+      if (!emergencyToken) {
+        return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
+      }
+      
+      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+      if (!validatedStaff) {
+        return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+      }
+      
       const { personId } = req.params;
       const { musterPoint, evacuationId, marshalName: providedMarshal } = req.body;
-      const marshalName = providedMarshal || 'Fire Marshal';
+      const marshalName = providedMarshal || `${validatedStaff.firstName} ${validatedStaff.lastName}`;
       
-      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Marshal: ${marshalName}, MusterPoint: ${musterPoint}`);
+      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Fire Marshal: ${marshalName}, MusterPoint: ${musterPoint}`);
+      console.log(`✅ Validated Fire Marshal: ${validatedStaff.firstName} ${validatedStaff.lastName} (${validatedStaff.email})`);
       
       if (!evacuationId) {
         console.error("❌ Evacuation ID missing in request");

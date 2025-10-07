@@ -49,14 +49,47 @@ function Router() {
     return <FireMarshalMuster token={emergencyToken} />;
   }
   
-  // Fire Marshal Mobile - Emergency access (no authentication required)
+  // Fire Marshal Mobile - Emergency access (requires valid token)
   if (window.location.pathname === '/fire-marshal-mobile') {
-    return <FireMarshalMobile />;
+    const emergencyToken = urlParams.get('token');
+    if (!emergencyToken) {
+      return (
+        <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+          <div className="max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="text-6xl mb-4">🚨</div>
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Emergency Access Required</h1>
+            <p className="text-gray-600 mb-4">
+              This page requires a valid emergency access token.
+            </p>
+            <p className="text-sm text-gray-500">
+              Fire Marshals should access this page via the secure link provided in their emergency notification email.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return <FireMarshalMobile token={emergencyToken} />;
   }
   
-  // Fire Marshal Panel - Emergency access (no authentication required)
+  // Fire Marshal Panel - Emergency access (requires valid token)
   if (window.location.pathname === '/fire-marshal-panel') {
-    return <FireMarshalPanel />;
+    if (!emergencyToken) {
+      return (
+        <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+          <div className="max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="text-6xl mb-4">🚨</div>
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Emergency Access Required</h1>
+            <p className="text-gray-600 mb-4">
+              This page requires a valid emergency access token.
+            </p>
+            <p className="text-sm text-gray-500">
+              Fire Marshals should access this page via the secure link provided in their emergency notification email.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return <FireMarshalPanel token={emergencyToken} />;
   }
   
   // Invitation acceptance - public route with token (no authentication required)
