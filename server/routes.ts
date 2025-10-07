@@ -2229,7 +2229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const activatedBy = req.user?.username || 'System Administrator';
       
-      // FIXED: Get customer context using authenticated session customerId
+      // Get customer context using authenticated session customerId
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
@@ -2247,13 +2247,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Generate unique evacuation ID
+      const evacuationId = `evac-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const musterPoints = ['Main Car Park', 'Side Entrance', 'Rear Assembly'];
+      
+      // Create evacuation record
+      await db.insert(evacuations).values({
+        customerId: context.customerId,
+        evacuationId,
+        status: 'active',
+        activatedBy,
+        totalPeopleOnSite: checkedInStaff.length + currentVisitors.length,
+        totalAccountedFor: 0,
+        musterPoints
+      });
+      
+      // Create evacuationAccountability records for all people on site
+      const accountabilityRecords = [
+        ...checkedInStaff.map(s => ({
+          customerId: context.customerId,
+          evacuationId,
+          personId: s.id,
+          personType: 'staff',
+          personName: `${s.firstName} ${s.lastName}`,
+          department: s.department || '',
+          company: '',
+          lastKnownLocation: 'On Site',
+          isAccountedFor: false
+        })),
+        ...currentVisitors.map(v => ({
+          customerId: context.customerId,
+          evacuationId,
+          personId: v.id,
+          personType: 'visitor',
+          personName: `${v.firstName} ${v.lastName}`,
+          department: '',
+          company: v.company || '',
+          lastKnownLocation: 'On Site',
+          isAccountedFor: false
+        }))
+      ];
+      
+      await db.insert(evacuationAccountability).values(accountabilityRecords);
+      
       // Prepare evacuation data
       const evacuationData = {
+        evacuationId,
         timestamp: new Date().toISOString(),
         totalPeople: checkedInStaff.length + currentVisitors.length,
         staff: checkedInStaff.length,
         visitors: currentVisitors.length,
-        musterPoints: ['Main Car Park', 'Side Entrance', 'Rear Assembly'],
+        musterPoints,
         message: '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
         notificationsSent: 0,
         activatedBy
@@ -2324,6 +2368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         message: `Emergency activated! Sent ${evacuationData.notificationsSent} evacuation alerts.`,
+        evacuationId,
         evacuationData,
         fireMarshals: fireMarshals.length,
         errors: errors.length > 0 ? errors : undefined
@@ -2337,16 +2382,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get active evacuation status
+  // Get active evacuation status - no auth required for emergency access
   app.get("/api/emergency/active", async (req, res) => {
     try {
-      // For now, we'll use a simple in-memory state or always return active during testing
-      // In production, this would check a database table for active evacuations
-      res.json({ 
-        active: true, // Always active for testing
-        evacuationId: "test-evacuation-001",
-        startedAt: new Date().toISOString()
-      });
+      // Check for any active evacuations in the system
+      // Note: This endpoint is intentionally NOT requiring auth for emergency situations
+      // Fire Marshals may access this via emergency token links
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(eq(evacuations.status, 'active'))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
+      if (activeEvacuations.length > 0) {
+        const evacuation = activeEvacuations[0];
+        res.json({ 
+          active: true,
+          evacuationId: evacuation.evacuationId,
+          startedAt: evacuation.startedAt.toISOString()
+        });
+      } else {
+        res.json({ 
+          active: false 
+        });
+      }
     } catch (error) {
       console.error("Error checking active evacuation:", error);
       res.status(500).json({ error: "Failed to check evacuation status" });
@@ -2356,48 +2416,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get evacuation accountability list - no auth required for emergency access
   app.get("/api/emergency/accountability/:evacuationId?", async (req, res) => {
     try {
-      // Get username from session or default
-      const username = 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      const evacuationId = req.params.evacuationId || "test-evacuation-001";
-
-      // Get all people on site
-      const checkedInStaff = await databaseService.getCheckedInStaff(context);
-      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      const evacuationId = req.params.evacuationId;
       
-      // Combine and format for accountability tracking
-      const people = [
-        ...checkedInStaff.map(s => ({
-          id: s.id,
-          name: `${s.firstName} ${s.lastName}`,
-          type: 'staff' as const,
-          department: s.department || '',
-          location: 'Building A', // Default location
-          isAccountedFor: false, // These properties don't exist in schema
-          accountedBy: null,
-          accountedAt: null,
-          musterPoint: null
-        })),
-        ...currentVisitors.map(v => ({
-          id: v.id,
-          name: `${v.firstName} ${v.lastName}`,
-          type: 'visitor' as const,
-          department: v.company || '',
-          location: 'Building A', // Default location
-          isAccountedFor: false, // These properties don't exist in schema
-          accountedBy: null,
-          accountedAt: null,
-          musterPoint: null
-        }))
-      ];
-
+      if (!evacuationId) {
+        return res.status(400).json({ error: "Evacuation ID is required" });
+      }
+      
+      // Get the evacuation record
+      const evacuation = await db
+        .select()
+        .from(evacuations)
+        .where(eq(evacuations.evacuationId, evacuationId))
+        .limit(1);
+      
+      if (evacuation.length === 0) {
+        return res.status(404).json({ error: "Evacuation not found" });
+      }
+      
+      // Get all accountability records for this evacuation
+      const accountabilityRecords = await db
+        .select()
+        .from(evacuationAccountability)
+        .where(eq(evacuationAccountability.evacuationId, evacuationId));
+      
+      // Format for Fire Marshal mobile view
+      const people = accountabilityRecords.map(record => ({
+        id: record.personId,
+        name: record.personName,
+        type: record.personType as 'staff' | 'visitor' | 'contractor',
+        department: record.department || '',
+        company: record.company || '',
+        location: record.lastKnownLocation || 'Unknown',
+        isAccountedFor: record.isAccountedFor,
+        accountedBy: record.accountedBy || undefined,
+        accountedAt: record.accountedAt?.toISOString() || undefined,
+        musterPoint: record.musterPoint || undefined
+      }));
+      
+      const evacuationRecord = evacuation[0];
+      
       res.json({ 
         evacuationId,
         people,
         totalOnSite: people.length,
         accountedFor: people.filter(p => p.isAccountedFor).length,
         unaccounted: people.filter(p => !p.isAccountedFor).length,
-        musterPoints: ['Assembly Point A', 'Assembly Point B', 'Car Park', 'Reception']
+        musterPoints: evacuationRecord.musterPoints || ['Main Car Park', 'Side Entrance', 'Rear Assembly']
       });
     } catch (error) {
       console.error("Error fetching accountability list:", error);
@@ -2411,23 +2475,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { personId } = req.params;
       const { musterPoint, evacuationId, marshalName: providedMarshal } = req.body;
       const marshalName = providedMarshal || 'Fire Marshal';
-      const username = 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
       
-      // Update person's accountability status
-      const updated = await databaseService.markPersonAccountedFor(context, personId, {
-        isAccountedFor: true,
-        accountedBy: marshalName,
-        accountedAt: new Date(),
-        musterPoint
-      });
-
-      if (!updated) {
-        return res.status(404).json({ error: "Person not found" });
+      if (!evacuationId) {
+        return res.status(400).json({ error: "Evacuation ID is required" });
       }
+      
+      // Update evacuationAccountability record
+      const result = await db
+        .update(evacuationAccountability)
+        .set({
+          isAccountedFor: true,
+          accountedBy: marshalName,
+          accountedAt: new Date(),
+          musterPoint,
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            eq(evacuationAccountability.evacuationId, evacuationId),
+            eq(evacuationAccountability.personId, personId)
+          )
+        )
+        .returning();
 
-      // Broadcast update to all Fire Marshal panels
-      // In a real system, you'd use WebSockets or Server-Sent Events
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Person not found in evacuation" });
+      }
+      
+      // Update the evacuation's total accounted count
+      const accountedCount = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(evacuationAccountability)
+        .where(
+          and(
+            eq(evacuationAccountability.evacuationId, evacuationId),
+            eq(evacuationAccountability.isAccountedFor, true)
+          )
+        );
+      
+      await db
+        .update(evacuations)
+        .set({
+          totalAccountedFor: accountedCount[0].count,
+          updatedAt: new Date()
+        })
+        .where(eq(evacuations.evacuationId, evacuationId));
       
       res.json({ 
         success: true,

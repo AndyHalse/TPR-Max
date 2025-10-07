@@ -265,6 +265,27 @@ export const voiceNotificationLogs = pgTable("voice_notification_logs", {
   deliveryAttemptsIdx: index("voice_notification_logs_delivery_attempts_idx").on(table.deliveryAttempts),
 }));
 
+// Evacuations table for tracking emergency evacuations
+export const evacuations = pgTable("evacuations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  evacuationId: text("evacuation_id").notNull().unique(),
+  status: text("status").notNull().default("active"), // active, completed, cancelled
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  activatedBy: text("activated_by").notNull(),
+  totalPeopleOnSite: integer("total_people_on_site").notNull(),
+  totalAccountedFor: integer("total_accounted_for").default(0).notNull(),
+  musterPoints: text("muster_points").array().notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+}, (table) => ({
+  customerIdIdx: index("evacuations_customer_id_idx").on(table.customerId),
+  statusIdx: index("evacuations_status_idx").on(table.status),
+  evacuationIdIdx: index("evacuations_evacuation_id_idx").on(table.evacuationId),
+}));
+
 // Evacuation Accountability table for tracking people during emergency
 export const evacuationAccountability = pgTable("evacuation_accountability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1149,6 +1170,12 @@ export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   createdAt: true,
 });
 
+export const insertEvacuationsSchema = createInsertSchema(evacuations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
 export const insertEvacuationAccountabilitySchema = createInsertSchema(evacuationAccountability).omit({
   id: true,
   createdAt: true,
@@ -1157,8 +1184,10 @@ export const insertEvacuationAccountabilitySchema = createInsertSchema(evacuatio
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertUserInvitation = z.infer<typeof insertUserInvitationSchema>;
+export type InsertEvacuations = z.infer<typeof insertEvacuationsSchema>;
 export type InsertEvacuationAccountability = z.infer<typeof insertEvacuationAccountabilitySchema>;
 export type User = typeof users.$inferSelect;
+export type SelectEvacuations = typeof evacuations.$inferSelect;
 export type SelectEvacuationAccountability = typeof evacuationAccountability.$inferSelect;
 export type UserInvitation = typeof userInvitations.$inferSelect;
 // REMOVED: CompanySettings types moved to isolatedSchema.ts for proper customer isolation
