@@ -2489,14 +2489,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { musterPoint, evacuationId, marshalName: providedMarshal } = req.body;
       const marshalName = providedMarshal || 'Fire Marshal';
       
-      console.log(`📍 Marking person safe - PersonID: ${personId}, EvacID: ${evacuationId}, Marshal: ${marshalName}`);
+      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Marshal: ${marshalName}, MusterPoint: ${musterPoint}`);
       
       if (!evacuationId) {
         console.error("❌ Evacuation ID missing in request");
         return res.status(400).json({ error: "Evacuation ID is required" });
       }
       
-      // Update evacuationAccountability record
+      // Get the evacuation to find the customerId
+      const evacuation = await db
+        .select()
+        .from(evacuations)
+        .where(eq(evacuations.evacuationId, evacuationId))
+        .limit(1);
+      
+      if (!evacuation || evacuation.length === 0) {
+        console.error(`❌ Evacuation not found: ${evacuationId}`);
+        return res.status(404).json({ error: "Evacuation not found" });
+      }
+      
+      const customerId = evacuation[0].customerId;
+      console.log(`📋 Found evacuation for customer: ${customerId}`);
+      
+      // Update evacuationAccountability record with customer context
       const result = await db
         .update(evacuationAccountability)
         .set({
@@ -2509,7 +2524,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(
           and(
             eq(evacuationAccountability.evacuationId, evacuationId),
-            eq(evacuationAccountability.personId, personId)
+            eq(evacuationAccountability.personId, personId),
+            eq(evacuationAccountability.customerId, customerId)
           )
         )
         .returning();

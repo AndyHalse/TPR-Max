@@ -44,6 +44,11 @@ export default function FireMarshalPanel() {
   const [selectedMusterPoint, setSelectedMusterPoint] = useState("all");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   
+  // Redirect to mobile view by default
+  useEffect(() => {
+    window.location.href = '/fire-marshal-mobile';
+  }, []);
+  
   // Muster points from evacuation data or defaults
   const defaultMusterPoints = ["Main Car Park", "Side Entrance", "Rear Assembly"];
 
