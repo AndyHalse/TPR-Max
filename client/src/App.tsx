@@ -49,6 +49,16 @@ function Router() {
     return <FireMarshalMuster token={emergencyToken} />;
   }
   
+  // Fire Marshal Mobile - Emergency access (no authentication required)
+  if (window.location.pathname === '/fire-marshal-mobile') {
+    return <FireMarshalMobile />;
+  }
+  
+  // Fire Marshal Panel - Emergency access (no authentication required)
+  if (window.location.pathname === '/fire-marshal-panel') {
+    return <FireMarshalPanel />;
+  }
+  
   // Invitation acceptance - public route with token (no authentication required)
   if (window.location.pathname === '/invite/accept') {
     return <AcceptInvitation />;
