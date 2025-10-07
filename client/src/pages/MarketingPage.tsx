@@ -1056,15 +1056,15 @@ export default function MarketingPage() {
                   <div>
                     <Badge className="mb-4 bg-red-600">
                       <AlertTriangle className="h-3 w-3 mr-1" />
-                      Emergency Response
+                      Emergency Mustering
                     </Badge>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                      Critical Emergency Management
+                      Life-Saving Emergency Response System
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      When seconds count, VisiGate Pro provides instant personnel accountability. Real-time 
-                      location tracking enables rapid emergency response with complete site visibility 
-                      for effective evacuations and emergency mustering.
+                      When every second counts, VisiGate Pro delivers instant accountability across your entire site. 
+                      Automated muster point tracking, Fire Marshal notifications, and digital roll-call ensure 
+                      complete personnel safety during evacuations and emergency situations.
                     </p>
                   </div>
 
@@ -1072,19 +1072,25 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Instant Headcount:</strong> Real-time personnel count and location data during emergencies
+                        <strong>Muster Points Tracking:</strong> Real-time capacity monitoring across all assembly areas with automatic overflow alerts
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Automated Alerts:</strong> Emergency notifications to responders and management teams
+                        <strong>Fire Marshal System:</strong> Instant email notifications to designated marshals with secure mobile access
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Muster Reports:</strong> Digital roll-call system with missing person identification
+                        <strong>Digital Roll-Call:</strong> One-tap personnel accountability for staff, visitors, and contractors with missing person identification
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Emergency Exports:</strong> Instant CSV exports for emergency services with complete personnel data and timestamps
                       </span>
                     </div>
                   </div>
@@ -1095,30 +1101,73 @@ export default function MarketingPage() {
                     className="text-white bg-red-600 hover:bg-red-700"
                     data-testid="button-emergency-demo"
                   >
-                    <Eye className="h-4 w-4 mr-2" />
-                    See Emergency System Live
+                    <Siren className="h-4 w-4 mr-2" />
+                    See Emergency Mustering Live
                   </Button>
                 </div>
 
-                <div className="relative">
-                  <img 
-                    src={kioskImg} 
-                    alt="VisiGate Pro Digital Reception Kiosk - Self-service visitor check-in interface with touchscreen navigation, QR code scanning, and automated host notifications" 
-                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
-                    data-testid="img-emergency-system"
-                    loading="lazy"
-                    width="800"
-                    height="600"
-                  />
-                  <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium animate-pulse">
-                    Emergency Mode Active
-                  </div>
-                  <div className="absolute bottom-4 left-4 bg-white dark:bg-slate-800 rounded-lg p-3 shadow-lg border border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center space-x-2">
-                      <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">44 Personnel Located</span>
+                <div className="space-y-4">
+                  {/* Muster Point Status Card */}
+                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-2 border-orange-500">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold text-slate-900 dark:text-white flex items-center">
+                        <MapPin className="h-5 w-5 text-orange-500 mr-2" />
+                        Muster Points Status
+                      </h4>
+                      <Badge className="bg-red-600 text-white animate-pulse">
+                        EMERGENCY ACTIVE
+                      </Badge>
                     </div>
-                  </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <div>
+                          <span className="font-medium text-green-800 dark:text-green-200">Main Car Park</span>
+                          <p className="text-xs text-green-600 dark:text-green-400">45/200 capacity</p>
+                        </div>
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <div>
+                          <span className="font-medium text-green-800 dark:text-green-200">Side Entrance</span>
+                          <p className="text-xs text-green-600 dark:text-green-400">23/100 capacity</p>
+                        </div>
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                        <div>
+                          <span className="font-medium text-orange-800 dark:text-orange-200">Rear Assembly</span>
+                          <p className="text-xs text-orange-600 dark:text-orange-400">127/150 capacity</p>
+                        </div>
+                        <AlertTriangle className="h-5 w-5 text-orange-600" />
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Personnel Accountability Card */}
+                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
+                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                      <Users className="h-5 w-5 text-blue-500 mr-2" />
+                      Personnel Accountability
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Total On-Site</span>
+                        <span className="text-lg font-bold text-blue-600">195</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Accounted For</span>
+                        <span className="text-lg font-bold text-green-600">189</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Unaccounted</span>
+                        <span className="text-lg font-bold text-red-600">6</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-2">
+                        <div className="bg-green-500 h-3 rounded-full" style={{ width: '97%' }}></div>
+                      </div>
+                      <p className="text-xs text-center text-slate-500 dark:text-slate-400">97% Complete</p>
+                    </div>
+                  </Card>
                 </div>
               </div>
             </TabsContent>
