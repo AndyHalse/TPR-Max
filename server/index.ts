@@ -140,6 +140,12 @@ function createCSRFMiddleware() {
       return next();
     }
     
+    // Skip CSRF for emergency Fire Marshal endpoints (time-critical emergency response)
+    if (req.originalUrl.startsWith('/api/emergency/')) {
+      console.log(`✅ CSRF EXEMPTION: Emergency Fire Marshal endpoint`);
+      return next();
+    }
+    
     // Skip CSRF for core functionality endpoints (always, regardless of environment)
     if (req.originalUrl.startsWith('/api/objects/') || 
         req.originalUrl.startsWith('/api/staff') ||
