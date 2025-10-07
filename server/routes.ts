@@ -47,7 +47,9 @@ import {
   customerOnboardingErrorSchema,
   type CustomerOnboardingRequest,
   type CustomerOnboardingResponse,
-  type CustomerOnboardingError
+  type CustomerOnboardingError,
+  evacuations,
+  evacuationAccountability
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
