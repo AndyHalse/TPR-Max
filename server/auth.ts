@@ -734,6 +734,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: 'Authentication required - proper tenant context missing' });
   }
   
+  // Set customerId on request for route handlers to access
+  req.customerId = req.session.customerId;
+  
   // Log successful authentication with tenant context
   console.log('✅ SECURITY: requireAuth passed - tenant context verified:', {
     userId: req.session.userId,
