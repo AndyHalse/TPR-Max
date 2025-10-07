@@ -196,27 +196,25 @@ export default function FireMarshalMobile() {
         </div>
       </div>
 
-      {/* Marshal Name Input */}
-      {!marshalName && (
-        <Card className="m-4 border-yellow-400 bg-yellow-50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <UserCheck className="h-5 w-5" />
-              Identify Yourself
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Input
-              placeholder="Enter your name..."
-              value={marshalName}
-              onChange={(e) => setMarshalName(e.target.value)}
-              className="text-lg"
-              autoFocus
-              data-testid="input-marshal-name-mobile"
-            />
-          </CardContent>
-        </Card>
-      )}
+      {/* Marshal Name Input - Always Visible */}
+      <div className="sticky top-16 z-40 bg-yellow-400 p-3 shadow-md">
+        <div className="flex items-center gap-2">
+          <UserCheck className="h-5 w-5 text-yellow-900" />
+          <Input
+            placeholder="Enter your name to enable marking people safe..."
+            value={marshalName}
+            onChange={(e) => setMarshalName(e.target.value)}
+            className="text-base font-medium bg-white border-yellow-600"
+            autoFocus={!marshalName}
+            data-testid="input-marshal-name-mobile"
+          />
+        </div>
+        {!marshalName && (
+          <p className="text-xs text-yellow-900 mt-1 ml-7">
+            ⚠️ Enter your name to enable "Mark Safe" buttons
+          </p>
+        )}
+      </div>
 
       {/* Statistics Cards */}
       <div className="p-4 grid grid-cols-2 gap-3">
