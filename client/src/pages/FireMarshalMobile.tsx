@@ -133,7 +133,10 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate Fire Marshal accountability view
       queryClient.invalidateQueries({ queryKey: [`/api/emergency/accountability`] });
+      // Invalidate admin muster dashboard for real-time sync
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       refetch();
       toast({
         title: "✓ Marked Safe",
