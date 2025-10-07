@@ -1,26 +1,6 @@
-import nodemailer from 'nodemailer';
 import { storage } from './storage';
 import crypto from 'crypto';
-
-// Create SMTP transporter
-const createTransporter = () => {
-  // For testing, you can use these common SMTP settings:
-  // Gmail: smtp.gmail.com:587, TLS
-  // Outlook: smtp-mail.outlook.com:587, TLS
-  // Yahoo: smtp.mail.yahoo.com:587, TLS
-  
-  const config = {
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false, // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER, // Your email address
-      pass: process.env.SMTP_PASS, // Your email password or app password
-    },
-  };
-  
-  return nodemailer.createTransport(config);
-};
+import { EmailService } from './emailService';
 
 interface EmergencyEmailData {
   marshalName: string;
@@ -321,34 +301,28 @@ Emergency Services: 999
 VisiGate Pro Emergency System - Automated Notification
 `;
 
-    const msg = {
-      to: emailData.marshalEmail,
-      from: `${EmergencyEmailService.FROM_NAME} <${EmergencyEmailService.getFromEmail()}>`,
-      replyTo: EmergencyEmailService.getFromEmail(),
-      subject: `🚨 EMERGENCY MUSTER ACTIVATION - Fire Marshal Response Required`,
-      text: emailText,
-      html: emailHtml,
-      priority: "high" as const, // High priority
-      headers: {
-        'X-Priority': '1',
-        'X-MSMail-Priority': 'High',
-        'Importance': 'high',
-      },
-    };
-
+    // Use the working EmailService from /settings
     try {
-      const transporter = createTransporter();
-      if (!transporter) {
-        console.log('SMTP transporter not available - Console URL provided above');
-        return true; // Still return success since console URL was provided
-      }
+      const emailService = new EmailService();
       
-      await transporter.sendMail(msg);
-      console.log(`✅ Emergency email sent successfully to Fire Marshal: ${emailData.marshalEmail}`);
-      return true;
+      const success = await emailService.sendEmail({
+        to: emailData.marshalEmail,
+        subject: `🚨 EMERGENCY MUSTER ACTIVATION - Fire Marshal Response Required`,
+        html: emailHtml,
+        text: emailText,
+        companyName: EmergencyEmailService.FROM_NAME
+      });
+      
+      if (success) {
+        console.log(`✅ Emergency email sent successfully to Fire Marshal: ${emailData.marshalEmail}`);
+        return true;
+      } else {
+        console.error('Failed to send Fire Marshal email via EmailService');
+        console.log('ℹ️  Emergency URL still available in console above for testing');
+        return true; // Return success since console URL was provided
+      }
     } catch (error) {
       console.error('Error sending emergency email:', error instanceof Error ? error.message : String(error));
-      console.log('Check your SMTP settings: SMTP_USER, SMTP_PASS, SMTP_HOST, SMTP_PORT');
       console.log('ℹ️  Emergency URL still available in console above for testing');
       return true; // Return success since console URL was provided
     }
