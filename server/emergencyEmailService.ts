@@ -30,7 +30,11 @@ interface EmergencyEmailData {
   activatedBy: string;
   activatedAt: string;
   totalPersonnel: number;
+  staffCount: number;
+  visitorCount: number;
+  accountedFor: number;
   siteLocation: string;
+  musterPoints: string[];
 }
 
 export class EmergencyEmailService {
@@ -233,34 +237,36 @@ export class EmergencyEmailService {
                 </div>
 
                 <div class="urgent-note">
-                    ⚠️ <strong>URGENT:</strong> An emergency muster has been activated. Your immediate response is required to manage personnel accountability at the muster point.
+                    ⚠️ <strong>IMMEDIATE ACTION REQUIRED</strong><br>
+                    An emergency evacuation is in progress!<br>
+                    Click the button below to access the live Fire Marshal panel and mark people as safe:
                 </div>
 
                 <a href="${marshalUrl}" class="cta-button" style="color: white;">
-                    🛡️ ACCESS FIRE MARSHAL CONTROL PANEL
+                    🛡️ OPEN FIRE MARSHAL PANEL NOW
                 </a>
-                
-                <div style="text-align: center; margin: 20px 0;">
-                    <p style="color: #6b7280; margin: 10px 0;">Or access directly:</p>
-                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                        <a href="${baseUrl}/fire-marshal-mobile" style="display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold;">
-                            📱 Mobile Panel
-                        </a>
-                        <a href="${baseUrl}/fire-marshal-panel" style="display: inline-block; background: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold;">
-                            💻 Desktop Panel
-                        </a>
-                    </div>
-                </div>
 
                 <div class="instructions">
-                    <h3>🎯 Your Fire Marshal Responsibilities:</h3>
+                    <h3>📋 Current Evacuation Status:</h3>
                     <ul>
-                        <li><strong>Immediate Access:</strong> Click any button above for instant access</li>
-                        <li><strong>Mobile Optimized:</strong> Use the Mobile Panel on phones/tablets for best experience</li>
-                        <li><strong>Real-Time Sync:</strong> All changes update instantly across ALL Fire Marshal devices</li>
-                        <li><strong>Mark Personnel Safe:</strong> Large touch-friendly buttons for easy status updates</li>
-                        <li><strong>Multiple Marshals:</strong> Work simultaneously with other Fire Marshals - all lists stay synchronized</li>
+                        <li><strong>Total People On-Site:</strong> ${emailData.totalPersonnel}</li>
+                        <li><strong>Staff Members:</strong> ${emailData.staffCount}</li>
+                        <li><strong>Visitors:</strong> ${emailData.visitorCount}</li>
+                        <li><strong>Accounted For:</strong> ${emailData.accountedFor}</li>
+                        <li><strong>Unaccounted:</strong> <span style="color: #dc2626; font-weight: bold;">${emailData.totalPersonnel - emailData.accountedFor}</span></li>
                     </ul>
+                </div>
+
+                <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                    <h4 style="margin: 0 0 10px 0; color: #92400e;">📍 Active Muster Points:</h4>
+                    <ul style="margin: 5px 0; padding-left: 20px; color: #78350f;">
+                        ${emailData.musterPoints.map(point => `<li>${point}</li>`).join('')}
+                    </ul>
+                </div>
+
+                <div style="background: #ecfdf5; border: 2px solid #10b981; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                    <h4 style="margin: 0 0 10px 0; color: #065f46;">📱 Live Updates</h4>
+                    <p style="margin: 0; color: #047857;">The Fire Marshal panel provides real-time updates and allows multiple Fire Marshals to work simultaneously. All changes are synchronized instantly across all devices.</p>
                 </div>
 
                 <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -355,6 +361,10 @@ VisiGate Pro Emergency System - Automated Notification
       const companySettings = await storage.getCompanySettings();
       const siteLocation = companySettings?.address || 'Site Location Not Configured';
       
+      // Get staff and visitor counts
+      const checkedInStaff = await storage.getCheckedInStaff();
+      const currentVisitors = await storage.getCurrentVisitors();
+      
       let sent = 0;
       const errors: string[] = [];
 
@@ -369,9 +379,13 @@ VisiGate Pro Emergency System - Automated Notification
             marshalDepartment: marshal.department,
             emergencyToken,
             activatedBy,
-            activatedAt: new Date().toLocaleString(),
+            activatedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
             totalPersonnel,
+            staffCount: checkedInStaff.length,
+            visitorCount: currentVisitors.length,
+            accountedFor: 0,
             siteLocation,
+            musterPoints: ['Main Car Park', 'Side Entrance', 'Rear Assembly']
           };
 
           const success = await this.sendFireMarshalAlert(emailData);

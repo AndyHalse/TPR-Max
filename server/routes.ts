@@ -2354,13 +2354,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const marshal of fireMarshals) {
         if (marshal.email) {
           try {
-            await emailService.sendFireMarshalAlert(
-              marshal.email,
-              `${marshal.firstName} ${marshal.lastName}`,
-              evacuationData,
-              [...checkedInStaff, ...currentVisitors],
-              companySettings!
-            );
+            // Generate emergency token for Fire Marshal
+            const emergencyToken = await EmergencyEmailService.generateEmergencyToken(marshal.id);
+            
+            // Send Fire Marshal alert with proper data structure
+            await EmergencyEmailService.sendFireMarshalAlert({
+              marshalName: `${marshal.firstName} ${marshal.lastName}`,
+              marshalEmail: marshal.email,
+              marshalDepartment: marshal.department || 'Fire Marshal',
+              emergencyToken,
+              activatedBy: evacuationData.activatedBy,
+              activatedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+              totalPersonnel: evacuationData.totalPeople,
+              staffCount: evacuationData.staff,
+              visitorCount: evacuationData.visitors,
+              accountedFor: 0,
+              siteLocation: companySettings?.siteName || 'Site',
+              musterPoints: evacuationData.musterPoints
+            });
           } catch (error) {
             console.error(`Failed to send Fire Marshal alert to ${marshal.firstName}:`, error);
           }
