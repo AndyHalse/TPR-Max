@@ -2665,6 +2665,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to send update" });
     }
   });
+
+  // Complete evacuation with optional checkout
+  app.post("/api/emergency/complete-evacuation", async (req, res) => {
+    try {
+      const emergencyToken = req.emergencyToken;
+      if (!emergencyToken) {
+        return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
+      }
+      
+      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+      if (!validatedStaff) {
+        return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+      }
+
+      const { evacuationId, checkOutMode } = req.body;
+      
+      console.log(`🏁 COMPLETE EVACUATION - EvacID: ${evacuationId}, Mode: ${checkOutMode}, By: ${validatedStaff.firstName} ${validatedStaff.lastName}`);
+      
+      if (!evacuationId) {
+        return res.status(400).json({ error: "Evacuation ID is required" });
+      }
+
+      if (!checkOutMode || !['keep_checked_in', 'check_out_all'].includes(checkOutMode)) {
+        return res.status(400).json({ error: "Valid checkOutMode required: 'keep_checked_in' or 'check_out_all'" });
+      }
+
+      // Get the evacuation to find the customerId
+      const evacuation = await db
+        .select()
+        .from(evacuations)
+        .where(eq(evacuations.evacuationId, evacuationId))
+        .limit(1);
+      
+      if (!evacuation || evacuation.length === 0) {
+        return res.status(404).json({ error: "Evacuation not found" });
+      }
+      
+      const customerId = evacuation[0].customerId;
+      const context = { customerId };
+
+      // Mark evacuation as completed
+      await db
+        .update(evacuations)
+        .set({
+          status: 'completed',
+          completedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(evacuations.evacuationId, evacuationId));
+
+      let checkedOutCount = 0;
+      let staffCheckedOut = 0;
+      let visitorsCheckedOut = 0;
+      let contractorsCheckedOut = 0;
+
+      // If check_out_all mode, check out everyone who was marked safe
+      if (checkOutMode === 'check_out_all') {
+        // Get all people who were marked safe in this evacuation
+        const accountedPeople = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(
+            and(
+              eq(evacuationAccountability.evacuationId, evacuationId),
+              eq(evacuationAccountability.isAccountedFor, true),
+              eq(evacuationAccountability.customerId, customerId)
+            )
+          );
+
+        console.log(`📤 Checking out ${accountedPeople.length} accounted people`);
+
+        // Check out each person based on their type
+        for (const person of accountedPeople) {
+          try {
+            if (person.personType === 'staff') {
+              await databaseService.checkOutStaff(context, person.personId);
+              staffCheckedOut++;
+            } else if (person.personType === 'visitor') {
+              await databaseService.checkOutVisitor(context, person.personId);
+              visitorsCheckedOut++;
+            } else if (person.personType === 'contractor') {
+              await databaseService.checkOutContractor(context, person.personId);
+              contractorsCheckedOut++;
+            }
+            checkedOutCount++;
+          } catch (error) {
+            console.error(`❌ Failed to check out ${person.personType} ${person.personId}:`, error);
+          }
+        }
+      }
+
+      console.log(`✅ Evacuation completed - Mode: ${checkOutMode}, Checked out: ${checkedOutCount} people`);
+
+      res.json({
+        success: true,
+        message: checkOutMode === 'check_out_all' 
+          ? `Evacuation completed. ${checkedOutCount} people checked out.`
+          : 'Evacuation completed. All personnel remain checked in.',
+        evacuationId,
+        checkOutMode,
+        checkedOutCount,
+        breakdown: {
+          staff: staffCheckedOut,
+          visitors: visitorsCheckedOut,
+          contractors: contractorsCheckedOut
+        }
+      });
+    } catch (error) {
+      console.error("❌ Error completing evacuation:", error);
+      res.status(500).json({ error: "Failed to complete evacuation" });
+    }
+  });
   
   // Validate Fire Marshal emergency token
   app.get("/api/emergency/validate-token/:token", async (req, res) => {

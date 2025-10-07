@@ -17,8 +17,21 @@ import {
   MapPin,
   UserCheck,
   Siren,
-  ChevronDown
+  ChevronDown,
+  LogOut,
+  UserMinus
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface PersonOnSite {
   id: string;
@@ -151,6 +164,42 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
       toast({
         title: "Error",
         description: "Failed to update status",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Complete evacuation mutation
+  const completeEvacuationMutation = useMutation({
+    mutationFn: async ({ checkOutMode }: { checkOutMode: 'keep_checked_in' | 'check_out_all' }) => {
+      const response = await fetch('/api/emergency/complete-evacuation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Emergency-Token': token
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          evacuationId: activeEvacuationId,
+          checkOutMode
+        })
+      });
+      if (!response.ok) throw new Error('Failed to complete evacuation');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/emergency/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/muster'] });
+      toast({
+        title: "✓ Evacuation Completed",
+        description: data.message,
+      });
+      setActiveEvacuationId(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to complete evacuation",
         variant: "destructive"
       });
     }
@@ -456,6 +505,68 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
           <p>No people found matching your search</p>
         </div>
       )}
+
+      {/* Complete Evacuation Button - Fixed at Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t shadow-lg z-50">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white h-14 text-lg font-bold"
+              size="lg"
+              data-testid="button-complete-evacuation-mobile"
+            >
+              <CheckCircle2 className="h-6 w-6 mr-2" />
+              Complete Evacuation
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl">Complete Evacuation</AlertDialogTitle>
+              <AlertDialogDescription className="text-base space-y-4">
+                {evacuationData && evacuationData.unaccounted > 0 && (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-3">
+                    <p className="text-yellow-800 font-medium">
+                      ⚠️ Warning: {evacuationData.unaccounted} {evacuationData.unaccounted === 1 ? 'person is' : 'people are'} still unaccounted for
+                    </p>
+                  </div>
+                )}
+                <p>How would you like to complete this evacuation?</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">
+                    <strong>Keep Everyone Checked In:</strong> Personnel remain checked in and can return to work immediately.
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Check Out All Safe Personnel:</strong> Only people marked safe will be checked out. They'll need to check in again when returning.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col sm:flex-col gap-2">
+              <AlertDialogAction
+                className="w-full bg-green-600 hover:bg-green-700 h-12"
+                onClick={() => completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' })}
+                disabled={completeEvacuationMutation.isPending}
+                data-testid="button-keep-checked-in"
+              >
+                <UserCheck className="h-5 w-5 mr-2" />
+                Keep Everyone Checked In
+              </AlertDialogAction>
+              <AlertDialogAction
+                className="w-full bg-orange-600 hover:bg-orange-700 h-12"
+                onClick={() => completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' })}
+                disabled={completeEvacuationMutation.isPending}
+                data-testid="button-check-out-all"
+              >
+                <LogOut className="h-5 w-5 mr-2" />
+                Check Out All Safe Personnel
+              </AlertDialogAction>
+              <AlertDialogCancel className="w-full h-12" data-testid="button-cancel-complete">
+                Cancel
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }
