@@ -2890,6 +2890,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Get current Fire Marshal emergency link (requires authentication)
+  app.get("/api/emergency/my-link", requireAuth, async (req, res) => {
+    try {
+      const context = req.context!;
+      
+      // Get the logged-in staff member
+      const [staffMember] = await db
+        .select()
+        .from(staff)
+        .where(and(
+          eq(staff.userId, context.userId),
+          eq(staff.customerId, context.customerId),
+          eq(staff.isFireMarshal, true),
+          eq(staff.isActive, true)
+        ));
+
+      if (!staffMember) {
+        return res.status(403).json({ error: "You are not authorized as a Fire Marshal" });
+      }
+
+      if (!staffMember.emergencyToken) {
+        return res.status(404).json({ 
+          error: "No emergency link available",
+          message: "Emergency links are generated when an evacuation is activated."
+        });
+      }
+
+      // Check if token is expired
+      if (staffMember.emergencyTokenExpires && staffMember.emergencyTokenExpires < new Date()) {
+        return res.status(404).json({ 
+          error: "Emergency link expired",
+          message: "Your emergency link has expired. A new one will be generated during the next evacuation."
+        });
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const fireMarshalLink = `${baseUrl}/fire-marshal-mobile?token=${staffMember.emergencyToken}`;
+
+      res.json({
+        link: fireMarshalLink,
+        token: staffMember.emergencyToken,
+        expires: staffMember.emergencyTokenExpires,
+        marshal: {
+          name: `${staffMember.firstName} ${staffMember.lastName}`,
+          department: staffMember.department,
+          email: staffMember.email
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching Fire Marshal link:", error);
+      res.status(500).json({ error: "Failed to fetch emergency link" });
+    }
+  });
   
   // Emergency muster list for Fire Marshals (token-based access)
   app.get("/api/emergency/muster/:token", async (req, res) => {
