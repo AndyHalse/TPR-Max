@@ -45,6 +45,14 @@ export default function EmergencyMuster() {
     queryKey: ["/api/muster"],
   });
 
+  // Check for active evacuation
+  const { data: activeEvacuation } = useQuery<{ active: boolean; evacuationId?: string }>({
+    queryKey: ["/api/evacuation/status"],
+    refetchInterval: 10000,  // Check every 10 seconds
+  });
+
+  const hasActiveEvacuation = activeEvacuation?.active || false;
+
   // Mutation to toggle accounted status
   const toggleAccountedMutation = useMutation({
     mutationFn: async ({ personId, type }: { personId: string, type: string }) => {
@@ -402,16 +410,18 @@ export default function EmergencyMuster() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Personnel Accountability</h3>
               <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => markAllSafeMutation.mutate()}
-                  disabled={markAllSafeMutation.isPending}
-                  data-testid="button-mark-all-safe"
-                >
-                  <CheckCircle className="mr-2" size={16} />
-                  {markAllSafeMutation.isPending ? "Marking..." : "Mark All Safe"}
-                </Button>
+                {hasActiveEvacuation && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => markAllSafeMutation.mutate()}
+                    disabled={markAllSafeMutation.isPending}
+                    data-testid="button-mark-all-safe"
+                  >
+                    <CheckCircle className="mr-2" size={16} />
+                    {markAllSafeMutation.isPending ? "Marking..." : "Mark All Safe"}
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -474,9 +484,24 @@ export default function EmergencyMuster() {
                     <Badge variant={person.type === 'staff' ? 'default' : 'secondary'}>
                       {person.type}
                     </Badge>
+                    {hasActiveEvacuation && (
+                      <>
+                        {person.accounted ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-300" data-testid={`badge-safe-${person.id}`}>
+                            <CheckCircle className="mr-1" size={14} />
+                            Safe
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" data-testid={`badge-unsafe-${person.id}`}>
+                            <XCircle className="mr-1" size={14} />
+                            Unsafe
+                          </Badge>
+                        )}
+                      </>
+                    )}
                     <Button
                       size="sm"
-                      variant={person.accounted ? "destructive" : "default"}
+                      variant={person.accounted ? "outline" : "default"}
                       className={person.accounted ? "" : "bg-green-600 hover:bg-green-700 text-white"}
                       onClick={() => toggleAccountedStatus(person.id, person.type)}
                       data-testid={`button-toggle-${person.id}`}
@@ -489,7 +514,7 @@ export default function EmergencyMuster() {
                       ) : (
                         <>
                           <CheckCircle className="mr-1" size={14} />
-                          Safe
+                          Mark Safe
                         </>
                       )}
                     </Button>

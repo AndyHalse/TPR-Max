@@ -2395,7 +2395,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get active evacuation status - requires valid emergency token
+  // Get active evacuation status for regular authenticated users
+  app.get("/api/evacuation/status", async (req, res) => {
+    try {
+      // Check for any active evacuations in the system
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(eq(evacuations.status, 'active'))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
+      if (activeEvacuations.length > 0) {
+        const evacuation = activeEvacuations[0];
+        res.json({ 
+          active: true,
+          evacuationId: evacuation.evacuationId,
+          startedAt: evacuation.startedAt.toISOString()
+        });
+      } else {
+        res.json({ 
+          active: false 
+        });
+      }
+    } catch (error) {
+      console.error("Error checking active evacuation:", error);
+      res.status(500).json({ error: "Failed to check evacuation status" });
+    }
+  });
+
+  // Get active evacuation status - requires valid emergency token (Fire Marshal use)
   app.get("/api/emergency/active", async (req, res) => {
     try {
       // Validate emergency token

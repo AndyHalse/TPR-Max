@@ -153,7 +153,8 @@ function createCSRFMiddleware() {
     // But emergency activation requires normal authentication (admin only)
     if (req.originalUrl.startsWith('/api/emergency/active') ||
         req.originalUrl.startsWith('/api/emergency/accountability') ||
-        req.originalUrl.startsWith('/api/emergency/mark-safe')) {
+        req.originalUrl.startsWith('/api/emergency/mark-safe') ||
+        req.originalUrl.startsWith('/api/emergency/complete-evacuation')) {
       // Check for emergency token in Authorization header or query parameter
       const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
       
