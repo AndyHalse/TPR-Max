@@ -544,7 +544,10 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
             <AlertDialogFooter className="flex-col sm:flex-col gap-2">
               <AlertDialogAction
                 className="w-full bg-green-600 hover:bg-green-700 h-12"
-                onClick={() => completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' })}
+                onClick={(e) => {
+                  e.preventDefault();
+                  completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' });
+                }}
                 disabled={completeEvacuationMutation.isPending}
                 data-testid="button-keep-checked-in"
               >
@@ -553,7 +556,10 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
               </AlertDialogAction>
               <AlertDialogAction
                 className="w-full bg-orange-600 hover:bg-orange-700 h-12"
-                onClick={() => completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' })}
+                onClick={(e) => {
+                  e.preventDefault();
+                  completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' });
+                }}
                 disabled={completeEvacuationMutation.isPending}
                 data-testid="button-check-out-all"
               >

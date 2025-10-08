@@ -355,7 +355,10 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
                 <AlertDialogFooter className="flex-col sm:flex-row gap-2">
                   <AlertDialogAction
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={() => completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' });
+                    }}
                     disabled={completeEvacuationMutation.isPending}
                     data-testid="button-keep-checked-in-panel"
                   >
@@ -364,7 +367,10 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
                   </AlertDialogAction>
                   <AlertDialogAction
                     className="bg-orange-600 hover:bg-orange-700"
-                    onClick={() => completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' });
+                    }}
                     disabled={completeEvacuationMutation.isPending}
                     data-testid="button-check-out-all-panel"
                   >
