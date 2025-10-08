@@ -2439,11 +2439,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Validate emergency token
       const emergencyToken = req.emergencyToken;
+      console.log(`🔍 EMERGENCY TOKEN DEBUG: Token received = ${emergencyToken ? emergencyToken.substring(0, 20) + '...' : 'NONE'}`);
+      
       if (!emergencyToken) {
         return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
       }
       
       const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+      console.log(`🔍 EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName : 'FAILED - No matching staff found'}`);
+      
       if (!validatedStaff) {
         return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
       }

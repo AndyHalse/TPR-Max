@@ -1991,6 +1991,8 @@ export class DatabaseStorage implements IStorage {
 
   async validateEmergencyToken(token: string): Promise<Staff | null> {
     try {
+      console.log(`🔍 VALIDATE TOKEN: Searching for token: ${token.substring(0, 20)}...`);
+      
       const [staffMember] = await db
         .select()
         .from(staff)
@@ -2000,6 +2002,21 @@ export class DatabaseStorage implements IStorage {
           eq(staff.isFireMarshal, true),
           eq(staff.isActive, true)
         ));
+
+      if (staffMember) {
+        console.log(`✅ VALIDATE TOKEN: Found staff ${staffMember.firstName} ${staffMember.lastName}`);
+      } else {
+        console.log(`❌ VALIDATE TOKEN: No match found - checking all fire marshals...`);
+        const allMarshals = await db.select().from(staff).where(eq(staff.isFireMarshal, true));
+        console.log(`📋 Found ${allMarshals.length} Fire Marshals:`, allMarshals.map(m => ({
+          name: `${m.firstName} ${m.lastName}`,
+          hasToken: !!m.emergencyToken,
+          tokenPreview: m.emergencyToken?.substring(0, 20),
+          expires: m.emergencyTokenExpires,
+          isExpired: m.emergencyTokenExpires ? m.emergencyTokenExpires < new Date() : true,
+          isActive: m.isActive
+        })));
+      }
 
       return staffMember || null;
     } catch (error) {
