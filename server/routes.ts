@@ -2240,12 +2240,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all people currently on site
       const checkedInStaff = await databaseService.getCheckedInStaff(context);
       const currentVisitors = await databaseService.getCurrentVisitors(context);
+      const checkedInContractors = await databaseService.getCheckedInContractors(context);
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
-      if (checkedInStaff.length === 0 && currentVisitors.length === 0) {
+      if (checkedInStaff.length === 0 && currentVisitors.length === 0 && checkedInContractors.length === 0) {
         return res.status(400).json({
           error: "No people on site",
-          message: "There are no staff or visitors currently on site."
+          message: "There are no staff, visitors, or contractors currently on site."
         });
       }
       
@@ -2259,7 +2260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         evacuationId,
         status: 'active',
         activatedBy,
-        totalPeopleOnSite: checkedInStaff.length + currentVisitors.length,
+        totalPeopleOnSite: checkedInStaff.length + currentVisitors.length + checkedInContractors.length,
         totalAccountedFor: 0,
         musterPoints
       });
@@ -2287,6 +2288,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: v.company || '',
           lastKnownLocation: 'On Site',
           isAccountedFor: false
+        })),
+        ...checkedInContractors.map(c => ({
+          customerId: context.customerId,
+          evacuationId,
+          personId: c.id,
+          personType: 'contractor',
+          personName: `${c.firstName} ${c.lastName}`,
+          department: '',
+          company: c.company || '',
+          lastKnownLocation: 'On Site',
+          isAccountedFor: false
         }))
       ];
       
@@ -2296,9 +2308,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const evacuationData = {
         evacuationId,
         timestamp: new Date().toISOString(),
-        totalPeople: checkedInStaff.length + currentVisitors.length,
+        totalPeople: checkedInStaff.length + currentVisitors.length + checkedInContractors.length,
         staff: checkedInStaff.length,
         visitors: currentVisitors.length,
+        contractors: checkedInContractors.length,
         musterPoints,
         message: '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
         notificationsSent: 0,
@@ -2344,6 +2357,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Send to all contractors
+      for (const contractor of checkedInContractors) {
+        if (contractor.email) {
+          try {
+            const sent = await customEmailService.sendEvacuationAlert(
+              contractor.email,
+              `${contractor.firstName} ${contractor.lastName}`,
+              evacuationData.message,
+              evacuationData.musterPoints,
+              companySettings!
+            );
+            if (sent) evacuationData.notificationsSent++;
+          } catch (error) {
+            errors.push(`Failed to notify contractor ${contractor.firstName} ${contractor.lastName}`);
+          }
+        }
+      }
+      
       // Find and notify Fire Marshals with special alert
       const fireMarshals = checkedInStaff.filter(s => 
         s.department?.toLowerCase().includes('safety') || 
@@ -2368,6 +2399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               totalPersonnel: evacuationData.totalPeople,
               staffCount: evacuationData.staff,
               visitorCount: evacuationData.visitors,
+              contractorCount: evacuationData.contractors,
               accountedFor: 0,
               siteLocation: companySettings?.siteName || 'Site',
               musterPoints: evacuationData.musterPoints

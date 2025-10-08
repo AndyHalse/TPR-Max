@@ -12,6 +12,7 @@ interface EmergencyEmailData {
   totalPersonnel: number;
   staffCount: number;
   visitorCount: number;
+  contractorCount: number;
   accountedFor: number;
   siteLocation: string;
   musterPoints: string[];
@@ -232,6 +233,7 @@ export class EmergencyEmailService {
                         <li><strong>Total People On-Site:</strong> ${emailData.totalPersonnel}</li>
                         <li><strong>Staff Members:</strong> ${emailData.staffCount}</li>
                         <li><strong>Visitors:</strong> ${emailData.visitorCount}</li>
+                        <li><strong>Contractors:</strong> ${emailData.contractorCount}</li>
                         <li><strong>Accounted For:</strong> ${emailData.accountedFor}</li>
                         <li><strong>Unaccounted:</strong> <span style="color: #dc2626; font-weight: bold;">${emailData.totalPersonnel - emailData.accountedFor}</span></li>
                     </ul>
