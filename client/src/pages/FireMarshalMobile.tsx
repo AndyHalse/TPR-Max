@@ -188,11 +188,24 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
       return response.json();
     },
     onSuccess: (data) => {
+      // Invalidate all emergency-related queries
       queryClient.invalidateQueries({ queryKey: ['/api/emergency/active'] });
       queryClient.invalidateQueries({ queryKey: ['/api/muster'] });
+      
+      // Invalidate all personnel queries to update UI everywhere
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/staff/checked-in'] });
       queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/visitors/current'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/visitors/today'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/checked-in'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      
+      // Invalidate dashboard and stats queries
+      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activity/recent'] });
+      
       toast({
         title: "✓ Evacuation Completed",
         description: data.message,
