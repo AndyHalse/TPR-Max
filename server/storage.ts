@@ -290,7 +290,7 @@ export interface IStorage {
   // Fire Marshal emergency methods
   getFireMarshals(): Promise<Staff[]>;
   updateStaffEmergencyToken(staffId: string, token: string, expires: Date): Promise<boolean>;
-  validateEmergencyToken(token: string): Promise<Staff | null>;
+  validateEmergencyToken(token: string, customerId?: string): Promise<Staff | null>;
   getTotalOnSitePersonnel(): Promise<number>;
 
   // Department analytics methods

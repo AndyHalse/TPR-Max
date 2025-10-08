@@ -2385,8 +2385,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const marshal of fireMarshals) {
         if (marshal.email) {
           try {
-            // Generate emergency token for Fire Marshal
-            const emergencyToken = await EmergencyEmailService.generateEmergencyToken(marshal.id);
+            // Generate emergency token for Fire Marshal with proper customer context
+            const emergencyToken = await EmergencyEmailService.generateEmergencyToken(marshal.id, context.customerId);
             
             // Send Fire Marshal alert with proper data structure
             await EmergencyEmailService.sendFireMarshalAlert({
@@ -2477,8 +2477,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
       }
       
+      // CRITICAL: Validate token WITHOUT customerId first to get the staff's customerId
       const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
-      console.log(`🔍 EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName : 'FAILED - No matching staff found'}`);
+      console.log(`🔍 EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName + ' (Customer: ' + validatedStaff.customerId + ')' : 'FAILED - No matching staff found'}`);
       
       if (!validatedStaff) {
         return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
@@ -2529,7 +2530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
       }
       
-      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed accountability list`);
+      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${validatedStaff.customerId}) accessed accountability list`);
       
       const evacuationId = req.params.evacuationId;
       
@@ -2537,14 +2538,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Evacuation ID is required" });
       }
       
-      // Get the evacuation record
+      // Get the evacuation record with TENANT ISOLATION
       const evacuation = await db
         .select()
         .from(evacuations)
-        .where(eq(evacuations.evacuationId, evacuationId))
+        .where(and(
+          eq(evacuations.evacuationId, evacuationId),
+          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Ensure Fire Marshal can only access their tenant's evacuations
+        ))
         .limit(1);
       
       if (evacuation.length === 0) {
+        console.log(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to access evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
         return res.status(404).json({ error: "Evacuation not found" });
       }
       
@@ -2602,7 +2607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { musterPoint, evacuationId, marshalName: providedMarshal } = req.body;
       const marshalName = providedMarshal || `${validatedStaff.firstName} ${validatedStaff.lastName}`;
       
-      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Fire Marshal: ${marshalName}, MusterPoint: ${musterPoint}`);
+      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Fire Marshal: ${marshalName} (Customer: ${validatedStaff.customerId}), MusterPoint: ${musterPoint}`);
       console.log(`✅ Validated Fire Marshal: ${validatedStaff.firstName} ${validatedStaff.lastName} (${validatedStaff.email})`);
       
       if (!evacuationId) {
@@ -2610,15 +2615,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Evacuation ID is required" });
       }
       
-      // Get the evacuation to find the customerId
+      // Get the evacuation with TENANT ISOLATION
       const evacuation = await db
         .select()
         .from(evacuations)
-        .where(eq(evacuations.evacuationId, evacuationId))
+        .where(and(
+          eq(evacuations.evacuationId, evacuationId),
+          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only access their tenant's evacuations
+        ))
         .limit(1);
       
       if (!evacuation || evacuation.length === 0) {
-        console.error(`❌ Evacuation not found: ${evacuationId}`);
+        console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
         return res.status(404).json({ error: "Evacuation not found" });
       }
       
@@ -2759,7 +2767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { evacuationId, checkOutMode } = req.body;
       
-      console.log(`🏁 COMPLETE EVACUATION - EvacID: ${evacuationId}, Mode: ${checkOutMode}, By: ${validatedStaff.firstName} ${validatedStaff.lastName}`);
+      console.log(`🏁 COMPLETE EVACUATION - EvacID: ${evacuationId}, Mode: ${checkOutMode}, By: ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${validatedStaff.customerId})`);
       
       if (!evacuationId) {
         return res.status(400).json({ error: "Evacuation ID is required" });
@@ -2769,14 +2777,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Valid checkOutMode required: 'keep_checked_in' or 'check_out_all'" });
       }
 
-      // Get the evacuation to find the customerId
+      // Get the evacuation with TENANT ISOLATION
       const evacuation = await db
         .select()
         .from(evacuations)
-        .where(eq(evacuations.evacuationId, evacuationId))
+        .where(and(
+          eq(evacuations.evacuationId, evacuationId),
+          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only complete their tenant's evacuations
+        ))
         .limit(1);
       
       if (!evacuation || evacuation.length === 0) {
+        console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to complete evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
         return res.status(404).json({ error: "Evacuation not found" });
       }
       

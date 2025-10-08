@@ -25,11 +25,19 @@ export class EmergencyEmailService {
   }
   private static readonly FROM_NAME = 'VisiGate Pro Emergency System';
 
-  static async generateEmergencyToken(staffId: string): Promise<string> {
+  static async generateEmergencyToken(staffId: string, customerId: string): Promise<string> {
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4 hours from now
     
-    await storage.updateStaffEmergencyToken(staffId, token, expires);
+    console.log(`🔐 GENERATING TOKEN for staff ${staffId}, customer ${customerId}`);
+    console.log(`🔐 Token preview: ${token.substring(0, 20)}...`);
+    
+    // Use DatabaseStorage directly with proper tenant context
+    const { DatabaseStorage } = await import('./DatabaseStorage');
+    const dbStorage = new DatabaseStorage();
+    await dbStorage.updateStaffEmergencyToken(staffId, token, expires);
+    
+    console.log(`✅ TOKEN SAVED to database for staff ${staffId}`);
     return token;
   }
 

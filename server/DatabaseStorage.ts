@@ -2002,27 +2002,41 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async validateEmergencyToken(token: string): Promise<Staff | null> {
+  async validateEmergencyToken(token: string, customerId?: string): Promise<Staff | null> {
     try {
-      console.log(`🔍 VALIDATE TOKEN: Searching for token: ${token.substring(0, 20)}...`);
+      console.log(`🔍 VALIDATE TOKEN: Searching for token: ${token.substring(0, 20)}... ${customerId ? `for customer: ${customerId}` : '(NO TENANT FILTER - SECURITY RISK!)'}`);
+      
+      // Build query conditions
+      const conditions = [
+        eq(staff.emergencyToken, token),
+        gt(staff.emergencyTokenExpires, new Date()),
+        eq(staff.isFireMarshal, true),
+        eq(staff.isActive, true)
+      ];
+      
+      // CRITICAL: Add tenant isolation if customerId provided
+      if (customerId) {
+        conditions.push(eq(staff.customerId, customerId));
+      }
       
       const [staffMember] = await db
         .select()
         .from(staff)
-        .where(and(
-          eq(staff.emergencyToken, token),
-          gt(staff.emergencyTokenExpires, new Date()),
-          eq(staff.isFireMarshal, true),
-          eq(staff.isActive, true)
-        ));
+        .where(and(...conditions));
 
       if (staffMember) {
-        console.log(`✅ VALIDATE TOKEN: Found staff ${staffMember.firstName} ${staffMember.lastName}`);
+        console.log(`✅ VALIDATE TOKEN: Found staff ${staffMember.firstName} ${staffMember.lastName} (Customer: ${staffMember.customerId})`);
       } else {
-        console.log(`❌ VALIDATE TOKEN: No match found - checking all fire marshals...`);
-        const allMarshals = await db.select().from(staff).where(eq(staff.isFireMarshal, true));
+        console.log(`❌ VALIDATE TOKEN: No match found ${customerId ? `for customer ${customerId}` : '(cross-tenant search)'}`);
+        // Debug: Show what fire marshals exist (filtered by customer if provided)
+        const debugConditions = [eq(staff.isFireMarshal, true)];
+        if (customerId) {
+          debugConditions.push(eq(staff.customerId, customerId));
+        }
+        const allMarshals = await db.select().from(staff).where(and(...debugConditions));
         console.log(`📋 Found ${allMarshals.length} Fire Marshals:`, allMarshals.map(m => ({
           name: `${m.firstName} ${m.lastName}`,
+          customer: m.customerId,
           hasToken: !!m.emergencyToken,
           tokenPreview: m.emergencyToken?.substring(0, 20),
           expires: m.emergencyTokenExpires,
