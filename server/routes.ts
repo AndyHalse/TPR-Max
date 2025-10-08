@@ -2388,6 +2388,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Generate emergency token for Fire Marshal with proper customer context
             const emergencyToken = await EmergencyEmailService.generateEmergencyToken(marshal.id, context.customerId);
             
+            console.log(`✅ EMERGENCY TOKEN GENERATED for ${marshal.firstName} ${marshal.lastName}: ${emergencyToken.substring(0, 20)}...`);
+            console.log(`📧 SENDING EMAIL with token: ${emergencyToken.substring(0, 20)}...`);
+            
             // Send Fire Marshal alert with proper data structure
             await EmergencyEmailService.sendFireMarshalAlert({
               marshalName: `${marshal.firstName} ${marshal.lastName}`,
@@ -2404,6 +2407,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               siteLocation: companySettings?.siteName || 'Site',
               musterPoints: evacuationData.musterPoints
             });
+            
+            console.log(`✅ EMAIL SENT to ${marshal.email} with token ${emergencyToken.substring(0, 20)}...`);
           } catch (error) {
             console.error(`Failed to send Fire Marshal alert to ${marshal.firstName}:`, error);
           }
