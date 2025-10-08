@@ -190,6 +190,9 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/emergency/active'] });
       queryClient.invalidateQueries({ queryKey: ['/api/muster'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       toast({
         title: "✓ Evacuation Completed",
         description: data.message,
