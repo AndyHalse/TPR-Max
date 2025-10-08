@@ -2396,13 +2396,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get active evacuation status for regular authenticated users
-  app.get("/api/evacuation/status", async (req, res) => {
+  app.get("/api/evacuation/status", requireAuth, async (req, res) => {
     try {
-      // Check for any active evacuations in the system
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      console.log(`🔍 Checking evacuation status for customer: ${customerId}`);
+
+      // Check for active evacuations for the customer only
       const activeEvacuations = await db
         .select()
         .from(evacuations)
-        .where(eq(evacuations.status, 'active'))
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, customerId)
+        ))
         .orderBy(desc(evacuations.startedAt))
         .limit(1);
       
@@ -2438,13 +2448,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
       }
       
-      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed emergency/active`);
+      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed emergency/active for customer: ${validatedStaff.customerId}`);
       
-      // Check for any active evacuations in the system
+      // Check for active evacuations for the Fire Marshal's customer only
       const activeEvacuations = await db
         .select()
         .from(evacuations)
-        .where(eq(evacuations.status, 'active'))
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, validatedStaff.customerId)
+        ))
         .orderBy(desc(evacuations.startedAt))
         .limit(1);
       
