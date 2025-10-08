@@ -2818,13 +2818,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const person of accountedPeople) {
           try {
             if (person.personType === 'staff') {
-              await databaseService.checkOutStaff(context, person.personId);
+              await databaseService.checkOutStaff(person.personId);
               staffCheckedOut++;
             } else if (person.personType === 'visitor') {
-              await databaseService.checkOutVisitor(context, person.personId);
+              await databaseService.checkOutVisitor(person.personId);
               visitorsCheckedOut++;
             } else if (person.personType === 'contractor') {
-              await databaseService.checkOutContractor(context, person.personId);
+              await databaseService.checkOutContractor(person.personId);
               contractorsCheckedOut++;
             }
             checkedOutCount++;
