@@ -20,18 +20,8 @@ import {
   Mail,
   Download,
   Siren,
-  HardHat,
-  Copy,
-  Link as LinkIcon
+  HardHat
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 interface MusterListItem {
   id: string;
@@ -48,30 +38,8 @@ export default function EmergencyMuster() {
   const [searchTerm, setSearchTerm] = useState("");
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [selectedMusterPoint, setSelectedMusterPoint] = useState("main");
-  const [showFireMarshalLink, setShowFireMarshalLink] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Fetch Fire Marshal link
-  const { data: fireMarshalData, refetch: refetchLink } = useQuery<{
-    link: string;
-    expires: string;
-    marshal: { name: string; department?: string; email: string };
-  }>({
-    queryKey: ["/api/emergency/my-link"],
-    enabled: showFireMarshalLink, // Only fetch when dialog opens
-    retry: false,
-  });
-
-  const copyLinkToClipboard = () => {
-    if (fireMarshalData?.link) {
-      navigator.clipboard.writeText(fireMarshalData.link);
-      toast({
-        title: "Link Copied",
-        description: "Fire Marshal emergency link copied to clipboard",
-      });
-    }
-  };
 
   const { data: musterList = [], isLoading } = useQuery<MusterListItem[]>({
     queryKey: ["/api/muster"],
@@ -259,75 +227,6 @@ export default function EmergencyMuster() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Dialog open={showFireMarshalLink} onOpenChange={setShowFireMarshalLink}>
-            <DialogTrigger asChild>
-              <Button 
-                variant="outline"
-                className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                data-testid="button-fire-marshal-link"
-              >
-                <LinkIcon className="mr-2" size={16} />
-                My Fire Marshal Link
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Fire Marshal Emergency Link</DialogTitle>
-                <DialogDescription>
-                  Use this secure link to access your Fire Marshal mobile panel during emergencies.
-                  This link is only valid when an evacuation is active.
-                </DialogDescription>
-              </DialogHeader>
-              {fireMarshalData ? (
-                <div className="space-y-4 mt-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-blue-900 dark:text-blue-100">Your Emergency Link</h4>
-                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                        Active
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-3 rounded border mt-2">
-                      <code className="text-sm flex-1 overflow-x-auto whitespace-nowrap">
-                        {fireMarshalData.link}
-                      </code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={copyLinkToClipboard}
-                        className="flex-shrink-0"
-                      >
-                        <Copy size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-                    <h4 className="font-semibold mb-2 text-fixed">Fire Marshal Details</h4>
-                    <div className="space-y-1 text-sm text-variable">
-                      <p><strong>Name:</strong> {fireMarshalData.marshal.name}</p>
-                      {fireMarshalData.marshal.department && (
-                        <p><strong>Department:</strong> {fireMarshalData.marshal.department}</p>
-                      )}
-                      <p><strong>Email:</strong> {fireMarshalData.marshal.email}</p>
-                      <p><strong>Expires:</strong> {new Date(fireMarshalData.expires).toLocaleString()}</p>
-                    </div>
-                  </div>
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                    <p className="text-sm text-amber-900 dark:text-amber-100">
-                      <strong>Note:</strong> This link is generated when an evacuation is activated. It provides token-based access to the Fire Marshal mobile interface without requiring login. Keep this link secure and only share it through official emergency channels.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Shield className="mx-auto text-slate-400 mb-4" size={48} />
-                  <p className="text-slate-600 dark:text-slate-400">
-                    No emergency link available. Links are generated when an evacuation is activated.
-                  </p>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
           <Button 
             onClick={handleEmergencyToggle}
             className={emergencyActive ? 

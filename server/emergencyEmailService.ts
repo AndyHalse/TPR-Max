@@ -38,7 +38,7 @@ export class EmergencyEmailService {
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : 'http://localhost:5000';
-    const marshalUrl = `${baseUrl}/fire-marshal-panel?token=${emailData.emergencyToken}`;
+    const marshalUrl = `${baseUrl}/fire-marshal-mobile?token=${emailData.emergencyToken}`;
     
     // Always show console URL for testing/debugging
     console.log('\n🚨 EMERGENCY ACTIVATED 🚨');
