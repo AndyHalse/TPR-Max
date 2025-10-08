@@ -2894,18 +2894,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get current Fire Marshal emergency link (requires authentication)
   app.get("/api/emergency/my-link", requireAuth, async (req, res) => {
     try {
-      const context = req.context!;
+      const customerId = req.user?.customerId;
+      const userId = req.user?.id;
       
-      // Get the logged-in staff member
-      const [staffMember] = await db
-        .select()
-        .from(staff)
-        .where(and(
-          eq(staff.userId, context.userId),
-          eq(staff.customerId, context.customerId),
-          eq(staff.isFireMarshal, true),
-          eq(staff.isActive, true)
-        ));
+      if (!customerId || !userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      // Get the logged-in user's staff record
+      const allStaff = await storage.getAllStaff(customerId);
+      const staffMember = allStaff.find(s => 
+        s.userId === userId && 
+        s.isFireMarshal === true && 
+        s.isActive === true
+      );
 
       if (!staffMember) {
         return res.status(403).json({ error: "You are not authorized as a Fire Marshal" });
