@@ -748,6 +748,19 @@ export class DatabaseStorage implements IStorage {
     return updatedVisitor || undefined;
   }
 
+  async checkOutContractor(id: string): Promise<ContractorWorker | undefined> {
+    const [updatedContractor] = await db
+      .update(contractorWorkers)
+      .set({
+        isCheckedIn: false,
+        checkedOutAt: new Date(),
+      })
+      .where(eq(contractorWorkers.id, id))
+      .returning();
+    
+    return updatedContractor || undefined;
+  }
+
   async getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined> {
     const [visitor] = await db.select().from(visitors).where(eq(visitors.qrCode, qrCode));
     return visitor || undefined;

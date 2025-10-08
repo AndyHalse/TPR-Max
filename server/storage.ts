@@ -122,6 +122,7 @@ export interface IStorage {
   }): Promise<Visitor>;
   updateVisitor(id: string, updates: Partial<InsertVisitor>): Promise<Visitor | undefined>;
   checkOutVisitor(id: string): Promise<Visitor | undefined>;
+  checkOutContractor(id: string): Promise<ContractorWorker | undefined>;
   deleteVisitor(id: string): Promise<boolean>;
   getVisitorByQrCode(qrCode: string): Promise<Visitor | undefined>;
   findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined>;
@@ -1316,6 +1317,20 @@ export class MemStorage implements IStorage {
     this.visitors.set(id, updatedVisitor);
     this.saveVisitorsToFile(); // 💾 PERSIST IMMEDIATELY
     return updatedVisitor;
+  }
+
+  async checkOutContractor(id: string): Promise<ContractorWorker | undefined> {
+    const contractor = this.contractorWorkers.get(id);
+    if (!contractor || !contractor.isCheckedIn) return undefined;
+
+    const updatedContractor = {
+      ...contractor,
+      checkedOutAt: new Date(),
+      isCheckedIn: false,
+    };
+    
+    this.contractorWorkers.set(id, updatedContractor);
+    return updatedContractor;
   }
 
   async deleteVisitor(id: string): Promise<boolean> {
