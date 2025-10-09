@@ -476,37 +476,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             data-testid="input-search-mobile"
           />
         </div>
-
-        {/* Filter Tabs */}
-        <div className="flex gap-2 bg-white rounded-lg p-1">
-          <Button
-            size="default"
-            variant={filterType === 'unaccounted' ? 'default' : 'ghost'}
-            onClick={() => setFilterType('unaccounted')}
-            className="flex-1 text-sm h-12"
-            data-testid="filter-unaccounted-mobile"
-          >
-            Missing ({evacuationData?.unaccounted || 0})
-          </Button>
-          <Button
-            size="default"
-            variant={filterType === 'accounted' ? 'default' : 'ghost'}
-            onClick={() => setFilterType('accounted')}
-            className="flex-1 text-sm h-12"
-            data-testid="filter-accounted-mobile"
-          >
-            Safe ({evacuationData?.accountedFor || 0})
-          </Button>
-          <Button
-            size="default"
-            variant={filterType === 'all' ? 'default' : 'ghost'}
-            onClick={() => setFilterType('all')}
-            className="flex-1 text-sm h-12"
-            data-testid="filter-all-mobile"
-          >
-            All ({evacuationData?.totalOnSite || 0})
-          </Button>
-        </div>
       </div>
 
       {/* People List */}
