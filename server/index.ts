@@ -151,10 +151,12 @@ function createCSRFMiddleware() {
     
     // Emergency Fire Marshal read-only endpoints require valid emergency token OR Fire Marshal URL ID
     // But emergency activation requires normal authentication (admin only)
+    // Also includes muster points management for Fire Marshals
     if (req.originalUrl.startsWith('/api/emergency/active') ||
         req.originalUrl.startsWith('/api/emergency/accountability') ||
         req.originalUrl.startsWith('/api/emergency/mark-safe') ||
-        req.originalUrl.startsWith('/api/emergency/complete-evacuation')) {
+        req.originalUrl.startsWith('/api/emergency/complete-evacuation') ||
+        req.originalUrl.startsWith('/api/muster-points')) {
       // Check for emergency token in Authorization header or query parameter
       const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;

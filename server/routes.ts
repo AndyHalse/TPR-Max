@@ -66,7 +66,7 @@ import { EmailService, emailService } from "./emailService";
 import { VoiceNotificationService } from "./voiceNotificationService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
-import { AuthService, requireAuth, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isDatabaseConnectionError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
+import { AuthService, requireAuth, requireAuthOrFireMarshal, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isDatabaseConnectionError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
 import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
@@ -3113,9 +3113,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create muster point
-  app.post("/api/muster-points", requireAuth, async (req, res) => {
+  app.post("/api/muster-points", requireAuthOrFireMarshal, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -3145,9 +3145,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update muster point
-  app.put("/api/muster-points/:id", requireAuth, async (req, res) => {
+  app.put("/api/muster-points/:id", requireAuthOrFireMarshal, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -3180,9 +3180,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete muster point
-  app.delete("/api/muster-points/:id", requireAuth, async (req, res) => {
+  app.delete("/api/muster-points/:id", requireAuthOrFireMarshal, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -3202,9 +3202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Initialize default muster points for current customer (one-time setup for existing customers)
-  app.post("/api/muster-points/init-defaults", requireAuth, async (req, res) => {
+  app.post("/api/muster-points/init-defaults", requireAuthOrFireMarshal, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }

@@ -347,9 +347,18 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Update muster point mutation
   const updateMusterPointMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      
+      // Add authentication header
+      if (token) {
+        headers["X-Emergency-Token"] = token;
+      } else if (urlId) {
+        headers["X-Fire-Marshal-Id"] = urlId;
+      }
+      
       const response = await fetch(`/api/muster-points/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         credentials: "include",
         body: JSON.stringify({ name, displayOrder: 0, isActive: true })
       });
@@ -377,9 +386,18 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Initialize default muster points mutation
   const initDefaultsMutation = useMutation({
     mutationFn: async () => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      
+      // Add authentication header
+      if (token) {
+        headers["X-Emergency-Token"] = token;
+      } else if (urlId) {
+        headers["X-Fire-Marshal-Id"] = urlId;
+      }
+      
       const response = await fetch('/api/muster-points/init-defaults', {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         credentials: "include"
       });
       if (!response.ok) throw new Error("Failed to initialize muster points");
