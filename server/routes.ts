@@ -2228,20 +2228,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to generate and store safety token
   async function generateSafetyToken(
     db: any,
+    customerId: string,
     evacuationId: string,
     personId: string,
     personType: 'staff' | 'visitor' | 'contractor',
     personName: string,
     personEmail: string
   ): Promise<string> {
-    // Generate URL-safe token
-    const token = randomBytes(32).toString('base64url');
+    // Generate URL-safe random token
+    const randomToken = randomBytes(32).toString('base64url');
+    
+    // Create composite token with customerId for routing (format: customerId.randomToken)
+    const token = `${customerId}.${randomToken}`;
     
     // Token expires in 24 hours
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
     
-    // Store token in database
+    // Store token in customer's isolated database
     await db.insert(isolatedSchema.safetyTokens).values({
       token,
       evacuationId,
@@ -2361,6 +2365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Generate safety token for this staff member
             const safetyToken = await generateSafetyToken(
               customerDb,
+              context.customerId,
               evacuationId,
               staff.id,
               'staff',
@@ -2390,6 +2395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Generate safety token for this visitor
             const safetyToken = await generateSafetyToken(
               customerDb,
+              context.customerId,
               evacuationId,
               visitor.id,
               'visitor',
@@ -2419,6 +2425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Generate safety token for this contractor
             const safetyToken = await generateSafetyToken(
               customerDb,
+              context.customerId,
               evacuationId,
               contractor.id,
               'contractor',
@@ -3515,6 +3522,267 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to fetch personnel",
         message: "Unable to retrieve on-site personnel data." 
       });
+    }
+  });
+
+  // PUBLIC ROUTE: Mark person safe via email token (no authentication required)
+  app.get("/mark-safe/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      // Parse token to extract customerId (format: customerId.randomToken)
+      const tokenParts = token.split('.');
+      if (tokenParts.length < 2) {
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Invalid Link</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+              .error { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+              .message { color: #666; font-size: 16px; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <div class="error">❌ Invalid Safety Link</div>
+            <div class="message">This safety confirmation link is not valid. Please contact your emergency coordinator.</div>
+          </body>
+          </html>
+        `);
+      }
+      
+      const customerId = tokenParts[0];
+      
+      // Get customer database
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      // Find token in database
+      const tokenRecords = await customerDb
+        .select()
+        .from(isolatedSchema.safetyTokens)
+        .where(eq(isolatedSchema.safetyTokens.token, token))
+        .limit(1);
+      
+      if (tokenRecords.length === 0) {
+        return res.status(404).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Link Not Found</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+              .error { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+              .message { color: #666; font-size: 16px; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <div class="error">❌ Link Not Found</div>
+            <div class="message">This safety confirmation link was not found or may have been deleted.</div>
+          </body>
+          </html>
+        `);
+      }
+      
+      const tokenRecord = tokenRecords[0];
+      
+      // Check if token is already used
+      if (tokenRecord.isUsed) {
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Already Marked Safe</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; background: #f0fdf4; }
+              .success { color: #16a34a; font-size: 28px; margin-bottom: 20px; }
+              .message { color: #166534; font-size: 16px; line-height: 1.6; background: white; padding: 20px; border-radius: 8px; border: 2px solid #16a34a; }
+              .person-name { font-weight: bold; color: #15803d; margin: 10px 0; }
+            </style>
+          </head>
+          <body>
+            <div class="success">✅ Already Safe</div>
+            <div class="message">
+              <div class="person-name">${tokenRecord.personName}</div>
+              <p>You have already been marked safe in this evacuation.</p>
+              <p>This confirmation was recorded at: ${tokenRecord.usedAt?.toLocaleString() || 'Unknown'}</p>
+            </div>
+          </body>
+          </html>
+        `);
+      }
+      
+      // Check if token is expired
+      if (new Date() > new Date(tokenRecord.expiresAt)) {
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Link Expired</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+              .error { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+              .message { color: #666; font-size: 16px; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <div class="error">⏰ Link Expired</div>
+            <div class="message">This safety confirmation link has expired. Please contact your emergency coordinator for assistance.</div>
+          </body>
+          </html>
+        `);
+      }
+      
+      // Mark person as accounted for in evacuationAccountability (shared database)
+      const accountabilityRecords = await db
+        .select()
+        .from(sharedSchema.evacuationAccountability)
+        .where(and(
+          eq(sharedSchema.evacuationAccountability.evacuationId, tokenRecord.evacuationId),
+          eq(sharedSchema.evacuationAccountability.personId, tokenRecord.personId),
+          eq(sharedSchema.evacuationAccountability.customerId, customerId)
+        ))
+        .limit(1);
+      
+      if (accountabilityRecords.length > 0) {
+        await db
+          .update(sharedSchema.evacuationAccountability)
+          .set({
+            isAccountedFor: true,
+            accountedBy: 'Self (Email)',
+            accountedAt: new Date(),
+            musterPoint: 'Self-Reported Safe'
+          })
+          .where(eq(sharedSchema.evacuationAccountability.id, accountabilityRecords[0].id));
+      }
+      
+      // Mark token as used
+      await customerDb
+        .update(isolatedSchema.safetyTokens)
+        .set({
+          isUsed: true,
+          usedAt: new Date()
+        })
+        .where(eq(isolatedSchema.safetyTokens.id, tokenRecord.id));
+      
+      // Return success page
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Marked Safe - Evacuation</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 50px auto;
+              padding: 20px;
+              text-align: center;
+              background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+            }
+            .container {
+              background: white;
+              padding: 40px;
+              border-radius: 12px;
+              box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+              border: 3px solid #16a34a;
+            }
+            .success-icon {
+              font-size: 72px;
+              margin-bottom: 20px;
+              animation: bounce 0.6s;
+            }
+            @keyframes bounce {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-20px); }
+            }
+            .title {
+              color: #15803d;
+              font-size: 32px;
+              font-weight: bold;
+              margin-bottom: 20px;
+            }
+            .person-name {
+              font-size: 24px;
+              color: #166534;
+              margin: 20px 0;
+              padding: 15px;
+              background: #dcfce7;
+              border-radius: 8px;
+            }
+            .message {
+              color: #166534;
+              font-size: 18px;
+              line-height: 1.8;
+              margin: 20px 0;
+            }
+            .info {
+              background: #f0fdf4;
+              padding: 20px;
+              border-radius: 8px;
+              margin: 25px 0;
+              font-size: 14px;
+              color: #15803d;
+            }
+            .timestamp {
+              font-size: 14px;
+              color: #16a34a;
+              margin-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="success-icon">✅</div>
+            <div class="title">Successfully Marked Safe</div>
+            <div class="person-name">${tokenRecord.personName}</div>
+            <div class="message">
+              You have been successfully marked as safe in the current evacuation.
+              <br><br>
+              Emergency coordinators have been notified of your safety status.
+            </div>
+            <div class="info">
+              <strong>What happens next:</strong><br>
+              • Your status has been updated in the emergency system<br>
+              • Fire Marshals can see you are accounted for<br>
+              • Follow all instructions from emergency personnel<br>
+              • Stay at your designated muster point until given the all-clear
+            </div>
+            <div class="timestamp">
+              Confirmed at: ${new Date().toLocaleString()}
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
+      
+      console.log(`✅ SELF MARK-SAFE: ${tokenRecord.personName} (${tokenRecord.personType}) marked safe via email token`);
+      
+    } catch (error) {
+      console.error("❌ Error processing mark-safe token:", error);
+      res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+            .error { color: #dc2626; font-size: 24px; margin-bottom: 20px; }
+            .message { color: #666; font-size: 16px; line-height: 1.6; }
+          </style>
+        </head>
+        <body>
+          <div class="error">❌ Error</div>
+          <div class="message">An error occurred while processing your safety confirmation. Please contact your emergency coordinator.</div>
+        </body>
+        </html>
+      `);
     }
   });
 
