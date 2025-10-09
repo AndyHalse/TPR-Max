@@ -2382,14 +2382,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         s.isFireMarshal === true
       );
       
+      console.log(`\n🚨 EMERGENCY ACTIVATION - FIRE MARSHAL NOTIFICATION`);
+      console.log(`============================================`);
+      console.log(`Found ${fireMarshals.length} Fire Marshals:`, fireMarshals.map(m => `${m.firstName} ${m.lastName}`));
+      console.log(`Base URL: ${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}`);
+      console.log(`============================================\n`);
+      
       for (const marshal of fireMarshals) {
         if (marshal.email) {
           try {
             // Generate emergency token for Fire Marshal with proper customer context
             const emergencyToken = await EmergencyEmailService.generateEmergencyToken(marshal.id, context.customerId);
             
-            console.log(`✅ EMERGENCY TOKEN GENERATED for ${marshal.firstName} ${marshal.lastName}: ${emergencyToken.substring(0, 20)}...`);
-            console.log(`📧 SENDING EMAIL with token: ${emergencyToken.substring(0, 20)}...`);
+            // Build the Fire Marshal URL
+            const baseUrl = process.env.REPLIT_DOMAINS 
+              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+              : 'http://localhost:5000';
+            const marshalUrl = `${baseUrl}/fire-marshal-mobile?token=${emergencyToken}`;
+            
+            console.log(`\n✅ FIRE MARSHAL TOKEN GENERATED:`);
+            console.log(`   Name: ${marshal.firstName} ${marshal.lastName}`);
+            console.log(`   Email: ${marshal.email}`);
+            console.log(`   Token: ${emergencyToken}`);
+            console.log(`   🔗 URL: ${marshalUrl}`);
+            console.log(`   Expires: 4 hours\n`);
             
             // Send Fire Marshal alert with proper data structure
             await EmergencyEmailService.sendFireMarshalAlert({
