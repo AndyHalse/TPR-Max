@@ -107,6 +107,18 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [urlId]);
 
+  // Fetch on-site personnel data for "peace time" view (when no evacuation is active)
+  const { data: personnelData, isLoading: isLoadingPersonnel } = useQuery<{
+    people: PersonOnSite[];
+    totalOnSite: number;
+    accountedFor: number;
+    unaccounted: number;
+  }>({
+    queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'],
+    enabled: !!urlId && !activeEvacuationId,
+    refetchInterval: 10000 // Refresh every 10 seconds
+  });
+
   // Load marshal name from localStorage (legacy)
   useEffect(() => {
     if (!urlId) {  // Only use localStorage for legacy token auth
@@ -308,21 +320,137 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     );
   }
 
+  // Peace-time view: Show current on-site personnel
   if (!activeEvacuationId) {
+    const peopleList = personnelData?.people || [];
+    const filteredPeopleList = peopleList.filter(person => {
+      const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            person.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            person.company?.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    });
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Shield className="h-16 w-16 mx-auto text-green-500 mb-4" />
-            <CardTitle className="text-xl">No Active Evacuation</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-center text-muted-foreground">
-              {urlId ? `Authenticated as ${marshalName || 'Fire Marshal'}. ` : ''}
-              This panel will activate automatically during an emergency evacuation.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 pb-20">
+        {/* Normal Operations Header - Fixed */}
+        <div className="sticky top-0 z-50 bg-green-600 text-white p-3 shadow-lg">
+          <div className="flex items-center gap-2">
+            <Shield className="h-6 w-6" />
+            <div className="flex-1">
+              <h1 className="text-lg font-bold">Normal Operations</h1>
+              <p className="text-xs opacity-90">Fire Marshal Panel - {marshalName}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => window.location.reload()}
+              className="bg-white/20 hover:bg-white/30"
+              data-testid="button-refresh-normal"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Info Card */}
+        <div className="p-4">
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur">
+            <CardContent className="pt-6">
+              <div className="text-center mb-4">
+                <Shield className="h-12 w-12 mx-auto text-green-600 dark:text-green-400 mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  No active evacuation. This panel shows current on-site personnel and will activate automatically during an emergency.
+                </p>
+              </div>
+              
+              {/* Stats */}
+              <div className="grid grid-cols-1 gap-3 mt-4">
+                <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium">Total On-Site</span>
+                    </div>
+                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-onsite">
+                      {isLoadingPersonnel ? '...' : personnelData?.totalOnSite || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by name, department, or company..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white dark:bg-gray-800"
+              data-testid="input-search-personnel"
+            />
+          </div>
+        </div>
+
+        {/* Personnel List */}
+        <div className="px-4 space-y-3">
+          {isLoadingPersonnel ? (
+            <Card className="p-6">
+              <p className="text-center text-muted-foreground">Loading personnel...</p>
+            </Card>
+          ) : filteredPeopleList.length === 0 ? (
+            <Card className="p-6">
+              <p className="text-center text-muted-foreground">
+                {searchQuery ? 'No personnel match your search' : 'No personnel currently on-site'}
+              </p>
+            </Card>
+          ) : (
+            filteredPeopleList.map((person) => (
+              <Card 
+                key={person.id} 
+                className="bg-white dark:bg-gray-800"
+                data-testid={`card-person-${person.id}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium" data-testid={`text-person-name-${person.id}`}>
+                          {person.name}
+                        </h3>
+                        <Badge 
+                          variant={person.type === 'staff' ? 'default' : person.type === 'visitor' ? 'secondary' : 'outline'}
+                          className="text-xs"
+                        >
+                          {person.type}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        {person.department && (
+                          <p className="flex items-center gap-1">
+                            <span className="font-medium">Dept:</span> {person.department}
+                          </p>
+                        )}
+                        {person.company && (
+                          <p className="flex items-center gap-1">
+                            <span className="font-medium">Company:</span> {person.company}
+                          </p>
+                        )}
+                        <p className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {person.location}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
     );
   }
