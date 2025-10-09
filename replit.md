@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **User Management**: Comprehensive user, role, and invitation management with multi-tenant isolation and CSRF protection.
 - **Voice Notification System**: Visitor arrival announcements via 8x8 API.
 - **Room Booking System**: Full CRUD operations for room bookings, including staff attendees, availability checks, and multi-tenant isolation.
-- **Fire Marshal Static URL System**: Fully implemented and tested permanent, non-expiring static URLs for Fire Marshal emergency access (/fire-marshal/:urlId format). Auto-generates 12-character URL-safe IDs for both new and existing Fire Marshals. Cross-tenant database search locates Fire Marshals across all customer databases. Frontend bypasses session auth for public Fire Marshal routes. UI shows URL status with copy functionality in Staff Management.
+- **Fire Marshal Static URL System**: Fully implemented and tested permanent, non-expiring static URLs for Fire Marshal emergency access (/fire-marshal/:urlId format). Auto-generates 12-character URL-safe IDs for both new and existing Fire Marshals. Cross-tenant database search locates Fire Marshals across all customer databases. Frontend bypasses session auth for public Fire Marshal routes. UI shows URL status with copy functionality in Staff Management. **Enhanced with "Peace Time" mode**: Fire Marshal URLs now display current on-site personnel (staff, visitors, contractors) even during normal operations for familiarization and readiness. Auto-refreshes every 10 seconds with search/filter capabilities.
 
 ## External Dependencies
 - **@tanstack/react-query**: Server state management.

@@ -114,7 +114,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     accountedFor: number;
     unaccounted: number;
   }>({
-    queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'],
+    queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`],
     enabled: !!urlId && !activeEvacuationId,
     refetchInterval: 10000 // Refresh every 10 seconds
   });
