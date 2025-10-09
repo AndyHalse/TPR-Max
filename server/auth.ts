@@ -767,7 +767,7 @@ export async function requireAuthOrFireMarshal(req: Request, res: Response, next
   if (fireMarshalId) {
     try {
       // Import databaseService dynamically to avoid circular deps
-      const databaseService = (await import('./databaseService.js')).default;
+      const { databaseService } = await import('./databaseService.js');
       
       // Find Fire Marshal across all customer databases
       const result = await databaseService.findFireMarshalByUrlId(fireMarshalId);
@@ -777,7 +777,7 @@ export async function requireAuthOrFireMarshal(req: Request, res: Response, next
         console.log('✅ DUAL_AUTH: Fire Marshal URL ID auth successful:', {
           fireMarshalId,
           customerId: result.customerId,
-          marshalName: result.fireMarshal.firstName + ' ' + result.fireMarshal.lastName
+          marshalName: result.marshal.firstName + ' ' + result.marshal.lastName
         });
         return next();
       }

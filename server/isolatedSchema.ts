@@ -89,6 +89,22 @@ export const evacuationAccountability = pgTable("evacuation_accountability", {
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
+// Safety Tokens table for email-based self mark-safe functionality
+export const safetyTokens = pgTable("safety_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: text("token").notNull().unique(), // Unique URL-safe token
+  evacuationId: text("evacuation_id").notNull(),
+  personId: text("person_id").notNull(),
+  personType: text("person_type").notNull(), // 'staff', 'visitor', or 'contractor'
+  personName: text("person_name").notNull(),
+  personEmail: text("person_email").notNull(),
+  isUsed: boolean("is_used").default(false).notNull(),
+  usedAt: timestamp("used_at"),
+  musterPoint: text("muster_point"), // Where they marked safe from
+  expiresAt: timestamp("expires_at").notNull(), // Token expiration (e.g., 24 hours)
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
 export const visitors = pgTable("visitors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   firstName: text("first_name").notNull(),
