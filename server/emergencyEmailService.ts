@@ -25,20 +25,16 @@ export class EmergencyEmailService {
   }
   private static readonly FROM_NAME = 'VisiGate Pro Emergency System';
 
+  /**
+   * @deprecated LEGACY: This function generates temporary tokens that expire after 4 hours.
+   * DO NOT USE: All emergency access now uses permanent static URLs via fire_marshal_url_id.
+   * This function is kept for reference only and should be removed in a future cleanup.
+   * See: Fire Marshal static URL system in staff table (fire_marshal_url_id column)
+   */
   static async generateEmergencyToken(staffId: string, customerId: string): Promise<string> {
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4 hours from now
-    
-    console.log(`🔐 GENERATING TOKEN for staff ${staffId}, customer ${customerId}`);
-    console.log(`🔐 Token preview: ${token.substring(0, 20)}...`);
-    
-    // Use DatabaseStorage directly with proper tenant context
-    const { DatabaseStorage } = await import('./DatabaseStorage');
-    const dbStorage = new DatabaseStorage();
-    await dbStorage.updateStaffEmergencyToken(staffId, token, expires);
-    
-    console.log(`✅ TOKEN SAVED to database for staff ${staffId}`);
-    return token;
+    console.error('⚠️ DEPRECATED: generateEmergencyToken called - this should not happen!');
+    console.error('⚠️ Use fire_marshal_url_id instead for permanent emergency access');
+    throw new Error('generateEmergencyToken is deprecated - use fire_marshal_url_id for permanent access');
   }
 
   static async sendFireMarshalAlert(emailData: EmergencyEmailData): Promise<boolean> {
@@ -362,14 +358,18 @@ VisiGate Pro Emergency System - Automated Notification
 
       for (const marshal of fireMarshals) {
         try {
-          // Generate unique emergency token for each Fire Marshal
-          const emergencyToken = await this.generateEmergencyToken(marshal.id);
+          // NEW: Use static Fire Marshal URL ID instead of temporary tokens
+          if (!marshal.fireMarshalUrlId) {
+            console.warn(`⚠️ Fire Marshal ${marshal.firstName} ${marshal.lastName} has no URL ID, skipping`);
+            errors.push(`Fire Marshal ${marshal.firstName} ${marshal.lastName} has no emergency URL configured`);
+            continue;
+          }
           
           const emailData: EmergencyEmailData = {
             marshalName: `${marshal.firstName} ${marshal.lastName}`,
             marshalEmail: marshal.email,
             marshalDepartment: marshal.department,
-            emergencyToken,
+            emergencyToken: marshal.fireMarshalUrlId,  // Use static URL ID instead of temporary token
             activatedBy,
             activatedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
             totalPersonnel,
