@@ -125,11 +125,19 @@ export class DatabaseService {
       hashedPassword = await bcrypt.hash(insertStaff.password, 10);
     }
     
+    // Auto-generate Fire Marshal URL ID if this is a Fire Marshal
+    let fireMarshalUrlId = insertStaff.fireMarshalUrlId;
+    if (insertStaff.isFireMarshal && !fireMarshalUrlId) {
+      fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
+      console.log(`🔥 Generated Fire Marshal URL ID for new staff ${insertStaff.firstName} ${insertStaff.lastName}: ${fireMarshalUrlId}`);
+    }
+    
     const created = await db
       .insert(isolatedSchema.staff)
       .values({
         ...insertStaff,
         password: hashedPassword,
+        fireMarshalUrlId,
       })
       .returning();
     
@@ -142,6 +150,28 @@ export class DatabaseService {
     updates: Partial<InsertStaff>
   ): Promise<Staff | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // ALWAYS check existing staff to see if they need a Fire Marshal URL ID
+    const existingStaff = await db
+      .select()
+      .from(isolatedSchema.staff)
+      .where(eq(isolatedSchema.staff.id, id))
+      .limit(1);
+    
+    if (existingStaff[0]) {
+      // Generate Fire Marshal URL ID if:
+      // 1. Being newly designated as Fire Marshal (updates.isFireMarshal === true), OR
+      // 2. Already is a Fire Marshal (existingStaff[0].isFireMarshal === true)
+      // AND they don't have a URL ID yet
+      const isOrWillBeFireMarshal = updates.isFireMarshal === true || existingStaff[0].isFireMarshal === true;
+      const hasNoUrlId = !existingStaff[0].fireMarshalUrlId && !updates.fireMarshalUrlId;
+      
+      if (isOrWillBeFireMarshal && hasNoUrlId) {
+        // Generate a unique, URL-safe ID (12 characters from UUID without dashes)
+        updates.fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
+        console.log(`🔥 Generated Fire Marshal URL ID for ${existingStaff[0].firstName} ${existingStaff[0].lastName}: ${updates.fireMarshalUrlId}`);
+      }
+    }
     
     const updated = await db
       .update(isolatedSchema.staff)
