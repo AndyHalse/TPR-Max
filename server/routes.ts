@@ -2358,15 +2358,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customEmailService = new EmailService();
       const errors = [];
       
+      // Identify Fire Marshals FIRST (before sending any emails)
+      const fireMarshals = checkedInStaff.filter(s => 
+        s.department?.toLowerCase().includes('safety') || 
+        s.department?.toLowerCase().includes('security') ||
+        s.isFireMarshal === true
+      );
+      const fireMarshalIds = new Set(fireMarshals.map(fm => fm.id));
+      
+      // Only send regular evacuation emails to non-Fire Marshal staff
+      const regularStaff = checkedInStaff.filter(s => !fireMarshalIds.has(s.id));
+      
       console.log(`\n📧 SENDING EVACUATION ALERTS TO ALL PERSONNEL`);
       console.log(`============================================`);
-      console.log(`Staff to notify: ${checkedInStaff.length}`);
+      console.log(`Regular staff to notify: ${regularStaff.length}`);
+      console.log(`Fire Marshals (separate alert): ${fireMarshals.length}`);
       console.log(`Visitors to notify: ${currentVisitors.length}`);
       console.log(`Contractors to notify: ${checkedInContractors.length}`);
       console.log(`============================================\n`);
       
-      // Send to all staff
-      for (const staff of checkedInStaff) {
+      // Send to all regular staff (excluding Fire Marshals)
+      for (const staff of regularStaff) {
         if (staff.email) {
           try {
             // Generate safety token for this staff member
@@ -2462,13 +2474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Find and notify Fire Marshals with special alert
-      const fireMarshals = checkedInStaff.filter(s => 
-        s.department?.toLowerCase().includes('safety') || 
-        s.department?.toLowerCase().includes('security') ||
-        s.isFireMarshal === true
-      );
-      
+      // Now send Fire Marshal-specific alerts (fireMarshals already identified above)
       console.log(`\n🚨 EMERGENCY ACTIVATION - FIRE MARSHAL NOTIFICATION`);
       console.log(`============================================`);
       console.log(`Found ${fireMarshals.length} Fire Marshals:`, fireMarshals.map(m => `${m.firstName} ${m.lastName}`));

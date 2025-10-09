@@ -944,7 +944,9 @@ For questions about this report, please contact the administrator.
     const primaryColor = companySettings?.accentColor || '#dc2626';
     
     // Generate mark-safe URL if token is provided
-    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+      : 'http://localhost:5000';
     const markSafeUrl = safetyToken ? `${baseUrl}/mark-safe/${safetyToken}` : null;
     
     const html = `
