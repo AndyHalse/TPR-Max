@@ -5,7 +5,6 @@ import { databaseService } from "./databaseService";
 import { simpleDatabaseService } from "./simpleDatabaseService";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
 import { insertCompanySettingsSchema, tenantCompanies } from "./isolatedSchema";
-import { sql } from "drizzle-orm";
 import { 
   insertStaffSchema, 
   insertVisitorSchema, 
@@ -2957,14 +2956,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get customer database to check for active evacuations
-      const customerDb = await customerDbService.getCustomerDatabase(customerId);
-      
-      // Check if there's an active evacuation for their customer
-      const activeEvacuations = await customerDb.select()
-        .from(isolatedSchema.evacuations)
-        .where(eq(isolatedSchema.evacuations.status, 'active'))
-        .orderBy(desc(isolatedSchema.evacuations.startedAt))
+      // Check if there's an active evacuation for their customer (using main database)
+      const activeEvacuations = await db.select()
+        .from(sharedSchema.evacuations)
+        .where(and(
+          eq(sharedSchema.evacuations.customerId, customerId),
+          eq(sharedSchema.evacuations.status, 'active')
+        ))
+        .orderBy(desc(sharedSchema.evacuations.startedAt))
         .limit(1);
       
       const activeEvacuation = activeEvacuations[0];
