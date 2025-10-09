@@ -200,8 +200,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       // Support both authentication methods
       if (token) {
         headers["X-Emergency-Token"] = token;  // Legacy token auth
-      } else if (marshalInfo) {
-        headers["X-Fire-Marshal-Id"] = marshalInfo.id;  // URL ID auth
+      } else if (urlId) {
+        headers["X-Fire-Marshal-Id"] = urlId;  // URL ID auth
       }
       
       const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
@@ -249,8 +249,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       // Support both authentication methods
       if (token) {
         headers["X-Emergency-Token"] = token;  // Legacy token auth
-      } else if (marshalInfo) {
-        headers["X-Fire-Marshal-Id"] = marshalInfo.id;  // URL ID auth
+      } else if (urlId) {
+        headers["X-Fire-Marshal-Id"] = urlId;  // URL ID auth
       }
       
       const response = await fetch('/api/emergency/complete-evacuation', {
