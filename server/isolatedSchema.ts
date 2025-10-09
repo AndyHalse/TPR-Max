@@ -60,6 +60,16 @@ export const staffSessions = pgTable("staff_sessions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Muster Points table for emergency assembly locations
+export const musterPoints = pgTable("muster_points", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 // Evacuation Accountability table for tracking people during emergency
 export const evacuationAccountability = pgTable("evacuation_accountability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
