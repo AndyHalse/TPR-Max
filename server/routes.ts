@@ -2358,6 +2358,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customEmailService = new EmailService();
       const errors = [];
       
+      console.log(`\n📧 SENDING EVACUATION ALERTS TO ALL PERSONNEL`);
+      console.log(`============================================`);
+      console.log(`Staff to notify: ${checkedInStaff.length}`);
+      console.log(`Visitors to notify: ${currentVisitors.length}`);
+      console.log(`Contractors to notify: ${checkedInContractors.length}`);
+      console.log(`============================================\n`);
+      
       // Send to all staff
       for (const staff of checkedInStaff) {
         if (staff.email) {
@@ -2373,6 +2380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               staff.email
             );
             
+            console.log(`📨 Sending evacuation alert to staff: ${staff.firstName} ${staff.lastName} (${staff.email})`);
             const sent = await customEmailService.sendEvacuationAlert(
               staff.email,
               `${staff.firstName} ${staff.lastName}`,
@@ -2381,9 +2389,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               companySettings!,
               safetyToken
             );
-            if (sent) evacuationData.notificationsSent++;
+            if (sent) {
+              console.log(`✅ Successfully sent to ${staff.firstName} ${staff.lastName}`);
+              evacuationData.notificationsSent++;
+            } else {
+              console.log(`❌ Failed to send to ${staff.firstName} ${staff.lastName}`);
+            }
           } catch (error) {
-            errors.push(`Failed to notify ${staff.firstName} ${staff.lastName}`);
+            console.error(`❌ ERROR sending to staff ${staff.firstName} ${staff.lastName}:`, error);
+            errors.push(`Failed to notify ${staff.firstName} ${staff.lastName}: ${error}`);
           }
         }
       }
