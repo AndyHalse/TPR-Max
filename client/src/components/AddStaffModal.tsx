@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CloudUpload, Upload, X, Shield, Phone } from "lucide-react";
+import { CloudUpload, Upload, X, Shield, Phone, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { InsertStaff } from "@shared/schema";
 
@@ -426,24 +426,60 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
           </div>
           
           {/* Fire Marshal Assignment */}
-          <div className="flex items-center space-x-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
-            <input
-              type="checkbox"
-              id="isFireMarshal"
-              checked={formData.isFireMarshal}
-              onChange={(e) => setFormData(prev => ({ ...prev, isFireMarshal: e.target.checked }))}
-              className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
-              data-testid="checkbox-fire-marshal"
-            />
-            <div className="flex-1">
-              <label htmlFor="isFireMarshal" className="flex items-center text-sm font-medium text-orange-800 dark:text-orange-200">
-                <Shield className="mr-2" size={16} />
-                Designate as Fire Marshal
-              </label>
-              <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
-                Fire Marshals receive emergency notifications and can manage muster points during emergencies
-              </p>
+          <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="isFireMarshal"
+                checked={formData.isFireMarshal}
+                onChange={(e) => setFormData(prev => ({ ...prev, isFireMarshal: e.target.checked }))}
+                className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                data-testid="checkbox-fire-marshal"
+              />
+              <div className="flex-1">
+                <label htmlFor="isFireMarshal" className="flex items-center text-sm font-medium text-orange-800 dark:text-orange-200">
+                  <Shield className="mr-2" size={16} />
+                  Designate as Fire Marshal
+                </label>
+                <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
+                  Fire Marshals receive emergency notifications and can manage muster points during emergencies
+                </p>
+              </div>
             </div>
+            
+            {/* Fire Marshal URL - shown when designated */}
+            {formData.isFireMarshal && staffToEdit?.fireMarshalUrlId && (
+              <div className="pt-3 border-t border-orange-200 dark:border-orange-700">
+                <label className="text-xs font-medium text-orange-700 dark:text-orange-300 block mb-2">
+                  🔗 Fire Marshal Emergency Access URL
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/fire-marshal/${staffToEdit.fireMarshalUrlId}`}
+                    className="flex-1 px-3 py-2 text-xs bg-white dark:bg-gray-800 border border-orange-300 dark:border-orange-700 rounded-lg text-orange-900 dark:text-orange-100 font-mono"
+                    data-testid="fire-marshal-url"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/fire-marshal/${staffToEdit.fireMarshalUrlId}`);
+                      toast({ title: "✓ URL Copied", description: "Fire Marshal emergency access URL copied to clipboard" });
+                    }}
+                    className="shrink-0"
+                    data-testid="button-copy-fire-marshal-url"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                  This permanent URL can be saved as a favorite for instant emergency access
+                </p>
+              </div>
+            )}
           </div>
           
           {/* Voice Notification Settings */}
