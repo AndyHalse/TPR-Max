@@ -264,6 +264,46 @@ export class DatabaseService {
   }
 
   /**
+   * FIRE MARSHAL METHODS - Cross-Customer Search
+   */
+  async findFireMarshalByUrlId(urlId: string): Promise<{ marshal: Staff; customerId: string } | null> {
+    const { db: mainDb } = await import("./db");
+    
+    // Get all customers from main database using raw SQL
+    const result = await mainDb.execute<{ id: string; company_name: string }>(
+      sql`SELECT id, company_name FROM customers`
+    );
+    const allCustomers = result.rows || result;
+    
+    // Search each customer's database for the Fire Marshal
+    for (const customer of allCustomers) {
+      try {
+        const customerDb = await customerDbService.getCustomerDatabase(customer.id);
+        
+        const marshals = await customerDb
+          .select()
+          .from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.fireMarshalUrlId, urlId))
+          .limit(1);
+        
+        if (marshals[0]) {
+          console.log(`✅ Found Fire Marshal with URL ID ${urlId} in customer ${customer.id}`);
+          return {
+            marshal: marshals[0],
+            customerId: customer.id
+          };
+        }
+      } catch (error) {
+        console.error(`Error searching customer ${customer.id} for Fire Marshal:`, error);
+        continue;
+      }
+    }
+    
+    console.log(`❌ No Fire Marshal found with URL ID: ${urlId}`);
+    return null;
+  }
+
+  /**
    * VISITOR METHODS - Customer & Tenant Isolated
    */
   async getAllVisitors(context: CustomerContext): Promise<Visitor[]> {

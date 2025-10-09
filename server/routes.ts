@@ -2935,17 +2935,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`🔍 Fire Marshal URL ID authentication attempt: ${urlId}`);
       
-      // Find Fire Marshal by URL ID across all customers
-      const allStaff = await db.select().from(staff).where(eq(staff.fireMarshalUrlId, urlId));
-      const marshal = allStaff[0];
+      // Find Fire Marshal by URL ID across all customers using DatabaseService
+      const result = await databaseService.findFireMarshalByUrlId(urlId);
       
-      if (!marshal) {
+      if (!result) {
         console.log(`❌ No Fire Marshal found with URL ID: ${urlId}`);
         return res.status(401).json({
           error: "Invalid Fire Marshal link",
           message: "This Fire Marshal access link is not valid."
         });
       }
+      
+      const { marshal, customerId } = result;
       
       // Verify they are an active Fire Marshal
       if (!marshal.isFireMarshal || !marshal.isActive) {
@@ -2956,19 +2957,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get customer context for this Fire Marshal
-      const customerId = marshal.customerId;
+      // Get customer database to check for active evacuations
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
       // Check if there's an active evacuation for their customer
-      const activeEvacuations = await db.select()
-        .from(evacuations)
-        .where(
-          and(
-            eq(evacuations.customerId, customerId),
-            eq(evacuations.status, 'active')
-          )
-        )
-        .orderBy(desc(evacuations.startedAt))
+      const activeEvacuations = await customerDb.select()
+        .from(isolatedSchema.evacuations)
+        .where(eq(isolatedSchema.evacuations.status, 'active'))
+        .orderBy(desc(isolatedSchema.evacuations.startedAt))
         .limit(1);
       
       const activeEvacuation = activeEvacuations[0];

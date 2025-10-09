@@ -184,7 +184,11 @@ function Router() {
     );
   }
   
-  // Secure authentication - requires valid server session
+  // Check if this is a public route that doesn't need authentication
+  const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
+  const isPublicRoute = isFireMarshalRoute;
+  
+  // Secure authentication - requires valid server session (skip for public routes)
   const { data: user, isLoading, error, isError } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
@@ -214,31 +218,37 @@ function Router() {
     retry: false,
     staleTime: 0, // Always fresh - critical for proper auth flow
     gcTime: 0, // Don't cache auth queries
+    enabled: !isPublicRoute, // Don't run auth query on public routes
   });
 
   console.log("🔍 [AUTH STATE] Current state:", { user: user?.username || 'null', isLoading, isError, error });
 
-  if (isLoading) {
-    console.log("⏳ [AUTH STATE] Authentication loading...");
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Checking authentication...</p>
+  // Skip auth checks for public routes (they have their own authentication logic)
+  if (!isPublicRoute) {
+    if (isLoading) {
+      console.log("⏳ [AUTH STATE] Authentication loading...");
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-slate-600 dark:text-slate-400">Checking authentication...</p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+
+    // If not authenticated, show login page
+    if (!user) {
+      console.log("❌ [AUTH STATE] No authenticated user - showing login page");
+      return <Login />;
+    }
   }
 
-  // If not authenticated, show login page
-  if (!user) {
-    console.log("❌ [AUTH STATE] No authenticated user - showing login page");
-    return <Login />;
+  if (user) {
+    console.log("✅ [AUTH STATE] User authenticated - showing main app for:", user.username);
   }
 
-  console.log("✅ [AUTH STATE] User authenticated - showing main app for:", user.username);
-
-  // If authenticated, show main app
+  // Show main app (either authenticated or public route)
   return (
     <Switch>
       <Route path="/kiosk" component={KioskMode} />
