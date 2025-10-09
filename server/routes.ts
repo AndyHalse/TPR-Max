@@ -53,7 +53,7 @@ import {
 import { z } from "zod";
 import path from "path";
 import express from "express";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { CO2CalculationService } from "./co2CalculationService";
 
 // Staff authentication schema
@@ -2225,6 +2225,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Fire Marshal Emergency System Endpoints
   
+  // Helper function to generate and store safety token
+  async function generateSafetyToken(
+    db: any,
+    evacuationId: string,
+    personId: string,
+    personType: 'staff' | 'visitor' | 'contractor',
+    personName: string,
+    personEmail: string
+  ): Promise<string> {
+    // Generate URL-safe token
+    const token = randomBytes(32).toString('base64url');
+    
+    // Token expires in 24 hours
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    
+    // Store token in database
+    await db.insert(isolatedSchema.safetyTokens).values({
+      token,
+      evacuationId,
+      personId,
+      personType,
+      personName,
+      personEmail,
+      isUsed: false,
+      expiresAt
+    });
+    
+    return token;
+  }
+  
   // Emergency activation - Notify all people on site and Fire Marshals
   app.post("/api/emergency/activate", requireAuth, async (req, res) => {
     try {
@@ -2303,6 +2334,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await db.insert(evacuationAccountability).values(accountabilityRecords);
       
+      // Get customer database for isolated tables (safetyTokens)
+      const customerDb = await customerDbService.getDatabase(context);
+      
       // Prepare evacuation data
       const evacuationData = {
         evacuationId,
@@ -2324,12 +2358,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const staff of checkedInStaff) {
         if (staff.email) {
           try {
+            // Generate safety token for this staff member
+            const safetyToken = await generateSafetyToken(
+              customerDb,
+              evacuationId,
+              staff.id,
+              'staff',
+              `${staff.firstName} ${staff.lastName}`,
+              staff.email
+            );
+            
             const sent = await customEmailService.sendEvacuationAlert(
               staff.email,
               `${staff.firstName} ${staff.lastName}`,
               evacuationData.message,
               evacuationData.musterPoints,
-              companySettings!
+              companySettings!,
+              safetyToken
             );
             if (sent) evacuationData.notificationsSent++;
           } catch (error) {
@@ -2342,12 +2387,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const visitor of currentVisitors) {
         if (visitor.email) {
           try {
+            // Generate safety token for this visitor
+            const safetyToken = await generateSafetyToken(
+              customerDb,
+              evacuationId,
+              visitor.id,
+              'visitor',
+              `${visitor.firstName} ${visitor.lastName}`,
+              visitor.email
+            );
+            
             const sent = await customEmailService.sendEvacuationAlert(
               visitor.email,
               `${visitor.firstName} ${visitor.lastName}`,
               evacuationData.message,
               evacuationData.musterPoints,
-              companySettings!
+              companySettings!,
+              safetyToken
             );
             if (sent) evacuationData.notificationsSent++;
           } catch (error) {
@@ -2360,12 +2416,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const contractor of checkedInContractors) {
         if (contractor.email) {
           try {
+            // Generate safety token for this contractor
+            const safetyToken = await generateSafetyToken(
+              customerDb,
+              evacuationId,
+              contractor.id,
+              'contractor',
+              `${contractor.firstName} ${contractor.lastName}`,
+              contractor.email
+            );
+            
             const sent = await customEmailService.sendEvacuationAlert(
               contractor.email,
               `${contractor.firstName} ${contractor.lastName}`,
               evacuationData.message,
               evacuationData.musterPoints,
-              companySettings!
+              companySettings!,
+              safetyToken
             );
             if (sent) evacuationData.notificationsSent++;
           } catch (error) {

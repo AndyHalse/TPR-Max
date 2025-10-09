@@ -937,10 +937,15 @@ For questions about this report, please contact the administrator.
     recipientName: string,
     message: string,
     musterPoints: string[],
-    companySettings: CompanySettings
+    companySettings: CompanySettings,
+    safetyToken?: string // Optional token for self-service mark-safe
   ): Promise<boolean> {
     const subject = '🚨 EMERGENCY EVACUATION - IMMEDIATE ACTION REQUIRED';
     const primaryColor = companySettings?.accentColor || '#dc2626';
+    
+    // Generate mark-safe URL if token is provided
+    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const markSafeUrl = safetyToken ? `${baseUrl}/mark-safe/${safetyToken}` : null;
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 3px solid ${primaryColor};">
@@ -975,6 +980,23 @@ For questions about this report, please contact the administrator.
             </ul>
           </div>
           
+          ${markSafeUrl ? `
+          <div style="background: #dcfce7; padding: 20px; border-radius: 8px; margin: 20px 0; border: 2px solid #16a34a;">
+            <h3 style="color: #166534; margin-top: 0; text-align: center;">✅ Once You Are Safe</h3>
+            <p style="text-align: center; margin: 10px 0; color: #166534;">
+              When you have safely evacuated and reached a muster point, click the button below to mark yourself safe:
+            </p>
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${markSafeUrl}" style="display: inline-block; background: #16a34a; color: white; text-decoration: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                ✅ MARK MYSELF SAFE
+              </a>
+            </div>
+            <p style="text-align: center; font-size: 13px; color: #166534; margin: 5px 0;">
+              This link is unique to you and valid for 24 hours
+            </p>
+          </div>
+          ` : ''}
+          
           <div style="text-align: center; margin-top: 20px;">
             <p style="color: #666; font-size: 14px;">
               ${companySettings.companyName}<br>
@@ -1001,6 +1023,13 @@ Important Instructions:
 - Report to your designated muster point
 - Remain at the muster point until given the all-clear
 
+${markSafeUrl ? `
+ONCE YOU ARE SAFE:
+When you have safely evacuated and reached a muster point, visit this link to mark yourself safe:
+${markSafeUrl}
+
+This link is unique to you and valid for 24 hours.
+` : ''}
 ${companySettings.companyName}
 Emergency Contact: ${(companySettings as any)?.phoneNumber || companySettings?.phone || '999'}`;
     
