@@ -2339,7 +2339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.insert(evacuationAccountability).values(accountabilityRecords);
       
       // Get customer database for isolated tables (safetyTokens)
-      const customerDb = await customerDbService.getDatabase(context);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
       // Prepare evacuation data
       const evacuationData = {
