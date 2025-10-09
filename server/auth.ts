@@ -748,6 +748,51 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
+ * Middleware to allow EITHER session auth OR Fire Marshal URL ID auth
+ * Used for endpoints that Fire Marshals need to access without session
+ */
+export async function requireAuthOrFireMarshal(req: Request, res: Response, next: NextFunction) {
+  // First, try session-based auth
+  if (req.session && req.session.userId && req.session.customerId) {
+    req.customerId = req.session.customerId;
+    console.log('✅ DUAL_AUTH: Session auth successful:', {
+      userId: req.session.userId,
+      customerId: req.session.customerId
+    });
+    return next();
+  }
+  
+  // If no session, try Fire Marshal URL ID auth
+  const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+  if (fireMarshalId) {
+    try {
+      // Import customerDbService dynamically to avoid circular deps
+      const { CustomerDatabaseService } = await import('./customerDatabase.js');
+      const customerDbService = CustomerDatabaseService.getInstance();
+      
+      // Find Fire Marshal across all customer databases
+      const fireMarshal = await customerDbService.findFireMarshalByUrlId(fireMarshalId);
+      
+      if (fireMarshal) {
+        req.customerId = fireMarshal.customerId;
+        console.log('✅ DUAL_AUTH: Fire Marshal URL ID auth successful:', {
+          fireMarshalId,
+          customerId: fireMarshal.customerId,
+          marshalName: fireMarshal.name
+        });
+        return next();
+      }
+    } catch (error) {
+      console.error('❌ DUAL_AUTH: Fire Marshal auth error:', error);
+    }
+  }
+  
+  // Neither auth method worked
+  console.log('🚨 DUAL_AUTH: Authentication failed - no valid session or Fire Marshal URL ID');
+  return res.status(403).json({ error: 'Authentication required' });
+}
+
+/**
  * Middleware to load user from session using customer-specific database
  */
 export async function loadUser(req: Request, res: Response, next: NextFunction) {
