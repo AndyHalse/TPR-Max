@@ -2924,6 +2924,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validate Fire Marshal by static URL ID - NEW STATIC URL SYSTEM
+  app.get("/api/emergency/fire-marshal/:urlId", async (req, res) => {
+    try {
+      const { urlId } = req.params;
+      
+      console.log(`🔍 Fire Marshal URL ID authentication attempt: ${urlId}`);
+      
+      // Find Fire Marshal by URL ID across all customers
+      const allStaff = await db.select().from(staff).where(eq(staff.fireMarshalUrlId, urlId));
+      const marshal = allStaff[0];
+      
+      if (!marshal) {
+        console.log(`❌ No Fire Marshal found with URL ID: ${urlId}`);
+        return res.status(401).json({
+          error: "Invalid Fire Marshal link",
+          message: "This Fire Marshal access link is not valid."
+        });
+      }
+      
+      // Verify they are an active Fire Marshal
+      if (!marshal.isFireMarshal || !marshal.isActive) {
+        console.log(`❌ Staff member found but not an active Fire Marshal: ${marshal.firstName} ${marshal.lastName}`);
+        return res.status(403).json({
+          error: "Access denied",
+          message: "You are not authorized as an active Fire Marshal."
+        });
+      }
+      
+      // Get customer context for this Fire Marshal
+      const customerId = marshal.customerId;
+      
+      // Check if there's an active evacuation for their customer
+      const activeEvacuations = await db.select()
+        .from(evacuations)
+        .where(
+          and(
+            eq(evacuations.customerId, customerId),
+            eq(evacuations.status, 'active')
+          )
+        )
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
+      const activeEvacuation = activeEvacuations[0];
+      
+      console.log(`✅ Fire Marshal authenticated: ${marshal.firstName} ${marshal.lastName}`);
+      console.log(`   Customer: ${customerId}`);
+      console.log(`   Active Evacuation: ${activeEvacuation ? activeEvacuation.evacuationId : 'None'}`);
+      
+      res.json({
+        valid: true,
+        marshal: {
+          id: marshal.id,
+          name: `${marshal.firstName} ${marshal.lastName}`,
+          department: marshal.department,
+          email: marshal.email,
+          customerId: customerId
+        },
+        evacuation: activeEvacuation ? {
+          evacuationId: activeEvacuation.evacuationId,
+          status: activeEvacuation.status,
+          startedAt: activeEvacuation.startedAt,
+          activatedBy: activeEvacuation.activatedBy,
+          musterPoints: activeEvacuation.musterPoints
+        } : null
+      });
+    } catch (error) {
+      console.error("❌ Error validating Fire Marshal URL:", error);
+      res.status(500).json({ 
+        error: "Authentication failed",
+        message: "Unable to validate Fire Marshal access." 
+      });
+    }
+  });
+
   // Get current Fire Marshal emergency link (requires authentication)
   app.get("/api/emergency/my-link", requireAuth, async (req, res) => {
     try {
