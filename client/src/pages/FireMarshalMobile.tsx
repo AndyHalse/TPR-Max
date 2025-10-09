@@ -356,7 +356,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
           {isEmergencyActive ? <Siren className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
           <div className="flex-1">
             <h1 className="text-lg font-bold">{isEmergencyActive ? 'EVACUATION ACTIVE' : 'FIRE MARSHAL PANEL'}</h1>
-            <p className="text-xs opacity-90">{marshalName || 'Fire Marshal'}</p>
           </div>
           <Button
             size="sm"
