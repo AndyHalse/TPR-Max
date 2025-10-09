@@ -755,6 +755,18 @@ export class DatabaseProvisioningService {
       )
     `);
 
+    // Muster Points table for emergency assembly locations
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS muster_points (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        display_order integer DEFAULT 0 NOT NULL,
+        is_active boolean DEFAULT true NOT NULL,
+        created_at timestamp DEFAULT now() NOT NULL,
+        updated_at timestamp DEFAULT now() NOT NULL
+      )
+    `);
+
     console.log('✅ Database tables created successfully');
   }
 
