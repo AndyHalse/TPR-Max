@@ -359,6 +359,31 @@ export class CustomerOnboardingService {
         .insert(isolatedSchema.meetingRooms)
         .values(room);
     }
+    
+    // Create default muster points for emergency evacuations
+    const defaultMusterPoints = [
+      { 
+        name: 'Main Car Park', 
+        displayOrder: 1,
+        isActive: true 
+      },
+      { 
+        name: 'Rear Assembly Area', 
+        displayOrder: 2,
+        isActive: true 
+      },
+      { 
+        name: 'Side Entrance', 
+        displayOrder: 3,
+        isActive: true 
+      },
+    ];
+    
+    for (const point of defaultMusterPoints) {
+      await customerDb
+        .insert(isolatedSchema.musterPoints)
+        .values(point);
+    }
   }
 
   /**

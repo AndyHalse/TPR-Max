@@ -3200,6 +3200,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to delete muster point" });
     }
   });
+
+  // Initialize default muster points for current customer (one-time setup for existing customers)
+  app.post("/api/muster-points/init-defaults", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      // Check if muster points already exist
+      const existing = await customerDb
+        .select()
+        .from(isolatedSchema.musterPoints)
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return res.json({ 
+          success: true, 
+          message: "Muster points already initialized",
+          count: existing.length 
+        });
+      }
+
+      // Create default muster points
+      const defaultMusterPoints = [
+        { name: 'Main Car Park', displayOrder: 1, isActive: true },
+        { name: 'Rear Assembly Area', displayOrder: 2, isActive: true },
+        { name: 'Side Entrance', displayOrder: 3, isActive: true },
+      ];
+      
+      for (const point of defaultMusterPoints) {
+        await customerDb
+          .insert(isolatedSchema.musterPoints)
+          .values(point);
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Default muster points initialized",
+        count: defaultMusterPoints.length 
+      });
+    } catch (error) {
+      console.error("Error initializing default muster points:", error);
+      res.status(500).json({ error: "Failed to initialize default muster points" });
+    }
+  });
   
   // Validate Fire Marshal emergency token
   app.get("/api/emergency/validate-token/:token", async (req, res) => {
