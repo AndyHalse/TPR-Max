@@ -177,8 +177,9 @@ export const staff = pgTable("staff", {
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   // Fire Marshal emergency access
   isFireMarshal: boolean("is_fire_marshal").default(false).notNull(),
-  emergencyToken: text("emergency_token"), // Secure token for emergency access without login
-  emergencyTokenExpires: timestamp("emergency_token_expires"), // Token expiration
+  fireMarshalUrlId: text("fire_marshal_url_id").unique(), // Unique permanent URL ID for Fire Marshal access (e.g., /fire-marshal/abc123xyz)
+  emergencyToken: text("emergency_token"), // DEPRECATED: Legacy token system, use fireMarshalUrlId instead
+  emergencyTokenExpires: timestamp("emergency_token_expires"), // DEPRECATED: Legacy token expiration
   userId: varchar("user_id").references(() => users.id), // Link to user account
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
