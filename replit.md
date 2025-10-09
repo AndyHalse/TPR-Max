@@ -1,195 +1,61 @@
 # VisiGate Pro - Visitor Management System
 
 ## Overview
-
-VisiGate Pro is a modern, cloud-based Software-as-a-Service (SAAS) visitor management system. Its primary purpose is to efficiently manage visitors, contractors, and staff by generating standardized ID passes with unique QR codes for tracking and security. The system features a glassmorphism UI, an intuitive kiosk-style interface for check-ins, and comprehensive administrative dashboards. It is built on a full-stack architecture (React, Express, PostgreSQL) designed for multi-tenant scenarios, ensuring data isolation for each company. The project's ambition is to provide an enterprise-grade, stable, and secure visitor management solution.
+VisiGate Pro is a cloud-based Software-as-a-Service (SAAS) visitor management system designed to efficiently manage visitors, contractors, and staff. It generates standardized ID passes with unique QR codes for tracking and security. The system features a modern glassmorphism UI, an intuitive kiosk-style check-in interface, and comprehensive administrative dashboards. Built on a multi-tenant architecture (React, Express, PostgreSQL), it ensures data isolation for each company, aiming to provide an enterprise-grade, stable, and secure visitor management solution.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
-
-### Frontend Architecture
+### Frontend
 - **Framework**: React 18 with TypeScript
 - **Routing**: Wouter
-- **State Management**: TanStack Query for server state management and caching
+- **State Management**: TanStack Query
 - **UI Framework**: Custom component library built on Radix UI primitives with Tailwind CSS
-- **Design System**: Glassmorphism design with CSS custom properties for theming
+- **Design System**: Glassmorphism design, responsive, mobile-first, and ARIA compliant
 - **Build Tool**: Vite
 
-### Backend Architecture
+### Backend
 - **Runtime**: Node.js with Express.js
 - **Language**: TypeScript
 - **API Design**: RESTful API
 - **Database Integration**: Drizzle ORM
-- **Schema Validation**: Zod schemas
+- **Schema Validation**: Zod
 
-### Data Storage Architecture
-- **Database**: PostgreSQL, configured for multi-tenant architecture
-- **ORM**: Drizzle ORM with schema-first approach
-- **Migration Strategy**: Drizzle Kit for database schema migrations
+### Data Storage
+- **Database**: PostgreSQL (multi-tenant)
+- **ORM**: Drizzle ORM (schema-first)
+- **Migration Strategy**: Drizzle Kit
 
 ### Authentication & Authorization
-- **Implementation**: Session-based authentication with `connect-pg-simple` for PostgreSQL session storage.
-- **Multi-tenancy**: Database-level isolation with tenant-specific connections.
+- **Authentication**: Session-based with `connect-pg-simple`
+- **Multi-tenancy**: Database-level isolation with tenant-specific connections
 
-### UI/UX Design Patterns
-- **Glassmorphism**: Modern glass-effect styling.
-- **Responsive Design**: Mobile-first approach.
-- **Accessibility**: Radix UI primitives for ARIA compliance.
-- **Component Architecture**: Atomic design with reusable UI components.
-
-### Technical Implementations
-- **Multi-Method Thermal Printing**: Solutions for SaaS-to-local printer challenges, including direct, browser, and Windows printing, supporting TEC/Toshiba and Zebra thermal printers. Includes print quality management, job tracking, and printer health monitoring.
+### Key Features & Technical Implementations
+- **Multi-Method Thermal Printing**: Supports TEC/Toshiba and Zebra thermal printers, including direct, browser, and Windows printing solutions with print quality and job tracking.
 - **QR Code Generation**: Integrated for visitor tracking.
 - **Real-time Updates**: Optimistic updates via React Query.
-- **Feature Toggle System**: Allows customers to disable unused features via database-stored boolean toggles, affecting UI navigation and dashboard rendering.
-- **Reports System**: Fully operational with multi-tenant isolation, enabling generation, viewing, and emailing of reports.
-- **Pre-booking System**: Supports visitor pre-bookings, including handling visit dates/times and managing invitations.
-- **User Management**: Comprehensive system for managing user accounts, roles, invitations, and deletion, with proper multi-tenant isolation and CSRF protection.
-- **Voice Notification System**: Fully operational with 8x8 API integration and configurable phone system settings for visitor arrival announcements.
+- **Feature Toggle System**: Database-driven toggles for enabling/disabling features per customer.
+- **Reports System**: Multi-tenant isolated report generation, viewing, and emailing.
+- **Pre-booking System**: Supports visitor pre-bookings, invitations, and management.
+- **User Management**: Comprehensive user, role, and invitation management with multi-tenant isolation and CSRF protection.
+- **Voice Notification System**: Visitor arrival announcements via 8x8 API.
+- **Room Booking System**: Full CRUD operations for room bookings, including staff attendees, availability checks, and multi-tenant isolation.
+- **Fire Marshal Static URL System**: Implemented permanent, non-expiring static URLs for Fire Marshal emergency access, ensuring reliability and eliminating token-based authentication issues.
 
 ## External Dependencies
-
-### Core Framework Dependencies
 - **@tanstack/react-query**: Server state management.
 - **drizzle-orm**: Type-safe PostgreSQL ORM.
 - **@neondatabase/serverless**: PostgreSQL database driver.
 - **wouter**: React routing library.
-
-### UI Component Libraries
 - **@radix-ui/react-***: Accessible UI primitives.
 - **tailwindcss**: Utility-first CSS framework.
-- **class-variance-authority**: Type-safe variant-based component styling.
-- **lucide-react**: Icon library.
-
-### Development & Build Tools
-- **vite**: Fast build tool.
+- **vite**: Build tool.
 - **typescript**: Static type checking.
-- **drizzle-kit**: Database migration tools.
-
-### Validation & Utilities
 - **zod**: Runtime type validation.
-- **drizzle-zod**: Drizzle and Zod integration.
 - **date-fns**: Date manipulation library.
-- **clsx & tailwind-merge**: Conditional CSS class composition.
-
-### Session Management
 - **connect-pg-simple**: PostgreSQL-backed session storage.
 - **express-session**: Session middleware.
-
-### Printer Integration
-- **B-FV4 Desktop Printer**: Thermal printer support.
+- **Stripe**: Payment processing and subscription management.
+- **8x8 API**: Voice notification features.
 - **QR Code Service**: External API for QR code generation.
-
-### Payment Integration
-- **Stripe Integration**: Comprehensive payment processing and subscription management with graceful fallback handling.
-
-### Communication Integration
-- **8x8 API**: Integrated for voice notification features.
-
-## Recent Changes
-
-### October 03, 2025 - Room Booking Staff Attendees Complete Implementation
-- **FEATURE COMPLETE**: Staff attendees for room bookings now fully functional
-- **Database**: Created room_booking_attendees table with proper foreign keys
-- **Backend Methods**: Implemented createBookingAttendees, getBookingAttendees, removeBookingAttendee
-- **Critical Fix #1**: Updated getRoomBookingsByTenant to fetch attendees for each booking (using Promise.all)
-- **Critical Fix #2**: Updated handleBookingEdit in MeetingRooms.tsx to pass attendees array to form
-- **Data Flow**: POST creates attendees → GET fetches with attendees → Edit form populates checkboxes
-- **E2E Test**: ✅ Complete flow verified - create booking with attendees → edit shows checkboxes checked
-- **Code Locations**:
-  - server/DatabaseStorage.ts: getRoomBookingsByTenant (lines 3433-3444), createBookingAttendees, getBookingAttendees
-  - server/routes.ts: POST /api/room-bookings attendee creation logic
-  - client/src/pages/MeetingRooms.tsx: handleBookingEdit attendees mapping (line 206)
-  - client/src/components/RoomBookingForm.tsx: attendee extraction logic (lines 147-176)
-- **Impact**: Staff members can now be properly tracked as meeting attendees with full persistence and edit support
-
-### October 03, 2025 - Room Booking View and Edit Dialog Fixes
-- **VIEW/EDIT FUNCTIONALITY FIX**: Separated View and Edit actions with proper dialogs
-- **Root Cause**: Both View and Edit buttons were calling the same handler and opening an unpopulated edit form
-- **Solution Applied**:
-  1. Created separate handlers: handleBookingView, handleBookingEdit, handleBookingCancel
-  2. Added new read-only View dialog showing complete booking details (room, organizer, times, attendees, etc.)
-  3. Fixed Edit form population by mapping API response fields to form expected fields:
-     - meetingRoomId → roomId
-     - startTime → startDateTime
-     - endTime → endDateTime
-  4. Updated RoomBookingCalendar component to use separate props for each action
-- **Code Locations**:
-  - client/src/components/RoomBookingCalendar.tsx (button handlers updated)
-  - client/src/pages/MeetingRooms.tsx (separate handlers and view dialog added)
-- **Impact**: View button now shows read-only booking details, Edit button opens pre-populated form
-- **E2E Test Results**: ✅ View dialog shows all details, ✅ Edit form properly populated with booking data
-
-### October 03, 2025 - Room Booking Display Fix (Calendar & Dashboard)
-- **CRITICAL DISPLAY FIX**: Resolved issue where bookings weren't showing on calendar or dashboard
-- **Root Cause #1**: GET /api/room-bookings and GET /api/room-bookings/today were filtering by customerId instead of tenant_company_id UUID
-- **Root Cause #2**: getRoomBookingsByTenant method wasn't joining room and organizer data, causing "Cannot read properties of undefined" errors
-- **Solution Applied**:
-  1. Added customerId → tenant_company_id mapping in both GET endpoints (same fix as POST endpoint)
-  2. Updated getRoomBookingsByTenant to include leftJoin for meetingRooms and staff tables
-- **Code Locations**: 
-  - server/routes.ts lines 12787-12793 (GET /api/room-bookings)
-  - server/routes.ts lines 12819-12825 (GET /api/room-bookings/today)
-  - server/DatabaseStorage.ts lines 3376-3425 (getRoomBookingsByTenant with joins)
-- **Impact**: Bookings now display correctly on both calendar and dashboard with complete details (room name, location, organizer, time)
-- **E2E Test Results**: ✅ Dashboard shows meeting count, ✅ Calendar displays bookings, ✅ Room names visible, ✅ Organizer names visible, ✅ No undefined errors
-
-### October 02, 2025 - Room Booking Foreign Key Fix (Final Resolution)
-- **CRITICAL DATABASE FIX**: Resolved foreign key violation when creating room bookings
-- **Root Cause**: room_bookings.tenantCompanyId (UUID foreign key to tenant_companies.id) was being populated with customerId ('dev-customer-001' string) instead of tenant_companies.id UUID
-- **Solution**: Added database query to map customerId to tenant_companies.id before booking creation:
-  - Query: `SELECT id FROM tenant_companies WHERE customer_id = ${customerId}`
-  - Maps 'dev-customer-001' → '0aee75c8-300a-4a33-8d7a-53e6d04eede2'
-- **Code Location**: server/routes.ts lines 12918-12924
-- **Impact**: Room booking system now fully functional - bookings created successfully without foreign key violations
-- **E2E Test Results**: ✅ Booking created (200), ✅ No 500 errors, ✅ No FK violations, ✅ Success toast shown
-- **Known Minor Issue**: Email confirmation has date formatting error (RangeError: Invalid time value) - non-blocking, doesn't affect booking functionality
-
-### October 02, 2025 - Room Booking Complete Fix (Database, UI, CSRF, and SQL)
-- **SQL Query Fix**: Fixed getStaffByIds function to use Drizzle ORM's inArray instead of raw SQL ANY operator, preventing "op ANY/ALL (array) requires array on right side" error
-- **CSRF Security Fix**: Added /api/room-bookings and /api/meeting-rooms to CSRF exemption list for core functionality endpoints
-- **Database Schema Fix**: Added all missing voice notification columns to staff table:
-  - phone_number (TEXT)
-  - voice_notifications_enabled (BOOLEAN DEFAULT true)
-  - email_notifications_enabled (BOOLEAN DEFAULT true)
-  - preferred_notification_method (TEXT DEFAULT 'email')
-  - voice_language (TEXT DEFAULT 'en-GB')
-  - voice_profile (TEXT DEFAULT 'en-GB-Standard-A')
-- **User Linking**: Properly linked Andy's staff record to user account (staff.user_id = 'cae5bcaa-1319-489b-ab0d-6e02e491fa66')
-- **Frontend Field Name Compatibility**: Updated RoomBookingCalendar to handle both startDateTime/endDateTime and startTime/endTime field name variations from API
-- **Null Safety**: Added comprehensive null checks and error handling in formatTime and formatDuration functions
-- **Component Syntax Fix**: Corrected BookingCard component closure from arrow function to regular function syntax
-- **Impact**: Room booking system now fully operational - bookings can be created, viewed, and managed without errors
-
-### October 01, 2025 - Room Booking Security and Multi-tenant Isolation Fixes
-- **CRITICAL SECURITY FIX**: Eliminated tenant spoofing vulnerability in POST /api/room-bookings by removing fallback to client-provided tenantCompanyId
-- **Tenant Ownership Verification**: Added mandatory tenant ownership check in PATCH /api/room-bookings/:id to prevent cross-tenant updates
-- **Data Isolation**: GET /api/room-bookings/today now properly filters by tenant using getRoomBookingsByTenant()
-- **Availability Check Security**: checkRoomAvailability now properly filters by tenantId for accurate multi-tenant conflict detection
-- **Field Name Fixes**: Corrected startDateTime/endDateTime → startTime/endTime mapping throughout the system
-- **Validation**: Added required field validation for POST requests
-- **Data Integrity**: Invalid booking records (missing start/end times) are now filtered out instead of silently coerced
-- **Authentication**: Added requireAuth middleware to POST, PATCH, and GET /today endpoints
-- **Frontend**: Added null safety checks for date parsing in RoomBookingForm
-- **Impact**: Room booking system now enforces strict multi-tenant isolation, preventing cross-tenant data access and ensuring data consistency
-
-### October 01, 2025 - Pre-booking Multi-tenant Isolation Fix
-- **CRITICAL FIX**: All pre-booking endpoints now properly filter by customer tenant for true data isolation
-- **Customer-Filtered Methods**: Added getAllPreBookingsByCustomer(), getUpcomingPreBookingsByCustomer(), and getReceptionDiaryByCustomer() to DatabaseStorage and MemStorage
-- **Security Enhancement**: Added requireAuth middleware to /api/prebookings, /api/prebookings/upcoming, and /api/reception/diary endpoints
-- **Reception Diary Fix**: Dashboard reception diary now only shows pre-bookings for the logged-in customer
-- **Visitor Management Fix**: Pre-booking tab now only shows pre-bookings for the logged-in customer
-- **Database Separation**: Production and development databases are completely separate - pre-bookings must be created in each environment individually
-- **Impact**: Each customer can now only see and manage their own pre-bookings, preventing cross-tenant data exposure
-
-### October 01, 2025 - Reports System Complete with Multi-tenant Isolation
-- **Reports System Fully Operational**: All report endpoints now working correctly with proper customer isolation
-- **Database Schema Fix**: Added customerId column to reports table for multi-tenant data isolation
-- **Customer-Filtered Queries**: Implemented getReportsByCustomer(customerId) method in DatabaseStorage for tenant-safe report retrieval
-- **Security Enhancement**: All report endpoints use requireAuth middleware
-- **Method Naming Fix**: Corrected databaseService.getStaffMembers() to getAllStaff() in report view and email endpoints
-- **Defense-in-Depth Security**: Report updates verify report.customerId matches session context.customerId before allowing operations
-- **Impact**: Reports page fully functional with listing, generation, viewing, and emailing capabilities - all properly isolated by customer
