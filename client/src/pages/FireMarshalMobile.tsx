@@ -107,7 +107,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [urlId]);
 
-  // Fetch on-site personnel data for "peace time" view (when no evacuation is active)
+  // Fetch on-site personnel data (when no active evacuation - Fire Marshal URL always works)
   const { data: personnelData, isLoading: isLoadingPersonnel } = useQuery<{
     people: PersonOnSite[];
     totalOnSite: number;
@@ -116,7 +116,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   }>({
     queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`],
     enabled: !!urlId && !activeEvacuationId,
-    refetchInterval: 10000 // Refresh every 10 seconds
+    refetchInterval: 5000 // Refresh every 5 seconds
   });
 
   // Load marshal name from localStorage (legacy)
@@ -151,6 +151,19 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       return response.json();
     }
   });
+
+  // Convert personnel data to evacuation format when no active evacuation
+  const fallbackEvacuationData: EvacuationData | null = personnelData ? {
+    evacuationId: 'standalone', // Fire Marshal URL works independently
+    people: personnelData.people,
+    totalOnSite: personnelData.totalOnSite,
+    accountedFor: personnelData.accountedFor,
+    unaccounted: personnelData.unaccounted,
+    musterPoints: ['Main Assembly Point', 'Secondary Assembly Point']
+  } : null;
+
+  // Use either real evacuation data or fallback personnel data
+  const displayData = evacuationData || fallbackEvacuationData;
 
   // Check for active evacuation (only for legacy token auth - new URL ID system gets this from auth endpoint)
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
@@ -285,11 +298,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     setExpandedCards(newExpanded);
   };
 
-  // Filter people based on search and filter type
-  const filteredPeople = evacuationData?.people?.filter(person => {
-    const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          person.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          person.company?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filter people based on search and filter type (uses either evacuation data or personnel data)
+  const filteredPeople = displayData?.people?.filter(person => {
+    const matchesSearch = (person.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (person.department || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (person.company || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesFilter = filterType === 'all' ||
                          (filterType === 'unaccounted' && !person.isAccountedFor) ||
@@ -320,155 +333,23 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     );
   }
 
-  // Peace-time view: Show current on-site personnel
-  if (!activeEvacuationId) {
-    const peopleList = personnelData?.people || [];
-    const filteredPeopleList = peopleList.filter(person => {
-      const matchesSearch = (person.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
-                            (person.department || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
-                            (person.company || '').toLowerCase().includes((searchQuery || '').toLowerCase());
-      return matchesSearch;
-    });
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 pb-20">
-        {/* Normal Operations Header - Fixed */}
-        <div className="sticky top-0 z-50 bg-green-600 text-white p-3 shadow-lg">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6" />
-            <div className="flex-1">
-              <h1 className="text-lg font-bold">Normal Operations</h1>
-              <p className="text-xs opacity-90">Fire Marshal Panel - {marshalName}</p>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => window.location.reload()}
-              className="bg-white/20 hover:bg-white/30"
-              data-testid="button-refresh-normal"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Info Card */}
-        <div className="p-4">
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur">
-            <CardContent className="pt-6">
-              <div className="text-center mb-4">
-                <Shield className="h-12 w-12 mx-auto text-green-600 dark:text-green-400 mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  No active evacuation. This panel shows current on-site personnel and will activate automatically during an emergency.
-                </p>
-              </div>
-              
-              {/* Stats */}
-              <div className="grid grid-cols-1 gap-3 mt-4">
-                <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium">Total On-Site</span>
-                    </div>
-                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-onsite">
-                      {isLoadingPersonnel ? '...' : personnelData?.totalOnSite || 0}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Search */}
-        <div className="px-4 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by name, department, or company..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white dark:bg-gray-800"
-              data-testid="input-search-personnel"
-            />
-          </div>
-        </div>
-
-        {/* Personnel List */}
-        <div className="px-4 space-y-3">
-          {isLoadingPersonnel ? (
-            <Card className="p-6">
-              <p className="text-center text-muted-foreground">Loading personnel...</p>
-            </Card>
-          ) : filteredPeopleList.length === 0 ? (
-            <Card className="p-6">
-              <p className="text-center text-muted-foreground">
-                {searchQuery ? 'No personnel match your search' : 'No personnel currently on-site'}
-              </p>
-            </Card>
-          ) : (
-            filteredPeopleList.map((person) => (
-              <Card 
-                key={person.id} 
-                className="bg-white dark:bg-gray-800"
-                data-testid={`card-person-${person.id}`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium" data-testid={`text-person-name-${person.id}`}>
-                          {person.name}
-                        </h3>
-                        <Badge 
-                          variant={person.type === 'staff' ? 'default' : person.type === 'visitor' ? 'secondary' : 'outline'}
-                          className="text-xs"
-                        >
-                          {person.type}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        {person.department && (
-                          <p className="flex items-center gap-1">
-                            <span className="font-medium">Dept:</span> {person.department}
-                          </p>
-                        )}
-                        {person.company && (
-                          <p className="flex items-center gap-1">
-                            <span className="font-medium">Company:</span> {person.company}
-                          </p>
-                        )}
-                        <p className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {person.location}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      </div>
-    );
-  }
-
+  // Determine if we're in emergency mode or just showing on-site personnel
+  const isEmergencyActive = !!activeEvacuationId;
+  
   return (
-    <div className="min-h-screen bg-red-50 dark:bg-red-950/20 pb-20">
-      {/* Emergency Header - Fixed */}
-      <div className="sticky top-0 z-50 bg-red-600 text-white p-3 shadow-lg">
-        <div className="flex items-center gap-2 animate-pulse">
-          <Siren className="h-6 w-6" />
+    <div className={`min-h-screen pb-20 ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
+      {/* Header - Fixed */}
+      <div className={`sticky top-0 z-50 text-white p-3 shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
+        <div className={`flex items-center gap-2 ${isEmergencyActive ? 'animate-pulse' : ''}`}>
+          {isEmergencyActive ? <Siren className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
           <div className="flex-1">
-            <h1 className="text-lg font-bold">EVACUATION ACTIVE</h1>
-            <p className="text-xs opacity-90">Fire Marshal Panel</p>
+            <h1 className="text-lg font-bold">{isEmergencyActive ? 'EVACUATION ACTIVE' : 'FIRE MARSHAL PANEL'}</h1>
+            <p className="text-xs opacity-90">{marshalName || 'Fire Marshal'}</p>
           </div>
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => refetch()}
+            onClick={() => window.location.reload()}
             className="bg-white/20 hover:bg-white/30"
             data-testid="button-refresh-mobile"
           >
@@ -504,7 +385,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{evacuationData?.totalOnSite || 0}</p>
+                <p className="text-2xl font-bold">{displayData?.totalOnSite || 0}</p>
               </div>
               <Users className="h-6 w-6 text-blue-500" />
             </div>
@@ -517,7 +398,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
               <div>
                 <p className="text-xs text-muted-foreground">Safe</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {evacuationData?.accountedFor || 0}
+                  {displayData?.accountedFor || 0}
                 </p>
               </div>
               <CheckCircle2 className="h-6 w-6 text-green-500" />
@@ -531,7 +412,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
               <div>
                 <p className="text-xs text-muted-foreground">Missing</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {evacuationData?.unaccounted || 0}
+                  {displayData?.unaccounted || 0}
                 </p>
               </div>
               <AlertTriangle className="h-6 w-6 text-red-500" />
@@ -545,8 +426,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
               <div>
                 <p className="text-xs text-muted-foreground">Progress</p>
                 <p className="text-2xl font-bold">
-                  {evacuationData && evacuationData.totalOnSite > 0
-                    ? Math.round((evacuationData.accountedFor / evacuationData.totalOnSite) * 100)
+                  {displayData && displayData.totalOnSite > 0
+                    ? Math.round((displayData.accountedFor / displayData.totalOnSite) * 100)
                     : 0}%
                 </p>
               </div>
@@ -565,7 +446,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             <SelectValue placeholder="Select Muster Point" />
           </SelectTrigger>
           <SelectContent>
-            {evacuationData?.musterPoints?.map((point) => (
+            {displayData?.musterPoints?.map((point) => (
               <SelectItem key={point} value={point} className="text-base py-3">
                 {point}
               </SelectItem>
