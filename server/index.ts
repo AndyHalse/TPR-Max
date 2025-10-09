@@ -149,7 +149,7 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // Emergency Fire Marshal read-only endpoints require valid emergency token
+    // Emergency Fire Marshal read-only endpoints require valid emergency token OR Fire Marshal URL ID
     // But emergency activation requires normal authentication (admin only)
     if (req.originalUrl.startsWith('/api/emergency/active') ||
         req.originalUrl.startsWith('/api/emergency/accountability') ||
@@ -157,19 +157,26 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/emergency/complete-evacuation')) {
       // Check for emergency token in Authorization header or query parameter
       const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
-      console.log(`🔍 [MIDDLEWARE] Token extraction: header=${req.headers['x-emergency-token'] ? 'YES' : 'NO'}, query=${req.query.token ? 'YES' : 'NO'}, final=${emergencyToken ? emergencyToken.substring(0, 20) + '...' : 'NONE'}`);
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       
-      if (!emergencyToken) {
-        console.log(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token`);
+      console.log(`🔍 [MIDDLEWARE] Token extraction: emergencyToken=${req.headers['x-emergency-token'] ? 'YES' : 'NO'}, query=${req.query.token ? 'YES' : 'NO'}, fireMarshalId=${fireMarshalId ? 'YES' : 'NO'}`);
+      
+      // Allow if either emergency token OR Fire Marshal URL ID is present
+      if (!emergencyToken && !fireMarshalId) {
+        console.log(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token or Fire Marshal URL ID`);
         return res.status(401).json({ 
-          error: 'Emergency access requires valid token',
-          code: 'EMERGENCY_TOKEN_REQUIRED'
+          error: 'Emergency access requires valid token or Fire Marshal URL ID',
+          code: 'EMERGENCY_AUTH_REQUIRED'
         });
       }
       
-      // Store token in request for validation in routes
-      req.emergencyToken = emergencyToken;
-      console.log(`✅ CSRF EXEMPTION: Emergency Fire Marshal endpoint with token: ${emergencyToken.substring(0, 20)}...`);
+      // Store token in request for validation in routes (if present)
+      if (emergencyToken) {
+        req.emergencyToken = emergencyToken;
+        console.log(`✅ CSRF EXEMPTION: Emergency endpoint with emergency token: ${emergencyToken.substring(0, 20)}...`);
+      } else if (fireMarshalId) {
+        console.log(`✅ CSRF EXEMPTION: Emergency endpoint with Fire Marshal URL ID: ${fireMarshalId}`);
+      }
       return next();
     }
     

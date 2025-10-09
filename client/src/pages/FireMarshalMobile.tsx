@@ -185,12 +185,12 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [activeEvacuation]);
 
-  // Set default muster point
+  // Set default muster point from displayData (works with or without active evacuation)
   useEffect(() => {
-    if (evacuationData?.musterPoints && !selectedMusterPoint) {
-      setSelectedMusterPoint(evacuationData.musterPoints[0]);
+    if (displayData?.musterPoints && displayData.musterPoints.length > 0 && !selectedMusterPoint) {
+      setSelectedMusterPoint(displayData.musterPoints[0]);
     }
-  }, [evacuationData?.musterPoints, selectedMusterPoint]);
+  }, [displayData?.musterPoints, selectedMusterPoint]);
 
   // Mark person as safe mutation
   const markSafeMutation = useMutation({
