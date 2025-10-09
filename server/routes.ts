@@ -2998,6 +2998,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get current on-site personnel for Fire Marshal (by URL ID)
+  app.get("/api/emergency/fire-marshal/:urlId/personnel", async (req, res) => {
+    try {
+      const { urlId } = req.params;
+      
+      // Validate Fire Marshal by URL ID
+      const result = await databaseService.findFireMarshalByUrlId(urlId);
+      
+      if (!result) {
+        return res.status(401).json({
+          error: "Invalid Fire Marshal link",
+          message: "This Fire Marshal access link is not valid."
+        });
+      }
+      
+      const { marshal, customerId } = result;
+      
+      // Verify they are an active Fire Marshal
+      if (!marshal.isFireMarshal || !marshal.isActive) {
+        return res.status(403).json({
+          error: "Access denied",
+          message: "You are not authorized as an active Fire Marshal."
+        });
+      }
+      
+      // Get customer info to create context
+      const customerInfo = await databaseService.getCustomerInfo(customerId);
+      if (!customerInfo) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Create customer context for database operations
+      const context = {
+        customerId: customerId,
+        customerDbUrl: customerInfo.database_url,
+        companyName: customerInfo.company_name
+      };
+      
+      // Get all checked-in staff
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      
+      // Get all current visitors
+      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      
+      // Get all checked-in contractors
+      const checkedInContractors = await databaseService.getCheckedInContractors(context);
+      
+      console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
+      
+      // Combine all personnel for Fire Marshal view
+      const personnelList = [
+        ...checkedInStaff.map(staff => ({
+          id: staff.id,
+          name: `${staff.firstName} ${staff.lastName}`,
+          type: 'staff' as const,
+          department: staff.department,
+          checkedInAt: staff.checkedInAt || staff.createdAt,
+          location: 'Building A',
+          isAccountedFor: staff.isAccountedFor || false
+        })),
+        ...currentVisitors.map(visitor => ({
+          id: visitor.id,
+          name: `${visitor.firstName} ${visitor.lastName}`,
+          type: 'visitor' as const,
+          company: visitor.company,
+          checkedInAt: visitor.checkedInAt,
+          location: 'Reception',
+          isAccountedFor: false
+        })),
+        ...checkedInContractors.map(contractor => ({
+          id: contractor.id,
+          name: contractor.name,
+          type: 'contractor' as const,
+          company: contractor.company,
+          checkedInAt: contractor.checkedInAt,
+          location: contractor.location || 'Site',
+          isAccountedFor: false
+        }))
+      ];
+      
+      res.json({
+        people: personnelList,
+        totalOnSite: personnelList.length,
+        accountedFor: personnelList.filter(p => p.isAccountedFor).length,
+        unaccounted: personnelList.filter(p => !p.isAccountedFor).length
+      });
+    } catch (error) {
+      console.error("❌ Error fetching Fire Marshal personnel:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch personnel",
+        message: "Unable to retrieve on-site personnel data." 
+      });
+    }
+  });
+
   // Get current Fire Marshal emergency link (requires authentication)
   app.get("/api/emergency/my-link", requireAuth, async (req, res) => {
     try {
