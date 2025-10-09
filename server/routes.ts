@@ -3016,6 +3016,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to complete evacuation" });
     }
   });
+
+  // ==============================================
+  // MUSTER POINTS CRUD API - Isolated per customer
+  // ==============================================
+
+  // Get all muster points for a customer
+  app.get("/api/muster-points", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const points = await customerDb
+        .select()
+        .from(isolatedSchema.musterPoints)
+        .where(eq(isolatedSchema.musterPoints.isActive, true))
+        .orderBy(isolatedSchema.musterPoints.displayOrder);
+
+      res.json(points);
+    } catch (error) {
+      console.error("Error fetching muster points:", error);
+      res.status(500).json({ error: "Failed to fetch muster points" });
+    }
+  });
+
+  // Get muster points with stats (for Fire Marshal dashboard)
+  app.get("/api/muster-points/stats", async (req, res) => {
+    try {
+      // Support both regular auth and Fire Marshal URL ID auth
+      let customerId: string | null = null;
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+      
+      if (fireMarshalId) {
+        // Fire Marshal URL ID authentication
+        const result = await databaseService.findFireMarshalByUrlId(fireMarshalId);
+        if (!result) {
+          return res.status(401).json({ error: "Invalid Fire Marshal link" });
+        }
+        customerId = result.customerId;
+      } else if (req.session.customerId) {
+        // Regular session authentication
+        customerId = req.session.customerId;
+      } else {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      // Get all active muster points
+      const points = await customerDb
+        .select()
+        .from(isolatedSchema.musterPoints)
+        .where(eq(isolatedSchema.musterPoints.isActive, true))
+        .orderBy(isolatedSchema.musterPoints.displayOrder);
+
+      // Get active evacuation if any
+      const activeEvacuations = await db.select()
+        .from(sharedSchema.evacuations)
+        .where(and(
+          eq(sharedSchema.evacuations.customerId, customerId),
+          eq(sharedSchema.evacuations.status, 'active')
+        ))
+        .limit(1);
+
+      const activeEvacuation = activeEvacuations[0];
+
+      // If there's an active evacuation, calculate stats for each muster point
+      let stats = {};
+      if (activeEvacuation) {
+        for (const point of points) {
+          const accountedAt = await customerDb
+            .select()
+            .from(isolatedSchema.evacuationAccountability)
+            .where(and(
+              eq(isolatedSchema.evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+              eq(isolatedSchema.evacuationAccountability.musterPoint, point.name),
+              eq(isolatedSchema.evacuationAccountability.isAccountedFor, true)
+            ));
+          
+          stats[point.name] = accountedAt.length;
+        }
+      }
+
+      res.json({
+        musterPoints: points,
+        stats: stats,
+        evacuationActive: !!activeEvacuation
+      });
+    } catch (error) {
+      console.error("Error fetching muster points with stats:", error);
+      res.status(500).json({ error: "Failed to fetch muster points stats" });
+    }
+  });
+
+  // Create muster point
+  app.post("/api/muster-points", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { name, displayOrder } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Muster point name is required" });
+      }
+
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const [newPoint] = await customerDb
+        .insert(isolatedSchema.musterPoints)
+        .values({
+          name,
+          displayOrder: displayOrder || 0,
+          isActive: true
+        })
+        .returning();
+
+      res.json(newPoint);
+    } catch (error) {
+      console.error("Error creating muster point:", error);
+      res.status(500).json({ error: "Failed to create muster point" });
+    }
+  });
+
+  // Update muster point
+  app.put("/api/muster-points/:id", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { id } = req.params;
+      const { name, displayOrder, isActive } = req.body;
+
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const [updatedPoint] = await customerDb
+        .update(isolatedSchema.musterPoints)
+        .set({
+          name,
+          displayOrder,
+          isActive,
+          updatedAt: new Date()
+        })
+        .where(eq(isolatedSchema.musterPoints.id, id))
+        .returning();
+
+      if (!updatedPoint) {
+        return res.status(404).json({ error: "Muster point not found" });
+      }
+
+      res.json(updatedPoint);
+    } catch (error) {
+      console.error("Error updating muster point:", error);
+      res.status(500).json({ error: "Failed to update muster point" });
+    }
+  });
+
+  // Delete muster point
+  app.delete("/api/muster-points/:id", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { id } = req.params;
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      await customerDb
+        .delete(isolatedSchema.musterPoints)
+        .where(eq(isolatedSchema.musterPoints.id, id));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting muster point:", error);
+      res.status(500).json({ error: "Failed to delete muster point" });
+    }
+  });
   
   // Validate Fire Marshal emergency token
   app.get("/api/emergency/validate-token/:token", async (req, res) => {

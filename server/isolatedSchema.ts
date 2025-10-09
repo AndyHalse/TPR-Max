@@ -1448,6 +1448,12 @@ export const insertStaffSessionSchema = createInsertSchema(staffSessions).omit({
   createdAt: true,
 });
 
+export const insertMusterPointSchema = createInsertSchema(musterPoints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({
   id: true,
   createdAt: true,
@@ -1733,6 +1739,8 @@ export type VisitorHistory = typeof visitorHistory.$inferSelect;
 export type InsertVisitorHistory = z.infer<typeof insertVisitorHistorySchema>;
 export type StaffAttendanceHistory = typeof staffAttendanceHistory.$inferSelect;
 export type InsertStaffAttendanceHistory = z.infer<typeof insertStaffAttendanceHistorySchema>;
+export type MusterPoint = typeof musterPoints.$inferSelect;
+export type InsertMusterPoint = z.infer<typeof insertMusterPointSchema>;
 export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 export type User = typeof users.$inferSelect;
