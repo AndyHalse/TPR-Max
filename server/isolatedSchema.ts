@@ -35,6 +35,7 @@ export const staff = pgTable("staff", {
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   // Fire Marshal emergency access
   isFireMarshal: boolean("is_fire_marshal").default(false).notNull(),
+  fireMarshalUrlId: text("fire_marshal_url_id"), // Permanent static URL ID for Fire Marshal emergency access
   emergencyToken: text("emergency_token"), // Secure token for emergency access without login
   emergencyTokenExpires: timestamp("emergency_token_expires"), // Token expiration
   userId: varchar("user_id").references(() => users.id), // Link to user account
