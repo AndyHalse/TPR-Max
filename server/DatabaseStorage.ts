@@ -345,11 +345,18 @@ export class DatabaseStorage implements IStorage {
       updates.password = await bcrypt.hash(updates.password, 10);
     }
 
-    // Auto-generate Fire Marshal URL ID when designating someone as Fire Marshal
-    if (updates.isFireMarshal === true && !updates.fireMarshalUrlId) {
-      // Check if staff member already has a URL ID
-      const [existingStaff] = await db.select().from(staff).where(eq(staff.id, id));
-      if (existingStaff && !existingStaff.fireMarshalUrlId) {
+    // ALWAYS check existing staff to see if they need a Fire Marshal URL ID
+    const [existingStaff] = await db.select().from(staff).where(eq(staff.id, id));
+    
+    if (existingStaff) {
+      // Generate Fire Marshal URL ID if:
+      // 1. Being newly designated as Fire Marshal (updates.isFireMarshal === true), OR
+      // 2. Already is a Fire Marshal (existingStaff.isFireMarshal === true)
+      // AND they don't have a URL ID yet
+      const isOrWillBeFireMarshal = updates.isFireMarshal === true || existingStaff.isFireMarshal === true;
+      const hasNoUrlId = !existingStaff.fireMarshalUrlId && !updates.fireMarshalUrlId;
+      
+      if (isOrWillBeFireMarshal && hasNoUrlId) {
         // Generate a unique, URL-safe ID (12 characters from UUID without dashes)
         updates.fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
         console.log(`🔥 Generated Fire Marshal URL ID for ${existingStaff.firstName} ${existingStaff.lastName}: ${updates.fireMarshalUrlId}`);

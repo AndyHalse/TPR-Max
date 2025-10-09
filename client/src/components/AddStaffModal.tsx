@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CloudUpload, Upload, X, Shield, Phone, Copy } from "lucide-react";
+import { CloudUpload, Upload, X, Shield, Phone, Copy, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { InsertStaff } from "@shared/schema";
 
@@ -448,36 +448,47 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             </div>
             
             {/* Fire Marshal URL - shown when designated */}
-            {formData.isFireMarshal && staffToEdit?.fireMarshalUrlId && (
+            {formData.isFireMarshal && (
               <div className="pt-3 border-t border-orange-200 dark:border-orange-700">
-                <label className="text-xs font-medium text-orange-700 dark:text-orange-300 block mb-2">
-                  🔗 Fire Marshal Emergency Access URL
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={`${window.location.origin}/fire-marshal/${staffToEdit.fireMarshalUrlId}`}
-                    className="flex-1 px-3 py-2 text-xs bg-white dark:bg-gray-800 border border-orange-300 dark:border-orange-700 rounded-lg text-orange-900 dark:text-orange-100 font-mono"
-                    data-testid="fire-marshal-url"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/fire-marshal/${staffToEdit.fireMarshalUrlId}`);
-                      toast({ title: "✓ URL Copied", description: "Fire Marshal emergency access URL copied to clipboard" });
-                    }}
-                    className="shrink-0"
-                    data-testid="button-copy-fire-marshal-url"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                  This permanent URL can be saved as a favorite for instant emergency access
-                </p>
+                {staffToEdit?.fireMarshalUrlId ? (
+                  <>
+                    <label className="text-xs font-medium text-orange-700 dark:text-orange-300 block mb-2">
+                      🔗 Fire Marshal Emergency Access URL
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/fire-marshal/${staffToEdit.fireMarshalUrlId}`}
+                        className="flex-1 px-3 py-2 text-xs bg-white dark:bg-gray-800 border border-orange-300 dark:border-orange-700 rounded-lg text-orange-900 dark:text-orange-100 font-mono"
+                        data-testid="fire-marshal-url"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/fire-marshal/${staffToEdit.fireMarshalUrlId}`);
+                          toast({ title: "✓ URL Copied", description: "Fire Marshal emergency access URL copied to clipboard" });
+                        }}
+                        className="shrink-0"
+                        data-testid="button-copy-fire-marshal-url"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                      This permanent URL can be saved as a favorite for instant emergency access
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                    <p className="text-xs text-orange-700 dark:text-orange-300">
+                      <strong>Emergency URL will be generated when you save.</strong> This permanent URL provides instant emergency access for this Fire Marshal.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
