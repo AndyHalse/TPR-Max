@@ -42,11 +42,11 @@ export class EmergencyEmailService {
   }
 
   static async sendFireMarshalAlert(emailData: EmergencyEmailData): Promise<boolean> {
-    // Development fallback - log emergency access URL to console for testing
+    // NEW: Use static Fire Marshal URL (permanent, no expiration)
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
       : 'http://localhost:5000';
-    const marshalUrl = `${baseUrl}/fire-marshal-mobile?token=${emailData.emergencyToken}`;
+    const marshalUrl = `${baseUrl}/fire-marshal/${emailData.emergencyToken}`;  // emergencyToken now contains URL ID
     
     // Always show console URL for testing/debugging
     console.log('\n🚨 EMERGENCY ACTIVATED 🚨');
@@ -56,9 +56,9 @@ export class EmergencyEmailService {
     console.log(`Department: ${emailData.marshalDepartment}`);
     console.log(`Activated by: ${emailData.activatedBy}`);
     console.log(`Personnel on-site: ${emailData.totalPersonnel}`);
-    console.log('\n🔗 FIRE MARSHAL EMERGENCY ACCESS URL:');
+    console.log('\n🔗 FIRE MARSHAL PERMANENT ACCESS URL:');
     console.log(marshalUrl);
-    console.log('\n📱 Copy this URL to test the mobile Fire Marshal interface!');
+    console.log('\n📱 This URL never expires - can be saved as a favorite!');
     console.log('=============================================\n');
 
     // If SMTP credentials are not configured, return success (console-only mode)
@@ -235,6 +235,14 @@ export class EmergencyEmailService {
                     🛡️ OPEN FIRE MARSHAL PANEL NOW
                 </a>
 
+                <div style="background: #dbeafe; border: 2px solid #3b82f6; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                    <h4 style="margin: 0 0 10px 0; color: #1e40af;">🔗 Permanent Access Link</h4>
+                    <p style="margin: 0; color: #1e3a8a;">
+                        <strong>This URL never expires!</strong> You can save it as a browser favorite for instant emergency access anytime. 
+                        The same link works for all future emergencies.
+                    </p>
+                </div>
+
                 <div class="instructions">
                     <h3>📋 Current Evacuation Status:</h3>
                     <ul>
@@ -263,7 +271,7 @@ export class EmergencyEmailService {
                     <h4 style="margin: 0 0 10px 0; color: #1f2937;">Emergency Details:</h4>
                     <p style="margin: 0; color: #4b5563;"><strong>Activated by:</strong> ${emailData.activatedBy}</p>
                     <p style="margin: 5px 0 0 0; color: #4b5563;"><strong>Location:</strong> ${emailData.siteLocation}</p>
-                    <p style="margin: 5px 0 0 0; color: #4b5563;"><strong>Token Expires:</strong> 4 hours from activation</p>
+                    <p style="margin: 5px 0 0 0; color: #4b5563;"><strong>Time:</strong> ${emailData.activatedAt}</p>
                 </div>
 
                 <div class="urgent-note">

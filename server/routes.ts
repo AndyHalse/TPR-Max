@@ -2391,28 +2391,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const marshal of fireMarshals) {
         if (marshal.email) {
           try {
-            // Generate emergency token for Fire Marshal with proper customer context
-            const emergencyToken = await EmergencyEmailService.generateEmergencyToken(marshal.id, context.customerId);
+            // NEW: Use static Fire Marshal URL ID instead of temporary tokens
+            if (!marshal.fireMarshalUrlId) {
+              console.warn(`⚠️ Fire Marshal ${marshal.firstName} ${marshal.lastName} has no URL ID, skipping email`);
+              errors.push(`Fire Marshal ${marshal.firstName} ${marshal.lastName} cannot be notified - no emergency access URL configured`);
+              continue;
+            }
             
-            // Build the Fire Marshal URL
+            // Build the permanent Fire Marshal URL (no expiration!)
             const baseUrl = process.env.REPLIT_DOMAINS 
               ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
               : 'http://localhost:5000';
-            const marshalUrl = `${baseUrl}/fire-marshal-mobile?token=${emergencyToken}`;
+            const marshalUrl = `${baseUrl}/fire-marshal/${marshal.fireMarshalUrlId}`;
             
-            console.log(`\n✅ FIRE MARSHAL TOKEN GENERATED:`);
+            console.log(`\n✅ FIRE MARSHAL STATIC URL:`);
             console.log(`   Name: ${marshal.firstName} ${marshal.lastName}`);
             console.log(`   Email: ${marshal.email}`);
-            console.log(`   Token: ${emergencyToken}`);
-            console.log(`   🔗 URL: ${marshalUrl}`);
-            console.log(`   Expires: 4 hours\n`);
+            console.log(`   URL ID: ${marshal.fireMarshalUrlId}`);
+            console.log(`   🔗 PERMANENT URL: ${marshalUrl}`);
+            console.log(`   ⚡ No expiration - can be saved as favorite!\n`);
             
-            // Send Fire Marshal alert with proper data structure
+            // Send Fire Marshal alert with static URL (updated email template will use this)
             await EmergencyEmailService.sendFireMarshalAlert({
               marshalName: `${marshal.firstName} ${marshal.lastName}`,
               marshalEmail: marshal.email,
               marshalDepartment: marshal.department || 'Fire Marshal',
-              emergencyToken,
+              emergencyToken: marshal.fireMarshalUrlId,  // Reusing field for URL ID
               activatedBy: evacuationData.activatedBy,
               activatedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
               totalPersonnel: evacuationData.totalPeople,
@@ -2424,7 +2428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               musterPoints: evacuationData.musterPoints
             });
             
-            console.log(`✅ EMAIL SENT to ${marshal.email} with token ${emergencyToken.substring(0, 20)}...`);
+            console.log(`✅ EMAIL SENT to ${marshal.email} with static URL: ${marshalUrl}`);
           } catch (error) {
             console.error(`Failed to send Fire Marshal alert to ${marshal.firstName}:`, error);
           }
