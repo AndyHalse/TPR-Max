@@ -767,6 +767,24 @@ export class DatabaseProvisioningService {
       )
     `);
 
+    // Safety Tokens table for email-based self mark-safe functionality
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS safety_tokens (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        token text NOT NULL UNIQUE,
+        evacuation_id text NOT NULL,
+        person_id text NOT NULL,
+        person_type text NOT NULL,
+        person_name text NOT NULL,
+        person_email text NOT NULL,
+        is_used boolean DEFAULT false NOT NULL,
+        used_at timestamp,
+        muster_point text,
+        expires_at timestamp NOT NULL,
+        created_at timestamp DEFAULT now() NOT NULL
+      )
+    `);
+
     console.log('✅ Database tables created successfully');
   }
 
