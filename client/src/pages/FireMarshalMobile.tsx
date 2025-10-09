@@ -324,9 +324,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   if (!activeEvacuationId) {
     const peopleList = personnelData?.people || [];
     const filteredPeopleList = peopleList.filter(person => {
-      const matchesSearch = person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            person.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            person.company?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (person.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                            (person.department || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+                            (person.company || '').toLowerCase().includes((searchQuery || '').toLowerCase());
       return matchesSearch;
     });
 

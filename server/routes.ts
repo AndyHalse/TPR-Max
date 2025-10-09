@@ -3023,27 +3023,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get customer info to create context
-      const customerInfo = await databaseService.getCustomerInfo(customerId);
-      if (!customerInfo) {
-        return res.status(404).json({ error: "Customer not found" });
-      }
+      // Get customer database connection
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
-      // Create customer context for database operations
-      const context = {
-        customerId: customerId,
-        customerDbUrl: customerInfo.database_url,
-        companyName: customerInfo.company_name
-      };
-      
-      // Get all checked-in staff
-      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      // Get all checked-in staff directly from customer database
+      const checkedInStaff = await customerDb
+        .select()
+        .from(isolatedSchema.staff)
+        .where(eq(isolatedSchema.staff.isCheckedIn, true));
       
       // Get all current visitors
-      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      const currentVisitors = await customerDb
+        .select()
+        .from(isolatedSchema.visitors)
+        .where(eq(isolatedSchema.visitors.isCheckedIn, true))
+        .orderBy(desc(isolatedSchema.visitors.checkedInAt));
       
       // Get all checked-in contractors
-      const checkedInContractors = await databaseService.getCheckedInContractors(context);
+      const checkedInContractors = await customerDb
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true))
+        .orderBy(desc(isolatedSchema.contractorWorkers.checkedInAt));
       
       console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
       
@@ -3069,11 +3070,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
         ...checkedInContractors.map(contractor => ({
           id: contractor.id,
-          name: contractor.name,
+          name: `${contractor.firstName} ${contractor.lastName}`,
           type: 'contractor' as const,
-          company: contractor.company,
+          department: contractor.department,
           checkedInAt: contractor.checkedInAt,
-          location: contractor.location || 'Site',
+          location: 'Site',
           isAccountedFor: false
         }))
       ];
