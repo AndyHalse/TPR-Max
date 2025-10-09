@@ -62,51 +62,92 @@ interface ActiveEvacuationResponse {
 }
 
 interface FireMarshalMobileProps {
-  token: string;
+  urlId?: string;  // NEW: Static URL ID
+  token?: string;  // LEGACY: Token-based auth
 }
 
-export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
+interface MarshalInfo {
+  id: string;
+  name: string;
+  department: string;
+  email: string;
+  customerId: string;
+}
+
+export default function FireMarshalMobile({ urlId, token }: FireMarshalMobileProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   const [marshalName, setMarshalName] = useState("");
   const [selectedMusterPoint, setSelectedMusterPoint] = useState<string>("");
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [filterType, setFilterType] = useState<'all' | 'unaccounted' | 'accounted'>('unaccounted');
+  const [marshalInfo, setMarshalInfo] = useState<MarshalInfo | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Load marshal name from localStorage
+  // NEW: Authenticate using static URL ID
   useEffect(() => {
-    const savedName = localStorage.getItem('fireMarshallName');
-    if (savedName) setMarshalName(savedName);
-  }, []);
+    if (urlId) {
+      fetch(`/api/emergency/fire-marshal/${urlId}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Authentication failed');
+          return res.json();
+        })
+        .then(data => {
+          console.log('✅ Fire Marshal authenticated:', data.marshal.name);
+          setMarshalInfo(data.marshal);
+          setMarshalName(data.marshal.name);
+          if (data.evacuation) {
+            setActiveEvacuationId(data.evacuation.evacuationId);
+          }
+        })
+        .catch(err => {
+          console.error('❌ Fire Marshal authentication failed:', err);
+          setAuthError('Invalid or expired Fire Marshal link');
+        });
+    }
+  }, [urlId]);
 
-  // Save marshal name to localStorage
+  // Load marshal name from localStorage (legacy)
   useEffect(() => {
-    if (marshalName) {
+    if (!urlId) {  // Only use localStorage for legacy token auth
+      const savedName = localStorage.getItem('fireMarshallName');
+      if (savedName) setMarshalName(savedName);
+    }
+  }, [urlId]);
+
+  // Save marshal name to localStorage (legacy)
+  useEffect(() => {
+    if (marshalName && !urlId) {  // Only save for legacy token auth
       localStorage.setItem('fireMarshallName', marshalName);
     }
-  }, [marshalName]);
+  }, [marshalName, urlId]);
 
   // Fetch evacuation accountability list with shorter refresh for real-time updates
   const { data: evacuationData, refetch } = useQuery<EvacuationData>({
     queryKey: [`/api/emergency/accountability/${activeEvacuationId || ''}`],
-    enabled: !!activeEvacuationId,
+    enabled: !!activeEvacuationId && (!!token || !!marshalInfo),
     refetchInterval: 2000, // Refresh every 2 seconds for real-time updates
     queryFn: async () => {
-      const response = await fetch(`/api/emergency/accountability/${activeEvacuationId}`, {
-        headers: { 'X-Emergency-Token': token }
-      });
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['X-Emergency-Token'] = token;  // Legacy token auth
+      } else if (marshalInfo) {
+        headers['X-Fire-Marshal-Id'] = marshalInfo.id;  // NEW: URL ID auth
+      }
+      const response = await fetch(`/api/emergency/accountability/${activeEvacuationId}`, { headers });
       if (!response.ok) throw new Error('Failed to fetch accountability data');
       return response.json();
     }
   });
 
-  // Check for active evacuation
+  // Check for active evacuation (only for legacy token auth - new URL ID system gets this from auth endpoint)
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
     queryKey: ["/api/emergency/active"],
+    enabled: !!token && !urlId,  // Only for legacy token auth
     refetchInterval: 5000,
     queryFn: async () => {
       const response = await fetch('/api/emergency/active', {
-        headers: { 'X-Emergency-Token': token }
+        headers: { 'X-Emergency-Token': token! }
       });
       if (!response.ok) throw new Error('Failed to check evacuation status');
       return response.json();
@@ -245,6 +286,28 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
     return matchesSearch && matchesFilter;
   }) || [];
 
+  // Show authentication error if present
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-red-200">
+          <CardHeader className="text-center">
+            <AlertTriangle className="h-16 w-16 mx-auto text-red-500 mb-4" />
+            <CardTitle className="text-xl text-red-600">Authentication Failed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-muted-foreground mb-4">
+              {authError}
+            </p>
+            <p className="text-sm text-center text-gray-500">
+              Please contact your administrator for a valid Fire Marshal access link.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!activeEvacuationId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 flex items-center justify-center">
@@ -255,6 +318,7 @@ export default function FireMarshalMobile({ token }: FireMarshalMobileProps) {
           </CardHeader>
           <CardContent>
             <p className="text-center text-muted-foreground">
+              {urlId ? `Authenticated as ${marshalName || 'Fire Marshal'}. ` : ''}
               This panel will activate automatically during an emergency evacuation.
             </p>
           </CardContent>

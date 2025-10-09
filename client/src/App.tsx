@@ -49,7 +49,29 @@ function Router() {
     return <FireMarshalMuster token={emergencyToken} />;
   }
   
-  // Fire Marshal Mobile - Emergency access (requires valid token)
+  // Fire Marshal Mobile - NEW STATIC URL SYSTEM (no token needed)
+  if (window.location.pathname.startsWith('/fire-marshal/')) {
+    const urlId = window.location.pathname.split('/fire-marshal/')[1];
+    if (!urlId) {
+      return (
+        <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+          <div className="max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="text-6xl mb-4">🚨</div>
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Invalid Fire Marshal Link</h1>
+            <p className="text-gray-600 mb-4">
+              This Fire Marshal access link is invalid.
+            </p>
+            <p className="text-sm text-gray-500">
+              Please check the URL and try again, or contact your administrator.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return <FireMarshalMobile urlId={urlId} />;
+  }
+  
+  // LEGACY: Fire Marshal Mobile with token (backwards compatibility)
   if (window.location.pathname === '/fire-marshal-mobile') {
     const emergencyToken = urlParams.get('token');
     if (!emergencyToken) {
