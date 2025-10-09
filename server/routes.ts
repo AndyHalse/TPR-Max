@@ -2613,18 +2613,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Mark person as safe/accounted for - requires valid emergency token
+  // Mark person as safe/accounted for - supports both emergency token and Fire Marshal URL ID
   app.post("/api/emergency/mark-safe/:personId", async (req, res) => {
     try {
-      // Validate emergency token
-      const emergencyToken = req.emergencyToken;
-      if (!emergencyToken) {
-        return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
-      }
+      let validatedStaff: any = null;
+      let customerId: string | null = null;
       
-      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
-      if (!validatedStaff) {
-        return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+      // Support both authentication methods
+      const emergencyToken = req.emergencyToken;
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+      
+      if (emergencyToken) {
+        // Legacy token-based auth
+        validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+        if (!validatedStaff) {
+          return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+        }
+        customerId = validatedStaff.customerId;
+      } else if (fireMarshalId) {
+        // NEW: Fire Marshal URL ID authentication
+        const marshal = await findFireMarshalByUrlId(fireMarshalId);
+        if (!marshal) {
+          return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
+        }
+        validatedStaff = marshal.staff;
+        customerId = marshal.customerId;
+        console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${customerId})`);
+      } else {
+        return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
       
       const { personId } = req.params;
@@ -2639,23 +2655,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Evacuation ID is required" });
       }
       
-      // Get the evacuation with TENANT ISOLATION
-      const evacuation = await db
-        .select()
-        .from(evacuations)
-        .where(and(
-          eq(evacuations.evacuationId, evacuationId),
-          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only access their tenant's evacuations
-        ))
-        .limit(1);
+      let evacuation;
       
-      if (!evacuation || evacuation.length === 0) {
-        console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
-        return res.status(404).json({ error: "Evacuation not found" });
+      // Handle 'standalone' mode - Fire Marshal URL works independently without formal evacuation
+      if (evacuationId === 'standalone') {
+        console.log(`🔥 STANDALONE MODE: Fire Marshal ${marshalName} marking person safe without active evacuation - auto-creating emergency evacuation`);
+        
+        // Auto-create an emergency evacuation on-demand
+        const newEvacuationId = `fire-marshal-${Date.now()}`;
+        const customerDbConnection = customerId ? customerId : validatedStaff.customerId;
+        
+        evacuation = [{
+          evacuationId: newEvacuationId,
+          customerId: customerDbConnection,
+          initiatedBy: validatedStaff.id,
+          initiatedAt: new Date(),
+          status: 'active',
+          musterPoints: ['Main Assembly Point', 'Secondary Assembly Point'],
+          totalPeople: 0,
+          totalAccountedFor: 0
+        }];
+        
+        // Insert the emergency evacuation record
+        await db.insert(evacuations).values(evacuation[0]);
+        
+        // Create accountability records for all on-site personnel
+        const customerDb = await customerDbService.getCustomerDatabase(customerDbConnection);
+        
+        // Get checked-in staff
+        const checkedInStaff = await customerDb
+          .select()
+          .from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.isCheckedIn, true));
+        
+        // Get current visitors
+        const currentVisitors = await customerDb
+          .select()
+          .from(isolatedSchema.visitors)
+          .where(eq(isolatedSchema.visitors.isCheckedIn, true));
+        
+        // Get checked-in contractors
+        const checkedInContractors = await customerDb
+          .select()
+          .from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true));
+        
+        // Create accountability records for all personnel
+        const accountabilityRecords = [
+          ...checkedInStaff.map(s => ({
+            evacuationId: newEvacuationId,
+            customerId: customerDbConnection,
+            personId: s.id,
+            personType: 'staff',
+            personName: `${s.firstName} ${s.lastName}`,
+            department: s.department,
+            lastKnownLocation: 'Building A',
+            isAccountedFor: false
+          })),
+          ...currentVisitors.map(v => ({
+            evacuationId: newEvacuationId,
+            customerId: customerDbConnection,
+            personId: v.id,
+            personType: 'visitor',
+            personName: `${v.firstName} ${v.lastName}`,
+            company: v.company,
+            lastKnownLocation: 'Reception',
+            isAccountedFor: false
+          })),
+          ...checkedInContractors.map(c => ({
+            evacuationId: newEvacuationId,
+            customerId: customerDbConnection,
+            personId: c.id,
+            personType: 'contractor',
+            personName: `${c.firstName} ${c.lastName}`,
+            department: c.department,
+            lastKnownLocation: 'Site',
+            isAccountedFor: false
+          }))
+        ];
+        
+        if (accountabilityRecords.length > 0) {
+          await db.insert(evacuationAccountability).values(accountabilityRecords);
+        }
+        
+        // Update total people count
+        await db
+          .update(evacuations)
+          .set({ totalPeople: accountabilityRecords.length })
+          .where(eq(evacuations.evacuationId, newEvacuationId));
+        
+        console.log(`✅ Auto-created emergency evacuation: ${newEvacuationId} with ${accountabilityRecords.length} people`);
+        
+        // Update evacuationId for the rest of the function
+        evacuationId = newEvacuationId;
+      } else {
+        // Get the evacuation with TENANT ISOLATION
+        evacuation = await db
+          .select()
+          .from(evacuations)
+          .where(and(
+            eq(evacuations.evacuationId, evacuationId),
+            eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only access their tenant's evacuations
+          ))
+          .limit(1);
+        
+        if (!evacuation || evacuation.length === 0) {
+          console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
+          return res.status(404).json({ error: "Evacuation not found" });
+        }
       }
       
-      const customerId = evacuation[0].customerId;
-      console.log(`📋 Found evacuation for customer: ${customerId}`);
+      const customerIdFinal = evacuation[0].customerId;
+      console.log(`📋 Found evacuation for customer: ${customerIdFinal}`);
       
       // Update evacuationAccountability record with customer context
       const result = await db
@@ -2671,7 +2782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           and(
             eq(evacuationAccountability.evacuationId, evacuationId),
             eq(evacuationAccountability.personId, personId),
-            eq(evacuationAccountability.customerId, customerId)
+            eq(evacuationAccountability.customerId, customerIdFinal)
           )
         )
         .returning();
@@ -2776,17 +2887,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Complete evacuation with optional checkout
+  // Complete evacuation with optional checkout - supports both emergency token and Fire Marshal URL ID
   app.post("/api/emergency/complete-evacuation", async (req, res) => {
     try {
-      const emergencyToken = req.emergencyToken;
-      if (!emergencyToken) {
-        return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
-      }
+      let validatedStaff: any = null;
       
-      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
-      if (!validatedStaff) {
-        return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+      // Support both authentication methods
+      const emergencyToken = req.emergencyToken;
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+      
+      if (emergencyToken) {
+        // Legacy token-based auth
+        validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+        if (!validatedStaff) {
+          return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+        }
+      } else if (fireMarshalId) {
+        // Fire Marshal URL ID authentication
+        const marshal = await findFireMarshalByUrlId(fireMarshalId);
+        if (!marshal) {
+          return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
+        }
+        validatedStaff = marshal.staff;
+        console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${marshal.customerId})`);
+      } else {
+        return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
 
       const { evacuationId, checkOutMode } = req.body;

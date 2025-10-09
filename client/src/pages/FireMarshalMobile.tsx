@@ -195,16 +195,22 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Mark person as safe mutation
   const markSafeMutation = useMutation({
     mutationFn: async ({ personId, musterPoint }: { personId: string; musterPoint: string }) => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      
+      // Support both authentication methods
+      if (token) {
+        headers["X-Emergency-Token"] = token;  // Legacy token auth
+      } else if (marshalInfo) {
+        headers["X-Fire-Marshal-Id"] = marshalInfo.id;  // URL ID auth
+      }
+      
       const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-Emergency-Token": token
-        },
+        headers,
         credentials: "include",
         body: JSON.stringify({ 
           musterPoint,
-          evacuationId: activeEvacuationId,
+          evacuationId: activeEvacuationId || 'standalone',  // Use 'standalone' if no active evacuation
           marshalName: marshalName
         })
       });
@@ -238,12 +244,18 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Complete evacuation mutation
   const completeEvacuationMutation = useMutation({
     mutationFn: async ({ checkOutMode }: { checkOutMode: 'keep_checked_in' | 'check_out_all' }) => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      
+      // Support both authentication methods
+      if (token) {
+        headers["X-Emergency-Token"] = token;  // Legacy token auth
+      } else if (marshalInfo) {
+        headers["X-Fire-Marshal-Id"] = marshalInfo.id;  // URL ID auth
+      }
+      
       const response = await fetch('/api/emergency/complete-evacuation', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Emergency-Token': token
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           evacuationId: activeEvacuationId,
