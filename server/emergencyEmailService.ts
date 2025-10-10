@@ -200,7 +200,7 @@ export class EmergencyEmailService {
             <div class="header">
                 <div class="emergency-badge">🚨 EMERGENCY ACTIVATED</div>
                 <h1 style="margin: 0; font-size: 28px;">FIRE MARSHAL RESPONSE REQUIRED</h1>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Immediate muster point management needed</p>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Immediate personnel accountability required</p>
             </div>
             
             <div class="content">
@@ -251,13 +251,6 @@ export class EmergencyEmailService {
                     </ul>
                 </div>
 
-                <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                    <h4 style="margin: 0 0 10px 0; color: #92400e;">📍 Active Muster Points:</h4>
-                    <ul style="margin: 5px 0; padding-left: 20px; color: #78350f;">
-                        ${emailData.musterPoints.map(point => `<li>${point}</li>`).join('')}
-                    </ul>
-                </div>
-
                 <div style="background: #ecfdf5; border: 2px solid #10b981; border-radius: 8px; padding: 15px; margin: 20px 0;">
                     <h4 style="margin: 0 0 10px 0; color: #065f46;">📱 Live Updates</h4>
                     <p style="margin: 0; color: #047857;">The Fire Marshal panel provides real-time updates and allows multiple Fire Marshals to work simultaneously. All changes are synchronized instantly across all devices.</p>
@@ -304,10 +297,9 @@ Key Features:
 
 Your responsibilities:
 1. Access the control panel immediately
-2. Proceed to your assigned muster point
-3. Account for all personnel using the mobile interface
-4. Mark people as safe once confirmed at muster point
-5. Coordinate with other Fire Marshals as needed
+2. Account for all personnel using the mobile interface
+3. Mark people as safe once confirmed
+4. Coordinate with other Fire Marshals as needed
 
 This token expires in 4 hours from activation.
 

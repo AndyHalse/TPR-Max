@@ -936,7 +936,6 @@ For questions about this report, please contact the administrator.
     toEmail: string,
     recipientName: string,
     message: string,
-    musterPoints: string[],
     companySettings: CompanySettings,
     safetyToken?: string // Optional token for self-service mark-safe
   ): Promise<boolean> {
@@ -964,21 +963,14 @@ For questions about this report, please contact the administrator.
             </p>
           </div>
           
-          <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <h3 style="color: #991b1b; margin-top: 0;">📍 Muster Points:</h3>
-            <ul style="font-size: 16px;">
-              ${musterPoints.map(point => `<li><strong>${point}</strong></li>`).join('')}
-            </ul>
-          </div>
-          
           <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0;">
             <h3 style="color: #92400e; margin-top: 0;">⚠️ Important Instructions:</h3>
             <ul style="margin: 0;">
               <li>Leave the building immediately via the nearest exit</li>
               <li>Do NOT use elevators</li>
               <li>Do NOT collect personal belongings</li>
-              <li>Report to your designated muster point</li>
-              <li>Remain at the muster point until given the all-clear</li>
+              <li>Proceed to a safe location away from the building</li>
+              <li>Remain at a safe distance until given the all-clear</li>
             </ul>
           </div>
           
@@ -986,7 +978,7 @@ For questions about this report, please contact the administrator.
           <div style="background: #dcfce7; padding: 20px; border-radius: 8px; margin: 20px 0; border: 2px solid #16a34a;">
             <h3 style="color: #166534; margin-top: 0; text-align: center;">✅ Once You Are Safe</h3>
             <p style="text-align: center; margin: 10px 0; color: #166534;">
-              When you have safely evacuated and reached a muster point, click the button below to mark yourself safe:
+              When you have safely evacuated to a safe location, click the button below to mark yourself safe:
             </p>
             <div style="text-align: center; margin: 20px 0;">
               <a href="${markSafeUrl}" style="display: inline-block; background: #16a34a; color: white; text-decoration: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -1015,19 +1007,16 @@ Dear ${recipientName},
 
 ${message}
 
-Muster Points:
-${musterPoints.map(point => `- ${point}`).join('\n')}
-
 Important Instructions:
 - Leave the building immediately via the nearest exit
 - Do NOT use elevators
 - Do NOT collect personal belongings
-- Report to your designated muster point
-- Remain at the muster point until given the all-clear
+- Proceed to a safe location away from the building
+- Remain at a safe distance until given the all-clear
 
 ${markSafeUrl ? `
 ONCE YOU ARE SAFE:
-When you have safely evacuated and reached a muster point, visit this link to mark yourself safe:
+When you have safely evacuated to a safe location, visit this link to mark yourself safe:
 ${markSafeUrl}
 
 This link is unique to you and valid for 24 hours.
@@ -1115,13 +1104,6 @@ Emergency Contact: ${(companySettings as any)?.phoneNumber || companySettings?.p
             </table>
           </div>
           
-          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <h3 style="color: #92400e; margin-top: 0;">📍 Active Muster Points:</h3>
-            <ul style="margin: 10px 0;">
-              ${evacuationData.musterPoints.map(point => `<li style="padding: 3px 0;">${point}</li>`).join('')}
-            </ul>
-          </div>
-          
           <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #0ea5e9;">
             <h4 style="color: #075985; margin-top: 0;">🔄 Live Updates</h4>
             <p style="margin: 5px 0; color: #333;">
@@ -1162,10 +1144,7 @@ Current Evacuation Status:
 - Unaccounted: ${peopleOnSite.filter(p => !p.isAccountedFor).length}
 - Time: ${new Date(evacuationData.timestamp).toLocaleString()}
 
-Active Muster Points:
-${evacuationData.musterPoints.map(point => `- ${point}`).join('\n')}
-
-The Fire Marshal panel provides real-time updates and allows you to mark people as safe at specific muster points.
+The Fire Marshal panel provides real-time updates and allows you to mark people as safe.
 
 OPEN THE PANEL NOW: ${fireMarshalPanelUrl}
 

@@ -2089,8 +2089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalPeople: checkedInStaff.length + currentVisitors.length,
         staff: checkedInStaff.length,
         visitors: currentVisitors.length,
-        musterPoints: musterPoints || ['Main Car Park', 'Side Entrance', 'Rear Assembly'],
-        message: message || 'Emergency evacuation in progress. Please proceed to your nearest muster point immediately.',
+        message: message || 'Emergency evacuation in progress. Please proceed to a safe location immediately.',
         notificationsSent: 0
       };
       
@@ -2105,7 +2104,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               staff.email,
               `${staff.firstName} ${staff.lastName}`,
               evacuationData.message,
-              evacuationData.musterPoints,
               companySettings!
             );
             evacuationData.notificationsSent++;
@@ -2119,7 +2117,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               visitor.email,
               `${visitor.firstName} ${visitor.lastName}`,
               evacuationData.message,
-              evacuationData.musterPoints,
               companySettings!
             );
             evacuationData.notificationsSent++;
@@ -2397,7 +2394,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               staff.email,
               `${staff.firstName} ${staff.lastName}`,
               evacuationData.message,
-              evacuationData.musterPoints,
               companySettings!,
               safetyToken
             );
@@ -2433,7 +2429,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               visitor.email,
               `${visitor.firstName} ${visitor.lastName}`,
               evacuationData.message,
-              evacuationData.musterPoints,
               companySettings!,
               safetyToken
             );
@@ -2463,7 +2458,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               contractor.email,
               `${contractor.firstName} ${contractor.lastName}`,
               evacuationData.message,
-              evacuationData.musterPoints,
               companySettings!,
               safetyToken
             );

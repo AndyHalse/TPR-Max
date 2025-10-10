@@ -15,7 +15,6 @@ import {
   Search,
   Shield,
   Clock,
-  MapPin,
   Phone,
   Mail,
   Download,
@@ -37,7 +36,6 @@ interface MusterListItem {
 export default function EmergencyMuster() {
   const [searchTerm, setSearchTerm] = useState("");
   const [emergencyActive, setEmergencyActive] = useState(false);
-  const [selectedMusterPoint, setSelectedMusterPoint] = useState("main");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -187,12 +185,6 @@ export default function EmergencyMuster() {
     }
   };
 
-  const musterPoints = [
-    { id: "main", name: "Main Car Park", capacity: 200, current: 45 },
-    { id: "side", name: "Side Entrance", capacity: 100, current: 23 },
-    { id: "rear", name: "Rear Assembly", capacity: 150, current: 12 }
-  ];
-
   const filteredList = musterList.filter(person => 
     (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -248,7 +240,7 @@ export default function EmergencyMuster() {
               <AlertTriangle className="text-red-600 mr-3" size={32} />
               <div className="text-center">
                 <h3 className="text-lg font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
-                <p className="text-red-700 dark:text-red-300">All personnel must proceed to designated muster points</p>
+                <p className="text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
               </div>
             </div>
             
@@ -363,47 +355,6 @@ export default function EmergencyMuster() {
           </div>
         </GlassCard>
       </div>
-
-      {/* Muster Points */}
-      <GlassCard className="dark:glass-dark">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Muster Points Status</h3>
-          <Button variant="outline" size="sm" data-testid="button-update-muster-points">
-            <MapPin className="mr-2" size={16} />
-            Update Locations
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {musterPoints.map((point) => (
-            <div 
-              key={point.id} 
-              className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                selectedMusterPoint === point.id 
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                  : 'border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-slate-800/50'
-              }`}
-              onClick={() => setSelectedMusterPoint(point.id)}
-              data-testid={`muster-point-${point.id}`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-slate-800 dark:text-slate-200">{point.name}</h4>
-                <Badge variant={point.current < point.capacity * 0.8 ? "default" : "destructive"}>
-                  {point.current}/{point.capacity}
-                </Badge>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full ${
-                    point.current < point.capacity * 0.8 ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${(point.current / point.capacity) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
 
       {/* Search and Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
