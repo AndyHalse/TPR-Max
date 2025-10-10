@@ -2628,21 +2628,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get evacuation accountability list - requires valid emergency token
+  // Get evacuation accountability list - requires valid emergency token or Fire Marshal URL ID
   app.get("/api/emergency/accountability/:evacuationId?", async (req, res) => {
     try {
-      // Validate emergency token
+      let validatedStaff: any;
+      let customerId: string;
+      
+      // Support both authentication methods
       const emergencyToken = req.emergencyToken;
-      if (!emergencyToken) {
-        return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+      
+      if (emergencyToken) {
+        // Legacy token-based auth
+        validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+        if (!validatedStaff) {
+          return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
+        }
+        customerId = validatedStaff.customerId;
+      } else if (fireMarshalId) {
+        // NEW: Fire Marshal URL ID authentication
+        const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
+        if (!marshal) {
+          return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
+        }
+        validatedStaff = marshal.marshal;
+        customerId = marshal.customerId;
+      } else {
+        return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
       
-      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
-      if (!validatedStaff) {
-        return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
-      }
-      
-      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${validatedStaff.customerId}) accessed accountability list`);
+      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${customerId}) accessed accountability list`);
       
       const evacuationId = req.params.evacuationId;
       
@@ -2656,12 +2671,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(evacuations)
         .where(and(
           eq(evacuations.evacuationId, evacuationId),
-          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Ensure Fire Marshal can only access their tenant's evacuations
+          eq(evacuations.customerId, customerId) // CRITICAL: Ensure Fire Marshal can only access their tenant's evacuations
         ))
         .limit(1);
       
       if (evacuation.length === 0) {
-        console.log(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to access evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
+        console.log(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to access evacuation ${evacuationId} but it doesn't belong to their customer ${customerId}`);
         return res.status(404).json({ error: "Evacuation not found" });
       }
       
@@ -2720,11 +2735,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId = validatedStaff.customerId;
       } else if (fireMarshalId) {
         // NEW: Fire Marshal URL ID authentication
-        const marshal = await findFireMarshalByUrlId(fireMarshalId);
+        const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
         if (!marshal) {
           return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
         }
-        validatedStaff = marshal.staff;
+        validatedStaff = marshal.marshal;
         customerId = marshal.customerId;
         console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${customerId})`);
       } else {
@@ -2735,7 +2750,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { musterPoint, evacuationId, marshalName: providedMarshal } = req.body;
       const marshalName = providedMarshal || `${validatedStaff.firstName} ${validatedStaff.lastName}`;
       
-      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Fire Marshal: ${marshalName} (Customer: ${validatedStaff.customerId}), MusterPoint: ${musterPoint}`);
+      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
       console.log(`✅ Validated Fire Marshal: ${validatedStaff.firstName} ${validatedStaff.lastName} (${validatedStaff.email})`);
       
       if (!evacuationId) {
@@ -2751,16 +2766,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Auto-create an emergency evacuation on-demand
         const newEvacuationId = `fire-marshal-${Date.now()}`;
-        const customerDbConnection = customerId ? customerId : validatedStaff.customerId;
+        const customerDbConnection = customerId;
         
         evacuation = [{
           evacuationId: newEvacuationId,
           customerId: customerDbConnection,
-          initiatedBy: validatedStaff.id,
-          initiatedAt: new Date(),
+          activatedBy: marshalName,
+          startedAt: new Date(),
           status: 'active',
-          musterPoints: ['Main Assembly Point', 'Secondary Assembly Point'],
-          totalPeople: 0,
+          musterPoints: ['Safe Location'],
+          totalPeopleOnSite: 0,
           totalAccountedFor: 0
         }];
         
@@ -2843,12 +2858,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(evacuations)
           .where(and(
             eq(evacuations.evacuationId, evacuationId),
-            eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only access their tenant's evacuations
+            eq(evacuations.customerId, customerId) // CRITICAL: Verify Fire Marshal can only access their tenant's evacuations
           ))
           .limit(1);
         
         if (!evacuation || evacuation.length === 0) {
-          console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
+          console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${evacuationId} but it doesn't belong to their customer ${customerId}`);
           return res.status(404).json({ error: "Evacuation not found" });
         }
       }
@@ -2907,7 +2922,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: `Person marked as safe at ${musterPoint}`,
         personId,
-        marshalName
+        marshalName,
+        evacuationId  // Include evacuation ID for frontend to track
       });
     } catch (error) {
       console.error("❌ Error marking person safe:", error);
@@ -2992,11 +3008,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else if (fireMarshalId) {
         // Fire Marshal URL ID authentication
-        const marshal = await findFireMarshalByUrlId(fireMarshalId);
+        const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
         if (!marshal) {
           return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
         }
-        validatedStaff = marshal.staff;
+        validatedStaff = marshal.marshal;
         console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${marshal.customerId})`);
       } else {
         return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });

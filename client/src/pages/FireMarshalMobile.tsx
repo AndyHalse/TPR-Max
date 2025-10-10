@@ -142,8 +142,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       const headers: HeadersInit = {};
       if (token) {
         headers['X-Emergency-Token'] = token;  // Legacy token auth
-      } else if (marshalInfo) {
-        headers['X-Fire-Marshal-Id'] = marshalInfo.id;  // NEW: URL ID auth
+      } else if (urlId) {
+        headers['X-Fire-Marshal-Id'] = urlId;  // NEW: URL ID auth
       }
       const response = await fetch(`/api/emergency/accountability/${activeEvacuationId}`, { headers });
       if (!response.ok) throw new Error('Failed to fetch accountability data');
@@ -210,7 +210,12 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       if (!response.ok) throw new Error("Failed to mark person as safe");
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // If the response includes an evacuation ID (from standalone mode), update our state
+      if (data.evacuationId && !activeEvacuationId) {
+        setActiveEvacuationId(data.evacuationId);
+      }
+      
       // Invalidate Fire Marshal accountability view
       queryClient.invalidateQueries({ queryKey: [`/api/emergency/accountability`] });
       // Invalidate admin muster dashboard for real-time sync
