@@ -4180,6 +4180,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Staff member not found" });
       }
       
+      // Check for active evacuations and add staff to accountability list if needed
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, context.customerId)
+        ))
+        .limit(1);
+      
+      if (activeEvacuations.length > 0) {
+        const evacuation = activeEvacuations[0];
+        
+        // Check if staff member is already in accountability list
+        const existingRecord = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, evacuation.evacuationId),
+            eq(evacuationAccountability.personId, staff.id)
+          ))
+          .limit(1);
+        
+        if (existingRecord.length === 0) {
+          // Add staff to evacuation accountability
+          await db.insert(evacuationAccountability).values({
+            customerId: context.customerId,
+            evacuationId: evacuation.evacuationId,
+            personId: staff.id,
+            personType: 'staff',
+            personName: `${staff.firstName} ${staff.lastName}`,
+            department: staff.department || '',
+            company: '',
+            lastKnownLocation: 'Just Checked In',
+            isAccountedFor: false
+          });
+          
+          console.log(`✅ Added ${staff.firstName} ${staff.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+        }
+      }
+      
       res.json({ success: true, staff });
     } catch (error) {
       console.error("Error checking in staff:", error);
@@ -5029,6 +5070,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add e-Pass info to response
         visitor.ePassSent = true;
         visitor.ePassUrl = ePassUrl;
+      }
+      
+      // Check for active evacuations and add visitor to accountability list if needed
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, context.customerId)
+        ))
+        .limit(1);
+      
+      if (activeEvacuations.length > 0) {
+        const evacuation = activeEvacuations[0];
+        
+        // Check if visitor is already in accountability list
+        const existingRecord = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, evacuation.evacuationId),
+            eq(evacuationAccountability.personId, visitor.id)
+          ))
+          .limit(1);
+        
+        if (existingRecord.length === 0) {
+          // Add visitor to evacuation accountability
+          await db.insert(evacuationAccountability).values({
+            customerId: context.customerId,
+            evacuationId: evacuation.evacuationId,
+            personId: visitor.id,
+            personType: 'visitor',
+            personName: `${visitor.firstName} ${visitor.lastName}`,
+            department: '',
+            company: visitor.company || '',
+            lastKnownLocation: 'Just Checked In',
+            isAccountedFor: false
+          });
+          
+          console.log(`✅ Added visitor ${visitor.firstName} ${visitor.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+        }
       }
       
       res.json(visitor);
