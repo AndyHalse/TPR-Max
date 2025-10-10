@@ -3509,35 +3509,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
       
-      // Combine all personnel for Fire Marshal view
+      // CRITICAL FIX: Get active evacuation to fetch accountability status
+      const activeEvacuation = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.customerId, customerId),
+          eq(evacuations.status, 'active')
+        ))
+        .limit(1);
+      
+      let accountabilityMap = new Map<string, any>();
+      
+      if (activeEvacuation.length > 0) {
+        // Fetch accountability records for this evacuation
+        const accountabilityRecords = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, activeEvacuation[0].evacuationId),
+            eq(evacuationAccountability.customerId, customerId)
+          ));
+        
+        // Create a map for quick lookup
+        accountabilityRecords.forEach(record => {
+          accountabilityMap.set(record.personId, record);
+        });
+        
+        console.log(`✅ Loaded ${accountabilityRecords.length} accountability records for evacuation ${activeEvacuation[0].evacuationId}`);
+      }
+      
+      // Combine all personnel for Fire Marshal view with REAL accountability status
       const personnelList = [
-        ...checkedInStaff.map(staff => ({
-          id: staff.id,
-          name: `${staff.firstName} ${staff.lastName}`,
-          type: 'staff' as const,
-          department: staff.department,
-          checkedInAt: staff.checkedInAt || staff.createdAt,
-          location: 'Building A',
-          isAccountedFor: staff.isAccountedFor || false
-        })),
-        ...currentVisitors.map(visitor => ({
-          id: visitor.id,
-          name: `${visitor.firstName} ${visitor.lastName}`,
-          type: 'visitor' as const,
-          company: visitor.company,
-          checkedInAt: visitor.checkedInAt,
-          location: 'Reception',
-          isAccountedFor: false
-        })),
-        ...checkedInContractors.map(contractor => ({
-          id: contractor.id,
-          name: `${contractor.firstName} ${contractor.lastName}`,
-          type: 'contractor' as const,
-          department: contractor.department,
-          checkedInAt: contractor.checkedInAt,
-          location: 'Site',
-          isAccountedFor: false
-        }))
+        ...checkedInStaff.map(staff => {
+          const accountabilityRecord = accountabilityMap.get(staff.id);
+          return {
+            id: staff.id,
+            name: `${staff.firstName} ${staff.lastName}`,
+            type: 'staff' as const,
+            department: staff.department,
+            checkedInAt: staff.checkedInAt || staff.createdAt,
+            location: accountabilityRecord?.lastKnownLocation || 'Building A',
+            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
+            accountedBy: accountabilityRecord?.accountedBy,
+            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
+            musterPoint: accountabilityRecord?.musterPoint
+          };
+        }),
+        ...currentVisitors.map(visitor => {
+          const accountabilityRecord = accountabilityMap.get(visitor.id);
+          return {
+            id: visitor.id,
+            name: `${visitor.firstName} ${visitor.lastName}`,
+            type: 'visitor' as const,
+            company: visitor.company,
+            checkedInAt: visitor.checkedInAt,
+            location: accountabilityRecord?.lastKnownLocation || 'Reception',
+            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
+            accountedBy: accountabilityRecord?.accountedBy,
+            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
+            musterPoint: accountabilityRecord?.musterPoint
+          };
+        }),
+        ...checkedInContractors.map(contractor => {
+          const accountabilityRecord = accountabilityMap.get(contractor.id);
+          return {
+            id: contractor.id,
+            name: `${contractor.firstName} ${contractor.lastName}`,
+            type: 'contractor' as const,
+            department: contractor.department,
+            checkedInAt: contractor.checkedInAt,
+            location: accountabilityRecord?.lastKnownLocation || 'Site',
+            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
+            accountedBy: accountabilityRecord?.accountedBy,
+            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
+            musterPoint: accountabilityRecord?.musterPoint
+          };
+        })
       ];
       
       res.json({

@@ -217,11 +217,13 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         setActiveEvacuationId(data.evacuationId);
       }
       
+      // CRITICAL: Invalidate ALL Fire Marshal personnel endpoints to sync across all URLs
+      queryClient.invalidateQueries({ queryKey: [`/api/emergency/fire-marshal`] });
       // Invalidate Fire Marshal accountability view
       queryClient.invalidateQueries({ queryKey: [`/api/emergency/accountability`] });
       // Invalidate admin muster dashboard for real-time sync
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      refetch();
+      
       toast({
         title: "✓ Marked Safe",
         description: "Person has been marked as safe",
