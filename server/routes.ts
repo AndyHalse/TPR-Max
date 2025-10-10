@@ -3509,7 +3509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
       
-      // CRITICAL FIX: Get active evacuation to fetch accountability status
+      // CRITICAL FIX: Get active evacuation from public schema (filtered by customerId)
       const activeEvacuation = await db
         .select()
         .from(evacuations)
@@ -3519,24 +3519,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ))
         .limit(1);
       
+      console.log(`🔍 Active evacuation query result: ${activeEvacuation.length} evacuations found for customer ${customerId}`);
+      
       let accountabilityMap = new Map<string, any>();
       
       if (activeEvacuation.length > 0) {
-        // Fetch accountability records for this evacuation
-        const accountabilityRecords = await db
+        // HYBRID FIX: Fetch accountability records from ISOLATED SCHEMA (customerDb)
+        const accountabilityRecords = await customerDb
           .select()
-          .from(evacuationAccountability)
-          .where(and(
-            eq(evacuationAccountability.evacuationId, activeEvacuation[0].evacuationId),
-            eq(evacuationAccountability.customerId, customerId)
-          ));
+          .from(isolatedSchema.evacuationAccountability)
+          .where(
+            eq(isolatedSchema.evacuationAccountability.evacuationId, activeEvacuation[0].evacuationId)
+          );
         
         // Create a map for quick lookup
         accountabilityRecords.forEach(record => {
           accountabilityMap.set(record.personId, record);
         });
         
-        console.log(`✅ Loaded ${accountabilityRecords.length} accountability records for evacuation ${activeEvacuation[0].evacuationId}`);
+        console.log(`✅ Loaded ${accountabilityRecords.length} accountability records from ISOLATED SCHEMA for evacuation ${activeEvacuation[0].evacuationId}`);
+      } else {
+        console.log(`⚠️ No active evacuation found for customer ${customerId} - accountability status will default to false`);
       }
       
       // Combine all personnel for Fire Marshal view with REAL accountability status
