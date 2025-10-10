@@ -12366,6 +12366,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Check for active evacuations and add contractor to accountability list if needed
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, context.customerId)
+        ))
+        .limit(1);
+      
+      if (activeEvacuations.length > 0) {
+        const evacuation = activeEvacuations[0];
+        
+        // Check if contractor is already in accountability list
+        const existingRecord = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, evacuation.evacuationId),
+            eq(evacuationAccountability.personId, workerId)
+          ))
+          .limit(1);
+        
+        if (existingRecord.length === 0) {
+          // Add contractor to evacuation accountability
+          await db.insert(evacuationAccountability).values({
+            customerId: context.customerId,
+            evacuationId: evacuation.evacuationId,
+            personId: workerId,
+            personType: 'contractor',
+            personName: `${worker.firstName} ${worker.lastName}`,
+            department: worker.department || '',
+            company: company.name || '',
+            lastKnownLocation: 'Just Checked In',
+            isAccountedFor: false
+          });
+          
+          console.log(`✅ Added contractor ${worker.firstName} ${worker.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+        }
+      }
+
       res.json({
         success: true,
         worker: updatedWorker,
