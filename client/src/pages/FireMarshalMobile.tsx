@@ -19,11 +19,7 @@ import {
   Siren,
   ChevronDown,
   LogOut,
-  UserMinus,
-  Settings,
-  Pencil,
-  Plus,
-  Trash2
+  UserMinus
 } from "lucide-react";
 import {
   AlertDialog,
@@ -36,15 +32,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 interface PersonOnSite {
   id: string;
@@ -87,25 +74,14 @@ interface MarshalInfo {
   customerId: string;
 }
 
-interface MusterPoint {
-  id: string;
-  name: string;
-  displayOrder: number;
-  isActive: boolean;
-}
-
 export default function FireMarshalMobile({ urlId, token }: FireMarshalMobileProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   const [marshalName, setMarshalName] = useState("");
-  const [selectedMusterPoint, setSelectedMusterPoint] = useState<string>("");
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [filterType, setFilterType] = useState<'all' | 'unaccounted' | 'accounted'>('unaccounted');
   const [marshalInfo, setMarshalInfo] = useState<MarshalInfo | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [isLocationsDialogOpen, setIsLocationsDialogOpen] = useState(false);
-  const [editingPoint, setEditingPoint] = useState<MusterPoint | null>(null);
-  const [editName, setEditName] = useState("");
 
   // NEW: Authenticate using static URL ID
   useEffect(() => {
@@ -175,28 +151,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   });
 
-  // Fetch muster points with stats (for Fire Marshal dashboard)
-  const { data: musterPointsData } = useQuery<{
-    musterPoints: MusterPoint[];
-    stats: Record<string, number>;
-    evacuationActive: boolean;
-  }>({
-    queryKey: ['/api/muster-points/stats'],
-    enabled: !!urlId || !!token,
-    refetchInterval: 5000, // Refresh every 5 seconds
-    queryFn: async () => {
-      const headers: HeadersInit = {};
-      if (token) {
-        headers['X-Emergency-Token'] = token;
-      } else if (urlId) {
-        headers['X-Fire-Marshal-Id'] = urlId;
-      }
-      const response = await fetch('/api/muster-points/stats', { headers });
-      if (!response.ok) throw new Error('Failed to fetch muster points');
-      return response.json();
-    }
-  });
-
   // Convert personnel data to evacuation format when no active evacuation
   const fallbackEvacuationData: EvacuationData | null = personnelData ? {
     evacuationId: 'standalone', // Fire Marshal URL works independently
@@ -204,7 +158,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     totalOnSite: personnelData.totalOnSite,
     accountedFor: personnelData.accountedFor,
     unaccounted: personnelData.unaccounted,
-    musterPoints: musterPointsData?.musterPoints.map(p => p.name) || []
+    musterPoints: []
   } : null;
 
   // Use either real evacuation data or fallback personnel data
@@ -230,16 +184,10 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [activeEvacuation]);
 
-  // Set default muster point from displayData (works with or without active evacuation)
-  useEffect(() => {
-    if (displayData?.musterPoints && displayData.musterPoints.length > 0 && !selectedMusterPoint) {
-      setSelectedMusterPoint(displayData.musterPoints[0]);
-    }
-  }, [displayData?.musterPoints, selectedMusterPoint]);
 
   // Mark person as safe mutation
   const markSafeMutation = useMutation({
-    mutationFn: async ({ personId, musterPoint }: { personId: string; musterPoint: string }) => {
+    mutationFn: async ({ personId }: { personId: string }) => {
       const headers: HeadersInit = { "Content-Type": "application/json" };
       
       // Support both authentication methods
@@ -254,7 +202,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         headers,
         credentials: "include",
         body: JSON.stringify({ 
-          musterPoint,
+          musterPoint: "Safe Location",  // Default location - no longer requires selection
           evacuationId: activeEvacuationId || 'standalone',  // Use 'standalone' if no active evacuation
           marshalName: marshalName
         })
@@ -344,80 +292,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   });
 
-  // Update muster point mutation
-  const updateMusterPointMutation = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      
-      // Add authentication header
-      if (token) {
-        headers["X-Emergency-Token"] = token;
-      } else if (urlId) {
-        headers["X-Fire-Marshal-Id"] = urlId;
-      }
-      
-      const response = await fetch(`/api/muster-points/${id}`, {
-        method: "PUT",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({ name, displayOrder: 0, isActive: true })
-      });
-      if (!response.ok) throw new Error("Failed to update muster point");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/muster-points/stats'] });
-      toast({
-        title: "✓ Location Updated",
-        description: "Muster point name has been updated",
-      });
-      setEditingPoint(null);
-      setEditName("");
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update muster point",
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Initialize default muster points mutation
-  const initDefaultsMutation = useMutation({
-    mutationFn: async () => {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      
-      // Add authentication header
-      if (token) {
-        headers["X-Emergency-Token"] = token;
-      } else if (urlId) {
-        headers["X-Fire-Marshal-Id"] = urlId;
-      }
-      
-      const response = await fetch('/api/muster-points/init-defaults', {
-        method: "POST",
-        headers,
-        credentials: "include"
-      });
-      if (!response.ok) throw new Error("Failed to initialize muster points");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/muster-points/stats'] });
-      toast({
-        title: "✓ Locations Initialized",
-        description: "Default muster points have been created",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to initialize muster points",
-        variant: "destructive"
-      });
-    }
-  });
 
   // Toggle card expansion
   const toggleCard = (id: string) => {
@@ -570,133 +444,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
       {/* Controls */}
       <div className="px-4 pb-3 space-y-3">
-        {/* Muster Point Selection with Update Button */}
-        <div className="flex gap-2">
-          <Select value={selectedMusterPoint} onValueChange={setSelectedMusterPoint}>
-            <SelectTrigger className="flex-1 bg-white h-12 text-base" data-testid="select-muster-mobile">
-              <MapPin className="h-5 w-5 mr-2" />
-              <SelectValue placeholder="Select Muster Point" />
-            </SelectTrigger>
-            <SelectContent>
-              {displayData?.musterPoints?.map((point) => (
-                <SelectItem key={point} value={point} className="text-base py-3">
-                  {point}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Dialog open={isLocationsDialogOpen} onOpenChange={setIsLocationsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="h-12 w-12 bg-white"
-                data-testid="button-update-locations"
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Update Muster Point Locations</DialogTitle>
-                <DialogDescription>
-                  Edit the names of muster point locations for evacuation assembly
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-3">
-                {!musterPointsData || musterPointsData.musterPoints.length === 0 ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      No muster points found. Initialize default locations?
-                    </p>
-                    <Button 
-                      onClick={() => initDefaultsMutation.mutate()}
-                      disabled={initDefaultsMutation.isPending}
-                      data-testid="button-init-defaults"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Initialize Default Locations
-                    </Button>
-                  </div>
-                ) : (
-                  musterPointsData.musterPoints.map((point) => (
-                    <div key={point.id} className="flex items-center gap-2">
-                      {editingPoint?.id === point.id ? (
-                        <>
-                          <Input
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="flex-1"
-                            autoFocus
-                            data-testid={`input-edit-location-${point.id}`}
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => updateMusterPointMutation.mutate({ id: point.id, name: editName })}
-                            disabled={updateMusterPointMutation.isPending || !editName.trim()}
-                            data-testid={`button-save-location-${point.id}`}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingPoint(null);
-                              setEditName("");
-                            }}
-                            data-testid={`button-cancel-location-${point.id}`}
-                          >
-                            ✕
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex-1 p-2 rounded border bg-muted/50">
-                            <p className="font-medium">{point.name}</p>
-                            {musterPointsData.stats[point.name] !== undefined && (
-                              <p className="text-xs text-muted-foreground">
-                                {musterPointsData.stats[point.name]} person(s) safe here
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingPoint(point);
-                              setEditName(point.name);
-                            }}
-                            data-testid={`button-edit-location-${point.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-              
-              <DialogFooter>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsLocationsDialogOpen(false);
-                    setEditingPoint(null);
-                    setEditName("");
-                  }}
-                  data-testid="button-close-locations-dialog"
-                >
-                  Close
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -778,8 +525,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                         return;
                       }
                       markSafeMutation.mutate({ 
-                        personId: person.id, 
-                        musterPoint: selectedMusterPoint 
+                        personId: person.id
                       });
                     }}
                     disabled={markSafeMutation.isPending || !marshalName}
@@ -790,7 +536,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                     ) : (
                       <CheckCircle2 className="h-5 w-5 mr-2" />
                     )}
-                    Mark Safe at {selectedMusterPoint}
+                    Mark Safe at Safe Location
                   </Button>
                 </div>
               )}
