@@ -79,7 +79,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   const [marshalName, setMarshalName] = useState("");
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  const [filterType, setFilterType] = useState<'all' | 'unaccounted' | 'accounted'>('unaccounted');
+  const [filterType, setFilterType] = useState<'all' | 'unaccounted' | 'accounted'>('all');
   const [marshalInfo, setMarshalInfo] = useState<MarshalInfo | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -106,7 +106,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [urlId]);
 
-  // Fetch on-site personnel data (when no active evacuation - Fire Marshal URL always works)
+  // Fetch on-site personnel data (Fire Marshal URL ALWAYS shows who's on site, regardless of evacuation status)
   const { data: personnelData, isLoading: isLoadingPersonnel } = useQuery<{
     people: PersonOnSite[];
     totalOnSite: number;
@@ -114,7 +114,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     unaccounted: number;
   }>({
     queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`],
-    enabled: !!urlId && !activeEvacuationId,
+    enabled: !!urlId, // Always enabled - shows on-site personnel with or without evacuation
     refetchInterval: 5000 // Refresh every 5 seconds
   });
 
@@ -151,9 +151,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   });
 
-  // Convert personnel data to evacuation format when no active evacuation
-  const fallbackEvacuationData: EvacuationData | null = personnelData ? {
-    evacuationId: 'standalone', // Fire Marshal URL works independently
+  // Convert personnel data to evacuation format - ALWAYS USE PERSONNEL DATA to show who's on site
+  const personnelDisplayData: EvacuationData | null = personnelData ? {
+    evacuationId: activeEvacuationId || 'standalone', // Fire Marshal URL works independently
     people: personnelData.people,
     totalOnSite: personnelData.totalOnSite,
     accountedFor: personnelData.accountedFor,
@@ -161,8 +161,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     musterPoints: []
   } : null;
 
-  // Use either real evacuation data or fallback personnel data
-  const displayData = evacuationData || fallbackEvacuationData;
+  // ALWAYS prioritize on-site personnel data - Fire Marshal URLs show who's on site at ANY time
+  // If there's evacuation-specific data with more detail, merge it
+  const displayData = personnelDisplayData || evacuationData;
 
   // Check for active evacuation (only for legacy token auth - new URL ID system gets this from auth endpoint)
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
