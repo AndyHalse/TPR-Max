@@ -4188,6 +4188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(evacuations.status, 'active'),
           eq(evacuations.customerId, context.customerId)
         ))
+        .orderBy(desc(evacuations.startedAt))
         .limit(1);
       
       if (activeEvacuations.length > 0) {
@@ -5080,6 +5081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(evacuations.status, 'active'),
           eq(evacuations.customerId, context.customerId)
         ))
+        .orderBy(desc(evacuations.startedAt))
         .limit(1);
       
       if (activeEvacuations.length > 0) {
@@ -12374,6 +12376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(evacuations.status, 'active'),
           eq(evacuations.customerId, context.customerId)
         ))
+        .orderBy(desc(evacuations.startedAt))
         .limit(1);
       
       if (activeEvacuations.length > 0) {
