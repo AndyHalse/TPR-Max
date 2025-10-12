@@ -2062,6 +2062,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }))
       ];
       
+      // Prevent browser caching for real-time updates
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.json(musterList);
     } catch (error) {
       console.error("Failed to fetch muster list:", error);
@@ -2701,6 +2706,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       
       const evacuationRecord = evacuation[0];
+      
+      // Prevent browser caching for real-time updates
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       res.json({ 
         evacuationId,
@@ -3591,6 +3601,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       ];
       
+      // Prevent browser caching for real-time updates
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.json({
         people: personnelList,
         totalOnSite: personnelList.length,
@@ -3984,6 +3999,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
         ...checkedInContractors
       ];
+      
+      // Prevent browser caching for real-time updates
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       res.json(musterList);
     } catch (error) {
