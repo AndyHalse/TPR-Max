@@ -246,47 +246,47 @@ export default function MarketingPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start space-x-2 mb-6">
+                <Badge variant="secondary" className="text-white bg-red-600">
+                  <Siren className="h-3 w-3 mr-1" />
+                  Emergency Mustering & Accountability
+                </Badge>
                 <Badge variant="secondary" className="text-white" style={{backgroundColor: '#2460A9'}}>
                   <Shield className="h-3 w-3 mr-1" />
-                  Enterprise-Ready Security Platform
-                </Badge>
-                <Badge variant="secondary" className="text-white bg-green-600">
-                  <Lock className="h-3 w-3 mr-1" />
-                  SOC 2 Compliant
+                  Health & Safety First
                 </Badge>
               </div>
               
               <h1 className="text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-6">
-                Reduce Security Risk by 90%
+                Save Lives with Instant
                 <span style={{color: '#2460A9'}}>
-                  {" "}While Cutting Admin Time in Half
+                  {" "}Emergency Accountability
                 </span>
               </h1>
 
               {/* Enterprise Metrics Bar */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 py-6 px-4 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-uptime">99.9%</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">Uptime SLA</div>
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400" data-testid="metric-emergency">{"<3s"}</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Emergency Response</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-visitors">10K+</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">Daily Visitors</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Daily Personnel</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-compliance">100%</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">Compliance Rate</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">H&S Compliance</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-efficiency">50%</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">Time Savings</div>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white" data-testid="metric-efficiency">24/7</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Live Monitoring</div>
                 </div>
               </div>
               
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-                Transform your facility security and compliance operations with our enterprise-grade personnel management platform. 
-                Achieve complete regulatory compliance, eliminate manual processes, and gain real-time visibility across all sites 
-                while reducing operational costs and security incidents.
+                <strong>Every organisation needs reliable Health & Safety mustering.</strong> TPR Max delivers instant emergency accountability 
+                when seconds count—know exactly who's on-site during evacuations or emergencies. Plus, powerful features like contractor management, 
+                site inductions, room booking, and staff time & attendance make it your complete personnel management solution.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -363,14 +363,14 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-              Everything You Need for 
+              Critical Emergency Mustering
               <span style={{color: '#2460A9'}}>
-                {" "}Complete Personnel Control
+                {" "}Plus Powerful Site Management
               </span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Discover how VisiGate Pro transforms personnel management across your entire organization. 
-              Click each tab to explore features that deliver real business value.
+              Life-saving emergency accountability is just the beginning. Discover how TPR Max combines critical Health & Safety mustering 
+              with contractor management, site inductions, room booking, and staff time & attendance in one complete platform.
             </p>
           </div>
 
