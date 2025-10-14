@@ -49,7 +49,7 @@ class EmailService {
   async sendEmail(options: EmailOptions & { attachments?: any[] }): Promise<boolean> {
     try {
       // Get company name from options if available
-      const companyName = options.companyName || 'VisiGate Pro';
+      const companyName = options.companyName || 'TPR Max';
       
       // Use a simpler from format to avoid spam filters
       const fromAddress = process.env.SMTP_USER || 'noreply@visigate.pro';
@@ -64,7 +64,7 @@ class EmailService {
         attachments: options.attachments || [],
         headers: {
           // Essential headers for deliverability
-          'X-Mailer': 'VisiGate Pro Visitor Management System',
+          'X-Mailer': 'TPR Max Visitor Management System',
           'Message-ID': `<${Date.now()}.${Math.random().toString(36).substring(2)}@${domain}>`,
           'Date': new Date().toUTCString(),
           'X-Priority': '3',
@@ -91,7 +91,7 @@ class EmailService {
 
   async sendReport(report: any, settings: any, recipients: string[], reportData: any): Promise<boolean> {
     try {
-      const companyName = settings?.companyName || 'VisiGate Pro';
+      const companyName = settings?.companyName || 'TPR Max';
       const subject = `${report.reportType} Report - ${new Date(report.dateFrom).toLocaleDateString()} to ${new Date(report.dateTo).toLocaleDateString()}`;
       
       // Generate HTML content for the report
@@ -121,9 +121,9 @@ class EmailService {
     try {
       const testEmailOptions = {
         to: email,
-        subject: 'VisiGate Pro - Test Email',
-        html: '<h2>Test Email Successful</h2><p>This is a test email from VisiGate Pro system. Your email configuration is working correctly.</p>',
-        text: 'Test Email Successful\n\nThis is a test email from VisiGate Pro system. Your email configuration is working correctly.'
+        subject: 'TPR Max - Test Email',
+        html: '<h2>Test Email Successful</h2><p>This is a test email from TPR Max system. Your email configuration is working correctly.</p>',
+        text: 'Test Email Successful\n\nThis is a test email from TPR Max system. Your email configuration is working correctly.'
       };
 
       return await this.sendEmail(testEmailOptions);
@@ -1202,7 +1202,7 @@ This is an automated emergency notification from ${companySettings.companyName}`
     ePassUrl?: string
   ): Promise<boolean> {
     try {
-      const companyName = settings?.companyName || 'VisiGate Pro';
+      const companyName = settings?.companyName || 'TPR Max';
       const validUntil = visitor.expectedDepartureTime ? 
         new Date(visitor.expectedDepartureTime).toLocaleString('en-GB', {
           hour: '2-digit',

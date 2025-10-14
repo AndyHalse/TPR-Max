@@ -142,7 +142,7 @@ export default function OnboardingSuccess({}: OnboardingSuccessProps) {
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-slate-600 dark:text-slate-400">
-            Your VisiGate Pro account has been set up successfully. Redirecting to your dashboard...
+            Your TPR Max account has been set up successfully. Redirecting to your dashboard...
           </p>
           <div className="flex justify-center">
             <div className="animate-pulse flex space-x-1">

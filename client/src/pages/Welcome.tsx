@@ -241,7 +241,7 @@ export default function Welcome() {
     
     toast({
       title: "Setup Complete!",
-      description: "Welcome to VisiGate Pro! You can now log in with your credentials.",
+      description: "Welcome to TPR Max! You can now log in with your credentials.",
     });
     
     setLocation("/login");
@@ -276,7 +276,7 @@ export default function Welcome() {
         </div>
         <CardTitle className="text-2xl">Upload Your Company Logo</CardTitle>
         <CardDescription>
-          Add your company logo to personalize your VisiGate Pro workspace
+          Add your company logo to personalize your TPR Max workspace
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

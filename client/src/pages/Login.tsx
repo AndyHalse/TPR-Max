@@ -136,7 +136,7 @@ export default function Login() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-              VisiGate Pro
+              TPR Max
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
               SaaS Customer Portal
@@ -232,7 +232,7 @@ export default function Login() {
               <Separator className="my-4" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="bg-white dark:bg-slate-800 px-4 text-sm text-slate-500 dark:text-slate-400">
-                  New to VisiGate Pro?
+                  New to TPR Max?
                 </span>
               </div>
             </div>
@@ -252,7 +252,7 @@ export default function Login() {
                 </h3>
                 
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Join thousands of companies using VisiGate Pro for visitor management, 
+                  Join thousands of companies using TPR Max for visitor management, 
                   staff tracking, and workplace security. Start your free trial today!
                 </p>
                 
@@ -293,7 +293,7 @@ export default function Login() {
           
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Secure multi-tenant access • VisiGate Pro
+              Secure multi-tenant access • TPR Max
             </p>
           </div>
         </CardContent>
