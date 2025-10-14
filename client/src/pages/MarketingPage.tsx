@@ -95,7 +95,7 @@ export default function MarketingPage() {
     const currentCostPerDay = (currentTimePerDay / 60) * hourlyCost[0]; // cost per day
     const annualProcessCost = currentCostPerDay * workingDaysPerYear;
     
-    // Time savings with VisiGate Pro (90% reduction)
+    // Time savings with TPR Max (90% reduction)
     const annualTimeSaved = (currentTimePerDay * workingDaysPerYear * 0.9) / 60; // hours
     const annualCostSavings = annualTimeSaved * hourlyCost[0];
     
@@ -106,7 +106,7 @@ export default function MarketingPage() {
     // Total savings
     const totalAnnualSavings = annualCostSavings + annualComplianceSavings;
     
-    // VisiGate Pro annual cost (estimated based on company size)
+    // TPR Max annual cost (estimated based on company size)
     const monthlySubscription = Math.min(companySize[0] * 10, 12000); // £10 per employee, capped at £12k
     const annualSubscription = monthlySubscription * 12;
     
@@ -202,9 +202,14 @@ export default function MarketingPage() {
                 className="h-8 w-8 object-contain" 
                 data-testid="img-logo" 
               />
-              <span className="text-xl font-bold" style={{color: '#2460A9'}}>
-                VisiGate Pro
-              </span>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold" style={{color: '#2460A9'}}>
+                  TPR Max
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
+                  Total Personnel Register
+                </span>
+              </div>
             </div>
             <div className="hidden md:flex items-center space-x-8">
               <button 
@@ -342,7 +347,7 @@ export default function MarketingPage() {
               <div className="relative z-10">
                 <img 
                   src={dashboardImg} 
-                  alt="VisiGate Pro Dashboard" 
+                  alt="TPR Max Dashboard" 
                   className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700"
                 />
                 <div className="absolute -bottom-4 -right-4 bg-white dark:bg-slate-800 rounded-lg p-3 shadow-lg border border-slate-200 dark:border-slate-700">
@@ -518,7 +523,7 @@ export default function MarketingPage() {
                 <div className="relative">
                   <img 
                     src={dashboardImg} 
-                    alt="VisiGate Pro Real-Time Dashboard" 
+                    alt="TPR Max Real-Time Dashboard" 
                     className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
                     data-testid="img-dashboard"
                   />
@@ -1062,7 +1067,7 @@ export default function MarketingPage() {
                       Life-Saving Emergency Response System
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      When every second counts, VisiGate Pro delivers instant accountability across your entire site. 
+                      When every second counts, TPR Max delivers instant accountability across your entire site. 
                       Automated muster point tracking, Fire Marshal notifications, and digital roll-call ensure 
                       complete personnel safety during evacuations and emergency situations.
                     </p>
@@ -1383,7 +1388,7 @@ export default function MarketingPage() {
               Ready to Transform Your Personnel Management?
             </h3>
             <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-2xl mx-auto">
-              Join hundreds of companies using VisiGate Pro for complete personnel oversight, 
+              Join hundreds of companies using TPR Max for complete personnel oversight, 
               compliance management, and emergency preparedness.
             </p>
             <Button 
@@ -1641,7 +1646,7 @@ export default function MarketingPage() {
                 Trusted by Enterprise Leaders
               </h2>
               <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-                See why security directors, CTOs, and facilities managers choose VisiGate Pro for their critical operations.
+                See why security directors, CTOs, and facilities managers choose TPR Max for their critical operations.
               </p>
             </div>
 
@@ -1650,7 +1655,7 @@ export default function MarketingPage() {
               <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl relative" data-testid="card-testimonial-1">
                 <Quote className="h-8 w-8 text-slate-400 mb-4" />
                 <blockquote className="text-slate-700 dark:text-slate-300 mb-6 leading-relaxed">
-                  "VisiGate Pro reduced our security incidents by 90% and cut manual compliance work from 40 hours to 2 hours per week. The ROI was immediate and the peace of mind is invaluable."
+                  "TPR Max reduced our security incidents by 90% and cut manual compliance work from 40 hours to 2 hours per week. The ROI was immediate and the peace of mind is invaluable."
                 </blockquote>
                 <div className="flex items-center space-x-3">
                   <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
@@ -1781,7 +1786,7 @@ export default function MarketingPage() {
               </span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              VisiGate Pro adapts to serve diverse organizational needs with industry-specific features, 
+              TPR Max adapts to serve diverse organizational needs with industry-specific features, 
               compliance requirements, and security protocols that matter most to your sector.
             </p>
           </div>
@@ -2071,7 +2076,7 @@ export default function MarketingPage() {
               Don't See Your Industry?
             </h3>
             <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-2xl mx-auto">
-              VisiGate Pro serves organizations across all sectors. Our flexible platform adapts to your 
+              TPR Max serves organizations across all sectors. Our flexible platform adapts to your 
               specific compliance requirements, security protocols, and operational workflows.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -2116,7 +2121,7 @@ export default function MarketingPage() {
               </span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Discover how VisiGate Pro can transform your operations. Adjust the sliders below to see 
+              Discover how TPR Max can transform your operations. Adjust the sliders below to see 
               personalized calculations based on your organization's specific requirements and current processes.
             </p>
           </div>
@@ -2366,7 +2371,7 @@ export default function MarketingPage() {
                       </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">With VisiGate Pro</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">With TPR Max</div>
                       <div className="text-xl font-bold text-green-600 dark:text-green-400">
                         {Math.round(roiMetrics.currentTimePerDay * 0.1)} min/day
                       </div>
@@ -2471,7 +2476,7 @@ export default function MarketingPage() {
             Ready to Transform Your Personnel Management?
           </h2>
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            Join hundreds of companies using VisiGate Pro for complete personnel oversight, 
+            Join hundreds of companies using TPR Max for complete personnel oversight, 
             compliance management, and emergency preparedness.
           </p>
 
@@ -2546,7 +2551,7 @@ export default function MarketingPage() {
               
               {/* Additional Links */}
               <div className="mt-8">
-                <h4 className="font-semibold mb-3">VisiGate Pro</h4>
+                <h4 className="font-semibold mb-3">TPR Max</h4>
                 <p className="text-slate-300 text-sm">
                   Comprehensive personnel management system for visitors, contractors, and staff.
                 </p>
