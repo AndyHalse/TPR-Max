@@ -68,8 +68,15 @@ import {
 
 // Import ACS logo and screenshots
 import acsLogo from "@assets/acs-logo-2460A9-200px.jpg";
-import dashboardImg from "@assets/Screenshot 2025-09-16 at 13.39.01_1758022774224.png";
-import kioskImg from "@assets/Screenshot 2025-08-24 at 16.05.36_1756044356361.png";
+import dashboardImg from "@assets/Dashboard_1760457443176.png";
+import emergencyMusterImg from "@assets/Emergency Muster_1760457443172.png";
+import visitorManagementImg from "@assets/Visitor Management_1760457443176.png";
+import contractorManagementImg from "@assets/Contractor Management_1760457443175.png";
+import staffManagementImg from "@assets/Staff Management_1760457443175.png";
+import meetingRoomsImg from "@assets/Meeting Rooms & Booking Management_1760457443174.png";
+import reportsAnalyticsImg from "@assets/Reports & Analytics_1760457443171.png";
+import timeAttendanceImg from "@assets/Time & Attendance Report_1760457443174.png";
+import inductionsImg from "@assets/Inductions _1760457443169.png";
 import thermalImg from "@assets/ID Card printer_1756400844599.png";
 
 export default function MarketingPage() {
@@ -412,20 +419,20 @@ export default function MarketingPage() {
             <div className="relative">
               <div className="relative z-10">
                 <img
-                  src={dashboardImg}
-                  alt="TPR Max Dashboard"
+                  src={emergencyMusterImg}
+                  alt="TPR Max Emergency Muster - Real-time emergency evacuation management and accountability system"
                   className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700"
                 />
-                <div className="absolute -bottom-4 -right-4 bg-white dark:bg-slate-800 rounded-lg p-3 shadow-lg border border-slate-200 dark:border-slate-700">
+                <div className="absolute -bottom-4 -right-4 bg-red-600 dark:bg-red-700 rounded-lg p-3 shadow-lg border border-red-700 dark:border-red-600">
                   <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Live System
+                    <Siren className="h-4 w-4 text-white animate-pulse" />
+                    <span className="text-sm font-medium text-white">
+                      Emergency Ready
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 rounded-xl blur-3xl -z-10"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-orange-600/20 rounded-xl blur-3xl -z-10"></div>
             </div>
           </div>
         </div>
@@ -692,45 +699,13 @@ export default function MarketingPage() {
                   </Button>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-xl p-8">
-                  <div className="space-y-4">
-                    <h4 className="text-xl font-semibold text-slate-900 dark:text-white">
-                      Visitor Journey
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-blue-600 dark:text-blue-300">
-                            1
-                          </span>
-                        </div>
-                        <span className="text-slate-700 dark:text-slate-300">
-                          Pre-registration via email
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
-                        <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-green-600 dark:text-green-300">
-                            2
-                          </span>
-                        </div>
-                        <span className="text-slate-700 dark:text-slate-300">
-                          Contactless arrival check-in
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
-                        <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-purple-600 dark:text-purple-300">
-                            3
-                          </span>
-                        </div>
-                        <span className="text-slate-700 dark:text-slate-300">
-                          Voice message: "Visitor John Smith from ABC Company
-                          has arrived"
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <img
+                    src={visitorManagementImg}
+                    alt="Visitor Management System - Pre-booking and registration"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-visitor-management"
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -798,59 +773,13 @@ export default function MarketingPage() {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <div className="text-center">
-                      <div className="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mx-auto mb-3">
-                        <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-300" />
-                      </div>
-                      <h4 className="font-semibold text-slate-900 dark:text-white mb-2">
-                        Available Now
-                      </h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Board Room A
-                      </p>
-                    </div>
-                  </Card>
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <div className="text-center">
-                      <div className="h-12 w-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center mx-auto mb-3">
-                        <Clock className="h-6 w-6 text-red-600 dark:text-red-300" />
-                      </div>
-                      <h4 className="font-semibold text-slate-900 dark:text-white mb-2">
-                        In Use
-                      </h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Conference Room B
-                      </p>
-                    </div>
-                  </Card>
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <div className="text-center">
-                      <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mx-auto mb-3">
-                        <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-300" />
-                      </div>
-                      <h4 className="font-semibold text-slate-900 dark:text-white mb-2">
-                        Booked 2pm
-                      </h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Training Room C
-                      </p>
-                    </div>
-                  </Card>
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <div className="text-center">
-                      <div className="h-12 w-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center mx-auto mb-3">
-                        <Settings className="h-6 w-6 text-orange-600 dark:text-orange-300" />
-                      </div>
-                      <h4 className="font-semibold text-slate-900 dark:text-white mb-2">
-                        Maintenance
-                      </h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Meeting Room D
-                      </p>
-                    </div>
-                  </Card>
+                <div className="relative">
+                  <img
+                    src={meetingRoomsImg}
+                    alt="Meeting Room Booking & Management System"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-meeting-rooms"
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -918,67 +847,13 @@ export default function MarketingPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-lg p-4">
-                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        24
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
-                        Staff On-Site
-                      </div>
-                    </div>
-                    <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-lg p-4">
-                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        12
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
-                        Contractors
-                      </div>
-                    </div>
-                    <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-lg p-4">
-                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                        8
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
-                        Visitors
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-lg p-6">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">
-                      Recent Activity
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-8 w-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                          <UserCheck className="h-4 w-4 text-green-600 dark:text-green-300" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-white">
-                            John Smith - Check In
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Staff • Reception • 2 mins ago
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                          <Users className="h-4 w-4 text-blue-600 dark:text-blue-300" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-white">
-                            Emma Wilson - Visitor
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Meeting Room B • 5 mins ago
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <img
+                    src={staffManagementImg}
+                    alt="Staff & Personnel Management System"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-staff-management"
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -1231,63 +1106,13 @@ export default function MarketingPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-4">
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-slate-900 dark:text-white">
-                        Compliance Status
-                      </h4>
-                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                        100% Compliant
-                      </Badge>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          Safety Inductions
-                        </span>
-                        <span className="text-sm font-medium text-green-600">
-                          24/24 Complete
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          Insurance Certificates
-                        </span>
-                        <span className="text-sm font-medium text-green-600">
-                          Valid
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          Legal Documents
-                        </span>
-                        <span className="text-sm font-medium text-green-600">
-                          Up to Date
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">
-                      AI-Generated Content
-                    </h4>
-                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                      <div className="flex items-center space-x-2">
-                        <Brain className="h-4 w-4 text-blue-500" />
-                        <span>Construction Site Safety Induction</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4 text-purple-500" />
-                        <span>Visitor Safety Guidelines</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <ClipboardList className="h-4 w-4 text-green-500" />
-                        <span>Contractor Legal Requirements</span>
-                      </div>
-                    </div>
-                  </Card>
+                <div className="relative">
+                  <img
+                    src={inductionsImg}
+                    alt="AI-Powered Safety Inductions & Compliance Management"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-ai-compliance"
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -1363,97 +1188,21 @@ export default function MarketingPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-4">
-                  {/* Muster Point Status Card */}
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-2 border-orange-500">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-slate-900 dark:text-white flex items-center">
-                        <MapPin className="h-5 w-5 text-orange-500 mr-2" />
-                        Muster Points Status
-                      </h4>
-                      <Badge className="bg-red-600 text-white animate-pulse">
-                        EMERGENCY ACTIVE
-                      </Badge>
+                <div className="relative">
+                  <img
+                    src={emergencyMusterImg}
+                    alt="Emergency Muster System - Real-time personnel accountability and evacuation management"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-emergency-muster"
+                  />
+                  <div className="absolute -bottom-4 -right-4 bg-red-600 dark:bg-red-700 rounded-lg p-3 shadow-lg border border-red-700 dark:border-red-600">
+                    <div className="flex items-center space-x-2">
+                      <Siren className="h-4 w-4 text-white animate-pulse" />
+                      <span className="text-sm font-medium text-white">
+                        Emergency Active
+                      </span>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                        <div>
-                          <span className="font-medium text-green-800 dark:text-green-200">
-                            Main Car Park
-                          </span>
-                          <p className="text-xs text-green-600 dark:text-green-400">
-                            45/200 capacity
-                          </p>
-                        </div>
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                        <div>
-                          <span className="font-medium text-green-800 dark:text-green-200">
-                            Side Entrance
-                          </span>
-                          <p className="text-xs text-green-600 dark:text-green-400">
-                            23/100 capacity
-                          </p>
-                        </div>
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                        <div>
-                          <span className="font-medium text-orange-800 dark:text-orange-200">
-                            Rear Assembly
-                          </span>
-                          <p className="text-xs text-orange-600 dark:text-orange-400">
-                            127/150 capacity
-                          </p>
-                        </div>
-                        <AlertTriangle className="h-5 w-5 text-orange-600" />
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* Personnel Accountability Card */}
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
-                      <Users className="h-5 w-5 text-blue-500 mr-2" />
-                      Personnel Accountability
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          Total On-Site
-                        </span>
-                        <span className="text-lg font-bold text-blue-600">
-                          195
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          Accounted For
-                        </span>
-                        <span className="text-lg font-bold text-green-600">
-                          189
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          Unaccounted
-                        </span>
-                        <span className="text-lg font-bold text-red-600">
-                          6
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-2">
-                        <div
-                          className="bg-green-500 h-3 rounded-full"
-                          style={{ width: "97%" }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-center text-slate-500 dark:text-slate-400">
-                        97% Complete
-                      </p>
-                    </div>
-                  </Card>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -1662,70 +1411,13 @@ export default function MarketingPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-4">
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">
-                      This Month
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          Total Visitors
-                        </span>
-                        <span className="text-2xl font-bold text-blue-600">
-                          1,247
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          Average Daily
-                        </span>
-                        <span className="text-2xl font-bold text-green-600">
-                          42
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          Peak Hour
-                        </span>
-                        <span className="text-lg font-semibold text-orange-600">
-                          9:30 AM
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">
-                      Report Types
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center space-x-2">
-                        <Gauge className="h-4 w-4 text-blue-500" />
-                        <span>Occupancy Reports</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Shield className="h-4 w-4 text-red-500" />
-                        <span>Security Analytics</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-green-500" />
-                        <span>Time & Attendance</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4 text-purple-500" />
-                        <span>Compliance Status</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-orange-500" />
-                        <span>Room Utilization</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <TrendingUp className="h-4 w-4 text-indigo-500" />
-                        <span>Cost Analysis</span>
-                      </div>
-                    </div>
-                  </Card>
+                <div className="relative">
+                  <img
+                    src={reportsAnalyticsImg}
+                    alt="Comprehensive Reports & Analytics Dashboard"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-reports-analytics"
+                  />
                 </div>
               </div>
             </TabsContent>
