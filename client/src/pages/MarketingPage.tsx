@@ -508,12 +508,12 @@ export default function MarketingPage() {
                 ID Cards
               </TabsTrigger>
               <TabsTrigger
-                value="qr-access"
+                value="contractors"
                 className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-[#2460A9] transition-all duration-200"
-                data-testid="tab-qr-access"
+                data-testid="tab-contractors"
               >
-                <QrCode className="h-4 w-4 mb-1" />
-                QR Access
+                <HardHat className="h-4 w-4 mb-1" />
+                Contractors
               </TabsTrigger>
               <TabsTrigger
                 value="ai-compliance"
@@ -532,12 +532,12 @@ export default function MarketingPage() {
                 Emergency
               </TabsTrigger>
               <TabsTrigger
-                value="multi-tenant"
+                value="time-attendance"
                 className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-[#2460A9] transition-all duration-200"
-                data-testid="tab-multi-tenant"
+                data-testid="tab-time-attendance"
               >
-                <Building2 className="h-4 w-4 mb-1" />
-                Multi-Tenant
+                <Clock className="h-4 w-4 mb-1" />
+                Time Track
               </TabsTrigger>
               <TabsTrigger
                 value="reports"
@@ -943,11 +943,11 @@ export default function MarketingPage() {
               </div>
             </TabsContent>
 
-            {/* QR Access Tab */}
+            {/* Contractor Management Tab */}
             <TabsContent
-              value="qr-access"
+              value="contractors"
               className="space-y-6"
-              data-testid="content-qr-access"
+              data-testid="content-contractors"
             >
               <div className="grid lg:grid-cols-2 gap-8 items-center">
                 <div className="space-y-6">
@@ -956,17 +956,14 @@ export default function MarketingPage() {
                       className="mb-4"
                       style={{ backgroundColor: "#2460A9" }}
                     >
-                      <QrCode className="h-3 w-3 mr-1" />
-                      Smart Access Control
+                      <HardHat className="h-3 w-3 mr-1" />
+                      Complete Contractor Control
                     </Badge>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                      Contactless Access Management
+                      Enterprise Contractor Management
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Streamline access control with intelligent QR code
-                      technology. Seamlessly integrate with existing security
-                      systems while providing real-time tracking and instant
-                      verification for enhanced security and convenience.
+                      Comprehensive contractor oversight with worker tracking, certification management, and compliance verification. Ensure all contractors meet safety requirements while maintaining complete audit trails for insurance and legal purposes.
                     </p>
                   </div>
 
@@ -974,22 +971,19 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Contactless Entry:</strong> Secure QR code
-                        scanning for doors, gates, and restricted areas
+                        <strong>Worker Database:</strong> Track all contractor employees with photos, qualifications, and insurance documents
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>System Integration:</strong> Compatible with
-                        major access control brands and existing hardware
+                        <strong>Compliance Tracking:</strong> Automated alerts for expiring certificates, insurance, and safety documentation
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Real-Time Tracking:</strong> Instant location
-                        updates and movement history for all personnel
+                        <strong>Company Profiles:</strong> Manage contractor companies, contracts, and performance ratings in one system
                       </span>
                     </div>
                   </div>
@@ -999,46 +993,20 @@ export default function MarketingPage() {
                     onClick={() => scrollToSection("contact")}
                     className="text-white"
                     style={{ backgroundColor: "#2460A9" }}
-                    data-testid="button-qr-demo"
+                    data-testid="button-contractors-demo"
                   >
                     <Eye className="h-4 w-4 mr-2" />
-                    See QR Access Live
+                    See Contractor System Live
                   </Button>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-xl p-8">
-                  <div className="text-center mb-6">
-                    <div className="h-32 w-32 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-slate-300 dark:border-slate-600">
-                      <QrCode className="h-16 w-16 text-slate-400" />
-                    </div>
-                    <h4 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                      Scan to Access
-                    </h4>
-                    <p className="text-slate-600 dark:text-slate-400">
-                      Point camera at QR code for instant verification
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                      <span className="text-green-800 dark:text-green-200">
-                        Reception Area
-                      </span>
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                      <span className="text-green-800 dark:text-green-200">
-                        Meeting Rooms
-                      </span>
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
-                      <span className="text-slate-600 dark:text-slate-400">
-                        Server Room
-                      </span>
-                      <Lock className="h-4 w-4 text-slate-400" />
-                    </div>
-                  </div>
+                <div className="relative">
+                  <img
+                    src={contractorManagementImg}
+                    alt="Contractor Management System - Complete contractor company and worker tracking with compliance"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-contractor-management"
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -1207,11 +1175,11 @@ export default function MarketingPage() {
               </div>
             </TabsContent>
 
-            {/* Multi-Tenant Tab */}
+            {/* Time & Attendance Tab */}
             <TabsContent
-              value="multi-tenant"
+              value="time-attendance"
               className="space-y-6"
-              data-testid="content-multi-tenant"
+              data-testid="content-time-attendance"
             >
               <div className="grid lg:grid-cols-2 gap-8 items-center">
                 <div className="space-y-6">
@@ -1220,19 +1188,14 @@ export default function MarketingPage() {
                       className="mb-4"
                       style={{ backgroundColor: "#2460A9" }}
                     >
-                      <Building2 className="h-3 w-3 mr-1" />
-                      Enterprise Architecture
+                      <Clock className="h-3 w-3 mr-1" />
+                      Automated Time Tracking
                     </Badge>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                      Advanced Multi-Tenant Architecture
+                      Smart Time & Attendance
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Enterprise-grade multi-tenant solution with secure
-                      customer isolation and centralized management. Perfect for
-                      serviced offices, co-working spaces, and property
-                      management companies requiring complete data segregation
-                      while maintaining unified oversight and comprehensive
-                      reporting.
+                      Eliminate manual timesheets with automated time tracking for all personnel. Accurate check-in/check-out records, shift management, and comprehensive attendance reporting ensure precise payroll and contractor billing while reducing administrative overhead.
                     </p>
                   </div>
 
@@ -1240,24 +1203,19 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Secure Customer Isolation:</strong>{" "}
-                        Enterprise-grade data partitioning with dedicated tenant
-                        databases
+                        <strong>Automated Tracking:</strong> Precise check-in/check-out timestamps with location verification and photo capture
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Super Admin Controls:</strong> Comprehensive
-                        tenant provisioning with real-time analytics across all
-                        customers
+                        <strong>Comprehensive Reports:</strong> Detailed attendance analytics with overtime calculations and absence tracking
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>AWS Production Ready:</strong> Scalable cloud
-                        infrastructure with automatic deployment and monitoring
+                        <strong>Payroll Integration:</strong> Export ready timesheets for seamless payroll processing and contractor invoicing
                       </span>
                     </div>
                   </div>
@@ -1267,83 +1225,20 @@ export default function MarketingPage() {
                     onClick={() => scrollToSection("contact")}
                     className="text-white"
                     style={{ backgroundColor: "#2460A9" }}
-                    data-testid="button-multi-tenant-demo"
+                    data-testid="button-time-attendance-demo"
                   >
                     <Eye className="h-4 w-4 mr-2" />
-                    See Multi-Tenant Live
+                    See Time Tracking Live
                   </Button>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 rounded-lg p-6">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">
-                      Building Overview
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-blue-600">
-                          Floor 1
-                        </div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          TechCorp Ltd
-                        </div>
-                        <div className="text-xs text-green-600">24 People</div>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-green-600">
-                          Floor 2
-                        </div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          Design Studio
-                        </div>
-                        <div className="text-xs text-green-600">12 People</div>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-purple-600">
-                          Floor 3
-                        </div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          Legal Partners
-                        </div>
-                        <div className="text-xs text-green-600">8 People</div>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-orange-600">
-                          Floor 4
-                        </div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          Co-working
-                        </div>
-                        <div className="text-xs text-green-600">16 People</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Card className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">
-                      Shared Resources
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          Meeting Rooms
-                        </span>
-                        <span className="font-medium">6 Available</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          Reception Desk
-                        </span>
-                        <span className="font-medium">Shared Service</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600 dark:text-slate-400">
-                          Parking Spaces
-                        </span>
-                        <span className="font-medium">12 Allocated</span>
-                      </div>
-                    </div>
-                  </Card>
+                <div className="relative">
+                  <img
+                    src={timeAttendanceImg}
+                    alt="Time & Attendance Report - Automated time tracking and attendance management system"
+                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
+                    data-testid="img-time-attendance"
+                  />
                 </div>
               </div>
             </TabsContent>
