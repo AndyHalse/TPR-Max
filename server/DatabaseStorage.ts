@@ -3017,28 +3017,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ======= MISSING FUNCTION IMPLEMENTATIONS TO STOP CONSOLE ERRORS =======
-  
-  async getAllMeetingRooms(): Promise<MeetingRoom[]> {
-    // TODO: Implement proper meeting rooms database query
-    // For now, return empty array to stop console errors
-    console.log('⚠️ getAllMeetingRooms: Database implementation pending - returning empty array');
-    return [];
-  }
-
-  async getRoomBookings(startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]> {
-    try {
-      // For now, return empty array until proper implementation
-      // This prevents console errors
-      console.log('⚠️ getRoomBookings: Database implementation pending - returning empty array');
-      return [];
-      
-    } catch (error) {
-      console.error('❌ Error fetching room bookings:', error);
-      return [];
-    }
-  }
-
   // ======= VOICE NOTIFICATION METHODS =======
 
   async createVoiceNotificationLog(data: InsertVoiceNotificationLog): Promise<string> {

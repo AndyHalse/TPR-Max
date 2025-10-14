@@ -363,60 +363,6 @@ export class DirectPrintService {
     }
   }
 
-  /**
-   * Send raw thermal printer commands (ESC/POS)
-   */
-  async sendRawThermalCommands(
-    commands: string, 
-    printerName?: string
-  ): Promise<{ success: boolean; message: string }> {
-    try {
-      if (process.platform !== 'win32') {
-        return {
-          success: false,
-          message: 'Raw thermal printing only supported on Windows'
-        };
-      }
-
-      const printer = printerName || await this.findThermalPrinter();
-      if (!printer) {
-        return {
-          success: false,
-          message: 'No thermal printer found'
-        };
-      }
-
-      // Create temp file with raw commands
-      const tempFile = path.join(this.tempDir, `thermal-raw-${Date.now()}.txt`);
-      await fs.writeFile(tempFile, commands, 'binary');
-
-      // Send raw data to printer
-      const command = `copy /b "${tempFile}" "${printer}"`;
-      await execAsync(command, { timeout: 10000 });
-
-      // Clean up
-      setTimeout(async () => {
-        try {
-          await fs.unlink(tempFile);
-        } catch (error) {
-          console.log('📁 Raw temp file cleanup:', error.message);
-        }
-      }, 2000);
-
-      console.log('✅ Raw commands sent to thermal printer');
-      return {
-        success: true,
-        message: `Raw thermal commands sent to ${printer}`
-      };
-
-    } catch (error) {
-      console.error('❌ Raw thermal printing error:', error);
-      return {
-        success: false,
-        message: `Raw printing failed: ${error.message}`
-      };
-    }
-  }
 }
 
 export const directPrintService = new DirectPrintService();

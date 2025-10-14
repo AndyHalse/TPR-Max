@@ -2757,21 +2757,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { personId } = req.params;
-      const { musterPoint, evacuationId, marshalName: providedMarshal } = req.body;
+      const { musterPoint, evacuationId: requestedEvacuationId, marshalName: providedMarshal } = req.body;
       const marshalName = providedMarshal || `${validatedStaff.firstName} ${validatedStaff.lastName}`;
       
-      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${evacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
+      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${requestedEvacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
       console.log(`✅ Validated Fire Marshal: ${validatedStaff.firstName} ${validatedStaff.lastName} (${validatedStaff.email})`);
       
-      if (!evacuationId) {
+      if (!requestedEvacuationId) {
         console.error("❌ Evacuation ID missing in request");
         return res.status(400).json({ error: "Evacuation ID is required" });
       }
       
       let evacuation;
+      let evacuationId = requestedEvacuationId;
       
       // Handle 'standalone' mode - Fire Marshal URL works independently without formal evacuation
-      if (evacuationId === 'standalone') {
+      if (requestedEvacuationId === 'standalone') {
         console.log(`🔥 STANDALONE MODE: Fire Marshal ${marshalName} marking person safe without active evacuation - auto-creating emergency evacuation`);
         
         // Auto-create an emergency evacuation on-demand
@@ -2859,7 +2860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`✅ Auto-created emergency evacuation: ${newEvacuationId} with ${accountabilityRecords.length} people`);
         
-        // Update evacuationId for the rest of the function
+        // Use the newly created evacuation ID for the rest of the function
         evacuationId = newEvacuationId;
       } else {
         // Get the evacuation with TENANT ISOLATION
@@ -2873,7 +2874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .limit(1);
         
         if (!evacuation || evacuation.length === 0) {
-          console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${evacuationId} but it doesn't belong to their customer ${customerId}`);
+          console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${requestedEvacuationId} but it doesn't belong to their customer ${customerId}`);
           return res.status(404).json({ error: "Evacuation not found" });
         }
       }
