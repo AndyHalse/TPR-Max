@@ -246,54 +246,6 @@ export default function MarketingPage() {
                 </span>
               </h1>
 
-              {/* Enterprise Metrics Bar */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 py-6 px-4 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-slate-700">
-                <div className="text-center">
-                  <div
-                    className="text-2xl font-bold text-red-600 dark:text-red-400"
-                    data-testid="metric-emergency"
-                  >
-                    {"<3s"}
-                  </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
-                    Emergency Response
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div
-                    className="text-2xl font-bold text-slate-900 dark:text-white"
-                    data-testid="metric-visitors"
-                  >
-                    10K+
-                  </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
-                    Daily Personnel
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div
-                    className="text-2xl font-bold text-slate-900 dark:text-white"
-                    data-testid="metric-compliance"
-                  >
-                    100%
-                  </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
-                    H&S Compliance
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div
-                    className="text-2xl font-bold text-slate-900 dark:text-white"
-                    data-testid="metric-efficiency"
-                  >
-                    24/7
-                  </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
-                    Live Monitoring
-                  </div>
-                </div>
-              </div>
-
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
                 <strong>
                   Every organisation needs reliable Health & Safety mustering.
