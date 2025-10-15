@@ -1,10 +1,15 @@
 import { db } from "./db";
-import { inductionSettings, type CompanySettings } from "@shared/schema";
+import { inductionSettings } from "@shared/schema";
+import { type CompanySettings } from "./isolatedSchema";
 import { eq } from "drizzle-orm";
 import { ServiceFactory } from './factories/ServiceFactory';
 import type { AiServiceDependencies } from './interfaces/ai';
 import { ResultUtils } from './utils/result';
 import { ImageFallbackChain } from './managers/ImageFallbackChain';
+import OpenAI from "openai";
+
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export class VideoGenerationService {
   private companySettings: CompanySettings | null = null;
@@ -24,78 +29,78 @@ export class VideoGenerationService {
     };
   }
 
-  // Gemini AI completion methods
+  // OpenAI GPT-5 completion methods - PRODUCTION QUALITY
   private async aiComplete(prompt: string, options: any = {}): Promise<string> {
     try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [{ role: "user", content: prompt }],
+        ...options
       });
 
-      return response.text || "No response from Gemini";
+      return response.choices[0].message.content || "No response from GPT-5";
     } catch (error: any) {
-      throw new Error(`Gemini completion failed: ${error.message}`);
+      throw new Error(`OpenAI GPT-5 completion failed: ${error.message}`);
     }
   }
 
   private async aiCompleteJson<T>(prompt: string, schemaHints?: string, options: any = {}): Promise<T> {
     try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-      
       const jsonPrompt = schemaHints ? 
         `${prompt}\n\nRespond with valid JSON following this schema: ${schemaHints}` :
         `${prompt}\n\nRespond with valid JSON only.`;
       
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        config: {
-          responseMimeType: "application/json",
-        },
-        contents: jsonPrompt,
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [{ role: "user", content: jsonPrompt }],
+        response_format: { type: "json_object" },
+        ...options
       });
 
-      const rawJson = response.text;
+      const rawJson = response.choices[0].message.content;
       if (!rawJson) {
-        throw new Error("Empty response from Gemini");
+        throw new Error("Empty response from GPT-5");
       }
 
       return JSON.parse(rawJson);
     } catch (error: any) {
-      throw new Error(`Gemini JSON completion failed: ${error.message}`);
+      throw new Error(`OpenAI GPT-5 JSON completion failed: ${error.message}`);
     }
   }
 
-  // Message-compatible shim methods
+  // Message-compatible methods using OpenAI
   private async aiFromMessages(messages: Array<{role: string, content: string}>, options: any = {}): Promise<string> {
-    // Convert messages to single prompt - combine system and user messages
-    const systemMessages = messages.filter(m => m.role === 'system').map(m => m.content);
-    const userMessages = messages.filter(m => m.role === 'user').map(m => m.content);
-    
-    let combinedPrompt = '';
-    if (systemMessages.length > 0) {
-      combinedPrompt = systemMessages.join('\n\n') + '\n\n';
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: messages as any,
+        ...options
+      });
+
+      return response.choices[0].message.content || "No response";
+    } catch (error: any) {
+      throw new Error(`OpenAI completion failed: ${error.message}`);
     }
-    combinedPrompt += userMessages.join('\n\n');
-    
-    return this.aiComplete(combinedPrompt, options);
   }
 
   private async aiJsonFromMessages<T>(messages: Array<{role: string, content: string}>, schemaHints?: string, options: any = {}): Promise<T> {
-    // Convert messages to single prompt - combine system and user messages
-    const systemMessages = messages.filter(m => m.role === 'system').map(m => m.content);
-    const userMessages = messages.filter(m => m.role === 'user').map(m => m.content);
-    
-    let combinedPrompt = '';
-    if (systemMessages.length > 0) {
-      combinedPrompt = systemMessages.join('\n\n') + '\n\n';
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: messages as any,
+        response_format: { type: "json_object" },
+        ...options
+      });
+
+      const rawJson = response.choices[0].message.content;
+      if (!rawJson) {
+        throw new Error("Empty response from GPT-5");
+      }
+
+      return JSON.parse(rawJson);
+    } catch (error: any) {
+      throw new Error(`OpenAI JSON completion failed: ${error.message}`);
     }
-    combinedPrompt += userMessages.join('\n\n');
-    
-    return this.aiCompleteJson<T>(combinedPrompt, schemaHints, options);
   }
   
   // Generate AI-powered questions based on video script content
@@ -620,6 +625,41 @@ export class VideoGenerationService {
       }
       // Return empty array rather than failing completely
       return new Array(selectedScenes.length).fill('');
+    }
+  }
+
+  // Generate professional narration for induction scenes using OpenAI TTS
+  async generateSceneNarrations(
+    scenes: Array<{ title: string; content: string; duration?: number }>,
+    roleType: string = 'contractor'
+  ): Promise<Array<{ audioUrl: string; duration: number; text: string }>> {
+    try {
+      console.log(`🎙️ Generating professional narrations for ${scenes.length} scenes using OpenAI TTS`);
+      
+      const { OpenAITTSService } = await import('./services/OpenAITTSService');
+      const ttsService = new OpenAITTSService();
+      
+      // Generate narrations for all scenes
+      const narrations = await ttsService.generateSceneNarrations(scenes, roleType);
+      
+      // Ensure all narrations have required duration
+      const formattedNarrations = narrations.map(narration => ({
+        audioUrl: narration.audioUrl,
+        duration: narration.duration || 0,
+        text: narration.text
+      }));
+      
+      console.log(`✅ Successfully generated ${formattedNarrations.length} professional narrations`);
+      return formattedNarrations;
+      
+    } catch (error: any) {
+      console.error('❌ Error generating narrations:', error);
+      // Return placeholder narrations on failure
+      return scenes.map(scene => ({
+        audioUrl: '',
+        duration: scene.duration || 0,
+        text: scene.content
+      }));
     }
   }
 

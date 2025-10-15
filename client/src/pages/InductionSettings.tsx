@@ -177,12 +177,12 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                     <div className="flex items-start gap-3">
                       <Film className="h-5 w-5 text-purple-600 mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-sm">Full Video (Sora)</h4>
+                        <h4 className="font-medium text-sm">Full Video (Enhanced)</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Professional MP4 • AI narration • Higher cost
+                          GPT-5 scripts • DALL-E 3 visuals • TTS narration
                         </p>
                         <div className="mt-2">
-                          <Badge variant="outline" className="text-xs border-purple-300 text-purple-600">Premium</Badge>
+                          <Badge variant="outline" className="text-xs border-purple-300 text-purple-600">Production Ready</Badge>
                         </div>
                       </div>
                     </div>
@@ -209,10 +209,10 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                       <div>
                         <h4 className="font-medium text-sm">Hybrid Enhanced</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          AI images • Interactive slides • Moderate cost
+                          DALL-E 3 photorealistic images • Interactive • TTS audio
                         </p>
                         <div className="mt-2">
-                          <Badge variant="outline" className="text-xs border-green-300 text-green-600">Recommended</Badge>
+                          <Badge variant="outline" className="text-xs border-green-300 text-green-600">⭐ Recommended</Badge>
                         </div>
                       </div>
                     </div>
@@ -239,7 +239,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  GPT-5 provides advanced text content. Google Veo 3 creates actual videos with native audio generation.
+                  <strong className="text-green-600">✨ PRODUCTION-READY:</strong> GPT-5 scripts + DALL-E 3 photorealistic images + OpenAI TTS professional narration.
                 </p>
               </div>
             </div>

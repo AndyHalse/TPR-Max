@@ -1,10 +1,12 @@
 /**
  * Image generation fallback chain for reliable image delivery
+ * Priority: DALL-E 3 (production quality) -> Gemini -> SVG Fallback
  */
 
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { IImageGenerator, ImageGenerationResult, Result } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
+import { DallE3ImageGenerator } from './OpenAIImageGenerator';
 
 // DON'T DELETE THIS COMMENT
 // Follow these instructions when using this blueprint:
@@ -392,8 +394,9 @@ export class ImageFallbackChain implements IImageGenerator {
   constructor(private companySettings?: any) {}
 
   private generators: IImageGenerator[] = [
-    new GeminiImageGenerator(),
-    new FallbackSvgImageGenerator(this.companySettings)
+    new DallE3ImageGenerator(this.companySettings), // PRODUCTION QUALITY - Try first
+    new GeminiImageGenerator(),                       // Fallback to Gemini
+    new FallbackSvgImageGenerator(this.companySettings) // Final fallback
   ];
 
   async generate(
