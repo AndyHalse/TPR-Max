@@ -23,15 +23,21 @@ export class GeminiImageGenerator implements IImageGenerator {
     description: string
   ): Promise<Result<ImageGenerationResult>> {
     try {
-      const prompts = {
-        ppe: "Professional workplace safety scene showing workers wearing complete PPE (hard hat, high-visibility vest, safety boots, safety glasses, work gloves) in a modern industrial setting. Clean, well-lit environment with safety signage visible. Photorealistic style with bright lighting showing proper safety compliance.",
-        emergency: "Emergency evacuation scene in a modern workplace showing clearly marked emergency exits, fire alarm points, and assembly point signs. Workers calmly following evacuation procedures. Bright, clear lighting with visible safety equipment like fire extinguishers and first aid stations.",
-        hazard: "Workplace hazard identification scene showing various safety hazards properly marked with warning signs, barriers, and safety equipment. Industrial setting with clear hazard markings, safety cones, warning tape, and protective equipment. Professional safety training environment.",
-        site_rules: "Modern workplace showing safety rules and regulations prominently displayed on notice boards and digital screens. Professional office or industrial environment with visible safety policies, procedures, and compliance documentation. Clean, organized workspace demonstrating safety culture.",
-        legal_framework: "Professional health and safety compliance scene showing safety documentation, legal frameworks, and regulatory compliance materials in a modern office setting. Safety certificates, compliance checklists, and regulatory documentation prominently displayed."
-      };
+      // Build contextual prompt using the actual scene title and description
+      const geminiPrompt = `Professional photorealistic workplace safety training image for "${title}".
 
-      const geminiPrompt = prompts[slideType as keyof typeof prompts] || prompts.ppe;
+Scene description: ${description}
+
+Visual requirements:
+- Modern corporate/industrial environment
+- Diverse workforce (different ethnicities and genders)
+- Proper safety equipment and signage relevant to the scene
+- Clean, well-lit professional setting with bright lighting
+- Contemporary workplace design
+- Photorealistic style suitable for safety training
+- Sharp focus and clear details that match the scene description
+
+Style: Professional corporate photography, clear and bright, authentic workplace scenario.`;
 
       // IMPORTANT: only this gemini model supports image generation
       const response = await ai.models.generateContent({
