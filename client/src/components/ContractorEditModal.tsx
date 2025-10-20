@@ -1290,6 +1290,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   })}
                 </div>
               )}
+              </div>
             </TabsContent>
 
             <TabsContent value="notes" className="space-y-4 px-1">
