@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [filterType, setFilterType] = useState<'all' | 'unaccounted' | 'accounted'>('all');
   const [marshalInfo, setMarshalInfo] = useState<MarshalInfo | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // NEW: Authenticate using static URL ID
   useEffect(() => {
@@ -106,6 +109,88 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [urlId]);
 
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    // Only connect if we have marshalInfo with customerId
+    if (!marshalInfo?.customerId) return;
+
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      const wsUrl = `${protocol}//${host}/ws/muster`;
+      
+      console.log('Fire Marshal WebSocket connecting:', wsUrl);
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('Fire Marshal WebSocket connected');
+        setWsConnected(true);
+        
+        // Register with customer context (evacuation may or may not exist yet)
+        ws.send(JSON.stringify({
+          type: 'register',
+          customerId: marshalInfo.customerId,
+          evacuationId: activeEvacuationId || 'fire-marshal-standalone'
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log('Fire Marshal WebSocket message:', message);
+          
+          if (message.type === 'muster_update') {
+            // Invalidate all relevant queries for real-time sync
+            queryClient.invalidateQueries({ queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`] });
+            queryClient.invalidateQueries({ queryKey: [`/api/emergency/accountability`] });
+            
+            // Show toast notification
+            const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
+            toast({
+              title: "Real-time Update",
+              description: `${message.personName} marked as ${statusText}`,
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('Fire Marshal WebSocket error:', error);
+        setWsConnected(false);
+      };
+
+      ws.onclose = () => {
+        console.log('Fire Marshal WebSocket disconnected');
+        setWsConnected(false);
+        
+        // Attempt to reconnect after 3 seconds if we still have marshalInfo
+        if (marshalInfo?.customerId) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect Fire Marshal WebSocket...');
+            connectWebSocket();
+          }, 3000);
+        }
+      };
+
+      wsRef.current = ws;
+    };
+
+    connectWebSocket();
+
+    // Cleanup on unmount
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [marshalInfo?.customerId, activeEvacuationId, urlId, toast]);
+
   // Fetch on-site personnel data (Fire Marshal URL ALWAYS shows who's on site, regardless of evacuation status)
   const { data: personnelData, isLoading: isLoadingPersonnel } = useQuery<{
     people: PersonOnSite[];
@@ -115,7 +200,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   }>({
     queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`],
     enabled: !!urlId, // Always enabled - shows on-site personnel with or without evacuation
-    refetchInterval: 5000 // Refresh every 5 seconds
+    refetchInterval: 30000 // Reduced to 30 seconds (WebSocket provides real-time updates)
   });
 
   // Load marshal name from localStorage (legacy)
