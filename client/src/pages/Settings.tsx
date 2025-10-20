@@ -4672,6 +4672,24 @@ export default function Settings() {
                     data-testid="toggle-ai-demo"
                   />
                 </div>
+
+                {/* Contractor Page */}
+                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg">
+                      <Users className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-slate-800">Contractor Page</h4>
+                      <p className="text-xs text-slate-500">Contractor management & H&S compliance</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureContractorPage !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureContractorPage", checked)}
+                    data-testid="toggle-contractor-page"
+                  />
+                </div>
               </div>
               
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">

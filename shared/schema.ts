@@ -2699,8 +2699,5 @@ export type DocumentAutoFillMapping = typeof documentAutoFillMapping.$inferSelec
 export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFillMappingSchema>;
 
 // SECURITY: Company Settings Types with Sanitization
-// REMOVED: CompanySettings types moved to isolatedSchema.ts for proper customer isolation
-
-// REMOVED: CompanySettings sanitization types moved to isolatedSchema.ts for proper customer isolation
-
-// REMOVED: CompanySettings sanitization function moved to isolatedSchema.ts for proper customer isolation
+// Re-export from isolatedSchema.ts for client access
+export type { CompanySettings, InsertCompanySettings } from "../server/isolatedSchema";
