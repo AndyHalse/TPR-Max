@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -37,8 +37,13 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isValidToken, setIsValidToken] = useState(false);
   const [marshalInfo, setMarshalInfo] = useState<{ name: string; department: string } | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [evacuationId, setEvacuationId] = useState<string | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Validate token on mount
   useEffect(() => {
@@ -55,6 +60,8 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
           const data = await response.json();
           setIsValidToken(true);
           setMarshalInfo(data.marshal);
+          setCustomerId(data.customerId);
+          setEvacuationId(data.evacuationId);
         } else {
           setIsValidToken(false);
           toast({
@@ -76,11 +83,90 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     validateToken();
   }, [token, toast]);
 
-  // Fetch muster list with real-time updates
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!isValidToken || !customerId || !evacuationId) return;
+
+    const connectWebSocket = () => {
+      // Get WebSocket URL (use wss:// for HTTPS, ws:// for HTTP)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host; // Gets hostname:port
+      const wsUrl = `${protocol}//${host}/ws/muster`;
+      
+      console.log('Connecting to WebSocket:', wsUrl, 'Host:', host);
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setWsConnected(true);
+        
+        // Register with customer and evacuation context
+        ws.send(JSON.stringify({
+          type: 'register',
+          customerId,
+          evacuationId
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log('WebSocket message received:', message);
+          
+          if (message.type === 'muster_update') {
+            // Update the cache immediately for real-time sync
+            queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
+            
+            // Show toast notification for the update
+            const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
+            toast({
+              title: "Real-time Update",
+              description: `${message.personName} marked as ${statusText}`,
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setWsConnected(false);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setWsConnected(false);
+        
+        // Attempt to reconnect after 3 seconds
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('Attempting to reconnect WebSocket...');
+          connectWebSocket();
+        }, 3000);
+      };
+
+      wsRef.current = ws;
+    };
+
+    connectWebSocket();
+
+    // Cleanup on unmount
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [isValidToken, customerId, evacuationId, token, toast, queryClient]);
+
+  // Fetch muster list - reduced polling as WebSocket provides real-time updates
   const { data: musterList = [], isLoading, refetch } = useQuery<MusterListItem[]>({
     queryKey: ["/api/emergency/muster", token],
     enabled: isValidToken && !!token,
-    refetchInterval: 3000, // Update every 3 seconds for real-time sync
+    refetchInterval: 30000, // Reduced to 30 seconds as backup (WebSocket is primary)
     retry: 3,
   });
 
@@ -101,9 +187,8 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       return await response.json();
     },
     onSuccess: (data) => {
-      // Immediate local update for better UX
+      // WebSocket will handle the real-time update, but we still invalidate for consistency
       queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
-      queryClient.refetchQueries({ queryKey: ["/api/emergency/muster", token] });
       
       toast({
         title: "Status Updated", 
@@ -344,8 +429,8 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       {/* Real-time indicator */}
       <div className="fixed bottom-4 right-4 bg-white/20 backdrop-blur rounded-full p-3">
         <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-white text-xs font-medium">LIVE</span>
+          <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
+          <span className="text-white text-xs font-medium">{wsConnected ? 'LIVE' : 'SYNC'}</span>
         </div>
       </div>
     </div>

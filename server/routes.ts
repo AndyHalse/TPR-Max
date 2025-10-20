@@ -73,6 +73,7 @@ import { inductionService } from "./inductionService";
 import { db } from "./db";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { Pool } from 'pg';
+import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as sharedSchema from '@shared/schema';
 import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
@@ -3382,13 +3383,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Get active evacuation for WebSocket registration
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, context.customerId)
+        ))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
       res.json({
         valid: true,
         marshal: {
           name: `${marshal.firstName} ${marshal.lastName}`,
           department: marshal.department,
           email: marshal.email
-        }
+        },
+        customerId: context.customerId,
+        evacuationId: activeEvacuations[0]?.evacuationId
       });
     } catch (error) {
       console.error("Error validating token:", error);
@@ -4029,6 +4043,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid or expired emergency token" });
       }
       
+      // Get active evacuation for WebSocket broadcasting
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, context.customerId)
+        ))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
+      const activeEvacuation = activeEvacuations[0];
+      
       let success = false;
       let personName = "Unknown";
       let accounted = false;
@@ -4056,6 +4083,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!success) {
         return res.status(404).json({ error: "Person not found" });
+      }
+      
+      // Broadcast update via WebSocket for real-time sync
+      if (activeEvacuation) {
+        websocketService.broadcastMusterUpdate(
+          context.customerId,
+          activeEvacuation.evacuationId,
+          {
+            personId,
+            personName,
+            personType: type as 'staff' | 'visitor' | 'contractor',
+            isAccountedFor: !accounted
+          }
+        );
       }
       
       res.json({ 
@@ -5945,7 +5986,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Toggle endpoint - personId:', personId, 'type:', type, 'username:', username);
       
+      // Get active evacuation for WebSocket broadcasting
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, context.customerId)
+        ))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
+      const activeEvacuation = activeEvacuations[0];
+      
       let updated = false;
+      let personName = "Unknown";
+      let newStatus = false;
       
       if (type === 'staff') {
         const staff = await databaseService.getAllStaff(context);
@@ -5953,9 +6009,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const staffMember = staff.find(s => s.id === personId);
         if (staffMember) {
           // Toggle the isAccountedFor status
+          newStatus = !staffMember.isAccountedFor;
+          personName = `${staffMember.firstName} ${staffMember.lastName}`;
           await databaseService.updateStaff(context, personId, {
             ...staffMember,
-            isAccountedFor: !staffMember.isAccountedFor
+            isAccountedFor: newStatus
           });
           updated = true;
         }
@@ -5965,9 +6023,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const visitor = visitors.find(v => v.id === personId);
         if (visitor) {
           // Toggle the isAccountedFor status
+          newStatus = !visitor.isAccountedFor;
+          personName = `${visitor.firstName} ${visitor.lastName}`;
           await databaseService.updateVisitor(context, personId, {
             ...visitor,
-            isAccountedFor: !visitor.isAccountedFor
+            isAccountedFor: newStatus
           });
           updated = true;
         }
@@ -5975,11 +6035,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // TODO: Implement contractor toggle with customer isolation
         const result = await storage.toggleContractorAccountedStatus(personId);
         updated = result;
+        newStatus = true;
       }
       
       if (!updated) {
         console.log('Person not found - personId:', personId, 'type:', type);
         return res.status(404).json({ error: "Person not found" });
+      }
+      
+      // Broadcast update via WebSocket for real-time sync
+      if (activeEvacuation) {
+        websocketService.broadcastMusterUpdate(
+          context.customerId,
+          activeEvacuation.evacuationId,
+          {
+            personId,
+            personName,
+            personType: type as 'staff' | 'visitor' | 'contractor',
+            isAccountedFor: newStatus
+          }
+        );
       }
       
       res.json({ success: true, personId, type });
@@ -17102,5 +17177,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server for real-time muster updates
+  websocketService.initialize(httpServer);
+  
   return httpServer;
 }

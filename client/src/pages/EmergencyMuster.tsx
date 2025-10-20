@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -34,23 +34,122 @@ interface MusterListItem {
   accounted: boolean;
 }
 
+interface ActiveEvacuation {
+  active: boolean;
+  evacuationId?: string;
+  customerId?: string;
+}
+
 export default function EmergencyMuster() {
   const [searchTerm, setSearchTerm] = useState("");
   const [emergencyActive, setEmergencyActive] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: musterList = [], isLoading } = useQuery<MusterListItem[]>({
     queryKey: ["/api/muster"],
+    refetchInterval: 30000, // Reduced to 30 seconds (WebSocket is primary source)
   });
 
   // Check for active evacuation
-  const { data: activeEvacuation } = useQuery<{ active: boolean; evacuationId?: string }>({
+  const { data: activeEvacuation } = useQuery<ActiveEvacuation>({
     queryKey: ["/api/evacuation/status"],
     refetchInterval: 10000,  // Check every 10 seconds
   });
 
   const hasActiveEvacuation = activeEvacuation?.active || false;
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    // Only connect if we have an active evacuation with customerId and evacuationId
+    if (!hasActiveEvacuation || !activeEvacuation?.evacuationId) {
+      // Disconnect if we had a connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+        setWsConnected(false);
+      }
+      return;
+    }
+
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host; // Gets hostname:port
+      const wsUrl = `${protocol}//${host}/ws/muster`;
+      
+      console.log('Connecting to WebSocket:', wsUrl, 'Host:', host);
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setWsConnected(true);
+        
+        // Register with evacuation context (customerId comes from session on server)
+        ws.send(JSON.stringify({
+          type: 'register',
+          customerId: activeEvacuation.customerId || 'default',
+          evacuationId: activeEvacuation.evacuationId
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log('WebSocket message received:', message);
+          
+          if (message.type === 'muster_update') {
+            // Update the cache immediately for real-time sync
+            queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+            
+            // Show toast notification for the update
+            const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
+            toast({
+              title: "Real-time Update",
+              description: `${message.personName} marked as ${statusText}`,
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setWsConnected(false);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setWsConnected(false);
+        
+        // Attempt to reconnect after 3 seconds if we still have an active evacuation
+        if (hasActiveEvacuation && activeEvacuation?.evacuationId) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect WebSocket...');
+            connectWebSocket();
+          }, 3000);
+        }
+      };
+
+      wsRef.current = ws;
+    };
+
+    connectWebSocket();
+
+    // Cleanup on unmount or when evacuation ends
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [hasActiveEvacuation, activeEvacuation?.evacuationId, activeEvacuation?.customerId, toast, queryClient]);
 
   // Mutation to toggle accounted status
   const toggleAccountedMutation = useMutation({
@@ -59,9 +158,8 @@ export default function EmergencyMuster() {
       return await response.json();
     },
     onSuccess: (data) => {
+      // WebSocket will handle the real-time update, but we still invalidate for consistency
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      // Also refetch immediately to ensure latest data
-      queryClient.refetchQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Status Updated", 
         description: `Successfully updated accounted status for ${data.type}`,
@@ -215,8 +313,14 @@ export default function EmergencyMuster() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-fixed">Emergency Muster</h2>
-          <p className="text-variable mt-1">
+          <p className="text-variable mt-1 flex items-center gap-2">
             Real-time emergency evacuation management and accountability
+            {wsConnected && (
+              <span className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                LIVE
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">
