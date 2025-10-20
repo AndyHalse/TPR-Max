@@ -2931,16 +2931,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Person marked safe successfully - ${result[0].personName} at ${musterPoint}`);
       
       // CRITICAL: Broadcast WebSocket update to all connected Fire Marshals for real-time sync
-      if (wss && customerId && evacuationId) {
-        broadcastMusterUpdate(wss, {
-          customerId,
-          evacuationId,
+      if (customerId && evacuationId) {
+        websocketService.broadcastMusterUpdate(customerId, evacuationId, {
           personId: result[0].personId,
           personName: result[0].personName,
           personType: result[0].personType,
           isAccountedFor: result[0].isAccountedFor,
-          accountedBy: result[0].accountedBy,
-          accountedAt: result[0].accountedAt,
           musterPoint: result[0].musterPoint
         });
         console.log(`📡 WebSocket broadcast sent for ${result[0].personName} (Customer: ${customerId}, Evacuation: ${evacuationId})`);
