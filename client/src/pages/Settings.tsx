@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
@@ -4605,7 +4605,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
-                      <Activity className="w-5 h-5 text-blue-600" />
+                      <Clock className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
                       <h4 className="font-medium text-slate-800">Time Attendance</h4>
@@ -4623,7 +4623,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-orange-100 rounded-lg">
-                      <Shield className="w-5 h-5 text-orange-600" />
+                      <Video className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
                       <h4 className="font-medium text-slate-800">Induction Settings</h4>
@@ -4641,7 +4641,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-cyan-100 rounded-lg">
-                      <Monitor className="w-5 h-5 text-cyan-600" />
+                      <Dock className="w-5 h-5 text-cyan-600" />
                     </div>
                     <div>
                       <h4 className="font-medium text-slate-800">Kiosk Mode</h4>
@@ -4677,7 +4677,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-amber-100 rounded-lg">
-                      <Users className="w-5 h-5 text-amber-600" />
+                      <CalendarPlus className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
                       <h4 className="font-medium text-slate-800">Contractor Page</h4>

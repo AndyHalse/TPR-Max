@@ -112,7 +112,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/", icon: ChartLine, label: "Dashboard", alwaysVisible: true },
     { path: "/visitors", icon: User, label: "Visitors", alwaysVisible: true },
     { path: "/contractors", icon: HardHat, label: "Contractors", alwaysVisible: true },
-    { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", alwaysVisible: true },
+    { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", featureKey: "featureContractorPage" },
     { path: "/staff", icon: Users, label: "Staff", alwaysVisible: true },
     { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms" },
     { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance" },
