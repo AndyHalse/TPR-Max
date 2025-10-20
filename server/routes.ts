@@ -7578,6 +7578,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get upload URL for contractor document
   app.get('/api/contractors/workers/:workerId/documents/upload-url', requireAuth, async (req, res) => {
     try {
+      const { workerId } = req.params;
+      
+      // Verify worker belongs to current customer (multi-tenant security)
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const [worker] = await db
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, workerId))
+        .limit(1);
+        
+      if (!worker) {
+        return res.status(404).json({ error: 'Worker not found or access denied' });
+      }
+      
       const objectStorageService = new ObjectStorageService();
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadURL });

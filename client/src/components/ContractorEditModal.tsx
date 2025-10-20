@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -45,6 +45,17 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   const queryClient = useQueryClient();
   const [showHSModal, setShowHSModal] = useState(false);
   const [manualNote, setManualNote] = useState('');
+  
+  // Document upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentFormData, setDocumentFormData] = useState({
+    documentType: '',
+    expiryDate: '',
+    issuedBy: '',
+    policyNumber: '',
+  });
   
   const [formData, setFormData] = useState({
     firstName: worker?.firstName || '',
@@ -110,6 +121,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   // Fetch worker notes/audit trail
   const { data: workerNotes = [], isLoading: notesLoading, refetch: refetchNotes } = useQuery<any[]>({
     queryKey: [`/api/contractors/workers/${worker?.id}/notes`],
+    enabled: !!worker?.id,
+    refetchOnMount: true,
+  });
+
+  // Fetch worker documents
+  const { data: workerDocuments = [], isLoading: documentsLoading, refetch: refetchDocuments } = useQuery<any[]>({
+    queryKey: [`/api/contractors/workers/${worker?.id}/documents`],
     enabled: !!worker?.id,
     refetchOnMount: true,
   });
@@ -245,6 +263,101 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     },
   });
 
+  // Upload document mutation
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!worker) throw new Error('No worker selected');
+      
+      setIsUploading(true);
+      setUploadProgress(10);
+      
+      // Get upload URL
+      const urlResponse = await fetch(`/api/contractors/workers/${worker.id}/documents/upload-url`, {
+        credentials: 'include',
+      });
+      
+      if (!urlResponse.ok) throw new Error('Failed to get upload URL');
+      
+      const { uploadURL } = await urlResponse.json();
+      setUploadProgress(30);
+      
+      // Upload file to object storage
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+        },
+        body: file,
+      });
+      
+      if (!uploadResponse.ok) throw new Error('Failed to upload file');
+      setUploadProgress(70);
+      
+      // Save document metadata
+      const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/documents`, {
+        documentName: file.name,
+        documentType: documentFormData.documentType,
+        documentUrl: uploadURL.split('?')[0], // Remove query params
+        expiryDate: documentFormData.expiryDate || null,
+        issuedBy: documentFormData.issuedBy || null,
+        policyNumber: documentFormData.policyNumber || null,
+      });
+      
+      setUploadProgress(100);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/documents`] });
+      setSelectedFile(null);
+      setDocumentFormData({
+        documentType: '',
+        expiryDate: '',
+        issuedBy: '',
+        policyNumber: '',
+      });
+      setUploadProgress(0);
+      setIsUploading(false);
+      toast({
+        title: 'Success',
+        description: 'Document uploaded successfully!',
+      });
+      refetchDocuments();
+    },
+    onError: (error: any) => {
+      setUploadProgress(0);
+      setIsUploading(false);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to upload document',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Delete document mutation
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      if (!worker) throw new Error('No worker selected');
+      const response = await apiRequest('DELETE', `/api/contractors/workers/${worker.id}/documents/${documentId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/documents`] });
+      toast({
+        title: 'Success',
+        description: 'Document deleted successfully!',
+      });
+      refetchDocuments();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete document',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateWorkerMutation.mutate(formData);
@@ -350,7 +463,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       <SelectContent>
                         {companies.map((company) => (
                           <SelectItem key={company.id} value={company.id}>
-                            {company.companyName}
+                            {company.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -874,6 +987,286 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   })}
                 </div>
               )}
+
+              {/* Separator between H&S assignments and uploaded documents */}
+              {hsAssignments.length > 0 && (
+                <div className="my-6 border-t border-slate-200" />
+              )}
+
+              {/* Uploaded Documents Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    Worker Documents
+                  </h3>
+                  <Badge variant="secondary" className="ml-1">
+                    {workerDocuments.length}
+                  </Badge>
+                </div>
+
+                {/* Document Upload Form */}
+                <div className="bg-white/80 border border-slate-200 rounded-lg p-4">
+                  <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Upload New Document
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    {/* File Input */}
+                    <div>
+                      <Label htmlFor="document-file" data-testid="label-document-file">Select Document</Label>
+                      <Input
+                        id="document-file"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        disabled={isUploading}
+                        className="cursor-pointer"
+                        data-testid="input-document-file"
+                      />
+                      {selectedFile && (
+                        <p className="text-sm text-slate-600 mt-1" data-testid="text-selected-file">
+                          Selected: {selectedFile.name}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Document Type */}
+                    <div>
+                      <Label htmlFor="document-type" data-testid="label-document-type">Document Type</Label>
+                      <Select
+                        value={documentFormData.documentType}
+                        onValueChange={(value) => setDocumentFormData(prev => ({ ...prev, documentType: value }))}
+                        disabled={isUploading}
+                      >
+                        <SelectTrigger id="document-type" data-testid="select-document-type">
+                          <SelectValue placeholder="Select document type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="public_liability">Public Liability Insurance</SelectItem>
+                          <SelectItem value="employers_liability">Employers Liability Insurance</SelectItem>
+                          <SelectItem value="health_safety_policy">Health & Safety Policy</SelectItem>
+                          <SelectItem value="right_to_work">Right to Work</SelectItem>
+                          <SelectItem value="cscs_card">CSCS Card</SelectItem>
+                          <SelectItem value="ipaf_card">IPAF Card</SelectItem>
+                          <SelectItem value="certification">Certification</SelectItem>
+                          <SelectItem value="training">Training Certificate</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Expiry Date */}
+                    <div>
+                      <Label htmlFor="expiry-date" data-testid="label-expiry-date">Expiry Date (Optional)</Label>
+                      <Input
+                        id="expiry-date"
+                        type="date"
+                        value={documentFormData.expiryDate}
+                        onChange={(e) => setDocumentFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                        disabled={isUploading}
+                        data-testid="input-expiry-date"
+                      />
+                    </div>
+
+                    {/* Issued By */}
+                    <div>
+                      <Label htmlFor="issued-by" data-testid="label-issued-by">Issued By (Optional)</Label>
+                      <Input
+                        id="issued-by"
+                        type="text"
+                        value={documentFormData.issuedBy}
+                        onChange={(e) => setDocumentFormData(prev => ({ ...prev, issuedBy: e.target.value }))}
+                        placeholder="e.g., Insurance company, certification body"
+                        disabled={isUploading}
+                        data-testid="input-issued-by"
+                      />
+                    </div>
+
+                    {/* Policy Number */}
+                    <div>
+                      <Label htmlFor="policy-number" data-testid="label-policy-number">Policy/Certificate Number (Optional)</Label>
+                      <Input
+                        id="policy-number"
+                        type="text"
+                        value={documentFormData.policyNumber}
+                        onChange={(e) => setDocumentFormData(prev => ({ ...prev, policyNumber: e.target.value }))}
+                        placeholder="e.g., POL123456"
+                        disabled={isUploading}
+                        data-testid="input-policy-number"
+                      />
+                    </div>
+
+                    {/* Upload Button */}
+                    <div className="flex justify-end gap-2">
+                      {selectedFile && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            setDocumentFormData({
+                              documentType: '',
+                              expiryDate: '',
+                              issuedBy: '',
+                              policyNumber: '',
+                            });
+                          }}
+                          disabled={isUploading}
+                          data-testid="button-cancel-upload"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (selectedFile && documentFormData.documentType) {
+                            uploadDocumentMutation.mutate(selectedFile);
+                          } else {
+                            toast({
+                              title: 'Missing Information',
+                              description: 'Please select a file and document type',
+                              variant: 'destructive',
+                            });
+                          }
+                        }}
+                        disabled={!selectedFile || !documentFormData.documentType || isUploading}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        data-testid="button-upload-document"
+                      >
+                        {isUploading ? (
+                          <>
+                            <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading... {uploadProgress}%
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Document
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Uploaded Documents List */}
+                {documentsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="text-slate-500 mt-2">Loading documents...</p>
+                  </div>
+                ) : workerDocuments.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                    <p className="font-medium">No documents uploaded</p>
+                    <p className="text-sm">Upload worker certifications, insurance, and compliance documents above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {workerDocuments.map((doc: any) => {
+                      const isExpired = doc.expiryDate && new Date(doc.expiryDate) < new Date();
+                      const isExpiringSoon = doc.expiryDate && 
+                        new Date(doc.expiryDate) > new Date() && 
+                        new Date(doc.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+                      return (
+                        <div key={doc.id} className="bg-white/50 rounded-lg p-4 space-y-3 border border-slate-200" data-testid={`document-card-${doc.id}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1">
+                              <FileText className="h-5 w-5 text-blue-500 mt-0.5" />
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-slate-800" data-testid={`text-document-name-${doc.id}`}>
+                                  {doc.documentName}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {doc.documentType.replace('_', ' ').toUpperCase()}
+                                  </Badge>
+                                  {isExpired && (
+                                    <Badge className="bg-red-500 text-white text-xs">Expired</Badge>
+                                  )}
+                                  {isExpiringSoon && (
+                                    <Badge className="bg-yellow-500 text-white text-xs">Expiring Soon</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(doc.documentUrl, '_blank')}
+                                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                data-testid={`button-view-${doc.id}`}
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm('Are you sure you want to delete this document?')) {
+                                    deleteDocumentMutation.mutate(doc.id);
+                                  }
+                                }}
+                                disabled={deleteDocumentMutation.isPending}
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                                data-testid={`button-delete-${doc.id}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            {doc.expiryDate && (
+                              <div>
+                                <span className="text-slate-600 flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Expiry Date:
+                                </span>
+                                <div className={`font-medium ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-yellow-600' : 'text-slate-800'}`}>
+                                  {format(new Date(doc.expiryDate), 'dd/MM/yyyy')}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div>
+                              <span className="text-slate-600">Uploaded:</span>
+                              <div className="font-medium text-slate-800">
+                                {format(new Date(doc.uploadedAt), 'dd/MM/yyyy')}
+                              </div>
+                            </div>
+
+                            {doc.issuedBy && (
+                              <div>
+                                <span className="text-slate-600">Issued By:</span>
+                                <div className="font-medium text-slate-800">{doc.issuedBy}</div>
+                              </div>
+                            )}
+
+                            {doc.policyNumber && (
+                              <div>
+                                <span className="text-slate-600">Policy Number:</span>
+                                <div className="font-medium text-slate-800">{doc.policyNumber}</div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-200">
+                            <span>Status: {doc.status}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="notes" className="space-y-4 px-1">
