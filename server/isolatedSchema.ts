@@ -489,12 +489,13 @@ export const companySettings = pgTable("company_settings", {
   defaultVoiceProfile: text("default_voice_profile").default("en-GB-Standard-A"), // Voice profile for text-to-speech
   
   // Feature Toggles - Allow customers to disable unused features for simplified UI
-  featureMultiTenant: boolean("feature_multi_tenant").default(true),
-  featureMeetingRooms: boolean("feature_meeting_rooms").default(true),
-  featureTimeAttendance: boolean("feature_time_attendance").default(true),
-  featureInductionSettings: boolean("feature_induction_settings").default(true),
-  featureKiosk: boolean("feature_kiosk").default(true),
-  featureAiDemo: boolean("feature_ai_demo").default(true),
+  featureMultiTenant: boolean("feature_multi_tenant").default(false),
+  featureMeetingRooms: boolean("feature_meeting_rooms").default(false),
+  featureTimeAttendance: boolean("feature_time_attendance").default(false),
+  featureInductionSettings: boolean("feature_induction_settings").default(false),
+  featureKiosk: boolean("feature_kiosk").default(false),
+  featureAiDemo: boolean("feature_ai_demo").default(false),
+  featureContractorPage: boolean("feature_contractor_page").default(false),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

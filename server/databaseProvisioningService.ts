@@ -575,12 +575,13 @@ export class DatabaseProvisioningService {
         hs_rules_url text DEFAULT '',
         hs_rules_require_acceptance boolean DEFAULT false,
         -- Feature Toggles
-        feature_multi_tenant boolean DEFAULT true,
-        feature_meeting_rooms boolean DEFAULT true,
-        feature_time_attendance boolean DEFAULT true,
-        feature_induction_settings boolean DEFAULT true,
-        feature_kiosk boolean DEFAULT true,
-        feature_ai_demo boolean DEFAULT true,
+        feature_multi_tenant boolean DEFAULT false,
+        feature_meeting_rooms boolean DEFAULT false,
+        feature_time_attendance boolean DEFAULT false,
+        feature_induction_settings boolean DEFAULT false,
+        feature_kiosk boolean DEFAULT false,
+        feature_ai_demo boolean DEFAULT false,
+        feature_contractor_page boolean DEFAULT false,
         created_at timestamp DEFAULT now() NOT NULL,
         updated_at timestamp DEFAULT now() NOT NULL
       )
