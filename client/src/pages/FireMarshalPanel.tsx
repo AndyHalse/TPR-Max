@@ -50,7 +50,7 @@ interface ActiveEvacuationResponse {
 }
 
 interface FireMarshalPanelProps {
-  token: string;
+  token?: string;
 }
 
 export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
@@ -59,9 +59,11 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
   const [selectedMusterPoint, setSelectedMusterPoint] = useState("all");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   
-  // Redirect to mobile view by default with token
+  // Redirect to mobile view by default with token if provided
   useEffect(() => {
-    window.location.href = `/fire-marshal-mobile?token=${token}`;
+    if (token) {
+      window.location.href = `/fire-marshal-mobile?token=${token}`;
+    }
   }, [token]);
   
   // Muster points from evacuation data or defaults
