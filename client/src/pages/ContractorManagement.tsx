@@ -402,31 +402,27 @@ export default function ContractorManagement() {
     if (contractorToEdit) {
       setSelectedContractor(contractorToEdit);
       // Pre-fill form with existing contractor data
-      // Map from API response field names (isolated schema) to form field names
-      const splitName = contractorToEdit.primaryContactName?.split(' ') || [];
-      const firstName = splitName[0] || contractorToEdit.contactFirstName || "";
-      const lastName = splitName.slice(1).join(' ') || contractorToEdit.contactLastName || "";
       
       setContractorForm({
-        name: contractorToEdit.companyName || contractorToEdit.name || "",
-        email: contractorToEdit.contactEmail || contractorToEdit.email || "",
-        contactFirstName: firstName,
-        contactLastName: lastName,
-        phone: contractorToEdit.contactPhone || contractorToEdit.phone || "",
+        name: contractorToEdit.name || "",
+        email: contractorToEdit.email || "",
+        contactFirstName: contractorToEdit.contactFirstName || "",
+        contactLastName: contractorToEdit.contactLastName || "",
+        phone: contractorToEdit.phone || "",
         address: contractorToEdit.address || "",
         postcode: contractorToEdit.postcode || "",
         website: contractorToEdit.website || "",
         description: contractorToEdit.description || "",
         industry: contractorToEdit.industry || "",
-        status: contractorToEdit.status || "pending"
+        status: (contractorToEdit.status as "pending" | "approved" | "suspended") || "pending"
       });
       
       console.log('🔍 Pre-filling form with contractor data:', {
         original: contractorToEdit,
         mapped: {
-          name: contractorToEdit.companyName || contractorToEdit.name || "",
-          email: contractorToEdit.contactEmail || contractorToEdit.email || "",
-          phone: contractorToEdit.contactPhone || contractorToEdit.phone || "",
+          name: contractorToEdit.name || "",
+          email: contractorToEdit.email || "",
+          phone: contractorToEdit.phone || "",
         }
       });
       setShowCompanyEditDialog(true);
