@@ -7573,6 +7573,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== CONTRACTOR DOCUMENT MANAGEMENT =====
+  
+  // Get upload URL for contractor document
+  app.get('/api/contractors/workers/:workerId/documents/upload-url', requireAuth, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error('❌ Error getting upload URL:', error);
+      res.status(500).json({ error: 'Failed to get upload URL' });
+    }
+  });
+
+  // Save document metadata after upload
+  app.post('/api/contractors/workers/:workerId/documents', requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const { documentName, documentType, documentUrl, expiryDate, issuedBy, policyNumber } = req.body;
+      
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      console.log('📄 Creating document record for worker:', workerId);
+      
+      // Validate worker exists
+      const [worker] = await db
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, workerId))
+        .limit(1);
+        
+      if (!worker) {
+        return res.status(404).json({ error: 'Worker not found' });
+      }
+      
+      // Get current user ID
+      const [currentUser] = await db
+        .select()
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.username, username))
+        .limit(1);
+      
+      // Normalize the document URL to entity path format
+      const objectStorageService = new ObjectStorageService();
+      const normalizedUrl = objectStorageService.normalizeObjectEntityPath(documentUrl);
+      
+      // Create document record
+      const documentData = {
+        workerId,
+        companyId: worker.companyId,
+        documentName,
+        documentType,
+        documentUrl: normalizedUrl,
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        uploadedBy: currentUser?.id || username,
+        issuedBy: issuedBy || null,
+        policyNumber: policyNumber || null,
+        status: 'pending',
+        isActive: true,
+      };
+      
+      const [newDocument] = await db
+        .insert(isolatedSchema.contractorDocuments)
+        .values(documentData)
+        .returning();
+      
+      console.log('✅ Document saved successfully:', newDocument.id);
+      
+      res.json({ 
+        success: true, 
+        document: newDocument 
+      });
+      
+    } catch (error) {
+      console.error('❌ Error saving document:', error);
+      res.status(500).json({ error: 'Failed to save document' });
+    }
+  });
+  
+  // Get all documents for a worker
+  app.get('/api/contractors/workers/:workerId/documents', requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const documents = await db
+        .select()
+        .from(isolatedSchema.contractorDocuments)
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.workerId, workerId),
+            eq(isolatedSchema.contractorDocuments.isActive, true)
+          )
+        )
+        .orderBy(desc(isolatedSchema.contractorDocuments.createdAt));
+      
+      res.json(documents);
+      
+    } catch (error) {
+      console.error('❌ Error fetching documents:', error);
+      res.status(500).json({ error: 'Failed to fetch documents' });
+    }
+  });
+  
+  // Delete a document
+  app.delete('/api/contractors/workers/:workerId/documents/:documentId', requireAuth, async (req, res) => {
+    try {
+      const { workerId, documentId } = req.params;
+      
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      console.log('🗑️ Deleting document:', documentId);
+      
+      // Soft delete by setting isActive to false
+      await db
+        .update(isolatedSchema.contractorDocuments)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.id, documentId),
+            eq(isolatedSchema.contractorDocuments.workerId, workerId)
+          )
+        );
+      
+      console.log('✅ Document deleted successfully');
+      
+      res.json({ success: true, message: 'Document deleted' });
+      
+    } catch (error) {
+      console.error('❌ Error deleting document:', error);
+      res.status(500).json({ error: 'Failed to delete document' });
+    }
+  });
+
   // Reports endpoints
   // Generate test data for load testing
   // Clear duplicate visitors endpoint
