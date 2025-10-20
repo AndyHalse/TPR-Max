@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { 
   AlertTriangle, 
   Users, 
+  User,
   CheckCircle, 
   XCircle, 
   Search,
@@ -322,7 +323,7 @@ export default function EmergencyMuster() {
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-              <Shield className="text-purple-600 dark:text-purple-400" size={24} />
+              <Users className="text-purple-600 dark:text-purple-400" size={24} />
             </div>
           </div>
         </GlassCard>
@@ -336,7 +337,7 @@ export default function EmergencyMuster() {
               </p>
             </div>
             <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
-              <Users className="text-orange-600 dark:text-orange-400" size={24} />
+              <User className="text-orange-600 dark:text-orange-400" size={24} />
             </div>
           </div>
         </GlassCard>

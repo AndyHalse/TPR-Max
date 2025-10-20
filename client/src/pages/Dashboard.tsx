@@ -554,7 +554,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <UsersRound className="text-blue-600" size={24} />
+              <User className="text-blue-600" size={24} />
             </div>
           </div>
         </GlassCard>
@@ -568,7 +568,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-              <BadgeInfo className="text-purple-600" size={24} />
+              <Users className="text-purple-600" size={24} />
             </div>
           </div>
         </GlassCard>
