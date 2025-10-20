@@ -304,10 +304,25 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       });
       
       setUploadProgress(100);
-      return response.json();
+      return { ...await response.json(), fileName: file.name, docType: documentFormData.documentType };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/documents`] });
+      
+      // Automatically create audit trail note
+      const timestamp = format(new Date(), 'dd/MM/yyyy HH:mm');
+      const auditNote = `Document uploaded: "${data.fileName}" (${data.docType}) - ${timestamp}`;
+      
+      try {
+        await apiRequest('POST', `/api/contractors/workers/${worker.id}/notes`, {
+          changeType: 'document_upload',
+          notes: auditNote
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
+      } catch (error) {
+        console.error('Failed to create audit note:', error);
+      }
+      
       setSelectedFile(null);
       setDocumentFormData({
         documentType: '',
@@ -322,6 +337,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         description: 'Document uploaded successfully!',
       });
       refetchDocuments();
+      refetchNotes();
     },
     onError: (error: any) => {
       setUploadProgress(0);
@@ -409,7 +425,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
               <Shield className="h-4 w-4" />
               H&S Documents
               <Badge variant="secondary" className="ml-1">
-                {hsAssignments.length}
+                {workerDocuments.length}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="notes" className="flex items-center gap-1">
