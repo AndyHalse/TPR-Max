@@ -3548,6 +3548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
       
       // CRITICAL FIX: Get active evacuation from public schema (filtered by customerId)
+      // ORDER BY createdAt DESC to get the MOST RECENT active evacuation
       const activeEvacuation = await db
         .select()
         .from(evacuations)
@@ -3555,6 +3556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(evacuations.customerId, customerId),
           eq(evacuations.status, 'active')
         ))
+        .orderBy(desc(evacuations.createdAt))
         .limit(1);
       
       console.log(`🔍 Active evacuation query result: ${activeEvacuation.length} evacuations found for customer ${customerId}`);
