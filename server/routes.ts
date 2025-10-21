@@ -2946,6 +2946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: `Person marked as safe at ${musterPoint}`,
         personId,
+        personName: result[0].personName,  // Include person name for UI feedback
         marshalName,
         evacuationId  // Include evacuation ID for frontend to track
       });

@@ -315,9 +315,19 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       return data;
     },
     onSuccess: (data) => {
+      console.log('✅ [MUTATION SUCCESS] Person marked safe successfully');
+      
       // If the response includes an evacuation ID (from standalone mode), update our state
       if (data.evacuationId && !activeEvacuationId) {
         setActiveEvacuationId(data.evacuationId);
+      }
+      
+      // Collapse the card for the person who was just marked safe
+      if (data.personId) {
+        const newExpanded = new Set(expandedCards);
+        newExpanded.delete(data.personId);
+        setExpandedCards(newExpanded);
+        console.log('✅ [MUTATION SUCCESS] Collapsed card for person:', data.personId);
       }
       
       // CRITICAL: Invalidate ALL Fire Marshal personnel endpoints to sync across all URLs
@@ -327,9 +337,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       // Invalidate admin muster dashboard for real-time sync
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       
+      console.log('✅ [MUTATION SUCCESS] Queries invalidated');
+      
       toast({
         title: "✓ Marked Safe",
-        description: "Person has been marked as safe",
+        description: `${data.personName || 'Person'} has been marked as safe`,
       });
       // Vibrate on mobile devices for feedback
       if (navigator.vibrate) {
