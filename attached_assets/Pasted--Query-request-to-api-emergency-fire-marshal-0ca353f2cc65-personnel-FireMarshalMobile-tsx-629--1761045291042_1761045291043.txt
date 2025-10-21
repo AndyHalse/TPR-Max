@@ -1,0 +1,38 @@
+🔍 Query request to: /api/emergency/fire-marshal/0ca353f2cc65/personnel
+FireMarshalMobile.tsx:629 🔘 [BUTTON CLICK] Mark Safe button clicked for person: Andy Halse bc7fc27f-9c43-4d18-b537-cedc39210dff
+FireMarshalMobile.tsx:630 🔘 [BUTTON CLICK] marshalName: Emma Leschenko
+FireMarshalMobile.tsx:631 🔘 [BUTTON CLICK] isPending: false
+FireMarshalMobile.tsx:642 🔘 [BUTTON CLICK] Calling markSafeMutation.mutate...
+FireMarshalMobile.tsx:646 🔘 [BUTTON CLICK] mutate() called successfully
+FireMarshalMobile.tsx:277 🚀 [MUTATION] Mark Safe mutation starting for personId: bc7fc27f-9c43-4d18-b537-cedc39210dff
+FireMarshalMobile.tsx:278 🚀 [MUTATION] marshalName: Emma Leschenko
+FireMarshalMobile.tsx:279 🚀 [MUTATION] activeEvacuationId: evac-1761045191933-vak0hd
+FireMarshalMobile.tsx:280 🚀 [MUTATION] token: undefined
+FireMarshalMobile.tsx:281 🚀 [MUTATION] urlId: 0ca353f2cc65
+FireMarshalMobile.tsx:291 🚀 [MUTATION] Using URL ID auth: 0ca353f2cc65
+FireMarshalMobile.tsx:299 🚀 [MUTATION] Request body: {musterPoint: 'Safe Location', evacuationId: 'evac-1761045191933-vak0hd', marshalName: 'Emma Leschenko'}
+FireMarshalMobile.tsx:301 🚀 [MUTATION] Sending POST to: /api/emergency/mark-safe/bc7fc27f-9c43-4d18-b537-cedc39210dff
+queryClient.ts:73 📥 Query response status: 200 for /api/emergency/fire-marshal/0ca353f2cc65/personnel
+FireMarshalMobile.tsx:140 Fire Marshal WebSocket message: {type: 'muster_update', evacuationId: 'evac-1761045191933-vak0hd', personId: 'bc7fc27f-9c43-4d18-b537-cedc39210dff', personName: 'Andy Halse', personType: 'staff', …}
+queryClient.ts:63 🔍 Query request to: /api/emergency/fire-marshal/0ca353f2cc65/personnel
+FireMarshalMobile.tsx:308 🚀 [MUTATION] Response status: 200
+FireMarshalMobile.tsx:314 🚀 [MUTATION] Response data: {success: true, message: 'Person marked as safe at Safe Location', personId: 'bc7fc27f-9c43-4d18-b537-cedc39210dff', marshalName: 'Emma Leschenko', evacuationId: 'evac-1761045191933-vak0hd'}
+queryClient.ts:73 📥 Query response status: 200 for /api/emergency/fire-marshal/0ca353f2cc65/personnel
+FireMarshalMobile.tsx:629 🔘 [BUTTON CLICK] Mark Safe button clicked for person: Bluey Halse 9c7b345d-303c-4cee-9ce5-56a762240a38
+FireMarshalMobile.tsx:630 🔘 [BUTTON CLICK] marshalName: Emma Leschenko
+FireMarshalMobile.tsx:631 🔘 [BUTTON CLICK] isPending: false
+FireMarshalMobile.tsx:642 🔘 [BUTTON CLICK] Calling markSafeMutation.mutate...
+FireMarshalMobile.tsx:646 🔘 [BUTTON CLICK] mutate() called successfully
+FireMarshalMobile.tsx:277 🚀 [MUTATION] Mark Safe mutation starting for personId: 9c7b345d-303c-4cee-9ce5-56a762240a38
+FireMarshalMobile.tsx:278 🚀 [MUTATION] marshalName: Emma Leschenko
+FireMarshalMobile.tsx:279 🚀 [MUTATION] activeEvacuationId: evac-1761045191933-vak0hd
+FireMarshalMobile.tsx:280 🚀 [MUTATION] token: undefined
+FireMarshalMobile.tsx:281 🚀 [MUTATION] urlId: 0ca353f2cc65
+FireMarshalMobile.tsx:291 🚀 [MUTATION] Using URL ID auth: 0ca353f2cc65
+FireMarshalMobile.tsx:299 🚀 [MUTATION] Request body: {musterPoint: 'Safe Location', evacuationId: 'evac-1761045191933-vak0hd', marshalName: 'Emma Leschenko'}
+FireMarshalMobile.tsx:301 🚀 [MUTATION] Sending POST to: /api/emergency/mark-safe/9c7b345d-303c-4cee-9ce5-56a762240a38
+FireMarshalMobile.tsx:140 Fire Marshal WebSocket message: {type: 'muster_update', evacuationId: 'evac-1761045191933-vak0hd', personId: '9c7b345d-303c-4cee-9ce5-56a762240a38', personName: 'Bluey Halse', personType: 'staff', …}
+queryClient.ts:63 🔍 Query request to: /api/emergency/fire-marshal/0ca353f2cc65/personnel
+FireMarshalMobile.tsx:308 🚀 [MUTATION] Response status: 200
+FireMarshalMobile.tsx:314 🚀 [MUTATION] Response data: {success: true, message: 'Person marked as safe at Safe Location', personId: '9c7b345d-303c-4cee-9ce5-56a762240a38', marshalName: 'Emma Leschenko', evacuationId: 'evac-1761045191933-vak0hd'}
+queryClient.ts:73 📥 Query response status: 200 for /api/emergency/fire-marshal/0ca353f2cc65/personnel
