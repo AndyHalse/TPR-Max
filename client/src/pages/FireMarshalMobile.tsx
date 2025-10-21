@@ -19,7 +19,11 @@ import {
   Siren,
   ChevronDown,
   LogOut,
-  UserMinus
+  UserMinus,
+  Eye,
+  EyeOff,
+  Clock,
+  Timer
 } from "lucide-react";
 import {
   AlertDialog,
@@ -83,6 +87,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [marshalInfo, setMarshalInfo] = useState<MarshalInfo | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const [showSafePeople, setShowSafePeople] = useState(false); // Hide safe people by default
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -437,7 +442,10 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                          (filterType === 'unaccounted' && !person.isAccountedFor) ||
                          (filterType === 'accounted' && person.isAccountedFor);
     
-    return matchesSearch && matchesFilter;
+    // Hide safe people unless toggle is on
+    const matchesVisibility = showSafePeople || !person.isAccountedFor;
+    
+    return matchesSearch && matchesFilter && matchesVisibility;
   }) || [];
 
   // Show authentication error if present
@@ -468,22 +476,52 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   return (
     <div className={`min-h-screen pb-20 ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
       {/* Header - Fixed */}
-      <div className={`sticky top-0 z-50 text-white p-3 shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
-        <div className={`flex items-center gap-2 ${isEmergencyActive ? 'animate-pulse' : ''}`}>
-          {isEmergencyActive ? <Siren className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
-          <div className="flex-1">
-            <h1 className="text-lg font-bold">{isEmergencyActive ? 'EVACUATION ACTIVE' : 'FIRE MARSHAL PANEL'}</h1>
+      <div className={`sticky top-0 z-50 text-white shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
+        <div className={`p-3 ${isEmergencyActive ? 'animate-pulse' : ''}`}>
+          <div className="flex items-center gap-2">
+            {isEmergencyActive ? <Siren className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
+            <div className="flex-1">
+              <h1 className="text-lg font-bold">{isEmergencyActive ? 'EVACUATION ACTIVE' : 'FIRE MARSHAL PANEL'}</h1>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowSafePeople(!showSafePeople)}
+              className="bg-white/20 hover:bg-white/30"
+              title={showSafePeople ? "Hide safe people" : "Show safe people"}
+              data-testid="button-toggle-safe-people"
+            >
+              {showSafePeople ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => window.location.reload()}
+              className="bg-white/20 hover:bg-white/30"
+              data-testid="button-refresh-mobile"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => window.location.reload()}
-            className="bg-white/20 hover:bg-white/30"
-            data-testid="button-refresh-mobile"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
         </div>
+        {isEmergencyActive && activeEvacuation && (
+          <div className="px-3 pb-2 text-xs space-y-1 border-t border-white/20 pt-2">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3 w-3" />
+              <span>Started: {new Date(activeEvacuation.startedAt!).toLocaleString()}</span>
+            </div>
+            {displayData && displayData.totalOnSite > 0 && displayData.accountedFor === displayData.totalOnSite && (
+              <div className="flex items-center gap-1.5 text-green-200">
+                <CheckCircle2 className="h-3 w-3" />
+                <span>All Safe: {new Date().toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <Timer className="h-3 w-3" />
+              <span>Duration: {Math.floor((Date.now() - new Date(activeEvacuation.startedAt!).getTime()) / 60000)} min</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Marshal Name Input - Always Visible */}
