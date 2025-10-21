@@ -491,15 +491,33 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       <div className={`sticky top-0 z-50 text-white shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
         <div className={`p-3 ${isEmergencyActive ? 'animate-pulse' : ''}`}>
           <div className="flex items-center gap-2">
-            {isEmergencyActive ? <Siren className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
-            <div className="flex-1">
+            {isEmergencyActive ? <Siren className="h-6 w-6 flex-shrink-0" /> : <Shield className="h-6 w-6 flex-shrink-0" />}
+            <div className="flex-1 min-w-0">
               <h1 className="text-lg font-bold">{isEmergencyActive ? 'EVACUATION ACTIVE' : 'FIRE MARSHAL PANEL'}</h1>
+              {isEmergencyActive && (activeEvacuation?.startedAt || evacuationDetails?.startedAt) && (
+                <div className="text-xs space-y-0.5 mt-1">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">Started: {new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).toLocaleString()}</span>
+                  </div>
+                  {displayData && displayData.totalOnSite > 0 && displayData.accountedFor === displayData.totalOnSite && (
+                    <div className="flex items-center gap-1 text-green-200">
+                      <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">All Safe: {new Date().toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <Timer className="h-3 w-3 flex-shrink-0" />
+                    <span>Duration: {Math.floor((Date.now() - new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).getTime()) / 60000)} min</span>
+                  </div>
+                </div>
+              )}
             </div>
             <Button
               size="sm"
               variant="secondary"
               onClick={() => setShowSafePeople(!showSafePeople)}
-              className="bg-white/20 hover:bg-white/30"
+              className="bg-white/20 hover:bg-white/30 flex-shrink-0"
               title={showSafePeople ? "Hide safe people" : "Show safe people"}
               data-testid="button-toggle-safe-people"
             >
@@ -509,31 +527,13 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
               size="sm"
               variant="secondary"
               onClick={() => window.location.reload()}
-              className="bg-white/20 hover:bg-white/30"
+              className="bg-white/20 hover:bg-white/30 flex-shrink-0"
               data-testid="button-refresh-mobile"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        {isEmergencyActive && (activeEvacuation?.startedAt || evacuationDetails?.startedAt) && (
-          <div className="px-3 pb-2 text-xs space-y-1 border-t border-white/20 pt-2">
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3 w-3" />
-              <span>Started: {new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).toLocaleString()}</span>
-            </div>
-            {displayData && displayData.totalOnSite > 0 && displayData.accountedFor === displayData.totalOnSite && (
-              <div className="flex items-center gap-1.5 text-green-200">
-                <CheckCircle2 className="h-3 w-3" />
-                <span>All Safe: {new Date().toLocaleString()}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-1.5">
-              <Timer className="h-3 w-3" />
-              <span>Duration: {Math.floor((Date.now() - new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).getTime()) / 60000)} min</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Marshal Name Input - Always Visible */}
