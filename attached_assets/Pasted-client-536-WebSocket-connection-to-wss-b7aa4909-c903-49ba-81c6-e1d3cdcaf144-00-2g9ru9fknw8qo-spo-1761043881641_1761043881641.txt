@@ -1,0 +1,69 @@
+client:536  WebSocket connection to 'wss://b7aa4909-c903-49ba-81c6-e1d3cdcaf144-00-2g9ru9fknw8qo.spock.replit.dev/?token=taqL-dF3_rf_' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536  Uncaught (in promise) SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=taqL-dF3_rf_' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+queryClient.ts:63 🔍 Query request to: /api/emergency/fire-marshal/0ca353f2cc65/personnel
+0ca353f2cc65:1  Unchecked runtime.lastError: The message port closed before a response was received.
+queryClient.ts:73 📥 Query response status: 200 for /api/emergency/fire-marshal/0ca353f2cc65/personnel
+FireMarshalMobile.tsx:98 ✅ Fire Marshal authenticated: Emma Leschenko
+content.js:38051  Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'any')
+    at content.js:38051:23
+    at f2 (content.js:37996:14)
+    at isUrlAllowed (content.js:56430:12)
+    at O365QuickCallHandler.get (content.js:59304:67)
+    at ExtensionContentRunner._callee2$ (content.js:56140:43)
+    at tryCatch (content.js:33895:40)
+    at Generator.invoke [as _invoke] (content.js:34126:22)
+    at Generator.next (content.js:33951:21)
+    at ExtensionContentRunner_asyncGeneratorStep (content.js:55794:126)
+    at _next (content.js:55796:216)
+(anonymous) @ content.js:38051
+f2 @ content.js:37996
+isUrlAllowed @ content.js:56430
+get @ content.js:59304
+_callee2$ @ content.js:56140
+tryCatch @ content.js:33895
+invoke @ content.js:34126
+(anonymous) @ content.js:33951
+ExtensionContentRunner_asyncGeneratorStep @ content.js:55794
+_next @ content.js:55796
+(anonymous) @ content.js:55796
+(anonymous) @ content.js:55796
+_initializeApp @ content.js:56247
+_callee3$ @ content.js:55607
+tryCatch @ content.js:33895
+invoke @ content.js:34126
+(anonymous) @ content.js:33951
+BaseRunner_asyncGeneratorStep @ content.js:55463
+_next @ content.js:55465
+(anonymous) @ content.js:55465
+(anonymous) @ content.js:55465
+_initRunner @ content.js:55623
+(anonymous) @ content.js:55544
+FireMarshalMobile.tsx:122 Fire Marshal WebSocket connecting: wss://b7aa4909-c903-49ba-81c6-e1d3cdcaf144-00-2g9ru9fknw8qo.spock.replit.dev/ws/muster
+index.js:3   GET https://browserextension.trustpilot.com/v1/business-units/find?name=b7aa4909-c903-49ba-81c6-e1d3cdcaf144-00-2g9ru9fknw8qo.spock.replit.dev 404 (Not Found)
+i @ index.js:3
+await in i
+(anonymous) @ index.js:3
+(anonymous) @ index.js:3
+sU @ index.js:3
+iF @ index.js:3
+i @ index.js:3
+S @ index.js:3
+C @ index.js:3
+inject.bundle.js:243 [ChromePolyfill] Chrome API support enabled for web context
+FireMarshalMobile.tsx:126 Fire Marshal WebSocket connected
+FireMarshalMobile.tsx:140 Fire Marshal WebSocket message: {type: 'connected', timestamp: '2025-10-21T10:50:45.822Z'}
+FireMarshalMobile.tsx:140 Fire Marshal WebSocket message: {type: 'registered', timestamp: '2025-10-21T10:50:46.002Z'}
+0ca353f2cc65:1  Unchecked runtime.lastError: The message port closed before a response was received.
+0ca353f2cc65:1  Unchecked runtime.lastError: The message port closed before a response was received.
+site.webmanifest:1  Manifest: Line: 1, column: 1, Syntax error.
+FireMarshalMobile.tsx:140 Fire Marshal WebSocket message: {type: 'muster_update', evacuationId: 'evac-1761043399338-s4fxsn', personId: 'bc7fc27f-9c43-4d18-b537-cedc39210dff', personName: 'Andy Halse', personType: 'staff', …}
+queryClient.ts:63 🔍 Query request to: /api/emergency/fire-marshal/0ca353f2cc65/personnel
+queryClient.ts:73 📥 Query response status: 200 for /api/emergency/fire-marshal/0ca353f2cc65/personnel
