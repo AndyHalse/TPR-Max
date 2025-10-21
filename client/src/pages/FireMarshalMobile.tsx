@@ -65,6 +65,12 @@ interface ActiveEvacuationResponse {
   startedAt?: string;
 }
 
+interface EvacuationDetails {
+  evacuationId: string;
+  startedAt: string;
+  status: string;
+}
+
 interface FireMarshalMobileProps {
   urlId?: string;  // NEW: Static URL ID
   token?: string;  // LEGACY: Token-based auth
@@ -88,6 +94,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [authError, setAuthError] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [showSafePeople, setShowSafePeople] = useState(false); // Hide safe people by default
+  const [evacuationDetails, setEvacuationDetails] = useState<EvacuationDetails | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -105,6 +112,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
           setMarshalName(data.marshal.name);
           if (data.evacuation) {
             setActiveEvacuationId(data.evacuation.evacuationId);
+            setEvacuationDetails({
+              evacuationId: data.evacuation.evacuationId,
+              startedAt: data.evacuation.startedAt,
+              status: data.evacuation.status
+            });
           }
         })
         .catch(err => {
@@ -504,11 +516,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             </Button>
           </div>
         </div>
-        {isEmergencyActive && activeEvacuation && (
+        {isEmergencyActive && (activeEvacuation?.startedAt || evacuationDetails?.startedAt) && (
           <div className="px-3 pb-2 text-xs space-y-1 border-t border-white/20 pt-2">
             <div className="flex items-center gap-1.5">
               <Clock className="h-3 w-3" />
-              <span>Started: {new Date(activeEvacuation.startedAt!).toLocaleString()}</span>
+              <span>Started: {new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).toLocaleString()}</span>
             </div>
             {displayData && displayData.totalOnSite > 0 && displayData.accountedFor === displayData.totalOnSite && (
               <div className="flex items-center gap-1.5 text-green-200">
@@ -518,7 +530,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             )}
             <div className="flex items-center gap-1.5">
               <Timer className="h-3 w-3" />
-              <span>Duration: {Math.floor((Date.now() - new Date(activeEvacuation.startedAt!).getTime()) / 60000)} min</span>
+              <span>Duration: {Math.floor((Date.now() - new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).getTime()) / 60000)} min</span>
             </div>
           </div>
         )}
