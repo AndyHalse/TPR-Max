@@ -274,27 +274,45 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // Mark person as safe mutation
   const markSafeMutation = useMutation({
     mutationFn: async ({ personId }: { personId: string }) => {
+      console.log('🚀 [MUTATION] Mark Safe mutation starting for personId:', personId);
+      console.log('🚀 [MUTATION] marshalName:', marshalName);
+      console.log('🚀 [MUTATION] activeEvacuationId:', activeEvacuationId);
+      console.log('🚀 [MUTATION] token:', token);
+      console.log('🚀 [MUTATION] urlId:', urlId);
+      
       const headers: HeadersInit = { "Content-Type": "application/json" };
       
       // Support both authentication methods
       if (token) {
         headers["X-Emergency-Token"] = token;  // Legacy token auth
+        console.log('🚀 [MUTATION] Using token auth');
       } else if (urlId) {
         headers["X-Fire-Marshal-Id"] = urlId;  // URL ID auth
+        console.log('🚀 [MUTATION] Using URL ID auth:', urlId);
       }
       
+      const requestBody = { 
+        musterPoint: "Safe Location",  // Default location - no longer requires selection
+        evacuationId: activeEvacuationId || 'standalone',  // Use 'standalone' if no active evacuation
+        marshalName: marshalName
+      };
+      console.log('🚀 [MUTATION] Request body:', requestBody);
+      
+      console.log('🚀 [MUTATION] Sending POST to:', `/api/emergency/mark-safe/${personId}`);
       const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
         method: "POST",
         headers,
         credentials: "include",
-        body: JSON.stringify({ 
-          musterPoint: "Safe Location",  // Default location - no longer requires selection
-          evacuationId: activeEvacuationId || 'standalone',  // Use 'standalone' if no active evacuation
-          marshalName: marshalName
-        })
+        body: JSON.stringify(requestBody)
       });
-      if (!response.ok) throw new Error("Failed to mark person as safe");
-      return response.json();
+      console.log('🚀 [MUTATION] Response status:', response.status);
+      if (!response.ok) {
+        console.error('🚀 [MUTATION] Response not OK:', response.status, response.statusText);
+        throw new Error("Failed to mark person as safe");
+      }
+      const data = await response.json();
+      console.log('🚀 [MUTATION] Response data:', data);
+      return data;
     },
     onSuccess: (data) => {
       // If the response includes an evacuation ID (from standalone mode), update our state
@@ -608,8 +626,12 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                     className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg font-semibold"
                     size="lg"
                     onClick={(e) => {
+                      console.log('🔘 [BUTTON CLICK] Mark Safe button clicked for person:', person.name, person.id);
+                      console.log('🔘 [BUTTON CLICK] marshalName:', marshalName);
+                      console.log('🔘 [BUTTON CLICK] isPending:', markSafeMutation.isPending);
                       e.stopPropagation();
                       if (!marshalName) {
+                        console.error('🔘 [BUTTON CLICK] No marshal name! Showing toast.');
                         toast({
                           title: "Name Required",
                           description: "Please enter your name first",
@@ -617,9 +639,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                         });
                         return;
                       }
+                      console.log('🔘 [BUTTON CLICK] Calling markSafeMutation.mutate...');
                       markSafeMutation.mutate({ 
                         personId: person.id
                       });
+                      console.log('🔘 [BUTTON CLICK] mutate() called successfully');
                     }}
                     disabled={markSafeMutation.isPending || !marshalName}
                     data-testid={`button-mark-safe-mobile-${person.id}`}
