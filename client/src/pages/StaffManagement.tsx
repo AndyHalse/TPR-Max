@@ -175,15 +175,15 @@ export default function StaffManagement() {
 
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-fixed">Staff Management</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+        <h2 className="text-xl sm:text-2xl font-bold text-fixed">Staff Management</h2>
         <Button
           onClick={() => setIsAddModalOpen(true)}
-          className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
+          className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 whitespace-nowrap"
           data-testid="button-add-staff"
         >
-          <Plus className="mr-2" size={16} />
-          Add Staff Member
+          <Plus className="mr-1.5 sm:mr-2" size={16} />
+          <span className="text-sm sm:text-base">Add Staff Member</span>
         </Button>
       </div>
 

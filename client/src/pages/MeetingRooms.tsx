@@ -238,26 +238,26 @@ export default function MeetingRooms() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Meeting Rooms & Booking Management
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 hidden sm:block">
             Manage meeting rooms, view bookings calendar, and create new reservations
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <Button 
             onClick={() => {
               handleCreateBooking(new Date());
             }}
             data-testid="button-quick-book"
             variant="outline"
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0"
+            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 text-xs sm:text-sm whitespace-nowrap"
           >
-            <Calendar className="h-4 w-4 mr-2" />
+            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
             Quick Book
           </Button>
           
@@ -269,9 +269,9 @@ export default function MeetingRooms() {
                   setIsDialogOpen(true);
                 }}
                 data-testid="button-create-room"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-xs sm:text-sm whitespace-nowrap"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
                 Add Meeting Room
               </Button>
             </DialogTrigger>
@@ -556,14 +556,16 @@ export default function MeetingRooms() {
 
       {/* Tabs for Rooms and Bookings */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="rooms" className="flex items-center gap-2" data-testid="tab-rooms">
-            <Settings className="h-4 w-4" />
-            Manage Rooms
+        <TabsList className="grid w-full grid-cols-2 gap-2">
+          <TabsTrigger value="rooms" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm" data-testid="tab-rooms">
+            <Settings className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Manage Rooms</span>
+            <span className="sm:hidden">Rooms</span>
           </TabsTrigger>
-          <TabsTrigger value="bookings" className="flex items-center gap-2" data-testid="tab-bookings">
-            <CalendarDays className="h-4 w-4" />
-            Booking Calendar
+          <TabsTrigger value="bookings" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm" data-testid="tab-bookings">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Booking Calendar</span>
+            <span className="sm:hidden">Calendar</span>
           </TabsTrigger>
         </TabsList>
 

@@ -579,61 +579,61 @@ export default function ContractorManagement() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-2 sm:gap-4">
         <Button
           variant={activeTab === "previous" ? "default" : "outline"}
           onClick={() => setActiveTab("previous")}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
           data-testid="tab-previous-contractors"
         >
-          <History className="h-4 w-4" />
-          Previous Contractors
+          <History className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">Previous Contractors</span>
         </Button>
         <Button
           variant={activeTab === "contractors" ? "default" : "outline"}
           onClick={() => setActiveTab("contractors")}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
           data-testid="tab-contractors"
         >
-          <Building2 className="h-4 w-4" />
-          Contractors
+          <Building2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">Contractors</span>
         </Button>
         <Button
           variant={activeTab === "walkin" ? "default" : "outline"}
           onClick={() => setActiveTab("walkin")}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
           data-testid="tab-walkin-registration"
         >
-          <UserPlus className="h-4 w-4" />
-          Walk-in Registration
+          <UserPlus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">Walk-in</span>
         </Button>
         <Button
           variant={activeTab === "prebook" ? "default" : "outline"}
           onClick={() => setActiveTab("prebook")}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
           data-testid="tab-pre-booking"
         >
-          <CalendarPlus className="h-4 w-4" />
-          Pre-booking
+          <CalendarPlus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">Pre-booking</span>
         </Button>
         
         <Button
           variant={activeTab === "co2" ? "default" : "outline"}
           onClick={() => setActiveTab("co2")}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
           data-testid="tab-co2-reports"
         >
-          <Leaf className="h-4 w-4" />
-          CO2 Reports
+          <Leaf className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">CO2 Reports</span>
         </Button>
         <Button
           variant={activeTab === "assign-hs" ? "default" : "outline"}
           onClick={() => setActiveTab("assign-hs")}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
           data-testid="tab-assign-hs"
         >
-          <Shield className="h-4 w-4" />
-          Assign H&S Document
+          <Shield className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">H&S Document</span>
         </Button>
       </div>
 

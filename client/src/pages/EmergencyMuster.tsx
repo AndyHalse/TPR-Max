@@ -310,11 +310,12 @@ export default function EmergencyMuster() {
 
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
         <div>
-          <h2 className="text-2xl font-bold text-fixed">Emergency Muster</h2>
-          <p className="text-variable mt-1 flex items-center gap-2">
-            Real-time emergency evacuation management and accountability
+          <h2 className="text-xl sm:text-2xl font-bold text-fixed">Emergency Muster</h2>
+          <p className="text-variable mt-1 flex flex-wrap items-center gap-2 text-sm sm:text-base">
+            <span className="hidden sm:inline">Real-time emergency evacuation management and accountability</span>
+            <span className="sm:hidden">Real-time emergency evacuation</span>
             {wsConnected && (
               <span className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -326,14 +327,15 @@ export default function EmergencyMuster() {
         <div className="flex items-center gap-3">
           <Button 
             onClick={handleEmergencyToggle}
-            className={emergencyActive ? 
+            className={`${emergencyActive ? 
               "bg-red-600 hover:bg-red-700 text-white" : 
               "bg-orange-600 hover:bg-orange-700 text-white"
-            }
+            } text-sm sm:text-base whitespace-nowrap`}
             data-testid="button-emergency-toggle"
           >
-            <Siren className="mr-2" size={16} />
-            {emergencyActive ? "Deactivate Emergency" : "Activate Emergency"}
+            <Siren className="mr-1.5 sm:mr-2" size={16} />
+            <span className="hidden sm:inline">{emergencyActive ? "Deactivate Emergency" : "Activate Emergency"}</span>
+            <span className="sm:hidden">{emergencyActive ? "Deactivate" : "Activate"}</span>
           </Button>
         </div>
       </div>
@@ -465,9 +467,9 @@ export default function EmergencyMuster() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <GlassCard className="dark:glass-dark">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Personnel Accountability</h3>
-              <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200">Personnel Accountability</h3>
+              <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
                 {hasActiveEvacuation && (
                   <Button 
                     variant="outline" 
@@ -475,8 +477,9 @@ export default function EmergencyMuster() {
                     onClick={() => markAllSafeMutation.mutate()}
                     disabled={markAllSafeMutation.isPending}
                     data-testid="button-mark-all-safe"
+                    className="text-xs sm:text-sm whitespace-nowrap"
                   >
-                    <CheckCircle className="mr-2" size={16} />
+                    <CheckCircle className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
                     {markAllSafeMutation.isPending ? "Marking..." : "Mark All Safe"}
                   </Button>
                 )}
@@ -485,8 +488,9 @@ export default function EmergencyMuster() {
                   size="sm" 
                   onClick={exportMusterList}
                   data-testid="button-export-muster"
+                  className="text-xs sm:text-sm whitespace-nowrap"
                 >
-                  <Download className="mr-2" size={16} />
+                  <Download className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
                   Export List
                 </Button>
               </div>

@@ -816,27 +816,27 @@ export default function Visitors() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white/50 backdrop-blur-sm rounded-xl p-2">
+        <TabsList className="flex flex-col sm:grid w-full sm:grid-cols-3 bg-white/50 backdrop-blur-sm rounded-xl p-2 gap-2 sm:gap-0">
           <TabsTrigger 
             value="existing" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"
           >
-            <History size={18} />
-            Previous Visitors
+            <History size={16} className="flex-shrink-0" />
+            <span className="truncate">Previous Visitors</span>
           </TabsTrigger>
           <TabsTrigger 
             value="walkin" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"
           >
-            <UserPlus size={18} />
-            Walk-in Registration
+            <UserPlus size={16} className="flex-shrink-0" />
+            <span className="truncate">Walk-in Registration</span>
           </TabsTrigger>
           <TabsTrigger 
             value="prebook" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"
           >
-            <CalendarPlus size={18} />
-            Pre-booking
+            <CalendarPlus size={16} className="flex-shrink-0" />
+            <span className="truncate">Pre-booking</span>
           </TabsTrigger>
         </TabsList>
 
