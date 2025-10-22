@@ -701,28 +701,28 @@ export default function Dashboard() {
 
       {/* Reception Diary - Comprehensive Operations Overview */}
       <GlassCard className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200 dark:border-indigo-800">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
           <div className="flex items-center">
-            <CalendarDays className="mr-3 text-indigo-600 dark:text-indigo-400" size={32} />
+            <CalendarDays className="mr-2 sm:mr-3 text-indigo-600 dark:text-indigo-400 flex-shrink-0" size={28} />
             <div>
-              <h3 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">Reception Diary</h3>
-              <p className="text-sm text-indigo-600 dark:text-indigo-400">Complete operational overview - visitors & meetings</p>
+              <h3 className="text-lg sm:text-xl font-bold text-indigo-800 dark:text-indigo-200">Reception Diary</h3>
+              <p className="text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hidden sm:block">Complete operational overview - visitors & meetings</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-xs">
               {filteredDiary?.length || 0} Visitors
             </Badge>
-            <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+            <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs">
               {currentViewRoomBookings?.length || 0} Meetings
             </Badge>
           </div>
         </div>
 
         {/* View Controls */}
-        <div className="flex items-center justify-between mb-4 gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
           {/* View Mode Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Button
               variant={diaryViewMode === 'today' ? 'default' : 'outline'}
               size="sm"
@@ -730,7 +730,7 @@ export default function Dashboard() {
                 setDiaryViewMode('today');
                 setCurrentDate(new Date());
               }}
-              className="text-xs"
+              className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-today"
             >
               Today
@@ -744,7 +744,7 @@ export default function Dashboard() {
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 setCurrentDate(tomorrow);
               }}
-              className="text-xs"
+              className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-tomorrow"
             >
               Tomorrow
@@ -756,7 +756,7 @@ export default function Dashboard() {
                 setDiaryViewMode('weekly');
                 setCurrentDate(new Date());
               }}
-              className="text-xs"
+              className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-weekly"
             >
               Weekly
@@ -764,7 +764,7 @@ export default function Dashboard() {
           </div>
 
           {/* Navigation Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-center">
             <Button
               variant="ghost"
               size="sm"
@@ -775,7 +775,7 @@ export default function Dashboard() {
               <ChevronLeft size={16} />
             </Button>
             
-            <div className="text-sm font-medium text-indigo-800 dark:text-indigo-200 min-w-[120px] text-center">
+            <div className="text-xs sm:text-sm font-medium text-indigo-800 dark:text-indigo-200 min-w-[100px] sm:min-w-[120px] text-center">
               {getViewTitle()}
             </div>
             
@@ -882,23 +882,23 @@ export default function Dashboard() {
                                 </div>
                               </div>
                               
-                              <div className="space-y-1 text-sm">
+                              <div className="space-y-1 text-xs sm:text-sm">
                                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                  <Building2 size={14} />
-                                  <span>{booking.roomName}</span>
+                                  <Building2 size={14} className="flex-shrink-0" />
+                                  <span className="truncate">{booking.roomName}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                  <UserCheck size={14} />
-                                  <span>Host: {booking.organizer}</span>
+                                  <UserCheck size={14} className="flex-shrink-0" />
+                                  <span className="truncate">Host: {booking.organizer}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                  <Users size={14} />
+                                  <Users size={14} className="flex-shrink-0" />
                                   <span>{booking.expectedAttendees || 0} attendees</span>
                                 </div>
                                 {booking.description && (
                                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                    <AtSign size={14} />
-                                    <span>{booking.description}</span>
+                                    <AtSign size={14} className="flex-shrink-0" />
+                                    <span className="line-clamp-1">{booking.description}</span>
                                   </div>
                                 )}
                               </div>
@@ -973,23 +973,27 @@ export default function Dashboard() {
                                       </Badge>
                                     </div>
                                     
-                                    <div className="space-y-1 text-sm">
+                                    <div className="space-y-1 text-xs sm:text-sm">
                                       <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                        <Building2 size={14} />
-                                        <span>{entry.company}</span>
+                                        <Building2 size={14} className="flex-shrink-0" />
+                                        <span className="truncate">{entry.company}</span>
                                       </div>
                                       <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                        <UserCheck size={14} />
-                                        <span>Host: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
+                                        <UserCheck size={14} className="flex-shrink-0" />
+                                        <span className="truncate">Host: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
                                       </div>
-                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                        <Mail size={14} />
-                                        <span>{entry.visitorEmail}</span>
+                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 sm:hidden">
+                                        <Mail size={14} className="flex-shrink-0" />
+                                        <span className="truncate">{entry.visitorEmail}</span>
+                                      </div>
+                                      <div className="hidden sm:flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <Mail size={14} className="flex-shrink-0" />
+                                        <span className="truncate">{entry.visitorEmail}</span>
                                       </div>
                                       {entry.purpose && (
                                         <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                                          <AtSign size={14} />
-                                          <span>{entry.purpose}</span>
+                                          <AtSign size={14} className="flex-shrink-0" />
+                                          <span className="line-clamp-1">{entry.purpose}</span>
                                         </div>
                                       )}
                                     </div>
@@ -1025,26 +1029,26 @@ export default function Dashboard() {
 
         {((receptionDiary && receptionDiary.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
           <div className="mt-6 pt-4 border-t border-indigo-200 dark:border-indigo-800">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
-                  <span className="text-slate-600">Urgent (&lt; 2hrs)</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm">
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="w-3 h-3 bg-red-100 border border-red-200 rounded flex-shrink-0"></div>
+                  <span className="text-slate-600">Urgent</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded"></div>
-                  <span className="text-slate-600">High (&lt; 24hrs)</span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded flex-shrink-0"></div>
+                  <span className="text-slate-600">High</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="text-green-600" size={14} />
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <CheckCircle2 className="text-green-600 flex-shrink-0" size={14} />
                   <span className="text-slate-600">Checked In</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="text-purple-600" size={14} />
-                  <span className="text-slate-600">Meeting Room</span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Calendar className="text-purple-600 flex-shrink-0" size={14} />
+                  <span className="text-slate-600">Meeting</span>
                 </div>
               </div>
-              <span className="text-slate-500">Auto-refreshes every 30s</span>
+              <span className="text-slate-500 text-xs hidden sm:block">Auto-refreshes every 30s</span>
             </div>
           </div>
         )}
@@ -1081,15 +1085,15 @@ export default function Dashboard() {
                   }}
                   data-testid={`department-${dept.department}`}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${dept.color}`}></div>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{dept.department}</span>
+                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${dept.color}`}></div>
+                    <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{dept.department}</span>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      {dept.totalCount} people ({dept.visitorCount} visitors, {dept.staffCount} staff)
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-4 sm:space-x-4">
+                    <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-right sm:text-left">
+                      {dept.totalCount} people <span className="hidden sm:inline">({dept.visitorCount} visitors, {dept.staffCount} staff)</span>
                     </span>
-                    <Badge variant={dept.trend?.startsWith('+') ? 'default' : 'secondary'} className="text-xs">
+                    <Badge variant={dept.trend?.startsWith('+') ? 'default' : 'secondary'} className="text-xs flex-shrink-0">
                       {dept.trend || 'No trend'}
                     </Badge>
                   </div>

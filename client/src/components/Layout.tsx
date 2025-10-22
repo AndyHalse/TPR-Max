@@ -217,12 +217,12 @@ export default function Layout({ children }: LayoutProps) {
         
         {/* Mobile Navigation Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 glass-effect border-t border-white/30">
-            <div className="px-4 py-3 space-y-2">
+          <div className="lg:hidden absolute top-full left-0 right-0 glass-effect border-t border-white/30 max-h-[70vh] overflow-y-auto">
+            <div className="px-3 py-2 space-y-1">
               {navItems.map((item) => (
                 <Link key={item.path} href={item.path}>
                   <button 
-                    className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center space-x-3 ${
+                    className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center space-x-3 text-sm ${
                       location === item.path 
                         ? 'bg-white text-blue-600 shadow-sm' 
                         : 'text-slate-700 hover:bg-white/30'
@@ -230,8 +230,8 @@ export default function Layout({ children }: LayoutProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
                   >
-                    <item.icon size={18} />
-                    <span>{item.label}</span>
+                    <item.icon size={16} />
+                    <span className="truncate">{item.label}</span>
                   </button>
                 </Link>
               ))}
