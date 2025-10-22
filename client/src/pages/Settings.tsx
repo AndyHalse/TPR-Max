@@ -868,16 +868,6 @@ export default function Settings() {
               AI Settings
             </Button>
           </Link>
-          <Button
-            onClick={handleSave}
-            disabled={updateSettingsMutation.isPending || Object.keys(formData).length === 0}
-            variant="outline"
-            className="border-green-200 text-green-700 hover:bg-green-50 font-medium transition-all duration-300"
-            data-testid="button-save-settings"
-          >
-            <Save className="mr-2" size={16} />
-            {Object.keys(formData).length === 0 ? 'All Settings Auto-Saved' : 'Save Remaining Changes'}
-          </Button>
         </div>
       </div>
 
