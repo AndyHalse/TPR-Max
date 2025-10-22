@@ -76,8 +76,10 @@ export function decryptData(encryptedData: string, iv: string, authTag: string):
     const ivBuffer = Buffer.from(iv, 'hex');
     const authTagBuffer = Buffer.from(authTag, 'hex');
     
-    // FIXED: Use createDecipheriv with proper IV for AES-256-GCM
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, ivBuffer);
+    // FIXED: Use createDecipheriv with proper IV and authTagLength for AES-256-GCM
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, ivBuffer, {
+      authTagLength: TAG_LENGTH
+    });
     
     // Set the authentication tag BEFORE calling update/final for GCM
     decipher.setAuthTag(authTagBuffer);
