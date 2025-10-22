@@ -212,11 +212,11 @@ export default function Billing() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          <TabsTrigger value="usage">Usage</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="plans">Plans</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2">
+          <TabsTrigger value="subscription" className="text-xs sm:text-sm">Subscription</TabsTrigger>
+          <TabsTrigger value="usage" className="text-xs sm:text-sm">Usage</TabsTrigger>
+          <TabsTrigger value="invoices" className="text-xs sm:text-sm">Invoices</TabsTrigger>
+          <TabsTrigger value="plans" className="text-xs sm:text-sm">Plans</TabsTrigger>
         </TabsList>
 
         {/* Subscription Tab */}

@@ -1941,13 +1941,13 @@ export default function Dashboard() {
       <Dialog open={openModal === 'visitor-booking-details'} onOpenChange={() => setOpenModal(null)}>
         <DialogContent className="glass-effect border border-white/30 max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center">
-                <Calendar className="text-white" size={24} />
+            <DialogTitle className="flex items-center gap-2 sm:gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 bg-indigo-500 rounded-full flex items-center justify-center">
+                <Calendar className="text-white" size={20} />
               </div>
-              <div>
-                <div className="text-xl">Visitor Pre-Booking Details</div>
-                <div className="text-sm text-slate-600 font-normal">
+              <div className="min-w-0 flex-1">
+                <div className="text-base sm:text-xl font-semibold truncate">Visitor Pre-Booking Details</div>
+                <div className="text-xs sm:text-sm text-slate-600 font-normal truncate">
                   {selectedVisitorBooking?.visitorFirstName} {selectedVisitorBooking?.visitorLastName}
                 </div>
               </div>
@@ -1955,30 +1955,30 @@ export default function Dashboard() {
           </DialogHeader>
           
           {selectedVisitorBooking && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Status Banner */}
-              <div className={`border rounded-lg p-4 ${
+              <div className={`border rounded-lg p-3 sm:p-4 ${
                 selectedVisitorBooking.isCheckedIn 
                   ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                   : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
               }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {selectedVisitorBooking.isCheckedIn ? (
-                      <CheckCircle2 className="text-green-600" size={20} />
+                      <CheckCircle2 className="text-green-600 flex-shrink-0" size={18} />
                     ) : (
-                      <Clock3 className="text-blue-600" size={20} />
+                      <Clock3 className="text-blue-600 flex-shrink-0" size={18} />
                     )}
-                    <Badge variant="default" className={selectedVisitorBooking.isCheckedIn ? 'bg-green-600' : 'bg-blue-600'}>
+                    <Badge variant="default" className={`${selectedVisitorBooking.isCheckedIn ? 'bg-green-600' : 'bg-blue-600'} text-xs whitespace-nowrap`}>
                       {selectedVisitorBooking.isCheckedIn ? '✓ Visitor Has Arrived' : '⏰ Expected Arrival'}
                     </Badge>
-                    <span className="text-sm font-medium">
+                    <span className="text-xs sm:text-sm font-medium">
                       {formatVisitTime(new Date(selectedVisitorBooking.visitDate))}
                     </span>
                   </div>
                   <Badge 
                     variant="outline" 
-                    className="text-xs" 
+                    className="text-xs whitespace-nowrap w-fit" 
                     style={{ 
                       backgroundColor: selectedVisitorBooking.tenantPrimaryColor + '20', 
                       borderColor: selectedVisitorBooking.tenantPrimaryColor 
@@ -1990,33 +1990,33 @@ export default function Dashboard() {
               </div>
 
               {/* Visitor Information */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
-                  <User className="text-indigo-600" size={20} />
+              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:p-4">
+                <h3 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                  <User className="text-indigo-600 flex-shrink-0" size={18} />
                   Visitor Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Full Name</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Full Name</label>
+                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.visitorFirstName} {selectedVisitorBooking.visitorLastName}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Email Address</label>
-                    <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Email Address</label>
+                    <p className="text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 p-2 rounded border break-all">
                       {selectedVisitorBooking.visitorEmail}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Company</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Company</label>
+                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.company || 'Not specified'}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Visit Date & Time</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Visit Date & Time</label>
+                    <p className="text-xs sm:text-sm bg-white dark:bg-slate-800 p-2 rounded border break-words">
                       {new Date(selectedVisitorBooking.visitDate).toLocaleDateString('en-GB', { 
                         weekday: 'long', 
                         year: 'numeric', 
@@ -2029,33 +2029,33 @@ export default function Dashboard() {
               </div>
 
               {/* Host & Meeting Details */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
-                  <UserCheck className="text-blue-600" size={20} />
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
+                <h3 className="text-base sm:text-lg font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
+                  <UserCheck className="text-blue-600 flex-shrink-0" size={18} />
                   Host & Meeting Details
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Host</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Host</label>
+                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.hostFirstName} {selectedVisitorBooking.hostLastName}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
+                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.hostDepartment}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Host Email</label>
-                    <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Host Email</label>
+                    <p className="text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 p-2 rounded border break-all">
                       {selectedVisitorBooking.hostEmail}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Purpose of Visit</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Purpose of Visit</label>
+                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.purpose || 'Not specified'}
                     </p>
                   </div>
