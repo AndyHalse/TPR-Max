@@ -215,17 +215,28 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
         
-        {/* Mobile Navigation Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 glass-effect border-t border-white/30 max-h-[70vh] overflow-y-auto">
+      </nav>
+
+      {/* Mobile Navigation Menu - Fixed Overlay */}
+      {mobileMenuOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="lg:hidden fixed inset-0 bg-slate-900/60 z-40"
+            onClick={() => setMobileMenuOpen(false)}
+            data-testid="mobile-menu-backdrop"
+          />
+          
+          {/* Menu Panel */}
+          <div className="lg:hidden fixed top-[88px] left-0 right-0 z-50 bg-white dark:bg-slate-800 shadow-xl max-h-[calc(100vh-88px)] overflow-y-auto">
             <div className="px-3 py-2 space-y-1">
               {navItems.map((item) => (
                 <Link key={item.path} href={item.path}>
                   <button 
                     className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center space-x-3 text-sm ${
                       location === item.path 
-                        ? 'bg-white text-blue-600 shadow-sm' 
-                        : 'text-slate-700 hover:bg-white/30'
+                        ? 'bg-blue-50 text-blue-600 shadow-sm dark:bg-blue-900/20' 
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                     onClick={() => setMobileMenuOpen(false)}
                     data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
@@ -237,8 +248,8 @@ export default function Layout({ children }: LayoutProps) {
               ))}
             </div>
           </div>
-        )}
-      </nav>
+        </>
+      )}
 
       {/* Main Content */}
       <div className="pt-24 pb-8 px-6">
