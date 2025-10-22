@@ -20,3 +20,6 @@ connect.sid
 *.auth
 .env.local
 .env.production
+
+# Security: Prevent user data and credentials from being committed
+data/
