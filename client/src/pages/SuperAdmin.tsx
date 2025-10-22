@@ -417,27 +417,28 @@ export default function SuperAdmin() {
               {tenants.map((tenant) => (
                 <div 
                   key={tenant.id} 
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-gray-50 transition-colors gap-3"
                   data-testid={`tenant-${tenant.slug}`}
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Building2 className="w-6 h-6 text-blue-600" />
+                  <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-lg" data-testid={`text-company-name-${tenant.slug}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-base sm:text-lg truncate" data-testid={`text-company-name-${tenant.slug}`}>
                           {tenant.companyName}
                         </h3>
                         <Badge 
                           variant={tenant.isActive ? "default" : "secondary"}
                           data-testid={`badge-status-${tenant.slug}`}
+                          className="text-xs whitespace-nowrap"
                         >
                           {tenant.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </div>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p data-testid={`text-contact-${tenant.slug}`}>
+                      <div className="text-xs sm:text-sm text-gray-600 space-y-1">
+                        <p data-testid={`text-contact-${tenant.slug}`} className="truncate">
                           📧 {tenant.contactEmail} | 🏢 /{tenant.slug}
                         </p>
                         <p data-testid={`text-info-${tenant.slug}`}>
@@ -447,14 +448,15 @@ export default function SuperAdmin() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => setLocation(`/tenant/${tenant.slug}/dashboard`)}
                       data-testid={`button-view-${tenant.slug}`}
+                      className="text-xs whitespace-nowrap"
                     >
-                      <Eye className="w-4 h-4 mr-1" />
+                      <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                       View
                     </Button>
                     <Button 
@@ -462,8 +464,9 @@ export default function SuperAdmin() {
                       size="sm"
                       onClick={() => setLocation(`/tenant/${tenant.slug}/settings`)}
                       data-testid={`button-settings-${tenant.slug}`}
+                      className="text-xs whitespace-nowrap"
                     >
-                      <Settings className="w-4 h-4 mr-1" />
+                      <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                       Settings
                     </Button>
                     <Button
@@ -475,15 +478,16 @@ export default function SuperAdmin() {
                       })}
                       disabled={toggleTenantMutation.isPending}
                       data-testid={`button-toggle-${tenant.slug}`}
+                      className="text-xs whitespace-nowrap"
                     >
                       {tenant.isActive ? (
                         <>
-                          <AlertTriangle className="w-4 h-4 mr-1" />
+                          <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                           Deactivate
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="w-4 h-4 mr-1" />
+                          <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                           Activate
                         </>
                       )}

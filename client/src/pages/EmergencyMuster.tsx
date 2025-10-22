@@ -353,12 +353,12 @@ export default function EmergencyMuster() {
             
             {/* Fire Marshal Emergency System */}
             <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border-l-4 border-blue-500">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Shield className="text-blue-600 mr-3" size={24} />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start sm:items-center gap-3">
+                  <Shield className="text-blue-600 flex-shrink-0" size={24} />
                   <div>
-                    <h4 className="font-semibold text-fixed">Fire Marshal Emergency System</h4>
-                    <p className="text-sm text-variable">
+                    <h4 className="font-semibold text-fixed text-sm sm:text-base">Fire Marshal Emergency System</h4>
+                    <p className="text-xs sm:text-sm text-variable">
                       Notify Fire Marshals via secure email links for mobile emergency response
                     </p>
                   </div>
@@ -366,17 +366,17 @@ export default function EmergencyMuster() {
                 <Button
                   onClick={() => activateFireMarshalMutation.mutate()}
                   disabled={activateFireMarshalMutation.isPending}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto"
                   data-testid="button-activate-fire-marshal"
                 >
                   {activateFireMarshalMutation.isPending ? (
-                    <div className="flex items-center">
+                    <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Notifying...
                     </div>
                   ) : (
-                    <div className="flex items-center">
-                      <Mail className="mr-2" size={16} />
+                    <div className="flex items-center justify-center">
+                      <Mail className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
                       NOTIFY FIRE MARSHALS
                     </div>
                   )}
@@ -518,15 +518,15 @@ export default function EmergencyMuster() {
               {filteredList.map((person) => (
                 <div 
                   key={person.id} 
-                  className={`flex items-center justify-between p-4 rounded-xl transition-all ${
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl transition-all gap-3 ${
                     person.accounted 
                       ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
                       : 'bg-white/50 dark:bg-slate-800/50 border border-gray-200 dark:border-gray-600'
                   }`}
                   data-testid={`person-${person.id}`}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${
                       person.type === 'staff' ? 'bg-blue-500' : 
                       person.type === 'visitor' ? 'bg-orange-500' : 'bg-yellow-500'
                     }`}>
@@ -534,28 +534,28 @@ export default function EmergencyMuster() {
                         {person.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200">{person.name}</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-800 dark:text-slate-200 text-sm sm:text-base truncate">{person.name}</p>
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 truncate">
                         {person.type === 'staff' ? person.department : person.company} • {person.location}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-3">
-                    <Badge variant={person.type === 'staff' ? 'default' : 'secondary'}>
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <Badge variant={person.type === 'staff' ? 'default' : 'secondary'} className="text-xs">
                       {person.type}
                     </Badge>
                     {hasActiveEvacuation && (
                       <>
                         {person.accounted ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-300" data-testid={`badge-safe-${person.id}`}>
-                            <CheckCircle className="mr-1" size={14} />
+                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
+                            <CheckCircle className="mr-1" size={12} />
                             Safe
                           </Badge>
                         ) : (
-                          <Badge variant="destructive" data-testid={`badge-unsafe-${person.id}`}>
-                            <XCircle className="mr-1" size={14} />
+                          <Badge variant="destructive" className="text-xs whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
+                            <XCircle className="mr-1" size={12} />
                             Unsafe
                           </Badge>
                         )}
@@ -564,18 +564,18 @@ export default function EmergencyMuster() {
                     <Button
                       size="sm"
                       variant={person.accounted ? "outline" : "default"}
-                      className={person.accounted ? "" : "bg-green-600 hover:bg-green-700 text-white"}
+                      className={`${person.accounted ? "" : "bg-green-600 hover:bg-green-700 text-white"} text-xs whitespace-nowrap`}
                       onClick={() => toggleAccountedStatus(person.id, person.type)}
                       data-testid={`button-toggle-${person.id}`}
                     >
                       {person.accounted ? (
                         <>
-                          <XCircle className="mr-1" size={14} />
+                          <XCircle className="mr-1" size={12} />
                           Unmark
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="mr-1" size={14} />
+                          <CheckCircle className="mr-1" size={12} />
                           Mark Safe
                         </>
                       )}

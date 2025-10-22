@@ -130,28 +130,28 @@ export default function TimeAttendance() {
 
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Time & Attendance Report</h2>
-          <p className="text-slate-600 mt-1">Track staff working hours and attendance patterns</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Time & Attendance Report</h2>
+          <p className="text-sm sm:text-base text-slate-600 mt-1 hidden sm:block">Track staff working hours and attendance patterns</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <Button
             onClick={() => setAdvancedView(!advancedView)}
             variant={advancedView ? "default" : "outline"}
-            className={advancedView ? "gradient-blue text-white" : "bg-white/80 hover:bg-white border-white/30"}
+            className={`${advancedView ? "gradient-blue text-white" : "bg-white/80 hover:bg-white border-white/30"} text-xs sm:text-sm whitespace-nowrap`}
             data-testid="button-advanced-view"
           >
-            <Eye className="mr-2" size={16} />
+            <Eye className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
             {advancedView ? "Simple View" : "Advanced View"}
           </Button>
           <Button
             onClick={exportToCSV}
-            className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
+            className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 text-xs sm:text-sm whitespace-nowrap"
             data-testid="button-export-csv"
             disabled={!timeAttendanceData || !Array.isArray(timeAttendanceData) || timeAttendanceData.length === 0}
           >
-            <Download className="mr-2" size={16} />
+            <Download className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
             Export CSV
           </Button>
         </div>
