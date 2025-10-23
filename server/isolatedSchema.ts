@@ -155,7 +155,7 @@ export const visitors = pgTable("visitors", {
 // Visitor history table for tracking all visits
 export const visitorHistory = pgTable("visitor_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  visitorId: varchar("visitor_id").notNull().references(() => visitors.id),
+  visitorId: varchar("visitor_id").notNull(),
   // Visit details
   checkInTime: timestamp("check_in_time").notNull(),
   checkOutTime: timestamp("check_out_time"),
