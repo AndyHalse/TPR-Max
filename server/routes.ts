@@ -8790,8 +8790,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const targetDate = date ? new Date(date as string) : new Date();
       const daysAhead = parseInt(days as string) || 7;
       
-      // Get customer-filtered pre-bookings for the specified period
-      const allPreBookings = await storage.getReceptionDiaryByCustomer(context.customerId, targetDate, daysAhead);
+      // Calculate end date
+      const endDate = new Date(targetDate);
+      endDate.setDate(targetDate.getDate() + daysAhead);
+      
+      // Get customer database connection
+      const customerDb = await customerDbService.getCustomerDb(context.customerId);
+      
+      // Query pre-bookings with staff and tenant joins for host details
+      const allPreBookings = await customerDb.select({
+        id: sharedSchema.preBookings.id,
+        visitorFirstName: sharedSchema.preBookings.visitorFirstName,
+        visitorLastName: sharedSchema.preBookings.visitorLastName,
+        visitorEmail: sharedSchema.preBookings.visitorEmail,
+        company: sharedSchema.preBookings.company,
+        visitDate: sharedSchema.preBookings.visitDate,
+        purpose: sharedSchema.preBookings.purpose,
+        isCheckedIn: sharedSchema.preBookings.isCheckedIn,
+        createdAt: sharedSchema.preBookings.createdAt,
+        hostStaffId: sharedSchema.preBookings.hostStaffId,
+        customerId: sharedSchema.preBookings.customerId,
+        // Host staff details
+        hostFirstName: sharedSchema.staff.firstName,
+        hostLastName: sharedSchema.staff.lastName,
+        hostDepartment: sharedSchema.staff.department,
+        hostEmail: sharedSchema.staff.email,
+        // Tenant company details
+        tenantCompanyName: isolatedSchema.tenantCompanies.companyName,
+        tenantSlug: isolatedSchema.tenantCompanies.slug,
+        tenantPrimaryColor: isolatedSchema.tenantCompanies.primaryColor
+      })
+      .from(sharedSchema.preBookings)
+      .leftJoin(sharedSchema.staff, eq(sharedSchema.preBookings.hostStaffId, sharedSchema.staff.id))
+      .leftJoin(isolatedSchema.tenantCompanies, eq(sharedSchema.staff.tenantCompanyId, isolatedSchema.tenantCompanies.id))
+      .where(
+        and(
+          eq(sharedSchema.preBookings.customerId, context.customerId),
+          sql`${sharedSchema.preBookings.visitDate} >= ${targetDate}`,
+          sql`${sharedSchema.preBookings.visitDate} <= ${endDate}`
+        )
+      )
+      .orderBy(sharedSchema.preBookings.visitDate);
       
       res.json(allPreBookings);
     } catch (error) {
