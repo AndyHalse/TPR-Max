@@ -2124,29 +2124,37 @@ export default function Dashboard() {
               {/* Quick Actions */}
               <div className="flex gap-3 pt-4 border-t">
                 <Button 
-                  onClick={() => {
-                    if (selectedVisitorBooking.visitorEmail) {
-                      window.open(`mailto:${selectedVisitorBooking.visitorEmail}`, '_blank');
+                  onClick={async () => {
+                    try {
+                      const response = await apiRequest("POST", "/api/prebookings/manual-checkin", {
+                        preBookingId: selectedVisitorBooking.id
+                      });
+                      
+                      const result = await response.json();
+                      
+                      if (result.success) {
+                        toast({
+                          title: "✅ Visitor Checked In",
+                          description: `${selectedVisitorBooking.visitorFirstName} ${selectedVisitorBooking.visitorLastName} has been successfully checked in.`,
+                        });
+                        setOpenModal(null);
+                        queryClient.invalidateQueries({ queryKey: ['/api/reception/diary'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/visitors/current'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+                      }
+                    } catch (error: any) {
+                      toast({
+                        title: "❌ Check-in Failed",
+                        description: error.message || "Failed to check in visitor. Please try again.",
+                        variant: "destructive",
+                      });
                     }
                   }}
-                  disabled={!selectedVisitorBooking.visitorEmail}
-                  className="flex-1"
-                  data-testid="button-email-visitor-booking"
+                  disabled={selectedVisitorBooking.isCheckedIn}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  data-testid="button-manual-checkin-booking"
                 >
-                  📧 Email Visitor
-                </Button>
-                <Button 
-                  onClick={() => {
-                    if (selectedVisitorBooking.hostEmail) {
-                      window.open(`mailto:${selectedVisitorBooking.hostEmail}`, '_blank');
-                    }
-                  }}
-                  disabled={!selectedVisitorBooking.hostEmail}
-                  variant="outline"
-                  className="flex-1"
-                  data-testid="button-email-host-booking"
-                >
-                  📧 Email Host
+                  {selectedVisitorBooking.isCheckedIn ? '✓ Already Checked In' : '👤 Manual Check-In'}
                 </Button>
                 <Button 
                   onClick={() => {
