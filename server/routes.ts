@@ -14784,26 +14784,58 @@ This is an automated notification from your visitor management system.`;
     try {
       // SECURITY: Strictly use authenticated user's customer context
       const customerId = req.customerId;
-      if (!customerId) {
+      if (!customerId || !req.user?.username) {
         return res.status(401).json({ error: "Please log in to view bookings" });
       }
       
-      // Map customerId to tenant_company_id for database query
-      const tenantCompanyResult = await db
-        .select({ id: tenantCompanies.id })
-        .from(tenantCompanies)
-        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
-        .limit(1);
-      
-      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId;
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       
       // Get today's date range
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
       
-      // Get room bookings with joined room and organizer data, filtered by tenant
-      const bookings = await storage.getRoomBookingsByTenant(tenantCompanyId, startOfDay, endOfDay);
+      // Get customer database connection
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      // Query room bookings with joined room and organizer data from customer database
+      const bookings = await customerDb
+        .select({
+          id: isolatedSchema.roomBookings.id,
+          meetingRoomId: isolatedSchema.roomBookings.meetingRoomId,
+          title: isolatedSchema.roomBookings.title,
+          description: isolatedSchema.roomBookings.description,
+          startTime: isolatedSchema.roomBookings.startTime,
+          endTime: isolatedSchema.roomBookings.endTime,
+          bookedByStaffId: isolatedSchema.roomBookings.bookedByStaffId,
+          tenantCompanyId: isolatedSchema.roomBookings.tenantCompanyId,
+          attendeeCount: isolatedSchema.roomBookings.attendeeCount,
+          expectedAttendees: isolatedSchema.roomBookings.expectedAttendees,
+          status: isolatedSchema.roomBookings.status,
+          requiresCatering: isolatedSchema.roomBookings.requiresCatering,
+          cateringNotes: isolatedSchema.roomBookings.cateringNotes,
+          specialRequirements: isolatedSchema.roomBookings.specialRequirements,
+          attendeeEmails: isolatedSchema.roomBookings.attendeeEmails,
+          // Room details
+          roomName: isolatedSchema.meetingRooms.name,
+          roomCapacity: isolatedSchema.meetingRooms.capacity,
+          roomLocation: isolatedSchema.meetingRooms.location,
+          // Organizer details
+          organizerFirstName: isolatedSchema.staff.firstName,
+          organizerLastName: isolatedSchema.staff.lastName,
+          organizerEmail: isolatedSchema.staff.email,
+          organizerDepartment: isolatedSchema.staff.department,
+        })
+        .from(isolatedSchema.roomBookings)
+        .leftJoin(isolatedSchema.meetingRooms, eq(isolatedSchema.roomBookings.meetingRoomId, isolatedSchema.meetingRooms.id))
+        .leftJoin(isolatedSchema.staff, eq(isolatedSchema.roomBookings.bookedByStaffId, isolatedSchema.staff.id))
+        .where(
+          and(
+            sql`${isolatedSchema.roomBookings.startTime} >= ${startOfDay}`,
+            sql`${isolatedSchema.roomBookings.endTime} <= ${endOfDay}`
+          )
+        )
+        .orderBy(isolatedSchema.roomBookings.startTime);
       
       // Transform data to match frontend expectations
       const transformedBookings = bookings
@@ -14827,9 +14859,9 @@ This is an automated notification from your visitor management system.`;
               minute: '2-digit',
               hour12: false 
             }), // HH:MM format
-            roomName: booking.room?.name || 'Unknown Room',
-            organizer: booking.organizer ? 
-              `${booking.organizer.firstName} ${booking.organizer.lastName}` : 
+            roomName: booking.roomName || 'Unknown Room',
+            organizer: (booking.organizerFirstName && booking.organizerLastName) ? 
+              `${booking.organizerFirstName} ${booking.organizerLastName}` : 
               'Unknown Organizer',
             attendees: booking.attendeeEmails || [],
             expectedAttendees: booking.expectedAttendees || 0,

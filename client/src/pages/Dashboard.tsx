@@ -41,7 +41,7 @@ export default function Dashboard() {
   const [selectedMeetingBooking, setSelectedMeetingBooking] = useState<any>(null);
   
   // Reception Diary view state
-  const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('tomorrow');
+  const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('today');
   const [currentDate, setCurrentDate] = useState(new Date());
   
   // Get current user for authentication check
