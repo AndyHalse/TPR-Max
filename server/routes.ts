@@ -8917,38 +8917,36 @@ This is an automated notification from your visitor management system.`;
       
       // Query pre-bookings with staff and tenant joins for host details
       const allPreBookings = await customerDb.select({
-        id: sharedSchema.preBookings.id,
-        visitorFirstName: sharedSchema.preBookings.visitorFirstName,
-        visitorLastName: sharedSchema.preBookings.visitorLastName,
-        visitorEmail: sharedSchema.preBookings.visitorEmail,
-        company: sharedSchema.preBookings.company,
-        visitDate: sharedSchema.preBookings.visitDate,
-        purpose: sharedSchema.preBookings.purpose,
-        isCheckedIn: sharedSchema.preBookings.isCheckedIn,
-        createdAt: sharedSchema.preBookings.createdAt,
-        hostStaffId: sharedSchema.preBookings.hostStaffId,
-        customerId: sharedSchema.preBookings.customerId,
+        id: isolatedSchema.preBookings.id,
+        visitorFirstName: isolatedSchema.preBookings.visitorFirstName,
+        visitorLastName: isolatedSchema.preBookings.visitorLastName,
+        visitorEmail: isolatedSchema.preBookings.visitorEmail,
+        company: isolatedSchema.preBookings.company,
+        visitDate: isolatedSchema.preBookings.visitDate,
+        purpose: isolatedSchema.preBookings.purpose,
+        isCheckedIn: isolatedSchema.preBookings.isCheckedIn,
+        createdAt: isolatedSchema.preBookings.createdAt,
+        hostStaffId: isolatedSchema.preBookings.hostStaffId,
         // Host staff details
-        hostFirstName: sharedSchema.staff.firstName,
-        hostLastName: sharedSchema.staff.lastName,
-        hostDepartment: sharedSchema.staff.department,
-        hostEmail: sharedSchema.staff.email,
+        hostFirstName: isolatedSchema.staff.firstName,
+        hostLastName: isolatedSchema.staff.lastName,
+        hostDepartment: isolatedSchema.staff.department,
+        hostEmail: isolatedSchema.staff.email,
         // Tenant company details
         tenantCompanyName: isolatedSchema.tenantCompanies.companyName,
         tenantSlug: isolatedSchema.tenantCompanies.slug,
         tenantPrimaryColor: isolatedSchema.tenantCompanies.primaryColor
       })
-      .from(sharedSchema.preBookings)
-      .leftJoin(sharedSchema.staff, eq(sharedSchema.preBookings.hostStaffId, sharedSchema.staff.id))
-      .leftJoin(isolatedSchema.tenantCompanies, eq(sharedSchema.staff.tenantCompanyId, isolatedSchema.tenantCompanies.id))
+      .from(isolatedSchema.preBookings)
+      .leftJoin(isolatedSchema.staff, eq(isolatedSchema.preBookings.hostStaffId, isolatedSchema.staff.id))
+      .leftJoin(isolatedSchema.tenantCompanies, eq(isolatedSchema.staff.tenantCompanyId, isolatedSchema.tenantCompanies.id))
       .where(
         and(
-          eq(sharedSchema.preBookings.customerId, context.customerId),
-          sql`${sharedSchema.preBookings.visitDate} >= ${targetDate}`,
-          sql`${sharedSchema.preBookings.visitDate} <= ${endDate}`
+          sql`${isolatedSchema.preBookings.visitDate} >= ${targetDate}`,
+          sql`${isolatedSchema.preBookings.visitDate} <= ${endDate}`
         )
       )
-      .orderBy(sharedSchema.preBookings.visitDate);
+      .orderBy(isolatedSchema.preBookings.visitDate);
       
       res.json(allPreBookings);
     } catch (error) {
