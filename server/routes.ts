@@ -8677,6 +8677,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ No duplicate found in pre-booking, creating new visitor: ${firstName} ${lastName}`);
 
+      // Create customer context for database operations
+      const context: CustomerContext = { customerId: preBooking.customerId };
+      
       // Get the customer database and find host staff in customer DB
       const customerDbService = CustomerDatabaseService.getInstance();
       const customerDb = await customerDbService.getCustomerDatabase(preBooking.customerId);
@@ -8697,8 +8700,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Create visitor record from pre-booking
-      const visitor = await storage.createVisitor({
+      // Create visitor record from pre-booking using customer database
+      const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const visitor = await databaseService.createVisitor(context, {
         firstName,
         lastName,
         email: preBooking.visitorEmail,
@@ -8706,6 +8710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         purpose: preBooking.purpose,
         carRegistration: null,
         hostStaffId: hostStaffInCustomerDb ? hostStaffInCustomerDb.id : null,
+        hsRulesAcceptanceToken: hsToken
       });
 
       // Update pre-booking to mark as checked in
