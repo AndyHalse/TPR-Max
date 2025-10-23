@@ -8710,7 +8710,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         purpose: preBooking.purpose,
         carRegistration: null,
         hostStaffId: hostStaffInCustomerDb ? hostStaffInCustomerDb.id : null,
-        hsRulesAcceptanceToken: hsToken
+        hsRulesAcceptanceToken: hsToken,
+        isCheckedIn: true,
+        checkedInAt: new Date()
       });
 
       // Update pre-booking to mark as checked in
