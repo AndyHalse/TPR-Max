@@ -8677,6 +8677,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ No duplicate found in pre-booking, creating new visitor: ${firstName} ${lastName}`);
 
+      // Get the customer database and find host staff in customer DB
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(preBooking.customerId);
+      
+      // Look up the host staff member in the customer database by their ID
+      let hostStaffInCustomerDb = null;
+      if (preBooking.hostStaffId) {
+        const hostStaffResults = await customerDb
+          .select()
+          .from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.id, preBooking.hostStaffId))
+          .limit(1);
+        
+        hostStaffInCustomerDb = hostStaffResults[0];
+        
+        if (!hostStaffInCustomerDb) {
+          console.log(`⚠️ Warning: Host staff ${preBooking.hostStaffId} not found in customer database`);
+        }
+      }
+
       // Create visitor record from pre-booking
       const visitor = await storage.createVisitor({
         firstName,
@@ -8685,7 +8705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         company: preBooking.company,
         purpose: preBooking.purpose,
         carRegistration: null,
-        hostStaffId: preBooking.hostStaffId,
+        hostStaffId: hostStaffInCustomerDb ? hostStaffInCustomerDb.id : null,
       });
 
       // Update pre-booking to mark as checked in
@@ -8694,6 +8714,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedInAt: new Date(),
         visitorId: visitor.id,
       });
+
+      // Send email notification to host if host exists
+      if (hostStaffInCustomerDb && hostStaffInCustomerDb.email) {
+        try {
+          const emailService = new EmailService();
+          const subject = `✅ Visitor Arrived: ${firstName} ${lastName}`;
+          
+          const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f6f6f6;">
+              <div style="max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 30px; text-align: center;">
+                  <h1 style="margin: 0; font-size: 24px;">✅ Visitor Checked In</h1>
+                </div>
+                
+                <div style="padding: 30px;">
+                  <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+                    Hello <strong>${hostStaffInCustomerDb.firstName} ${hostStaffInCustomerDb.lastName}</strong>,
+                  </p>
+                  
+                  <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+                    Your visitor has just checked in at reception.
+                  </p>
+                  
+                  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #2563eb; margin: 20px 0;">
+                    <h3 style="margin: 0 0 15px 0; color: #2563eb; font-size: 18px;">Visitor Details</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                      <tr>
+                        <td style="padding: 8px 0; color: #666; font-size: 14px;">Name:</td>
+                        <td style="padding: 8px 0; color: #333; font-size: 14px; font-weight: 600;">${firstName} ${lastName}</td>
+                      </tr>
+                      ${preBooking.company ? `
+                      <tr>
+                        <td style="padding: 8px 0; color: #666; font-size: 14px;">Company:</td>
+                        <td style="padding: 8px 0; color: #333; font-size: 14px; font-weight: 600;">${preBooking.company}</td>
+                      </tr>
+                      ` : ''}
+                      ${preBooking.purpose ? `
+                      <tr>
+                        <td style="padding: 8px 0; color: #666; font-size: 14px;">Purpose:</td>
+                        <td style="padding: 8px 0; color: #333; font-size: 14px; font-weight: 600;">${preBooking.purpose}</td>
+                      </tr>
+                      ` : ''}
+                      <tr>
+                        <td style="padding: 8px 0; color: #666; font-size: 14px;">Check-in Time:</td>
+                        <td style="padding: 8px 0; color: #333; font-size: 14px; font-weight: 600;">${new Date().toLocaleString('en-GB')}</td>
+                      </tr>
+                    </table>
+                  </div>
+                  
+                  <p style="color: #666; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                    📧 This is an automated notification from your visitor management system.
+                  </p>
+                </div>
+              </div>
+            </body>
+            </html>
+          `;
+          
+          const text = `Visitor Checked In
+
+Hello ${hostStaffInCustomerDb.firstName} ${hostStaffInCustomerDb.lastName},
+
+Your visitor has just checked in at reception.
+
+Visitor Details:
+- Name: ${firstName} ${lastName}
+${preBooking.company ? `- Company: ${preBooking.company}` : ''}
+${preBooking.purpose ? `- Purpose: ${preBooking.purpose}` : ''}
+- Check-in Time: ${new Date().toLocaleString('en-GB')}
+
+This is an automated notification from your visitor management system.`;
+          
+          await emailService.sendEmail({
+            to: hostStaffInCustomerDb.email,
+            subject,
+            html,
+            text
+          });
+          
+          console.log(`📧 Check-in notification sent to host: ${hostStaffInCustomerDb.email}`);
+        } catch (emailError) {
+          console.error('Failed to send check-in notification email:', emailError);
+          // Don't fail the check-in if email fails
+        }
+      }
 
       res.json({ 
         success: true,
