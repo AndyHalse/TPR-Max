@@ -8795,7 +8795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       endDate.setDate(targetDate.getDate() + daysAhead);
       
       // Get customer database connection
-      const customerDb = await customerDbService.getCustomerDb(context.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
       // Query pre-bookings with staff and tenant joins for host details
       const allPreBookings = await customerDb.select({
