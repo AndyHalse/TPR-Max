@@ -192,14 +192,14 @@ export default function Dashboard() {
     purpose: string;
     isCheckedIn: boolean;
     createdAt: Date;
-    hostStaffId: string;
-    hostFirstName: string;
-    hostLastName: string;
-    hostDepartment: string;
-    hostEmail: string;
-    tenantCompanyName: string;
-    tenantSlug: string;
-    tenantPrimaryColor: string;
+    hostStaffId: string | null;
+    hostFirstName: string | null;
+    hostLastName: string | null;
+    hostDepartment: string | null;
+    hostEmail: string | null;
+    tenantCompanyName: string | null;
+    tenantSlug: string | null;
+    tenantPrimaryColor: string | null;
   }>>({
     queryKey: ["/api/reception/diary"],
     refetchInterval: 30000, // Refresh every 30 seconds

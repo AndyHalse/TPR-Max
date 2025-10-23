@@ -1554,16 +1554,34 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
   }
 
-  async getReceptionDiaryByCustomer(customerId: string, startDate: Date, daysAhead: number): Promise<PreBooking[]> {
+  async getReceptionDiaryByCustomer(customerId: string, startDate: Date, daysAhead: number): Promise<any[]> {
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + daysAhead);
     
-    return Array.from(this.preBookings.values())
+    // Enhance pre-bookings with staff and tenant details
+    const bookings = Array.from(this.preBookings.values())
       .filter(booking => {
         const bookingDate = new Date(booking.visitDate);
         return booking.customerId === customerId && bookingDate >= startDate && bookingDate <= endDate;
       })
       .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
+    
+    // Enrich with host staff details
+    return bookings.map(booking => {
+      const hostStaff = booking.hostStaffId ? this.staff.get(booking.hostStaffId) : null;
+      const tenant = hostStaff?.tenantCompanyId ? this.tenantCompanies.get(hostStaff.tenantCompanyId) : null;
+      
+      return {
+        ...booking,
+        hostFirstName: hostStaff?.firstName || null,
+        hostLastName: hostStaff?.lastName || null,
+        hostDepartment: hostStaff?.department || null,
+        hostEmail: hostStaff?.email || null,
+        tenantCompanyName: tenant?.companyName || null,
+        tenantSlug: tenant?.slug || null,
+        tenantPrimaryColor: tenant?.primaryColor || null,
+      };
+    });
   }
 
   async getPreBookingsByDate(date: Date): Promise<PreBooking[]> {
