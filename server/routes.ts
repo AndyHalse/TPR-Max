@@ -76,7 +76,7 @@ import { Pool } from 'pg';
 import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as sharedSchema from '@shared/schema';
-import { testBiostarConnection, syncBiostarDevices, getBiostarStaffStatus } from "./biostarService";
+import { biostarService } from "./biostarService";
 import { customerOnboardingService } from "./customerOnboardingService";
 import { registerBillingRoutes } from "./billingRoutes";
 import { stripeService } from "./stripeService";
@@ -6358,7 +6358,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       console.log(`🎨 Loading company settings FOR CUSTOMER: ${context.customerId}`);
-      res.json(settings || {});
+      
+      // ⚠️ SECURITY: Remove sensitive credentials from response
+      // These should never be sent to the client - they're write-only
+      if (settings) {
+        const {
+          biostarPassword,
+          smtpPassword,
+          twilioAuthToken,
+          eightByXApiSecret,
+          clueApiSecret,
+          ...sanitizedSettings
+        } = settings;
+        
+        res.json(sanitizedSettings || {});
+      } else {
+        res.json({});
+      }
     } catch (error) {
       console.error('Settings fetch error:', error);
       res.status(500).json({ error: "Failed to fetch company settings" });
@@ -9731,103 +9747,149 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Biostar integration endpoints
-  app.post("/api/biostar/test-connection", async (req, res) => {
+  app.post("/api/biostar/test-connection", requireAuth, async (req, res) => {
     try {
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const customerId = req.customerId;
+      if (!customerId || !req.user?.username) {
+        return res.status(401).json({ error: "Please log in to test connection" });
+      }
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       const settings = await simpleDatabaseService.getCompanySettings(context);
+      
       if (!settings?.biostarEnabled) {
-        console.log("Biostar integration not enabled in settings");
-        return res.status(400).json({ error: "Biostar integration is not enabled" });
+        return res.status(400).json({ 
+          connected: false, 
+          message: "Biostar integration is not enabled in settings" 
+        });
       }
 
-      console.log("Testing Biostar connection with settings:", {
-        serverUrl: settings.biostarServerUrl,
-        username: settings.biostarUsername ? "[SET]" : "[NOT SET]",
-        apiKey: settings.biostarApiKey ? "[SET]" : "[NOT SET]"
-      });
+      if (!settings.biostarServerUrl || !settings.biostarUsername || !settings.biostarPassword) {
+        return res.status(400).json({ 
+          connected: false, 
+          message: "Missing Biostar server URL, username, or password in settings" 
+        });
+      }
 
-      // Test connection to Biostar API
-      const connectionResult = await testBiostarConnection(settings);
-      
-      console.log("Biostar connection result:", connectionResult);
-      
-      res.json({
-        success: connectionResult.success,
-        message: connectionResult.message,
-        serverInfo: connectionResult.serverInfo
+      console.log("🔍 Testing Biostar connection...");
+
+      // Test connection using new biostarService
+      const result = await biostarService.testConnection({
+        serverUrl: settings.biostarServerUrl,
+        username: settings.biostarUsername,
+        password: settings.biostarPassword,
+        databaseId: settings.biostarDatabaseId || "1",
       });
+      
+      console.log("✅ Biostar connection test result:", result);
+      
+      res.json(result);
     } catch (error) {
-      console.error("Biostar connection test failed:", error);
-      res.status(500).json({ error: "Connection test failed: " + (error as Error).message });
+      console.error("❌ Biostar connection test failed:", error);
+      res.status(500).json({ 
+        connected: false, 
+        message: "Connection test failed: " + (error as Error).message 
+      });
     }
   });
 
-  app.post("/api/biostar/sync-devices", async (req, res) => {
+  // Manual sync trigger for Biostar attendance data
+  app.post("/api/biostar/sync-now", requireAuth, async (req, res) => {
     try {
-      console.log('🔄 Starting Biostar device sync...');
+      const customerId = req.customerId;
+      if (!customerId || !req.user?.username) {
+        return res.status(401).json({ error: "Please log in to sync data" });
+      }
       
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       const settings = await simpleDatabaseService.getCompanySettings(context);
+      
       if (!settings?.biostarEnabled) {
-        console.log('❌ Biostar integration not enabled');
         return res.status(400).json({ error: "Biostar integration is not enabled" });
       }
 
-      // Sync devices from Biostar
-      console.log('📡 Syncing devices with Biostar...');
-      const syncResult = await syncBiostarDevices(settings);
+      if (!settings.biostarServerUrl || !settings.biostarUsername || !settings.biostarPassword) {
+        return res.status(400).json({ error: "Missing Biostar connection settings" });
+      }
+
+      console.log('🔄 Starting manual Biostar attendance sync...');
+
+      // Get current on-site users from Biostar
+      const onSiteUsers = await biostarService.getCurrentOnSiteUsers({
+        serverUrl: settings.biostarServerUrl,
+        username: settings.biostarUsername,
+        password: settings.biostarPassword,
+        databaseId: settings.biostarDatabaseId || "1",
+      });
       
-      console.log(`✅ Found ${syncResult.devices.length} devices:`, syncResult.devices);
+      console.log(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
       
-      // Update settings with discovered devices
+      // Update last sync timestamp
       await simpleDatabaseService.updateCompanySettings(context, {
-        biometricDevices: syncResult.devices,
-        readerSettings: JSON.stringify(syncResult.deviceSettings)
+        biostarLastSync: new Date(),
       });
 
       res.json({
         success: true,
-        devices: syncResult.devices,
-        message: `Found ${syncResult.devices.length} devices`
+        onSiteCount: onSiteUsers.length,
+        onSiteUsers,
+        lastSync: new Date().toISOString(),
+        message: `Sync completed: Found ${onSiteUsers.length} users on-site`
       });
     } catch (error) {
-      console.error("❌ Biostar device sync failed:", error);
-      res.status(500).json({ error: "Device sync failed: " + (error as Error).message });
+      console.error("❌ Biostar sync failed:", error);
+      res.status(500).json({ error: "Sync failed: " + (error as Error).message });
     }
   });
 
-  app.get("/api/biostar/staff-status", async (req, res) => {
+  // Get current on-site staff from Biostar
+  app.get("/api/biostar/staff-status", requireAuth, async (req, res) => {
     try {
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const customerId = req.customerId;
+      if (!customerId || !req.user?.username) {
+        return res.status(401).json({ error: "Please log in to view staff status" });
+      }
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
+      const context = simpleDatabaseService.createCustomerContext(req.user.username);
       const settings = await simpleDatabaseService.getCompanySettings(context);
+      
       if (!settings?.biostarEnabled) {
-        return res.status(400).json({ error: "Biostar integration is not enabled" });
+        return res.json({ 
+          enabled: false, 
+          onSiteUsers: [],
+          message: "Biostar integration is not enabled" 
+        });
       }
 
-      // Get staff attendance status from Biostar
-      const staffStatus = await getBiostarStaffStatus(settings);
-      res.json(staffStatus);
+      if (!settings.biostarServerUrl || !settings.biostarUsername || !settings.biostarPassword) {
+        return res.json({ 
+          enabled: true, 
+          onSiteUsers: [],
+          message: "Biostar connection settings incomplete" 
+        });
+      }
+
+      // Get current on-site users from Biostar
+      const onSiteUsers = await biostarService.getCurrentOnSiteUsers({
+        serverUrl: settings.biostarServerUrl,
+        username: settings.biostarUsername,
+        password: settings.biostarPassword,
+        databaseId: settings.biostarDatabaseId || "1",
+      });
+      
+      res.json({
+        enabled: true,
+        onSiteUsers,
+        lastSync: settings.biostarLastSync?.toISOString() || null,
+        message: `Found ${onSiteUsers.length} users on-site`
+      });
     } catch (error) {
-      console.error("Failed to get Biostar staff status:", error);
-      res.status(500).json({ error: "Failed to get staff status" });
+      console.error("❌ Failed to get Biostar staff status:", error);
+      res.status(500).json({ 
+        enabled: true, 
+        onSiteUsers: [],
+        error: "Failed to get staff status: " + (error as Error).message 
+      });
     }
   });
 

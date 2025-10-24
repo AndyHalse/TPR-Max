@@ -3052,56 +3052,38 @@ export default function Settings() {
                       </p>
                     </div>
                     
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <div className="flex items-start">
-                        <Info className="mr-2 text-blue-600 flex-shrink-0" size={20} />
-                        <div className="text-sm text-slate-700">
-                          <p className="font-medium mb-2">Local Installation Configuration</p>
-                          <p className="text-xs mb-2">
-                            For local BioStar 2 installations, VisiGate Pro communicates directly with your on-premise server. 
-                            No API credentials are required as authentication is handled internally by BioStar.
-                          </p>
-                          <p className="text-xs font-medium mt-2">Requirements:</p>
-                          <ul className="list-disc list-inside space-y-1 text-xs ml-2">
-                            <li>BioStar 2 server installed on your local network</li>
-                            <li>Network connectivity between VisiGate and BioStar</li>
-                            <li>Firewall configured to allow communication</li>
-                            <li>BioStar configured to accept local connections</li>
-                          </ul>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarUsername" className="text-sm font-medium text-slate-700">
+                          Admin Username
+                        </Label>
+                        <Input
+                          id="biostarUsername"
+                          type="text"
+                          value={currentSettings?.biostarUsername || ""}
+                          onChange={(e) => handleInputChange("biostarUsername", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="admin"
+                          data-testid="input-biostar-username"
+                        />
+                        <p className="text-xs text-slate-500">Biostar 2 administrator login ID</p>
                       </div>
-                    </div>
-                    
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          toast({
-                            title: "Testing BioStar Connection",
-                            description: "Attempting to connect to local BioStar server...",
-                          });
-                          // Connection test would be implemented here
-                          setTimeout(() => {
-                            if (currentSettings?.biostarServerUrl) {
-                              toast({
-                                title: "Connection Successful",
-                                description: "Connected to BioStar 2 local server",
-                              });
-                            } else {
-                              toast({
-                                title: "Connection Failed", 
-                                description: "Please enter a valid server address",
-                                variant: "destructive"
-                              });
-                            }
-                          }, 1500);
-                        }}
-                        disabled={!currentSettings?.biostarServerUrl}
-                        data-testid="button-test-biostar"
-                      >
-                        <TestTube className="mr-2" size={16} />
-                        Test Connection
-                      </Button>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="biostarPassword" className="text-sm font-medium text-slate-700">
+                          Admin Password
+                        </Label>
+                        <Input
+                          id="biostarPassword"
+                          type="password"
+                          value={currentSettings?.biostarPassword || ""}
+                          onChange={(e) => handleInputChange("biostarPassword", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          placeholder="••••••••"
+                          data-testid="input-biostar-password"
+                        />
+                        <p className="text-xs text-slate-500">Biostar 2 administrator password</p>
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3144,48 +3126,18 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Shield className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Biometric Devices</h3>
+                <h3 className="text-lg font-semibold text-slate-800">Connection & Sync</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Supported Devices:</h4>
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Biostar 2 Integration:</h4>
                   <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>• Suprema X-Station 2</li>
-                    <li>• Suprema XPass 2</li>
-                    <li>• Suprema FaceStation 2</li>
-                    <li>• Suprema BioEntry Plus 2</li>
+                    <li>• Real-time attendance tracking</li>
+                    <li>• Automatic muster list updates</li>
+                    <li>• Fire marshal emergency access</li>
+                    <li>• Configurable sync intervals</li>
                   </ul>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
-                    Configured Devices
-                  </Label>
-                  <div className="space-y-2">
-                    {(currentSettings?.biometricDevices || []).length === 0 ? (
-                      <div className="text-sm text-slate-500 italic p-4 bg-white/50 rounded-lg">
-                        No devices configured. Add device IDs using the Biostar Device Manager.
-                      </div>
-                    ) : (
-                      (currentSettings?.biometricDevices || []).map((deviceId, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
-                          <span className="text-sm font-mono text-slate-700">{deviceId}</span>
-                          <Badge variant="outline">Connected</Badge>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                
-                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                  <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-2">Setup Instructions:</h4>
-                  <ol className="text-sm text-amber-700 dark:text-amber-300 space-y-1 ml-4 list-decimal">
-                    <li>Configure devices in Biostar Device Manager</li>
-                    <li>Note device IDs for each reader</li>
-                    <li>Enable API access in Biostar settings</li>
-                    <li>Test connection using the button below</li>
-                  </ol>
                 </div>
                 
                 <div className="flex gap-2">
@@ -3195,6 +3147,11 @@ export default function Settings() {
                     className="flex-1"
                     onClick={async () => {
                       try {
+                        toast({
+                          title: "Testing Connection",
+                          description: "Connecting to Biostar 2 server...",
+                        });
+                        
                         const response = await fetch('/api/biostar/test-connection', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' }
@@ -3203,9 +3160,9 @@ export default function Settings() {
                         const result = await response.json();
                         
                         toast({
-                          title: result.success ? "Connection Successful" : "Connection Failed",
+                          title: result.connected ? "✅ Connection Successful" : "❌ Connection Failed",
                           description: result.message,
-                          variant: result.success ? "default" : "destructive"
+                          variant: result.connected ? "default" : "destructive"
                         });
                       } catch (error) {
                         console.error('Biostar connection test error:', error);
@@ -3218,7 +3175,7 @@ export default function Settings() {
                     }}
                     data-testid="button-test-biostar-connection"
                   >
-                    <Shield className="mr-2" size={16} />
+                    <TestTube className="mr-2" size={16} />
                     Test Connection
                   </Button>
                   <Button
@@ -3227,7 +3184,12 @@ export default function Settings() {
                     className="flex-1"
                     onClick={async () => {
                       try {
-                        const response = await fetch('/api/biostar/sync-devices', {
+                        toast({
+                          title: "Syncing Data",
+                          description: "Fetching attendance data from Biostar 2...",
+                        });
+                        
+                        const response = await fetch('/api/biostar/sync-now', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' }
                         });
@@ -3235,28 +3197,53 @@ export default function Settings() {
                         const result = await response.json();
                         
                         if (result.success) {
-                          // Refresh settings to show new devices
-                          window.location.reload();
+                          // Refresh settings to show new last sync time
+                          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
                         }
                         
                         toast({
-                          title: result.success ? "Sync Successful" : "Sync Failed",
+                          title: result.success ? "✅ Sync Successful" : "❌ Sync Failed",
                           description: result.message,
                           variant: result.success ? "default" : "destructive"
                         });
                       } catch (error) {
-                        console.error('Biostar device sync error:', error);
+                        console.error('Biostar sync error:', error);
                         toast({
                           title: "Sync Error",
-                          description: "Failed to sync devices",
+                          description: "Failed to sync attendance data",
                           variant: "destructive"
                         });
                       }
                     }}
-                    data-testid="button-sync-devices"
+                    data-testid="button-sync-biostar-now"
                   >
-                    Sync Devices
+                    <RefreshCw className="mr-2" size={16} />
+                    Sync Now
                   </Button>
+                </div>
+                
+                {currentSettings?.biostarLastSync && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                        Last synchronized:
+                      </span>
+                      <span className="text-sm text-green-700 dark:text-green-300">
+                        {new Date(currentSettings.biostarLastSync).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-2">Setup Steps:</h4>
+                  <ol className="text-sm text-amber-700 dark:text-amber-300 space-y-1 ml-4 list-decimal">
+                    <li>Enter your Biostar 2 server URL and credentials above</li>
+                    <li>Click "Test Connection" to verify connectivity</li>
+                    <li>Configure sync interval (recommended: 300 seconds / 5 minutes)</li>
+                    <li>Click "Sync Now" to manually fetch attendance data</li>
+                    <li>View synced data on the Muster page</li>
+                  </ol>
                 </div>
               </div>
             </GlassCard>

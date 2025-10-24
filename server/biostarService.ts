@@ -1,214 +1,336 @@
-import type { CompanySettings } from "@shared/schema";
+import fetch from 'node-fetch';
 
-interface BiostarConnectionResult {
-  success: boolean;
+/**
+ * Biostar 2 API Service
+ * Handles authentication and communication with Biostar 2 Local API Server
+ * 
+ * Authentication Flow (Biostar 2 Local API):
+ * 1. Login with credentials to get session ID from response headers
+ * 2. Session ID (bs-session-id) is used for subsequent requests
+ * 3. Session expires after timeout, re-authentication required
+ */
+
+export interface BiostarConfig {
+  serverUrl: string; // e.g., "http://192.168.1.100:8795" or "https://biostar.company.com:8443"
+  username: string; // Admin login ID
+  password: string; // Admin password
+  databaseId?: string; // Database ID (default: "1")
+}
+
+export interface BiostarUser {
+  id: string;
+  name: string;
+  email?: string;
+  photoUrl?: string;
+  userGroupId?: string;
+  startDateTime?: string;
+  expireDateTime?: string;
+}
+
+export interface BiostarEventLog {
+  id: string;
+  deviceId: string;
+  userId: string;
+  eventTypeCode: string; // e.g., "4864" for access granted
+  eventTime: string; // ISO timestamp
+  userName?: string;
+  deviceName?: string;
+}
+
+export interface BiostarConnectionStatus {
+  connected: boolean;
   message: string;
-  serverInfo?: any;
+  serverVersion?: string;
+  databaseId?: string;
 }
 
-interface BiostarDeviceSync {
-  devices: string[];
-  deviceSettings: Record<string, any>;
-}
+class BiostarService {
+  private sessionId: string | null = null;
+  private sessionExpiry: Date | null = null;
+  private readonly SESSION_TIMEOUT_MS = 25 * 60 * 1000; // 25 minutes (sessions typically expire after 30 mins)
 
-// Test connection to Biostar API
-export async function testBiostarConnection(settings: CompanySettings): Promise<BiostarConnectionResult> {
-  try {
-    console.log('🔗 Starting Biostar connection test...');
+  /**
+   * Normalize server URL to ensure it has the correct format
+   */
+  private normalizeServerUrl(url: string): string {
+    // Remove trailing slash
+    url = url.replace(/\/$/, '');
     
-    const { biostarServerUrl, biostarUsername, biostarPassword, biostarApiKey } = settings;
-    
-    if (!biostarServerUrl || !biostarUsername || !biostarPassword) {
-      console.log('❌ Missing required Biostar connection settings');
-      return {
-        success: false,
-        message: "Missing required Biostar connection settings (server URL, username, or password)"
-      };
+    // If URL doesn't include protocol, add http
+    if (!url.match(/^https?:\/\//)) {
+      url = `http://${url}`;
     }
-
-    console.log('📡 Attempting to connect to:', biostarServerUrl);
-
-    // Basic auth for Biostar API
-    const auth = Buffer.from(`${biostarUsername}:${biostarPassword}`).toString('base64');
-    const headers = {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/json',
-      'X-API-KEY': biostarApiKey || ''
-    };
-
-    // Test connection by getting server info
-    console.log('🔍 Making test request to Biostar API...');
-    const response = await fetch(`${biostarServerUrl}/api/server/info`, {
-      method: 'GET',
-      headers,
-      // Add timeout for connection
-      signal: AbortSignal.timeout(10000)
-    });
-
-    console.log('📊 Response status:', response.status, response.statusText);
-
-    if (!response.ok) {
-      console.log('❌ Connection failed with status:', response.status);
-      return {
-        success: false,
-        message: `Connection failed: ${response.status} ${response.statusText}`
-      };
-    }
-
-    const serverInfo = await response.json();
     
-    return {
-      success: true,
-      message: "Successfully connected to Biostar server",
-      serverInfo
-    };
-  } catch (error) {
-    console.error("Biostar connection test error:", error);
-    return {
-      success: false,
-      message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`
-    };
+    // Add default port if not specified (8795 for Local API)
+    if (!url.match(/:\d+$/) && !url.includes('localhost')) {
+      url = `${url}:8795`;
+    }
+    
+    return url;
   }
-}
 
-// Sync devices from Biostar
-export async function syncBiostarDevices(settings: CompanySettings): Promise<BiostarDeviceSync> {
-  try {
-    const { biostarServerUrl, biostarUsername, biostarPassword, biostarApiKey, biostarDatabaseId } = settings;
-    
-    const auth = Buffer.from(`${biostarUsername}:${biostarPassword}`).toString('base64');
-    const headers = {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/json',
-      'X-API-KEY': biostarApiKey || ''
-    };
-
-    // Get all devices from Biostar
-    const response = await fetch(`${biostarServerUrl}/api/devices`, {
-      method: 'GET',
-      headers
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to sync devices: ${response.status} ${response.statusText}`);
+  /**
+   * Check if current session is still valid
+   */
+  private isSessionValid(): boolean {
+    if (!this.sessionId || !this.sessionExpiry) {
+      return false;
     }
-
-    const devices = await response.json();
-    
-    // Extract device IDs and settings
-    const deviceIds = devices.records?.map((device: any) => device.id?.toString()) || [];
-    const deviceSettings = devices.records?.reduce((acc: any, device: any) => {
-      acc[device.id] = {
-        name: device.name,
-        type: device.type,
-        ip: device.ip,
-        status: device.status
-      };
-      return acc;
-    }, {}) || {};
-
-    return {
-      devices: deviceIds,
-      deviceSettings
-    };
-  } catch (error) {
-    console.error("Biostar device sync error:", error);
-    throw error;
+    return new Date() < this.sessionExpiry;
   }
-}
 
-// Get staff attendance status from Biostar
-export async function getBiostarStaffStatus(settings: CompanySettings): Promise<any[]> {
-  try {
-    const { biostarServerUrl, biostarUsername, biostarPassword, biostarApiKey, biostarDatabaseId } = settings;
-    
-    const auth = Buffer.from(`${biostarUsername}:${biostarPassword}`).toString('base64');
-    const headers = {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/json',
-      'X-API-KEY': biostarApiKey || ''
-    };
+  /**
+   * Login to Biostar 2 API and obtain session ID
+   * Uses Biostar 2 Local API authentication (POST /api/login)
+   */
+  async login(config: BiostarConfig): Promise<void> {
+    const serverUrl = this.normalizeServerUrl(config.serverUrl);
+    const loginUrl = `${serverUrl}/api/login`;
 
-    // Get attendance events for today
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    console.log(`🔐 Biostar: Attempting login to ${serverUrl}...`);
 
-    const response = await fetch(`${biostarServerUrl}/api/events`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        Query: {
-          conditions: [
-            {
-              column: 'datetime',
-              operator: '>=',
-              values: [Math.floor(startOfDay.getTime() / 1000)]
-            },
-            {
-              column: 'datetime',
-              operator: '<=',
-              values: [Math.floor(endOfDay.getTime() / 1000)]
-            }
-          ]
+    try {
+      const response = await fetch(loginUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        Limit: 1000
-      })
-    });
+        body: JSON.stringify({
+          login_id: config.username,
+          password: config.password,
+        }),
+        // @ts-ignore - AbortSignal.timeout is available in Node 18+
+        signal: AbortSignal.timeout(15000), // 15 second timeout
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get staff status: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Biostar login failed: ${response.status} - ${errorText}`);
+        throw new Error(`Login failed: ${response.statusText}`);
+      }
+
+      // Extract session ID from response headers
+      const sessionId = response.headers.get('bs-session-id');
+      
+      if (!sessionId) {
+        console.error('❌ Biostar: No session ID in response headers');
+        throw new Error('No session ID received from Biostar server');
+      }
+
+      this.sessionId = sessionId;
+      this.sessionExpiry = new Date(Date.now() + this.SESSION_TIMEOUT_MS);
+
+      console.log(`✅ Biostar: Login successful, session expires at ${this.sessionExpiry.toISOString()}`);
+    } catch (error: any) {
+      console.error(`❌ Biostar login error:`, error);
+      
+      if (error.name === 'AbortError') {
+        throw new Error('Connection timeout - Biostar server may be unreachable');
+      }
+      
+      throw new Error(`Failed to connect to Biostar server: ${error.message}`);
+    }
+  }
+
+  /**
+   * Ensure we have a valid session, re-authenticate if needed
+   */
+  private async ensureAuthenticated(config: BiostarConfig): Promise<void> {
+    if (!this.isSessionValid()) {
+      console.log('🔄 Biostar: Session expired or invalid, re-authenticating...');
+      await this.login(config);
+    }
+  }
+
+  /**
+   * Make authenticated API request to Biostar
+   */
+  private async makeAuthenticatedRequest(
+    config: BiostarConfig,
+    endpoint: string,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    body?: any
+  ): Promise<any> {
+    await this.ensureAuthenticated(config);
+
+    const serverUrl = this.normalizeServerUrl(config.serverUrl);
+    const url = `${serverUrl}${endpoint}`;
+
+    const options: any = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'bs-session-id': this.sessionId!,
+      },
+      // @ts-ignore
+      signal: AbortSignal.timeout(30000), // 30 second timeout for API calls
+    };
+
+    if (body) {
+      options.body = JSON.stringify(body);
     }
 
-    const events = await response.json();
-    
-    // Process events to get current staff status
-    const staffStatus = processAttendanceEvents(events.records || []);
-    
-    return staffStatus;
-  } catch (error) {
-    console.error("Biostar staff status error:", error);
-    throw error;
+    try {
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Biostar API error: ${response.status} - ${errorText}`);
+        
+        // Session might have expired
+        if (response.status === 401) {
+          console.log('🔄 Biostar: Session expired (401), re-authenticating...');
+          this.sessionId = null;
+          this.sessionExpiry = null;
+          return this.makeAuthenticatedRequest(config, endpoint, method, body);
+        }
+        
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error(`❌ Biostar API request error:`, error);
+      
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - Biostar server may be slow or unreachable');
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Test connection to Biostar server
+   */
+  async testConnection(config: BiostarConfig): Promise<BiostarConnectionStatus> {
+    try {
+      await this.login(config);
+      
+      return {
+        connected: true,
+        message: 'Successfully connected to Biostar 2 server',
+        serverVersion: 'Biostar 2 Local API',
+        databaseId: config.databaseId || '1',
+      };
+    } catch (error: any) {
+      return {
+        connected: false,
+        message: error.message || 'Failed to connect to Biostar server',
+      };
+    }
+  }
+
+  /**
+   * Get list of users from Biostar
+   */
+  async getUsers(config: BiostarConfig, limit: number = 1000, offset: number = 0): Promise<BiostarUser[]> {
+    try {
+      const endpoint = `/api/users?limit=${limit}&offset=${offset}`;
+      const response = await this.makeAuthenticatedRequest(config, endpoint);
+      
+      return response.records || [];
+    } catch (error: any) {
+      console.error('❌ Failed to fetch Biostar users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get recent event logs (access events)
+   * This is the key method for determining who is currently on-site
+   */
+  async getEventLogs(
+    config: BiostarConfig,
+    startTime?: Date,
+    endTime?: Date,
+    limit: number = 1000
+  ): Promise<BiostarEventLog[]> {
+    try {
+      // Default to last 24 hours if no time range specified
+      const defaultStartTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const start = startTime || defaultStartTime;
+      const end = endTime || new Date();
+
+      // Format timestamps for Biostar API (Unix timestamp in seconds)
+      const startTimestamp = Math.floor(start.getTime() / 1000);
+      const endTimestamp = Math.floor(end.getTime() / 1000);
+
+      const endpoint = `/api/events?start_datetime=${startTimestamp}&end_datetime=${endTimestamp}&limit=${limit}`;
+      const response = await this.makeAuthenticatedRequest(config, endpoint);
+      
+      return response.records || [];
+    } catch (error: any) {
+      console.error('❌ Failed to fetch Biostar event logs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current on-site users based on recent access events
+   * Analyzes event logs to determine who checked in but hasn't checked out
+   */
+  async getCurrentOnSiteUsers(config: BiostarConfig): Promise<{ userId: string; userName: string; lastAccessTime: string }[]> {
+    try {
+      // Get events from today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const events = await this.getEventLogs(config, today);
+      
+      // Group events by user and find their latest event
+      const userEvents = new Map<string, { userName: string; lastAccessTime: string; isEntry: boolean }>();
+      
+      for (const event of events) {
+        // Event type codes (typical Biostar 2 codes):
+        // 4864 = Access Granted (Entry)
+        // 4865 = Access Granted (Exit)
+        // Customize these based on your Biostar configuration
+        const isEntry = event.eventTypeCode === '4864' || event.eventTypeCode === '16384';
+        const isExit = event.eventTypeCode === '4865' || event.eventTypeCode === '16385';
+        
+        if (isEntry || isExit) {
+          const existingEvent = userEvents.get(event.userId);
+          
+          if (!existingEvent || new Date(event.eventTime) > new Date(existingEvent.lastAccessTime)) {
+            userEvents.set(event.userId, {
+              userName: event.userName || `User ${event.userId}`,
+              lastAccessTime: event.eventTime,
+              isEntry,
+            });
+          }
+        }
+      }
+      
+      // Filter to only users who are currently on-site (last event was entry)
+      const onSiteUsers = [];
+      for (const [userId, eventData] of userEvents.entries()) {
+        if (eventData.isEntry) {
+          onSiteUsers.push({
+            userId,
+            userName: eventData.userName,
+            lastAccessTime: eventData.lastAccessTime,
+          });
+        }
+      }
+      
+      console.log(`📊 Biostar: Found ${onSiteUsers.length} users currently on-site`);
+      return onSiteUsers;
+    } catch (error: any) {
+      console.error('❌ Failed to get current on-site users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear session (logout)
+   */
+  clearSession(): void {
+    this.sessionId = null;
+    this.sessionExpiry = null;
   }
 }
 
-// Process attendance events to determine current staff status
-function processAttendanceEvents(events: any[]): any[] {
-  const staffMap = new Map();
-  
-  // Process events chronologically
-  events
-    .sort((a: any, b: any) => a.datetime - b.datetime)
-    .forEach((event: any) => {
-      const userId = event.user_id?.toString();
-      if (userId) {
-        staffMap.set(userId, {
-          userId,
-          userName: event.user_name || 'Unknown',
-          lastEvent: event.event_type_code,
-          lastEventTime: new Date(event.datetime * 1000),
-          isOnSite: isCheckInEvent(event.event_type_code),
-          deviceId: event.device_id?.toString(),
-          department: event.department || 'Unknown'
-        });
-      }
-    });
-
-  return Array.from(staffMap.values());
-}
-
-// Determine if event type is a check-in event
-function isCheckInEvent(eventTypeCode: number): boolean {
-  // Common Biostar event codes:
-  // 0x1000: Normal Access
-  // 0x2000: Denied Access
-  // 0x4000: Door Open
-  // Add more based on your Biostar configuration
-  return eventTypeCode === 0x1000 || eventTypeCode === 0x4000;
-}
-
-export default {
-  testBiostarConnection,
-  syncBiostarDevices,
-  getBiostarStaffStatus
-};
+// Export singleton instance
+export const biostarService = new BiostarService();
