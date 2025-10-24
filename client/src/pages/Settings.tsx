@@ -669,6 +669,87 @@ export default function Settings() {
     });
   };
 
+  // Import mutation
+  const importMutation = useMutation({
+    mutationFn: async (data: { file: File; type: 'staff' | 'visitors' | 'contractors' }) => {
+      const formData = new FormData();
+      formData.append('file', data.file);
+      
+      const response = await fetch(`/api/import/${data.type}`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || error.error || 'Import failed');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      const { type } = variables;
+      const { results } = data;
+      
+      // Invalidate relevant queries
+      if (type === 'staff') {
+        queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      } else if (type === 'visitors') {
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+      } else if (type === 'contractors') {
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      }
+      
+      // Show success toast with details
+      toast({
+        title: "Import Complete!",
+        description: `Successfully imported ${results.successful} ${type}. ${results.failed > 0 ? `${results.failed} failed.` : ''}`,
+        variant: results.failed > 0 ? "default" : "default",
+      });
+      
+      // Show detailed error info if any failed
+      if (results.errors && results.errors.length > 0) {
+        console.error('Import errors:', results.errors);
+        setTimeout(() => {
+          toast({
+            title: "Import Errors",
+            description: `${results.errors.length} records failed. Check console for details.`,
+            variant: "destructive",
+          });
+        }, 1500);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import file",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>, type: 'staff' | 'visitors' | 'contractors') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a CSV file",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    importMutation.mutate({ file, type });
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
   // Auto-save functionality
   const triggerAutoSave = (field: string, value: any) => {
     if (autoSaveTimeoutRef.current) {
@@ -4527,6 +4608,156 @@ export default function Settings() {
                     <strong>⚠️ Warning:</strong> This will completely replace all existing data with the backup data
                   </p>
                 </div>
+              </div>
+            </GlassCard>
+          </div>
+          
+          {/* Import Feature Section */}
+          <div className="mt-6">
+            <GlassCard className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Bulk Import
+              </h3>
+              <p className="text-sm text-slate-600 mb-6">
+                Import staff, visitors, and contractors in bulk using CSV files. Download the template, fill it out, and upload it back.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Staff Import */}
+                <div className="p-4 bg-white/50 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-medium text-slate-800">Staff Import</h4>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Import multiple staff members with their details
+                  </p>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        window.open('/api/import/template/staff', '_blank');
+                      }}
+                      data-testid="button-download-staff-template"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <input
+                      id="staff-import-file"
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={(e) => handleImportFile(e, 'staff')}
+                      data-testid="input-staff-import"
+                    />
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => document.getElementById('staff-import-file')?.click()}
+                      data-testid="button-import-staff"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload & Import
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Visitors Import */}
+                <div className="p-4 bg-white/50 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <UserPlus className="w-5 h-5 text-green-600" />
+                    <h4 className="font-medium text-slate-800">Visitors Import</h4>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Pre-book visitors in bulk for upcoming visits
+                  </p>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        window.open('/api/import/template/visitors', '_blank');
+                      }}
+                      data-testid="button-download-visitors-template"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <input
+                      id="visitors-import-file"
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={(e) => handleImportFile(e, 'visitors')}
+                      data-testid="input-visitors-import"
+                    />
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => document.getElementById('visitors-import-file')?.click()}
+                      data-testid="button-import-visitors"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload & Import
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Contractors Import */}
+                <div className="p-4 bg-white/50 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Building className="w-5 h-5 text-orange-600" />
+                    <h4 className="font-medium text-slate-800">Contractors Import</h4>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Import contractor workers and their companies
+                  </p>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        window.open('/api/import/template/contractors', '_blank');
+                      }}
+                      data-testid="button-download-contractors-template"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <input
+                      id="contractors-import-file"
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={(e) => handleImportFile(e, 'contractors')}
+                      data-testid="input-contractors-import"
+                    />
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => document.getElementById('contractors-import-file')?.click()}
+                      data-testid="button-import-contractors"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload & Import
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <strong>ℹ️ How it works:</strong> Download the CSV template, fill in your data following the sample row, then upload the completed file to import.
+                </p>
               </div>
             </GlassCard>
           </div>
