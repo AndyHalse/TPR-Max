@@ -26,6 +26,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     email: "",
     department: "",
     employeeId: "",
+    biostarUserId: "",
     photoUrl: "",
     accessLevel: "staff",
     password: "",
@@ -56,6 +57,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         email: staffToEdit.email || "",
         department: staffToEdit.department || "",
         employeeId: staffToEdit.employeeId || "",
+        biostarUserId: staffToEdit.biostarUserId || "",
         photoUrl: staffToEdit.photoUrl || "",
         accessLevel: staffToEdit.accessLevel || "staff",
         password: "", // Never pre-fill password
@@ -74,6 +76,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         email: "",
         department: "",
         employeeId: "",
+        biostarUserId: "",
         photoUrl: "",
         accessLevel: "staff",
         password: "",
@@ -157,6 +160,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       email: "", 
       department: "", 
       employeeId: "", 
+      biostarUserId: "",
       photoUrl: "", 
       accessLevel: "staff", 
       password: "", 
@@ -282,6 +286,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       email: formData.email.trim(),
       department: formData.department,
       employeeId,
+      biostarUserId: formData.biostarUserId.trim() || null,
       photoUrl: uploadedPhoto || undefined,
       accessLevel: formData.accessLevel,
       isFireMarshal: formData.isFireMarshal,
@@ -404,6 +409,24 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               placeholder="Auto-generated if left blank"
               data-testid="input-employee-id"
             />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="biostarUserId" className="text-sm font-medium text-slate-700">
+              Biostar 2 User ID
+            </Label>
+            <Input
+              id="biostarUserId"
+              type="text"
+              value={formData.biostarUserId}
+              onChange={(e) => handleInputChange("biostarUserId", e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              placeholder="Optional - For access control sync"
+              data-testid="input-biostar-user-id"
+            />
+            <p className="text-xs text-slate-500">
+              Links this staff member to a user in Biostar 2 access control system
+            </p>
           </div>
           
           <div className="space-y-2">
