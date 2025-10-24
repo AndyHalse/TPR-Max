@@ -181,6 +181,7 @@ export const staff = pgTable("staff", {
   emergencyToken: text("emergency_token"), // DEPRECATED: Legacy token system, use fireMarshalUrlId instead
   emergencyTokenExpires: timestamp("emergency_token_expires"), // DEPRECATED: Legacy token expiration
   userId: varchar("user_id").references(() => users.id), // Link to user account
+  biostarUserId: text("biostar_user_id").unique(), // Biostar 2 user ID for access control sync
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),
