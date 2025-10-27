@@ -162,7 +162,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{settings?.companyName || "VisiGate Pro"}</h1>
-                <p className="text-xs text-slate-600 hidden sm:block">Visitor Management</p>
+                <p className="text-xs text-slate-600 hidden sm:block">TPR Max</p>
               </div>
             </div>
           </Link>

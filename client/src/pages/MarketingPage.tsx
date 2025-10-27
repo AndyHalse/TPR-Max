@@ -527,7 +527,7 @@ export default function MarketingPage() {
                       Visitor Excellence
                     </Badge>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                      Professional Visitor Management
+                      Professional TPR Max
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
                       Create exceptional first impressions with our

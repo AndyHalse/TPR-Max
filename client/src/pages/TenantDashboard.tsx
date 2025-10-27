@@ -223,7 +223,7 @@ export default function TenantDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <GlassCard>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800">Visitor Management</h3>
+            <h3 className="text-lg font-semibold text-slate-800">TPR Max</h3>
             <Dialog open={isPreBookingOpen} onOpenChange={setIsPreBookingOpen}>
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-2" data-testid="button-pre-book-visitor">
