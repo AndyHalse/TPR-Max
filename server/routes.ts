@@ -7103,6 +7103,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test Printer Code Generation - Toshiba Tec TCPL
+  app.post("/api/printers/test/tec", requireAuth, async (req, res) => {
+    try {
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      // Generate sample TCPL code for Toshiba Tec printers
+      const tcplCode = `{D0550,0950,0480|}
+{C|}
+{PC000;0020,0030,TPR MAX TEST PRINT|}
+{PC000;0020,0080,Toshiba Tec TCPL Demo|}
+{PC000;0020,0130,--------------------------------|}
+{PC000;0020,0180,Date: ${new Date().toLocaleDateString()}|}
+{PC000;0020,0230,Time: ${new Date().toLocaleTimeString()}|}
+{PC000;0020,0280,--------------------------------|}
+{PC000;0020,0330,Visitor: Test Visitor|}
+{PC000;0020,0380,Company: Sample Company Ltd|}
+{PC000;0020,0430,Badge: #12345|}
+{PC000;0020,0480,--------------------------------|}
+{XB03;0350,0050,Q,m,5,s5,a1,e0,r0,c0,n0,*TPR-MAX-TEST-${Date.now()}*|}
+{XS;I,0001,0002C3500|}`;
+
+      const canSend = settings?.tecPrinterIp && settings.tecPrinterIp.trim() !== '';
+
+      res.json({
+        success: true,
+        code: tcplCode,
+        sent: false,
+        canSend,
+        message: canSend ? 'TCPL code generated. Use send button to print.' : 'TCPL code generated (configure IP to send to printer)'
+      });
+    } catch (error) {
+      console.error('Error generating TEC test code:', error);
+      res.status(500).json({ error: 'Failed to generate TCPL code' });
+    }
+  });
+
+  // Test Printer Code Generation - Zebra ZPL
+  app.post("/api/printers/test/zebra", requireAuth, async (req, res) => {
+    try {
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      // Generate sample ZPL code for Zebra printers
+      const zplCode = `^XA
+^FO50,50^A0N,40,40^FDTPR MAX TEST PRINT^FS
+^FO50,100^A0N,30,30^FDZebra ZPL Demo^FS
+^FO50,140^GB700,3,3^FS
+^FO50,160^A0N,25,25^FDDate: ${new Date().toLocaleDateString()}^FS
+^FO50,190^A0N,25,25^FDTime: ${new Date().toLocaleTimeString()}^FS
+^FO50,230^GB700,3,3^FS
+^FO50,250^A0N,25,25^FDVisitor: Test Visitor^FS
+^FO50,280^A0N,25,25^FDCompany: Sample Company Ltd^FS
+^FO50,310^A0N,25,25^FDBadge: #12345^FS
+^FO50,350^GB700,3,3^FS
+^FO550,160^BQN,2,5^FDMA,TPR-MAX-TEST-${Date.now()}^FS
+^XZ`;
+
+      const canSend = settings?.zebraPrinterIp && settings.zebraPrinterIp.trim() !== '';
+
+      res.json({
+        success: true,
+        code: zplCode,
+        sent: false,
+        canSend,
+        message: canSend ? 'ZPL code generated. Use send button to print.' : 'ZPL code generated (configure IP to send to printer)'
+      });
+    } catch (error) {
+      console.error('Error generating Zebra test code:', error);
+      res.status(500).json({ error: 'Failed to generate ZPL code' });
+    }
+  });
+
+  // Send Test Print - Toshiba Tec
+  app.post("/api/printers/send/tec", requireAuth, async (req, res) => {
+    try {
+      const { code } = req.body;
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      if (!settings?.tecPrinterIp || settings.tecPrinterIp.trim() === '') {
+        return res.status(400).json({ error: 'Printer IP address not configured' });
+      }
+
+      const ip = settings.tecPrinterIp;
+      const port = parseInt(settings.tecPrinterPort || '9100');
+
+      // Use Node.js net module to send raw data to printer
+      const net = await import('net');
+      
+      const socket = net.createConnection(port, ip);
+      
+      socket.on('connect', () => {
+        console.log(`📡 Connected to TEC printer at ${ip}:${port}`);
+        socket.write(code);
+        socket.end();
+      });
+
+      socket.on('end', () => {
+        console.log(`✅ Test print sent to TEC printer`);
+        res.json({
+          success: true,
+          message: 'Test print sent successfully',
+          ip,
+          port
+        });
+      });
+
+      socket.on('error', (error) => {
+        console.error(`❌ TEC printer connection error:`, error);
+        res.status(500).json({ 
+          error: 'Failed to connect to printer', 
+          details: error.message,
+          ip,
+          port
+        });
+      });
+
+      // Timeout after 10 seconds
+      socket.setTimeout(10000, () => {
+        socket.destroy();
+        res.status(504).json({ error: 'Printer connection timeout' });
+      });
+
+    } catch (error) {
+      console.error('Error sending TEC test print:', error);
+      res.status(500).json({ error: 'Failed to send test print' });
+    }
+  });
+
+  // Send Test Print - Zebra
+  app.post("/api/printers/send/zebra", requireAuth, async (req, res) => {
+    try {
+      const { code } = req.body;
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      if (!settings?.zebraPrinterIp || settings.zebraPrinterIp.trim() === '') {
+        return res.status(400).json({ error: 'Printer IP address not configured' });
+      }
+
+      const ip = settings.zebraPrinterIp;
+      const port = parseInt(settings.zebraPrinterPort || '9100');
+
+      // Use Node.js net module to send raw data to printer
+      const net = await import('net');
+      
+      const socket = net.createConnection(port, ip);
+      
+      socket.on('connect', () => {
+        console.log(`📡 Connected to Zebra printer at ${ip}:${port}`);
+        socket.write(code);
+        socket.end();
+      });
+
+      socket.on('end', () => {
+        console.log(`✅ Test print sent to Zebra printer`);
+        res.json({
+          success: true,
+          message: 'Test print sent successfully',
+          ip,
+          port
+        });
+      });
+
+      socket.on('error', (error) => {
+        console.error(`❌ Zebra printer connection error:`, error);
+        res.status(500).json({ 
+          error: 'Failed to connect to printer', 
+          details: error.message,
+          ip,
+          port
+        });
+      });
+
+      // Timeout after 10 seconds
+      socket.setTimeout(10000, () => {
+        socket.destroy();
+        res.status(504).json({ error: 'Printer connection timeout' });
+      });
+
+    } catch (error) {
+      console.error('Error sending Zebra test print:', error);
+      res.status(500).json({ error: 'Failed to send test print' });
+    }
+  });
+
   // Printer Configuration endpoints
   app.get("/api/printers/configurations", async (req, res) => {
     try {

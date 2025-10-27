@@ -70,6 +70,13 @@ export default function Settings() {
   const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Test Printer state
+  const [showTestPrinterDialog, setShowTestPrinterDialog] = useState(false);
+  const [testPrinterType, setTestPrinterType] = useState<'tec' | 'zebra'>('tec');
+  const [testPrinterCode, setTestPrinterCode] = useState('');
+  const [testPrinterResult, setTestPrinterResult] = useState<{success: boolean; message: string} | null>(null);
+  const [isTestingPrinter, setIsTestingPrinter] = useState(false);
+
   // Get current user to access customerId
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role: string }>({
     queryKey: ["/api/auth/me"],
@@ -913,6 +920,80 @@ export default function Settings() {
 
   const handleTestReset = () => {
     testResetMutation.mutate();
+  };
+
+  const handleTestPrinter = async (printerType: 'tec' | 'zebra') => {
+    setTestPrinterType(printerType);
+    setIsTestingPrinter(true);
+    setTestPrinterResult(null);
+    setShowTestPrinterDialog(true);
+
+    try {
+      const response = await fetch(`/api/printers/test/${printerType}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTestPrinterCode(data.code);
+        setTestPrinterResult({
+          success: true,
+          message: data.sent ? `Test print sent successfully to ${printerType.toUpperCase()} printer!` : 'Test code generated successfully!'
+        });
+      } else {
+        setTestPrinterResult({
+          success: false,
+          message: data.error || 'Failed to generate test code'
+        });
+      }
+    } catch (error) {
+      setTestPrinterResult({
+        success: false,
+        message: 'Network error while testing printer'
+      });
+    } finally {
+      setIsTestingPrinter(false);
+    }
+  };
+
+  const handleSendTestPrint = async () => {
+    if (!testPrinterCode || !testPrinterType) return;
+
+    setIsTestingPrinter(true);
+    try {
+      const response = await fetch(`/api/printers/send/${testPrinterType}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ code: testPrinterCode }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Print Sent!",
+          description: `Test print sent to ${testPrinterType.toUpperCase()} printer at ${data.ip}:${data.port}`,
+        });
+      } else {
+        toast({
+          title: "Print Failed",
+          description: data.error || 'Failed to send print to printer',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Network Error",
+        description: 'Failed to communicate with printer',
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingPrinter(false);
+    }
   };
 
   const removeRecipient = (index: number) => {
@@ -2090,6 +2171,16 @@ export default function Settings() {
                             Professional thermal printing optimized for visitor and contractor passes.
                           </p>
                         </div>
+
+                        <Button
+                          type="button"
+                          onClick={() => handleTestPrinter('tec')}
+                          className="w-full mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                          data-testid="button-test-tec"
+                        >
+                          <TestTube className="h-4 w-4 mr-2" />
+                          Test Toshiba Tec TCPL Code
+                        </Button>
                       </>
                     )}
 
@@ -2161,6 +2252,16 @@ export default function Settings() {
                             Alternative thermal printing option for Zebra printer users.
                           </p>
                         </div>
+
+                        <Button
+                          type="button"
+                          onClick={() => handleTestPrinter('zebra')}
+                          className="w-full mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                          data-testid="button-test-zebra"
+                        >
+                          <TestTube className="h-4 w-4 mr-2" />
+                          Test Zebra ZPL Code
+                        </Button>
                       </>
                     )}
                   </div>
@@ -5532,6 +5633,122 @@ export default function Settings() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Printer Dialog */}
+      <Dialog open={showTestPrinterDialog} onOpenChange={setShowTestPrinterDialog}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TestTube className="text-purple-600" size={24} />
+              {testPrinterType === 'tec' ? 'Toshiba Tec TCPL' : 'Zebra ZPL'} Test Code
+            </DialogTitle>
+            <DialogDescription>
+              Generated {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} code for testing your thermal printer configuration.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {isTestingPrinter && (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-slate-600">Generating test code...</p>
+                </div>
+              </div>
+            )}
+
+            {testPrinterResult && (
+              <div className={`p-4 rounded-lg border ${testPrinterResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex items-center gap-2">
+                  {testPrinterResult.success ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-600" />
+                  )}
+                  <p className={`text-sm font-medium ${testPrinterResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                    {testPrinterResult.message}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {testPrinterCode && (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Generated {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} Code
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(testPrinterCode);
+                        toast({
+                          title: "Copied!",
+                          description: "Printer code copied to clipboard",
+                        });
+                      }}
+                      data-testid="button-copy-code"
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                  <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-x-auto max-h-96 overflow-y-auto">
+                    <pre>{testPrinterCode}</pre>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2">About {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} Code</h4>
+                  <p className="text-xs text-blue-700">
+                    {testPrinterType === 'tec' 
+                      ? 'TCPL (Toshiba Control Programming Language) is used to send print commands to Toshiba Tec thermal printers. This code includes sample text, barcodes, and QR codes.'
+                      : 'ZPL (Zebra Programming Language) is used to send print commands to Zebra thermal printers. This code includes sample text, barcodes, and QR codes.'}
+                  </p>
+                </div>
+
+                {currentSettings?.[testPrinterType === 'tec' ? 'tecPrinterIp' : 'zebraPrinterIp'] && (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-purple-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-purple-900 mb-1">Send to Network Printer</p>
+                        <p className="text-xs text-purple-700 mb-2">
+                          Printer IP: {currentSettings?.[testPrinterType === 'tec' ? 'tecPrinterIp' : 'zebraPrinterIp']}:{currentSettings?.[testPrinterType === 'tec' ? 'tecPrinterPort' : 'zebraPrinterPort']}
+                        </p>
+                        <Button
+                          type="button"
+                          onClick={handleSendTestPrint}
+                          disabled={isTestingPrinter}
+                          className="w-full bg-purple-600 hover:bg-purple-700"
+                          data-testid="button-send-test-print"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          {isTestingPrinter ? 'Sending...' : 'Send Test Print to Printer'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowTestPrinterDialog(false)}
+              data-testid="button-close-test-dialog"
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
