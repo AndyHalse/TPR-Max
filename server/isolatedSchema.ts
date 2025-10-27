@@ -400,6 +400,16 @@ export const companySettings = pgTable("company_settings", {
   thermalPrintMethod: text("thermal_print_method").default("direct"), // direct, browser, windows
   thermalPrintQuality: text("thermal_print_quality").default("reception"), // reception, security, visitor
   thermalPrinterSettings: text("thermal_printer_settings").default("{}"), // JSON string storing printer configuration
+  thermalZebraSettings: text("thermal_zebra_settings").default("{}"), // JSON string for Zebra-specific settings
+  // Toshiba Tec TCPL Printer Settings
+  tecPrinterName: text("tec_printer_name").default("TEC B-FV4D Desktop Printer"),
+  tecPrinterModel: text("tec_printer_model").default("B-FV4D"), // B-FV4D, B-FV4T, B-EV4D, B-EV4T, etc.
+  tecLabelWidth: text("tec_label_width").default("85"), // mm
+  tecLabelHeight: text("tec_label_height").default("65"), // mm
+  // Zebra ZPL Printer Settings
+  zebraPrinterIp: text("zebra_printer_ip").default(""),
+  zebraPrinterPort: text("zebra_printer_port").default("9100"),
+  zebraPrinterModel: text("zebra_printer_model").default("GK420d"),
   // Suprema Biostar integration settings
   biostarEnabled: boolean("biostar_enabled").default(false),
   biostarServerUrl: text("biostar_server_url").default(""), // e.g., "https://your-biostar-server.com:8443"

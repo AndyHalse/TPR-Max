@@ -1925,27 +1925,117 @@ export default function Settings() {
 
                 <GlassCard>
                   <div className="flex items-center mb-6">
-                    <Zap className="mr-3 text-purple-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">Zebra Printer Settings</h3>
+                    <Printer className="mr-3 text-purple-600" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800">Thermal Printer Settings</h3>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-slate-700">
-                        Enable Zebra ZPL Printing
+                        Printer Type
                       </Label>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-slate-600">Use Zebra printers with ZPL commands</p>
-                          <p className="text-xs text-slate-500">Supports network and USB Zebra printers</p>
-                        </div>
-                        <Switch
-                          checked={currentSettings?.thermalSelectedPrinter === "zebra"}
-                          onCheckedChange={(checked) => handleInputChange("thermalSelectedPrinter", checked ? "zebra" : "tec")}
-                          data-testid="switch-zebra-enabled"
-                        />
-                      </div>
+                      <Select
+                        value={currentSettings?.thermalSelectedPrinter || "tec"}
+                        onValueChange={(value) => handleInputChange("thermalSelectedPrinter", value)}
+                      >
+                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-thermal-printer-type">
+                          <SelectValue placeholder="Select printer type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tec">
+                            <div className="flex items-center gap-2">
+                              <Printer className="h-4 w-4 text-blue-600" />
+                              <span>Toshiba Tec TCPL (B-FV4D, B-EV4D)</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="zebra">
+                            <div className="flex items-center gap-2">
+                              <Zap className="h-4 w-4 text-purple-600" />
+                              <span>Zebra ZPL Printers</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    {currentSettings?.thermalSelectedPrinter === "tec" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Toshiba Tec Printer Name
+                          </Label>
+                          <Input
+                            type="text"
+                            value={currentSettings?.tecPrinterName || "TEC B-FV4D Desktop Printer"}
+                            onChange={(e) => handleInputChange("tecPrinterName", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            placeholder="TEC B-FV4D Desktop Printer"
+                            data-testid="input-tec-printer-name"
+                          />
+                          <p className="text-xs text-slate-500">Windows printer name as shown in Devices and Printers</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Toshiba Tec Printer Model
+                          </Label>
+                          <Select
+                            value={currentSettings?.tecPrinterModel || "B-FV4D"}
+                            onValueChange={(value) => handleInputChange("tecPrinterModel", value)}
+                          >
+                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-tec-model">
+                              <SelectValue placeholder="Select Toshiba Tec model" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="B-FV4D">B-FV4D (Desktop Thermal)</SelectItem>
+                              <SelectItem value="B-FV4T">B-FV4T (Desktop Thermal Transfer)</SelectItem>
+                              <SelectItem value="B-EV4D">B-EV4D (Desktop Thermal)</SelectItem>
+                              <SelectItem value="B-EV4T">B-EV4T (Desktop Thermal Transfer)</SelectItem>
+                              <SelectItem value="B-SA4TP">B-SA4TP (Industrial)</SelectItem>
+                              <SelectItem value="B-SX4T">B-SX4T (Industrial)</SelectItem>
+                              <SelectItem value="B-SX5T">B-SX5T (Industrial)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-slate-500">Select your Toshiba Tec printer model for optimal TCPL generation</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Label Size (Width x Height mm)
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              type="number"
+                              value={currentSettings?.tecLabelWidth || "85"}
+                              onChange={(e) => handleInputChange("tecLabelWidth", e.target.value)}
+                              className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                              placeholder="85"
+                              data-testid="input-tec-width"
+                            />
+                            <Input
+                              type="number"
+                              value={currentSettings?.tecLabelHeight || "65"}
+                              onChange={(e) => handleInputChange("tecLabelHeight", e.target.value)}
+                              className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                              placeholder="65"
+                              data-testid="input-tec-height"
+                            />
+                          </div>
+                          <p className="text-xs text-slate-500">Standard visitor pass: 85mm x 65mm</p>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Printer className="h-4 w-4 text-purple-600" />
+                            <span className="text-sm font-medium text-purple-800">Toshiba Tec TCPL Support</span>
+                          </div>
+                          <p className="text-xs text-purple-600">
+                            Full TCPL (Toshiba Control Programming Language) support with QR codes, barcodes, and custom layouts.
+                            Professional thermal printing optimized for visitor and contractor passes.
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     {currentSettings?.thermalSelectedPrinter === "zebra" && (
                       <>
@@ -1955,8 +2045,8 @@ export default function Settings() {
                           </Label>
                           <Input
                             type="text"
-                            value={currentSettings?.biostarServerUrl || ""}
-                            onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
+                            value={currentSettings?.zebraPrinterIp || ""}
+                            onChange={(e) => handleInputChange("zebraPrinterIp", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                             placeholder="192.168.1.100"
                             data-testid="input-zebra-ip"
@@ -1970,8 +2060,8 @@ export default function Settings() {
                           </Label>
                           <Input
                             type="number"
-                            value={currentSettings?.smtpPort || "587"}
-                            onChange={(e) => handleInputChange("smtpPort", e.target.value)}
+                            value={currentSettings?.zebraPrinterPort || "9100"}
+                            onChange={(e) => handleInputChange("zebraPrinterPort", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                             placeholder="9100"
                             data-testid="input-zebra-port"
@@ -1984,8 +2074,8 @@ export default function Settings() {
                             Zebra Printer Model
                           </Label>
                           <Select
-                            value={currentSettings?.thermalSelectedPrinter || "tec"}
-                            onValueChange={(value) => handleInputChange("thermalSelectedPrinter", value)}
+                            value={currentSettings?.zebraPrinterModel || "GK420d"}
+                            onValueChange={(value) => handleInputChange("zebraPrinterModel", value)}
                           >
                             <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-zebra-model">
                               <SelectValue placeholder="Select Zebra model" />
@@ -2008,11 +2098,11 @@ export default function Settings() {
                         <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                           <div className="flex items-center gap-2 mb-1">
                             <Zap className="h-4 w-4 text-purple-600" />
-                            <span className="text-sm font-medium text-purple-800">Zebra DNA Support</span>
+                            <span className="text-sm font-medium text-purple-800">Zebra ZPL Support</span>
                           </div>
                           <p className="text-xs text-purple-600">
                             Full ZPL (Zebra Programming Language) support with QR codes, barcodes, and custom layouts.
-                            Perfect for thermal pass printing with professional quality.
+                            Alternative thermal printing option for Zebra printer users.
                           </p>
                         </div>
                       </>
