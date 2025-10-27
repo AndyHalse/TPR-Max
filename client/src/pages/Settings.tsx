@@ -929,12 +929,7 @@ export default function Settings() {
     setShowTestPrinterDialog(true);
 
     try {
-      const response = await fetch(`/api/printers/test/${printerType}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-
+      const response = await apiRequest('POST', `/api/printers/test/${printerType}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -964,11 +959,8 @@ export default function Settings() {
 
     setIsTestingPrinter(true);
     try {
-      const response = await fetch(`/api/printers/send/${testPrinterType}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ code: testPrinterCode }),
+      const response = await apiRequest('POST', `/api/printers/send/${testPrinterType}`, { 
+        code: testPrinterCode 
       });
 
       const data = await response.json();
