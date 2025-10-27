@@ -1958,6 +1958,32 @@ export default function Settings() {
                       </Select>
                     </div>
 
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-blue-900">Network Printing for SaaS Applications</h4>
+                          <p className="text-xs text-blue-700 leading-relaxed">
+                            TPR Max can send print commands directly to your thermal printers over the internet using TCP/IP connections.
+                            This enables cloud-based printing from anywhere without requiring local software.
+                          </p>
+                          <div className="mt-3 space-y-1.5 text-xs text-blue-600">
+                            <p className="font-medium">Setup Instructions:</p>
+                            <ol className="list-decimal list-inside space-y-1 ml-2">
+                              <li>Connect your printer to your network (Ethernet or Wi-Fi)</li>
+                              <li>Print a network configuration page to find the printer's IP address</li>
+                              <li>Ensure port 9100 is accessible (check firewall settings if needed)</li>
+                              <li>Enter the printer IP address and port below</li>
+                              <li>For remote access, configure port forwarding on your router</li>
+                            </ol>
+                          </div>
+                          <p className="text-xs text-blue-600 mt-2">
+                            <strong>Note:</strong> Both Toshiba Tec TCPL and Zebra ZPL printers support standard TCP/IP connections on port 9100.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     {currentSettings?.thermalSelectedPrinter === "tec" && (
                       <>
                         <div className="space-y-2">
@@ -1972,7 +1998,37 @@ export default function Settings() {
                             placeholder="TEC B-FV4D Desktop Printer"
                             data-testid="input-tec-printer-name"
                           />
-                          <p className="text-xs text-slate-500">Windows printer name as shown in Devices and Printers</p>
+                          <p className="text-xs text-slate-500">Windows printer name (for local printing) or leave blank for network printing</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Toshiba Tec Printer IP Address
+                          </Label>
+                          <Input
+                            type="text"
+                            value={currentSettings?.tecPrinterIp || ""}
+                            onChange={(e) => handleInputChange("tecPrinterIp", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            placeholder="192.168.1.100"
+                            data-testid="input-tec-ip"
+                          />
+                          <p className="text-xs text-slate-500">Network IP address of your Toshiba Tec printer for remote printing over the internet</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium text-slate-700">
+                            Toshiba Tec Printer Port
+                          </Label>
+                          <Input
+                            type="number"
+                            value={currentSettings?.tecPrinterPort || "9100"}
+                            onChange={(e) => handleInputChange("tecPrinterPort", e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            placeholder="9100"
+                            data-testid="input-tec-port"
+                          />
+                          <p className="text-xs text-slate-500">Default: 9100 (standard thermal printer network port for TCP/IP connections)</p>
                         </div>
 
                         <div className="space-y-2">
@@ -2051,7 +2107,7 @@ export default function Settings() {
                             placeholder="192.168.1.100"
                             data-testid="input-zebra-ip"
                           />
-                          <p className="text-xs text-slate-500">Network IP address for direct printing (leave blank for USB)</p>
+                          <p className="text-xs text-slate-500">Network IP address of your Zebra printer for remote printing over the internet</p>
                         </div>
 
                         <div className="space-y-2">
@@ -2066,7 +2122,7 @@ export default function Settings() {
                             placeholder="9100"
                             data-testid="input-zebra-port"
                           />
-                          <p className="text-xs text-slate-500">Default: 9100 (standard Zebra network port)</p>
+                          <p className="text-xs text-slate-500">Default: 9100 (standard Zebra network port for TCP/IP connections)</p>
                         </div>
 
                         <div className="space-y-2">

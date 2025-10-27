@@ -404,6 +404,8 @@ export const companySettings = pgTable("company_settings", {
   // Toshiba Tec TCPL Printer Settings
   tecPrinterName: text("tec_printer_name").default("TEC B-FV4D Desktop Printer"),
   tecPrinterModel: text("tec_printer_model").default("B-FV4D"), // B-FV4D, B-FV4T, B-EV4D, B-EV4T, etc.
+  tecPrinterIp: text("tec_printer_ip").default(""),
+  tecPrinterPort: text("tec_printer_port").default("9100"),
   tecLabelWidth: text("tec_label_width").default("85"), // mm
   tecLabelHeight: text("tec_label_height").default("65"), // mm
   // Zebra ZPL Printer Settings
