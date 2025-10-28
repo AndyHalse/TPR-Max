@@ -307,13 +307,17 @@ export class CustomerOnboardingService {
 
   /**
    * Initialize company settings and default data
+   * 
+   * Note: All new customers start with ACS Safety & Security Ltd branding
+   * which they can customize through Settings > Company & Branding
    */
   private async initializeCompanyDefaults(customerId: string, request: CustomerOnboardingRequest): Promise<void> {
     const customerDb = await this.customerDbService.getCustomerDatabase(customerId);
     
-    // Initialize company settings with minimal required fields only
+    // Initialize company settings with ACS Safety & Security Ltd defaults
+    // Customers can rebrand through Settings after onboarding
     const companySettingsData = {
-      companyName: request.companyName,
+      companyName: 'ACS Safety & Security Ltd',  // Default ACS branding - customizable by customer
       address: request.address || '',
       phone: request.phone || '',
       website: request.website || '',
