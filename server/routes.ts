@@ -66,7 +66,7 @@ import { EmailService, emailService } from "./emailService";
 import { VoiceNotificationService } from "./voiceNotificationService";
 import { EmergencyEmailService } from "./emergencyEmailService";
 import { aiService } from "./aiService";
-import { AuthService, requireAuth, requireAuthOrFireMarshal, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isDatabaseConnectionError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
+import { AuthService, requireAuth, requireAuthOrFireMarshal, requirePlatformAdmin, isDevAuthBypass, getDevUser, isValidDevCredentials, isDevDataBypass, isDatabaseConnectionError, getMockDepartmentAnalytics, getMockPeakHoursAnalytics, getMockCheckedInStaff, getMockCheckedInContractors, getMockCurrentVisitors, getMockRecentActivity, getMockCompanyStats, getMockCompanySettings, getMockTodaysVisitors, getMockRoomBookings, getMockReceptionDiary } from "./auth";
 import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
@@ -1438,6 +1438,320 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Tenant login error:", error);
       res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // ============================================
+  // PLATFORM ADMIN AUTHENTICATION ENDPOINTS
+  // ============================================
+  
+  /**
+   * Platform Admin Login
+   * Separate from customer authentication
+   */
+  app.post("/platform-admin/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+      
+      console.log(`🔐 Platform admin login attempt: ${username}`);
+      
+      // Authenticate platform admin
+      const { PlatformAdminAuthService } = await import("./auth");
+      const admin = await PlatformAdminAuthService.authenticatePlatformAdmin(username, password);
+      
+      if (!admin) {
+        console.log(`❌ Platform admin authentication failed: ${username}`);
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+      
+      // Regenerate session for security
+      req.session.regenerate((regenerateErr) => {
+        if (regenerateErr) {
+          console.error("❌ Platform admin session regeneration error:", regenerateErr);
+          return res.status(500).json({ error: "Failed to create secure session" });
+        }
+        
+        // Set platform admin session
+        req.session.platformAdminId = admin.id;
+        req.session.platformAdminUsername = admin.username;
+        
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ Platform admin session save error:", saveErr);
+            return res.status(500).json({ error: "Failed to establish session" });
+          }
+          
+          console.log(`✅ Platform admin logged in successfully: ${username} (ID: ${admin.id})`);
+          
+          res.json({
+            success: true,
+            admin: {
+              id: admin.id,
+              username: admin.username,
+              email: admin.email,
+              firstName: admin.firstName,
+              lastName: admin.lastName,
+              role: admin.role
+            }
+          });
+        });
+      });
+    } catch (error) {
+      console.error("❌ Platform admin login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  /**
+   * Platform Admin Logout
+   */
+  app.post("/platform-admin/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Platform admin session destroy error:", err);
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      console.log(`🔓 Platform admin logged out`);
+      res.json({ success: true });
+    });
+  });
+
+  /**
+   * Get Current Platform Admin
+   */
+  app.get("/platform-admin/auth/me", async (req, res) => {
+    if (!req.session.platformAdminId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    try {
+      // Get admin from database
+      const admins = await db
+        .select()
+        .from(sharedSchema.platformAdmins)
+        .where(eq(sharedSchema.platformAdmins.id, req.session.platformAdminId))
+        .limit(1);
+      
+      const admin = admins[0];
+      
+      if (!admin || !admin.isActive) {
+        return res.status(401).json({ error: "Admin not found or inactive" });
+      }
+      
+      res.json({
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        role: admin.role
+      });
+    } catch (error) {
+      console.error('Error in /platform-admin/auth/me:', error);
+      return res.status(401).json({ error: "Authentication failed" });
+    }
+  });
+
+  // ============================================
+  // PLATFORM ADMIN CUSTOMER MANAGEMENT ENDPOINTS
+  // ============================================
+  
+  /**
+   * Direct Customer Provisioning (bypasses payment)
+   * Platform admins can manually onboard customers
+   */
+  app.post("/platform-admin/customers", requirePlatformAdmin, async (req, res) => {
+    try {
+      console.log(`📦 Platform admin initiating customer provisioning`);
+      
+      // Validate request body against customer onboarding schema
+      const onboardingData = customerOnboardingRequestSchema.parse(req.body);
+      
+      // Add flag to skip Stripe subscription creation
+      const provisioningRequest: CustomerOnboardingRequest = {
+        ...onboardingData,
+        createSubscription: false, // Skip Stripe subscription
+      };
+      
+      console.log(`🔧 Provisioning customer without payment: ${provisioningRequest.companyName}`);
+      
+      // Provision customer directly using onboarding service
+      const result = await customerOnboardingService.provisionCustomer(provisioningRequest);
+      
+      console.log(`✅ Customer provisioned successfully by platform admin: ${result.customer.companyName}`);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Customer provisioned successfully',
+        customer: result.customer,
+        adminUser: result.adminUser,
+        loginUrl: result.loginUrl,
+      });
+    } catch (error) {
+      console.error('❌ Platform admin customer provisioning error:', error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors
+        });
+      }
+      
+      // Handle structured onboarding errors
+      if (error && typeof error === 'object' && 'success' in error && error.success === false) {
+        const onboardingError = error as CustomerOnboardingError;
+        
+        let statusCode = 500;
+        switch (onboardingError.code) {
+          case 'COMPANY_EXISTS':
+          case 'ADMIN_USER_EXISTS':
+            statusCode = 409;
+            break;
+          case 'VALIDATION_ERROR':
+            statusCode = 400;
+            break;
+          default:
+            statusCode = 500;
+            break;
+        }
+        
+        return res.status(statusCode).json(onboardingError);
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to provision customer',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      });
+    }
+  });
+
+  /**
+   * List all customers with details
+   */
+  app.get("/platform-admin/customers", requirePlatformAdmin, async (req, res) => {
+    try {
+      console.log(`📋 Platform admin requesting customer list`);
+      
+      // Get all customers from management database
+      const customers = await db
+        .select()
+        .from(sharedSchema.customers)
+        .orderBy(desc(sharedSchema.customers.createdAt));
+      
+      console.log(`✅ Retrieved ${customers.length} customers`);
+      
+      res.json({
+        success: true,
+        customers: customers.map(customer => ({
+          id: customer.id,
+          companyName: customer.companyName,
+          slug: customer.slug,
+          contactEmail: customer.contactEmail,
+          isActive: customer.isActive,
+          onboardingCompleted: customer.onboardingCompleted,
+          maxTenants: customer.maxTenants,
+          maxUsersPerTenant: customer.maxUsersPerTenant,
+          maxVisitorsPerMonth: customer.maxVisitorsPerMonth,
+          stripeCustomerId: customer.stripeCustomerId,
+          createdAt: customer.createdAt,
+          updatedAt: customer.updatedAt,
+        }))
+      });
+    } catch (error) {
+      console.error('❌ Error fetching customers:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch customers'
+      });
+    }
+  });
+
+  /**
+   * Get single customer details
+   */
+  app.get("/platform-admin/customers/:customerId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      const customers = await db
+        .select()
+        .from(sharedSchema.customers)
+        .where(eq(sharedSchema.customers.id, customerId))
+        .limit(1);
+      
+      const customer = customers[0];
+      
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          error: 'Customer not found'
+        });
+      }
+      
+      res.json({
+        success: true,
+        customer
+      });
+    } catch (error) {
+      console.error('❌ Error fetching customer:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch customer'
+      });
+    }
+  });
+
+  /**
+   * Update customer status (activate/deactivate)
+   */
+  app.patch("/platform-admin/customers/:customerId/status", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const { isActive } = req.body;
+      
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          error: 'isActive must be a boolean'
+        });
+      }
+      
+      const updatedCustomers = await db
+        .update(sharedSchema.customers)
+        .set({ 
+          isActive,
+          updatedAt: sql`NOW()`
+        })
+        .where(eq(sharedSchema.customers.id, customerId))
+        .returning();
+      
+      const updatedCustomer = updatedCustomers[0];
+      
+      if (!updatedCustomer) {
+        return res.status(404).json({
+          success: false,
+          error: 'Customer not found'
+        });
+      }
+      
+      console.log(`✅ Customer ${customerId} status updated: ${isActive ? 'active' : 'inactive'}`);
+      
+      res.json({
+        success: true,
+        customer: updatedCustomer
+      });
+    } catch (error) {
+      console.error('❌ Error updating customer status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update customer status'
+      });
     }
   });
 

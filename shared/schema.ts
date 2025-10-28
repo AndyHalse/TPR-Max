@@ -2647,6 +2647,27 @@ export const documentAutoFillMapping = pgTable("document_auto_fill_mapping", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// PLATFORM ADMINISTRATION
+// Platform Admins - System administrators who manage customers
+// This table is in the MANAGEMENT database (not customer-specific)
+export const platformAdmins = pgTable("platform_admins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(), // Hashed password
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  role: text("role").notNull().default("admin"), // admin, super_admin, support
+  isActive: boolean("is_active").default(true).notNull(),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  usernameIdx: index("platform_admins_username_idx").on(table.username),
+  emailIdx: index("platform_admins_email_idx").on(table.email),
+  isActiveIdx: index("platform_admins_is_active_idx").on(table.isActive),
+}));
+
 // Insert schemas for UK H&S document system
 export const insertUkHSDocumentTemplateSchema = createInsertSchema(ukHSDocumentTemplates).omit({
   id: true,
@@ -2688,6 +2709,37 @@ export const insertVoiceNotificationLogSchema = createInsertSchema(voiceNotifica
 // Types for voice notification system
 export type VoiceNotificationLog = typeof voiceNotificationLogs.$inferSelect;
 export type InsertVoiceNotificationLog = z.infer<typeof insertVoiceNotificationLogSchema>;
+
+// Insert schema and types for platform admins
+export const insertPlatformAdminSchema = createInsertSchema(platformAdmins).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastLoginAt: true,
+}).extend({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(50, "Username must be less than 50 characters")
+    .regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens"),
+  email: z.string().email("Valid email address required"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password must be less than 128 characters"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  role: z.enum(["admin", "super_admin", "support"]).default("admin"),
+});
+
+export type PlatformAdmin = typeof platformAdmins.$inferSelect;
+export type InsertPlatformAdmin = z.infer<typeof insertPlatformAdminSchema>;
+
+// Platform admin login schema
+export const platformAdminLoginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export type PlatformAdminLoginRequest = z.infer<typeof platformAdminLoginSchema>;
 
 // Types for UK H&S document system
 export type UkHSDocumentTemplate = typeof ukHSDocumentTemplates.$inferSelect;

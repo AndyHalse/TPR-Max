@@ -39,10 +39,21 @@ import Signup from "@/pages/Signup";
 import SignupPayment from "@/pages/SignupPayment";
 import Welcome from "@/pages/Welcome";
 import AcceptInvitation from "@/pages/AcceptInvitation";
+import PlatformAdminLogin from "@/pages/PlatformAdminLogin";
+import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
   const emergencyToken = urlParams.get('token');
+  
+  // Platform Admin routes (separate authentication system)
+  if (window.location.pathname === '/platform-admin/login') {
+    return <PlatformAdminLogin />;
+  }
+  
+  if (window.location.pathname === '/platform-admin/dashboard') {
+    return <PlatformAdminDashboard />;
+  }
   
   // Special case: Fire Marshal emergency access with token
   if (window.location.pathname === '/fire-marshal' && emergencyToken) {

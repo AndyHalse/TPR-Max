@@ -373,6 +373,9 @@ declare module 'express-session' {
     userId?: string;
     customerId?: string;
     companyName?: string;
+    // Platform admin session
+    platformAdminId?: string;
+    platformAdminUsername?: string;
   }
 }
 
@@ -829,5 +832,80 @@ export async function loadUser(req: Request, res: Response, next: NextFunction) 
       console.error('Failed to load user from customer-specific session:', error);
     }
   }
+  next();
+}
+
+/**
+ * Platform Admin Authentication Service
+ * For authenticating platform administrators (not customer users)
+ */
+export class PlatformAdminAuthService {
+  /**
+   * Authenticate platform admin credentials
+   */
+  static async authenticatePlatformAdmin(username: string, password: string): Promise<any | null> {
+    try {
+      // Get management database connection
+      const { db } = await import('./db');
+      
+      console.log(`🔐 Platform Admin authentication attempt: ${username}`);
+      
+      // Look up admin by username in platformAdmins table
+      const admins = await db
+        .select()
+        .from(schema.platformAdmins)
+        .where(eq(schema.platformAdmins.username, username))
+        .limit(1);
+      
+      const admin = admins[0];
+      
+      if (!admin) {
+        console.log(`❌ Platform admin not found: ${username}`);
+        return null;
+      }
+      
+      if (!admin.isActive) {
+        console.log(`❌ Platform admin account inactive: ${username}`);
+        return null;
+      }
+      
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, admin.password);
+      
+      if (!isPasswordValid) {
+        console.log(`❌ Invalid password for platform admin: ${username}`);
+        return null;
+      }
+      
+      console.log(`✅ Platform admin authenticated successfully: ${username} (ID: ${admin.id})`);
+      
+      // Update last login timestamp
+      await db
+        .update(schema.platformAdmins)
+        .set({ lastLoginAt: sql`NOW()` })
+        .where(eq(schema.platformAdmins.id, admin.id));
+      
+      return admin;
+    } catch (error) {
+      console.error('❌ Platform admin authentication error:', error);
+      return null;
+    }
+  }
+}
+
+/**
+ * Middleware to check if platform admin is authenticated
+ */
+export function requirePlatformAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session || !req.session.platformAdminId) {
+    console.log('🚨 SECURITY: requirePlatformAdmin failed - no platform admin session');
+    return res.status(401).json({ error: 'Platform admin authentication required' });
+  }
+  
+  console.log('✅ SECURITY: requirePlatformAdmin passed:', {
+    platformAdminId: req.session.platformAdminId,
+    sessionId: req.sessionID
+  });
+  
   next();
 }
