@@ -439,7 +439,7 @@ export class DatabaseProvisioningService {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS company_settings (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
-        company_name text NOT NULL DEFAULT 'TechCorp Ltd',
+        company_name text NOT NULL DEFAULT 'ACS Safety & Security Ltd',
         logo_url text,
         -- Company contact information
         address text DEFAULT '',
@@ -796,10 +796,10 @@ export class DatabaseProvisioningService {
     console.log(`🌱 Seeding default data for customer: ${customerId}`);
 
     try {
-      // Create default company settings
+      // Create default company settings with ACS Safety & Security Ltd branding
       await db.execute(sql`
         INSERT INTO company_settings (company_name, theme, accent_color)
-        VALUES ('Customer Company', 'light', '#3b82f6')
+        VALUES ('ACS Safety & Security Ltd', 'light', '#3b82f6')
         ON CONFLICT DO NOTHING
       `);
 

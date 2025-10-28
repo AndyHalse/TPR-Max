@@ -333,7 +333,7 @@ export const buildingSettings = pgTable("building_settings", {
 // Company Settings - Now isolated per customer database
 export const companySettings = pgTable("company_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  companyName: text("company_name").notNull().default("TechCorp Ltd"),
+  companyName: text("company_name").notNull().default("ACS Safety & Security Ltd"),
   logoUrl: text("logo_url"),
   // Company contact information
   address: text("address").default(""),
