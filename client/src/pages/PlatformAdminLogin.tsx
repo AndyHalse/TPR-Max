@@ -87,7 +87,10 @@ export default function PlatformAdminLogin() {
           <div className="flex justify-center mb-4">
             {brandingData?.branding?.logoUrl ? (
               <img 
-                src={brandingData.branding.logoUrl} 
+                src={brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
+                  ? brandingData.branding.logoUrl 
+                  : `/public-objects/${brandingData.branding.logoUrl}`
+                } 
                 alt={brandingData.branding.platformName || "Platform Logo"} 
                 className="h-16 object-contain"
                 data-testid="img-platform-logo"

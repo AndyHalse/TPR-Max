@@ -318,7 +318,10 @@ export default function PlatformAdminDashboard() {
             <div className="flex items-center space-x-3">
               {brandingData?.branding?.logoUrl ? (
                 <img 
-                  src={brandingData.branding.logoUrl} 
+                  src={brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
+                    ? brandingData.branding.logoUrl 
+                    : `/public-objects/${brandingData.branding.logoUrl}`
+                  } 
                   alt={brandingData.branding.platformName} 
                   className="h-10 object-contain"
                   data-testid="img-dashboard-logo"

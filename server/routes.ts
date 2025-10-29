@@ -18146,9 +18146,10 @@ This is an automated notification from your visitor management system.`;
         },
       });
 
-      const logoUrl = `/${bucketName}/${objectName}`;
+      // Return just the filename - the frontend will use /public-objects/ prefix
+      const logoUrl = fileName;
 
-      console.log(`✅ Logo uploaded successfully: ${logoUrl}`);
+      console.log(`✅ Logo uploaded successfully to object storage: ${fileName}`);
 
       res.json({
         success: true,
