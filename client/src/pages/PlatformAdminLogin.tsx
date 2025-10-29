@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { Shield } from "lucide-react";
 
 export default function PlatformAdminLogin() {
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +26,7 @@ export default function PlatformAdminLogin() {
         title: "Login successful",
         description: `Welcome back, ${data.admin.firstName}!`,
       });
-      setLocation("/platform-admin/dashboard");
+      window.location.href = "/platform-admin/dashboard";
     },
     onError: (error: any) => {
       toast({

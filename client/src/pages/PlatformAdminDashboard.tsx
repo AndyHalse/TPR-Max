@@ -50,8 +50,7 @@ export default function PlatformAdminDashboard() {
       if (!response.ok) {
         throw new Error("Not authenticated");
       }
-      const data = await response.json();
-      return data.admin;
+      return response.json();
     },
     retry: false,
   });
@@ -59,9 +58,9 @@ export default function PlatformAdminDashboard() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!adminLoading && error) {
-      setLocation("/platform-admin/login");
+      window.location.href = "/platform-admin/login";
     }
-  }, [adminLoading, error, setLocation]);
+  }, [adminLoading, error]);
 
   // Fetch customers
   const { data: customersData, isLoading: customersLoading } = useQuery<{ success: boolean; customers: Customer[] }>({
@@ -88,7 +87,7 @@ export default function PlatformAdminDashboard() {
     },
     onSuccess: () => {
       queryClient.clear();
-      setLocation("/platform-admin/login");
+      window.location.href = "/platform-admin/login";
     },
   });
 
