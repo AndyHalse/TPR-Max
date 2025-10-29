@@ -2668,6 +2668,25 @@ export const platformAdmins = pgTable("platform_admins", {
   isActiveIdx: index("platform_admins_is_active_idx").on(table.isActive),
 }));
 
+// Platform Branding Settings - White-label configuration
+// Single row configuration for platform branding (colors, logo, etc.)
+export const platformBrandingSettings = pgTable("platform_branding_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Branding colors
+  primaryColor: text("primary_color").default("#2460A9").notNull(), // Main brand color
+  secondaryColor: text("secondary_color").default("#1E3A8A").notNull(), // Accent color
+  accentColor: text("accent_color").default("#3B82F6").notNull(), // Additional accent
+  // Logo and assets
+  logoUrl: text("logo_url"), // URL or path to uploaded logo
+  faviconUrl: text("favicon_url"), // URL or path to favicon
+  // Company information
+  platformName: text("platform_name").default("TPR Max").notNull(),
+  companyName: text("company_name").default("Your Company").notNull(),
+  // Metadata
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: varchar("updated_by").references(() => platformAdmins.id),
+});
+
 // Insert schemas for UK H&S document system
 export const insertUkHSDocumentTemplateSchema = createInsertSchema(ukHSDocumentTemplates).omit({
   id: true,
@@ -2732,6 +2751,15 @@ export const insertPlatformAdminSchema = createInsertSchema(platformAdmins).omit
 
 export type PlatformAdmin = typeof platformAdmins.$inferSelect;
 export type InsertPlatformAdmin = z.infer<typeof insertPlatformAdminSchema>;
+
+// Platform branding settings schemas
+export const insertPlatformBrandingSettingsSchema = createInsertSchema(platformBrandingSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type PlatformBrandingSettings = typeof platformBrandingSettings.$inferSelect;
+export type InsertPlatformBrandingSettings = z.infer<typeof insertPlatformBrandingSettingsSchema>;
 
 // Platform admin login schema
 export const platformAdminLoginSchema = z.object({

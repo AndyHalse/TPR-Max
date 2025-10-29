@@ -1755,6 +1755,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * Update customer details (PATCH endpoint for edit functionality)
+   */
+  app.patch("/platform-admin/customers/:customerId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      // Validate request body with explicit schema for allowed fields only
+      const updateCustomerSchema = z.object({
+        companyName: z.string().trim().min(1).optional(),
+        contactEmail: z.string().trim().email().optional(),
+        maxTenants: z.number().int().positive().optional(),
+        maxUsersPerTenant: z.number().int().positive().optional(),
+        maxVisitorsPerMonth: z.number().int().positive().optional(),
+        supportContactEmail: z.string().trim().email().optional().nullable(),
+      });
+      
+      const validatedData = updateCustomerSchema.parse(req.body);
+      
+      // Only update if there are fields to update
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No valid fields provided for update'
+        });
+      }
+      
+      const updatedCustomers = await db
+        .update(sharedSchema.customers)
+        .set({ 
+          ...validatedData,
+          updatedAt: sql`NOW()`
+        })
+        .where(eq(sharedSchema.customers.id, customerId))
+        .returning();
+      
+      const updatedCustomer = updatedCustomers[0];
+      
+      if (!updatedCustomer) {
+        return res.status(404).json({
+          success: false,
+          error: 'Customer not found'
+        });
+      }
+      
+      console.log(`✅ Customer ${customerId} details updated`);
+      
+      res.json({
+        success: true,
+        customer: updatedCustomer
+      });
+    } catch (error) {
+      console.error('❌ Error updating customer:', error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors
+        });
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update customer'
+      });
+    }
+  });
+
+  // ============================================
+  // PLATFORM ADMIN BRANDING SETTINGS
+  // ============================================
+  
+  /**
+   * Get platform branding settings
+   */
+  app.get("/platform-admin/branding", requirePlatformAdmin, async (req, res) => {
+    try {
+      console.log(`🎨 Platform admin requesting branding settings`);
+      
+      // Get branding settings (should be single row)
+      const settings = await db
+        .select()
+        .from(sharedSchema.platformBrandingSettings)
+        .limit(1);
+      
+      let brandingSettings = settings[0];
+      
+      // If no settings exist yet, create default settings
+      if (!brandingSettings) {
+        const newSettings = await db
+          .insert(sharedSchema.platformBrandingSettings)
+          .values({
+            primaryColor: '#2460A9',
+            secondaryColor: '#1E3A8A',
+            accentColor: '#3B82F6',
+            platformName: 'TPR Max',
+            companyName: 'Your Company',
+          })
+          .returning();
+        
+        brandingSettings = newSettings[0];
+        console.log(`✅ Created default branding settings`);
+      }
+      
+      res.json({
+        success: true,
+        branding: brandingSettings
+      });
+    } catch (error) {
+      console.error('❌ Error fetching branding settings:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch branding settings'
+      });
+    }
+  });
+
+  /**
+   * Update platform branding settings
+   */
+  app.put("/platform-admin/branding", requirePlatformAdmin, async (req, res) => {
+    try {
+      console.log(`🎨 Platform admin updating branding settings`);
+      
+      const { primaryColor, secondaryColor, accentColor, logoUrl, faviconUrl, platformName, companyName } = req.body;
+      
+      // Get existing settings
+      const existing = await db
+        .select()
+        .from(sharedSchema.platformBrandingSettings)
+        .limit(1);
+      
+      let updatedSettings;
+      
+      if (existing.length === 0) {
+        // Create new settings
+        const newSettings = await db
+          .insert(sharedSchema.platformBrandingSettings)
+          .values({
+            primaryColor: primaryColor || '#2460A9',
+            secondaryColor: secondaryColor || '#1E3A8A',
+            accentColor: accentColor || '#3B82F6',
+            logoUrl,
+            faviconUrl,
+            platformName: platformName || 'TPR Max',
+            companyName: companyName || 'Your Company',
+            updatedBy: req.session.platformAdminId,
+          })
+          .returning();
+        
+        updatedSettings = newSettings[0];
+      } else {
+        // Update existing settings
+        const updated = await db
+          .update(sharedSchema.platformBrandingSettings)
+          .set({
+            primaryColor: primaryColor || existing[0].primaryColor,
+            secondaryColor: secondaryColor || existing[0].secondaryColor,
+            accentColor: accentColor || existing[0].accentColor,
+            logoUrl: logoUrl !== undefined ? logoUrl : existing[0].logoUrl,
+            faviconUrl: faviconUrl !== undefined ? faviconUrl : existing[0].faviconUrl,
+            platformName: platformName || existing[0].platformName,
+            companyName: companyName || existing[0].companyName,
+            updatedAt: sql`NOW()`,
+            updatedBy: req.session.platformAdminId,
+          })
+          .where(eq(sharedSchema.platformBrandingSettings.id, existing[0].id))
+          .returning();
+        
+        updatedSettings = updated[0];
+      }
+      
+      console.log(`✅ Branding settings updated successfully`);
+      
+      res.json({
+        success: true,
+        branding: updatedSettings
+      });
+    } catch (error) {
+      console.error('❌ Error updating branding settings:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update branding settings'
+      });
+    }
+  });
+
   // AI Generated Images endpoints
   app.post("/api/ai/generate-safety-image", requireAuth, async (req, res) => {
     try {

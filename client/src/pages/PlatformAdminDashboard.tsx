@@ -6,8 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import PlatformAdminCustomerForm from "./PlatformAdminCustomerForm";
 
 interface PlatformAdmin {
@@ -34,11 +36,25 @@ interface Customer {
   updatedAt: string;
 }
 
+interface BrandingSettings {
+  id: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  logoUrl?: string | null;
+  faviconUrl?: string | null;
+  platformName: string;
+  companyName: string;
+  updatedAt: string;
+}
+
 export default function PlatformAdminDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
   // Check authentication
   const { data: admin, isLoading: adminLoading, error } = useQuery<PlatformAdmin>({
@@ -115,6 +131,108 @@ export default function PlatformAdminDashboard() {
     },
   });
 
+  // Fetch branding settings
+  const { data: brandingData } = useQuery<{ success: boolean; branding: BrandingSettings }>({
+    queryKey: ["/platform-admin/branding"],
+    queryFn: async () => {
+      const response = await fetch("/platform-admin/branding", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch branding");
+      return response.json();
+    },
+    enabled: !!admin,
+  });
+
+  const [brandingForm, setBrandingForm] = useState({
+    primaryColor: '',
+    secondaryColor: '',
+    accentColor: '',
+    logoUrl: '',
+    platformName: '',
+    companyName: '',
+  });
+
+  useEffect(() => {
+    if (brandingData?.branding) {
+      setBrandingForm({
+        primaryColor: brandingData.branding.primaryColor,
+        secondaryColor: brandingData.branding.secondaryColor,
+        accentColor: brandingData.branding.accentColor,
+        logoUrl: brandingData.branding.logoUrl || '',
+        platformName: brandingData.branding.platformName,
+        companyName: brandingData.branding.companyName,
+      });
+    }
+  }, [brandingData]);
+
+  // Update branding settings mutation
+  const updateBrandingMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PUT", "/platform-admin/branding", brandingForm);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/branding"] });
+      setShowSettings(false);
+      toast({
+        title: "Success",
+        description: "Branding settings updated",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update branding settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Edit customer mutation
+  const [editForm, setEditForm] = useState({
+    companyName: '',
+    contactEmail: '',
+    maxTenants: 10,
+    maxUsersPerTenant: 50,
+    maxVisitorsPerMonth: 1000,
+  });
+
+  useEffect(() => {
+    if (editingCustomer) {
+      setEditForm({
+        companyName: editingCustomer.companyName,
+        contactEmail: editingCustomer.contactEmail,
+        maxTenants: editingCustomer.maxTenants,
+        maxUsersPerTenant: editingCustomer.maxUsersPerTenant,
+        maxVisitorsPerMonth: editingCustomer.maxVisitorsPerMonth,
+      });
+    }
+  }, [editingCustomer]);
+
+  const editCustomerMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingCustomer) throw new Error("No customer selected");
+      const response = await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}`, editForm);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
+      setEditingCustomer(null);
+      toast({
+        title: "Success",
+        description: "Customer updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update customer",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (adminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -147,14 +265,24 @@ export default function PlatformAdminDashboard() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => logoutMutation.mutate()}
-              data-testid="button-logout"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowSettings(true)}
+                data-testid="button-settings"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => logoutMutation.mutate()}
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -272,6 +400,15 @@ export default function PlatformAdminDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setEditingCustomer(customer)}
+                        data-testid={`button-edit-${customer.id}`}
+                      >
+                        <Edit className="w-3 h-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() =>
                           toggleStatusMutation.mutate({
                             customerId: customer.id,
@@ -306,6 +443,218 @@ export default function PlatformAdminDashboard() {
               queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Palette className="w-5 h-5" />
+              <span>Platform Branding Settings</span>
+            </DialogTitle>
+            <DialogDescription>
+              Customize colors and branding for white-label deployment
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="primaryColor">Primary Color</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="primaryColor"
+                    type="color"
+                    value={brandingForm.primaryColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
+                    className="w-20 h-10"
+                    data-testid="input-primary-color"
+                  />
+                  <Input
+                    type="text"
+                    value={brandingForm.primaryColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
+                    placeholder="#2460A9"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secondaryColor">Secondary Color</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="secondaryColor"
+                    type="color"
+                    value={brandingForm.secondaryColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })}
+                    className="w-20 h-10"
+                    data-testid="input-secondary-color"
+                  />
+                  <Input
+                    type="text"
+                    value={brandingForm.secondaryColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })}
+                    placeholder="#1E3A8A"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="accentColor">Accent Color</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="accentColor"
+                    type="color"
+                    value={brandingForm.accentColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })}
+                    className="w-20 h-10"
+                    data-testid="input-accent-color"
+                  />
+                  <Input
+                    type="text"
+                    value={brandingForm.accentColor}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })}
+                    placeholder="#3B82F6"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="logoUrl">Logo URL</Label>
+                <Input
+                  id="logoUrl"
+                  type="text"
+                  value={brandingForm.logoUrl}
+                  onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })}
+                  placeholder="https://example.com/logo.png"
+                  data-testid="input-logo-url"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="platformName">Platform Name</Label>
+                <Input
+                  id="platformName"
+                  type="text"
+                  value={brandingForm.platformName}
+                  onChange={(e) => setBrandingForm({ ...brandingForm, platformName: e.target.value })}
+                  placeholder="TPR Max"
+                  data-testid="input-platform-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="companyName">Company Name</Label>
+                <Input
+                  id="companyName"
+                  type="text"
+                  value={brandingForm.companyName}
+                  onChange={(e) => setBrandingForm({ ...brandingForm, companyName: e.target.value })}
+                  placeholder="Your Company"
+                  data-testid="input-company-name"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => setShowSettings(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => updateBrandingMutation.mutate()}
+                disabled={updateBrandingMutation.isPending}
+                data-testid="button-save-branding"
+              >
+                {updateBrandingMutation.isPending ? "Saving..." : "Save Settings"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && setEditingCustomer(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+            <DialogDescription>
+              Update customer account details and limits
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-companyName">Company Name</Label>
+              <Input
+                id="edit-companyName"
+                value={editForm.companyName}
+                onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
+                data-testid="input-edit-company-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-contactEmail">Contact Email</Label>
+              <Input
+                id="edit-contactEmail"
+                type="email"
+                value={editForm.contactEmail}
+                onChange={(e) => setEditForm({ ...editForm, contactEmail: e.target.value })}
+                data-testid="input-edit-contact-email"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-maxTenants">Max Tenants</Label>
+                <Input
+                  id="edit-maxTenants"
+                  type="number"
+                  value={editForm.maxTenants}
+                  onChange={(e) => setEditForm({ ...editForm, maxTenants: parseInt(e.target.value) })}
+                  data-testid="input-edit-max-tenants"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-maxUsersPerTenant">Max Users/Tenant</Label>
+                <Input
+                  id="edit-maxUsersPerTenant"
+                  type="number"
+                  value={editForm.maxUsersPerTenant}
+                  onChange={(e) => setEditForm({ ...editForm, maxUsersPerTenant: parseInt(e.target.value) })}
+                  data-testid="input-edit-max-users-per-tenant"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-maxVisitorsPerMonth">Max Visitors/Month</Label>
+                <Input
+                  id="edit-maxVisitorsPerMonth"
+                  type="number"
+                  value={editForm.maxVisitorsPerMonth}
+                  onChange={(e) => setEditForm({ ...editForm, maxVisitorsPerMonth: parseInt(e.target.value) })}
+                  data-testid="input-edit-max-visitors-per-month"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => setEditingCustomer(null)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => editCustomerMutation.mutate()}
+                disabled={editCustomerMutation.isPending}
+                data-testid="button-save-customer"
+              >
+                {editCustomerMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
