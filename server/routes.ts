@@ -18128,16 +18128,25 @@ This is an automated notification from your visitor management system.`;
       console.log(`📤 Uploading platform logo: ${req.file.originalname} (${req.file.mimetype}, ${req.file.size} bytes)`);
 
       const path = await import('path');
-      const fs = await import('fs');
+      const { objectStorageClient } = await import('./objectStorage');
 
       // Sanitize filename and upload to object storage in public directory
       const ext = path.default.extname(req.file.originalname).toLowerCase();
       const fileName = `platform-logo-${Date.now()}${ext}`;
-      const bucketPath = `/replit-objstore-9ec67884-ec26-4167-84d1-c8ceecee21b7/public/${fileName}`;
+      const bucketName = 'replit-objstore-9ec67884-ec26-4167-84d1-c8ceecee21b7';
+      const objectName = `public/${fileName}`;
 
-      await fs.promises.writeFile(bucketPath, req.file.buffer);
+      // Upload to object storage using Google Cloud Storage API
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      
+      await file.save(req.file.buffer, {
+        metadata: {
+          contentType: req.file.mimetype,
+        },
+      });
 
-      const logoUrl = `/replit-objstore-9ec67884-ec26-4167-84d1-c8ceecee21b7/public/${fileName}`;
+      const logoUrl = `/${bucketName}/${objectName}`;
 
       console.log(`✅ Logo uploaded successfully: ${logoUrl}`);
 
