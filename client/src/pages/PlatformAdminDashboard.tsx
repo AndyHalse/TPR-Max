@@ -175,17 +175,27 @@ export default function PlatformAdminDashboard() {
       
       // Upload logo file if one was selected
       if (logoFile) {
+        // Get CSRF token first
+        const csrfResponse = await fetch('/api/csrf-token', {
+          credentials: 'include',
+        });
+        const { csrfToken } = await csrfResponse.json();
+        
         const formData = new FormData();
         formData.append('logo', logoFile);
         
         const uploadResponse = await fetch('/platform-admin/branding/upload-logo', {
           method: 'POST',
           credentials: 'include',
+          headers: {
+            'X-CSRF-Token': csrfToken,
+          },
           body: formData,
         });
         
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload logo');
+          const errorData = await uploadResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to upload logo');
         }
         
         const uploadData = await uploadResponse.json();
