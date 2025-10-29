@@ -43,6 +43,17 @@ export default function PlatformAdminDashboard() {
   // Check authentication
   const { data: admin, isLoading: adminLoading, error } = useQuery<PlatformAdmin>({
     queryKey: ["/platform-admin/auth/me"],
+    queryFn: async () => {
+      const response = await fetch("/platform-admin/auth/me", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Not authenticated");
+      }
+      const data = await response.json();
+      return data.admin;
+    },
+    retry: false,
   });
 
   // Redirect to login if not authenticated
@@ -55,6 +66,15 @@ export default function PlatformAdminDashboard() {
   // Fetch customers
   const { data: customersData, isLoading: customersLoading } = useQuery<{ success: boolean; customers: Customer[] }>({
     queryKey: ["/platform-admin/customers"],
+    queryFn: async () => {
+      const response = await fetch("/platform-admin/customers", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch customers");
+      }
+      return response.json();
+    },
     enabled: !!admin,
   });
 
