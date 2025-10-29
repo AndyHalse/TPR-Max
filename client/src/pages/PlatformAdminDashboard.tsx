@@ -152,6 +152,8 @@ export default function PlatformAdminDashboard() {
     platformName: '',
     companyName: '',
   });
+  
+  const [logoFile, setLogoFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (brandingData?.branding) {
@@ -169,12 +171,37 @@ export default function PlatformAdminDashboard() {
   // Update branding settings mutation
   const updateBrandingMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("PUT", "/platform-admin/branding", brandingForm);
+      let logoUrl = brandingForm.logoUrl;
+      
+      // Upload logo file if one was selected
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append('logo', logoFile);
+        
+        const uploadResponse = await fetch('/platform-admin/branding/upload-logo', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload logo');
+        }
+        
+        const uploadData = await uploadResponse.json();
+        logoUrl = uploadData.logoUrl;
+      }
+      
+      const response = await apiRequest("PUT", "/platform-admin/branding", {
+        ...brandingForm,
+        logoUrl,
+      });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/platform-admin/branding"] });
       setShowSettings(false);
+      setLogoFile(null);
       toast({
         title: "Success",
         description: "Branding settings updated",
@@ -198,6 +225,11 @@ export default function PlatformAdminDashboard() {
     maxVisitorsPerMonth: 1000,
   });
 
+  const [credentialReset, setCredentialReset] = useState({
+    username: '',
+    password: '',
+  });
+
   useEffect(() => {
     if (editingCustomer) {
       setEditForm({
@@ -207,18 +239,28 @@ export default function PlatformAdminDashboard() {
         maxUsersPerTenant: editingCustomer.maxUsersPerTenant,
         maxVisitorsPerMonth: editingCustomer.maxVisitorsPerMonth,
       });
+      setCredentialReset({ username: '', password: '' });
     }
   }, [editingCustomer]);
 
   const editCustomerMutation = useMutation({
     mutationFn: async () => {
       if (!editingCustomer) throw new Error("No customer selected");
+      
+      // Update customer details
       const response = await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}`, editForm);
+      
+      // Reset credentials if provided
+      if (credentialReset.username || credentialReset.password) {
+        await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}/credentials`, credentialReset);
+      }
+      
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
       setEditingCustomer(null);
+      setCredentialReset({ username: '', password: '' });
       toast({
         title: "Success",
         description: "Customer updated successfully",
@@ -248,26 +290,46 @@ export default function PlatformAdminDashboard() {
     return null;
   }
 
+  const primaryColor = brandingData?.branding?.primaryColor || '#2460A9';
+  const accentColor = brandingData?.branding?.accentColor || '#3B82F6';
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
+      <header 
+        className="shadow"
+        style={{
+          background: `linear-gradient(to right, ${primaryColor}, ${accentColor})`,
+          color: 'white'
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
+              {brandingData?.branding?.logoUrl ? (
+                <img 
+                  src={brandingData.branding.logoUrl} 
+                  alt={brandingData.branding.platformName} 
+                  className="h-10 object-contain"
+                  data-testid="img-dashboard-logo"
+                />
+              ) : (
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+              )}
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Platform Admin</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <h1 className="text-2xl font-bold text-white">
+                  {brandingData?.branding?.platformName || "Platform Admin"}
+                </h1>
+                <p className="text-sm text-white/80">
                   Welcome, {admin.firstName} {admin.lastName}
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button
-                variant="outline"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
                 onClick={() => setShowSettings(true)}
                 data-testid="button-settings"
               >
@@ -275,7 +337,7 @@ export default function PlatformAdminDashboard() {
                 Settings
               </Button>
               <Button
-                variant="outline"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
                 onClick={() => logoutMutation.mutate()}
                 data-testid="button-logout"
               >
@@ -523,16 +585,25 @@ export default function PlatformAdminDashboard() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="logoFile">Logo Upload</Label>
                 <Input
-                  id="logoUrl"
-                  type="text"
-                  value={brandingForm.logoUrl}
-                  onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })}
-                  placeholder="https://example.com/logo.png"
-                  data-testid="input-logo-url"
+                  id="logoFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                  data-testid="input-logo-file"
                 />
+                {(logoFile || brandingForm.logoUrl) && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">
+                      {logoFile ? `Selected: ${logoFile.name}` : `Current: ${brandingForm.logoUrl}`}
+                    </p>
+                    {brandingForm.logoUrl && !logoFile && (
+                      <img src={brandingForm.logoUrl} alt="Logo preview" className="mt-2 h-16 object-contain" />
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -639,6 +710,36 @@ export default function PlatformAdminDashboard() {
                   onChange={(e) => setEditForm({ ...editForm, maxVisitorsPerMonth: parseInt(e.target.value) })}
                   data-testid="input-edit-max-visitors-per-month"
                 />
+              </div>
+            </div>
+
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-semibold mb-3">Reset Customer Admin Credentials (Optional)</h3>
+              <p className="text-xs text-gray-500 mb-4">Leave blank to keep existing credentials</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-username">New Username</Label>
+                  <Input
+                    id="reset-username"
+                    value={credentialReset.username}
+                    onChange={(e) => setCredentialReset({ ...credentialReset, username: e.target.value })}
+                    placeholder="Leave blank to keep current"
+                    data-testid="input-reset-username"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reset-password">New Password</Label>
+                  <Input
+                    id="reset-password"
+                    type="password"
+                    value={credentialReset.password}
+                    onChange={(e) => setCredentialReset({ ...credentialReset, password: e.target.value })}
+                    placeholder="Leave blank to keep current"
+                    data-testid="input-reset-password"
+                  />
+                </div>
               </div>
             </div>
 

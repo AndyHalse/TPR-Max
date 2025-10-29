@@ -18091,6 +18091,133 @@ This is an automated notification from your visitor management system.`;
   // Configure multer for file uploads (in-memory storage)
   const upload = multer.default({ storage: multer.default.memoryStorage() });
 
+  // ============================================================================
+  // PLATFORM ADMIN - LOGO UPLOAD & CREDENTIAL RESET
+  // ============================================================================
+  
+  /**
+   * Upload logo for platform branding
+   */
+  app.post("/platform-admin/branding/upload-logo", requirePlatformAdmin, upload.single('logo'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: 'No logo file uploaded'
+        });
+      }
+
+      // Validate file type (images only)
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid file type. Only images (JPEG, PNG, GIF, WebP, SVG) are allowed.'
+        });
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (req.file.size > maxSize) {
+        return res.status(400).json({
+          success: false,
+          error: 'File too large. Maximum size is 5MB.'
+        });
+      }
+
+      console.log(`📤 Uploading platform logo: ${req.file.originalname} (${req.file.mimetype}, ${req.file.size} bytes)`);
+
+      const path = await import('path');
+      const fs = await import('fs');
+
+      // Sanitize filename and upload to object storage in public directory
+      const ext = path.default.extname(req.file.originalname).toLowerCase();
+      const fileName = `platform-logo-${Date.now()}${ext}`;
+      const bucketPath = `/replit-objstore-9ec67884-ec26-4167-84d1-c8ceecee21b7/public/${fileName}`;
+
+      await fs.promises.writeFile(bucketPath, req.file.buffer);
+
+      const logoUrl = `/replit-objstore-9ec67884-ec26-4167-84d1-c8ceecee21b7/public/${fileName}`;
+
+      console.log(`✅ Logo uploaded successfully: ${logoUrl}`);
+
+      res.json({
+        success: true,
+        logoUrl
+      });
+    } catch (error) {
+      console.error('❌ Error uploading logo:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to upload logo'
+      });
+    }
+  });
+
+  /**
+   * Reset customer admin credentials
+   */
+  app.patch("/platform-admin/customers/:customerId/credentials", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const { username, password } = req.body;
+
+      if (!username && !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username or password required'
+        });
+      }
+
+      // Get customer to find their database
+      const customers = await db
+        .select()
+        .from(sharedSchema.customers)
+        .where(eq(sharedSchema.customers.id, customerId))
+        .limit(1);
+
+      const customer = customers[0];
+
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          error: 'Customer not found'
+        });
+      }
+
+      // Import necessary dependencies
+      const { neon } = await import('@neondatabase/serverless');
+      const { drizzle } = await import('drizzle-orm/neon-http');
+
+      // Connect to customer's database
+      const customerDb = drizzle(neon(customer.databaseUrl));
+
+      // Build update object
+      const updateData: any = {};
+      if (username) updateData.username = username;
+      if (password) updateData.password = await bcrypt.hash(password, 10);
+
+      // Update the customer admin user (first user is always the admin)
+      await customerDb
+        .update(sharedSchema.users)
+        .set(updateData)
+        .where(sql`id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)`);
+
+      console.log(`✅ Customer admin credentials updated for ${customer.companyName}`);
+
+      res.json({
+        success: true,
+        message: 'Credentials updated successfully'
+      });
+    } catch (error) {
+      console.error('❌ Error updating customer credentials:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update credentials'
+      });
+    }
+  });
+
   // Template download endpoints - Generate CSV templates with all required fields
   app.get("/api/import/template/staff", requireAuth, async (req, res) => {
     try {
