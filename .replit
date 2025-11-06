@@ -99,10 +99,4 @@ args = "npm run dev"
 waitForPort = 5000
 
 [agent]
-integrations = [
-  "javascript_object_storage:1.0.0",
-  "javascript_websocket:1.0.0",
-  "javascript_sendgrid:1.0.0",
-  "javascript_openai:1.0.0",
-  "javascript_gemini:1.0.0",
-]
+integrations = ["javascript_object_storage:1.0.0", "javascript_websocket:1.0.0", "javascript_sendgrid:1.0.0", "javascript_openai:1.0.0", "javascript_gemini:1.0.0", "javascript_gemini_ai_integrations:1.0.0"]
