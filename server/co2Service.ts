@@ -1,5 +1,4 @@
-import OpenAI from 'openai';
-import { OpenAIErrorHandler } from './utils/openaiErrorHandler';
+import { GoogleGenAI } from '@google/genai';
 
 interface DistanceCalculation {
   distanceMiles: number;
@@ -26,7 +25,7 @@ interface CO2EmissionFactors {
 }
 
 export class CO2Service {
-  private openai: OpenAI;
+  private genAI: GoogleGenAI;
   private emissionFactors: CO2EmissionFactors = {
     car_petrol: 0.27,
     car_diesel: 0.25,
@@ -36,17 +35,25 @@ export class CO2Service {
   };
 
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+    const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    const baseURL = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    
+    if (!apiKey) {
+      throw new Error('AI_INTEGRATIONS_GEMINI_API_KEY environment variable is required');
     }
     
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    // Initialize Gemini using Replit AI Integrations
+    this.genAI = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: baseURL || "",
+      },
     });
   }
 
   /**
-   * Calculate distance between worker postcode and company address using OpenAI
+   * Calculate distance between worker postcode and company address using Gemini AI
    */
   async calculateDistance(workerPostcode: string, companyAddress: string): Promise<DistanceCalculation> {
     try {
@@ -63,45 +70,49 @@ Please provide a JSON response with:
 
 Only return valid JSON, no additional text.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are a UK travel distance calculator. Always return valid JSON only, no additional text or explanations."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
+      const systemPrompt = "You are a UK travel distance calculator. Always return valid JSON only, no additional text or explanations.";
+
+      const response = await this.genAI.models.generateContent({
+        model: 'gemini-2.0-flash-exp',
+        contents: [
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'user', parts: [{ text: prompt }] }
         ],
-        temperature: 0.1,
-        max_tokens: 200
+        config: {
+          temperature: 0.1,
+          maxOutputTokens: 200,
+        }
       });
 
-      const content = response.choices[0]?.message?.content;
+      const content = response.text || '';
+      
       if (!content) {
-        throw new Error('No response from OpenAI');
+        throw new Error('No response from Gemini AI');
+      }
+
+      // Clean up the response - remove markdown code blocks if present
+      let jsonText = content.trim();
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      } else if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```\n?/g, '');
       }
 
       // Parse the JSON response
-      const distanceData = JSON.parse(content) as DistanceCalculation;
+      const distanceData = JSON.parse(jsonText) as DistanceCalculation;
       
       // Validate the response
       if (!distanceData.distanceMiles || !distanceData.distanceKm) {
         throw new Error('Invalid distance calculation response');
       }
 
+      console.log(`✅ Gemini AI calculated distance: ${distanceData.distanceMiles} miles`);
       return distanceData;
     } catch (error) {
-      const errorResult = OpenAIErrorHandler.handleError(error);
-      OpenAIErrorHandler.logError(error, 'CO2Service.calculateDistance');
-      
-      // For distance calculation, we can always provide a fallback
-      console.warn(`⚠️ Distance calculation fallback: ${errorResult.userMessage}`);
+      console.error('❌ Gemini AI distance calculation error:', error);
+      console.warn(`⚠️ Distance calculation fallback: AI service unavailable`);
       
       // Fallback: Basic postcode distance estimation
-      // This is a rough approximation based on UK postcode system
       const fallbackDistance = this.getFallbackDistance(workerPostcode, companyAddress);
       
       return {
@@ -138,7 +149,7 @@ Only return valid JSON, no additional text.`;
   }
 
   /**
-   * Generate comprehensive CO2 sustainability report using OpenAI
+   * Generate comprehensive CO2 sustainability report using Gemini AI
    */
   async generateSustainabilityReport(
     companyName: string,
@@ -176,35 +187,34 @@ Please provide a professional report including:
 
 Format as a comprehensive business report.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are a sustainability consultant specializing in carbon footprint analysis for UK construction and contracting industries."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
+      const systemPrompt = "You are a sustainability consultant specializing in carbon footprint analysis for UK construction and contracting industries.";
+
+      const response = await this.genAI.models.generateContent({
+        model: 'gemini-2.0-flash-exp',
+        contents: [
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'user', parts: [{ text: prompt }] }
         ],
-        temperature: 0.3,
-        max_tokens: 2000
+        config: {
+          temperature: 0.3,
+          maxOutputTokens: 2000,
+        }
       });
 
-      const reportContent = response.choices[0]?.message?.content;
+      const reportContent = response.text || '';
       
       if (!reportContent) {
         throw new Error('No report content received from AI service');
       }
 
+      console.log(`✅ Gemini AI generated sustainability report (${reportContent.length} characters)`);
+      
       return {
         report: reportContent,
         success: true
       };
     } catch (error) {
-      const errorResult = OpenAIErrorHandler.handleError(error);
-      OpenAIErrorHandler.logError(error, 'CO2Service.generateSustainabilityReport');
+      console.error('❌ Gemini AI report generation error:', error);
       
       // For reports, we can provide a basic fallback report
       const fallbackReport = this.generateFallbackReport(companyName, totalWorkers, totalMonthlyCO2, workerBreakdown);
@@ -212,7 +222,7 @@ Format as a comprehensive business report.`;
       return {
         report: fallbackReport,
         success: false,
-        error: errorResult.userMessage
+        error: 'AI service temporarily unavailable'
       };
     }
   }
@@ -222,7 +232,6 @@ Format as a comprehensive business report.`;
    */
   private getFallbackDistance(postcode1: string, postcode2: string): number {
     // Simple fallback based on postcode area differences
-    // This is very rough but provides a backup when OpenAI is unavailable
     const area1 = postcode1.match(/^[A-Z]{1,2}/)?.[0] || '';
     const area2 = postcode2.match(/^[A-Z]{1,2}/)?.[0] || '';
     
