@@ -70,21 +70,18 @@ Please provide a JSON response with:
 
 Only return valid JSON, no additional text.`;
 
-      const systemPrompt = "You are a UK travel distance calculator. Always return valid JSON only, no additional text or explanations.";
+      const combinedPrompt = `You are a UK travel distance calculator. Always return valid JSON only, no additional text or explanations.\n\n${prompt}`;
 
       const response = await this.genAI.models.generateContent({
         model: 'gemini-2.0-flash-exp',
-        contents: [
-          { role: 'user', parts: [{ text: systemPrompt }] },
-          { role: 'user', parts: [{ text: prompt }] }
-        ],
+        contents: combinedPrompt,
         config: {
           temperature: 0.1,
           maxOutputTokens: 200,
         }
       });
 
-      const content = response.text || '';
+      const content = response.text() || '';
       
       if (!content) {
         throw new Error('No response from Gemini AI');
@@ -187,21 +184,18 @@ Please provide a professional report including:
 
 Format as a comprehensive business report.`;
 
-      const systemPrompt = "You are a sustainability consultant specializing in carbon footprint analysis for UK construction and contracting industries.";
+      const combinedPrompt = `You are a sustainability consultant specializing in carbon footprint analysis for UK construction and contracting industries.\n\n${prompt}`;
 
       const response = await this.genAI.models.generateContent({
         model: 'gemini-2.0-flash-exp',
-        contents: [
-          { role: 'user', parts: [{ text: systemPrompt }] },
-          { role: 'user', parts: [{ text: prompt }] }
-        ],
+        contents: combinedPrompt,
         config: {
           temperature: 0.3,
-          maxOutputTokens: 2000,
+          maxOutputTokens: 1024,
         }
       });
 
-      const reportContent = response.text || '';
+      const reportContent = response.text() || '';
       
       if (!reportContent) {
         throw new Error('No report content received from AI service');

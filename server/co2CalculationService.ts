@@ -53,7 +53,7 @@ export class CO2CalculationService {
         throw new Error(`Invalid UK postcode format: ${request.workerPostcode}`);
       }
 
-      // Calculate distance using OpenAI
+      // Calculate distance using Gemini AI
       const distanceData = await this.co2Service.calculateDistance(
         request.workerPostcode,
         request.companyAddress
@@ -86,7 +86,7 @@ export class CO2CalculationService {
         monthlyCO2kg: co2Data.monthlyProjection.toString(),
         annualCO2kg: co2Data.annualProjection.toString(),
         workingDaysPerMonth: workingDays,
-        calculatedBy: 'openai',
+        calculatedBy: 'gemini',
         isActive: true,
       };
 
@@ -231,7 +231,7 @@ export class CO2CalculationService {
 
     const companySummary = await this.getCompanyCO2Summary(customerId, companyId);
     
-    // Generate report using OpenAI
+    // Generate report using Gemini AI
     const reportContent = await this.co2Service.generateSustainabilityReport(
       company.name,
       companySummary.totalWorkers,
@@ -270,8 +270,8 @@ export class CO2CalculationService {
       totalCO2Analyzed: companySummary.totalMonthlyCO2kg.toString(),
       topRecommendation: sections.topRecommendation,
       potentialSavings: this.calculatePotentialSavings(companySummary.workers).toString(),
-      generatedBy: 'openai',
-      aiModel: 'gpt-4',
+      generatedBy: 'gemini',
+      aiModel: 'gemini-2.0-flash-exp',
       generationTimeMs: generationTime,
       isPublished: false,
     };
