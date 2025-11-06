@@ -81,7 +81,7 @@ Only return valid JSON, no additional text.`;
         }
       });
 
-      const content = response.text() || '';
+      const content = response.text || '';
       
       if (!content) {
         throw new Error('No response from Gemini AI');
@@ -195,7 +195,7 @@ Format as a comprehensive business report.`;
         }
       });
 
-      const reportContent = response.text() || '';
+      const reportContent = response.text || '';
       
       if (!reportContent) {
         throw new Error('No report content received from AI service');
