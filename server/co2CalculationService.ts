@@ -271,7 +271,7 @@ export class CO2CalculationService {
       topRecommendation: sections.topRecommendation,
       potentialSavings: this.calculatePotentialSavings(companySummary.workers).toString(),
       generatedBy: 'gemini',
-      aiModel: 'gemini-2.0-flash-exp',
+      aiModel: 'gemini-2.5-flash',
       generationTimeMs: generationTime,
       isPublished: false,
     };

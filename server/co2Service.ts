@@ -73,7 +73,7 @@ Only return valid JSON, no additional text.`;
       const combinedPrompt = `You are a UK travel distance calculator. Always return valid JSON only, no additional text or explanations.\n\n${prompt}`;
 
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         contents: combinedPrompt,
         config: {
           temperature: 0.1,
@@ -187,7 +187,7 @@ Format as a comprehensive business report.`;
       const combinedPrompt = `You are a sustainability consultant specializing in carbon footprint analysis for UK construction and contracting industries.\n\n${prompt}`;
 
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         contents: combinedPrompt,
         config: {
           temperature: 0.3,
