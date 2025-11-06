@@ -222,6 +222,16 @@ export class CO2CalculationService {
   ): Promise<CO2SustainabilityReport> {
     const startTime = Date.now();
     
+    // Validate inputs
+    if (!customerId) {
+      throw new Error('Customer ID is required for report generation');
+    }
+    if (!companyId) {
+      throw new Error('Company ID is required for report generation');
+    }
+    
+    console.log(`🔍 Generating CO2 report for customer: ${customerId}, company: ${companyId}`);
+    
     // Get company data with customer isolation
     const context = { customerId }; // Create context for customer isolation
     const company = await this.databaseService.getContractorCompany(context, companyId);
@@ -257,11 +267,11 @@ export class CO2CalculationService {
     const sections = this.parseReportSections(reportContent);
 
     const reportData: InsertCO2SustainabilityReport = {
-      customerId,
+      customerId, // Explicitly set from parameter
       companyId,
       reportType,
       reportPeriod,
-      reportTitle: `${company.name} CO2 Emissions ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
+      reportTitle: `${company.name || 'Unknown Company'} CO2 Emissions ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
       executiveSummary: sections.executiveSummary,
       currentEmissionsStatus: sections.currentEmissionsStatus,
       environmentalImpactAnalysis: sections.environmentalImpactAnalysis,
@@ -278,6 +288,8 @@ export class CO2CalculationService {
       generationTimeMs: generationTime,
       isPublished: false,
     };
+
+    console.log(`🔍 Report data before storage - customerId: ${reportData.customerId}, companyId: ${reportData.companyId}`);
 
     return await this.databaseService.storeSustainabilityReport(reportData);
   }

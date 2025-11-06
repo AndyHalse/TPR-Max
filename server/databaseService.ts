@@ -2393,6 +2393,13 @@ export class DatabaseService {
   }
 
   async storeSustainabilityReport(data: InsertCO2SustainabilityReport): Promise<CO2SustainabilityReport> {
+    console.log(`🔍 storeSustainabilityReport - customerId from data: ${data.customerId}`);
+    console.log(`🔍 storeSustainabilityReport - full data object:`, JSON.stringify(data, null, 2));
+    
+    if (!data.customerId) {
+      throw new Error('customerId is required to store sustainability report');
+    }
+    
     const db = await customerDbService.getCustomerDatabase(data.customerId);
     
     const created = await db
