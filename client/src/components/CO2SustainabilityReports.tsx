@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -124,16 +125,12 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
   // Generate new sustainability report
   const generateReportMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/contractors/${selectedCompanyId}/co2/report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportType: selectedReportType })
+      return await apiRequest('POST', `/api/contractors/${selectedCompanyId}/co2/report`, {
+        reportType: selectedReportType
       });
-      if (!response.ok) throw new Error('Failed to generate sustainability report');
-      return response.json();
     },
     onSuccess: () => {
-      refetchReports();
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedCompanyId}/co2/reports`] });
       toast({
         title: "Report Generated",
         description: "New sustainability report has been generated with AI insights."
