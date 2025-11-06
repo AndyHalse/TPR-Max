@@ -11537,14 +11537,13 @@ This is an automated notification from your visitor management system.`;
       }
       const context = { customerId: req.session.customerId };
 
-      // Get contractor company
-      const company = await databaseService.getContractorCompanyById(context, companyId);
-      if (!company) {
-        return res.status(404).json({ error: "Company not found" });
-      }
-
-      if (!company.address || !company.postcode) {
-        return res.status(400).json({ error: "Company address not configured" });
+      // Get company settings (which contains the address)
+      const companySettings = await databaseService.getCompanySettings(context);
+      if (!companySettings || !companySettings.address) {
+        return res.status(400).json({ 
+          error: "Company address not configured",
+          message: "Please configure your company address in Settings to calculate CO2 emissions"
+        });
       }
 
       // Get all workers for this company
@@ -11570,7 +11569,7 @@ This is an automated notification from your visitor management system.`;
             {
               workerId: worker.id,
               workerPostcode: worker.postcode,
-              companyAddress: `${company.address}, ${company.postcode}`,
+              companyAddress: companySettings.address,
               transportMethod: 'car_diesel', // Default
               workingDaysPerMonth: 22 // Default
             }
