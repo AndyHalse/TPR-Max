@@ -17,21 +17,23 @@ interface CO2Calculation {
 }
 
 interface CO2EmissionFactors {
-  car_petrol: number; // 0.27 kg CO2/mile
-  car_diesel: number; // 0.25 kg CO2/mile  
-  electric: number;   // 0.05 kg CO2/mile (UK grid average)
-  public_transport: number; // 0.12 kg CO2/mile
-  motorcycle: number; // 0.21 kg CO2/mile
+  car_petrol: number; // kg CO2 per mile (UK gov 2024/25)
+  car_diesel: number; // kg CO2 per mile (UK gov 2024/25)
+  electric: number;   // kg CO2 per mile (UK grid 2024)
+  public_transport: number; // kg CO2 per mile (UK average)
+  motorcycle: number; // kg CO2 per mile (UK gov 2024/25)
 }
 
 export class CO2Service {
   private genAI: GoogleGenAI;
+  // UK Government 2024/2025 conversion factors for commuting
+  // Source: UK Gov GHG Conversion Factors
   private emissionFactors: CO2EmissionFactors = {
-    car_petrol: 0.27,
-    car_diesel: 0.25,
-    electric: 0.05,
-    public_transport: 0.12,
-    motorcycle: 0.21
+    car_petrol: 0.268,      // Average petrol car (medium)
+    car_diesel: 0.257,      // Average diesel car (medium) 
+    electric: 0.047,        // Electric car (UK grid mix 2024)
+    public_transport: 0.103, // Bus/train average
+    motorcycle: 0.186       // Average motorcycle
   };
 
   constructor() {
@@ -166,25 +168,38 @@ Only return valid JSON, no additional text.`;
 
 Data:
 - Total contractor workers: ${totalWorkers}
-- Total monthly CO2 emissions: ${totalMonthlyCO2.toFixed(2)} kg
-- Annual projection: ${(totalMonthlyCO2 * 12).toFixed(2)} kg
+- Total monthly CO2 emissions: ${totalMonthlyCO2.toFixed(2)} kg CO2
+- Annual projection: ${(totalMonthlyCO2 * 12).toFixed(2)} kg CO2/year
+- Average CO2 per worker: ${(totalMonthlyCO2 / totalWorkers).toFixed(2)} kg/month
 
 Worker breakdown:
 ${workerBreakdown.map(w => 
-  `- ${w.name} (${w.company}): ${w.distanceMiles} miles, ${w.monthlyCO2.toFixed(2)} kg CO2/month via ${w.transportMethod}`
+  `- ${w.name} (${w.company}): ${w.distanceMiles} miles/day, ${w.monthlyCO2.toFixed(2)} kg CO2/month via ${w.transportMethod}`
 ).join('\n')}
 
-Please provide a professional report including:
-1. Executive summary
-2. Current emissions status
-3. Environmental impact analysis  
-4. Recommendations for reduction
-5. Comparison to UK industry averages
-6. Action plan for sustainability improvements
+Create a structured report with these exact sections (use these headers):
 
-Format as a comprehensive business report.`;
+[EXECUTIVE_SUMMARY]
+Brief overview of findings and key metrics.
 
-      const combinedPrompt = `You are a sustainability consultant specializing in carbon footprint analysis for UK construction and contracting industries.\n\n${prompt}`;
+[CURRENT_EMISSIONS]
+Detailed analysis of current emissions levels, highest contributors, and trends.
+
+[ENVIRONMENTAL_IMPACT]
+Environmental impact compared to UK benchmarks (average UK worker commute is 10 miles/day producing 50kg CO2/month by car).
+
+[RECOMMENDATIONS]
+Specific, actionable recommendations for emissions reduction with estimated savings.
+
+[INDUSTRY_COMPARISON]
+Comparison to UK construction industry averages and best practices.
+
+[ACTION_PLAN]
+Step-by-step implementation plan with timelines and priorities.
+
+Keep each section concise (2-3 sentences). Use professional business language.`;
+
+      const combinedPrompt = `You are a sustainability consultant specializing in carbon footprint analysis for UK construction and contracting industries. Generate a structured report with clear section headers as specified.\n\n${prompt}`;
 
       const response = await this.genAI.models.generateContent({
         model: 'gemini-2.5-flash',

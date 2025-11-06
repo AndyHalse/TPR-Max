@@ -232,7 +232,7 @@ export class CO2CalculationService {
     const companySummary = await this.getCompanyCO2Summary(customerId, companyId);
     
     // Generate report using Gemini AI
-    const reportContent = await this.co2Service.generateSustainabilityReport(
+    const reportResult = await this.co2Service.generateSustainabilityReport(
       company.name,
       companySummary.totalWorkers,
       companySummary.totalMonthlyCO2kg,
@@ -249,6 +249,9 @@ export class CO2CalculationService {
     const generationTime = Date.now() - startTime;
     const now = new Date();
     const reportPeriod = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+
+    // Extract the report string from the result object
+    const reportContent = reportResult.report;
 
     // Extract sections from the report (AI-generated content might need parsing)
     const sections = this.parseReportSections(reportContent);
@@ -314,7 +317,7 @@ export class CO2CalculationService {
   }
 
   /**
-   * Parse AI-generated report into sections
+   * Parse AI-generated report into sections with improved header detection
    */
   private parseReportSections(reportContent: string): {
     executiveSummary: string;
@@ -325,17 +328,50 @@ export class CO2CalculationService {
     actionPlan: string;
     topRecommendation: string;
   } {
-    // Simple parsing logic - in production, this could be more sophisticated
-    const sections = reportContent.split('\n\n');
+    // Extract sections using header markers or fallback to paragraph splitting
+    const extractSection = (content: string, header: string, fallback: string): string => {
+      const headerRegex = new RegExp(`\\[${header}\\]([\\s\\S]*?)(?=\\[|$)`, 'i');
+      const match = content.match(headerRegex);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+      
+      // Fallback: try to find by common variations
+      const altRegex = new RegExp(`(${header.replace(/_/g, ' ')}|## ${header.replace(/_/g, ' ')})([\\s\\S]*?)(?=\\n\\n|$)`, 'i');
+      const altMatch = content.match(altRegex);
+      return altMatch && altMatch[2] ? altMatch[2].trim() : fallback;
+    };
+
+    const executiveSummary = extractSection(reportContent, 'EXECUTIVE_SUMMARY', 
+      'This report analyzes contractor commute emissions and identifies opportunities for reduction.');
+    
+    const currentEmissionsStatus = extractSection(reportContent, 'CURRENT_EMISSIONS',
+      'Current emissions analysis based on contractor commuting patterns.');
+    
+    const environmentalImpactAnalysis = extractSection(reportContent, 'ENVIRONMENTAL_IMPACT',
+      'Environmental impact assessment compared to UK industry standards.');
+    
+    const reductionRecommendations = extractSection(reportContent, 'RECOMMENDATIONS',
+      'Key recommendations include promoting electric vehicles, public transport, and car sharing programs.');
+    
+    const industryComparison = extractSection(reportContent, 'INDUSTRY_COMPARISON',
+      'Comparison with UK construction industry emissions benchmarks.');
+    
+    const actionPlan = extractSection(reportContent, 'ACTION_PLAN',
+      'Implement emissions reduction strategies over 6-12 month timeline.');
+
+    // Extract top recommendation from recommendations section
+    const topRecommendation = reductionRecommendations.split(/[.\n]/)[0] || 
+      'Prioritize electric vehicle adoption for high-mileage commuters';
     
     return {
-      executiveSummary: sections[0] || 'Executive summary section',
-      currentEmissionsStatus: sections[1] || 'Current emissions status section',
-      environmentalImpactAnalysis: sections[2] || 'Environmental impact analysis section',
-      reductionRecommendations: sections[3] || 'Reduction recommendations section',
-      industryComparison: sections[4] || 'Industry comparison section',
-      actionPlan: sections[5] || 'Action plan section',
-      topRecommendation: 'Switch to electric vehicles for workers with commutes over 20 miles',
+      executiveSummary,
+      currentEmissionsStatus,
+      environmentalImpactAnalysis,
+      reductionRecommendations,
+      industryComparison,
+      actionPlan,
+      topRecommendation,
     };
   }
 
