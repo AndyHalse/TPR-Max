@@ -2394,7 +2394,6 @@ export class DatabaseService {
 
   async storeSustainabilityReport(data: InsertCO2SustainabilityReport): Promise<CO2SustainabilityReport> {
     console.log(`🔍 storeSustainabilityReport - customerId from data: ${data.customerId}`);
-    console.log(`🔍 storeSustainabilityReport - full data object:`, JSON.stringify(data, null, 2));
     
     if (!data.customerId) {
       throw new Error('customerId is required to store sustainability report');
@@ -2402,9 +2401,15 @@ export class DatabaseService {
     
     const db = await customerDbService.getCustomerDatabase(data.customerId);
     
+    // Remove customerId from data as isolated schema doesn't have this column
+    // (table is already isolated by being in customer's database)
+    const { customerId, ...insertData } = data;
+    
+    console.log(`✅ Inserting report without customerId (customer-isolated table)`);
+    
     const created = await db
       .insert(isolatedSchema.co2SustainabilityReports)
-      .values(data)
+      .values(insertData)
       .returning();
     
     return created[0];
