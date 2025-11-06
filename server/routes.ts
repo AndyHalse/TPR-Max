@@ -11527,6 +11527,86 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // Bulk calculate CO2 emissions for all workers in a company
+  app.post("/api/contractors/:companyId/co2/calculate-all", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+
+      if (!req.session?.customerId) {
+        return res.status(401).json({ error: "Customer context not found in session" });
+      }
+      const context = { customerId: req.session.customerId };
+
+      // Get contractor company
+      const company = await databaseService.getContractorCompanyById(context, companyId);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+
+      if (!company.address || !company.postcode) {
+        return res.status(400).json({ error: "Company address not configured" });
+      }
+
+      // Get all workers for this company
+      const workers = await databaseService.getWorkersByCompany(context, companyId);
+      const workersWithPostcodes = workers.filter(w => w.postcode && w.postcode.trim());
+
+      if (workersWithPostcodes.length === 0) {
+        return res.status(400).json({ 
+          error: "No workers found with postcodes",
+          message: "Workers need postcodes to calculate CO2 emissions"
+        });
+      }
+
+      const results = [];
+      const errors = [];
+
+      // Calculate CO2 for each worker
+      for (const worker of workersWithPostcodes) {
+        try {
+          const co2Data = await co2Calculator.calculateWorkerCO2Emissions(
+            context.customerId,
+            companyId,
+            {
+              workerId: worker.id,
+              workerPostcode: worker.postcode,
+              companyAddress: `${company.address}, ${company.postcode}`,
+              transportMethod: 'car_diesel', // Default
+              workingDaysPerMonth: 22 // Default
+            }
+          );
+          results.push({
+            workerId: worker.id,
+            workerName: `${worker.firstName} ${worker.lastName}`,
+            success: true,
+            monthlyCO2kg: co2Data.monthlyCO2kg
+          });
+        } catch (error) {
+          errors.push({
+            workerId: worker.id,
+            workerName: `${worker.firstName} ${worker.lastName}`,
+            error: error.message
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Calculated CO2 emissions for ${results.length} workers`,
+        data: {
+          calculated: results,
+          failed: errors,
+          totalWorkers: workersWithPostcodes.length,
+          successCount: results.length,
+          failureCount: errors.length
+        }
+      });
+    } catch (error) {
+      console.error("Error bulk calculating CO2 emissions:", error);
+      res.status(500).json({ error: error.message || "Failed to calculate CO2 emissions" });
+    }
+  });
+
   // Get CO2 summary for a company
   app.get("/api/contractors/:companyId/co2/summary", requireAuth, async (req, res) => {
     try {

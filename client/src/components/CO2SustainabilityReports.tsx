@@ -157,6 +157,40 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
     generateReportMutation.mutate();
   };
 
+  // Calculate CO2 for all workers
+  const calculateCO2Mutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', `/api/contractors/${selectedCompanyId}/co2/calculate-all`, {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedCompanyId}/co2/summary`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedCompanyId}/co2/reports`] });
+      toast({
+        title: "CO2 Calculated",
+        description: `Successfully calculated CO2 emissions for ${data.data.successCount} workers.`
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Calculation Failed",
+        description: error.message || "Unable to calculate CO2 emissions.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleCalculateCO2 = () => {
+    if (!selectedCompanyId) {
+      toast({
+        title: "No Company Selected",
+        description: "Please select a company to calculate CO2.",
+        variant: "destructive"
+      });
+      return;
+    }
+    calculateCO2Mutation.mutate();
+  };
+
   // Fetch individual report for viewing
   const { data: fullReport, isLoading: isLoadingReport } = useQuery<{
     success: boolean;
@@ -426,6 +460,20 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                   <SelectItem value="annual">Annual</SelectItem>
                 </SelectContent>
               </Select>
+              <Button 
+                onClick={handleCalculateCO2}
+                disabled={calculateCO2Mutation.isPending}
+                data-testid="button-calculate-co2"
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                {calculateCO2Mutation.isPending ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Activity className="w-4 h-4" />
+                )}
+                Calculate CO2
+              </Button>
               <Button 
                 onClick={handleGenerateReport}
                 disabled={generateReportMutation.isPending}
