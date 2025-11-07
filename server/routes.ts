@@ -11570,7 +11570,7 @@ This is an automated notification from your visitor management system.`;
               workerId: worker.id,
               workerPostcode: worker.postcode,
               companyAddress: companySettings.address,
-              transportMethod: 'car_diesel', // Default
+              transportMethod: worker.transportMethod || 'car_diesel', // Use worker's transport method or default
               workingDaysPerMonth: 22 // Default
             }
           );
