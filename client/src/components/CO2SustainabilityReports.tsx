@@ -162,12 +162,13 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
     mutationFn: async () => {
       return await apiRequest('POST', `/api/contractors/${selectedCompanyId}/co2/calculate-all`, {});
     },
-    onSuccess: (data: any) => {
+    onSuccess: (response: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedCompanyId}/co2/summary`] });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedCompanyId}/co2/reports`] });
+      const successCount = response?.data?.successCount || response?.successCount || 0;
       toast({
         title: "CO2 Calculated",
-        description: `Successfully calculated CO2 emissions for ${data.data.successCount} workers.`
+        description: `Successfully calculated CO2 emissions for ${successCount} workers.`
       });
     },
     onError: (error: any) => {
