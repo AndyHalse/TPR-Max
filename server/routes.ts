@@ -8235,6 +8235,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔧 MANUAL FIX: Preserved manualHandling: ${validatedData.manualHandling}`);
       }
       
+      if (mappedData.transportMethod !== undefined) {
+        validatedData.transportMethod = mappedData.transportMethod;
+        console.log(`🔧 MANUAL FIX: Preserved transportMethod: ${validatedData.transportMethod}`);
+      }
+      
       console.log('🔍 ROUTE - Zod validation completed. Result:');
       console.log('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
       console.log('🔍 ROUTE - Critical fields after validation:');
