@@ -70,8 +70,7 @@ export class CO2CalculationService {
       );
 
       // Store in database
-      const emissionsRecord: InsertCO2EmissionsData = {
-        customerId,
+      const emissionsRecord = {
         workerId: request.workerId,
         companyId,
         workerPostcode: request.workerPostcode,
@@ -90,8 +89,8 @@ export class CO2CalculationService {
         isActive: true,
       };
 
-      // Store emissions data
-      const savedData = await this.databaseService.storeCO2EmissionsData(emissionsRecord);
+      // Store emissions data (customerId passed as first parameter)
+      const savedData = await this.databaseService.storeCO2EmissionsData(customerId, emissionsRecord);
 
       // Update monthly summary
       await this.updateMonthlySummary(customerId, companyId);

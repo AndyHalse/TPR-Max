@@ -2188,8 +2188,8 @@ export class DatabaseService {
   /**
    * CO2 EMISSIONS TRACKING METHODS - Customer Isolated
    */
-  async storeCO2EmissionsData(data: InsertCO2EmissionsData): Promise<CO2EmissionsData> {
-    const db = await customerDbService.getCustomerDatabase(data.customerId);
+  async storeCO2EmissionsData(customerId: string, data: Omit<InsertCO2EmissionsData, 'customerId'>): Promise<CO2EmissionsData> {
+    const db = await customerDbService.getCustomerDatabase(customerId);
     
     const created = await db
       .insert(isolatedSchema.co2EmissionsData)
