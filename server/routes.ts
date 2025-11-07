@@ -5510,7 +5510,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const visitors = await databaseService.getAllVisitors(context);
+      // Use deduplicated unique visitors to prevent duplicate entries in "Previous Visitors" list
+      const visitors = await databaseService.getUniqueVisitors(context);
       res.json(visitors);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch visitors" });

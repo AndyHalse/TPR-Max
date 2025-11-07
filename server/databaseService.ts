@@ -324,6 +324,43 @@ export class DatabaseService {
       .orderBy(desc(isolatedSchema.visitors.checkedInAt));
   }
 
+  /**
+   * Get unique visitors (deduplicated by email or name+company)
+   * Returns only the most recent record for each unique person
+   */
+  async getUniqueVisitors(context: CustomerContext): Promise<Visitor[]> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    // Get all visitors
+    const allVisitors = await db
+      .select()
+      .from(isolatedSchema.visitors)
+      .orderBy(desc(isolatedSchema.visitors.checkedInAt));
+    
+    // Deduplicate by email (or firstName+lastName+company if no email)
+    const uniqueVisitorsMap = new Map<string, Visitor>();
+    
+    for (const visitor of allVisitors) {
+      // Create unique key based on email or name+company combination
+      let key: string;
+      if (visitor.email && visitor.email.trim()) {
+        // Use email as primary identifier (case-insensitive)
+        key = visitor.email.toLowerCase().trim();
+      } else {
+        // Fallback to name+company combination
+        key = `${visitor.firstName?.toLowerCase() || ''}_${visitor.lastName?.toLowerCase() || ''}_${visitor.company?.toLowerCase() || ''}`.trim();
+      }
+      
+      // Only add if we haven't seen this person before (keeps most recent due to ordering)
+      if (!uniqueVisitorsMap.has(key)) {
+        uniqueVisitorsMap.set(key, visitor);
+      }
+    }
+    
+    // Convert map back to array and return
+    return Array.from(uniqueVisitorsMap.values());
+  }
+
   async getTodaysVisitors(context: CustomerContext): Promise<Visitor[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
