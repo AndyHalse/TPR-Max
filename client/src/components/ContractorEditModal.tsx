@@ -378,10 +378,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔍 ContractorEditModal - Submitting form with data:', formData);
+    console.log('🔍 ContractorEditModal - transportMethod value:', formData.transportMethod);
     updateWorkerMutation.mutate(formData);
   };
 
   const handleInputChange = (field: string, value: any) => {
+    console.log(`🔍 ContractorEditModal - Field "${field}" changed to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
