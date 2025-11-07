@@ -44,6 +44,32 @@ export default function Dashboard() {
   const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('today');
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  // Helper function for date range calculation (needed before queries)
+  const getDateRange = () => {
+    const start = new Date(currentDate);
+    const end = new Date(currentDate);
+    
+    if (diaryViewMode === 'weekly') {
+      // Get start of week (Monday)
+      const dayOfWeek = start.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      start.setDate(start.getDate() - daysToMonday);
+      end.setDate(start.getDate() + 6);
+    } else if (diaryViewMode === 'today') {
+      // Today only
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      // Tomorrow only - add 1 day!
+      start.setDate(start.getDate() + 1);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(end.getDate() + 1);
+      end.setHours(23, 59, 59, 999);
+    }
+    
+    return { start, end };
+  };
+  
   // Get current user for authentication check
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
     queryKey: ["/api/auth/me"],
@@ -181,7 +207,7 @@ export default function Dashboard() {
     enabled: !!currentUser && !!selectedDepartment && openModal === 'department-details',
   });
 
-  // Reception Diary Data
+  // Reception Diary Data - dynamic query based on view mode and date
   const { data: receptionDiary, isLoading: diaryLoading } = useQuery<Array<{
     id: string;
     visitorFirstName: string;
@@ -201,8 +227,30 @@ export default function Dashboard() {
     tenantSlug: string | null;
     tenantPrimaryColor: string | null;
   }>>({
-    queryKey: ["/api/reception/diary"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    queryKey: [
+      "/api/reception/diary",
+      diaryViewMode,
+      currentDate.toISOString()
+    ],
+    queryFn: async () => {
+      const { start } = getDateRange();
+      const days = diaryViewMode === 'weekly' ? 7 : 1;
+      
+      // Format date for API (YYYY-MM-DD)
+      const dateParam = start.toISOString().split('T')[0];
+      
+      const response = await fetch(
+        `/api/reception/diary?date=${dateParam}&days=${days}`,
+        { credentials: 'include' }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reception diary');
+      }
+      
+      return response.json();
+    },
+    refetchInterval: 30000,
     enabled: !!currentUser,
   });
 
@@ -281,31 +329,6 @@ export default function Dashboard() {
       newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
     }
     setCurrentDate(newDate);
-  };
-
-  const getDateRange = () => {
-    const start = new Date(currentDate);
-    const end = new Date(currentDate);
-    
-    if (diaryViewMode === 'weekly') {
-      // Get start of week (Monday)
-      const dayOfWeek = start.getDay();
-      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      start.setDate(start.getDate() - daysToMonday);
-      end.setDate(start.getDate() + 6);
-    } else if (diaryViewMode === 'today') {
-      // Today only
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-    } else {
-      // Tomorrow only - add 1 day!
-      start.setDate(start.getDate() + 1);
-      start.setHours(0, 0, 0, 0);
-      end.setDate(end.getDate() + 1);
-      end.setHours(23, 59, 59, 999);
-    }
-    
-    return { start, end };
   };
 
   const getFilteredDiary = () => {
