@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Shield, 
   Users, 
@@ -85,6 +85,8 @@ interface MarshalInfo {
 }
 
 export default function FireMarshalMobile({ urlId, token }: FireMarshalMobileProps) {
+  const queryClient = useQueryClient(); // CRITICAL: Use the hook for cache invalidation
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   const [marshalName, setMarshalName] = useState("");
@@ -174,9 +176,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
           if (message.type === 'muster_update') {
             console.log('🚨 REAL-TIME UPDATE RECEIVED:', message.personName, message.isAccountedFor ? 'SAFE' : 'UNSAFE');
             
-            // Invalidate all relevant queries for real-time sync
-            queryClient.invalidateQueries({ queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`] });
-            queryClient.invalidateQueries({ queryKey: [`/api/emergency/accountability`] });
+            // CRITICAL: Invalidate queries with EXACT key patterns to trigger refetch
+            queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/emergency/accountability', activeEvacuationId || ''] });
             
             // Show toast notification
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
@@ -225,7 +227,11 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [marshalInfo?.customerId, activeEvacuationId, urlId, toast]);
+    // NOTE: toast and queryClient are intentionally excluded from dependencies
+    // - toast function is stable despite useToast() returning new object each render
+    // - queryClient is stable singleton
+    // Including them would cause WebSocket to tear down/reconnect on every render
+  }, [marshalInfo?.customerId, activeEvacuationId, urlId]);
 
   // Fetch on-site personnel data (Fire Marshal URL ALWAYS shows who's on site, regardless of evacuation status)
   const { data: personnelData, isLoading: isLoadingPersonnel } = useQuery<{
@@ -234,7 +240,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     accountedFor: number;
     unaccounted: number;
   }>({
-    queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`],
+    // CRITICAL: Query key pattern must match WebSocket invalidation pattern exactly
+    queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'],
     enabled: !!urlId, // Always enabled - shows on-site personnel with or without evacuation
     refetchInterval: 30000 // Reduced to 30 seconds (WebSocket provides real-time updates)
   });
@@ -256,7 +263,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
   // Fetch evacuation accountability list with shorter refresh for real-time updates
   const { data: evacuationData, refetch } = useQuery<EvacuationData>({
-    queryKey: [`/api/emergency/accountability/${activeEvacuationId || ''}`],
+    // CRITICAL: Query key pattern must match WebSocket invalidation pattern exactly
+    queryKey: ['/api/emergency/accountability', activeEvacuationId || ''],
     enabled: !!activeEvacuationId && (!!token || !!marshalInfo),
     refetchInterval: 2000, // Refresh every 2 seconds for real-time updates
     queryFn: async () => {
@@ -531,6 +539,16 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                   </div>
                 </div>
               )}
+            </div>
+            {/* WebSocket Connection Status Indicator */}
+            <div className="flex-shrink-0">
+              <Badge 
+                variant={wsConnected ? "default" : "secondary"}
+                className={`text-xs ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+                title={wsConnected ? "Real-time updates active" : "Using polling mode"}
+              >
+                {wsConnected ? '● LIVE' : '○ OFFLINE'}
+              </Badge>
             </div>
             <Button
               size="sm"
