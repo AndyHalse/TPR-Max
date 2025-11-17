@@ -2776,13 +2776,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const context = { customerId: req.session.customerId };
       
-      // Get all people currently on site
-      const checkedInStaff = await databaseService.getCheckedInStaff(context);
-      const currentVisitors = await databaseService.getCurrentVisitors(context);
-      const checkedInContractors = await databaseService.getCheckedInContractors(context);
-      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+      console.log(`\n🚨 EMERGENCY ACTIVATION - PRE-FLIGHT VALIDATION`);
+      console.log(`============================================`);
+      console.log(`Customer ID: ${context.customerId}`);
+      console.log(`Activated by: ${activatedBy}`);
       
-      // CRITICAL: Verify company settings exist before sending emails
+      // PRE-FLIGHT CHECK 1: Verify customer database exists and is accessible
+      try {
+        await customerDbService.getCustomerDatabase(context.customerId);
+        console.log(`✅ Customer database accessible`);
+      } catch (error) {
+        console.error(`❌ CRITICAL ERROR: Customer database not accessible for ${context.customerId}`);
+        return res.status(500).json({
+          error: "System not ready",
+          message: "Emergency system database is not accessible. Please contact support immediately."
+        });
+      }
+      
+      // PRE-FLIGHT CHECK 2: Load company settings
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
       if (!companySettings) {
         console.error(`❌ CRITICAL ERROR: Company settings not found for customer ${context.customerId}`);
         return res.status(500).json({
@@ -2790,6 +2802,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Company settings could not be loaded. Please contact support."
         });
       }
+      console.log(`✅ Company settings loaded`);
+      
+      // Get all people currently on site
+      const checkedInStaff = await databaseService.getCheckedInStaff(context);
+      const currentVisitors = await databaseService.getCurrentVisitors(context);
+      const checkedInContractors = await databaseService.getCheckedInContractors(context);
+      
+      // PRE-FLIGHT CHECK 3: Validate Fire Marshals have emergency URLs
+      const allFireMarshals = checkedInStaff.filter(s => 
+        s.department?.toLowerCase().includes('safety') || 
+        s.department?.toLowerCase().includes('security') ||
+        s.isFireMarshal === true
+      );
+      
+      const fireMarshalsMissingUrls = allFireMarshals.filter(fm => !fm.fireMarshalUrlId);
+      if (fireMarshalsMissingUrls.length > 0) {
+        const names = fireMarshalsMissingUrls.map(fm => `${fm.firstName} ${fm.lastName}`).join(', ');
+        console.error(`❌ CRITICAL ERROR: ${fireMarshalsMissingUrls.length} Fire Marshal(s) missing emergency URLs: ${names}`);
+        return res.status(500).json({
+          error: "Emergency system not ready",
+          message: `Cannot activate emergency: ${fireMarshalsMissingUrls.length} Fire Marshal(s) are missing emergency access URLs (${names}). Please contact support.`
+        });
+      }
+      console.log(`✅ All ${allFireMarshals.length} Fire Marshals have emergency URLs`);
+      
+      console.log(`✅ PRE-FLIGHT CHECKS PASSED - Emergency activation proceeding`);
+      console.log(`============================================\n`);
       
       if (checkedInStaff.length === 0 && currentVisitors.length === 0 && checkedInContractors.length === 0) {
         return res.status(400).json({
@@ -4734,6 +4773,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper: Auto-generate Fire Marshal URL ID
+  function generateFireMarshalUrlId(): string {
+    return Math.random().toString(36).substring(2, 14);
+  }
+  
+  // Helper: Check if staff should be a Fire Marshal
+  function shouldBeFireMarshal(staffData: any): boolean {
+    if (staffData.isFireMarshal === true) return true;
+    if (staffData.department) {
+      const dept = staffData.department.toLowerCase();
+      return dept.includes('safety') || dept.includes('security');
+    }
+    return false;
+  }
+
   // Remove duplicate object storage endpoints - using proper implementation below
 
   app.post("/api/staff", async (req, res) => {
@@ -4743,7 +4797,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       
       // Add customerId to request data for proper customer isolation
-      const staffData = insertStaffSchema.parse({ ...req.body, customerId: context.customerId });
+      let staffData = insertStaffSchema.parse({ ...req.body, customerId: context.customerId });
+      
+      // AUTO-GENERATE Fire Marshal URL if needed (CRITICAL for emergency system)
+      if (shouldBeFireMarshal(staffData) && !staffData.fireMarshalUrlId) {
+        staffData.fireMarshalUrlId = generateFireMarshalUrlId();
+        staffData.isFireMarshal = true;
+        console.log(`🔥 AUTO-GENERATED Fire Marshal URL for ${staffData.firstName} ${staffData.lastName}: ${staffData.fireMarshalUrlId}`);
+      }
       
       // Use customer-isolated database service for creating staff
       const staff = await databaseService.createStaff(context, staffData);
@@ -4768,7 +4829,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username);
       
       // Add customerId to updates for proper customer isolation
-      const updates = insertStaffSchema.partial().parse({ ...req.body, customerId: context.customerId });
+      let updates = insertStaffSchema.partial().parse({ ...req.body, customerId: context.customerId });
+      
+      // AUTO-GENERATE Fire Marshal URL if becoming Fire Marshal (CRITICAL for emergency system)
+      if (shouldBeFireMarshal(updates)) {
+        const existingStaff = await databaseService.getStaffById(context, id);
+        if (existingStaff && !existingStaff.fireMarshalUrlId) {
+          updates.fireMarshalUrlId = generateFireMarshalUrlId();
+          updates.isFireMarshal = true;
+          console.log(`🔥 AUTO-GENERATED Fire Marshal URL for ${existingStaff.firstName} ${existingStaff.lastName}: ${updates.fireMarshalUrlId}`);
+        } else if (existingStaff && existingStaff.fireMarshalUrlId) {
+          updates.isFireMarshal = true;
+        }
+      }
       
       // Use customer-isolated database service for updating staff
       const staff = await databaseService.updateStaff(context, id, updates);
