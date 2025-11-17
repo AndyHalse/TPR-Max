@@ -3010,7 +3010,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Log summary of regular evacuation emails sent
-      console.log(`\n📊 EVACUATION EMAIL SUMMARY`);
+      console.log(`\n📊 EVACUATION EMAIL SUMMARY (Regular Personnel)`);
       console.log(`============================================`);
       console.log(`✅ Successfully sent: ${evacuationData.notificationsSent} emails`);
       console.log(`❌ Failed: ${errors.length} errors`);
@@ -3019,6 +3019,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors.forEach(err => console.log(`  - ${err}`));
       }
       console.log(`============================================\n`);
+      
+      // Track Fire Marshal emails separately
+      let fireMarshalEmailsSent = 0;
       
       // Now send Fire Marshal-specific alerts (fireMarshals already identified above)
       console.log(`\n🚨 EMERGENCY ACTIVATION - FIRE MARSHAL NOTIFICATION`);
@@ -3067,19 +3070,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
               musterPoints: evacuationData.musterPoints
             });
             
+            fireMarshalEmailsSent++;
             console.log(`✅ EMAIL SENT to ${marshal.email} with static URL: ${marshalUrl}`);
           } catch (error) {
             console.error(`Failed to send Fire Marshal alert to ${marshal.firstName}:`, error);
+            errors.push(`Failed to notify Fire Marshal ${marshal.firstName} ${marshal.lastName}: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
       }
       
+      // CRITICAL: Final summary showing TOTAL emails sent (life-safety requirement)
+      const totalEmailsSent = evacuationData.notificationsSent + fireMarshalEmailsSent;
+      console.log(`\n🚨 FINAL EMERGENCY EMAIL SUMMARY (LIFE-SAFETY CRITICAL)`);
+      console.log(`============================================`);
+      console.log(`📧 Regular evacuation emails: ${evacuationData.notificationsSent}`);
+      console.log(`🔥 Fire Marshal alerts: ${fireMarshalEmailsSent}`);
+      console.log(`✅ TOTAL EMAILS SENT: ${totalEmailsSent}`);
+      console.log(`❌ Total failures: ${errors.length}`);
+      if (errors.length > 0) {
+        console.log(`\nAll Errors:`);
+        errors.forEach(err => console.log(`  - ${err}`));
+      }
+      console.log(`============================================\n`);
+      
       res.json({
         success: true,
-        message: `Emergency activated! Sent ${evacuationData.notificationsSent} evacuation alerts.`,
+        message: `Emergency activated! Sent ${totalEmailsSent} total alerts (${evacuationData.notificationsSent} regular + ${fireMarshalEmailsSent} Fire Marshal).`,
         evacuationId,
         evacuationData,
         fireMarshals: fireMarshals.length,
+        fireMarshalEmailsSent,
+        totalEmailsSent,
         errors: errors.length > 0 ? errors : undefined
       });
     } catch (error) {
