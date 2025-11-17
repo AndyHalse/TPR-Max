@@ -374,14 +374,13 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         console.log('✅ [MUTATION SUCCESS] Collapsed card for person:', data.personId);
       }
       
-      // CRITICAL: Invalidate ALL Fire Marshal personnel endpoints to sync across all URLs
-      queryClient.invalidateQueries({ queryKey: [`/api/emergency/fire-marshal`] });
-      // Invalidate Fire Marshal accountability view
-      queryClient.invalidateQueries({ queryKey: [`/api/emergency/accountability`] });
+      // CRITICAL: Invalidate queries with EXACT key patterns to sync across all Fire Marshal views
+      queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/emergency/accountability', activeEvacuationId || ''] });
       // Invalidate admin muster dashboard for real-time sync
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       
-      console.log('✅ [MUTATION SUCCESS] Queries invalidated');
+      console.log('✅ [MUTATION SUCCESS] Queries invalidated with segmented keys');
       
       toast({
         title: "✓ Marked Safe",
