@@ -2782,6 +2782,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const checkedInContractors = await databaseService.getCheckedInContractors(context);
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
+      // CRITICAL: Verify company settings exist before sending emails
+      if (!companySettings) {
+        console.error(`❌ CRITICAL ERROR: Company settings not found for customer ${context.customerId}`);
+        return res.status(500).json({
+          error: "Configuration error",
+          message: "Company settings could not be loaded. Please contact support."
+        });
+      }
+      
       if (checkedInStaff.length === 0 && currentVisitors.length === 0 && checkedInContractors.length === 0) {
         return res.status(400).json({
           error: "No people on site",

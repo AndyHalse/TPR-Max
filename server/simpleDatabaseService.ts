@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "./db";
 import type {
   CompanySettings,
@@ -75,10 +75,30 @@ export class SimpleDatabaseService {
       
       return sanitizedSettings as CompanySettings;
     } catch (error: any) {
-      // Handle schema mismatches gracefully (e.g., missing columns like last_daily_reset)
+      // Handle schema mismatches gracefully (e.g., missing columns like thermal_zebra_settings)
       if (error.code === '42703') {
         console.warn(`⚠️ Schema mismatch in company settings for ${context.customerId}: ${error.message}`);
-        return undefined; // Return undefined instead of crashing
+        console.warn(`⚠️ Attempting fallback query with essential fields only...`);
+        
+        try {
+          // Fallback: Query with raw SQL to get only existing columns
+          const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+          const rawResult = await customerDb.execute(sql`
+            SELECT * FROM company_settings LIMIT 1
+          `);
+          
+          if (rawResult.rows && rawResult.rows.length > 0) {
+            const result = rawResult.rows[0];
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { smtp_password, ...sanitized } = result as any;
+            console.log(`✅ Fallback query successful for ${context.customerId}`);
+            return sanitized as CompanySettings;
+          }
+        } catch (fallbackError) {
+          console.error(`❌ Fallback query also failed for ${context.customerId}:`, fallbackError);
+        }
+        
+        return undefined; // Return undefined if both attempts fail
       }
       throw error; // Re-throw non-schema errors
     }

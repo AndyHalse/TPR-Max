@@ -993,7 +993,7 @@ For questions about this report, please contact the administrator.
           
           <div style="text-align: center; margin-top: 20px;">
             <p style="color: #666; font-size: 14px;">
-              ${companySettings.companyName}<br>
+              ${companySettings?.companyName || 'Emergency Services'}<br>
               Emergency Contact: ${(companySettings as any)?.phoneNumber || companySettings?.phone || '999'}
             </p>
           </div>
@@ -1021,7 +1021,7 @@ ${markSafeUrl}
 
 This link is unique to you and valid for 24 hours.
 ` : ''}
-${companySettings.companyName}
+${companySettings?.companyName || 'Emergency Services'}
 Emergency Contact: ${(companySettings as any)?.phoneNumber || companySettings?.phone || '999'}`;
     
     return await this.sendEmail({
