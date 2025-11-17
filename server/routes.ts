@@ -2922,6 +2922,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const visitor of currentVisitors) {
         if (visitor.email) {
           try {
+            console.log(`📨 Sending evacuation alert to VISITOR: ${visitor.firstName} ${visitor.lastName} (${visitor.email})`);
+            
             // Generate safety token for this visitor
             const safetyToken = await generateSafetyToken(
               customerDb,
@@ -2940,10 +2942,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               companySettings!,
               safetyToken
             );
-            if (sent) evacuationData.notificationsSent++;
+            
+            if (sent) {
+              console.log(`✅ Successfully sent to visitor ${visitor.firstName} ${visitor.lastName}`);
+              evacuationData.notificationsSent++;
+            } else {
+              console.log(`❌ Failed to send to visitor ${visitor.firstName} ${visitor.lastName}`);
+              errors.push(`Failed to notify visitor ${visitor.firstName} ${visitor.lastName}: Email send returned false`);
+            }
           } catch (error) {
-            errors.push(`Failed to notify visitor ${visitor.firstName} ${visitor.lastName}`);
+            console.error(`❌ ERROR sending to visitor ${visitor.firstName} ${visitor.lastName}:`, error);
+            errors.push(`Failed to notify visitor ${visitor.firstName} ${visitor.lastName}: ${error instanceof Error ? error.message : String(error)}`);
           }
+        } else {
+          console.warn(`⚠️ Visitor ${visitor.firstName} ${visitor.lastName} has no email address`);
         }
       }
       
@@ -2951,6 +2963,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const contractor of checkedInContractors) {
         if (contractor.email) {
           try {
+            console.log(`📨 Sending evacuation alert to CONTRACTOR: ${contractor.firstName} ${contractor.lastName} (${contractor.email})`);
+            
             // Generate safety token for this contractor
             const safetyToken = await generateSafetyToken(
               customerDb,
@@ -2969,12 +2983,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
               companySettings!,
               safetyToken
             );
-            if (sent) evacuationData.notificationsSent++;
+            
+            if (sent) {
+              console.log(`✅ Successfully sent to contractor ${contractor.firstName} ${contractor.lastName}`);
+              evacuationData.notificationsSent++;
+            } else {
+              console.log(`❌ Failed to send to contractor ${contractor.firstName} ${contractor.lastName}`);
+              errors.push(`Failed to notify contractor ${contractor.firstName} ${contractor.lastName}: Email send returned false`);
+            }
           } catch (error) {
-            errors.push(`Failed to notify contractor ${contractor.firstName} ${contractor.lastName}`);
+            console.error(`❌ ERROR sending to contractor ${contractor.firstName} ${contractor.lastName}:`, error);
+            errors.push(`Failed to notify contractor ${contractor.firstName} ${contractor.lastName}: ${error instanceof Error ? error.message : String(error)}`);
           }
+        } else {
+          console.warn(`⚠️ Contractor ${contractor.firstName} ${contractor.lastName} has no email address`);
         }
       }
+      
+      // Log summary of regular evacuation emails sent
+      console.log(`\n📊 EVACUATION EMAIL SUMMARY`);
+      console.log(`============================================`);
+      console.log(`✅ Successfully sent: ${evacuationData.notificationsSent} emails`);
+      console.log(`❌ Failed: ${errors.length} errors`);
+      if (errors.length > 0) {
+        console.log(`\nErrors:`);
+        errors.forEach(err => console.log(`  - ${err}`));
+      }
+      console.log(`============================================\n`);
       
       // Now send Fire Marshal-specific alerts (fireMarshals already identified above)
       console.log(`\n🚨 EMERGENCY ACTIVATION - FIRE MARSHAL NOTIFICATION`);
