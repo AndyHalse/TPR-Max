@@ -126,37 +126,54 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [urlId]);
 
-  // WebSocket connection for real-time updates
+  // WebSocket connection for real-time updates (CRITICAL for cross-Fire-Marshal updates)
   useEffect(() => {
+    console.log('🔥 WebSocket Effect Running - marshalInfo:', marshalInfo);
+    console.log('🔥 Has customerId?', !!marshalInfo?.customerId, 'customerId:', marshalInfo?.customerId);
+    console.log('🔥 activeEvacuationId:', activeEvacuationId);
+    
     // Only connect if we have marshalInfo with customerId
-    if (!marshalInfo?.customerId) return;
+    if (!marshalInfo?.customerId) {
+      console.warn('⚠️ NOT connecting WebSocket - missing marshalInfo.customerId');
+      return;
+    }
 
     const connectWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
       const wsUrl = `${protocol}//${host}/ws/muster`;
       
-      console.log('Fire Marshal WebSocket connecting:', wsUrl);
+      console.log('🔥 CONNECTING Fire Marshal WebSocket:', wsUrl);
+      console.log('🔥 Registration payload:', {
+        type: 'register',
+        customerId: marshalInfo.customerId,
+        evacuationId: activeEvacuationId || 'fire-marshal-standalone'
+      });
+      
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('Fire Marshal WebSocket connected');
+        console.log('✅ Fire Marshal WebSocket CONNECTED!');
         setWsConnected(true);
         
         // Register with customer context (evacuation may or may not exist yet)
-        ws.send(JSON.stringify({
+        const registration = {
           type: 'register',
           customerId: marshalInfo.customerId,
           evacuationId: activeEvacuationId || 'fire-marshal-standalone'
-        }));
+        };
+        console.log('📤 Sending registration:', registration);
+        ws.send(JSON.stringify(registration));
       };
 
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('Fire Marshal WebSocket message:', message);
+          console.log('📨 Fire Marshal WebSocket message:', message);
           
           if (message.type === 'muster_update') {
+            console.log('🚨 REAL-TIME UPDATE RECEIVED:', message.personName, message.isAccountedFor ? 'SAFE' : 'UNSAFE');
+            
             // Invalidate all relevant queries for real-time sync
             queryClient.invalidateQueries({ queryKey: [`/api/emergency/fire-marshal/${urlId}/personnel`] });
             queryClient.invalidateQueries({ queryKey: [`/api/emergency/accountability`] });
@@ -164,28 +181,29 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             // Show toast notification
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
             toast({
-              title: "Real-time Update",
+              title: "🚨 Real-time Update",
               description: `${message.personName} marked as ${statusText}`,
             });
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('❌ Error parsing WebSocket message:', error);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('Fire Marshal WebSocket error:', error);
+        console.error('❌ Fire Marshal WebSocket error:', error);
         setWsConnected(false);
       };
 
       ws.onclose = () => {
-        console.log('Fire Marshal WebSocket disconnected');
+        console.log('❌ Fire Marshal WebSocket disconnected');
         setWsConnected(false);
         
         // Attempt to reconnect after 3 seconds if we still have marshalInfo
         if (marshalInfo?.customerId) {
+          console.log('⏳ Scheduling WebSocket reconnection in 3 seconds...');
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect Fire Marshal WebSocket...');
+            console.log('🔄 Attempting to reconnect Fire Marshal WebSocket...');
             connectWebSocket();
           }, 3000);
         }
@@ -198,6 +216,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
     // Cleanup on unmount
     return () => {
+      console.log('🧹 Cleaning up WebSocket connection');
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
