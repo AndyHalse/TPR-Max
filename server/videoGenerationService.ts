@@ -581,9 +581,11 @@ export class VideoGenerationService {
         Avoid: Any text, signage, cartoons, sketches, outdated equipment, poor lighting, amateur composition.`;
         
         try {
+          // Use scene title for theme detection, fallback to generic label
+          const sceneTitle = (scene as any).title || `Safety Image ${i + 1}`;
           const result = await this.services.imageGenerator.generate(
-            scene.title || `Safety Image ${i + 1}`,
-            scene.title || `Safety Image ${i + 1}`,
+            sceneTitle,
+            sceneTitle,
             enhancedPrompt
           );
           
