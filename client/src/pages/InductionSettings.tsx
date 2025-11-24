@@ -212,20 +212,18 @@ export default function InductionSettings() {
   const handleGenerateVideo = async (roleType: string) => {
     setIsGenerating(prev => ({ ...prev, [roleType]: true }));
     try {
-      const response = await apiRequest(`/api/induction/generate-video/${roleType}`, {
-        method: 'POST',
-        body: {}
-      });
+      const response = await apiRequest('POST', `/api/induction/generate-video/${roleType}`, {});
+      const data = await response.json();
 
-      if (response.success) {
+      if (data.success) {
         setGeneratedVideos(prev => ({
           ...prev,
           [roleType]: {
             title: `${roleType} Induction Video`,
-            duration: response.totalDuration || 15,
-            scenes: response.sceneCount || 12,
+            duration: data.totalDuration || 15,
+            scenes: data.sceneCount || 12,
             timestamp: new Date().toLocaleDateString(),
-            url: response.videoUrl
+            url: data.videoUrl
           }
         }));
 
@@ -234,7 +232,7 @@ export default function InductionSettings() {
           ...prev,
           [roleType]: {
             ...prev[roleType],
-            videoUrl: response.videoUrl,
+            videoUrl: data.videoUrl,
             videoTitle: `${roleType} Induction Video`,
             isActive: true
           } as InductionSettings
