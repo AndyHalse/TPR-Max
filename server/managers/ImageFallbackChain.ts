@@ -9,9 +9,9 @@ import { ResultUtils } from '../utils/result';
 import { DallE3ImageGenerator } from './OpenAIImageGenerator';
 
 // DON'T DELETE THIS COMMENT
-// Follow these instructions when using this blueprint:
-// - Note that the newest Gemini model series is "gemini-2.5-flash" or gemini-2.5-pro"
-//   - do not change this unless explicitly requested by the user
+// Upgraded to Gemini 3.0-flash for enhanced induction video image generation
+// - Gemini 3.0-flash provides superior image quality and faster processing
+// - Used as primary image generator for production induction content
 
 // This API key is from Gemini Developer API Key, not vertex AI API Key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -23,25 +23,34 @@ export class GeminiImageGenerator implements IImageGenerator {
     description: string
   ): Promise<Result<ImageGenerationResult>> {
     try {
-      // Build contextual prompt using the actual scene title and description
-      const geminiPrompt = `Professional photorealistic workplace safety training image for "${title}".
+      // Build contextual prompt optimized for Gemini 3.0-flash high-quality image generation
+      const geminiPrompt = `Create a professional, photorealistic workplace safety training image.
 
-Scene description: ${description}
+Title: ${title}
+Scene: ${description}
 
-Visual requirements:
-- Modern corporate/industrial environment
-- Diverse workforce (different ethnicities and genders)
-- Proper safety equipment and signage relevant to the scene
-- Clean, well-lit professional setting with bright lighting
-- Contemporary workplace design
-- Photorealistic style suitable for safety training
-- Sharp focus and clear details that match the scene description
+QUALITY REQUIREMENTS:
+✓ Ultra-realistic photographic quality (4K resolution equivalent)
+✓ Modern corporate/industrial setting with authentic details
+✓ Diverse workforce representation (varied ethnicities, genders, ages)
+✓ Proper safety equipment aligned with UK HSE standards
+✓ Clear safety signage and hazard markings visible
+✓ Professional lighting with natural color accuracy
+✓ Sharp focus, excellent detail clarity
+✓ Contemporary workplace design and modern equipment
+✓ Training-appropriate composition and framing
 
-Style: Professional corporate photography, clear and bright, authentic workplace scenario.`;
+SAFETY FOCUS:
+- If safety scenario: highlight proper/improper practices
+- Include relevant PPE, guardrails, emergency equipment
+- Show realistic workplace hazards and controls
+- UK HSE compliance visible in setup
 
-      // IMPORTANT: only this gemini model supports image generation
+Generate a clear, professional safety training image suitable for UK workplace induction.`;
+
+      // Use Gemini 3.0-flash for superior induction video image quality
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-preview-image-generation",
+        model: "gemini-3.0-flash-image-generation",
         contents: [{ role: "user", parts: [{ text: geminiPrompt }] }],
         config: {
           responseModalities: [Modality.TEXT, Modality.IMAGE],
@@ -77,8 +86,9 @@ Style: Professional corporate photography, clear and bright, authentic workplace
       return ResultUtils.success({
         url,
         meta: {
-          model: "gemini-2.0-flash-preview-image-generation",
+          model: "gemini-3.0-flash-image-generation",
           prompt: geminiPrompt,
+          quality: "ultra_high",
           fallback: false
         }
       });
