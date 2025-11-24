@@ -179,7 +179,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                       <div>
                         <h4 className="font-medium text-sm">Full Video (Enhanced)</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          GPT-5 scripts • DALL-E 3 visuals • TTS narration
+                          GPT-5 scripts • Gemini 3.0 visuals • TTS narration
                         </p>
                         <div className="mt-2">
                           <Badge variant="outline" className="text-xs border-purple-300 text-purple-600">Production Ready</Badge>
@@ -209,7 +209,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                       <div>
                         <h4 className="font-medium text-sm">Hybrid Enhanced</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          DALL-E 3 photorealistic images • Interactive • TTS audio
+                          Gemini 3.0 photorealistic images • Interactive • TTS audio
                         </p>
                         <div className="mt-2">
                           <Badge variant="outline" className="text-xs border-green-300 text-green-600">⭐ Recommended</Badge>
@@ -239,7 +239,7 @@ const RoleSettingsForm = ({ roleType, settings, onSave, onGenerateVideo, onGener
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  <strong className="text-green-600">✨ PRODUCTION-READY:</strong> GPT-5 scripts + DALL-E 3 photorealistic images + OpenAI TTS professional narration.
+                  <strong className="text-green-600">✨ PRODUCTION-READY:</strong> GPT-5 scripts + Gemini 3.0 ultra-high quality images + OpenAI TTS professional narration.
                 </p>
               </div>
             </div>
