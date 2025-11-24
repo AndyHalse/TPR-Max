@@ -14788,9 +14788,15 @@ This is an automated notification from your visitor management system.`;
       // Update the settings with generated content
       await videoService.updateSettingsWithGeneratedContent(roleType, generatedContent);
       
+      // Return response with videoUrl so frontend can display it
+      const videoUrl = `/api/induction/video/${roleType}`;
+      
       res.json({ 
         success: true, 
         message: 'AI-generated induction video and questions created successfully',
+        videoUrl,
+        totalDuration: generatedContent.totalDuration,
+        sceneCount: generatedContent.scenes.length,
         preview: {
           title: generatedContent.script.substring(0, 100) + '...',
           duration: Math.round(generatedContent.totalDuration / 60),

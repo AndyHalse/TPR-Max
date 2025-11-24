@@ -27,6 +27,7 @@ interface RoleSettingsFormProps {
 const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduction, isGenerating, generatedVideo }: RoleSettingsFormProps) => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [videoReady, setVideoReady] = useState(false);
   const { toast } = useToast();
 
   const getRoleDisplayName = (role: string) => {
