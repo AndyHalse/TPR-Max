@@ -582,8 +582,8 @@ export class VideoGenerationService {
         
         try {
           const result = await this.services.imageGenerator.generate(
-            'safety_training',
-            `Safety Image ${i + 1}`,
+            scene.title || `Safety Image ${i + 1}`,
+            scene.title || `Safety Image ${i + 1}`,
             enhancedPrompt
           );
           

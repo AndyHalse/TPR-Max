@@ -120,33 +120,34 @@ export class FallbackSvgImageGenerator implements IImageGenerator {
       const primaryColor = this.companySettings?.primaryColor || '#2563eb';
       const uniqueId = Date.now();
       
-      // Determine the safety theme and content based on slideType
+      // Determine the safety theme and content based on slideType AND title (fallback to title if slideType is generic)
+      const combinedText = `${slideType} ${title}`.toLowerCase();
       let theme = 'general';
       let titleText = 'Safety First';
       let subtitleText = 'Health & Safety Induction';
       let complianceText = 'UK HSE Compliant Training';
       
-      if (slideType.toLowerCase().includes('ppe') || slideType.toLowerCase().includes('personal protective')) {
+      if (combinedText.includes('ppe') || combinedText.includes('personal protective')) {
         theme = 'ppe';
         titleText = 'Personal Protective Equipment';
         subtitleText = 'PPE Requirements & Safety Standards';
         complianceText = 'Mandatory PPE Compliance - UK HSE Regulations';
-      } else if (slideType.toLowerCase().includes('emergency') || slideType.toLowerCase().includes('evacuation')) {
+      } else if (combinedText.includes('emergency') || combinedText.includes('evacuation')) {
         theme = 'emergency';
         titleText = 'Emergency Procedures';
         subtitleText = 'Evacuation & Emergency Response';
         complianceText = 'Emergency Response - UK Fire Safety Regulations';
-      } else if (slideType.toLowerCase().includes('welcome') || slideType.toLowerCase().includes('introduction')) {
+      } else if (combinedText.includes('welcome') || combinedText.includes('introduction') || combinedText.includes('orientation')) {
         theme = 'welcome';
         titleText = 'Welcome & Safety Orientation';
         subtitleText = `Welcome to ${companyName}`;
         complianceText = 'Workplace Safety Induction - UK HSE Compliant';
-      } else if (slideType.toLowerCase().includes('hazard')) {
+      } else if (combinedText.includes('hazard')) {
         theme = 'hazard';
         titleText = 'Hazard Identification';
         subtitleText = 'Risk Assessment & Hazard Control';
         complianceText = 'HASAWA 1974 & Management Regulations 1999';
-      } else if (slideType.toLowerCase().includes('legal') || slideType.toLowerCase().includes('framework')) {
+      } else if (combinedText.includes('legal') || combinedText.includes('framework') || combinedText.includes('responsibilities')) {
         theme = 'legal';
         titleText = 'Legal Framework';
         subtitleText = 'Health & Safety Legal Requirements';
