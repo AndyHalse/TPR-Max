@@ -1009,27 +1009,34 @@ export class VideoGenerationService {
       console.log(`🔧 Applied ${scenes.length} fallback scenes`);
     }
     
-    // Generate images and audio for hybrid enhanced mode
+    // CRITICAL: Generate AI images for ALL formats using Gemini 3.0 - makes induction videos professional and saleable
     let sceneImages: string[] = [];
     let sceneAudio: string[] = [];
     
-    if (videoFormat === 'hybrid_enhanced') {
-      try {
-        console.log('🎨 Generating AI images and audio for hybrid enhanced mode...');
-        
-        // Generate images and audio in parallel for maximum speed
+    try {
+      console.log('🎨 Generating professional Gemini 3.0 AI images for ALL scenes...');
+      
+      // Generate images ALWAYS - this is what makes the product saleable
+      // Images are generated in parallel with optional audio for hybrid mode
+      const imagePromise = this.generateSceneImages(scenes);
+      
+      if (videoFormat === 'hybrid_enhanced') {
+        // For hybrid mode, also generate audio narration in parallel
         const [images, audio] = await Promise.all([
-          this.generateSceneImages(scenes),
+          imagePromise,
           this.generateSceneAudio(scenes)
         ]);
-        
         sceneImages = images;
         sceneAudio = audio;
-        
-        console.log(`✨ Generated ${sceneImages.filter(img => img).length} images and ${sceneAudio.filter(aud => aud).length} audio tracks`);
-      } catch (error) {
-        console.error('❌ AI generation failed:', error);
+        console.log(`✨ Generated ${sceneImages.filter(img => img).length} professional images and ${sceneAudio.filter(aud => aud).length} audio tracks`);
+      } else {
+        // For all other formats, just get the images
+        sceneImages = await imagePromise;
+        console.log(`✨ Generated ${sceneImages.filter(img => img).length} professional Gemini 3.0 images for ${videoFormat}`);
       }
+    } catch (error) {
+      console.error('❌ AI image generation failed:', error);
+      // Continue with fallback - don't fail the entire video generation
     }
     
     // Get company name for branding
@@ -1039,13 +1046,14 @@ export class VideoGenerationService {
     let htmlContent: string;
     
     if (videoFormat === 'hybrid_enhanced') {
-      console.log('🎨 Creating hybrid enhanced presentation...');
+      console.log('🎨 Creating hybrid enhanced presentation with Gemini 3.0 images...');
       htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages, sceneAudio);
     } else if (videoFormat === 'full_video') {
-      console.log('🎬 Creating full video with Sora API...');
-      htmlContent = await this.createVideoPresentation(scenes, roleType, modelType);
+      console.log('🎬 Creating full video with Gemini 3.0 images...');
+      htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages, []);
     } else {
-      console.log('📄 Creating standard slide presentation...');
+      console.log('📄 Creating professional slide presentation with Gemini 3.0 images...');
+      // CRITICAL: Now we always embed AI-generated Gemini 3.0 images regardless of format
       htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -1163,6 +1171,7 @@ export class VideoGenerationService {
     <div class="presentation-container">
         ${scenes.map((scene, index) => `
             <div class="scene ${index === 0 ? 'active' : ''}" data-duration="${scene.duration}">
+                ${sceneImages[index] ? `<img src="${sceneImages[index]}" alt="${scene.title}" style="max-width: 100%; max-height: 50%; object-fit: contain; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);" />` : ''}
                 <h1>${scene.title}</h1>
                 <div>${scene.content.split('\n').map((line: string) => `<p>${line}</p>`).join('')}</div>
             </div>
@@ -1183,6 +1192,7 @@ export class VideoGenerationService {
         let sceneTimer = null;
         const scenes = ${JSON.stringify(scenes)};
         const totalScenes = ${scenes.length};
+        const sceneImages = ${JSON.stringify(sceneImages || [])};
         
         // Update total scenes display immediately
         document.getElementById('total-scenes').textContent = totalScenes;
