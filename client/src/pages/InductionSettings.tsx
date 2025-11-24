@@ -180,21 +180,7 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
         )}
       </CardContent>
 
-      {/* Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Induction Video Preview - {getRoleDisplayName(roleType)}</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto">
-            <iframe
-              src={previewUrl}
-              className="w-full h-full border-0"
-              title={`${getRoleDisplayName(roleType)} Induction Video`}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Full Screen Preview - opens in new window */}
     </Card>
   );
 };
