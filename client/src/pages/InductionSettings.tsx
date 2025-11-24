@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Users, Video, FileQuestion, Play, Eye, Sparkles } from "lucide-react";
@@ -25,9 +25,7 @@ interface RoleSettingsFormProps {
 }
 
 const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduction, isGenerating, generatedVideo }: RoleSettingsFormProps) => {
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [videoReady, setVideoReady] = useState(false);
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const getRoleDisplayName = (role: string) => {
@@ -65,9 +63,8 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
   };
 
   const handlePreview = async () => {
-    if (settings?.videoUrl) {
-      setPreviewUrl(settings.videoUrl);
-      setPreviewOpen(true);
+    if (settings?.videoUrl || generatedVideo?.url) {
+      setLocation(`/induction-preview/${roleType}`);
     } else {
       toast({
         title: "No video available",
