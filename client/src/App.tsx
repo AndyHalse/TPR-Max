@@ -264,6 +264,23 @@ function Router() {
     <Switch>
       <Route path="/kiosk" component={KioskMode} />
       <Route path="/marketing" component={MarketingPage} />
+      <Route path="/induction-preview/:roleType">
+        {(params) => {
+          const InductionPreview = lazy(() => import("./pages/InductionPreview"));
+          return (
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 to-purple-950">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <p className="text-white text-lg">Loading induction preview...</p>
+                </div>
+              </div>
+            }>
+              <InductionPreview />
+            </Suspense>
+          );
+        }}
+      </Route>
       <Route>
         <Layout>
           <Switch>
