@@ -64,6 +64,8 @@ import {
   UserPlus,
   PoundSterling,
   Timer as TimerIcon,
+  Leaf,
+  TreeDeciduous,
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -97,10 +99,11 @@ export default function MarketingPage() {
           "meeting-rooms",
           "people",
           "id-printing",
-          "qr-access",
+          "contractors",
           "ai-compliance",
           "emergency",
-          "multi-tenant",
+          "time-attendance",
+          "sustainability",
           "reports",
         ].includes(hash)
       ) {
@@ -422,6 +425,14 @@ export default function MarketingPage() {
               >
                 <Clock className="h-4 w-4 mb-1" />
                 Time Track
+              </TabsTrigger>
+              <TabsTrigger
+                value="sustainability"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-green-600 transition-all duration-200"
+                data-testid="tab-sustainability"
+              >
+                <Leaf className="h-4 w-4 mb-1" />
+                CO2
               </TabsTrigger>
               <TabsTrigger
                 value="reports"
@@ -870,6 +881,18 @@ export default function MarketingPage() {
                         <strong>Company Profiles:</strong> Manage contractor companies, contracts, and performance ratings in one system
                       </span>
                     </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>CO2 Sustainability Reports:</strong> AI-powered carbon footprint tracking for contractor commutes with UK postcode distance calculations
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Environmental Impact:</strong> Detailed emissions analysis per worker, route optimization recommendations, and sustainability scoring
+                      </span>
+                    </div>
                   </div>
 
                   <Button
@@ -926,22 +949,31 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Document Automation:</strong> AI-generated
-                        safety inductions and legal forms for any industry
+                        <strong>AI Induction Videos:</strong> Automatically generate professional safety training videos with AI-created scripts, voice narration, and topic-specific graphics
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Certification Tracking:</strong> Automatic
-                        alerts for expiring insurance and safety certificates
+                        <strong>Role-Based Training:</strong> Custom induction content for Visitors, Staff, and Contractors with UK Health & Safety compliance built-in
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Audit Trail:</strong> Complete compliance
-                        history with digital signatures and timestamps
+                        <strong>Certification Tracking:</strong> Automatic alerts for expiring insurance and safety certificates
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Comprehension Testing:</strong> AI-generated quiz questions verify understanding with pass/fail tracking
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Audit Trail:</strong> Complete compliance history with digital signatures and timestamps
                       </span>
                     </div>
                   </div>
@@ -998,33 +1030,37 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Muster Points Tracking:</strong> Real-time
-                        capacity monitoring across all assembly areas with
-                        automatic overflow alerts
+                        <strong>Fire Marshal Static URLs:</strong> Permanent, bookmarkable links for Fire Marshals to access real-time personnel lists instantly - works in emergencies AND peacetime monitoring
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Fire Marshal System:</strong> Instant email
-                        notifications to designated marshals with secure mobile
-                        access
+                        <strong>Self-Service Mark Safe:</strong> Personnel receive unique links via email to mark themselves safe during evacuations - updates Fire Marshal view in real-time
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Digital Roll-Call:</strong> One-tap personnel
-                        accountability for staff, visitors, and contractors with
-                        missing person identification
+                        <strong>Muster Points Tracking:</strong> Real-time capacity monitoring across all assembly areas with automatic overflow alerts
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Emergency Exports:</strong> Instant CSV exports
-                        for emergency services with complete personnel data and
-                        timestamps
+                        <strong>Automated Email Alerts:</strong> Instant evacuation notifications to all staff, visitors, and contractors with self-service mark-safe links
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Digital Roll-Call:</strong> One-tap personnel accountability for staff, visitors, and contractors with missing person identification
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Emergency Exports:</strong> Instant CSV exports for emergency services with complete personnel data and timestamps
                       </span>
                     </div>
                   </div>
@@ -1123,6 +1159,104 @@ export default function MarketingPage() {
                     className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
                     data-testid="img-time-attendance"
                   />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* CO2 Sustainability Tab */}
+            <TabsContent
+              value="sustainability"
+              className="space-y-6"
+              data-testid="content-sustainability"
+            >
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-green-600">
+                      <Leaf className="h-3 w-3 mr-1" />
+                      Environmental Sustainability
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      CO2 Sustainability Reporting
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Track and reduce your environmental impact with AI-powered carbon footprint analysis. 
+                      Monitor contractor commute emissions, identify optimization opportunities, and demonstrate 
+                      your commitment to sustainability with comprehensive environmental reporting.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>AI Distance Calculations:</strong> Intelligent UK postcode-to-postcode distance calculations with route type detection (motorway, A-roads, mixed)
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Carbon Footprint Tracking:</strong> Detailed CO2 emissions analysis per contractor, per journey, with vehicle type considerations
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Sustainability Scoring:</strong> Environmental impact ratings with industry benchmarking and improvement recommendations
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>ESG Reporting:</strong> Export-ready environmental reports for ESG compliance and stakeholder reporting
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Route Optimization:</strong> AI-generated recommendations for reducing contractor travel emissions and costs
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => scrollToSection("contact")}
+                    className="text-white bg-green-600 hover:bg-green-700"
+                    data-testid="button-sustainability-demo"
+                  >
+                    <TreeDeciduous className="h-4 w-4 mr-2" />
+                    See CO2 Reporting Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/50 dark:to-emerald-900/50 p-8">
+                    <div className="text-center mb-6">
+                      <TreeDeciduous className="h-16 w-16 text-green-600 mx-auto mb-4" />
+                      <h4 className="text-2xl font-bold text-green-800 dark:text-green-200">
+                        Environmental Impact Dashboard
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-4 text-center">
+                        <div className="text-3xl font-bold text-green-600">2.4t</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">CO2 Saved This Month</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-4 text-center">
+                        <div className="text-3xl font-bold text-green-600">87%</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Sustainability Score</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-4 text-center">
+                        <div className="text-3xl font-bold text-green-600">156</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Workers Tracked</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-4 text-center">
+                        <div className="text-3xl font-bold text-green-600">12k</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Miles Analyzed</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </TabsContent>
