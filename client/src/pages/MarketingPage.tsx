@@ -884,6 +884,12 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Red/Yellow Card System:</strong> Disciplinary tracking with formal warnings, incident logging, and automatic site access restrictions
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
                         <strong>CO2 Sustainability Reports:</strong> AI-powered carbon footprint tracking for contractor commutes with UK postcode distance calculations
                       </span>
                     </div>
