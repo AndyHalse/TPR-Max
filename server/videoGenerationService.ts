@@ -8,8 +8,13 @@ import { ResultUtils } from './utils/result';
 import { ImageFallbackChain } from './managers/ImageFallbackChain';
 import OpenAI from "openai";
 
+// Using Replit's AI Integrations service - provides OpenAI-compatible API access without requiring your own API key
+// Charges are billed to Replit credits, bypassing personal API billing limits
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+});
 
 export class VideoGenerationService {
   private companySettings: CompanySettings | null = null;

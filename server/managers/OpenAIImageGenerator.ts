@@ -1,5 +1,6 @@
 /**
- * DALL-E 3 Image Generator for Production-Quality Induction Videos
+ * GPT-Image-1 Image Generator for Production-Quality Induction Videos
+ * Uses Replit AI Integrations - no personal API key required, billed to Replit credits
  * Provides photorealistic, professional workplace safety images
  */
 
@@ -7,8 +8,12 @@ import OpenAI from "openai";
 import type { IImageGenerator, ImageGenerationResult, Result } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Using Replit's AI Integrations service - provides OpenAI-compatible API access without requiring your own API key
+// Charges are billed to Replit credits, bypassing personal API billing limits
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+});
 
 export class DallE3ImageGenerator implements IImageGenerator {
   constructor(private companySettings?: any) {}
@@ -38,44 +43,46 @@ Visual requirements:
 
 Style: Photorealistic corporate photography, professional composition, bright and clear, suitable for safety training materials.`;
 
-      console.log(`🎨 Generating DALL-E 3 image for: ${title}`);
+      console.log(`🎨 Generating GPT-Image-1 image for: ${title}`);
       
-      // Generate image using DALL-E 3
+      // Generate image using gpt-image-1 via Replit AI Integrations
+      // Note: gpt-image-1 does not support response_format parameter - always returns base64
       const response = await openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: finalPrompt,
         n: 1,
-        size: "1792x1024", // Wide format perfect for induction videos
-        quality: "hd", // HD quality for professional output
-        style: "natural" // Natural photographic style
+        size: "1024x1024", // Standard high-quality size for gpt-image-1
       });
 
       if (!response.data || response.data.length === 0) {
-        throw new Error('No image data returned from DALL-E 3');
+        throw new Error('No image data returned from gpt-image-1');
       }
 
-      const imageUrl = response.data[0].url;
+      // gpt-image-1 returns base64 data, not URL
+      const imageBase64 = response.data[0].b64_json;
       
-      if (!imageUrl) {
-        throw new Error('No image URL in DALL-E 3 response');
+      if (!imageBase64) {
+        throw new Error('No image data in gpt-image-1 response');
       }
 
-      console.log(`✅ DALL-E 3 image generated successfully for: ${title}`);
+      // Convert to data URL for use in the application
+      const imageUrl = `data:image/png;base64,${imageBase64}`;
+
+      console.log(`✅ GPT-Image-1 image generated successfully for: ${title}`);
 
       return ResultUtils.success({
         url: imageUrl,
         meta: {
-          model: "dall-e-3",
+          model: "gpt-image-1",
           prompt: finalPrompt,
-          revisedPrompt: response.data[0].revised_prompt || finalPrompt,
           fallback: false,
-          quality: "hd",
-          size: "1792x1024"
+          quality: "high",
+          size: "1024x1024"
         }
       });
 
     } catch (error: any) {
-      console.error('❌ DALL-E 3 image generation failed:', error.message);
+      console.error('❌ GPT-Image-1 image generation failed:', error.message);
       
       // Provide detailed error context
       if (error.response?.status === 400) {
