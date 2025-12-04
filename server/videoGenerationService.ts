@@ -1997,6 +1997,9 @@ export class VideoGenerationService {
       const htmlBlob = Buffer.from(generatedContent.htmlContent).toString('base64');
       const dataUrl = `data:text/html;base64,${htmlBlob}`;
       
+      // Serialize scenes data for storage
+      const scenesDataJson = JSON.stringify(generatedContent.scenes || []);
+      
       await db
         .update(inductionSettings)
         .set({
@@ -2004,9 +2007,14 @@ export class VideoGenerationService {
           videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Induction`,
           videoDescription: `Comprehensive AI-generated safety induction covering all essential requirements for ${roleType}s. Duration: ${Math.round(generatedContent.totalDuration / 60)} minutes.`,
           videoDurationMinutes: Math.round(generatedContent.totalDuration / 60),
+          generatedHtml: generatedContent.htmlContent,
+          scenesData: scenesDataJson,
+          generatedAt: new Date(),
           updatedAt: new Date()
         })
         .where(eq(inductionSettings.roleType, roleType));
+      
+      console.log(`✅ Saved ${roleType} induction video with ${generatedContent.scenes?.length || 0} scenes to database`);
         
     } catch (error) {
       console.error('Error updating settings:', error);
