@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Video, FileQuestion, Play, Eye, Sparkles } from "lucide-react";
-import type { InductionSettings } from "@shared/schema";
+import { Users, Video, FileQuestion, Play, Eye, Sparkles, CheckCircle, XCircle, Maximize2, List } from "lucide-react";
+import type { InductionSettings, InductionQuestion } from "@shared/schema";
 
 interface RoleSettingsFormProps {
   roleType: string;
@@ -21,12 +23,16 @@ interface RoleSettingsFormProps {
     scenes: number;
     timestamp: string;
     url: string;
+    htmlContent?: string;
   } | null;
+  questions?: InductionQuestion[];
 }
 
-const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduction, isGenerating, generatedVideo }: RoleSettingsFormProps) => {
+const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduction, isGenerating, generatedVideo, questions }: RoleSettingsFormProps) => {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [showPreview, setShowPreview] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
@@ -115,6 +121,7 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
             onClick={handleGenerateVideo}
             disabled={isGenerating}
             className="flex-1 flex items-center gap-2"
+            data-testid={`button-generate-video-${roleType}`}
           >
             {isGenerating ? (
               <>
@@ -129,15 +136,122 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
             )}
           </Button>
           
-          <Button
-            onClick={handlePreview}
-            variant="outline"
-            disabled={!settings?.videoUrl}
-            className="flex items-center gap-2"
-          >
-            <Play className="h-4 w-4" />
-            Preview
-          </Button>
+          {/* Inline Preview Button */}
+          {generatedVideo?.htmlContent && (
+            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  data-testid={`button-preview-inline-${roleType}`}
+                >
+                  <Eye className="h-4 w-4" />
+                  Preview
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0">
+                <DialogHeader className="p-4 pb-0">
+                  <DialogTitle className="flex items-center justify-between">
+                    <span>{getRoleDisplayName(roleType)} Induction Video Preview</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newWindow = window.open('', '_blank');
+                        if (newWindow) {
+                          newWindow.document.write(generatedVideo.htmlContent || '');
+                          newWindow.document.close();
+                        }
+                      }}
+                    >
+                      <Maximize2 className="h-4 w-4 mr-1" />
+                      Full Screen
+                    </Button>
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 h-[80vh] p-4 pt-0">
+                  <iframe
+                    srcDoc={generatedVideo.htmlContent}
+                    className="w-full h-full border-0 rounded-lg"
+                    title={`${roleType} Induction Preview`}
+                    sandbox="allow-scripts allow-same-origin"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Full screen Preview for saved videos */}
+          {!generatedVideo?.htmlContent && settings?.videoUrl && (
+            <Button
+              onClick={handlePreview}
+              variant="outline"
+              className="flex items-center gap-2"
+              data-testid={`button-preview-fullscreen-${roleType}`}
+            >
+              <Play className="h-4 w-4" />
+              Preview
+            </Button>
+          )}
+
+          {/* Questions Button */}
+          {questions && questions.length > 0 && (
+            <Dialog open={showQuestions} onOpenChange={setShowQuestions}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  data-testid={`button-view-questions-${roleType}`}
+                >
+                  <List className="h-4 w-4" />
+                  Questions ({questions.length})
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <FileQuestion className="h-5 w-5" />
+                    {getRoleDisplayName(roleType)} Quiz Questions
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  {questions.map((q, index) => (
+                    <div key={q.id} className="p-4 bg-gray-50 rounded-lg border">
+                      <div className="flex items-start gap-3">
+                        <Badge variant="outline" className="shrink-0">Q{index + 1}</Badge>
+                        <div className="space-y-2 flex-1">
+                          <p className="font-medium">{q.questionText}</p>
+                          <div className="grid gap-1 text-sm">
+                            {['A', 'B', 'C', 'D'].map((opt) => {
+                              const optKey = `option${opt}` as keyof typeof q;
+                              const optionText = q[optKey];
+                              if (!optionText) return null;
+                              const isCorrect = q.correctAnswer === opt;
+                              return (
+                                <div 
+                                  key={opt} 
+                                  className={`p-2 rounded ${isCorrect ? 'bg-green-100 border border-green-300' : 'bg-white border'}`}
+                                >
+                                  <span className="font-medium mr-2">{opt}.</span>
+                                  {String(optionText)}
+                                  {isCorrect && <CheckCircle className="inline h-4 w-4 ml-2 text-green-600" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {q.explanation && (
+                            <p className="text-xs text-gray-600 mt-2 italic">
+                              Explanation: {q.explanation}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         {/* Info Section */}
@@ -193,6 +307,46 @@ export default function InductionSettings() {
   const [generatedVideos, setGeneratedVideos] = useState<Record<string, any>>({});
   const { toast } = useToast();
 
+  // Fetch questions for each role type
+  const { data: visitorQuestions = [] } = useQuery<InductionQuestion[]>({
+    queryKey: ['/api/induction/questions', 'visitor'],
+    queryFn: async () => {
+      const res = await fetch('/api/induction/questions?roleType=visitor', { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.questions || [];
+    }
+  });
+
+  const { data: staffQuestions = [] } = useQuery<InductionQuestion[]>({
+    queryKey: ['/api/induction/questions', 'staff'],
+    queryFn: async () => {
+      const res = await fetch('/api/induction/questions?roleType=staff', { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.questions || [];
+    }
+  });
+
+  const { data: contractorQuestions = [] } = useQuery<InductionQuestion[]>({
+    queryKey: ['/api/induction/questions', 'contractor'],
+    queryFn: async () => {
+      const res = await fetch('/api/induction/questions?roleType=contractor', { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.questions || [];
+    }
+  });
+
+  const getQuestions = (roleType: string) => {
+    switch (roleType) {
+      case 'visitor': return visitorQuestions;
+      case 'staff': return staffQuestions;
+      case 'contractor': return contractorQuestions;
+      default: return [];
+    }
+  };
+
   const handleGenerateVideo = async (roleType: string) => {
     setIsGenerating(prev => ({ ...prev, [roleType]: true }));
     try {
@@ -207,7 +361,8 @@ export default function InductionSettings() {
             duration: data.totalDuration || 15,
             scenes: data.sceneCount || 12,
             timestamp: new Date().toLocaleDateString(),
-            url: data.videoUrl
+            url: data.videoUrl,
+            htmlContent: data.htmlContent // Store the HTML content for inline preview
           }
         }));
 
@@ -223,14 +378,14 @@ export default function InductionSettings() {
         }));
 
         toast({
-          title: "✅ Video Generated",
-          description: `Induction video created for ${roleType}s`
+          title: data.savedToDatabase ? "Video Generated" : "Video Generated (Preview Only)",
+          description: data.message || `Induction video created for ${roleType}s`
         });
       }
     } catch (error: any) {
       console.error('Error generating video:', error);
       toast({
-        title: "❌ Generation Failed",
+        title: "Generation Failed",
         description: error?.message || "Could not generate video. Please try again.",
         variant: "destructive"
       });
@@ -280,6 +435,7 @@ export default function InductionSettings() {
             onPreviewInduction={handlePreviewInduction}
             isGenerating={isGenerating.visitor}
             generatedVideo={generatedVideos.visitor}
+            questions={getQuestions('visitor')}
           />
         </TabsContent>
 
@@ -291,6 +447,7 @@ export default function InductionSettings() {
             onPreviewInduction={handlePreviewInduction}
             isGenerating={isGenerating.staff}
             generatedVideo={generatedVideos.staff}
+            questions={getQuestions('staff')}
           />
         </TabsContent>
 
@@ -302,6 +459,7 @@ export default function InductionSettings() {
             onPreviewInduction={handlePreviewInduction}
             isGenerating={isGenerating.contractor}
             generatedVideo={generatedVideos.contractor}
+            questions={getQuestions('contractor')}
           />
         </TabsContent>
       </Tabs>

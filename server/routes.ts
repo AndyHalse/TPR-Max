@@ -14884,18 +14884,33 @@ This is an automated notification from your visitor management system.`;
         // Don't fail the entire video generation if questions fail
       }
       
-      // Update the settings with generated content
-      await videoService.updateSettingsWithGeneratedContent(roleType, generatedContent);
+      // Update the settings with generated content - but don't fail if database save fails
+      let savedToDatabase = false;
+      try {
+        await videoService.updateSettingsWithGeneratedContent(roleType, generatedContent);
+        savedToDatabase = true;
+        console.log('✅ Successfully saved video to database');
+      } catch (saveError) {
+        console.error('⚠️ Failed to save video to database, but returning generated content:', saveError);
+        // Continue - we'll still return the generated content for immediate preview
+      }
       
       // Return response with videoUrl so frontend can display it
       const videoUrl = `/api/induction/video/${roleType}`;
       
+      // Include the generated HTML content directly so frontend can preview immediately
       res.json({ 
         success: true, 
-        message: 'AI-generated induction video and questions created successfully',
+        savedToDatabase,
+        message: savedToDatabase 
+          ? 'AI-generated induction video and questions created successfully'
+          : 'Video generated successfully! Preview available below. Note: Save to database failed, you may need to regenerate.',
         videoUrl,
         totalDuration: generatedContent.totalDuration,
         sceneCount: generatedContent.scenes.length,
+        // Include HTML content for immediate preview
+        htmlContent: generatedContent.presentationHtml,
+        scenes: generatedContent.scenes,
         preview: {
           title: generatedContent.script.substring(0, 100) + '...',
           duration: Math.round(generatedContent.totalDuration / 60),
