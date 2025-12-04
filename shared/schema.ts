@@ -1706,12 +1706,17 @@ export const co2Records = pgTable("co2_records", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Site Induction Video System
+// Site Induction Video System - Universal tokens for visitors, staff, and contractors
 export const inductionTokens = pgTable("induction_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  personType: text("person_type").notNull().default("contractor"), // visitor, staff, contractor
+  workerId: varchar("worker_id").references(() => contractorWorkers.id), // For contractors
+  visitorId: varchar("visitor_id"), // For visitors (no FK constraint for flexibility)
+  staffId: varchar("staff_id"), // For staff (no FK constraint for flexibility)
+  personName: text("person_name").notNull(), // Name for email personalization
+  personEmail: text("person_email").notNull(), // Email address for sending induction
   token: text("token").notNull().unique(),
-  status: text("status").notNull().default("pending"), // pending, in_progress, completed, expired
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, expired, failed
   emailSent: boolean("email_sent").default(false),
   emailSentAt: timestamp("email_sent_at"),
   videoWatched: boolean("video_watched").default(false),
@@ -1720,6 +1725,7 @@ export const inductionTokens = pgTable("induction_tokens", {
   quizCompleted: boolean("quiz_completed").default(false),
   quizCompletedAt: timestamp("quiz_completed_at"),
   quizScore: integer("quiz_score").default(0),
+  quizPassed: boolean("quiz_passed").default(false), // Did they meet the pass threshold?
   passThreshold: integer("pass_threshold").default(80), // UK H&S requirement: 80% pass rate
   expiresAt: timestamp("expires_at").notNull(),
   completedAt: timestamp("completed_at"),
@@ -1759,6 +1765,10 @@ export const inductionSettings = pgTable("induction_settings", {
   modelType: text("model_type").default("gpt-5").notNull(), // 'gpt-4o', 'gpt-5', 'gpt-6', 'gpt-7'
   passPercentage: integer("pass_percentage").default(80), // Minimum percentage to pass
   isActive: boolean("is_active").default(true).notNull(),
+  generatedHtml: text("generated_html"), // Saved HTML presentation content
+  scenesData: text("scenes_data"), // JSON string of scenes array with titles, content, images, audio
+  generatedAt: timestamp("generated_at"), // When video was last generated
+  questionsGenerated: boolean("questions_generated").default(false), // Whether AI questions have been saved
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
