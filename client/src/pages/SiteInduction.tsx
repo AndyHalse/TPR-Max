@@ -7,15 +7,20 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, Clock, Play, AlertTriangle, Shield, HardHat } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 
 interface InductionToken {
   id: string;
-  workerId: string;
+  workerId?: string;
+  visitorId?: string;
+  staffId?: string;
+  personType?: string;
+  personName?: string;
+  personEmail?: string;
   token: string;
-  status: "pending" | "in_progress" | "completed" | "expired";
+  status: "pending" | "in_progress" | "completed" | "expired" | "failed";
   videoWatched: boolean;
   quizCompleted: boolean;
+  quizPassed?: boolean;
   quizScore: number;
   passThreshold: number;
   quizAttempts: number;
@@ -42,18 +47,30 @@ interface WorkerDetails {
   companyName?: string;
 }
 
+interface VideoContent {
+  title: string;
+  description: string;
+  durationMinutes: number;
+  generatedHtml: string | null;
+  videoUrl: string;
+  hasGeneratedContent: boolean;
+}
+
 export default function SiteInduction() {
   const [match, params] = useRoute("/induction/:token");
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [tokenData, setTokenData] = useState<InductionToken | null>(null);
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
+  const [videoContent, setVideoContent] = useState<VideoContent | null>(null);
+  const [personType, setPersonType] = useState<string>("contractor");
   const [currentStep, setCurrentStep] = useState<"video" | "quiz" | "completed">("video");
   const [questions, setQuestions] = useState<InductionQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizResults, setQuizResults] = useState<{ score: number; passed: boolean; total: number } | null>(null);
+  const [videoFullscreen, setVideoFullscreen] = useState(false);
 
   useEffect(() => {
     if (match && params?.token) {
@@ -65,27 +82,38 @@ export default function SiteInduction() {
     try {
       setLoading(true);
       
-      // Get token details and worker info
-      const [tokenResponse, questionsResponse] = await Promise.all([
-        apiRequest(`/api/induction/${token}`),
-        apiRequest('/api/induction/questions')
-      ]);
-
-      if (tokenResponse.error) {
+      // Get token details, worker info, and video content
+      const tokenRes = await fetch(`/api/induction/token/${token}`, { credentials: "include" });
+      
+      if (!tokenRes.ok) {
+        const errorData = await tokenRes.json().catch(() => ({ error: 'Invalid or expired link' }));
         toast({
           title: "Invalid or Expired Link",
-          description: tokenResponse.error,
+          description: errorData.error || 'This induction link is invalid or has expired.',
           variant: "destructive"
         });
         return;
       }
 
+      const tokenResponse = await tokenRes.json();
+
       setTokenData(tokenResponse.token);
       setWorker(tokenResponse.worker);
-      setQuestions(questionsResponse.questions);
+      setVideoContent(tokenResponse.videoContent);
+      
+      // Derive personType from token object - critical for correct quiz and messaging
+      const derivedPersonType = tokenResponse.token?.personType || 'contractor';
+      setPersonType(derivedPersonType);
+
+      // Fetch questions for the specific role type
+      const questionsRes = await fetch(`/api/induction/questions?roleType=${derivedPersonType}`, { credentials: "include" });
+      if (questionsRes.ok) {
+        const questionsResponse = await questionsRes.json();
+        setQuestions(questionsResponse.questions || []);
+      }
 
       // Determine current step based on progress
-      if (tokenResponse.token.status === "completed") {
+      if (tokenResponse.token.status === "completed" || tokenResponse.token.quizPassed) {
         setCurrentStep("completed");
       } else if (tokenResponse.token.videoWatched && !tokenResponse.token.quizCompleted) {
         setCurrentStep("quiz");
@@ -109,15 +137,20 @@ export default function SiteInduction() {
     if (!tokenData) return;
     
     try {
-      await apiRequest(`/api/induction/${tokenData.id}/video-watched`, {
-        method: 'POST'
+      const res = await fetch(`/api/induction/${tokenData.id}/video-watched`, {
+        method: 'POST',
+        credentials: 'include'
       });
+      
+      if (!res.ok) {
+        throw new Error('Failed to mark video as watched');
+      }
       
       setTokenData(prev => prev ? { ...prev, videoWatched: true, status: 'in_progress' } : null);
       setCurrentStep("quiz");
       
       toast({
-        title: "Video Completed ✅",
+        title: "Video Completed",
         description: "Now complete the H&S questionnaire to finish your induction."
       });
     } catch (error) {
@@ -152,18 +185,24 @@ export default function SiteInduction() {
         selectedAnswer: answers[q.id]
       }));
 
-      const response = await apiRequest(`/api/induction/${tokenData.id}/submit-quiz`, {
+      const res = await fetch(`/api/induction/${tokenData.id}/submit-quiz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ answers: answersArray })
       });
 
+      if (!res.ok) {
+        throw new Error('Failed to submit quiz');
+      }
+
+      const response = await res.json();
       setQuizResults(response.results);
       
       if (response.results.passed) {
         setCurrentStep("completed");
         toast({
-          title: "Congratulations! 🎉",
+          title: "Congratulations!",
           description: `You passed with ${response.results.score}%! Your induction is now complete.`,
           duration: 5000
         });
@@ -217,58 +256,91 @@ export default function SiteInduction() {
     );
   }
 
-  const renderVideoStep = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Play className="w-5 h-5 text-blue-600" />
-            Site Induction Video
-          </CardTitle>
-          <CardDescription>
-            Watch the complete site safety induction video (approximately 15 minutes)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-6 border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <Play className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 font-medium">Site Safety Induction Video</p>
-              <p className="text-sm text-gray-500 mt-1">Duration: 15 minutes</p>
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Video covers:</h4>
-                <ul className="text-sm text-blue-800 space-y-1 text-left">
-                  <li>• Site-specific hazards and controls</li>
-                  <li>• PPE requirements and usage</li>
-                  <li>• Emergency procedures and assembly points</li>
-                  <li>• Reporting procedures for incidents</li>
-                  <li>• Environmental and welfare facilities</li>
-                </ul>
+  const renderVideoStep = () => {
+    const hasGeneratedVideo = videoContent?.hasGeneratedContent && videoContent?.generatedHtml;
+    
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-blue-600" />
+              {videoContent?.title || 'Site Induction Video'}
+            </CardTitle>
+            <CardDescription>
+              {videoContent?.description || `Watch the complete site safety induction video (approximately ${videoContent?.durationMinutes || 15} minutes)`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {hasGeneratedVideo ? (
+              <>
+                <div className={`bg-gray-900 rounded-lg overflow-hidden mb-6 ${videoFullscreen ? 'fixed inset-0 z-50' : 'aspect-video'}`}>
+                  <div className="flex justify-between items-center bg-gray-800 px-4 py-2">
+                    <span className="text-white text-sm font-medium">AI-Generated Safety Induction</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:bg-gray-700"
+                      onClick={() => setVideoFullscreen(!videoFullscreen)}
+                      data-testid="button-toggle-fullscreen"
+                    >
+                      {videoFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                    </Button>
+                  </div>
+                  <iframe
+                    srcDoc={videoContent.generatedHtml!}
+                    className={`w-full ${videoFullscreen ? 'h-[calc(100vh-50px)]' : 'h-[calc(100%-40px)]'} bg-white`}
+                    title="Induction Video"
+                    sandbox="allow-scripts allow-same-origin"
+                    data-testid="iframe-induction-video"
+                  />
+                </div>
+                <p className="text-sm text-gray-600 mb-4 text-center">
+                  Please navigate through all slides to complete the induction video.
+                </p>
+              </>
+            ) : (
+              <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-6 border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <Play className="w-16 h-16 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600 font-medium">Site Safety Induction Video</p>
+                  <p className="text-sm text-gray-500 mt-1">Duration: {videoContent?.durationMinutes || 15} minutes</p>
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Video covers:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1 text-left">
+                      <li>• Site-specific hazards and controls</li>
+                      <li>• PPE requirements and usage</li>
+                      <li>• Emergency procedures and assembly points</li>
+                      <li>• Reporting procedures for incidents</li>
+                      <li>• Environmental and welfare facilities</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          <Alert className="mb-4">
-            <Shield className="w-4 h-4" />
-            <AlertDescription>
-              <strong>Important:</strong> You must watch the entire video before proceeding to the questionnaire. 
-              This is a legal requirement under UK Health & Safety regulations.
-            </AlertDescription>
-          </Alert>
+            )}
+            
+            <Alert className="mb-4">
+              <Shield className="w-4 h-4" />
+              <AlertDescription>
+                <strong>Important:</strong> You must complete the entire video before proceeding to the questionnaire. 
+                This is a legal requirement under UK Health & Safety regulations.
+              </AlertDescription>
+            </Alert>
 
-          <Button 
-            onClick={markVideoWatched}
-            className="w-full"
-            size="lg"
-            data-testid="button-complete-video"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            I have watched the complete video
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
+            <Button 
+              onClick={markVideoWatched}
+              className="w-full"
+              size="lg"
+              data-testid="button-complete-video"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              I have completed the induction video
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const renderQuizStep = () => {
     const currentQuestion = questions[currentQuestionIndex];

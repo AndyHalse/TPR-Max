@@ -8091,20 +8091,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(410).json({ error: 'This induction link has expired' });
       }
 
-      const worker = await storage.getContractorWorkerById(tokenData.workerId);
-      
-      if (!worker) {
-        return res.status(404).json({ error: 'Worker not found' });
+      // Get person details based on personType - support all types
+      const personType = tokenData.personType || 'contractor';
+      let personDetails: { firstName: string; lastName: string; email: string; companyName?: string } | null = null;
+
+      if (personType === 'contractor' && tokenData.workerId) {
+        const worker = await storage.getContractorWorkerById(tokenData.workerId);
+        if (worker) {
+          personDetails = {
+            firstName: worker.firstName,
+            lastName: worker.lastName,
+            email: worker.email || '',
+            companyName: worker.companyName
+          };
+        }
+      } else if (personType === 'staff' && tokenData.staffId) {
+        const [staffMember] = await db.select().from(staff).where(eq(staff.id, tokenData.staffId));
+        if (staffMember) {
+          personDetails = {
+            firstName: staffMember.firstName || '',
+            lastName: staffMember.lastName || '',
+            email: staffMember.email || ''
+          };
+        }
+      } else if (personType === 'visitor' && tokenData.visitorId) {
+        const [visitor] = await db.select().from(visitors).where(eq(visitors.id, tokenData.visitorId));
+        if (visitor) {
+          personDetails = {
+            firstName: visitor.firstName || '',
+            lastName: visitor.lastName || '',
+            email: visitor.email || ''
+          };
+        }
       }
+
+      // Fallback to token personName/personEmail if no details found
+      if (!personDetails) {
+        const nameParts = (tokenData.personName || 'Unknown').split(' ');
+        personDetails = {
+          firstName: nameParts[0] || 'Unknown',
+          lastName: nameParts.slice(1).join(' ') || '',
+          email: tokenData.personEmail || ''
+        };
+      }
+
+      // Get the saved video content for this role type
+      const [videoSettings] = await db
+        .select()
+        .from(inductionSettings)
+        .where(eq(inductionSettings.roleType, personType));
 
       res.json({
         token: tokenData,
-        worker: {
-          firstName: worker.firstName,
-          lastName: worker.lastName,
-          email: worker.email,
-          companyName: worker.companyName
-        }
+        worker: personDetails,
+        personType,
+        videoContent: videoSettings ? {
+          title: videoSettings.videoTitle,
+          description: videoSettings.videoDescription,
+          durationMinutes: videoSettings.videoDurationMinutes,
+          generatedHtml: videoSettings.generatedHtml,
+          videoUrl: videoSettings.videoUrl,
+          hasGeneratedContent: !!videoSettings.generatedHtml
+        } : null
       });
       
     } catch (error) {
@@ -8115,8 +8163,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/induction/questions', async (req, res) => {
     try {
-      const questions = await inductionService.getInductionQuestions();
-      res.json({ questions });
+      const roleType = (req.query.roleType as string) || 'contractor';
+      
+      // Get questions filtered by role type
+      const allQuestions = await db
+        .select()
+        .from(inductionQuestions)
+        .where(
+          and(
+            eq(inductionQuestions.isActive, true),
+            eq(inductionQuestions.roleType, roleType)
+          )
+        )
+        .orderBy(inductionQuestions.orderIndex);
+      
+      res.json({ questions: allQuestions });
     } catch (error) {
       console.error('Error getting induction questions:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -8173,6 +8234,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error sending induction email:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Universal send induction email - supports visitors, staff, and contractors
+  app.post('/api/induction/send', requireAuth, async (req, res) => {
+    try {
+      const { personType, personName, personEmail, workerId, visitorId, staffId, companyName } = req.body;
+      
+      if (!personType || !personName || !personEmail) {
+        return res.status(400).json({ error: 'personType, personName, and personEmail are required' });
+      }
+
+      if (!['visitor', 'staff', 'contractor'].includes(personType)) {
+        return res.status(400).json({ error: 'Invalid personType. Must be visitor, staff, or contractor' });
+      }
+
+      const success = await inductionService.sendUniversalInductionEmail({
+        personType,
+        personName,
+        personEmail,
+        workerId,
+        visitorId,
+        staffId,
+        companyName
+      });
+      
+      if (success) {
+        res.json({ 
+          message: `Induction email sent successfully to ${personName}`,
+          personType,
+          email: personEmail 
+        });
+      } else {
+        res.status(500).json({ error: 'Failed to send induction email' });
+      }
+    } catch (error) {
+      console.error('Error sending universal induction email:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
