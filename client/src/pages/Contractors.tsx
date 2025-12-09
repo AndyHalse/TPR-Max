@@ -37,7 +37,13 @@ import {
   ThumbsDown,
   UserPlus,
   Edit,
-  Trash2
+  Trash2,
+  Leaf,
+  Car,
+  TrendingDown,
+  BarChart3,
+  MapPin,
+  Sparkles
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
@@ -697,14 +703,18 @@ export default function Contractors() {
 
       {/* Tab Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="contractors" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="contractors" className="flex items-center gap-2" data-testid="tab-contractors">
             <Building2 size={16} />
             Contractors
           </TabsTrigger>
-          <TabsTrigger value="assign-hs" className="flex items-center gap-2">
+          <TabsTrigger value="assign-hs" className="flex items-center gap-2" data-testid="tab-assign-hs">
             <Shield size={16} />
             Assign H&S Document
+          </TabsTrigger>
+          <TabsTrigger value="co2-reports" className="flex items-center gap-2" data-testid="tab-co2-reports">
+            <Leaf size={16} />
+            CO2 Reports
           </TabsTrigger>
         </TabsList>
 
