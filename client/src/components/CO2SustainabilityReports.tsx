@@ -86,9 +86,9 @@ interface CO2SustainabilityReportsProps {
 }
 
 const transportMethods = [
-  { value: 'petrol_car', label: 'Petrol Car', icon: Car, color: 'text-red-600', emissions: 'High' },
-  { value: 'diesel_car', label: 'Diesel Car', icon: Car, color: 'text-orange-600', emissions: 'High' },
-  { value: 'electric_car', label: 'Electric Car', icon: Zap, color: 'text-green-600', emissions: 'Low' },
+  { value: 'car_petrol', label: 'Petrol Car', icon: Car, color: 'text-red-600', emissions: 'High' },
+  { value: 'car_diesel', label: 'Diesel Car', icon: Car, color: 'text-orange-600', emissions: 'High' },
+  { value: 'electric', label: 'Electric Car', icon: Zap, color: 'text-green-600', emissions: 'Low' },
   { value: 'public_transport', label: 'Public Transport', icon: Bus, color: 'text-blue-600', emissions: 'Low' }
 ];
 
@@ -400,15 +400,17 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
   };
 
   const calculateCO2Savings = (currentTransport: string, alternativeTransport: string, monthlyCO2kg: number) => {
+    // UK Government 2024/2025 emission factors (kg CO2 per mile)
     const emissionFactors = {
-      'petrol_car': 0.18,
-      'diesel_car': 0.16,
-      'electric_car': 0.05,
-      'public_transport': 0.08
+      'car_petrol': 0.268,
+      'car_diesel': 0.257,
+      'electric': 0.047,
+      'public_transport': 0.103,
+      'motorcycle': 0.186
     };
     
-    const currentFactor = emissionFactors[currentTransport as keyof typeof emissionFactors] || 0.16;
-    const altFactor = emissionFactors[alternativeTransport as keyof typeof emissionFactors] || 0.16;
+    const currentFactor = emissionFactors[currentTransport as keyof typeof emissionFactors] || 0.257;
+    const altFactor = emissionFactors[alternativeTransport as keyof typeof emissionFactors] || 0.257;
     
     const baseCO2 = monthlyCO2kg / currentFactor;
     const newCO2 = baseCO2 * altFactor;

@@ -22,9 +22,9 @@ interface CO2EmissionsTrackerProps {
 }
 
 const transportMethods = [
-  { value: 'petrol_car', label: 'Petrol Car', icon: Car, color: 'text-red-600' },
-  { value: 'diesel_car', label: 'Diesel Car', icon: Car, color: 'text-orange-600' },
-  { value: 'electric_car', label: 'Electric Car', icon: Zap, color: 'text-green-600' },
+  { value: 'car_petrol', label: 'Petrol Car', icon: Car, color: 'text-red-600' },
+  { value: 'car_diesel', label: 'Diesel Car', icon: Car, color: 'text-orange-600' },
+  { value: 'electric', label: 'Electric Car', icon: Zap, color: 'text-green-600' },
   { value: 'public_transport', label: 'Public Transport', icon: Bus, color: 'text-blue-600' }
 ];
 
