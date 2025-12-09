@@ -37,13 +37,7 @@ import {
   ThumbsDown,
   UserPlus,
   Edit,
-  Trash2,
-  Leaf,
-  Car,
-  TrendingDown,
-  BarChart3,
-  MapPin,
-  Sparkles
+  Trash2
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
@@ -703,18 +697,14 @@ export default function Contractors() {
 
       {/* Tab Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="contractors" className="flex items-center gap-2" data-testid="tab-contractors">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="contractors" className="flex items-center gap-2">
             <Building2 size={16} />
             Contractors
           </TabsTrigger>
-          <TabsTrigger value="assign-hs" className="flex items-center gap-2" data-testid="tab-assign-hs">
+          <TabsTrigger value="assign-hs" className="flex items-center gap-2">
             <Shield size={16} />
             Assign H&S Document
-          </TabsTrigger>
-          <TabsTrigger value="co2-reports" className="flex items-center gap-2" data-testid="tab-co2-reports">
-            <Leaf size={16} />
-            CO2 Reports
           </TabsTrigger>
         </TabsList>
 
@@ -2598,189 +2588,6 @@ export default function Contractors() {
 
         <TabsContent value="assign-hs" className="space-y-6 mt-6">
           <HSDocumentAssignment />
-        </TabsContent>
-
-        <TabsContent value="co2-reports" className="space-y-6 mt-6">
-          {/* CO2 Sustainability Reports Description */}
-          <GlassCard>
-            <div className="flex items-start gap-4">
-              <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
-                <Leaf className="text-green-600" size={32} />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-fixed mb-2">CO2 Sustainability Reporting</h2>
-                <p className="text-variable">
-                  Track and reduce your contractor carbon footprint with AI-powered sustainability reports.
-                </p>
-              </div>
-            </div>
-          </GlassCard>
-
-          {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <GlassCard>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                  <Car className="text-blue-600" size={20} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-fixed mb-1">Commute Tracking</h3>
-                  <p className="text-sm text-variable">
-                    Automatically calculate CO2 emissions from contractor commutes based on their postcode and transport method (diesel, petrol, electric, public transport, motorcycle).
-                  </p>
-                </div>
-              </div>
-            </GlassCard>
-
-            <GlassCard>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-                  <Sparkles className="text-purple-600" size={20} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-fixed mb-1">AI-Powered Analysis</h3>
-                  <p className="text-sm text-variable">
-                    Gemini AI calculates accurate distances between UK postcodes with intelligent route detection (motorway, A-roads, mixed routes) for precise emission estimates.
-                  </p>
-                </div>
-              </div>
-            </GlassCard>
-
-            <GlassCard>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
-                  <TrendingDown className="text-green-600" size={20} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-fixed mb-1">Actionable Recommendations</h3>
-                  <p className="text-sm text-variable">
-                    Receive tailored suggestions to reduce emissions: carpooling opportunities, EV incentives, public transport routes, and scheduling optimizations.
-                  </p>
-                </div>
-              </div>
-            </GlassCard>
-
-            <GlassCard>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
-                  <BarChart3 className="text-orange-600" size={20} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-fixed mb-1">Detailed Reports</h3>
-                  <p className="text-sm text-variable">
-                    Generate comprehensive sustainability reports with total emissions, per-worker breakdowns, transport method analysis, and historical comparisons.
-                  </p>
-                </div>
-              </div>
-            </GlassCard>
-
-            <GlassCard>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center shrink-0">
-                  <MapPin className="text-teal-600" size={20} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-fixed mb-1">UK Postcode Integration</h3>
-                  <p className="text-sm text-variable">
-                    Simply enter worker postcodes and your site location. Our system handles distance calculations automatically using intelligent UK geography analysis.
-                  </p>
-                </div>
-              </div>
-            </GlassCard>
-
-            <GlassCard>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center shrink-0">
-                  <Shield className="text-indigo-600" size={20} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-fixed mb-1">Multi-Tenant Isolated</h3>
-                  <p className="text-sm text-variable">
-                    All sustainability data is securely isolated per customer. Reports are stored in your private database with full audit trail and history.
-                  </p>
-                </div>
-              </div>
-            </GlassCard>
-          </div>
-
-          {/* How It Works Section */}
-          <GlassCard>
-            <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
-              <FileText className="text-blue-600" size={20} />
-              How It Works
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 font-bold">1</div>
-                <p className="text-sm font-medium text-fixed">Add Workers</p>
-                <p className="text-xs text-variable mt-1">Enter worker postcode and transport method when adding to contractor</p>
-              </div>
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 font-bold">2</div>
-                <p className="text-sm font-medium text-fixed">Set Site Location</p>
-                <p className="text-xs text-variable mt-1">Configure your site postcode in company settings</p>
-              </div>
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 font-bold">3</div>
-                <p className="text-sm font-medium text-fixed">Generate Report</p>
-                <p className="text-xs text-variable mt-1">Click generate and AI calculates all emissions automatically</p>
-              </div>
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-2 font-bold">4</div>
-                <p className="text-sm font-medium text-fixed">Take Action</p>
-                <p className="text-xs text-variable mt-1">Review recommendations and implement changes to reduce carbon footprint</p>
-              </div>
-            </div>
-          </GlassCard>
-
-          {/* Benefits Section */}
-          <GlassCard className="bg-gradient-to-r from-green-50 to-teal-50 border-green-200">
-            <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
-              <CheckCircle className="text-green-600" size={20} />
-              Benefits for Your Business
-            </h3>
-            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-variable">
-              <li className="flex items-center gap-2">
-                <CheckCircle className="text-green-500 shrink-0" size={16} />
-                Meet ESG reporting requirements and sustainability targets
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="text-green-500 shrink-0" size={16} />
-                Reduce operational costs through optimized contractor scheduling
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="text-green-500 shrink-0" size={16} />
-                Demonstrate environmental responsibility to clients and stakeholders
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="text-green-500 shrink-0" size={16} />
-                Identify high-emission contractors for targeted improvement
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="text-green-500 shrink-0" size={16} />
-                Track progress over time with historical report comparison
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="text-green-500 shrink-0" size={16} />
-                Support Net Zero commitments with data-driven insights
-              </li>
-            </ul>
-          </GlassCard>
-
-          {/* CTA Section */}
-          <div className="text-center py-6">
-            <p className="text-variable mb-4">
-              Ready to track your contractor carbon footprint? Add worker postcodes and transport methods to get started.
-            </p>
-            <Button 
-              onClick={() => setActiveTab("contractors")}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              data-testid="button-go-to-contractors"
-            >
-              <Users className="mr-2" size={16} />
-              Manage Contractors
-            </Button>
-          </div>
         </TabsContent>
       </Tabs>
 
