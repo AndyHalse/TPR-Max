@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 interface WorkerCO2Summary {
   workerId: string;
@@ -576,7 +577,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                     </Card>
                   </div>
 
-                  {/* Transport Breakdown */}
+                  {/* Transport Breakdown with Pie Chart */}
                   <Card>
                     <CardHeader>
                       <div className="flex items-center gap-2">
@@ -585,35 +586,107 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3">
-                        {Object.entries(co2Summary.data.transportBreakdown || {}).map(([method, count]) => {
-                          const transport = transportMethods.find(t => t.value === method);
-                          const percentage = co2Summary.data.totalWorkers > 0 ? (count / co2Summary.data.totalWorkers) * 100 : 0;
-                          
-                          if (count === 0) return null;
-                          
-                          return (
-                            <div key={method} className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                {transport && (
-                                  <transport.icon className={`w-4 h-4 ${transport.color}`} />
-                                )}
-                                <span className="text-sm font-medium">
-                                  {transport?.label || method}
-                                </span>
-                                <Badge variant="outline" className={transport?.emissions === 'Low' ? 'text-green-600' : 'text-red-600'}>
-                                  {transport?.emissions} Emissions
-                                </Badge>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Pie Chart Visualization */}
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPie>
+                              <Pie
+                                data={Object.entries(co2Summary.data.transportBreakdown || {})
+                                  .filter(([_, count]) => count > 0)
+                                  .map(([method, count]) => {
+                                    const transport = transportMethods.find(t => t.value === method);
+                                    return {
+                                      name: transport?.label || method,
+                                      value: count,
+                                      method: method
+                                    };
+                                  })}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={45}
+                                outerRadius={75}
+                                paddingAngle={3}
+                                dataKey="value"
+                                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                                labelLine={false}
+                              >
+                                {Object.entries(co2Summary.data.transportBreakdown || {})
+                                  .filter(([_, count]) => count > 0)
+                                  .map(([method], index) => (
+                                    <Cell 
+                                      key={`cell-${index}`} 
+                                      fill={method === 'car_petrol' ? '#dc2626' : 
+                                            method === 'car_diesel' ? '#ea580c' : 
+                                            method === 'electric' ? '#16a34a' : 
+                                            method === 'public_transport' ? '#2563eb' :
+                                            method === 'motorcycle' ? '#7c3aed' : '#6b7280'}
+                                      stroke="#fff"
+                                      strokeWidth={2}
+                                    />
+                                  ))}
+                              </Pie>
+                              <Tooltip 
+                                formatter={(value: number, name: string) => [`${value} workers`, name]}
+                                contentStyle={{ 
+                                  backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                                  borderRadius: '8px',
+                                  border: '1px solid #e5e7eb'
+                                }}
+                              />
+                              <Legend 
+                                verticalAlign="bottom" 
+                                height={36}
+                                formatter={(value) => <span className="text-xs">{value}</span>}
+                              />
+                            </RechartsPie>
+                          </ResponsiveContainer>
+                        </div>
+                        
+                        {/* Details List */}
+                        <div className="space-y-3">
+                          {Object.entries(co2Summary.data.transportBreakdown || {}).map(([method, count]) => {
+                            const transport = transportMethods.find(t => t.value === method);
+                            const percentage = co2Summary.data.totalWorkers > 0 ? (count / co2Summary.data.totalWorkers) * 100 : 0;
+                            
+                            if (count === 0) return null;
+                            
+                            return (
+                              <div key={method} className="flex items-center justify-between p-3 rounded-lg bg-white/60 hover:bg-white/80 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <div 
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ 
+                                      backgroundColor: method === 'car_petrol' ? '#dc2626' : 
+                                                       method === 'car_diesel' ? '#ea580c' : 
+                                                       method === 'electric' ? '#16a34a' : 
+                                                       method === 'public_transport' ? '#2563eb' :
+                                                       method === 'motorcycle' ? '#7c3aed' : '#6b7280'
+                                    }}
+                                  />
+                                  {transport && (
+                                    <transport.icon className={`w-4 h-4 ${transport.color}`} />
+                                  )}
+                                  <span className="text-sm font-medium">
+                                    {transport?.label || method}
+                                  </span>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={transport?.emissions === 'Low' ? 'text-green-600 border-green-300 bg-green-50' : 'text-red-600 border-red-300 bg-red-50'}
+                                  >
+                                    {transport?.emissions || 'Medium'}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Progress value={percentage} className="w-16 h-2" />
+                                  <span className="text-sm font-bold w-16 text-right">
+                                    {count} ({(percentage || 0).toFixed(0)}%)
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <Progress value={percentage} className="w-20 h-2" />
-                                <span className="text-sm text-muted-foreground w-12 text-right">
-                                  {count} ({(percentage || 0).toFixed(0)}%)
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
