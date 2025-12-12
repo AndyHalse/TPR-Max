@@ -2088,6 +2088,330 @@ If you didn't expect this invitation, please ignore this email.
       return false;
     }
   }
+
+  /**
+   * Send Yellow/Red Card Notification Email
+   * Features football-style card visual with company branding
+   */
+  async sendCardIssueNotification(options: {
+    workerEmail: string;
+    workerName: string;
+    cardType: 'yellow' | 'red';
+    offenceName: string;
+    offenceDescription: string;
+    location?: string;
+    witness?: string;
+    issuedByName: string;
+    issuedAt: Date;
+    previousYellowCards: number;
+    companyName: string;
+    contractorCompanyName: string;
+    contractorCompanyEmail?: string;
+    companySettings?: any;
+  }): Promise<{ workerEmailSent: boolean; contractorEmailSent: boolean }> {
+    try {
+      const {
+        workerEmail,
+        workerName,
+        cardType,
+        offenceName,
+        offenceDescription,
+        location,
+        witness,
+        issuedByName,
+        issuedAt,
+        previousYellowCards,
+        companyName,
+        contractorCompanyName,
+        contractorCompanyEmail,
+        companySettings
+      } = options;
+
+      // Get company branding
+      const primaryColor = companySettings?.accentColor || '#3b82f6';
+      const logoUrl = companySettings?.logoUrl || null;
+      
+      // Card colors
+      const cardColor = cardType === 'red' ? '#dc2626' : '#eab308';
+      const cardColorLight = cardType === 'red' ? '#fef2f2' : '#fefce8';
+      const cardColorDark = cardType === 'red' ? '#991b1b' : '#a16207';
+      const cardTitle = cardType === 'red' ? 'RED CARD' : 'YELLOW CARD';
+      const cardIcon = cardType === 'red' ? '🔴' : '🟡';
+
+      // Format date
+      const formattedDate = issuedAt.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      const formattedTime = issuedAt.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      // Escalation warning
+      const totalYellowCards = cardType === 'yellow' ? previousYellowCards + 1 : previousYellowCards;
+      const escalationWarning = cardType === 'yellow' && totalYellowCards >= 1 
+        ? `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-top: 16px;">
+            <strong style="color: #92400e;">⚠️ Escalation Warning:</strong>
+            <p style="margin: 8px 0 0 0; color: #78350f;">
+              You now have ${totalYellowCards} yellow card${totalYellowCards > 1 ? 's' : ''} on record. 
+              ${totalYellowCards >= 2 ? '<strong>Two yellow cards result in automatic escalation to a RED CARD, which carries a 3-year site ban.</strong>' : 'A second yellow card will result in automatic escalation to a RED card.'}
+            </p>
+          </div>` 
+        : '';
+
+      // Red card ban notice
+      const redCardBan = cardType === 'red' 
+        ? `<div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 16px; margin-top: 16px;">
+            <strong style="color: #991b1b; font-size: 16px;">🚫 SITE BAN NOTICE</strong>
+            <p style="margin: 8px 0 0 0; color: #7f1d1d;">
+              This RED CARD carries an automatic <strong>3-year ban</strong> from all sites managed by ${companyName}. 
+              You are prohibited from entering any company premises until ${new Date(issuedAt.getTime() + 3 * 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.
+            </p>
+          </div>` 
+        : '';
+
+      // Helper function to create absolute URLs for email clients
+      const absolutizeUrl = (url: string | undefined | null): string | null => {
+        if (!url) return null;
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || 'localhost:5000').trim();
+        const base = host.startsWith('http') ? host : `https://${host}`;
+        return `${base}/${url.replace(/^\//, '')}`;
+      };
+
+      const absoluteLogoUrl = absolutizeUrl(logoUrl);
+      const logoHtml = absoluteLogoUrl 
+        ? `<img src="${absoluteLogoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
+        : `<span style="font-size: 24px; font-weight: 700; color: ${primaryColor};">${companyName}</span>`;
+
+      const subject = `${cardIcon} ${cardTitle} Issued - ${offenceName} | ${companyName}`;
+
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${cardTitle} Notification</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    
+    <!-- Header with Company Logo -->
+    <div style="background: white; border-radius: 12px 12px 0 0; padding: 24px; text-align: center; border-bottom: 3px solid ${primaryColor};">
+      ${logoHtml}
+    </div>
+
+    <!-- Football-Style Card Visual -->
+    <div style="background: ${cardColorLight}; padding: 32px; text-align: center;">
+      <div style="
+        display: inline-block;
+        width: 120px;
+        height: 160px;
+        background: linear-gradient(135deg, ${cardColor} 0%, ${cardColorDark} 100%);
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2);
+        position: relative;
+        transform: rotate(-5deg);
+      ">
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          color: white;
+          font-size: 14px;
+          font-weight: 800;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          text-align: center;
+        ">
+          ${cardType.toUpperCase()}<br/>CARD
+        </div>
+      </div>
+      <h1 style="color: ${cardColorDark}; margin: 24px 0 8px 0; font-size: 28px; font-weight: 800;">
+        ${cardTitle} ISSUED
+      </h1>
+      <p style="color: ${cardColorDark}; margin: 0; font-size: 16px;">
+        Health & Safety Violation Notice
+      </p>
+    </div>
+
+    <!-- Main Content -->
+    <div style="background: white; padding: 32px;">
+      <p style="color: #374151; font-size: 16px; margin: 0 0 24px 0;">
+        Dear <strong>${workerName}</strong>,
+      </p>
+      
+      <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+        This email confirms that a <strong style="color: ${cardColor};">${cardTitle}</strong> has been issued to you 
+        for a health and safety violation at <strong>${companyName}</strong>.
+      </p>
+
+      <!-- Offence Details Card -->
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+        <h3 style="color: #111827; margin: 0 0 16px 0; font-size: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px;">
+          📋 Violation Details
+        </h3>
+        
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; width: 140px; vertical-align: top;">Offence Type:</td>
+            <td style="padding: 8px 0; color: #111827; font-weight: 600;">${offenceName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Description:</td>
+            <td style="padding: 8px 0; color: #111827;">${offenceDescription}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Date & Time:</td>
+            <td style="padding: 8px 0; color: #111827;">${formattedDate} at ${formattedTime}</td>
+          </tr>
+          ${location ? `
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Location:</td>
+            <td style="padding: 8px 0; color: #111827;">${location}</td>
+          </tr>
+          ` : ''}
+          ${witness ? `
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Witness:</td>
+            <td style="padding: 8px 0; color: #111827;">${witness}</td>
+          </tr>
+          ` : ''}
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Issued By:</td>
+            <td style="padding: 8px 0; color: #111827;">${issuedByName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; vertical-align: top;">Your Employer:</td>
+            <td style="padding: 8px 0; color: #111827;">${contractorCompanyName}</td>
+          </tr>
+        </table>
+      </div>
+
+      ${escalationWarning}
+      ${redCardBan}
+
+      <!-- What Happens Next -->
+      <div style="background: #f0f9ff; border: 1px solid #0284c7; border-radius: 8px; padding: 16px; margin-top: 24px;">
+        <h4 style="color: #0c4a6e; margin: 0 0 8px 0;">ℹ️ What Happens Next?</h4>
+        <ul style="color: #075985; margin: 0; padding-left: 20px; line-height: 1.8;">
+          <li>This ${cardType} card has been recorded on your worker profile</li>
+          <li>Your employer (${contractorCompanyName}) has been notified</li>
+          ${cardType === 'yellow' ? '<li>Please take immediate steps to correct this behavior</li>' : ''}
+          ${cardType === 'red' ? '<li>Your site access has been revoked effective immediately</li>' : ''}
+          <li>You may submit an appeal if you believe this was issued in error</li>
+        </ul>
+      </div>
+
+      <!-- Appeal Information -->
+      <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+        <p style="color: #6b7280; font-size: 14px; margin: 0;">
+          <strong>Right to Appeal:</strong> If you believe this card was issued unfairly, you have the right to appeal. 
+          Please contact your site supervisor or the issuing authority within 7 days of receiving this notice.
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #1f2937; color: #9ca3af; padding: 24px; border-radius: 0 0 12px 12px; text-align: center;">
+      <p style="margin: 0 0 8px 0; font-size: 14px;">
+        ${companyName} - Health & Safety Management
+      </p>
+      <p style="margin: 0; font-size: 12px;">
+        This is an automated notification from the TPR Max Visitor Management System.
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>
+      `;
+
+      const text = `
+${cardTitle} ISSUED - HEALTH & SAFETY VIOLATION NOTICE
+
+Dear ${workerName},
+
+This email confirms that a ${cardTitle} has been issued to you for a health and safety violation at ${companyName}.
+
+VIOLATION DETAILS
+-----------------
+Offence Type: ${offenceName}
+Description: ${offenceDescription}
+Date & Time: ${formattedDate} at ${formattedTime}
+${location ? `Location: ${location}` : ''}
+${witness ? `Witness: ${witness}` : ''}
+Issued By: ${issuedByName}
+Your Employer: ${contractorCompanyName}
+
+${cardType === 'yellow' && totalYellowCards >= 1 ? `
+ESCALATION WARNING
+You now have ${totalYellowCards} yellow card(s) on record. ${totalYellowCards >= 2 ? 'Two yellow cards result in automatic escalation to a RED CARD, which carries a 3-year site ban.' : 'A second yellow card will result in automatic escalation to a RED card.'}
+` : ''}
+
+${cardType === 'red' ? `
+SITE BAN NOTICE
+This RED CARD carries an automatic 3-year ban from all sites managed by ${companyName}.
+` : ''}
+
+WHAT HAPPENS NEXT
+- This ${cardType} card has been recorded on your worker profile
+- Your employer (${contractorCompanyName}) has been notified
+${cardType === 'yellow' ? '- Please take immediate steps to correct this behavior' : ''}
+${cardType === 'red' ? '- Your site access has been revoked effective immediately' : ''}
+- You may submit an appeal if you believe this was issued in error
+
+RIGHT TO APPEAL
+If you believe this card was issued unfairly, you have the right to appeal. Please contact your site supervisor or the issuing authority within 7 days.
+
+---
+${companyName} - Health & Safety Management
+TPR Max Visitor Management System
+      `;
+
+      // Send email to worker
+      let workerEmailSent = false;
+      if (workerEmail) {
+        workerEmailSent = await this.sendEmail({
+          to: workerEmail,
+          subject,
+          html,
+          text,
+          companyName
+        });
+        console.log(`📧 Card issue email to worker ${workerName} (${workerEmail}): ${workerEmailSent ? 'SENT' : 'FAILED'}`);
+      }
+
+      // Send CC to contractor company
+      let contractorEmailSent = false;
+      if (contractorCompanyEmail) {
+        const contractorSubject = `${cardIcon} ${cardTitle} Issued to ${workerName} - ${offenceName} | ${companyName}`;
+        const contractorHtml = html.replace(
+          `Dear <strong>${workerName}</strong>,`,
+          `Dear <strong>${contractorCompanyName}</strong>,<br/><br/>
+          <em style="color: #6b7280;">This is a notification that one of your workers has received a health and safety card:</em>`
+        );
+        
+        contractorEmailSent = await this.sendEmail({
+          to: contractorCompanyEmail,
+          subject: contractorSubject,
+          html: contractorHtml,
+          text: `NOTIFICATION: ${cardTitle} issued to ${workerName}\n\n${text}`,
+          companyName
+        });
+        console.log(`📧 Card issue email to contractor company (${contractorCompanyEmail}): ${contractorEmailSent ? 'SENT' : 'FAILED'}`);
+      }
+
+      return { workerEmailSent, contractorEmailSent };
+    } catch (error) {
+      console.error('Failed to send card issue notification:', error);
+      return { workerEmailSent: false, contractorEmailSent: false };
+    }
+  }
 }
 
 export { EmailService };
