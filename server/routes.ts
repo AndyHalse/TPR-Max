@@ -11308,6 +11308,90 @@ This is an automated notification from your visitor management system.`;
       
       console.log(`✅ Card issue created successfully for customer ${context.customerId}:`, issue);
       
+      // Send email notification (async - don't block the response)
+      (async () => {
+        try {
+          const { workerId, offenceId, cardType, description, location, witness, issuedBy, contractorId } = req.body;
+          
+          // Get worker details
+          const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+          const [worker] = await customerDb
+            .select()
+            .from(isolatedSchema.contractorWorkers)
+            .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+          
+          if (!worker) {
+            console.log(`⚠️ Card issue email skipped - worker not found: ${workerId}`);
+            return;
+          }
+          
+          // Get offence details
+          const [offence] = await customerDb
+            .select()
+            .from(isolatedSchema.cardOffences)
+            .where(eq(isolatedSchema.cardOffences.id, offenceId));
+          
+          // Get contractor company details
+          const [contractorCompany] = await customerDb
+            .select()
+            .from(isolatedSchema.contractorCompanies)
+            .where(eq(isolatedSchema.contractorCompanies.id, worker.companyId || contractorId));
+          
+          // Get company settings for branding
+          const [companySettings] = await customerDb
+            .select()
+            .from(isolatedSchema.companySettings)
+            .limit(1);
+          
+          // Get issuer name
+          let issuedByName = 'Site Management';
+          if (issuedBy) {
+            const [issuer] = await customerDb
+              .select()
+              .from(isolatedSchema.users)
+              .where(eq(isolatedSchema.users.id, issuedBy));
+            if (issuer) {
+              issuedByName = issuer.username || 'Site Management';
+            }
+          }
+          
+          // Count previous yellow cards for this worker
+          const previousCards = await customerDb
+            .select()
+            .from(isolatedSchema.cardIssues)
+            .where(eq(isolatedSchema.cardIssues.workerId, workerId));
+          const previousYellowCards = previousCards.filter(c => c.cardType === 'yellow' && c.id !== issue.id).length;
+          
+          // Send the notification email
+          const workerEmail = worker.workerEmail || worker.email;
+          if (!workerEmail) {
+            console.log(`⚠️ Card issue email skipped - no email for worker: ${worker.firstName} ${worker.lastName}`);
+            return;
+          }
+          
+          const result = await emailService.sendCardIssueNotification({
+            workerEmail,
+            workerName: `${worker.firstName} ${worker.lastName}`,
+            cardType: cardType as 'yellow' | 'red',
+            offenceName: offence?.name || 'Safety Violation',
+            offenceDescription: description || offence?.description || 'No details provided',
+            location,
+            witness,
+            issuedByName,
+            issuedAt: new Date(),
+            previousYellowCards,
+            companyName: companySettings?.companyName || 'Site Management',
+            contractorCompanyName: contractorCompany?.name || 'Contractor',
+            contractorCompanyEmail: contractorCompany?.contactEmail,
+            companySettings
+          });
+          
+          console.log(`📧 Card issue notification result:`, result);
+        } catch (emailError) {
+          console.error('❌ Failed to send card issue email (non-blocking):', emailError);
+        }
+      })();
+      
       res.status(201).json(issue);
     } catch (error) {
       console.error("Error creating card issue:", error);
