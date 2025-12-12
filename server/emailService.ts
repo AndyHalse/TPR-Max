@@ -2174,14 +2174,21 @@ If you didn't expect this invitation, please ignore this email.
         : '';
 
       // Helper function to create absolute URLs for email clients
-      // Note: Uploads are served directly from /uploads/ route, not object storage
+      // Logo files stored as /uploads/uuid must be served via /objects/uploads/uuid
       const absolutizeUrl = (url: string | undefined | null): string | null => {
         if (!url) return null;
         if (url.startsWith('http://') || url.startsWith('https://')) return url;
         const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || 'localhost:5000').trim();
         const base = host.startsWith('http') ? host : `https://${host}`;
         const cleanBase = base.replace(/\/$/, '');
-        const cleanPath = url.replace(/^\//, '');
+        // Map /uploads/... paths to /objects/uploads/... for object storage serving
+        let normalizedPath = url;
+        if (url.startsWith('/uploads/')) {
+          normalizedPath = `/objects${url}`;
+        } else if (url.startsWith('uploads/')) {
+          normalizedPath = `/objects/${url}`;
+        }
+        const cleanPath = normalizedPath.replace(/^\//, '');
         return `${cleanBase}/${cleanPath}`;
       };
 
