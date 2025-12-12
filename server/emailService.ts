@@ -2179,10 +2179,16 @@ If you didn't expect this invitation, please ignore this email.
         if (url.startsWith('http://') || url.startsWith('https://')) return url;
         const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || 'localhost:5000').trim();
         const base = host.startsWith('http') ? host : `https://${host}`;
-        return `${base}/${url.replace(/^\//, '')}`;
+        // Handle object storage paths - ensure they go through /objects endpoint
+        let normalizedUrl = url;
+        if (url.includes('/public/') && !url.startsWith('/objects')) {
+          normalizedUrl = `/objects${url.startsWith('/') ? '' : '/'}${url}`;
+        }
+        return `${base}/${normalizedUrl.replace(/^\//, '')}`;
       };
 
       const absoluteLogoUrl = absolutizeUrl(logoUrl);
+      console.log(`📧 Card issue email - Logo URL: ${logoUrl}, Absolute: ${absoluteLogoUrl}`);
       const logoHtml = absoluteLogoUrl 
         ? `<img src="${absoluteLogoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
         : `<span style="font-size: 24px; font-weight: 700; color: ${primaryColor};">${companyName}</span>`;
