@@ -2179,9 +2179,12 @@ If you didn't expect this invitation, please ignore this email.
         if (url.startsWith('http://') || url.startsWith('https://')) return url;
         const host = (process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.BASE_URL || process.env.PUBLIC_URL || 'localhost:5000').trim();
         const base = host.startsWith('http') ? host : `https://${host}`;
-        // Handle object storage paths - ensure they go through /objects endpoint
+        // Handle object storage paths - ensure they go through /objects/public endpoint
         let normalizedUrl = url;
-        if (url.includes('/public/') && !url.startsWith('/objects')) {
+        if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
+          // Uploads are stored in object storage public folder
+          normalizedUrl = `/objects/public${url.startsWith('/') ? '' : '/'}${url}`;
+        } else if (url.includes('/public/') && !url.startsWith('/objects')) {
           normalizedUrl = `/objects${url.startsWith('/') ? '' : '/'}${url}`;
         }
         return `${base}/${normalizedUrl.replace(/^\//, '')}`;
