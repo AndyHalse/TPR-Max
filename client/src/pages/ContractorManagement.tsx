@@ -771,7 +771,8 @@ export default function ContractorManagement() {
                             setShowHSModal(true);
                           }}
                           disabled={checkInMutation.isPending}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white"
+                          variant="outline"
+                          className="w-full text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                           data-testid={`button-checkin-${contractor.id}`}
                         >
                           <LogIn className="mr-2 h-4 w-4" />
@@ -784,7 +785,8 @@ export default function ContractorManagement() {
                             checkOutMutation.mutate(contractor.id);
                           }}
                           disabled={checkOutMutation.isPending}
-                          className="w-full bg-red-600 hover:bg-red-700 text-white"
+                          variant="outline"
+                          className="w-full text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                           data-testid={`button-checkout-${contractor.id}`}
                         >
                           <LogOut className="mr-2 h-4 w-4" />
