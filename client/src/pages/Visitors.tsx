@@ -908,37 +908,17 @@ export default function Visitors() {
                         </div>
                       </div>
 
-                      {/* Check-in status like staff */}
                       <div className="flex items-center justify-between">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              visitor.isCheckedIn 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-gray-100 text-gray-600'
-                            }`} data-testid={`visitor-checkin-status-${visitor.id}`}>
-                              {visitor.isCheckedIn ? (
-                                <>
-                                  <UserCheck size={12} className="mr-1" />
-                                  Checked In
-                                </>
-                              ) : (
-                                <>
-                                  <UserX size={12} className="mr-1" />
-                                  Checked Out
-                                </>
-                              )}
+                        <div className="flex items-center gap-2">
+                          {visitor.isCheckedIn && visitor.checkedInAt && (
+                            <span className="text-xs text-variable flex items-center">
+                              <Clock size={10} className="mr-1" />
+                              {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
                             </span>
-                            {visitor.isCheckedIn && visitor.checkedInAt && (
-                              <span className="text-xs text-variable flex items-center">
-                                <Clock size={10} className="mr-1" />
-                                {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <Button 
