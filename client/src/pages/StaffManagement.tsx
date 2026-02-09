@@ -244,24 +244,6 @@ export default function StaffManagement() {
                   }`}>
                     {member.isActive ? 'Active' : 'Inactive'}
                   </span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    member.isCheckedIn 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : 'bg-gray-100 text-gray-600'
-                  }`} data-testid={`staff-checkin-status-${member.id}`}>
-                    {member.isCheckedIn ? (
-                      <>
-                        <UserCheck size={12} className="mr-1" />
-                        Checked In
-                        {member.manualCheckIn && <span className="ml-1" title="Manual check-in due to lost card">📝</span>}
-                      </>
-                    ) : (
-                      <>
-                        <UserX size={12} className="mr-1" />
-                        Checked Out
-                      </>
-                    )}
-                  </span>
                   {member.isCheckedIn && member.checkedInAt && (
                     <span className="text-xs text-variable flex items-center">
                       <Clock size={10} className="mr-1" />
