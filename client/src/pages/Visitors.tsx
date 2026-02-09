@@ -962,15 +962,17 @@ export default function Visitors() {
                             <CalendarPlus size={14} />
                           </Button>
                           {visitor.isCheckedIn ? (
-                            <button
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
                               onClick={() => checkoutVisitorMutation.mutate(visitor.id)}
                               disabled={checkoutVisitorMutation.isPending}
-                              className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                               data-testid={`button-checkout-visitor-${visitor.id}`}
                               title="Check out visitor"
                             >
-                              <UserX size={16} />
-                            </button>
+                              <UserX size={16} className="mr-1" />
+                              Check Out
+                            </Button>
                           ) : (
                             <Button 
                               size="sm" 
