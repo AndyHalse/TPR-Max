@@ -233,7 +233,7 @@ export default function ContractorPreBooking() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <CalendarPlus className="h-6 w-6 text-purple-600" />
-          <h2 className="text-2xl font-semibold text-slate-800">Contractor Pre-booking</h2>
+          <h2 className="text-2xl font-semibold text-fixed">Contractor Pre-booking</h2>
         </div>
         <Button
           onClick={() => {
@@ -438,15 +438,15 @@ export default function ContractorPreBooking() {
       {/* Today's Pre-bookings */}
       {todaysBookings.length > 0 && (
         <GlassCard className="p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Today's Pre-bookings</h3>
+          <h3 className="text-lg font-semibold text-fixed mb-4">Today's Pre-bookings</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {todaysBookings.map((booking) => (
               <div key={booking.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="space-y-2">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-semibold text-slate-800">{booking.workerName}</h4>
-                      <p className="text-sm text-slate-600">{booking.companyName}</p>
+                      <h4 className="font-semibold text-fixed">{booking.workerName}</h4>
+                      <p className="text-sm text-variable">{booking.companyName}</p>
                     </div>
                     <Badge className={getStatusColor(booking.status || 'pending')}>
                       {booking.status || 'pending'}
@@ -458,7 +458,7 @@ export default function ContractorPreBooking() {
                       <Clock className="h-3 w-3" />
                       {booking.scheduledTime} ({booking.duration || '4'} hours)
                     </p>
-                    <p className="text-slate-600">{booking.purpose}</p>
+                    <p className="text-variable">{booking.purpose}</p>
                   </div>
 
                   {booking.status === 'pending' && (
@@ -481,11 +481,11 @@ export default function ContractorPreBooking() {
 
       {/* All Pre-bookings */}
       <GlassCard className="p-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">All Pre-bookings</h3>
+        <h3 className="text-lg font-semibold text-fixed mb-4">All Pre-bookings</h3>
         {isLoading ? (
-          <div className="text-center py-8 text-slate-500">Loading pre-bookings...</div>
+          <div className="text-center py-8 text-variable">Loading pre-bookings...</div>
         ) : preBookings.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">No contractor pre-bookings found</div>
+          <div className="text-center py-8 text-variable">No contractor pre-bookings found</div>
         ) : (
           <div className="space-y-3">
             {preBookings.map((booking) => (
@@ -493,13 +493,13 @@ export default function ContractorPreBooking() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-semibold text-slate-800">{booking.workerName}</h4>
+                      <h4 className="font-semibold text-fixed">{booking.workerName}</h4>
                       <Badge className={getStatusColor(booking.status || 'pending')}>
                         {booking.status || 'pending'}
                       </Badge>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-slate-600">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-variable">
                       <p className="flex items-center gap-1">
                         <Building2 className="h-3 w-3" />
                         {booking.companyName}
@@ -514,9 +514,9 @@ export default function ContractorPreBooking() {
                       </p>
                     </div>
                     
-                    <p className="text-sm text-slate-600 mt-1">Purpose: {booking.purpose}</p>
+                    <p className="text-sm text-variable mt-1">Purpose: {booking.purpose}</p>
                     {booking.notes && (
-                      <p className="text-sm text-slate-500 mt-1">Notes: {booking.notes}</p>
+                      <p className="text-sm text-variable mt-1">Notes: {booking.notes}</p>
                     )}
                   </div>
                   

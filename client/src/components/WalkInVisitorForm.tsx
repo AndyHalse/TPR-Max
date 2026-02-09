@@ -149,15 +149,15 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
               onClick={onBack}
               variant="outline"
               size="lg"
-              className="flex items-center gap-3 bg-white/50 border-white/30 text-slate-700 hover:bg-white/70 px-6 py-4 text-lg"
+              className="flex items-center gap-3 bg-white/50 border-white/30 text-fixed hover:bg-white/70 px-6 py-4 text-lg"
               data-testid="button-back"
             >
               <ArrowLeft size={20} />
               Back
             </Button>
             <div>
-              <h2 className="text-3xl font-bold text-slate-800">Manual Check-In</h2>
-              <p className="text-slate-600 text-lg">Touch the fields below to enter visitor details</p>
+              <h2 className="text-3xl font-bold text-fixed">Manual Check-In</h2>
+              <p className="text-variable text-lg">Touch the fields below to enter visitor details</p>
             </div>
           </div>
         </div>
@@ -171,7 +171,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   <div className="w-12 h-12 gradient-blue rounded-full flex items-center justify-center">
                     <User className="text-white" size={24} />
                   </div>
-                  <h3 className="text-2xl font-semibold text-slate-800">Visitor Information</h3>
+                  <h3 className="text-2xl font-semibold text-fixed">Visitor Information</h3>
                   {activeField && (
                     <div className="ml-auto px-4 py-2 bg-blue-100 rounded-lg">
                       <span className="text-blue-800 font-medium">
@@ -184,7 +184,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                 {/* Name Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-slate-700 flex items-center gap-2">
+                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
                       <span className="w-6 h-6 bg-red-500 text-white rounded-full text-sm flex items-center justify-center">1</span>
                       First Name *
                     </Label>
@@ -197,14 +197,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       }`}
                       data-testid="input-first-name"
                     >
-                      <span className={formData.firstName ? "text-slate-800" : "text-slate-400"}>
+                      <span className={formData.firstName ? "text-fixed" : "text-variable"}>
                         {formData.firstName || "👆 Touch here to enter first name"}
                       </span>
                     </div>
                   </div>
                   
                   <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-slate-700 flex items-center gap-2">
+                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
                       <span className="w-6 h-6 bg-red-500 text-white rounded-full text-sm flex items-center justify-center">2</span>
                       Last Name *
                     </Label>
@@ -217,7 +217,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       }`}
                       data-testid="input-last-name"
                     >
-                      <span className={formData.lastName ? "text-slate-800" : "text-slate-400"}>
+                      <span className={formData.lastName ? "text-fixed" : "text-variable"}>
                         {formData.lastName || "👆 Touch here to enter last name"}
                       </span>
                     </div>
@@ -227,9 +227,9 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                 {/* Company and Purpose */}
                 <div className="space-y-6">
                   <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-slate-700 flex items-center gap-2">
+                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
                       <span className="w-6 h-6 bg-gray-500 text-white rounded-full text-sm flex items-center justify-center">3</span>
-                      Company <span className="text-sm text-slate-500 font-normal">(Optional)</span>
+                      Company <span className="text-sm text-variable font-normal">(Optional)</span>
                     </Label>
                     <div
                       onClick={() => setActiveField("company")}
@@ -240,16 +240,16 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       }`}
                       data-testid="input-company"
                     >
-                      <span className={formData.company ? "text-slate-800" : "text-slate-400"}>
+                      <span className={formData.company ? "text-fixed" : "text-variable"}>
                         {formData.company || "👆 Touch here to enter company name"}
                       </span>
                     </div>
                   </div>
                   
                   <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-slate-700 flex items-center gap-2">
+                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
                       <span className="w-6 h-6 bg-gray-500 text-white rounded-full text-sm flex items-center justify-center">4</span>
-                      Purpose of Visit <span className="text-sm text-slate-500 font-normal">(Optional)</span>
+                      Purpose of Visit <span className="text-sm text-variable font-normal">(Optional)</span>
                     </Label>
                     <div
                       onClick={() => setActiveField("purpose")}
@@ -260,7 +260,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       }`}
                       data-testid="input-purpose"
                     >
-                      <span className={formData.purpose ? "text-slate-800" : "text-slate-400"}>
+                      <span className={formData.purpose ? "text-fixed" : "text-variable"}>
                         {formData.purpose || "👆 Touch here to enter purpose of visit"}
                       </span>
                     </div>
@@ -269,7 +269,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
 
                 {/* Host Selection */}
                 <div className="space-y-3">
-                  <Label className="text-xl font-semibold text-slate-700 flex items-center gap-2">
+                  <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
                     <span className="w-6 h-6 bg-red-500 text-white rounded-full text-sm flex items-center justify-center">5</span>
                     Who are you here to see? *
                   </Label>
@@ -281,7 +281,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                     }}
                   >
                     <SelectTrigger className="w-full px-8 py-8 rounded-2xl border-2 border-white/40 bg-white/60 text-xl font-medium hover:bg-white/80 hover:border-blue-300" data-testid="select-host">
-                      <SelectValue placeholder="👆 Touch here to select your host" className="text-slate-400" />
+                      <SelectValue placeholder="👆 Touch here to select your host" className="text-variable" />
                     </SelectTrigger>
                     <SelectContent className="text-lg">
                       {staff?.map((member) => (
@@ -295,7 +295,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
 
                 {/* Progress Indicator */}
                 <div className="bg-white/50 rounded-xl p-6">
-                  <div className="flex items-center justify-between text-sm text-slate-600 mb-2">
+                  <div className="flex items-center justify-between text-sm text-variable mb-2">
                     <span>Progress</span>
                     <span>{[formData.firstName, formData.lastName, formData.hostStaffId].filter(Boolean).length}/3 required fields completed</span>
                   </div>
@@ -325,7 +325,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                     className={`flex-1 py-8 text-2xl rounded-2xl font-bold transition-all ${
                       canSubmit 
                         ? "gradient-blue text-white shadow-lg hover:shadow-xl transform hover:scale-105" 
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-gray-300 text-variable cursor-not-allowed"
                     }`}
                     data-testid="button-submit"
                   >
@@ -353,7 +353,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
               </div>
             ) : (
               <div className="max-w-4xl mx-auto text-center py-8">
-                <div className="text-slate-500">
+                <div className="text-variable">
                   <p className="text-xl mb-2">👆 Touch any field above to start typing</p>
                   <p className="text-lg">The keyboard will appear here when you need it</p>
                 </div>

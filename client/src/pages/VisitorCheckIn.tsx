@@ -367,8 +367,8 @@ export default function VisitorCheckIn() {
     <div className="max-w-2xl mx-auto">
       <GlassCard className="p-8">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Visitor Check-In</h2>
-          <p className="text-slate-600">Please fill in your details below</p>
+          <h2 className="text-2xl font-bold text-fixed mb-2">Visitor Check-In</h2>
+          <p className="text-variable">Please fill in your details below</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -383,7 +383,7 @@ export default function VisitorCheckIn() {
                 required
                 value={formData.name}
                 onChange={(e) => handleInputChange("name", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder="Enter your full name"
                 data-testid="input-visitor-name"
               />
@@ -397,7 +397,7 @@ export default function VisitorCheckIn() {
                 type="text"
                 value={formData.company}
                 onChange={(e) => handleInputChange("company", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder="Your company name"
                 data-testid="input-visitor-company"
               />
@@ -413,7 +413,7 @@ export default function VisitorCheckIn() {
               type="email"
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Your email for digital pass"
               data-testid="input-visitor-email"
             />
@@ -424,7 +424,7 @@ export default function VisitorCheckIn() {
               Host *
             </Label>
             <Select value={formData.hostStaffId} onValueChange={(value) => handleInputChange("hostStaffId", value)}>
-              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-host">
+              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-host">
                 <SelectValue placeholder="Select your host" />
               </SelectTrigger>
               <SelectContent>
@@ -446,7 +446,7 @@ export default function VisitorCheckIn() {
               type="text"
               value={formData.purpose}
               onChange={(e) => handleInputChange("purpose", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Reason for your visit"
               data-testid="input-visitor-purpose"
             />
@@ -461,7 +461,7 @@ export default function VisitorCheckIn() {
               type="text"
               value={formData.carRegistration}
               onChange={(e) => handleInputChange("carRegistration", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Vehicle registration number"
               data-testid="input-visitor-car-registration"
             />

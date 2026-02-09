@@ -117,7 +117,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-slate-800">
+          <DialogTitle className="flex items-center gap-2 text-fixed">
             📝 Edit Visitor Profile
           </DialogTitle>
         </DialogHeader>
@@ -138,7 +138,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
             <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800">Personal Information</h3>
+            <h3 className="text-lg font-semibold text-fixed">Personal Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="firstName">First Name *</Label>
@@ -202,7 +202,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
 
           {/* Company Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800">Company Information</h3>
+            <h3 className="text-lg font-semibold text-fixed">Company Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="company">Company</Label>
@@ -227,7 +227,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
 
           {/* Additional Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800">Additional Information</h3>
+            <h3 className="text-lg font-semibold text-fixed">Additional Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="carRegistration">Car Registration</Label>
@@ -264,24 +264,24 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
 
           {/* Compliance Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800">Compliance & Safety</h3>
+            <h3 className="text-lg font-semibold text-fixed">Compliance & Safety</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50">
-                <CheckCircle size={20} className={visitor.hsRulesAccepted ? 'text-green-600' : 'text-slate-400'} />
+              <div className="flex items-center gap-2 p-3 border rounded-lg bg-[var(--background)]">
+                <CheckCircle size={20} className={visitor.hsRulesAccepted ? 'text-green-600' : 'text-variable'} />
                 <div className="flex-1">
                   <p className="text-sm font-medium">H&S Rules</p>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-variable">
                     {visitor.hsRulesAccepted 
                       ? `Accepted on ${visitor.hsRulesAcceptedAt ? format(new Date(visitor.hsRulesAcceptedAt), 'dd/MM/yyyy HH:mm') : 'N/A'}`
                       : 'Not accepted'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50">
-                <CheckCircle size={20} className={visitor.inductionCompleted ? 'text-green-600' : 'text-slate-400'} />
+              <div className="flex items-center gap-2 p-3 border rounded-lg bg-[var(--background)]">
+                <CheckCircle size={20} className={visitor.inductionCompleted ? 'text-green-600' : 'text-variable'} />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Induction</p>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-variable">
                     {visitor.inductionCompleted 
                       ? `Completed on ${visitor.inductionCompletedAt ? format(new Date(visitor.inductionCompletedAt), 'dd/MM/yyyy HH:mm') : 'N/A'}`
                       : 'Not completed'}
@@ -319,7 +319,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
       <TabsContent value="history" className="flex-1 overflow-auto">
         <ScrollArea className="h-[500px] pr-4">
           {visitorHistory.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="text-center py-8 text-variable">
               <History size={48} className="mx-auto mb-3 text-slate-300" />
               <p className="text-lg font-medium">No visit history</p>
               <p className="text-sm">This visitor has no recorded visits yet.</p>
@@ -327,10 +327,10 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
           ) : (
             <div className="space-y-4">
               {visitorHistory.map((visit, index) => (
-                <div key={visit.id} className="border rounded-lg p-4 bg-slate-50">
+                <div key={visit.id} className="border rounded-lg p-4 bg-[var(--background)]">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-slate-500" />
+                      <Clock size={16} className="text-variable" />
                       <p className="font-medium text-sm">Visit #{visitorHistory.length - index}</p>
                     </div>
                     {!visit.checkOutTime && (
@@ -339,24 +339,24 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     <div>
-                      <p className="text-slate-600">Check-In:</p>
+                      <p className="text-variable">Check-In:</p>
                       <p className="font-medium">{format(new Date(visit.checkInTime), 'dd/MM/yyyy HH:mm')}</p>
                     </div>
                     {visit.checkOutTime && (
                       <div>
-                        <p className="text-slate-600">Check-Out:</p>
+                        <p className="text-variable">Check-Out:</p>
                         <p className="font-medium">{format(new Date(visit.checkOutTime), 'dd/MM/yyyy HH:mm')}</p>
                       </div>
                     )}
                     {visit.hostName && (
                       <div>
-                        <p className="text-slate-600">Host:</p>
+                        <p className="text-variable">Host:</p>
                         <p className="font-medium">{visit.hostName}</p>
                       </div>
                     )}
                     {visit.purpose && (
                       <div>
-                        <p className="text-slate-600">Purpose:</p>
+                        <p className="text-variable">Purpose:</p>
                         <p className="font-medium">{visit.purpose}</p>
                       </div>
                     )}

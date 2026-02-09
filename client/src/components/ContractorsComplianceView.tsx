@@ -187,7 +187,7 @@ export default function ContractorsComplianceView({
       <div className="space-y-6">
         <div className="text-center py-8">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
-          <p className="mt-2 text-slate-600">Loading compliance overview...</p>
+          <p className="mt-2 text-variable">Loading compliance overview...</p>
         </div>
       </div>
     );
@@ -198,11 +198,11 @@ export default function ContractorsComplianceView({
       {/* Header with Company Selection */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-blue-600" />
             H&S Compliance Overview
           </h3>
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="text-sm text-variable mt-1">
             View and monitor UK Health & Safety compliance status
           </p>
         </div>
@@ -240,8 +240,8 @@ export default function ContractorsComplianceView({
               <div className="flex items-center gap-3">
                 <FileText className="w-8 h-8 text-blue-600" />
                 <div>
-                  <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-                  <p className="text-sm text-slate-600">Total Assignments</p>
+                  <p className="text-2xl font-bold text-fixed">{stats.total}</p>
+                  <p className="text-sm text-variable">Total Assignments</p>
                 </div>
               </div>
             </GlassCard>
@@ -250,8 +250,8 @@ export default function ContractorsComplianceView({
               <div className="flex items-center gap-3">
                 <CheckCircle className="w-8 h-8 text-green-600" />
                 <div>
-                  <p className="text-2xl font-bold text-slate-800">{stats.accepted}</p>
-                  <p className="text-sm text-slate-600">Completed</p>
+                  <p className="text-2xl font-bold text-fixed">{stats.accepted}</p>
+                  <p className="text-sm text-variable">Completed</p>
                 </div>
               </div>
             </GlassCard>
@@ -260,8 +260,8 @@ export default function ContractorsComplianceView({
               <div className="flex items-center gap-3">
                 <Clock className="w-8 h-8 text-yellow-600" />
                 <div>
-                  <p className="text-2xl font-bold text-slate-800">{stats.pending}</p>
-                  <p className="text-sm text-slate-600">Pending</p>
+                  <p className="text-2xl font-bold text-fixed">{stats.pending}</p>
+                  <p className="text-sm text-variable">Pending</p>
                 </div>
               </div>
             </GlassCard>
@@ -270,8 +270,8 @@ export default function ContractorsComplianceView({
               <div className="flex items-center gap-3">
                 <BarChart3 className="w-8 h-8 text-purple-600" />
                 <div>
-                  <p className="text-2xl font-bold text-slate-800">{stats.complianceRate}%</p>
-                  <p className="text-sm text-slate-600">Compliance Rate</p>
+                  <p className="text-2xl font-bold text-fixed">{stats.complianceRate}%</p>
+                  <p className="text-sm text-variable">Compliance Rate</p>
                 </div>
               </div>
             </GlassCard>
@@ -280,7 +280,7 @@ export default function ContractorsComplianceView({
           {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-variable" size={16} />
               <Input
                 placeholder="Search workers or documents..."
                 value={searchTerm}
@@ -316,7 +316,7 @@ export default function ContractorsComplianceView({
 
           {/* Company Compliance Status */}
           <GlassCard>
-            <h4 className="font-medium text-slate-800 mb-4 flex items-center gap-2">
+            <h4 className="font-medium text-fixed mb-4 flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               {selectedCompany.name} - H&S Document Assignments
             </h4>
@@ -328,15 +328,15 @@ export default function ContractorsComplianceView({
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm">{assignment.worker.firstName} {assignment.worker.lastName}</p>
-                        <span className="text-slate-400">•</span>
-                        <p className="text-sm text-slate-600">{assignment.template.documentName}</p>
+                        <span className="text-variable">•</span>
+                        <p className="text-sm text-variable">{assignment.template.documentName}</p>
                       </div>
                       <div className="flex items-center gap-4 mt-1">
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-variable">
                           Assigned: {new Date(assignment.assignment.assignedAt).toLocaleDateString()}
                         </p>
                         {assignment.assignment.dueDate && (
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-variable">
                             Due: {new Date(assignment.assignment.dueDate).toLocaleDateString()}
                           </p>
                         )}
@@ -372,7 +372,7 @@ export default function ContractorsComplianceView({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-variable">
                 <FileText className="w-12 h-12 mx-auto mb-2 text-slate-300" />
                 <p>
                   {assignments.length === 0 
@@ -387,9 +387,9 @@ export default function ContractorsComplianceView({
       )}
 
       {!selectedCompany && (
-        <div className="text-center py-12 text-slate-500">
+        <div className="text-center py-12 text-variable">
           <Shield className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-          <h4 className="text-lg font-medium text-slate-600 mb-2">Select a Company</h4>
+          <h4 className="text-lg font-medium text-variable mb-2">Select a Company</h4>
           <p>Choose a contractor company to view their H&S compliance status</p>
         </div>
       )}

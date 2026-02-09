@@ -658,7 +658,7 @@ export default function Contractors() {
       case "missing":
         return <AlertTriangle className="text-red-500" size={16} />;
       default:
-        return <AlertTriangle className="text-gray-400" size={16} />;
+        return <AlertTriangle className="text-variable" size={16} />;
     }
   };
 
@@ -797,8 +797,8 @@ export default function Contractors() {
               <div className="flex-1">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-                      <Building2 className="text-slate-600" size={20} />
+                    <div className="w-12 h-12 bg-[var(--background)] rounded-lg flex items-center justify-center">
+                      <Building2 className="text-variable" size={20} />
                     </div>
                     <div>
                       <h3 className="font-semibold text-fixed">{contractor.name}</h3>
@@ -831,40 +831,40 @@ export default function Contractors() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="bg-white/50 p-3 rounded-lg">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-slate-600">Public Liability</span>
+                      <span className="text-xs font-medium text-variable">Public Liability</span>
                       {getDocumentStatusIcon(contractor.documentsStatus.publicLiability)}
                     </div>
-                    <span className="text-xs text-slate-500 capitalize">
+                    <span className="text-xs text-variable capitalize">
                       {contractor.documentsStatus.publicLiability}
                     </span>
                   </div>
 
                   <div className="bg-white/50 p-3 rounded-lg">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-slate-600">Employers Liability</span>
+                      <span className="text-xs font-medium text-variable">Employers Liability</span>
                       {getDocumentStatusIcon(contractor.documentsStatus.employersLiability)}
                     </div>
-                    <span className="text-xs text-slate-500 capitalize">
+                    <span className="text-xs text-variable capitalize">
                       {contractor.documentsStatus.employersLiability}
                     </span>
                   </div>
 
                   <div className="bg-white/50 p-3 rounded-lg">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-slate-600">Health & Safety</span>
+                      <span className="text-xs font-medium text-variable">Health & Safety</span>
                       {getDocumentStatusIcon(contractor.documentsStatus.healthSafety)}
                     </div>
-                    <span className="text-xs text-slate-500 capitalize">
+                    <span className="text-xs text-variable capitalize">
                       {contractor.documentsStatus.healthSafety}
                     </span>
                   </div>
 
                   <div className="bg-white/50 p-3 rounded-lg">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-slate-600">CIS Registration</span>
+                      <span className="text-xs font-medium text-variable">CIS Registration</span>
                       {getDocumentStatusIcon(contractor.documentsStatus.cisRegistration)}
                     </div>
-                    <span className="text-xs text-slate-500 capitalize">
+                    <span className="text-xs text-variable capitalize">
                       {contractor.documentsStatus.cisRegistration}
                     </span>
                   </div>
@@ -1079,7 +1079,7 @@ export default function Contractors() {
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Compliance Documents Expiry Dates</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-600">Public Liability Insurance</label>
+                  <label className="text-xs font-medium text-variable">Public Liability Insurance</label>
                   <Input
                     type="date"
                     value={contractorForm.publicLiabilityExpiry}
@@ -1088,7 +1088,7 @@ export default function Contractors() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-600">Employers Liability Insurance</label>
+                  <label className="text-xs font-medium text-variable">Employers Liability Insurance</label>
                   <Input
                     type="date"
                     value={contractorForm.employersLiabilityExpiry}
@@ -1097,7 +1097,7 @@ export default function Contractors() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-600">Health & Safety Policy</label>
+                  <label className="text-xs font-medium text-variable">Health & Safety Policy</label>
                   <Input
                     type="date"
                     value={contractorForm.healthSafetyExpiry}
@@ -1289,27 +1289,27 @@ export default function Contractors() {
                 <h3 className="text-lg font-semibold text-slate-700">Company Information</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-medium text-slate-600">Company Name</label>
-                    <p className="text-slate-800 font-medium">{selectedContractor.name}</p>
+                    <label className="text-sm font-medium text-variable">Company Name</label>
+                    <p className="text-fixed font-medium">{selectedContractor.name}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600">Contact Person</label>
-                    <p className="text-slate-800">{selectedContractor.contactPerson}</p>
+                    <label className="text-sm font-medium text-variable">Contact Person</label>
+                    <p className="text-fixed">{selectedContractor.contactPerson}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600">Email</label>
-                    <p className="text-slate-800">{selectedContractor.email}</p>
+                    <label className="text-sm font-medium text-variable">Email</label>
+                    <p className="text-fixed">{selectedContractor.email}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600">Phone</label>
-                    <p className="text-slate-800">{selectedContractor.phone}</p>
+                    <label className="text-sm font-medium text-variable">Phone</label>
+                    <p className="text-fixed">{selectedContractor.phone}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600">Address</label>
-                    <p className="text-slate-800">{selectedContractor.address}</p>
+                    <label className="text-sm font-medium text-variable">Address</label>
+                    <p className="text-fixed">{selectedContractor.address}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600">Status</label>
+                    <label className="text-sm font-medium text-variable">Status</label>
                     <Badge 
                       className={`ml-2 ${
                         selectedContractor.status === 'approved' 
@@ -1330,7 +1330,7 @@ export default function Contractors() {
                 <h3 className="text-lg font-semibold text-slate-700">Compliance Status</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-600">Overall Score</span>
+                    <span className="text-sm font-medium text-variable">Overall Score</span>
                     <div className="flex items-center gap-2">
                       {(() => {
                         const validDocs = documents?.filter(doc => doc.status === 'valid').length || 0;
@@ -1382,7 +1382,7 @@ export default function Contractors() {
                                   }
                                 }}
                               >
-                                <span className="text-sm text-slate-600">{label}</span>
+                                <span className="text-sm text-variable">{label}</span>
                                 <Badge className={`${
                                   status === 'valid' ? 'bg-green-100 text-green-800' :
                                   status === 'expiring' ? 'bg-yellow-100 text-yellow-800' :
@@ -1408,20 +1408,20 @@ export default function Contractors() {
               <div className="lg:col-span-2 space-y-4">
                 <h3 className="text-lg font-semibold text-slate-700">Additional Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <div className="text-center p-4 bg-[var(--background)] rounded-lg">
                     <Users className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                    <p className="text-2xl font-bold text-slate-800">{selectedContractor.workersCount}</p>
-                    <p className="text-sm text-slate-600">Workers Registered</p>
+                    <p className="text-2xl font-bold text-fixed">{selectedContractor.workersCount}</p>
+                    <p className="text-sm text-variable">Workers Registered</p>
                   </div>
-                  <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <div className="text-center p-4 bg-[var(--background)] rounded-lg">
                     <Calendar className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                    <p className="text-lg font-bold text-slate-800">{selectedContractor.lastUpdated}</p>
-                    <p className="text-sm text-slate-600">Last Updated</p>
+                    <p className="text-lg font-bold text-fixed">{selectedContractor.lastUpdated}</p>
+                    <p className="text-sm text-variable">Last Updated</p>
                   </div>
-                  <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <div className="text-center p-4 bg-[var(--background)] rounded-lg">
                     <Shield className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                    <p className="text-lg font-bold text-slate-800">UK Compliant</p>
-                    <p className="text-sm text-slate-600">Health & Safety</p>
+                    <p className="text-lg font-bold text-fixed">UK Compliant</p>
+                    <p className="text-sm text-variable">Health & Safety</p>
                   </div>
                 </div>
               </div>
@@ -1515,8 +1515,8 @@ export default function Contractors() {
                   />
                 )) : (
                   <div className="col-span-full text-center py-8">
-                    <Users className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-                    <p className="text-slate-500">No workers found for this contractor.</p>
+                    <Users className="h-12 w-12 mx-auto mb-4 text-variable" />
+                    <p className="text-variable">No workers found for this contractor.</p>
                     <Button 
                       onClick={() => setShowAddWorkerDialog(true)}
                       className="mt-4 bg-blue-600 hover:bg-blue-700"
@@ -1530,14 +1530,14 @@ export default function Contractors() {
 
               {/* Document Management Section */}
               <div className="mt-8">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">Document Management</h3>
+                <h3 className="text-lg font-semibold text-fixed mb-4">Document Management</h3>
                 <TooltipProvider>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {documents.map((document: any) => (
                       <Tooltip key={document.id}>
                         <TooltipTrigger asChild>
                           <div 
-                            className="border-2 border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-white select-none"
+                            className="border-2 border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-[var(--card)] select-none"
                             onClick={() => {
                               console.log('Document panel clicked:', document.documentName);
                               handleViewDocument(document);
@@ -1555,7 +1555,7 @@ export default function Contractors() {
                           {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
                         </Badge>
                       </div>
-                      <div className="text-sm text-slate-500 mb-3">
+                      <div className="text-sm text-variable mb-3">
                         {document.expiryDate ? `Expires: ${new Date(document.expiryDate).toLocaleDateString()}` : 'No expiry date'}
                       </div>
                             <div className="flex gap-2">
@@ -1599,19 +1599,19 @@ export default function Contractors() {
                       <Tooltip key={docType}>
                         <TooltipTrigger asChild>
                           <div 
-                            className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-gray-50 select-none"
+                            className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-[var(--background)] select-none"
                             onClick={() => {
                               console.log('Missing document clicked:', docType);
                               handleUploadDocument(docType);
                             }}
                           >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-gray-600">
+                        <span className="font-medium text-variable">
                           {docType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                         </span>
                         <Badge className="bg-gray-100 text-gray-600">Missing</Badge>
                       </div>
-                      <div className="text-sm text-gray-500 mb-3">Document not uploaded</div>
+                      <div className="text-sm text-variable mb-3">Document not uploaded</div>
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -1637,7 +1637,7 @@ export default function Contractors() {
 
                 {/* Approval History */}
                 <div className="mt-6">
-                  <h4 className="text-md font-semibold text-slate-800 mb-3">Recent Approvals</h4>
+                  <h4 className="text-md font-semibold text-fixed mb-3">Recent Approvals</h4>
                   <div className="space-y-2">
                     {approvals.length > 0 ? approvals.slice(0, 5).map((approval: any) => (
                       <div key={approval.id} className={`flex items-center justify-between p-3 rounded-lg ${
@@ -1655,7 +1655,7 @@ export default function Contractors() {
                             by {approval.approvedBy} on {new Date(approval.createdAt).toLocaleDateString()} at {new Date(approval.createdAt).toLocaleTimeString()}
                           </p>
                           {approval.comments && (
-                            <p className="text-sm text-gray-600 mt-1">"{approval.comments}"</p>
+                            <p className="text-sm text-variable mt-1">"{approval.comments}"</p>
                           )}
                         </div>
                         {approval.approvalStatus === 'approved' ? 
@@ -1664,7 +1664,7 @@ export default function Contractors() {
                         }
                       </div>
                     )) : (
-                      <div className="text-center py-4 text-gray-500">
+                      <div className="text-center py-4 text-variable">
                         No approval history available
                       </div>
                     )}
@@ -1689,7 +1689,7 @@ export default function Contractors() {
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Worker</label>
-              <div className="p-2 bg-gray-50 rounded">
+              <div className="p-2 bg-[var(--background)] rounded">
                 {workerForCard?.firstName} {workerForCard?.lastName}
               </div>
             </div>
@@ -1763,28 +1763,28 @@ export default function Contractors() {
               {/* Personal Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800">Personal Information</h3>
+                  <h3 className="text-lg font-semibold text-fixed">Personal Information</h3>
                   <div className="space-y-3">
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Full Name</Label>
-                      <p className="text-slate-900">{selectedWorker.firstName} {selectedWorker.lastName}</p>
+                      <Label className="text-sm font-medium text-variable">Full Name</Label>
+                      <p className="text-fixed">{selectedWorker.firstName} {selectedWorker.lastName}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Email</Label>
-                      <p className="text-slate-900">{selectedWorker.email || 'Not provided'}</p>
+                      <Label className="text-sm font-medium text-variable">Email</Label>
+                      <p className="text-fixed">{selectedWorker.email || 'Not provided'}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Phone</Label>
-                      <p className="text-slate-900">{selectedWorker.phone || 'Not provided'}</p>
+                      <Label className="text-sm font-medium text-variable">Phone</Label>
+                      <p className="text-fixed">{selectedWorker.phone || 'Not provided'}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800">Work Status</h3>
+                  <h3 className="text-lg font-semibold text-fixed">Work Status</h3>
                   <div className="space-y-3">
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Right to Work</Label>
+                      <Label className="text-sm font-medium text-variable">Right to Work</Label>
                       <Badge className={`${
                         selectedWorker.rightToWork === 'valid' ? 'bg-green-100 text-green-800' :
                         selectedWorker.rightToWork === 'expired' ? 'bg-red-100 text-red-800' :
@@ -1794,13 +1794,13 @@ export default function Contractors() {
                       </Badge>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Active Status</Label>
+                      <Label className="text-sm font-medium text-variable">Active Status</Label>
                       <Badge className={selectedWorker.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
                         {selectedWorker.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Induction</Label>
+                      <Label className="text-sm font-medium text-variable">Induction</Label>
                       <Badge className={selectedWorker.inductionCompleted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
                         {selectedWorker.inductionCompleted ? 'Completed' : 'Pending'}
                       </Badge>
@@ -1811,7 +1811,7 @@ export default function Contractors() {
 
               {/* Certifications */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-800">Certifications & Training</h3>
+                <h3 className="text-lg font-semibold text-fixed">Certifications & Training</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
@@ -1825,7 +1825,7 @@ export default function Contractors() {
                         {selectedWorker.cscsStatus || 'Missing'}
                       </Badge>
                     </div>
-                    <p className="text-sm text-slate-600">{selectedWorker.cscsCard || 'Not provided'}</p>
+                    <p className="text-sm text-variable">{selectedWorker.cscsCard || 'Not provided'}</p>
                   </div>
                   
                   <div className="p-4 border rounded-lg">
@@ -1878,7 +1878,7 @@ export default function Contractors() {
           <div className="space-y-6 mt-4">
             {/* Personal Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-800">Personal Information</h3>
+              <h3 className="text-lg font-semibold text-fixed">Personal Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName">First Name</Label>
@@ -1924,7 +1924,7 @@ export default function Contractors() {
 
             {/* Work Status */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-800">Work Status</h3>
+              <h3 className="text-lg font-semibold text-fixed">Work Status</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="rightToWork">Right to Work Status</Label>
@@ -1973,7 +1973,7 @@ export default function Contractors() {
 
             {/* Training & Certifications */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-800">Training & Certifications</h3>
+              <h3 className="text-lg font-semibold text-fixed">Training & Certifications</h3>
               <div className="space-y-3">
                 <div className="flex items-center space-x-2">
                   <input
@@ -2057,14 +2057,14 @@ export default function Contractors() {
             <div className="space-y-6 mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800">Document Information</h3>
+                  <h3 className="text-lg font-semibold text-fixed">Document Information</h3>
                   <div className="space-y-3">
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Document Type</Label>
-                      <p className="text-slate-900">{selectedDocument.documentType.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+                      <Label className="text-sm font-medium text-variable">Document Type</Label>
+                      <p className="text-fixed">{selectedDocument.documentType.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Status</Label>
+                      <Label className="text-sm font-medium text-variable">Status</Label>
                       <Badge className={`${
                         selectedDocument.status === 'valid' ? 'bg-green-100 text-green-800' :
                         selectedDocument.status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -2076,20 +2076,20 @@ export default function Contractors() {
                       </Badge>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-slate-600">Uploaded</Label>
-                      <p className="text-slate-900">{new Date(selectedDocument.uploadedAt).toLocaleString()}</p>
+                      <Label className="text-sm font-medium text-variable">Uploaded</Label>
+                      <p className="text-fixed">{new Date(selectedDocument.uploadedAt).toLocaleString()}</p>
                     </div>
                     {selectedDocument.expiryDate && (
                       <div>
-                        <Label className="text-sm font-medium text-slate-600">Expires</Label>
-                        <p className="text-slate-900">{new Date(selectedDocument.expiryDate).toLocaleDateString()}</p>
+                        <Label className="text-sm font-medium text-variable">Expires</Label>
+                        <p className="text-fixed">{new Date(selectedDocument.expiryDate).toLocaleDateString()}</p>
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800">Document Actions</h3>
+                  <h3 className="text-lg font-semibold text-fixed">Document Actions</h3>
                   <div className="space-y-3">
                     <Button className="w-full" onClick={() => window.open(selectedDocument.documentUrl, '_blank')}>
                       <ExternalLink className="h-4 w-4 mr-2" />
@@ -2097,8 +2097,8 @@ export default function Contractors() {
                     </Button>
                     
                     {selectedDocument.status !== 'approved' && (
-                      <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
-                        <Label className="text-sm font-medium text-slate-600">Approval Actions</Label>
+                      <div className="space-y-3 p-4 bg-[var(--background)] rounded-lg">
+                        <Label className="text-sm font-medium text-variable">Approval Actions</Label>
                         <Textarea
                           placeholder="Add comments..."
                           value={approvalForm.comments}
@@ -2141,7 +2141,7 @@ export default function Contractors() {
 
               {/* Approval History for this document */}
               <div>
-                <h4 className="text-md font-semibold text-slate-800 mb-3">Approval History</h4>
+                <h4 className="text-md font-semibold text-fixed mb-3">Approval History</h4>
                 <div className="space-y-2">
                   {approvals.length > 0 ? approvals.map((approval: any) => (
                     <div key={approval.id} className={`flex items-center justify-between p-3 rounded-lg ${
@@ -2159,7 +2159,7 @@ export default function Contractors() {
                           by {approval.approvedBy} on {new Date(approval.createdAt).toLocaleString()}
                         </p>
                         {approval.comments && (
-                          <p className="text-sm text-gray-600 mt-1">"{approval.comments}"</p>
+                          <p className="text-sm text-variable mt-1">"{approval.comments}"</p>
                         )}
                       </div>
                       {approval.approvalStatus === 'approved' ? 
@@ -2168,7 +2168,7 @@ export default function Contractors() {
                       }
                     </div>
                   )) : (
-                    <div className="text-center py-4 text-gray-500">
+                    <div className="text-center py-4 text-variable">
                       No approval history for this document
                     </div>
                   )}
@@ -2191,10 +2191,10 @@ export default function Contractors() {
 
           <div className="space-y-6 mt-4">
             <div className="text-center">
-              <p className="text-slate-600">
+              <p className="text-variable">
                 You can upload a PDF or image file for the {uploadDocumentType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} document.
               </p>
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-variable mt-2">
                 For demo purposes, you can download and upload our sample documents:
               </p>
             </div>
@@ -2265,11 +2265,11 @@ export default function Contractors() {
 
             {/* Upload Area */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-              <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-medium text-gray-600 mb-2">
+              <Upload className="h-12 w-12 mx-auto mb-4 text-variable" />
+              <p className="text-lg font-medium text-variable mb-2">
                 Drop your document here or click to browse
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-variable">
                 Supports PDF, JPG, PNG files up to 10MB
               </p>
               <Input 
@@ -2374,7 +2374,7 @@ export default function Contractors() {
                 data-testid="input-worker-postcode"
                 style={{ textTransform: 'uppercase' }}
               />
-              <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
+              <p className="text-xs text-variable">Required for CO2 emission calculations</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Vehicle Fuel Type *</label>
@@ -2395,7 +2395,7 @@ export default function Contractors() {
                   <SelectItem value="public_transport">🚌 Public Transport</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
+              <p className="text-xs text-variable">Required for CO2 emission calculations</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Right to Work Status</label>
@@ -2536,7 +2536,7 @@ export default function Contractors() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-slate-600">
+            <p className="text-variable">
               Who is {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName} working with today?
             </p>
             <div className="space-y-2">

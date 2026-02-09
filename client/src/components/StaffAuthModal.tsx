@@ -90,10 +90,10 @@ export default function StaffAuthModal({
               <Shield className="text-white" size={24} />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold text-slate-800">
+              <DialogTitle className="text-xl font-bold text-fixed">
                 {title}
               </DialogTitle>
-              <p className="text-sm text-slate-600 mt-1">
+              <p className="text-sm text-variable mt-1">
                 {description}
               </p>
             </div>
@@ -102,7 +102,7 @@ export default function StaffAuthModal({
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="auth-email" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="auth-email" className="text-sm font-medium text-fixed">
               Email Address
             </Label>
             <Input
@@ -111,14 +111,14 @@ export default function StaffAuthModal({
               required
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="admin@company.com"
               data-testid="input-auth-email"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="auth-password" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="auth-password" className="text-sm font-medium text-fixed">
               Password
             </Label>
             <Input
@@ -127,7 +127,7 @@ export default function StaffAuthModal({
               required
               value={formData.password}
               onChange={(e) => handleInputChange("password", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Enter your password"
               data-testid="input-auth-password"
             />
@@ -148,7 +148,7 @@ export default function StaffAuthModal({
               type="button" 
               variant="outline"
               onClick={handleClose}
-              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-variable font-medium hover:bg-slate-50 transition-colors"
               data-testid="button-cancel-auth"
             >
               Cancel

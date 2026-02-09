@@ -88,11 +88,11 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
     <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30">
       {/* Display */}
       <div className="mb-8">
-        <div className="bg-slate-100 rounded-2xl p-6 min-h-[80px] flex items-center shadow-inner">
-          <span className={`text-2xl font-medium ${value ? "text-slate-800" : "text-slate-400"}`}>
+        <div className="bg-[var(--background)] rounded-2xl p-6 min-h-[80px] flex items-center shadow-inner">
+          <span className={`text-2xl font-medium ${value ? "text-fixed" : "text-variable"}`}>
             {value || placeholder || "Type here..."}
           </span>
-          <span className="ml-2 animate-pulse text-slate-600 text-2xl font-light">|</span>
+          <span className="ml-2 animate-pulse text-variable text-2xl font-light">|</span>
         </div>
       </div>
 
@@ -105,7 +105,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
             className={`flex-1 text-lg font-semibold py-4 rounded-xl transition-all transform active:scale-95 ${
               layout === "text" 
                 ? "bg-blue-500 hover:bg-blue-600 text-white shadow-lg" 
-                : "bg-white/70 hover:bg-white/90 border-slate-300 text-slate-700"
+                : "bg-white/70 hover:bg-white/90 border-slate-300 text-variable"
             }`}
           >
             ABC
@@ -116,7 +116,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
             className={`flex-1 text-lg font-semibold py-4 rounded-xl transition-all transform active:scale-95 ${
               layout === "numbers" 
                 ? "bg-blue-500 hover:bg-blue-600 text-white shadow-lg" 
-                : "bg-white/70 hover:bg-white/90 border-slate-300 text-slate-700"
+                : "bg-white/70 hover:bg-white/90 border-slate-300 text-variable"
             }`}
           >
             123
@@ -127,7 +127,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
             className={`flex-1 text-lg font-semibold py-4 rounded-xl transition-all transform active:scale-95 ${
               layout === "symbols" 
                 ? "bg-blue-500 hover:bg-blue-600 text-white shadow-lg" 
-                : "bg-white/70 hover:bg-white/90 border-slate-300 text-slate-700"
+                : "bg-white/70 hover:bg-white/90 border-slate-300 text-variable"
             }`}
           >
             #+=
@@ -158,7 +158,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
               className={`h-16 px-8 text-lg font-semibold rounded-xl transition-all transform active:scale-95 ${
                 isUppercase 
                   ? "bg-blue-100 border-blue-400 text-blue-700 hover:bg-blue-200" 
-                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                  : "bg-white border-slate-300 text-variable hover:bg-slate-50"
               }`}
               onClick={() => handleKeyPress("CAPS")}
             >

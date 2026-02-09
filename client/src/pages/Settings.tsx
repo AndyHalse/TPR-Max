@@ -999,7 +999,7 @@ export default function Settings() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading settings...</p>
+          <p className="text-variable">Loading settings...</p>
         </div>
       </div>
     );
@@ -1117,13 +1117,13 @@ export default function Settings() {
                     type="text"
                     value={currentSettings?.companyName || ""}
                     onChange={(e) => handleInputChange("companyName", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-company-name"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="address" className="text-sm font-medium text-fixed">
                     Company Address
                   </Label>
                   <Input
@@ -1131,7 +1131,7 @@ export default function Settings() {
                     type="text"
                     value={currentSettings?.address || ""}
                     onChange={(e) => handleInputChange("address", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     placeholder="123 Business Street, City, Postcode"
                     data-testid="input-company-address"
                   />
@@ -1139,7 +1139,7 @@ export default function Settings() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="phone" className="text-sm font-medium text-fixed">
                       Phone Number
                     </Label>
                     <Input
@@ -1147,14 +1147,14 @@ export default function Settings() {
                       type="tel"
                       value={currentSettings?.phone || ""}
                       onChange={(e) => handleInputChange("phone", e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                       placeholder="+44 20 1234 5678"
                       data-testid="input-company-phone"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="email" className="text-sm font-medium text-fixed">
                       Company Email
                     </Label>
                     <Input
@@ -1162,7 +1162,7 @@ export default function Settings() {
                       type="email"
                       value={currentSettings?.email || ""}
                       onChange={(e) => handleInputChange("email", e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                       placeholder="info@yourcompany.com"
                       data-testid="input-company-email"
                     />
@@ -1170,7 +1170,7 @@ export default function Settings() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="website" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="website" className="text-sm font-medium text-fixed">
                     Company Website
                   </Label>
                   <Input
@@ -1178,14 +1178,14 @@ export default function Settings() {
                     type="url"
                     value={currentSettings?.website || ""}
                     onChange={(e) => handleInputChange("website", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     placeholder="https://www.yourcompany.com"
                     data-testid="input-company-website"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-fixed">
                     Company Logo
                   </Label>
                   <div className="space-y-4">
@@ -1211,7 +1211,7 @@ export default function Settings() {
                       <Upload className="mr-2" size={16} />
                       {currentSettings?.logoUrl ? "Replace Logo" : "Upload Logo"}
                     </ObjectUploader>
-                    <p className="text-xs text-slate-500">Recommended: PNG or SVG, max 2MB</p>
+                    <p className="text-xs text-variable">Recommended: PNG or SVG, max 2MB</p>
                   </div>
                 </div>
               </div>
@@ -1224,13 +1224,13 @@ export default function Settings() {
           <GlassCard>
             <div className="flex items-center mb-6">
               <Mail className="mr-3 text-blue-600" size={24} />
-              <h3 className="text-lg font-semibold text-slate-800">SMTP Email Configuration</h3>
+              <h3 className="text-lg font-semibold text-fixed">SMTP Email Configuration</h3>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-fixed">
                     SMTP Server Host
                   </Label>
                   <Input
@@ -1244,7 +1244,7 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-fixed">
                     SMTP Port
                   </Label>
                   <Select 
@@ -1261,15 +1261,15 @@ export default function Settings() {
                       <SelectItem value="2525">2525 (Alternative)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-500">Port 587 with STARTTLS is recommended for most providers</p>
+                  <p className="text-xs text-variable">Port 587 with STARTTLS is recommended for most providers</p>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-medium text-slate-700">
+                    <Label className="text-sm font-medium text-fixed">
                       Use SSL/TLS Encryption
                     </Label>
-                    <p className="text-xs text-slate-500">Secure connection (recommended)</p>
+                    <p className="text-xs text-variable">Secure connection (recommended)</p>
                   </div>
                   <Switch
                     checked={currentSettings?.smtpSecurity === "SSL/TLS"}
@@ -1281,7 +1281,7 @@ export default function Settings() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-fixed">
                     Email Username
                   </Label>
                   <Input
@@ -1292,11 +1292,11 @@ export default function Settings() {
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                     data-testid="input-smtp-username"
                   />
-                  <p className="text-xs text-slate-500">Usually your full email address</p>
+                  <p className="text-xs text-variable">Usually your full email address</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-fixed">
                     Email Password
                   </Label>
                   <Input
@@ -1307,11 +1307,11 @@ export default function Settings() {
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                     data-testid="input-smtp-password"
                   />
-                  <p className="text-xs text-slate-500">Use app-specific password for Gmail/Outlook</p>
+                  <p className="text-xs text-variable">Use app-specific password for Gmail/Outlook</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-fixed">
                     From Name (Display Name)
                   </Label>
                   <Input
@@ -1322,7 +1322,7 @@ export default function Settings() {
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                     data-testid="input-smtp-from-name"
                   />
-                  <p className="text-xs text-slate-500">The name that appears as the sender</p>
+                  <p className="text-xs text-variable">The name that appears as the sender</p>
                 </div>
               </div>
             </div>
@@ -1366,12 +1366,12 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <TestTube className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Test Email Configuration</h3>
+                <h3 className="text-lg font-semibold text-fixed">Test Email Configuration</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
+                  <Label className="text-sm font-medium text-fixed">
                     Test Email Address
                   </Label>
                   <Input
@@ -1411,7 +1411,7 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Shield className="mr-3 text-amber-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Prevent Emails Going to Junk</h3>
+                <h3 className="text-lg font-semibold text-fixed">Prevent Emails Going to Junk</h3>
               </div>
               
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
@@ -1435,16 +1435,16 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Send className="mr-3 text-green-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">📊 Email Reports Settings</h3>
+                <h3 className="text-lg font-semibold text-fixed">📊 Email Reports Settings</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-medium text-slate-700">
+                    <Label className="text-sm font-medium text-fixed">
                       Enable Automatic Reports
                     </Label>
-                    <p className="text-xs text-slate-500">Send reports automatically via email</p>
+                    <p className="text-xs text-variable">Send reports automatically via email</p>
                   </div>
                   <Switch
                     checked={currentSettings?.emailReportsEnabled || false}
@@ -1456,7 +1456,7 @@ export default function Settings() {
                 {currentSettings?.emailReportsEnabled && (
                   <div className="space-y-4 mt-4 p-4 bg-blue-50 rounded-lg">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         Report Type & Frequency
                       </Label>
                       <Select 
@@ -1478,7 +1478,7 @@ export default function Settings() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         Recipients
                       </Label>
                       <Input
@@ -1692,15 +1692,15 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <Monitor className="mr-3 text-blue-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">Kiosk Banner</h3>
+                    <h3 className="text-lg font-semibold text-fixed">Kiosk Banner</h3>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         Welcome Banner Image
                       </Label>
-                      <p className="text-xs text-slate-500 mb-3">Displayed prominently on kiosk mode. Recommended: 1200x300px or similar wide format</p>
+                      <p className="text-xs text-variable mb-3">Displayed prominently on kiosk mode. Recommended: 1200x300px or similar wide format</p>
                       
                       {currentSettings?.bannerUrl && !currentSettings.bannerUrl.includes('test') && (
                         <div className="mb-4 p-4 bg-white/50 rounded-xl border border-white/30">
@@ -1726,7 +1726,7 @@ export default function Settings() {
                         {currentSettings?.bannerUrl ? "Replace Banner" : "Upload Banner"}
                       </ObjectUploader>
                       
-                      <p className="text-xs text-slate-500">Recommended: JPG or PNG, max 5MB, wide format (3:1 or 4:1 ratio)</p>
+                      <p className="text-xs text-variable">Recommended: JPG or PNG, max 5MB, wide format (3:1 or 4:1 ratio)</p>
                     </div>
                   </div>
                 </GlassCard>
@@ -1737,7 +1737,7 @@ export default function Settings() {
               <GlassCard>
                 <div className="flex items-center mb-6">
                   <Monitor className="mr-3 text-blue-600" size={24} />
-                  <h3 className="text-lg font-semibold text-slate-800">Application Theme</h3>
+                  <h3 className="text-lg font-semibold text-fixed">Application Theme</h3>
                 </div>
                 
                 <div className="space-y-6">
@@ -1824,7 +1824,7 @@ export default function Settings() {
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
                       <Printer className="mr-3 text-blue-600" size={24} />
-                      <h3 className="text-lg font-semibold text-slate-800">Printer Configuration</h3>
+                      <h3 className="text-lg font-semibold text-fixed">Printer Configuration</h3>
                     </div>
                     <Button
                       variant="outline"
@@ -1858,7 +1858,7 @@ export default function Settings() {
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="selectedPrinter" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="selectedPrinter" className="text-sm font-medium text-fixed">
                         Default Printer (Visitor Passes)
                       </Label>
                       <Select
@@ -1893,11 +1893,11 @@ export default function Settings() {
                           )}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-slate-500">Select your installed printer or use PDF for testing</p>
+                      <p className="text-xs text-variable">Select your installed printer or use PDF for testing</p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="printQuality" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="printQuality" className="text-sm font-medium text-fixed">
                         Print Quality
                       </Label>
                       <Select
@@ -1913,14 +1913,14 @@ export default function Settings() {
                           <SelectItem value="high">High Quality</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-slate-500">Higher quality uses more ink but provides clearer text</p>
+                      <p className="text-xs text-variable">Higher quality uses more ink but provides clearer text</p>
                     </div>
 
                     <div className="space-y-4 pt-4 border-t border-white/30">
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium text-slate-700">Auto-Print Passes</Label>
-                          <p className="text-xs text-slate-500">Automatically print visitor passes after check-in</p>
+                          <Label className="text-sm font-medium text-fixed">Auto-Print Passes</Label>
+                          <p className="text-xs text-variable">Automatically print visitor passes after check-in</p>
                         </div>
                         <Switch
                           checked={currentSettings?.enableQrCodes !== false}
@@ -1935,12 +1935,12 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <QrCode className="mr-3 text-blue-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">Barcode & QR Settings</h3>
+                    <h3 className="text-lg font-semibold text-fixed">Barcode & QR Settings</h3>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="barcodeFormat" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="barcodeFormat" className="text-sm font-medium text-fixed">
                         Barcode Format
                       </Label>
                       <Select
@@ -1958,14 +1958,14 @@ export default function Settings() {
                           <SelectItem value="CODE39">Code 39</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-slate-500">QR codes work best for mobile scanning</p>
+                      <p className="text-xs text-variable">QR codes work best for mobile scanning</p>
                     </div>
 
                     <div className="space-y-4 pt-4 border-t border-white/30">
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium text-slate-700">Enable 2D Barcodes</Label>
-                          <p className="text-xs text-slate-500">Use advanced 2D barcode formats for enhanced data storage</p>
+                          <Label className="text-sm font-medium text-fixed">Enable 2D Barcodes</Label>
+                          <p className="text-xs text-variable">Use advanced 2D barcode formats for enhanced data storage</p>
                         </div>
                         <Switch
                           checked={currentSettings?.enable2dBarcodes === true}
@@ -1983,12 +1983,12 @@ export default function Settings() {
                       <div className="text-center">
                         <div className="inline-block p-4 bg-white rounded border-2 border-dashed border-slate-400">
                           {currentSettings?.barcodeFormat === "QR_CODE" ? (
-                            <QrCode size={48} className="text-slate-800 mx-auto" />
+                            <QrCode size={48} className="text-fixed mx-auto" />
                           ) : (
-                            <Barcode size={48} className="text-slate-800 mx-auto" />
+                            <Barcode size={48} className="text-fixed mx-auto" />
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 mt-2">
+                        <p className="text-xs text-variable mt-2">
                           Sample {currentSettings?.barcodeFormat || "QR_CODE"} code
                         </p>
                       </div>
@@ -1999,12 +1999,12 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <Printer className="mr-3 text-purple-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">Thermal Printer Settings</h3>
+                    <h3 className="text-lg font-semibold text-fixed">Thermal Printer Settings</h3>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         Printer Type
                       </Label>
                       <Select
@@ -2060,7 +2060,7 @@ export default function Settings() {
                     {currentSettings?.thermalSelectedPrinter === "tec" && (
                       <>
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Toshiba Tec Printer Name
                           </Label>
                           <Input
@@ -2071,11 +2071,11 @@ export default function Settings() {
                             placeholder="TEC B-FV4D Desktop Printer"
                             data-testid="input-tec-printer-name"
                           />
-                          <p className="text-xs text-slate-500">Windows printer name (for local printing) or leave blank for network printing</p>
+                          <p className="text-xs text-variable">Windows printer name (for local printing) or leave blank for network printing</p>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Toshiba Tec Printer IP Address
                           </Label>
                           <Input
@@ -2086,11 +2086,11 @@ export default function Settings() {
                             placeholder="192.168.1.100"
                             data-testid="input-tec-ip"
                           />
-                          <p className="text-xs text-slate-500">Network IP address of your Toshiba Tec printer for remote printing over the internet</p>
+                          <p className="text-xs text-variable">Network IP address of your Toshiba Tec printer for remote printing over the internet</p>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Toshiba Tec Printer Port
                           </Label>
                           <Input
@@ -2101,11 +2101,11 @@ export default function Settings() {
                             placeholder="9100"
                             data-testid="input-tec-port"
                           />
-                          <p className="text-xs text-slate-500">Default: 9100 (standard thermal printer network port for TCP/IP connections)</p>
+                          <p className="text-xs text-variable">Default: 9100 (standard thermal printer network port for TCP/IP connections)</p>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Toshiba Tec Printer Model
                           </Label>
                           <Select
@@ -2125,11 +2125,11 @@ export default function Settings() {
                               <SelectItem value="B-SX5T">B-SX5T (Industrial)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-slate-500">Select your Toshiba Tec printer model for optimal TCPL generation</p>
+                          <p className="text-xs text-variable">Select your Toshiba Tec printer model for optimal TCPL generation</p>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Label Size (Width x Height mm)
                           </Label>
                           <div className="grid grid-cols-2 gap-2">
@@ -2150,7 +2150,7 @@ export default function Settings() {
                               data-testid="input-tec-height"
                             />
                           </div>
-                          <p className="text-xs text-slate-500">Standard visitor pass: 85mm x 65mm</p>
+                          <p className="text-xs text-variable">Standard visitor pass: 85mm x 65mm</p>
                         </div>
 
                         <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
@@ -2179,7 +2179,7 @@ export default function Settings() {
                     {currentSettings?.thermalSelectedPrinter === "zebra" && (
                       <>
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Zebra Printer IP Address
                           </Label>
                           <Input
@@ -2190,11 +2190,11 @@ export default function Settings() {
                             placeholder="192.168.1.100"
                             data-testid="input-zebra-ip"
                           />
-                          <p className="text-xs text-slate-500">Network IP address of your Zebra printer for remote printing over the internet</p>
+                          <p className="text-xs text-variable">Network IP address of your Zebra printer for remote printing over the internet</p>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Zebra Printer Port
                           </Label>
                           <Input
@@ -2205,11 +2205,11 @@ export default function Settings() {
                             placeholder="9100"
                             data-testid="input-zebra-port"
                           />
-                          <p className="text-xs text-slate-500">Default: 9100 (standard Zebra network port for TCP/IP connections)</p>
+                          <p className="text-xs text-variable">Default: 9100 (standard Zebra network port for TCP/IP connections)</p>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Zebra Printer Model
                           </Label>
                           <Select
@@ -2231,7 +2231,7 @@ export default function Settings() {
                               <SelectItem value="LP2844">LP2844 (Legacy)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-slate-500">Select your Zebra printer model for optimal ZPL generation</p>
+                          <p className="text-xs text-variable">Select your Zebra printer model for optimal ZPL generation</p>
                         </div>
 
                         <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
@@ -2272,8 +2272,8 @@ export default function Settings() {
                   <div className="flex items-center">
                     <Mail className="mr-3 text-green-600" size={24} />
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-800">Digital E-Pass Configuration</h3>
-                      <p className="text-sm text-slate-600">Send digital passes via email or SMS instead of printing</p>
+                      <h3 className="text-lg font-semibold text-fixed">Digital E-Pass Configuration</h3>
+                      <p className="text-sm text-variable">Send digital passes via email or SMS instead of printing</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2312,7 +2312,7 @@ export default function Settings() {
                       {/* Delivery Method */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             E-Pass Delivery Method
                           </Label>
                           <Select
@@ -2329,11 +2329,11 @@ export default function Settings() {
                               <SelectItem value="choice">Let Visitor Choose</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-slate-500">How e-Passes are delivered to visitors</p>
+                          <p className="text-xs text-variable">How e-Passes are delivered to visitors</p>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-slate-700">
+                          <Label className="text-sm font-medium text-fixed">
                             Check-out Reminder (minutes)
                           </Label>
                           <Input
@@ -2345,7 +2345,7 @@ export default function Settings() {
                             className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                             data-testid="input-checkout-reminder"
                           />
-                          <p className="text-xs text-slate-500">Minutes before expected departure to send reminder</p>
+                          <p className="text-xs text-variable">Minutes before expected departure to send reminder</p>
                         </div>
                       </div>
 
@@ -2354,10 +2354,10 @@ export default function Settings() {
                         <div className="p-4 bg-white/50 rounded-lg border border-white/30">
                           <div className="flex items-center justify-between mb-3">
                             <div>
-                              <Label className="text-sm font-medium text-slate-700">
+                              <Label className="text-sm font-medium text-fixed">
                                 Auto Check-out
                               </Label>
-                              <p className="text-xs text-slate-500 mt-1">
+                              <p className="text-xs text-variable mt-1">
                                 Automatically check out visitors after expected time
                               </p>
                             </div>
@@ -2372,10 +2372,10 @@ export default function Settings() {
                         <div className="p-4 bg-white/50 rounded-lg border border-white/30">
                           <div className="flex items-center justify-between mb-3">
                             <div>
-                              <Label className="text-sm font-medium text-slate-700">
+                              <Label className="text-sm font-medium text-fixed">
                                 Host Notifications
                               </Label>
-                              <p className="text-xs text-slate-500 mt-1">
+                              <p className="text-xs text-variable mt-1">
                                 Notify host if visitor hasn't checked out
                               </p>
                             </div>
@@ -2387,7 +2387,7 @@ export default function Settings() {
                           </div>
                           {currentSettings?.ePassHostNotificationEnabled && (
                             <div className="mt-3">
-                              <Label className="text-xs text-slate-600">Notification Delay (min)</Label>
+                              <Label className="text-xs text-variable">Notification Delay (min)</Label>
                               <Input
                                 type="number"
                                 min="15"
@@ -2597,7 +2597,7 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <Eye className="mr-3 text-blue-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">E-Pass Preview</h3>
+                    <h3 className="text-lg font-semibold text-fixed">E-Pass Preview</h3>
                   </div>
                   <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg">
                     <div className="max-w-md mx-auto">
@@ -2704,7 +2704,7 @@ export default function Settings() {
                                           currentSettings?.ePassDeliveryMethod === "email" ? "Email Only" : 
                                           currentSettings?.ePassDeliveryMethod === "sms" ? "SMS Only" : "Visitor Choice"}
                         </Badge>
-                        <p className="text-xs text-slate-500 mt-2">
+                        <p className="text-xs text-variable mt-2">
                           This preview shows how the e-Pass will appear on mobile devices
                         </p>
                       </div>
@@ -2721,8 +2721,8 @@ export default function Settings() {
                   <div className="flex items-center">
                     <Shield className="mr-3 text-green-600" size={24} />
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-800">Suprema CLUe Cloud Platform</h3>
-                      <p className="text-xs text-slate-600">Enterprise-grade cloud integration for X-Station 2 devices</p>
+                      <h3 className="text-lg font-semibold text-fixed">Suprema CLUe Cloud Platform</h3>
+                      <p className="text-xs text-variable">Enterprise-grade cloud integration for X-Station 2 devices</p>
                     </div>
                   </div>
                   <Switch
@@ -2736,7 +2736,7 @@ export default function Settings() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-slate-700">API Key</Label>
+                        <Label className="text-sm font-medium text-fixed">API Key</Label>
                         <Input
                           type="password"
                           value={currentSettings?.clueApiKey || ""}
@@ -2748,7 +2748,7 @@ export default function Settings() {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-slate-700">API Secret</Label>
+                        <Label className="text-sm font-medium text-fixed">API Secret</Label>
                         <Input
                           type="password"
                           value={currentSettings?.clueApiSecret || ""}
@@ -2762,7 +2762,7 @@ export default function Settings() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-slate-700">Organization ID</Label>
+                        <Label className="text-sm font-medium text-fixed">Organization ID</Label>
                         <Input
                           value={currentSettings?.clueOrganizationId || ""}
                           onChange={(e) => handleInputChange("clueOrganizationId", e.target.value)}
@@ -2772,7 +2772,7 @@ export default function Settings() {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-slate-700">Webhook Secret</Label>
+                        <Label className="text-sm font-medium text-fixed">Webhook Secret</Label>
                         <Input
                           type="password"
                           value={currentSettings?.clueWebhookSecret || ""}
@@ -2787,12 +2787,12 @@ export default function Settings() {
                     <Separator className="my-4" />
                     
                     <div className="space-y-4">
-                      <h4 className="font-medium text-slate-700">QR Code Settings</h4>
+                      <h4 className="font-medium text-fixed">QR Code Settings</h4>
                       
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium text-slate-700">Dynamic QR Codes</Label>
-                          <p className="text-xs text-slate-500">Generate single-use QR codes for enhanced security</p>
+                          <Label className="text-sm font-medium text-fixed">Dynamic QR Codes</Label>
+                          <p className="text-xs text-variable">Generate single-use QR codes for enhanced security</p>
                         </div>
                         <Switch
                           checked={currentSettings?.clueDynamicQrEnabled === true}
@@ -2802,7 +2802,7 @@ export default function Settings() {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-slate-700">QR Validity Period (minutes)</Label>
+                        <Label className="text-sm font-medium text-fixed">QR Validity Period (minutes)</Label>
                         <Input
                           type="number"
                           value={currentSettings?.clueQrValidityMinutes || "60"}
@@ -2811,19 +2811,19 @@ export default function Settings() {
                           max="1440"
                           data-testid="input-clue-qr-validity"
                         />
-                        <p className="text-xs text-slate-500">How long QR codes remain valid after generation</p>
+                        <p className="text-xs text-variable">How long QR codes remain valid after generation</p>
                       </div>
                     </div>
                     
                     <Separator className="my-4" />
                     
                     <div className="space-y-4">
-                      <h4 className="font-medium text-slate-700">Automation Settings</h4>
+                      <h4 className="font-medium text-fixed">Automation Settings</h4>
                       
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium text-slate-700">Auto-Register Visitors</Label>
-                          <p className="text-xs text-slate-500">Automatically sync visitors to CLUe platform</p>
+                          <Label className="text-sm font-medium text-fixed">Auto-Register Visitors</Label>
+                          <p className="text-xs text-variable">Automatically sync visitors to CLUe platform</p>
                         </div>
                         <Switch
                           checked={currentSettings?.clueAutoRegisterVisitors === true}
@@ -2834,8 +2834,8 @@ export default function Settings() {
                       
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium text-slate-700">Auto-Delete Expired</Label>
-                          <p className="text-xs text-slate-500">Remove expired QR codes from CLUe automatically</p>
+                          <Label className="text-sm font-medium text-fixed">Auto-Delete Expired</Label>
+                          <p className="text-xs text-variable">Remove expired QR codes from CLUe automatically</p>
                         </div>
                         <Switch
                           checked={currentSettings?.clueAutoDeleteExpired === true}
@@ -2846,8 +2846,8 @@ export default function Settings() {
                       
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-sm font-medium text-slate-700">Test Mode</Label>
-                          <p className="text-xs text-slate-500">Enable for development and testing</p>
+                          <Label className="text-sm font-medium text-fixed">Test Mode</Label>
+                          <p className="text-xs text-variable">Enable for development and testing</p>
                         </div>
                         <Switch
                           checked={currentSettings?.clueTestMode === true}
@@ -2941,7 +2941,7 @@ export default function Settings() {
                     </div>
                     
                     {currentSettings?.clueLastSync && (
-                      <div className="text-xs text-slate-500 text-center">
+                      <div className="text-xs text-variable text-center">
                         Last synchronized: {new Date(currentSettings.clueLastSync).toLocaleString()}
                       </div>
                     )}
@@ -2955,7 +2955,7 @@ export default function Settings() {
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
                       <Server className="mr-3 text-blue-600" size={24} />
-                      <h3 className="text-lg font-semibold text-slate-800">X-Station 2 Devices</h3>
+                      <h3 className="text-lg font-semibold text-fixed">X-Station 2 Devices</h3>
                     </div>
                     <Button
                       variant="outline"
@@ -2992,13 +2992,13 @@ export default function Settings() {
                         <div className="flex items-center">
                           <Monitor className="mr-2 text-green-600" size={20} />
                           <div>
-                            <p className="font-medium text-slate-800">X-Station 2 - Main Entrance</p>
-                            <p className="text-xs text-slate-500">Device ID: XS2-001 • IP: 192.168.1.100</p>
+                            <p className="font-medium text-fixed">X-Station 2 - Main Entrance</p>
+                            <p className="text-xs text-variable">Device ID: XS2-001 • IP: 192.168.1.100</p>
                           </div>
                         </div>
                         <Badge className="bg-green-100 text-green-800">Online</Badge>
                       </div>
-                      <div className="text-xs text-slate-600 mt-2">
+                      <div className="text-xs text-variable mt-2">
                         Location: Building A, Main Lobby • Last seen: Just now
                       </div>
                     </div>
@@ -3008,13 +3008,13 @@ export default function Settings() {
                         <div className="flex items-center">
                           <Monitor className="mr-2 text-green-600" size={20} />
                           <div>
-                            <p className="font-medium text-slate-800">X-Station 2 - Side Entrance</p>
-                            <p className="text-xs text-slate-500">Device ID: XS2-002 • IP: 192.168.1.101</p>
+                            <p className="font-medium text-fixed">X-Station 2 - Side Entrance</p>
+                            <p className="text-xs text-variable">Device ID: XS2-002 • IP: 192.168.1.101</p>
                           </div>
                         </div>
                         <Badge className="bg-green-100 text-green-800">Online</Badge>
                       </div>
-                      <div className="text-xs text-slate-600 mt-2">
+                      <div className="text-xs text-variable mt-2">
                         Location: Building A, Side Door • Last seen: 2 minutes ago
                       </div>
                     </div>
@@ -3024,18 +3024,18 @@ export default function Settings() {
                         <div className="flex items-center">
                           <Monitor className="mr-2 text-gray-400" size={20} />
                           <div>
-                            <p className="font-medium text-slate-800">X-Station 2 - Reception</p>
-                            <p className="text-xs text-slate-500">Device ID: XS2-003 • IP: 192.168.1.102</p>
+                            <p className="font-medium text-fixed">X-Station 2 - Reception</p>
+                            <p className="text-xs text-variable">Device ID: XS2-003 • IP: 192.168.1.102</p>
                           </div>
                         </div>
                         <Badge className="bg-gray-100 text-gray-800">Offline</Badge>
                       </div>
-                      <div className="text-xs text-slate-600 mt-2">
+                      <div className="text-xs text-variable mt-2">
                         Location: Reception Desk • Last seen: 1 hour ago
                       </div>
                     </div>
                     
-                    <div className="text-center text-xs text-slate-500 pt-2">
+                    <div className="text-center text-xs text-variable pt-2">
                       Configure devices in CLUe Cloud Platform dashboard
                     </div>
                   </div>
@@ -3046,7 +3046,7 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <QrCode className="mr-3 text-blue-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">QR Reader Detection</h3>
+                    <h3 className="text-lg font-semibold text-fixed">QR Reader Detection</h3>
                   </div>
                   
                   <div className="space-y-4">
@@ -3077,12 +3077,12 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <Settings2 className="mr-3 text-blue-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">Reader Configuration</h3>
+                    <h3 className="text-lg font-semibold text-fixed">Reader Configuration</h3>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         Default Reader Mode
                       </Label>
                       <Select 
@@ -3104,7 +3104,7 @@ export default function Settings() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         Scan Timeout (seconds)
                       </Label>
                       <Input
@@ -3120,10 +3120,10 @@ export default function Settings() {
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label className="text-sm font-medium text-slate-700">
+                        <Label className="text-sm font-medium text-fixed">
                           Audio Feedback
                         </Label>
-                        <p className="text-xs text-slate-500">Play sound on successful scan</p>
+                        <p className="text-xs text-variable">Play sound on successful scan</p>
                       </div>
                       <Switch
                         checked={currentSettings?.qrReaderEnabled || false}
@@ -3140,12 +3140,12 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center mb-6">
                     <Shield className="mr-3 text-indigo-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">X-Station 2 Configuration</h3>
+                    <h3 className="text-lg font-semibold text-fixed">X-Station 2 Configuration</h3>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         X-Station IP Addresses
                       </Label>
                       <textarea
@@ -3155,11 +3155,11 @@ export default function Settings() {
                         placeholder="192.168.1.100&#10;192.168.1.101&#10;192.168.1.102"
                         data-testid="textarea-xstation-ips"
                       />
-                      <p className="text-xs text-slate-500">Enter one IP address per line</p>
+                      <p className="text-xs text-variable">Enter one IP address per line</p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         Pre-booking QR Support
                       </Label>
                       <Switch
@@ -3167,7 +3167,7 @@ export default function Settings() {
                         onCheckedChange={(checked) => handleInputChange("xStationEnabled", checked)}
                         data-testid="switch-xstation-prebooking"
                       />
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-variable">
                         Allow pre-booked visitors and contractors to check in using X-Station QR readers
                       </p>
                     </div>
@@ -3205,7 +3205,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center">
                     <QrCode className="mr-3 text-blue-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">Connected QR Readers</h3>
+                    <h3 className="text-lg font-semibold text-fixed">Connected QR Readers</h3>
                   </div>
                   <Button
                     variant="outline"
@@ -3238,7 +3238,7 @@ export default function Settings() {
                           <Settings2 size={14} className="mr-1" />
                           Configure
                         </Button>
-                        <Button size="sm" variant="outline" className="text-slate-600 border-slate-300">
+                        <Button size="sm" variant="outline" className="text-variable border-slate-300">
                           <TestTube size={14} className="mr-1" />
                           Test
                         </Button>
@@ -3263,7 +3263,7 @@ export default function Settings() {
                           <Settings2 size={14} className="mr-1" />
                           Configure
                         </Button>
-                        <Button size="sm" variant="outline" className="text-slate-600 border-slate-300">
+                        <Button size="sm" variant="outline" className="text-variable border-slate-300">
                           <TestTube size={14} className="mr-1" />
                           Test
                         </Button>
@@ -3272,8 +3272,8 @@ export default function Settings() {
                   </div>
                   
                   <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
-                    <QrCode className="mx-auto mb-4 text-slate-400" size={48} />
-                    <p className="text-slate-600 mb-4">Add Additional QR Reader</p>
+                    <QrCode className="mx-auto mb-4 text-variable" size={48} />
+                    <p className="text-variable mb-4">Add Additional QR Reader</p>
                     <div className="flex gap-3 justify-center">
                       <Button variant="outline" className="text-blue-600 border-blue-300">
                         <Plus className="mr-2" size={16} />
@@ -3291,7 +3291,7 @@ export default function Settings() {
               <GlassCard>
                 <div className="flex items-center mb-6">
                   <TestTube className="mr-3 text-blue-600" size={24} />
-                  <h3 className="text-lg font-semibold text-slate-800">QR Reader Testing</h3>
+                  <h3 className="text-lg font-semibold text-fixed">QR Reader Testing</h3>
                 </div>
                 
                 <div className="space-y-4">
@@ -3325,7 +3325,7 @@ export default function Settings() {
 
         <TabsContent value="display">
           <div className="text-center py-8">
-            <p className="text-slate-600">Display features will be restored shortly...</p>
+            <p className="text-variable">Display features will be restored shortly...</p>
           </div>
         </TabsContent>
 
@@ -3334,16 +3334,16 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Shield className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Suprema BioStar 2 Local Server</h3>
+                <h3 className="text-lg font-semibold text-fixed">Suprema BioStar 2 Local Server</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-medium text-slate-700">
+                    <Label className="text-sm font-medium text-fixed">
                       Enable BioStar Integration
                     </Label>
-                    <p className="text-xs text-slate-500">Connect to local BioStar 2 server for access control</p>
+                    <p className="text-xs text-variable">Connect to local BioStar 2 server for access control</p>
                   </div>
                   <Switch
                     checked={currentSettings?.biostarEnabled || false}
@@ -3355,7 +3355,7 @@ export default function Settings() {
                 {currentSettings?.biostarEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-fixed">
                         Local Server Address
                       </Label>
                       <Input
@@ -3363,18 +3363,18 @@ export default function Settings() {
                         type="url"
                         value={currentSettings?.biostarServerUrl || ""}
                         onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                         placeholder="http://localhost:8080 or http://192.168.1.100:8080"
                         data-testid="input-biostar-server-url"
                       />
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-variable">
                         Enter the local network address of your BioStar 2 server
                       </p>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="biostarUsername" className="text-sm font-medium text-slate-700">
+                        <Label htmlFor="biostarUsername" className="text-sm font-medium text-fixed">
                           Admin Username
                         </Label>
                         <Input
@@ -3382,15 +3382,15 @@ export default function Settings() {
                           type="text"
                           value={currentSettings?.biostarUsername || ""}
                           onChange={(e) => handleInputChange("biostarUsername", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="admin"
                           data-testid="input-biostar-username"
                         />
-                        <p className="text-xs text-slate-500">Biostar 2 administrator login ID</p>
+                        <p className="text-xs text-variable">Biostar 2 administrator login ID</p>
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="biostarPassword" className="text-sm font-medium text-slate-700">
+                        <Label htmlFor="biostarPassword" className="text-sm font-medium text-fixed">
                           Admin Password
                         </Label>
                         <Input
@@ -3398,17 +3398,17 @@ export default function Settings() {
                           type="password"
                           value={currentSettings?.biostarPassword || ""}
                           onChange={(e) => handleInputChange("biostarPassword", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="••••••••"
                           data-testid="input-biostar-password"
                         />
-                        <p className="text-xs text-slate-500">Biostar 2 administrator password</p>
+                        <p className="text-xs text-variable">Biostar 2 administrator password</p>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="biostarDatabaseId" className="text-sm font-medium text-slate-700">
+                        <Label htmlFor="biostarDatabaseId" className="text-sm font-medium text-fixed">
                           Database ID
                         </Label>
                         <Input
@@ -3416,14 +3416,14 @@ export default function Settings() {
                           type="text"
                           value={currentSettings?.biostarDatabaseId || "1"}
                           onChange={(e) => handleInputChange("biostarDatabaseId", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="1"
                           data-testid="input-biostar-database-id"
                         />
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="biostarSyncInterval" className="text-sm font-medium text-slate-700">
+                        <Label htmlFor="biostarSyncInterval" className="text-sm font-medium text-fixed">
                           Sync Interval (seconds)
                         </Label>
                         <Input
@@ -3431,7 +3431,7 @@ export default function Settings() {
                           type="number"
                           value={currentSettings?.biostarSyncInterval || "300"}
                           onChange={(e) => handleInputChange("biostarSyncInterval", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="300"
                           min="60"
                           data-testid="input-biostar-sync-interval"
@@ -3446,7 +3446,7 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Shield className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Connection & Sync</h3>
+                <h3 className="text-lg font-semibold text-fixed">Connection & Sync</h3>
               </div>
               
               <div className="space-y-4">
@@ -3575,12 +3575,12 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Phone className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Phone System Configuration</h3>
+                <h3 className="text-lg font-semibold text-fixed">Phone System Configuration</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phoneProvider" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="phoneProvider" className="text-sm font-medium text-fixed">
                     Phone System Provider
                   </Label>
                   <Select 
@@ -3601,7 +3601,7 @@ export default function Settings() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-700">
+                    <Label className="text-sm font-medium text-fixed">
                       Voice Notifications Enabled
                     </Label>
                     <Switch
@@ -3610,7 +3610,7 @@ export default function Settings() {
                       data-testid="switch-voice-notifications"
                     />
                   </div>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-variable">
                     Enable automated voice calls to staff when visitors arrive
                   </p>
                 </div>
@@ -3620,12 +3620,12 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Settings2 className="mr-3 text-green-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">8x8 API Configuration</h3>
+                <h3 className="text-lg font-semibold text-fixed">8x8 API Configuration</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXApiKey" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="eightByXApiKey" className="text-sm font-medium text-fixed">
                     API Key
                   </Label>
                   <Input
@@ -3634,13 +3634,13 @@ export default function Settings() {
                     value={currentSettings?.eightByXApiKey || ""}
                     onChange={(e) => handleInputChange("eightByXApiKey", e.target.value)}
                     placeholder="Enter your 8x8 API key"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-api-key"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXApiSecret" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="eightByXApiSecret" className="text-sm font-medium text-fixed">
                     API Secret
                   </Label>
                   <Input
@@ -3649,13 +3649,13 @@ export default function Settings() {
                     value={currentSettings?.eightByXApiSecret || ""}
                     onChange={(e) => handleInputChange("eightByXApiSecret", e.target.value)}
                     placeholder="Enter your 8x8 API secret"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-api-secret"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXAccountId" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="eightByXAccountId" className="text-sm font-medium text-fixed">
                     Account ID
                   </Label>
                   <Input
@@ -3664,13 +3664,13 @@ export default function Settings() {
                     value={currentSettings?.eightByXAccountId || ""}
                     onChange={(e) => handleInputChange("eightByXAccountId", e.target.value)}
                     placeholder="Enter your 8x8 account ID"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-account-id"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXBaseUrl" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="eightByXBaseUrl" className="text-sm font-medium text-fixed">
                     API Base URL
                   </Label>
                   <Input
@@ -3679,7 +3679,7 @@ export default function Settings() {
                     value={currentSettings?.eightByXBaseUrl || "https://vcc-eu.8x8.com/api/v1"}
                     onChange={(e) => handleInputChange("eightByXBaseUrl", e.target.value)}
                     placeholder="https://vcc-eu.8x8.com/api/v1"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-base-url"
                   />
                 </div>
@@ -3691,12 +3691,12 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Globe className="mr-3 text-purple-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Voice Settings</h3>
+                <h3 className="text-lg font-semibold text-fixed">Voice Settings</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="defaultVoiceLanguage" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="defaultVoiceLanguage" className="text-sm font-medium text-fixed">
                     Default Voice Language
                   </Label>
                   <Select 
@@ -3719,7 +3719,7 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="defaultVoiceProfile" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="defaultVoiceProfile" className="text-sm font-medium text-fixed">
                     Default Voice Profile
                   </Label>
                   <Select 
@@ -3745,19 +3745,19 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <TestTube className="mr-3 text-orange-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Test & Diagnostics</h3>
+                <h3 className="text-lg font-semibold text-fixed">Test & Diagnostics</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="testPhoneNumber" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="testPhoneNumber" className="text-sm font-medium text-fixed">
                     Test Phone Number
                   </Label>
                   <Input
                     id="testPhoneNumber"
                     type="tel"
                     placeholder="+44 20 7123 4567"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-test-phone-number"
                   />
                 </div>
@@ -3777,17 +3777,17 @@ export default function Settings() {
                 </Button>
 
                 <div className="pt-4 border-t border-slate-200">
-                  <h4 className="text-sm font-medium text-slate-700 mb-2">API Status</h4>
+                  <h4 className="text-sm font-medium text-fixed mb-2">API Status</h4>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600">8x8 API Connection</span>
+                      <span className="text-sm text-variable">8x8 API Connection</span>
                       <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200">
                         <CheckCircle size={12} className="mr-1" />
                         Connected
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600">Voice Notifications</span>
+                      <span className="text-sm text-variable">Voice Notifications</span>
                       <Badge variant="outline" className={
                         currentSettings?.voiceNotificationsEnabled 
                           ? "text-green-700 bg-green-50 border-green-200"
@@ -3813,7 +3813,7 @@ export default function Settings() {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                   <Users className="mr-3 text-blue-600" size={24} />
-                  <h3 className="text-lg font-semibold text-slate-800">User Management</h3>
+                  <h3 className="text-lg font-semibold text-fixed">User Management</h3>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -3840,8 +3840,8 @@ export default function Settings() {
               <div className="space-y-4">
                 {usersLoading ? (
                   <div className="text-center py-8">
-                    <RefreshCw className="mx-auto text-slate-400 mb-4 animate-spin" size={32} />
-                    <p className="text-slate-600">Loading users...</p>
+                    <RefreshCw className="mx-auto text-variable mb-4 animate-spin" size={32} />
+                    <p className="text-variable">Loading users...</p>
                   </div>
                 ) : users && users.length > 0 ? (
                   <>
@@ -3862,8 +3862,8 @@ export default function Settings() {
                               <span className="text-white text-sm font-bold">{initials}</span>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800">{displayName}</p>
-                              <p className="text-sm text-slate-600">{user.email}</p>
+                              <p className="font-medium text-fixed">{displayName}</p>
+                              <p className="text-sm text-variable">{user.email}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -3955,8 +3955,8 @@ export default function Settings() {
                   </>
                 ) : (
                   <div className="text-center py-8">
-                    <Shield className="mx-auto text-slate-400 mb-4" size={48} />
-                    <p className="text-slate-600 mb-4">No users yet</p>
+                    <Shield className="mx-auto text-variable mb-4" size={48} />
+                    <p className="text-variable mb-4">No users yet</p>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -3974,7 +3974,7 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <UserPlus className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">Invite New User</h3>
+                <h3 className="text-lg font-semibold text-fixed">Invite New User</h3>
               </div>
               
               <form 
@@ -3987,7 +3987,7 @@ export default function Settings() {
                 }}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="inviteEmail" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="inviteEmail" className="text-sm font-medium text-fixed">
                     Email Address
                   </Label>
                   <Input
@@ -3996,14 +3996,14 @@ export default function Settings() {
                     placeholder="user@example.com"
                     value={inviteForm.email}
                     onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-invite-email"
                     required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="userRole" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="userRole" className="text-sm font-medium text-fixed">
                     User Role
                   </Label>
                   <Select value={inviteForm.role} onValueChange={(value) => setInviteForm({ ...inviteForm, role: value })}>
@@ -4046,8 +4046,8 @@ export default function Settings() {
               <div className="flex items-center">
                 <Building className="mr-3 text-blue-600" size={24} />
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800">Department Management</h3>
-                  <p className="text-sm text-slate-600">
+                  <h3 className="text-lg font-semibold text-fixed">Department Management</h3>
+                  <p className="text-sm text-variable">
                     Organize your workforce and improve visitor experiences with department-based routing
                   </p>
                 </div>
@@ -4055,7 +4055,7 @@ export default function Settings() {
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  className="text-slate-600 border-slate-300"
+                  className="text-variable border-slate-300"
                   data-testid="button-export-departments"
                 >
                   <Download className="mr-2" size={16} />
@@ -4099,7 +4099,7 @@ export default function Settings() {
                       data-testid={`card-department-${department.id}`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-slate-800" data-testid={`text-department-name-${department.id}`}>
+                        <h4 className="font-semibold text-fixed" data-testid={`text-department-name-${department.id}`}>
                           {department.name}
                         </h4>
                         <div className="flex gap-2">
@@ -4132,7 +4132,7 @@ export default function Settings() {
                         </div>
                       </div>
                       {department.description && (
-                        <p className="text-sm text-slate-600 mb-3" data-testid={`text-department-description-${department.id}`}>
+                        <p className="text-sm text-variable mb-3" data-testid={`text-department-description-${department.id}`}>
                           {department.description}
                         </p>
                       )}
@@ -4155,11 +4155,11 @@ export default function Settings() {
                             }}
                             data-testid={`color-indicator-${department.id}`}
                           />
-                          <span className="text-xs text-slate-500 capitalize">
+                          <span className="text-xs text-variable capitalize">
                             {department.color || 'blue'}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-variable">
                           <Users size={12} className="inline mr-1" />
                           {/* Staff count would be populated from database */}
                           0 staff
@@ -4170,9 +4170,9 @@ export default function Settings() {
                 </div>
               ) : (
                 <div className="text-center py-12" data-testid="empty-departments-state">
-                  <Building className="mx-auto mb-4 text-slate-400" size={48} />
-                  <p className="text-slate-600 mb-4">No departments configured</p>
-                  <p className="text-sm text-slate-500 mb-6">
+                  <Building className="mx-auto mb-4 text-variable" size={48} />
+                  <p className="text-variable mb-4">No departments configured</p>
+                  <p className="text-sm text-variable mb-6">
                     Create departments to organize your staff and improve visitor management
                   </p>
                   <Button
@@ -4192,12 +4192,12 @@ export default function Settings() {
           <GlassCard>
             <div className="flex items-center mb-6">
               <FileText className="mr-3 text-blue-600" size={24} />
-              <h3 className="text-lg font-semibold text-slate-800">Report Generation Settings</h3>
+              <h3 className="text-lg font-semibold text-fixed">Report Generation Settings</h3>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="space-y-4">
-                <h4 className="font-medium text-slate-700">📊 Report Types</h4>
+                <h4 className="font-medium text-fixed">📊 Report Types</h4>
                 <div className="space-y-3">
                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between">
@@ -4215,21 +4215,21 @@ export default function Settings() {
                     <p className="text-xs text-green-600 mt-1">Comprehensive weekly analysis</p>
                   </div>
                   
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="p-3 bg-[var(--background)] rounded-lg border border-slate-200">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">Monthly Reports</span>
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-600">Configured</Badge>
+                      <span className="text-sm font-medium text-fixed">Monthly Reports</span>
+                      <Badge variant="secondary" className="bg-slate-100 text-variable">Configured</Badge>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">Month-end summaries</p>
+                    <p className="text-xs text-variable mt-1">Month-end summaries</p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium text-slate-700">⚙️ Report Settings</h4>
+                <h4 className="font-medium text-fixed">⚙️ Report Settings</h4>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-700">Include Charts</Label>
+                    <Label className="text-sm font-medium text-fixed">Include Charts</Label>
                     <Switch 
                       checked={currentSettings?.emailReportsEnabled !== false} 
                       onCheckedChange={(checked) => handleInputChange("emailReportsEnabled", checked)}
@@ -4238,7 +4238,7 @@ export default function Settings() {
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-700">Include Photos</Label>
+                    <Label className="text-sm font-medium text-fixed">Include Photos</Label>
                     <Switch 
                       checked={currentSettings?.enableQrCodes === true} 
                       onCheckedChange={(checked) => handleInputChange("enableQrCodes", checked)}
@@ -4247,7 +4247,7 @@ export default function Settings() {
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-700">PDF Export</Label>
+                    <Label className="text-sm font-medium text-fixed">PDF Export</Label>
                     <Switch 
                       checked={currentSettings?.enable2dBarcodes !== false} 
                       onCheckedChange={(checked) => handleInputChange("enable2dBarcodes", checked)}
@@ -4256,7 +4256,7 @@ export default function Settings() {
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-700">Excel Export</Label>
+                    <Label className="text-sm font-medium text-fixed">Excel Export</Label>
                     <Switch 
                       checked={currentSettings?.biostarEnabled === true} 
                       onCheckedChange={(checked) => handleInputChange("biostarEnabled", checked)}
@@ -4274,27 +4274,27 @@ export default function Settings() {
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium text-slate-700">📈 Report Stats</h4>
+                <h4 className="font-medium text-fixed">📈 Report Stats</h4>
                 <div className="space-y-3">
                   <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
                     <div className="text-2xl font-bold text-blue-600" data-testid="text-total-reports">
                       8
                     </div>
-                    <div className="text-xs text-slate-600">Total Report Types</div>
+                    <div className="text-xs text-variable">Total Report Types</div>
                   </div>
                   
                   <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
                     <div className="text-2xl font-bold text-green-600" data-testid="text-generated-reports">
                       24
                     </div>
-                    <div className="text-xs text-slate-600">Generated This Month</div>
+                    <div className="text-xs text-variable">Generated This Month</div>
                   </div>
                   
                   <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
                     <div className="text-2xl font-bold text-purple-600" data-testid="text-emailed-reports">
                       0
                     </div>
-                    <div className="text-xs text-slate-600">Emailed Reports</div>
+                    <div className="text-xs text-variable">Emailed Reports</div>
                   </div>
                 </div>
               </div>
@@ -4318,7 +4318,7 @@ export default function Settings() {
           <GlassCard>
             <div className="flex items-center mb-6">
               <Calendar className="mr-3 text-blue-600" size={24} />
-              <h3 className="text-lg font-semibold text-slate-800">Generate Reports Now</h3>
+              <h3 className="text-lg font-semibold text-fixed">Generate Reports Now</h3>
             </div>
             
             <div className="space-y-6">
@@ -4399,7 +4399,7 @@ export default function Settings() {
           <GlassCard>
             <div className="flex items-center mb-6">
               <Activity className="mr-3 text-green-600" size={24} />
-              <h3 className="text-lg font-semibold text-slate-800">Recent Report Activity</h3>
+              <h3 className="text-lg font-semibold text-fixed">Recent Report Activity</h3>
             </div>
             
             <div className="space-y-4">
@@ -4465,7 +4465,7 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center mb-6">
                 <Brain className="mr-3 text-blue-600" size={24} />
-                <h3 className="text-lg font-semibold text-slate-800">OpenAI Configuration</h3>
+                <h3 className="text-lg font-semibold text-fixed">OpenAI Configuration</h3>
               </div>
               
               <div className="space-y-4">
@@ -4483,13 +4483,13 @@ export default function Settings() {
                       <SelectItem value="gpt-5">GPT-5 (Latest) 🚀</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-variable">
                     GPT-4o is recommended for better AI-generated content quality
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="openaiMaxTokens" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="openaiMaxTokens" className="text-sm font-medium text-fixed">
                     Max Response Length (Tokens)
                   </Label>
                   <Select
@@ -4506,7 +4506,7 @@ export default function Settings() {
                       <SelectItem value="8000">8,000 tokens (Very long responses)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-variable">
                     Higher token limits allow for more detailed AI responses
                   </p>
                 </div>
@@ -4519,7 +4519,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 gap-6">
             <GlassCard className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
                   <Shield className="w-5 h-5" />
                   Health & Safety Rules
                 </h3>
@@ -4530,7 +4530,7 @@ export default function Settings() {
                       onCheckedChange={(checked) => handleInputChange("hsRulesEnabled", checked)}
                       data-testid="switch-hs-rules-enabled"
                     />
-                    <Label className="text-sm font-medium text-slate-700">Enable H&S Rules</Label>
+                    <Label className="text-sm font-medium text-fixed">Enable H&S Rules</Label>
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch
@@ -4538,7 +4538,7 @@ export default function Settings() {
                       onCheckedChange={(checked) => handleInputChange("hsRulesRequireAcceptance", checked)}
                       data-testid="switch-hs-rules-require-acceptance"
                     />
-                    <Label className="text-sm font-medium text-slate-700">Require Acceptance</Label>
+                    <Label className="text-sm font-medium text-fixed">Require Acceptance</Label>
                   </div>
                 </div>
               </div>
@@ -4547,24 +4547,24 @@ export default function Settings() {
                 {currentSettings?.hsRulesEnabled !== false && (
                   <>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
+                      <Label className="text-sm font-medium text-fixed">
                         H&S Rules Content (Markdown supported)
                       </Label>
                       <textarea
                         value={currentSettings?.hsRulesContent || ""}
                         onChange={(e) => handleInputChange("hsRulesContent", e.target.value)}
-                        className="w-full h-96 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono text-sm"
+                        className="w-full h-96 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed font-mono text-sm"
                         placeholder="Enter your company's health and safety rules here..."
                         data-testid="textarea-hs-rules-content"
                       />
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-variable">
                         These rules will be included in e-Pass emails and can be shown during visitor check-in.
                         Markdown formatting is supported for better presentation.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="hsRulesUrl" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="hsRulesUrl" className="text-sm font-medium text-fixed">
                         External H&S Rules URL (Optional)
                       </Label>
                       <Input
@@ -4576,7 +4576,7 @@ export default function Settings() {
                         placeholder="https://www.yourcompany.com/health-safety-rules"
                         data-testid="input-hs-rules-url"
                       />
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-variable">
                         If provided, this link will be included in e-Pass emails instead of the full content.
                       </p>
                     </div>
@@ -4614,7 +4614,7 @@ export default function Settings() {
                 )}
                 
                 {currentSettings?.hsRulesEnabled === false && (
-                  <div className="text-center py-8 text-slate-500">
+                  <div className="text-center py-8 text-variable">
                     <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p className="text-sm">H&S Rules are disabled. Enable them to configure health and safety requirements.</p>
                   </div>
@@ -4636,15 +4636,15 @@ export default function Settings() {
         <TabsContent value="system" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
                 <RotateCcw className="w-5 h-5" />
                 Daily Reset / End of Day
               </h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-medium text-slate-700">Enable Daily Reset</Label>
-                    <p className="text-xs text-slate-500">Automatically check out all personnel at end of day</p>
+                    <Label className="text-sm font-medium text-fixed">Enable Daily Reset</Label>
+                    <p className="text-xs text-variable">Automatically check out all personnel at end of day</p>
                   </div>
                   <Switch
                     checked={currentSettings?.enableDailyReset !== false}
@@ -4656,7 +4656,7 @@ export default function Settings() {
                 {currentSettings?.enableDailyReset !== false && (
                   <div className="space-y-4 pl-4 border-l-2 border-blue-200">
                     <div className="space-y-2">
-                      <Label htmlFor="dailyResetTime" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="dailyResetTime" className="text-sm font-medium text-fixed">
                         Reset Time
                       </Label>
                       <div className="flex gap-2">
@@ -4685,11 +4685,11 @@ export default function Settings() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <p className="text-xs text-slate-500">Time when daily reset will automatically occur</p>
+                      <p className="text-xs text-variable">Time when daily reset will automatically occur</p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="gracePeriod" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="gracePeriod" className="text-sm font-medium text-fixed">
                         Grace Period (minutes)
                       </Label>
                       <Input
@@ -4702,7 +4702,7 @@ export default function Settings() {
                         className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                         data-testid="input-grace-period"
                       />
-                      <p className="text-xs text-slate-500">Time to alert personnel before automatic checkout</p>
+                      <p className="text-xs text-variable">Time to alert personnel before automatic checkout</p>
                     </div>
                   </div>
                 )}
@@ -4710,7 +4710,7 @@ export default function Settings() {
             </GlassCard>
 
             <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
                 <Database className="w-5 h-5" />
                 System Status
               </h3>
@@ -4748,12 +4748,12 @@ export default function Settings() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
                 <Database className="w-5 h-5" />
                 Database Backup
               </h3>
               <div className="space-y-4">
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-variable">
                   Export all customer data including settings, branding, staff, visitors, and operational data to a SQL Server .bak file.
                 </p>
                 <Button 
@@ -4783,12 +4783,12 @@ export default function Settings() {
             </GlassCard>
 
             <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
                 <Upload className="w-5 h-5" />
                 Database Restore
               </h3>
               <div className="space-y-4">
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-variable">
                   Restore customer data from a previously exported .bak or .sql backup file. This will replace all current data.
                 </p>
                 <div className="space-y-2">
@@ -4854,11 +4854,11 @@ export default function Settings() {
           {/* Import Feature Section */}
           <div className="mt-6">
             <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
                 <Upload className="w-5 h-5" />
                 Bulk Import
               </h3>
-              <p className="text-sm text-slate-600 mb-6">
+              <p className="text-sm text-variable mb-6">
                 Import staff, visitors, and contractors in bulk using CSV files. Download the template, fill it out, and upload it back.
               </p>
               
@@ -4867,9 +4867,9 @@ export default function Settings() {
                 <div className="p-4 bg-white/50 rounded-lg border">
                   <div className="flex items-center gap-2 mb-3">
                     <Users className="w-5 h-5 text-blue-600" />
-                    <h4 className="font-medium text-slate-800">Staff Import</h4>
+                    <h4 className="font-medium text-fixed">Staff Import</h4>
                   </div>
-                  <p className="text-xs text-slate-500 mb-4">
+                  <p className="text-xs text-variable mb-4">
                     Import multiple staff members with their details
                   </p>
                   <div className="space-y-2">
@@ -4910,9 +4910,9 @@ export default function Settings() {
                 <div className="p-4 bg-white/50 rounded-lg border">
                   <div className="flex items-center gap-2 mb-3">
                     <UserPlus className="w-5 h-5 text-green-600" />
-                    <h4 className="font-medium text-slate-800">Visitors Import</h4>
+                    <h4 className="font-medium text-fixed">Visitors Import</h4>
                   </div>
-                  <p className="text-xs text-slate-500 mb-4">
+                  <p className="text-xs text-variable mb-4">
                     Pre-book visitors in bulk for upcoming visits
                   </p>
                   <div className="space-y-2">
@@ -4953,9 +4953,9 @@ export default function Settings() {
                 <div className="p-4 bg-white/50 rounded-lg border">
                   <div className="flex items-center gap-2 mb-3">
                     <Building className="w-5 h-5 text-orange-600" />
-                    <h4 className="font-medium text-slate-800">Contractors Import</h4>
+                    <h4 className="font-medium text-fixed">Contractors Import</h4>
                   </div>
-                  <p className="text-xs text-slate-500 mb-4">
+                  <p className="text-xs text-variable mb-4">
                     Import contractor workers and their companies
                   </p>
                   <div className="space-y-2">
@@ -5003,11 +5003,11 @@ export default function Settings() {
           
           <div className="mt-6">
             <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
                 <Settings2 className="w-5 h-5" />
                 Feature Toggles
               </h3>
-              <p className="text-sm text-slate-600 mb-6">
+              <p className="text-sm text-variable mb-6">
                 Disable unused features to simplify your interface and reduce complexity for your team.
               </p>
               
@@ -5019,8 +5019,8 @@ export default function Settings() {
                       <Building2 className="w-5 h-5 text-purple-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">Multi-Tenant</h4>
-                      <p className="text-xs text-slate-500">Building overview & tenant management</p>
+                      <h4 className="font-medium text-fixed">Multi-Tenant</h4>
+                      <p className="text-xs text-variable">Building overview & tenant management</p>
                     </div>
                   </div>
                   <Switch
@@ -5037,8 +5037,8 @@ export default function Settings() {
                       <Calendar className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">Meeting Rooms</h4>
-                      <p className="text-xs text-slate-500">Room booking & management</p>
+                      <h4 className="font-medium text-fixed">Meeting Rooms</h4>
+                      <p className="text-xs text-variable">Room booking & management</p>
                     </div>
                   </div>
                   <Switch
@@ -5055,8 +5055,8 @@ export default function Settings() {
                       <Clock className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">Time Attendance</h4>
-                      <p className="text-xs text-slate-500">Staff time tracking & reports</p>
+                      <h4 className="font-medium text-fixed">Time Attendance</h4>
+                      <p className="text-xs text-variable">Staff time tracking & reports</p>
                     </div>
                   </div>
                   <Switch
@@ -5073,8 +5073,8 @@ export default function Settings() {
                       <Video className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">Induction Settings</h4>
-                      <p className="text-xs text-slate-500">Safety induction configuration</p>
+                      <h4 className="font-medium text-fixed">Induction Settings</h4>
+                      <p className="text-xs text-variable">Safety induction configuration</p>
                     </div>
                   </div>
                   <Switch
@@ -5091,8 +5091,8 @@ export default function Settings() {
                       <Dock className="w-5 h-5 text-cyan-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">Kiosk Mode</h4>
-                      <p className="text-xs text-slate-500">Self-service check-in kiosks</p>
+                      <h4 className="font-medium text-fixed">Kiosk Mode</h4>
+                      <p className="text-xs text-variable">Self-service check-in kiosks</p>
                     </div>
                   </div>
                   <Switch
@@ -5109,8 +5109,8 @@ export default function Settings() {
                       <Brain className="w-5 h-5 text-pink-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">AI Demo</h4>
-                      <p className="text-xs text-slate-500">AI-powered features showcase</p>
+                      <h4 className="font-medium text-fixed">AI Demo</h4>
+                      <p className="text-xs text-variable">AI-powered features showcase</p>
                     </div>
                   </div>
                   <Switch
@@ -5127,8 +5127,8 @@ export default function Settings() {
                       <CalendarPlus className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">Contractor Page</h4>
-                      <p className="text-xs text-slate-500">Contractor management & H&S compliance</p>
+                      <h4 className="font-medium text-fixed">Contractor Page</h4>
+                      <p className="text-xs text-variable">Contractor management & H&S compliance</p>
                     </div>
                   </div>
                   <Switch
@@ -5216,7 +5216,7 @@ export default function Settings() {
                   <SelectItem value="bg-emerald-500">💎 Emerald</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-variable">
                 Color coding helps staff and visitors quickly identify departments
               </p>
             </div>
@@ -5646,7 +5646,7 @@ export default function Settings() {
               <div className="flex items-center justify-center p-8">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                  <p className="text-slate-600">Generating test code...</p>
+                  <p className="text-variable">Generating test code...</p>
                 </div>
               </div>
             )}
@@ -5670,7 +5670,7 @@ export default function Settings() {
               <>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-slate-700">
+                    <Label className="text-sm font-medium text-fixed">
                       Generated {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} Code
                     </Label>
                     <Button

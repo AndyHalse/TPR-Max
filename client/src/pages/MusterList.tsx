@@ -140,12 +140,12 @@ export default function MusterList() {
     <div className="space-y-6 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Muster List</h2>
+          <h2 className="text-2xl font-bold text-fixed">Muster List</h2>
           {settings?.biostarEnabled && (
             <div className="flex items-center gap-4 mt-2">
               <div className="flex items-center gap-2">
                 <Shield size={16} className="text-blue-600" />
-                <span className="text-sm text-slate-600">Biostar Integration</span>
+                <span className="text-sm text-variable">Biostar Integration</span>
                 {biostarLoading ? (
                   <WifiOff size={14} className="text-amber-500" />
                 ) : biostarStaff ? (
@@ -160,7 +160,7 @@ export default function MusterList() {
                   onCheckedChange={setShowBiostarData}
                   data-testid="switch-biostar-muster"
                 />
-                <Label className="text-sm text-slate-600">Include Biometric Data</Label>
+                <Label className="text-sm text-variable">Include Biometric Data</Label>
               </div>
               {counts.biostarOnly > 0 && (
                 <Badge variant="secondary" className="text-xs">
@@ -197,8 +197,8 @@ export default function MusterList() {
           onClick={() => setActiveFilter("all")}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${
             activeFilter === "all" 
-              ? "bg-white text-blue-600 shadow-sm" 
-              : "text-slate-600 hover:text-slate-800"
+              ? "bg-[var(--card)] text-blue-600 shadow-sm" 
+              : "text-variable hover:text-fixed"
           }`}
           data-testid="filter-all"
         >
@@ -209,8 +209,8 @@ export default function MusterList() {
           onClick={() => setActiveFilter("staff")}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${
             activeFilter === "staff" 
-              ? "bg-white text-blue-600 shadow-sm" 
-              : "text-slate-600 hover:text-slate-800"
+              ? "bg-[var(--card)] text-blue-600 shadow-sm" 
+              : "text-variable hover:text-fixed"
           }`}
           data-testid="filter-staff"
         >
@@ -221,8 +221,8 @@ export default function MusterList() {
           onClick={() => setActiveFilter("visitors")}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${
             activeFilter === "visitors" 
-              ? "bg-white text-blue-600 shadow-sm" 
-              : "text-slate-600 hover:text-slate-800"
+              ? "bg-[var(--card)] text-blue-600 shadow-sm" 
+              : "text-variable hover:text-fixed"
           }`}
           data-testid="filter-visitors"
         >
@@ -234,9 +234,9 @@ export default function MusterList() {
       <GlassCard className="overflow-hidden">
         {filteredList.length === 0 ? (
           <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-slate-600 text-lg">No entries found</p>
-            <p className="text-slate-500 text-sm mt-2">
+            <Users className="mx-auto h-12 w-12 text-variable mb-4" />
+            <p className="text-variable text-lg">No entries found</p>
+            <p className="text-variable text-sm mt-2">
               {activeFilter === "all" 
                 ? "No staff or visitors are currently on-site"
                 : `No ${activeFilter} are currently on-site`
@@ -248,22 +248,22 @@ export default function MusterList() {
             <table className="w-full">
               <thead className="bg-white/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Type
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Company/Department
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Check-in Time
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Host/ID
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Location
                   </th>
                 </tr>
@@ -278,7 +278,7 @@ export default function MusterList() {
                             {getInitials(entry.name)}
                           </span>
                         </div>
-                        <span className="text-sm font-medium text-slate-800" data-testid={`muster-name-${entry.id}`}>
+                        <span className="text-sm font-medium text-fixed" data-testid={`muster-name-${entry.id}`}>
                           {entry.name}
                         </span>
                       </div>
@@ -300,16 +300,16 @@ export default function MusterList() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
                       {entry.type === "staff" ? entry.department : entry.company || "No company"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
                       {formatTime(entry.checkedInAt)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
                       {entry.type === "staff" ? entry.employeeId : "Visitor"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
                       {entry.location}
                     </td>
                   </tr>

@@ -147,7 +147,7 @@ function CompanyCombobox({ value, onValueChange, companies, placeholder = "Selec
           setOpen(!open);
         }}
       >
-        <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+        <ChevronsUpDown className="h-4 w-4 text-variable" />
       </Button>
       
       <Popover open={open} onOpenChange={setOpen}>
@@ -164,7 +164,7 @@ function CompanyCombobox({ value, onValueChange, companies, placeholder = "Selec
             {/* Show existing companies */}
             {filteredCompanies.length > 0 && (
               <CommandGroup>
-                <div className="px-2 py-1.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
+                <div className="px-2 py-1.5 text-xs font-medium text-variable uppercase tracking-wide">
                   Existing Companies
                 </div>
                 {filteredCompanies.map((company) => (
@@ -182,7 +182,7 @@ function CompanyCombobox({ value, onValueChange, companies, placeholder = "Selec
                         )}
                       />
                     </div>
-                    <span className="text-slate-700 truncate">{company}</span>
+                    <span className="text-variable truncate">{company}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -212,9 +212,9 @@ function CompanyCombobox({ value, onValueChange, companies, placeholder = "Selec
             
             {/* Empty state - only show when user has typed but no matches */}
             {filteredCompanies.length === 0 && inputValue.trim() && (
-              <div className="px-4 py-6 text-center text-slate-500">
+              <div className="px-4 py-6 text-center text-variable">
                 <div className="text-sm mb-1">No existing companies found</div>
-                <div className="text-xs text-slate-400">Press Enter to add "{inputValue.trim()}" as new company</div>
+                <div className="text-xs text-variable">Press Enter to add "{inputValue.trim()}" as new company</div>
               </div>
             )}
           </CommandList>
@@ -440,7 +440,7 @@ export default function PreBooking() {
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-800">Pre-book Visitors</h2>
+        <h2 className="text-2xl font-bold text-fixed">Pre-book Visitors</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -448,13 +448,13 @@ export default function PreBooking() {
         <GlassCard>
           <div className="flex items-center mb-6">
             <CalendarPlus className="mr-3 text-blue-600" size={24} />
-            <h3 className="text-lg font-semibold text-slate-800">Create Pre-booking</h3>
+            <h3 className="text-lg font-semibold text-fixed">Create Pre-booking</h3>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="visitorFirstName" className="text-sm font-medium text-slate-700">
+                <Label htmlFor="visitorFirstName" className="text-sm font-medium text-variable">
                   Visitor First Name *
                 </Label>
                 <Input
@@ -462,7 +462,7 @@ export default function PreBooking() {
                   type="text"
                   value={formData.visitorFirstName || ""}
                   onChange={(e) => handleInputChange("visitorFirstName", e.target.value)}
-                  className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                  className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                     validationErrors.visitorFirstName 
                       ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                       : 'border-white/30 focus:ring-blue-500'
@@ -473,7 +473,7 @@ export default function PreBooking() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="visitorLastName" className="text-sm font-medium text-slate-700">
+                <Label htmlFor="visitorLastName" className="text-sm font-medium text-variable">
                   Visitor Last Name *
                 </Label>
                 <Input
@@ -481,7 +481,7 @@ export default function PreBooking() {
                   type="text"
                   value={formData.visitorLastName || ""}
                   onChange={(e) => handleInputChange("visitorLastName", e.target.value)}
-                  className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                  className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                     validationErrors.visitorLastName 
                       ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                       : 'border-white/30 focus:ring-blue-500'
@@ -493,7 +493,7 @@ export default function PreBooking() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="visitorEmail" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="visitorEmail" className="text-sm font-medium text-variable">
                 Visitor Email *
               </Label>
               <Input
@@ -501,7 +501,7 @@ export default function PreBooking() {
                 type="email"
                 value={formData.visitorEmail || ""}
                 onChange={(e) => handleInputChange("visitorEmail", e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                   validationErrors.visitorEmail 
                     ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                     : 'border-white/30 focus:ring-blue-500'
@@ -512,7 +512,7 @@ export default function PreBooking() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="company" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="company" className="text-sm font-medium text-variable">
                 Company *
               </Label>
               <CompanyCombobox
@@ -520,7 +520,7 @@ export default function PreBooking() {
                 onValueChange={(value) => handleInputChange("company", value)}
                 companies={companies}
                 placeholder="Select or type company name..."
-                className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                   validationErrors.company 
                     ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                     : 'border-white/30 focus:ring-blue-500'
@@ -530,7 +530,7 @@ export default function PreBooking() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="hostStaffId" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="hostStaffId" className="text-sm font-medium text-variable">
                 Host Staff Member *
               </Label>
               <Select 
@@ -585,7 +585,7 @@ export default function PreBooking() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Visit Date *</Label>
+                <Label className="text-sm font-medium text-variable">Visit Date *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -614,7 +614,7 @@ export default function PreBooking() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="visitTime" className="text-sm font-medium text-slate-700">
+                <Label htmlFor="visitTime" className="text-sm font-medium text-variable">
                   Visit Time *
                 </Label>
                 <Input
@@ -622,7 +622,7 @@ export default function PreBooking() {
                   type="time"
                   value={formData.visitDate ? format(new Date(formData.visitDate), "HH:mm") : "09:00"}
                   onChange={(e) => handleTimeChange(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                   required
                   data-testid="input-visit-time"
                 />
@@ -630,14 +630,14 @@ export default function PreBooking() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="purpose" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="purpose" className="text-sm font-medium text-variable">
                 Purpose of Visit
               </Label>
               <Textarea
                 id="purpose"
                 value={formData.purpose || ""}
                 onChange={(e) => handleInputChange("purpose", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 resize-none"
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed resize-none"
                 rows={3}
                 placeholder="Brief description of the visit purpose"
                 data-testid="textarea-purpose"
@@ -660,12 +660,12 @@ export default function PreBooking() {
         <GlassCard>
           <div className="flex items-center mb-6">
             <Clock className="mr-3 text-orange-600" size={24} />
-            <h3 className="text-lg font-semibold text-slate-800">Upcoming Visits</h3>
+            <h3 className="text-lg font-semibold text-fixed">Upcoming Visits</h3>
           </div>
           
           <div className="space-y-4 max-h-96 overflow-y-auto">
             {upcomingBookings?.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-variable">
                 <Users size={48} className="mx-auto mb-4 opacity-50" />
                 <p>No upcoming pre-bookings</p>
               </div>
@@ -674,12 +674,12 @@ export default function PreBooking() {
                 <div key={booking.id} className="border border-white/30 rounded-xl p-4 bg-white/30">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-slate-800">
+                      <h4 className="font-semibold text-fixed">
                         {booking.visitorFirstName} {booking.visitorLastName}
                       </h4>
-                      <p className="text-sm text-slate-600">{booking.company}</p>
-                      <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
-                      <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
+                      <p className="text-sm text-variable">{booking.company}</p>
+                      <p className="text-sm text-variable">{formatBookingDate(booking.visitDate.toString())}</p>
+                      <p className="text-sm text-variable">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
                       {/* Meeting room display hidden - database doesn't support meeting_room_id yet */}
                       {/* {booking.meetingRoomId && (
                         <p className="text-sm text-slate-600">Room: {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.name} - {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.location}</p>
@@ -726,14 +726,14 @@ export default function PreBooking() {
       <GlassCard>
         <div className="flex items-center mb-6">
           <FileText className="mr-3 text-purple-600" size={24} />
-          <h3 className="text-lg font-semibold text-slate-800">All Pre-bookings</h3>
+          <h3 className="text-lg font-semibold text-fixed">All Pre-bookings</h3>
         </div>
         
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {isLoadingBookings ? (
             <div className="text-center py-4">Loading bookings...</div>
           ) : preBookings?.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="text-center py-8 text-variable">
               <FileText size={48} className="mx-auto mb-4 opacity-50" />
               <p>No pre-bookings found</p>
             </div>
@@ -742,18 +742,18 @@ export default function PreBooking() {
               <div key={booking.id} className="border border-white/30 rounded-xl p-4 bg-white/30">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-slate-800">
+                    <h4 className="font-semibold text-fixed">
                       {booking.visitorFirstName} {booking.visitorLastName}
                     </h4>
-                    <p className="text-sm text-slate-600">{booking.visitorEmail}</p>
-                    <p className="text-sm text-slate-600">{booking.company}</p>
-                    <p className="text-sm text-slate-600">{formatBookingDate(booking.visitDate.toString())}</p>
-                    <p className="text-sm text-slate-600">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
+                    <p className="text-sm text-variable">{booking.visitorEmail}</p>
+                    <p className="text-sm text-variable">{booking.company}</p>
+                    <p className="text-sm text-variable">{formatBookingDate(booking.visitDate.toString())}</p>
+                    <p className="text-sm text-variable">Host: {staff?.find(s => s.id === booking.hostStaffId)?.firstName} {staff?.find(s => s.id === booking.hostStaffId)?.lastName}</p>
                     {/* Meeting room display hidden - database doesn't support meeting_room_id yet */}
                     {/* {booking.meetingRoomId && (
                       <p className="text-sm text-slate-600">Room: {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.name} - {meetingRooms?.find(r => r.id === booking.meetingRoomId)?.location}</p>
                     )} */}
-                    {booking.purpose && <p className="text-sm text-slate-600 mt-1">Purpose: {booking.purpose}</p>}
+                    {booking.purpose && <p className="text-sm text-variable mt-1">Purpose: {booking.purpose}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking)}`}>

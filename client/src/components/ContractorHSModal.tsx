@@ -61,14 +61,14 @@ export default function ContractorHSModal({
         <div className="space-y-4 my-4">
           {/* Contractor Info */}
           <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-slate-800 mb-2">Contractor Details</h3>
+            <h3 className="font-semibold text-fixed mb-2">Contractor Details</h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="text-slate-600">Name:</span>
+                <span className="text-variable">Name:</span>
                 <span className="ml-2 font-medium">{worker.firstName} {worker.lastName}</span>
               </div>
               <div>
-                <span className="text-slate-600">Company:</span>
+                <span className="text-variable">Company:</span>
                 <span className="ml-2 font-medium">{companyName}</span>
               </div>
             </div>
@@ -76,12 +76,12 @@ export default function ContractorHSModal({
 
           {/* H&S Rules */}
           <div className="border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+            <h3 className="font-semibold text-fixed flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
               Site Health & Safety Rules
             </h3>
             
-            <ol className="space-y-2 text-sm text-slate-700 list-decimal list-inside">
+            <ol className="space-y-2 text-sm text-variable list-decimal list-inside">
               <li>All contractors must wear appropriate PPE at all times (hard hat, safety boots, hi-vis vest)</li>
               <li>Report to site office immediately upon arrival and departure</li>
               <li>Follow all site signage and designated walkways</li>
@@ -113,7 +113,7 @@ export default function ContractorHSModal({
             />
             <label 
               htmlFor="accept-rules" 
-              className="text-sm font-medium text-slate-700 cursor-pointer"
+              className="text-sm font-medium text-fixed cursor-pointer"
             >
               I confirm that I have read, understood, and agree to comply with all site health & safety rules. 
               I understand that violation of these rules may result in immediate removal from the site and 

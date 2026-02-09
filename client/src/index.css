@@ -87,7 +87,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-[Inter] text-foreground min-h-screen transition-colors duration-300;
+    background: var(--background);
+    @apply font-[Inter] text-foreground min-h-screen transition-colors duration-300;
   }
 }
 

@@ -229,13 +229,13 @@ export default function KioskMode() {
         <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 flex-1 flex flex-col justify-center">
           <div className="text-center flex-shrink-0">
             <h2 
-              className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800 mb-2 sm:mb-4 select-none"
+              className="text-2xl sm:text-3xl lg:text-4xl font-bold text-fixed mb-2 sm:mb-4 select-none"
               onClick={() => setLocation("/")}
               style={{ cursor: 'default' }}
             >
               QR Code Scanner
             </h2>
-            <p className="text-slate-600 text-base sm:text-lg lg:text-xl">Scan your visitor pass or pre-booking QR code</p>
+            <p className="text-variable text-base sm:text-lg lg:text-xl">Scan your visitor pass or pre-booking QR code</p>
           </div>
 
           <GlassCard className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col justify-center max-h-96">
@@ -250,7 +250,7 @@ export default function KioskMode() {
                   placeholder="Scan QR code or enter code manually..."
                   value={scannedCode}
                   onChange={(e) => setScannedCode(e.target.value)}
-                  className="w-full px-4 sm:px-6 py-4 sm:py-6 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-center font-mono text-lg sm:text-xl lg:text-2xl"
+                  className="w-full px-4 sm:px-6 py-4 sm:py-6 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed text-center font-mono text-lg sm:text-xl lg:text-2xl"
                   data-testid="input-qr-code"
                   autoFocus
                   style={{ minHeight: '50px' }}

@@ -122,7 +122,7 @@ export default function TimeAttendance() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Clock className="mx-auto h-8 w-8 text-blue-500 animate-spin" />
-          <p className="mt-2 text-slate-600">Loading time & attendance data...</p>
+          <p className="mt-2 text-variable">Loading time & attendance data...</p>
         </div>
       </div>
     );
@@ -132,8 +132,8 @@ export default function TimeAttendance() {
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Time & Attendance Report</h2>
-          <p className="text-sm sm:text-base text-slate-600 mt-1 hidden sm:block">Track staff working hours and attendance patterns</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-fixed">Time & Attendance Report</h2>
+          <p className="text-sm sm:text-base text-variable mt-1 hidden sm:block">Track staff working hours and attendance patterns</p>
         </div>
         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <Button
@@ -162,10 +162,10 @@ export default function TimeAttendance() {
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <Calendar className="text-blue-500" size={20} />
-            <span className="font-medium text-slate-700">Date Range:</span>
+            <span className="font-medium text-variable">Date Range:</span>
           </div>
           <div className="flex items-center gap-2">
-            <Label htmlFor="date-from" className="text-sm font-medium text-slate-600">From:</Label>
+            <Label htmlFor="date-from" className="text-sm font-medium text-variable">From:</Label>
             <Input
               id="date-from"
               type="date"
@@ -176,7 +176,7 @@ export default function TimeAttendance() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Label htmlFor="date-to" className="text-sm font-medium text-slate-600">To:</Label>
+            <Label htmlFor="date-to" className="text-sm font-medium text-variable">To:</Label>
             <Input
               id="date-to"
               type="date"
@@ -205,7 +205,7 @@ export default function TimeAttendance() {
               <Users className="text-blue-600" size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-800">Staff with Records</h3>
+              <h3 className="text-lg font-semibold text-fixed">Staff with Records</h3>
               <p className="text-2xl font-bold text-blue-600">{totalStaff}</p>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function TimeAttendance() {
               <Clock className="text-green-600" size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-800">Total Hours</h3>
+              <h3 className="text-lg font-semibold text-fixed">Total Hours</h3>
               <p className="text-2xl font-bold text-green-600">{formatHours(totalHoursAllStaff)}</p>
             </div>
           </div>
@@ -229,7 +229,7 @@ export default function TimeAttendance() {
               <FileText className="text-purple-600" size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-800">Avg Hours/Staff</h3>
+              <h3 className="text-lg font-semibold text-fixed">Avg Hours/Staff</h3>
               <p className="text-2xl font-bold text-purple-600">
                 {totalStaff > 0 ? formatHours(totalHoursAllStaff / totalStaff) : '0h'}
               </p>
@@ -243,9 +243,9 @@ export default function TimeAttendance() {
         {!timeAttendanceData || !Array.isArray(timeAttendanceData) || timeAttendanceData.length === 0 ? (
           <GlassCard>
             <div className="text-center py-12">
-              <Clock className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-              <p className="text-slate-600 text-lg">No time & attendance records found</p>
-              <p className="text-slate-500 text-sm mt-2">
+              <Clock className="mx-auto h-12 w-12 text-variable mb-4" />
+              <p className="text-variable text-lg">No time & attendance records found</p>
+              <p className="text-variable text-sm mt-2">
                 Try adjusting the date range or ensure staff have checked in/out
               </p>
             </div>
@@ -256,24 +256,24 @@ export default function TimeAttendance() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div 
-                    className="flex-1 cursor-pointer hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
+                    className="flex-1 cursor-pointer hover:bg-[var(--background)] rounded-lg p-2 -m-2 transition-colors"
                     onClick={() => setSelectedStaff(record)}
                     data-testid={`staff-card-${record.staffId}`}
                   >
                     <div className="flex items-center gap-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-800" data-testid={`staff-name-${record.staffId}`}>
+                        <h3 className="text-lg font-semibold text-fixed" data-testid={`staff-name-${record.staffId}`}>
                           {record.staffName}
                         </h3>
-                        <p className="text-slate-600" data-testid={`staff-department-${record.staffId}`}>
+                        <p className="text-variable" data-testid={`staff-department-${record.staffId}`}>
                           {record.department}
                         </p>
                       </div>
-                      <BarChart3 className="text-slate-400 ml-auto" size={16} />
+                      <BarChart3 className="text-variable ml-auto" size={16} />
                     </div>
                   </div>
                   <div className="text-right ml-4">
-                    <p className="text-sm text-slate-600">Total Hours</p>
+                    <p className="text-sm text-variable">Total Hours</p>
                     <p className="text-xl font-bold text-blue-600" data-testid={`total-hours-${record.staffId}`}>
                       {formatHours(record.totalHours)}
                     </p>
@@ -285,28 +285,28 @@ export default function TimeAttendance() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-200">
-                          <th className="text-left py-2 text-slate-600 font-medium">Date</th>
-                          <th className="text-left py-2 text-slate-600 font-medium">Check In</th>
-                          <th className="text-left py-2 text-slate-600 font-medium">Check Out</th>
-                          <th className="text-left py-2 text-slate-600 font-medium">Hours</th>
-                          <th className="text-left py-2 text-slate-600 font-medium">Type</th>
+                          <th className="text-left py-2 text-variable font-medium">Date</th>
+                          <th className="text-left py-2 text-variable font-medium">Check In</th>
+                          <th className="text-left py-2 text-variable font-medium">Check Out</th>
+                          <th className="text-left py-2 text-variable font-medium">Hours</th>
+                          <th className="text-left py-2 text-variable font-medium">Type</th>
                         </tr>
                       </thead>
                       <tbody>
                         {record.sessions.map((session, index: number) => (
                           <tr key={index} className="border-b border-slate-100">
-                            <td className="py-2 text-slate-700">
+                            <td className="py-2 text-variable">
                               {formatDate(session.checkInTime)}
                             </td>
-                            <td className="py-2 text-slate-700">
+                            <td className="py-2 text-variable">
                               {formatTime(session.checkInTime)}
                             </td>
-                            <td className="py-2 text-slate-700">
+                            <td className="py-2 text-variable">
                               {session.checkOutTime ? formatTime(session.checkOutTime) : (
                                 <span className="text-green-600 font-medium">Still on site</span>
                               )}
                             </td>
-                            <td className="py-2 text-slate-700">
+                            <td className="py-2 text-variable">
                               {formatHours(session.hoursWorked)}
                             </td>
                             <td className="py-2">
@@ -328,7 +328,7 @@ export default function TimeAttendance() {
                 )}
                 
                 {!advancedView && record.sessions.length > 0 && (
-                  <div className="text-sm text-slate-600 text-center py-2">
+                  <div className="text-sm text-variable text-center py-2">
                     {record.sessions.length} session(s) - Click staff name for detailed view
                   </div>
                 )}
@@ -388,41 +388,41 @@ export default function TimeAttendance() {
 
               {/* Detailed Sessions Table */}
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">All Sessions</h3>
+                <h3 className="text-lg font-semibold text-fixed mb-4">All Sessions</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border border-slate-200 rounded-lg">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-[var(--background)]">
                       <tr>
-                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Date</th>
-                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Check In</th>
-                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Check Out</th>
-                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Duration</th>
-                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Entry Type</th>
-                        <th className="text-left py-3 px-4 text-slate-700 font-medium">Status</th>
+                        <th className="text-left py-3 px-4 text-variable font-medium">Date</th>
+                        <th className="text-left py-3 px-4 text-variable font-medium">Check In</th>
+                        <th className="text-left py-3 px-4 text-variable font-medium">Check Out</th>
+                        <th className="text-left py-3 px-4 text-variable font-medium">Duration</th>
+                        <th className="text-left py-3 px-4 text-variable font-medium">Entry Type</th>
+                        <th className="text-left py-3 px-4 text-variable font-medium">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedStaff.sessions.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-8 text-slate-500">
+                          <td colSpan={6} className="text-center py-8 text-variable">
                             No sessions found for selected date range
                           </td>
                         </tr>
                       ) : (
                         selectedStaff.sessions.map((session, index) => (
-                          <tr key={index} className="border-t border-slate-100 hover:bg-slate-50">
-                            <td className="py-3 px-4 text-slate-700">
+                          <tr key={index} className="border-t border-slate-100 hover:bg-[var(--background)]">
+                            <td className="py-3 px-4 text-variable">
                               {formatDate(session.checkInTime)}
                             </td>
-                            <td className="py-3 px-4 text-slate-700">
+                            <td className="py-3 px-4 text-variable">
                               {formatTime(session.checkInTime)}
                             </td>
-                            <td className="py-3 px-4 text-slate-700">
+                            <td className="py-3 px-4 text-variable">
                               {session.checkOutTime ? formatTime(session.checkOutTime) : (
                                 <span className="text-green-600 font-medium">Still on site</span>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-slate-700 font-medium">
+                            <td className="py-3 px-4 text-variable font-medium">
                               {formatHours(session.hoursWorked)}
                             </td>
                             <td className="py-3 px-4">
@@ -457,17 +457,17 @@ export default function TimeAttendance() {
 
               {/* Analysis Section */}
               {selectedStaff.sessions.length > 0 && (
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-slate-800 mb-2">Quick Analysis</h4>
+                <div className="bg-[var(--background)] p-4 rounded-lg">
+                  <h4 className="font-medium text-fixed mb-2">Quick Analysis</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-slate-600">Average session length:</span>
+                      <span className="text-variable">Average session length:</span>
                       <span className="ml-2 font-medium">
                         {formatHours(selectedStaff.totalHours / selectedStaff.sessions.length)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-600">Longest session:</span>
+                      <span className="text-variable">Longest session:</span>
                       <span className="ml-2 font-medium">
                         {formatHours(Math.max(...selectedStaff.sessions.map(s => s.hoursWorked)))}
                       </span>
@@ -476,7 +476,7 @@ export default function TimeAttendance() {
                   
                   {/* Daily Breakdown */}
                   <div className="mt-4">
-                    <h5 className="font-medium text-slate-700 mb-2">Daily Breakdown</h5>
+                    <h5 className="font-medium text-variable mb-2">Daily Breakdown</h5>
                     <div className="space-y-2">
                       {(() => {
                         // Group sessions by date
@@ -523,11 +523,11 @@ export default function TimeAttendance() {
                           }
                           
                           return (
-                            <div key={date} className="bg-white p-3 rounded-lg border border-slate-200">
+                            <div key={date} className="bg-[var(--card)] p-3 rounded-lg border border-slate-200">
                               <div className="flex justify-between items-center">
-                                <span className="font-medium text-slate-700">{date}</span>
+                                <span className="font-medium text-variable">{date}</span>
                                 <div className="flex gap-3 items-center">
-                                  <span className="text-slate-600 text-sm">
+                                  <span className="text-variable text-sm">
                                     {sessions.length} session{sessions.length !== 1 ? 's' : ''}
                                   </span>
                                   <span className={`font-medium ${isOvertime ? 'text-orange-600' : 'text-green-600'}`}>
@@ -547,7 +547,7 @@ export default function TimeAttendance() {
                                 <div className="mt-2 pt-2 border-t border-slate-100">
                                   <div className="space-y-1">
                                     {sessions.map((session, idx) => (
-                                      <div key={idx} className="flex justify-between text-xs text-slate-600">
+                                      <div key={idx} className="flex justify-between text-xs text-variable">
                                         <span>
                                           Session {idx + 1}: {formatTime(session.checkInTime)} - {session.checkOutTime ? formatTime(session.checkOutTime) : 'Active'}
                                         </span>

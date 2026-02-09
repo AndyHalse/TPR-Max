@@ -234,7 +234,7 @@ export default function SiteInduction() {
           <CardContent className="flex items-center justify-center p-8">
             <div className="text-center">
               <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading induction...</p>
+              <p className="text-variable">Loading induction...</p>
             </div>
           </CardContent>
         </Card>
@@ -249,7 +249,7 @@ export default function SiteInduction() {
           <CardContent className="p-8 text-center">
             <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-900 mb-2">Invalid Link</h2>
-            <p className="text-gray-600">This induction link is invalid or has expired.</p>
+            <p className="text-variable">This induction link is invalid or has expired.</p>
           </CardContent>
         </Card>
       </div>
@@ -295,16 +295,16 @@ export default function SiteInduction() {
                     data-testid="iframe-induction-video"
                   />
                 </div>
-                <p className="text-sm text-gray-600 mb-4 text-center">
+                <p className="text-sm text-variable mb-4 text-center">
                   Please navigate through all slides to complete the induction video.
                 </p>
               </>
             ) : (
               <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-6 border-2 border-dashed border-gray-300">
                 <div className="text-center">
-                  <Play className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">Site Safety Induction Video</p>
-                  <p className="text-sm text-gray-500 mt-1">Duration: {videoContent?.durationMinutes || 15} minutes</p>
+                  <Play className="w-16 h-16 text-variable mx-auto mb-2" />
+                  <p className="text-variable font-medium">Site Safety Induction Video</p>
+                  <p className="text-sm text-variable mt-1">Duration: {videoContent?.durationMinutes || 15} minutes</p>
                   <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                     <h4 className="font-medium text-blue-900 mb-2">Video covers:</h4>
                     <ul className="text-sm text-blue-800 space-y-1 text-left">
@@ -478,7 +478,7 @@ export default function SiteInduction() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-[var(--card)] shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
@@ -486,11 +486,11 @@ export default function SiteInduction() {
                 <Shield className="w-6 h-6 text-orange-600" />
                 VisiGate Pro - Site Induction
               </h1>
-              <p className="text-gray-600 mt-1">Health & Safety Compliance System</p>
+              <p className="text-variable mt-1">Health & Safety Compliance System</p>
             </div>
             <div className="text-right">
               <p className="font-medium text-gray-900">{worker.firstName} {worker.lastName}</p>
-              <p className="text-sm text-gray-600">{worker.companyName}</p>
+              <p className="text-sm text-variable">{worker.companyName}</p>
             </div>
           </div>
         </div>
@@ -540,7 +540,7 @@ export default function SiteInduction() {
         {currentStep === "completed" && renderCompletedStep()}
 
         {/* Footer */}
-        <div className="mt-12 text-center text-sm text-gray-500">
+        <div className="mt-12 text-center text-sm text-variable">
           <p>This induction link expires on {new Date(tokenData.expiresAt).toLocaleDateString('en-GB')}</p>
           <p className="mt-1">VisiGate Pro - Contractor Management System</p>
         </div>

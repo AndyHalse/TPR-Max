@@ -352,7 +352,7 @@ export default function EmergencyMuster() {
             </div>
             
             {/* Fire Marshal Emergency System */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border-l-4 border-blue-500">
+            <div className="bg-[var(--card)] dark:bg-slate-800 rounded-lg p-4 border-l-4 border-blue-500">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-start sm:items-center gap-3">
                   <Shield className="text-blue-600 flex-shrink-0" size={24} />
@@ -406,7 +406,7 @@ export default function EmergencyMuster() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Accounted For</p>
+              <p className="text-variable text-sm font-medium">Accounted For</p>
               <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1" data-testid="stat-accounted">
                 {accountedFor}
               </p>
@@ -423,7 +423,7 @@ export default function EmergencyMuster() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Staff On-Site</p>
+              <p className="text-variable text-sm font-medium">Staff On-Site</p>
               <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-count">
                 {staffCount}
               </p>
@@ -437,7 +437,7 @@ export default function EmergencyMuster() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Visitors</p>
+              <p className="text-variable text-sm font-medium">Visitors</p>
               <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-visitor-count">
                 {visitorCount}
               </p>
@@ -451,7 +451,7 @@ export default function EmergencyMuster() {
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Contractors</p>
+              <p className="text-variable text-sm font-medium">Contractors</p>
               <p className="text-3xl font-bold text-teal-600 dark:text-teal-400 mt-1" data-testid="stat-contractor-count">
                 {contractorCount}
               </p>
@@ -468,7 +468,7 @@ export default function EmergencyMuster() {
         <div className="lg:col-span-2">
           <GlassCard className="dark:glass-dark">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200">Personnel Accountability</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-fixed">Personnel Accountability</h3>
               <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
                 {hasActiveEvacuation && (
                   <Button 
@@ -497,18 +497,18 @@ export default function EmergencyMuster() {
             </div>
             
             <div className="mb-6">
-              <Label htmlFor="search" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+              <Label htmlFor="search" className="text-sm font-medium text-variable mb-2 block">
                 Search Personnel
               </Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-variable" size={16} />
                 <Input
                   id="search"
                   type="text"
                   placeholder="Search by name, department, or company..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200"
+                  className="pl-10 w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                   data-testid="input-search-personnel"
                 />
               </div>
@@ -535,8 +535,8 @@ export default function EmergencyMuster() {
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-slate-800 dark:text-slate-200 text-sm sm:text-base truncate">{person.name}</p>
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 truncate">
+                      <p className="font-medium text-fixed text-sm sm:text-base truncate">{person.name}</p>
+                      <p className="text-xs sm:text-sm text-variable truncate">
                         {person.type === 'staff' ? person.department : person.company} • {person.location}
                       </p>
                     </div>
@@ -590,7 +590,7 @@ export default function EmergencyMuster() {
         <GlassCard className="dark:glass-dark">
           <div className="flex items-center mb-6">
             <Phone className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Emergency Contacts</h3>
+            <h3 className="text-lg font-semibold text-fixed">Emergency Contacts</h3>
           </div>
           
           <div className="space-y-4">

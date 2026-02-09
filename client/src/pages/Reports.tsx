@@ -378,7 +378,7 @@ export default function Reports() {
               </div>
               
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">To Date</Label>
+                <Label className="text-sm font-medium text-variable">To Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -418,7 +418,7 @@ export default function Reports() {
         <GlassCard>
           <div className="flex items-center mb-6">
             <BarChart3 className="mr-3 text-blue-600" size={24} />
-            <h3 className="text-lg font-semibold text-slate-800">Quick Stats</h3>
+            <h3 className="text-lg font-semibold text-fixed">Quick Stats</h3>
           </div>
           
           <div className="space-y-4">
@@ -427,20 +427,20 @@ export default function Reports() {
                 <div className="text-2xl font-bold text-blue-600 mb-1">
                   {reports?.length || 0}
                 </div>
-                <div className="text-sm text-slate-600">Total Reports</div>
+                <div className="text-sm text-variable">Total Reports</div>
               </div>
               
               <div className="text-center p-4 bg-white/50 rounded-xl">
                 <div className="text-2xl font-bold text-green-600 mb-1">
                   {reports?.filter(r => r.emailSent).length || 0}
                 </div>
-                <div className="text-sm text-slate-600">Reports Emailed</div>
+                <div className="text-sm text-variable">Reports Emailed</div>
               </div>
             </div>
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-slate-700">Email Recipients</Label>
+                <Label className="text-sm font-medium text-variable">Email Recipients</Label>
                 <Button
                   variant="outline"
                   size="sm"
@@ -455,7 +455,7 @@ export default function Reports() {
 
               {showStaffSelection && (
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-white/30 rounded-xl p-3 bg-white/30">
-                  <Label className="text-xs font-medium text-slate-600">Select Staff Members:</Label>
+                  <Label className="text-xs font-medium text-variable">Select Staff Members:</Label>
                   {staff && staff.length > 0 ? (
                     <>
                       {staff.map((staffMember) => (
@@ -466,10 +466,10 @@ export default function Reports() {
                             onCheckedChange={(checked) => handleStaffSelection(staffMember.id, checked === true)}
                             data-testid={`checkbox-staff-${staffMember.id}`}
                           />
-                          <Label htmlFor={`staff-${staffMember.id}`} className="text-sm text-slate-700 cursor-pointer">
+                          <Label htmlFor={`staff-${staffMember.id}`} className="text-sm text-variable cursor-pointer">
                             {staffMember.firstName} {staffMember.lastName} 
                             {staffMember.department && ` (${staffMember.department})`}
-                            {staffMember.email && <span className="text-xs text-slate-500 ml-1">- {staffMember.email}</span>}
+                            {staffMember.email && <span className="text-xs text-variable ml-1">- {staffMember.email}</span>}
                           </Label>
                         </div>
                       ))}
@@ -480,13 +480,13 @@ export default function Reports() {
                       )}
                     </>
                   ) : (
-                    <p className="text-xs text-slate-500">No staff members found</p>
+                    <p className="text-xs text-variable">No staff members found</p>
                   )}
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-variable">
                   Additional Email Recipients (optional)
                 </Label>
                 <Input
@@ -494,10 +494,10 @@ export default function Reports() {
                   placeholder="Enter email addresses separated by commas"
                   value={emailRecipients}
                   onChange={(e) => setEmailRecipients(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                  className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                   data-testid="input-email-recipients"
                 />
-                <div className="text-xs text-slate-600 bg-blue-50 p-2 rounded-lg">
+                <div className="text-xs text-variable bg-blue-50 p-2 rounded-lg">
                   {selectedStaff.length > 0 
                     ? `📧 Will send to ${selectedStaff.length} selected staff member${selectedStaff.length !== 1 ? 's' : ''}${emailRecipients.trim() ? ' + manual recipients' : ''}` 
                     : emailRecipients.trim() 
@@ -514,7 +514,7 @@ export default function Reports() {
       {/* Reports List */}
       <GlassCard>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-800">Generated Reports</h3>
+          <h3 className="text-lg font-semibold text-fixed">Generated Reports</h3>
           <Button
             variant="outline"
             onClick={() => {
@@ -533,28 +533,28 @@ export default function Reports() {
         
         {!reports || reports.length === 0 ? (
           <div className="text-center py-12">
-            <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-slate-600 text-lg">No reports generated yet</p>
-            <p className="text-slate-500 text-sm mt-2">Generate your first report to get started</p>
+            <FileText className="mx-auto h-12 w-12 text-variable mb-4" />
+            <p className="text-variable text-lg">No reports generated yet</p>
+            <p className="text-variable text-sm mt-2">Generate your first report to get started</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-white/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Report
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Period
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Stats
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -566,22 +566,22 @@ export default function Reports() {
                       <div className="flex items-center">
                         <FileText className="mr-3 text-blue-600" size={16} />
                         <div>
-                          <div className="text-sm font-medium text-slate-800">
+                          <div className="text-sm font-medium text-fixed">
                             {formatReportType(report.reportType)}
                           </div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-variable">
                             Generated {new Date(report.generatedAt).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
                       {new Date(report.dateFrom).toLocaleDateString()} - {new Date(report.dateTo).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-600">
+                      <div className="text-sm text-variable">
                         <div>{report.totalVisitors} visitors</div>
-                        <div className="text-xs text-slate-500">Avg: {report.avgDuration}</div>
+                        <div className="text-xs text-variable">Avg: {report.avgDuration}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -637,7 +637,7 @@ export default function Reports() {
                           size="sm"
                           variant="outline"
                           onClick={() => console.log('Print report:', report.id)}
-                          className="hover:bg-gray-50"
+                          className="hover:bg-[var(--background)]"
                           data-testid={`button-print-report-${report.id}`}
                         >
                           <Printer size={12} className="mr-1" />

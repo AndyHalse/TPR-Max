@@ -198,8 +198,8 @@ export default function ContractorKiosk() {
       <div className="min-h-screen bg-background p-4 md:p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <GlassCard className="text-center">
-            <h2 className="text-3xl font-bold text-slate-800 mb-4">QR Code Scanner</h2>
-            <p className="text-slate-600">Scan contractor worker pass or pre-booking QR code</p>
+            <h2 className="text-3xl font-bold text-fixed mb-4">QR Code Scanner</h2>
+            <p className="text-variable">Scan contractor worker pass or pre-booking QR code</p>
           </GlassCard>
           
           <GlassCard className="p-8">
@@ -252,19 +252,19 @@ export default function ContractorKiosk() {
         <div className="max-w-6xl mx-auto space-y-6">
           <GlassCard className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <History className="h-10 w-10 text-slate-600" />
-              <h1 className="text-3xl font-bold text-slate-800">Previous Contractor Visits</h1>
+              <History className="h-10 w-10 text-variable" />
+              <h1 className="text-3xl font-bold text-fixed">Previous Contractor Visits</h1>
             </div>
-            <p className="text-slate-600">View history and analytics of contractor activity</p>
+            <p className="text-variable">View history and analytics of contractor activity</p>
           </GlassCard>
 
           <GlassCard className="p-8">
             <div className="text-center space-y-4">
-              <p className="text-slate-600">Contractor visit history and analytics coming soon...</p>
+              <p className="text-variable">Contractor visit history and analytics coming soon...</p>
               <Button
                 variant="outline"
                 onClick={() => setActiveSection("main")}
-                className="text-slate-600"
+                className="text-variable"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Menu
@@ -284,9 +284,9 @@ export default function ContractorKiosk() {
           <GlassCard className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
               <HardHat className="h-10 w-10 text-orange-600" />
-              <h1 className="text-3xl font-bold text-slate-800">Contractor Worker Check-In/Out</h1>
+              <h1 className="text-3xl font-bold text-fixed">Contractor Worker Check-In/Out</h1>
             </div>
-            <p className="text-slate-600">Select registered contractor workers for check-in/out</p>
+            <p className="text-variable">Select registered contractor workers for check-in/out</p>
           </GlassCard>
 
           {/* Company Selection with Search */}
@@ -299,7 +299,7 @@ export default function ContractorKiosk() {
                 <Button
                   variant="outline"
                   onClick={() => setActiveSection("main")}
-                  className="text-slate-600"
+                  className="text-variable"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Menu
@@ -308,7 +308,7 @@ export default function ContractorKiosk() {
               
               {/* Company Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                <Search className="absolute left-3 top-3 h-5 w-5 text-variable" />
                 <Input
                   value={companySearchTerm}
                   onChange={(e) => setCompanySearchTerm(e.target.value)}
@@ -349,7 +349,7 @@ export default function ContractorKiosk() {
                     );
                   })}
                   {filteredCompanies.length === 0 && companySearchTerm && (
-                    <div className="p-2 text-center text-gray-500">
+                    <div className="p-2 text-center text-variable">
                       No contractors found matching "{companySearchTerm}"
                     </div>
                   )}
@@ -366,7 +366,7 @@ export default function ContractorKiosk() {
                   Search Workers
                 </Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                  <Search className="absolute left-3 top-3 h-5 w-5 text-variable" />
                   <Input
                     id="worker-search"
                     value={searchTerm}
@@ -387,17 +387,17 @@ export default function ContractorKiosk() {
                 <GlassCard key={worker.id} className="hover:shadow-lg transition-shadow">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-800">
+                      <h3 className="text-lg font-semibold text-fixed">
                         {worker.firstName} {worker.lastName}
                       </h3>
                       {worker.email && (
-                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                        <div className="flex items-center gap-1 text-sm text-variable">
                           <Mail className="h-4 w-4" />
                           {worker.email}
                         </div>
                       )}
                       {worker.phone && (
-                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                        <div className="flex items-center gap-1 text-sm text-variable">
                           <Phone className="h-4 w-4" />
                           {worker.phone}
                         </div>
@@ -475,7 +475,7 @@ export default function ContractorKiosk() {
                   </div>
 
                   {worker.isCheckedIn && worker.checkedInAt && (
-                    <div className="text-sm text-slate-600 flex items-center gap-2">
+                    <div className="text-sm text-variable flex items-center gap-2">
                       <Clock className="h-4 w-4" />
                       Checked in at {new Date(worker.checkedInAt).toLocaleTimeString()}
                     </div>
@@ -497,9 +497,9 @@ export default function ContractorKiosk() {
         <GlassCard className="text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <HardHat className="h-12 w-12 text-orange-600" />
-            <h1 className="text-4xl font-bold text-slate-800">Contractor Management</h1>
+            <h1 className="text-4xl font-bold text-fixed">Contractor Management</h1>
           </div>
-          <p className="text-slate-600 text-lg">Complete contractor check-in, registration, and booking system</p>
+          <p className="text-variable text-lg">Complete contractor check-in, registration, and booking system</p>
         </GlassCard>
 
         {/* Main Menu Options */}
@@ -514,8 +514,8 @@ export default function ContractorKiosk() {
               <div className="w-20 h-20 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
                 <QrCode className="h-10 w-10 text-blue-600" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Scan QR Code</h3>
-              <p className="text-slate-600">Check out workers or check in pre-booked contractors</p>
+              <h3 className="text-xl font-bold text-fixed mb-2">Scan QR Code</h3>
+              <p className="text-variable">Check out workers or check in pre-booked contractors</p>
             </div>
           </GlassCard>
 
@@ -529,8 +529,8 @@ export default function ContractorKiosk() {
               <div className="w-20 h-20 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
                 <UserPlus className="h-10 w-10 text-green-600" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Walk-in Contractor</h3>
-              <p className="text-slate-600">Register new contractor with document upload for clearance</p>
+              <h3 className="text-xl font-bold text-fixed mb-2">Walk-in Contractor</h3>
+              <p className="text-variable">Register new contractor with document upload for clearance</p>
             </div>
           </GlassCard>
 
@@ -544,8 +544,8 @@ export default function ContractorKiosk() {
               <div className="w-20 h-20 mx-auto mb-4 bg-orange-100 rounded-full flex items-center justify-center">
                 <UserCheck className="h-10 w-10 text-orange-600" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Contractor Check-In</h3>
-              <p className="text-slate-600">Check in/out registered contractor workers</p>
+              <h3 className="text-xl font-bold text-fixed mb-2">Contractor Check-In</h3>
+              <p className="text-variable">Check in/out registered contractor workers</p>
             </div>
           </GlassCard>
 
@@ -559,8 +559,8 @@ export default function ContractorKiosk() {
               <div className="w-20 h-20 mx-auto mb-4 bg-purple-100 rounded-full flex items-center justify-center">
                 <CalendarPlus className="h-10 w-10 text-purple-600" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Pre-Book Contractor</h3>
-              <p className="text-slate-600">Schedule future contractor visits</p>
+              <h3 className="text-xl font-bold text-fixed mb-2">Pre-Book Contractor</h3>
+              <p className="text-variable">Schedule future contractor visits</p>
             </div>
           </GlassCard>
 
@@ -571,11 +571,11 @@ export default function ContractorKiosk() {
             data-testid="card-contractor-history"
           >
             <div className="text-center p-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-slate-100 rounded-full flex items-center justify-center">
-                <History className="h-10 w-10 text-slate-600" />
+              <div className="w-20 h-20 mx-auto mb-4 bg-[var(--background)] rounded-full flex items-center justify-center">
+                <History className="h-10 w-10 text-variable" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Previous Contractor Visits</h3>
-              <p className="text-slate-600">View history and analytics of contractor activity</p>
+              <h3 className="text-xl font-bold text-fixed mb-2">Previous Contractor Visits</h3>
+              <p className="text-variable">View history and analytics of contractor activity</p>
             </div>
           </GlassCard>
         </div>
@@ -604,7 +604,7 @@ export default function ContractorKiosk() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-variable">
               Who is {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName} visiting today?
             </p>
             <div className="space-y-2">

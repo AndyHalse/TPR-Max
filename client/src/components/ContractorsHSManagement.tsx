@@ -82,11 +82,11 @@ export default function ContractorsHSManagement() {
         <GlassCard>
           <div className="text-center py-8">
             <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Access Restricted</h3>
-            <p className="text-slate-600">
+            <h3 className="text-lg font-semibold text-fixed mb-2">Access Restricted</h3>
+            <p className="text-variable">
               UK Health & Safety compliance management requires administrator or supervisor access.
             </p>
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-variable mt-2">
               Contact your system administrator if you need access to this feature.
             </p>
           </div>
@@ -102,7 +102,7 @@ export default function ContractorsHSManagement() {
         <GlassCard>
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
-            <p className="mt-2 text-slate-600">Loading H&S document templates...</p>
+            <p className="mt-2 text-variable">Loading H&S document templates...</p>
             {authError && (
               <p className="mt-1 text-xs text-orange-600">
                 Using development mode - Auth unavailable
@@ -120,9 +120,9 @@ export default function ContractorsHSManagement() {
       <GlassCard>
         <div className="flex items-center mb-6">
           <FileText className="mr-3 text-blue-600" size={24} />
-          <h3 className="text-lg font-semibold text-slate-900">H&S Document Templates</h3>
+          <h3 className="text-lg font-semibold text-fixed">H&S Document Templates</h3>
         </div>
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-variable mb-4">
           Manage UK Health & Safety document templates. These templates are used for worker compliance assignments.
         </p>
       </GlassCard>
@@ -130,7 +130,7 @@ export default function ContractorsHSManagement() {
       {/* Document Templates */}
       <GlassCard>
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-md font-semibold text-slate-800 flex items-center gap-2">
+          <h4 className="text-md font-semibold text-fixed flex items-center gap-2">
             <FileText className="w-4 h-4" />
             UK H&S Document Templates
           </h4>
@@ -146,11 +146,11 @@ export default function ContractorsHSManagement() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {documentTemplates.map((template) => (
-            <div key={template.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div key={template.id} className="p-3 bg-[var(--background)] rounded-lg border border-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h5 className="font-medium text-slate-800 text-sm">{template.documentName}</h5>
-                  <p className="text-xs text-slate-600 mt-1">{template.complianceCategory}</p>
+                  <h5 className="font-medium text-fixed text-sm">{template.documentName}</h5>
+                  <p className="text-xs text-variable mt-1">{template.complianceCategory}</p>
                   {template.autoFillFields && template.autoFillFields.length > 0 && (
                     <Badge variant="secondary" className="mt-2 text-xs">
                       Auto-fill enabled

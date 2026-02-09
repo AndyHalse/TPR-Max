@@ -293,7 +293,7 @@ export default function EditContractorWorkerModal({
           <DialogDescription>
             Update all contractor information, certifications, and site status for{" "}
             <span className="font-medium">{worker?.firstName} {worker?.lastName}</span>
-            {companyName && <span className="text-gray-600"> from {companyName}</span>}
+            {companyName && <span className="text-variable"> from {companyName}</span>}
           </DialogDescription>
         </DialogHeader>
 
@@ -303,7 +303,7 @@ export default function EditContractorWorkerModal({
             {/* Personal Information Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-gray-600" />
+                <User className="w-4 h-4 text-variable" />
                 <h3 className="font-semibold text-gray-900">Personal Information</h3>
               </div>
               
@@ -409,7 +409,7 @@ export default function EditContractorWorkerModal({
             {/* Work Authorization Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-gray-600" />
+                <Shield className="w-4 h-4 text-variable" />
                 <h3 className="font-semibold text-gray-900">Work Authorization</h3>
               </div>
               
@@ -482,7 +482,7 @@ export default function EditContractorWorkerModal({
             {/* Certifications & Cards Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-gray-600" />
+                <Award className="w-4 h-4 text-variable" />
                 <h3 className="font-semibold text-gray-900">Certifications & Cards</h3>
               </div>
               
@@ -800,7 +800,7 @@ export default function EditContractorWorkerModal({
             {/* Site Status Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-gray-600" />
+                <Shield className="w-4 h-4 text-variable" />
                 <h3 className="font-semibold text-gray-900">Site Status & Permissions</h3>
               </div>
               
@@ -952,8 +952,8 @@ export default function EditContractorWorkerModal({
                     </Button>
                   </div>
                   
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Current Status:</p>
+                  <div className="p-3 bg-[var(--background)] rounded-lg">
+                    <p className="text-sm font-medium text-fixed mb-1">Current Status:</p>
                     <div className="flex items-center gap-2">
                       <CardStatusBadge status={form.watch("currentCardStatus")} />
                       {form.watch("isActive") ? (

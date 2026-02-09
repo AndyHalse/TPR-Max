@@ -177,7 +177,7 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
         <GlassCard>
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
-            <p className="mt-2 text-slate-600">Loading UK H&S management system...</p>
+            <p className="mt-2 text-variable">Loading UK H&S management system...</p>
             {authError && (
               <p className="mt-1 text-xs text-orange-600">
                 Using development mode - Auth unavailable
@@ -196,11 +196,11 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
         <GlassCard>
           <div className="text-center py-8">
             <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Access Restricted</h3>
-            <p className="text-slate-600">
+            <h3 className="text-lg font-semibold text-fixed mb-2">Access Restricted</h3>
+            <p className="text-variable">
               UK Health & Safety compliance management requires administrator or supervisor access.
             </p>
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-variable mt-2">
               Contact your system administrator if you need access to this feature.
             </p>
           </div>
@@ -215,11 +215,11 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
       <GlassCard>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
               <Shield className="w-5 h-5 text-green-600" />
               UK Health & Safety Compliance Management
             </h3>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-variable mt-1">
               Assign and track UK H&S compliance documents for contractor workers
             </p>
           </div>
@@ -247,8 +247,8 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
             <div className="flex items-center gap-3">
               <FileText className="w-8 h-8 text-blue-600" />
               <div>
-                <p className="text-2xl font-bold text-slate-800">{documentTemplates.length}</p>
-                <p className="text-sm text-slate-600">Document Templates</p>
+                <p className="text-2xl font-bold text-fixed">{documentTemplates.length}</p>
+                <p className="text-sm text-variable">Document Templates</p>
               </div>
             </div>
           </GlassCard>
@@ -263,8 +263,8 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
             <div className="flex items-center gap-3">
               <Building2 className="w-8 h-8 text-purple-600" />
               <div>
-                <p className="text-2xl font-bold text-slate-800">{contractors.length}</p>
-                <p className="text-sm text-slate-600">Contractor Companies</p>
+                <p className="text-2xl font-bold text-fixed">{contractors.length}</p>
+                <p className="text-sm text-variable">Contractor Companies</p>
               </div>
             </div>
           </GlassCard>
@@ -279,8 +279,8 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
             <div className="flex items-center gap-3">
               <Users className="w-8 h-8 text-green-600" />
               <div>
-                <p className="text-2xl font-bold text-slate-800">{allWorkers.length}</p>
-                <p className="text-sm text-slate-600">Total Workers</p>
+                <p className="text-2xl font-bold text-fixed">{allWorkers.length}</p>
+                <p className="text-sm text-variable">Total Workers</p>
               </div>
             </div>
           </GlassCard>
@@ -295,8 +295,8 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
             <div className="flex items-center gap-3">
               <Send className="w-8 h-8 text-orange-600" />
               <div>
-                <p className="text-2xl font-bold text-slate-800">{allAssignments.length}</p>
-                <p className="text-sm text-slate-600">Total Assignments</p>
+                <p className="text-2xl font-bold text-fixed">{allAssignments.length}</p>
+                <p className="text-sm text-variable">Total Assignments</p>
               </div>
             </div>
           </GlassCard>
@@ -324,7 +324,7 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
                 <div className="mt-2 space-y-2">
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-variable" size={16} />
                       <Input
                         placeholder="Search workers..."
                         value={searchTerm}
@@ -363,13 +363,13 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
                     />
                     <div className="flex-1">
                       <p className="font-medium text-sm">{worker.firstName} {worker.lastName}</p>
-                      <p className="text-xs text-slate-600">{worker.email}</p>
+                      <p className="text-xs text-variable">{worker.email}</p>
                     </div>
                   </div>
                 ))}
               </div>
               
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-variable">
                 Selected: {selectedWorkers.length} workers
               </p>
             </div>
@@ -402,7 +402,7 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
                     />
                     <div className="flex-1">
                       <p className="font-medium text-sm">{template.documentName}</p>
-                      <p className="text-xs text-slate-600 mb-2">{template.complianceCategory}</p>
+                      <p className="text-xs text-variable mb-2">{template.complianceCategory}</p>
                       {template.autoFillFields && template.autoFillFields.length > 0 && (
                         <Badge variant="secondary" className="text-xs">
                           Auto-fill enabled
@@ -413,7 +413,7 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
                 ))}
               </div>
               
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-variable">
                 Selected: {selectedDocuments.length} documents
               </p>
             </div>

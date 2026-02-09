@@ -144,9 +144,9 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
         <GlassCard className="text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <User className="h-10 w-10 text-green-600" />
-            <h1 className="text-3xl font-bold text-slate-800">Walk-in Contractor Registration</h1>
+            <h1 className="text-3xl font-bold text-fixed">Walk-in Contractor Registration</h1>
           </div>
-          <p className="text-slate-600">Register new contractor company and worker for onsite clearance</p>
+          <p className="text-variable">Register new contractor company and worker for onsite clearance</p>
         </GlassCard>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -154,7 +154,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
               <Building2 className="h-5 w-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-slate-800">Company Information</h3>
+              <h3 className="text-lg font-semibold text-fixed">Company Information</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,7 +228,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                   data-testid="input-company-postcode"
                   style={{ textTransform: 'uppercase' }}
                 />
-                <p className="text-xs text-slate-500">Company post code for better data management</p>
+                <p className="text-xs text-variable">Company post code for better data management</p>
               </div>
               
               <div className="md:col-span-2">
@@ -248,7 +248,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
               <User className="h-5 w-5 text-green-600" />
-              <h3 className="text-lg font-semibold text-slate-800">Worker Information</h3>
+              <h3 className="text-lg font-semibold text-fixed">Worker Information</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -311,7 +311,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                   style={{ textTransform: 'uppercase' }}
                   required
                 />
-                <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
+                <p className="text-xs text-variable">Required for CO2 emission calculations</p>
               </div>
               
               <div>
@@ -328,7 +328,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                     <SelectItem value="public_transport">🚌 Public Transport</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-slate-500">Required for CO2 emission calculations</p>
+                <p className="text-xs text-variable">Required for CO2 emission calculations</p>
               </div>
               
               <div>
@@ -373,7 +373,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
               <Shield className="h-5 w-5 text-red-600" />
-              <h3 className="text-lg font-semibold text-slate-800">Required Documents</h3>
+              <h3 className="text-lg font-semibold text-fixed">Required Documents</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

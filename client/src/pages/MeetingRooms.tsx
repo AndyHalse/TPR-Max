@@ -240,10 +240,10 @@ export default function MeetingRooms() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold text-fixed">
             Meeting Rooms & Booking Management
           </h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1 hidden sm:block">
+          <p className="text-sm sm:text-base text-variable mt-1 hidden sm:block">
             Manage meeting rooms, view bookings calendar, and create new reservations
           </p>
         </div>
@@ -352,7 +352,7 @@ export default function MeetingRooms() {
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                         <div className="space-y-0.5">
                           <FormLabel className="text-sm font-medium">Shared Room</FormLabel>
-                          <p className="text-xs text-gray-500">Available to all tenants</p>
+                          <p className="text-xs text-variable">Available to all tenants</p>
                         </div>
                         <FormControl>
                           <Switch
@@ -582,10 +582,10 @@ export default function MeetingRooms() {
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <CardTitle className="text-lg font-semibold text-fixed">
                     {room.name}
                   </CardTitle>
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300 mt-1">
+                  <div className="flex items-center text-sm text-variable mt-1">
                     <MapPin className="h-4 w-4 mr-1" />
                     {room.location}
                   </div>
@@ -633,22 +633,22 @@ export default function MeetingRooms() {
 
                 {/* Description */}
                 {room.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                  <p className="text-sm text-variable line-clamp-2">
                     {room.description}
                   </p>
                 )}
 
                 {/* Facilities */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <span className="text-xs font-medium text-variable">
                     Facilities:
                   </span>
                   {getFacilityIcons(room).length > 0 ? (
-                    <div className="flex gap-2 text-gray-600 dark:text-gray-300">
+                    <div className="flex gap-2 text-variable">
                       {getFacilityIcons(room)}
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-400">Basic room</span>
+                    <span className="text-xs text-variable">Basic room</span>
                   )}
                 </div>
 
@@ -682,8 +682,8 @@ export default function MeetingRooms() {
                 <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">No Meeting Rooms</h3>
-                <p className="text-gray-600 dark:text-gray-300 mt-1">
+                <h3 className="text-lg font-semibold text-fixed">No Meeting Rooms</h3>
+                <p className="text-variable mt-1">
                   Get started by creating your first meeting room.
                 </p>
               </div>

@@ -109,8 +109,8 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
               </div>
             </div>
           ) : (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-sm text-gray-600">No video generated yet. Click "Generate Video" to create a professional induction presentation.</p>
+            <div className="p-4 bg-[var(--background)] border border-gray-200 rounded-lg">
+              <p className="text-sm text-variable">No video generated yet. Click "Generate Video" to create a professional induction presentation.</p>
             </div>
           )}
         </div>
@@ -216,7 +216,7 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   {questions.map((q, index) => (
-                    <div key={q.id} className="p-4 bg-gray-50 rounded-lg border">
+                    <div key={q.id} className="p-4 bg-[var(--background)] rounded-lg border">
                       <div className="flex items-start gap-3">
                         <Badge variant="outline" className="shrink-0">Q{index + 1}</Badge>
                         <div className="space-y-2 flex-1">
@@ -240,7 +240,7 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
                             })}
                           </div>
                           {q.explanation && (
-                            <p className="text-xs text-gray-600 mt-2 italic">
+                            <p className="text-xs text-variable mt-2 italic">
                               Explanation: {q.explanation}
                             </p>
                           )}
@@ -275,15 +275,15 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
             </div>
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <p className="text-xs text-gray-600">Slides</p>
+                <p className="text-xs text-variable">Slides</p>
                 <p className="font-medium">{generatedVideo.scenes}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-600">Duration</p>
+                <p className="text-xs text-variable">Duration</p>
                 <p className="font-medium">~{generatedVideo.duration} min</p>
               </div>
               <div>
-                <p className="text-xs text-gray-600">Generated</p>
+                <p className="text-xs text-variable">Generated</p>
                 <p className="font-medium text-xs">{generatedVideo.timestamp}</p>
               </div>
             </div>

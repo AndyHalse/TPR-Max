@@ -44,7 +44,7 @@ export default function LogoutButton() {
       size="sm"
       onClick={() => logoutMutation.mutate()}
       disabled={logoutMutation.isPending}
-      className="text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+      className="text-variable hover:text-fixed dark:text-slate-400 dark:hover:text-slate-200"
       data-testid="button-logout"
     >
       <LogOut size={16} className="mr-2" />

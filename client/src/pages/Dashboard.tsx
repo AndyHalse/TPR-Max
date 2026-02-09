@@ -306,7 +306,7 @@ export default function Dashboard() {
   const getDayStatus = (date: Date) => {
     if (isToday(date)) return { label: 'Today', color: 'bg-blue-100 text-blue-800' };
     if (isTomorrow(date)) return { label: 'Tomorrow', color: 'bg-green-100 text-green-800' };
-    return { label: formatDate(date), color: 'bg-slate-100 text-slate-600' };
+    return { label: formatDate(date), color: 'bg-[var(--background)] text-variable' };
   };
 
   const getPriorityLevel = (entry: any) => {
@@ -317,7 +317,7 @@ export default function Dashboard() {
     if (hoursUntilVisit < 2) return { level: 'urgent', color: 'bg-red-100 text-red-800 border-red-200' };
     if (hoursUntilVisit < 24) return { level: 'high', color: 'bg-orange-100 text-orange-800 border-orange-200' };
     if (hoursUntilVisit < 72) return { level: 'medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-    return { level: 'normal', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+    return { level: 'normal', color: 'bg-[var(--background)] text-variable border-slate-200' };
   };
 
   // Diary navigation helper functions
@@ -401,7 +401,7 @@ export default function Dashboard() {
       case 'checkout': return 'text-blue-600';
       case 'staff_added': return 'text-purple-600';
       case 'prebooking': return 'text-orange-600';
-      default: return 'text-gray-600';
+      default: return 'text-variable';
     }
   };
 
@@ -857,13 +857,13 @@ export default function Dashboard() {
 
         <div className="space-y-6 max-h-96 overflow-y-auto scrollbar-thin">
           {diaryLoading ? (
-            <div className="text-center py-8 text-slate-600">
-              <Calendar className="mx-auto mb-3 text-slate-400" size={40} />
+            <div className="text-center py-8 text-variable">
+              <Calendar className="mx-auto mb-3 text-variable" size={40} />
               <p>Loading reception diary...</p>
             </div>
           ) : (!filteredDiary || filteredDiary.length === 0) && (!currentViewRoomBookings || currentViewRoomBookings.length === 0) ? (
-            <div className="text-center py-8 text-slate-600">
-              <CalendarDays className="mx-auto mb-3 text-slate-400" size={40} />
+            <div className="text-center py-8 text-variable">
+              <CalendarDays className="mx-auto mb-3 text-variable" size={40} />
               <p className="font-medium">No activities scheduled for {getViewTitle().toLowerCase()}</p>
               <p className="text-sm mt-2">Visitor pre-bookings and meeting room bookings will appear here</p>
             </div>
@@ -876,7 +876,7 @@ export default function Dashboard() {
                     <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-medium">
                       {diaryViewMode === 'today' ? "Today's" : diaryViewMode === 'tomorrow' ? "Tomorrow's" : "Scheduled"} Meetings
                     </Badge>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-variable">
                       {currentViewRoomBookings.length} meeting{currentViewRoomBookings.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -899,27 +899,27 @@ export default function Dashboard() {
                               <div className="flex items-center gap-2 mb-2">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="text-purple-600" size={16} />
-                                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                  <span className="font-semibold text-fixed">
                                     {booking.title}
                                   </span>
                                 </div>
                               </div>
                               
                               <div className="space-y-1 text-xs sm:text-sm">
-                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <div className="flex items-center gap-2 text-variable">
                                   <Building2 size={14} className="flex-shrink-0" />
                                   <span className="truncate">{booking.roomName}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <div className="flex items-center gap-2 text-variable">
                                   <UserCheck size={14} className="flex-shrink-0" />
                                   <span className="truncate">Host: {booking.organizer}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <div className="flex items-center gap-2 text-variable">
                                   <Users size={14} className="flex-shrink-0" />
                                   <span>{booking.expectedAttendees || 0} attendees</span>
                                 </div>
                                 {booking.description && (
-                                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                  <div className="flex items-center gap-2 text-variable">
                                     <AtSign size={14} className="flex-shrink-0" />
                                     <span className="line-clamp-1">{booking.description}</span>
                                   </div>
@@ -928,7 +928,7 @@ export default function Dashboard() {
                             </div>
                             
                             <div className="text-right">
-                              <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                              <div className="text-sm font-medium text-fixed">
                                 {booking.startTime} - {booking.endTime}
                               </div>
                               <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
@@ -956,7 +956,7 @@ export default function Dashboard() {
                         <Badge className={`${dayStatus.color} font-medium`}>
                           {dayStatus.label} - Visitors
                         </Badge>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-variable">
                           {entries.length} visit{entries.length !== 1 ? 's' : ''}
                         </span>
                       </div>
@@ -987,7 +987,7 @@ export default function Dashboard() {
                                         ) : (
                                           <Clock3 className="text-orange-600" size={16} />
                                         )}
-                                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                        <span className="font-semibold text-fixed">
                                           {entry.visitorFirstName} {entry.visitorLastName}
                                         </span>
                                       </div>
@@ -997,24 +997,24 @@ export default function Dashboard() {
                                     </div>
                                     
                                     <div className="space-y-1 text-xs sm:text-sm">
-                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                      <div className="flex items-center gap-2 text-variable">
                                         <Building2 size={14} className="flex-shrink-0" />
                                         <span className="truncate">{entry.company}</span>
                                       </div>
-                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                      <div className="flex items-center gap-2 text-variable">
                                         <UserCheck size={14} className="flex-shrink-0" />
                                         <span className="truncate">Host: {entry.hostFirstName} {entry.hostLastName} ({entry.hostDepartment})</span>
                                       </div>
-                                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 sm:hidden">
+                                      <div className="flex items-center gap-2 text-variable sm:hidden">
                                         <Mail size={14} className="flex-shrink-0" />
                                         <span className="truncate">{entry.visitorEmail}</span>
                                       </div>
-                                      <div className="hidden sm:flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                      <div className="hidden sm:flex items-center gap-2 text-variable">
                                         <Mail size={14} className="flex-shrink-0" />
                                         <span className="truncate">{entry.visitorEmail}</span>
                                       </div>
                                       {entry.purpose && (
-                                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <div className="flex items-center gap-2 text-variable">
                                           <AtSign size={14} className="flex-shrink-0" />
                                           <span className="line-clamp-1">{entry.purpose}</span>
                                         </div>
@@ -1023,7 +1023,7 @@ export default function Dashboard() {
                                   </div>
                                   
                                   <div className="text-right">
-                                    <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                                    <div className="text-sm font-medium text-fixed">
                                       {visitTime}
                                     </div>
                                     {priority.level === 'urgent' && (
@@ -1056,22 +1056,22 @@ export default function Dashboard() {
               <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <div className="w-3 h-3 bg-red-100 border border-red-200 rounded flex-shrink-0"></div>
-                  <span className="text-slate-600">Urgent</span>
+                  <span className="text-variable">Urgent</span>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded flex-shrink-0"></div>
-                  <span className="text-slate-600">High</span>
+                  <span className="text-variable">High</span>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <CheckCircle2 className="text-green-600 flex-shrink-0" size={14} />
-                  <span className="text-slate-600">Checked In</span>
+                  <span className="text-variable">Checked In</span>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <Calendar className="text-purple-600 flex-shrink-0" size={14} />
-                  <span className="text-slate-600">Meeting</span>
+                  <span className="text-variable">Meeting</span>
                 </div>
               </div>
-              <span className="text-slate-500 text-xs hidden sm:block">Auto-refreshes every 30s</span>
+              <span className="text-variable text-xs hidden sm:block">Auto-refreshes every 30s</span>
             </div>
           </div>
         )}
@@ -1081,7 +1081,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <GlassCard className="lg:col-span-2 dark:glass-dark">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Department Activity</h3>
+            <h3 className="text-lg font-semibold text-fixed">Department Activity</h3>
             <Button 
               variant="outline" 
               size="sm" 
@@ -1094,9 +1094,9 @@ export default function Dashboard() {
           
           <div className="space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
             {departmentsLoading ? (
-              <div className="text-center py-4 text-slate-600">Loading departments...</div>
+              <div className="text-center py-4 text-variable">Loading departments...</div>
             ) : !departmentAnalytics || departmentAnalytics.length === 0 ? (
-              <div className="text-center py-4 text-slate-600">No department data available</div>
+              <div className="text-center py-4 text-variable">No department data available</div>
             ) : (
               departmentAnalytics.map((dept) => (
                 <div 
@@ -1110,10 +1110,10 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
                     <div className={`w-3 h-3 rounded-full flex-shrink-0 ${dept.color}`}></div>
-                    <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{dept.department}</span>
+                    <span className="font-medium text-fixed truncate">{dept.department}</span>
                   </div>
                   <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-4 sm:space-x-4">
-                    <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-right sm:text-left">
+                    <span className="text-xs sm:text-sm text-variable text-right sm:text-left">
                       {dept.totalCount} people <span className="hidden sm:inline">({dept.visitorCount} visitors, {dept.staffCount} staff)</span>
                     </span>
                     <Badge variant={dept.trend?.startsWith('+') ? 'default' : 'secondary'} className="text-xs flex-shrink-0">
@@ -1128,7 +1128,7 @@ export default function Dashboard() {
         
         <GlassCard className="dark:glass-dark">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Quick Actions</h3>
+            <h3 className="text-lg font-semibold text-fixed">Quick Actions</h3>
           </div>
           
           <div className="space-y-3">
@@ -1186,7 +1186,7 @@ export default function Dashboard() {
         {/* Current Visitors */}
         <GlassCard>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Current Visitors</h3>
+            <h3 className="text-lg font-semibold text-fixed">Current Visitors</h3>
             <button 
               className="text-blue-600 hover:text-blue-700 text-sm font-medium" 
               onClick={handleViewAllVisitors}
@@ -1198,9 +1198,9 @@ export default function Dashboard() {
           
           <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1 scrollbar-thin">
             {visitorsLoading ? (
-              <div className="text-center py-4 text-slate-600">Loading visitors...</div>
+              <div className="text-center py-4 text-variable">Loading visitors...</div>
             ) : !currentVisitors || currentVisitors.length === 0 ? (
-              <div className="text-center py-4 text-slate-600">No current visitors</div>
+              <div className="text-center py-4 text-variable">No current visitors</div>
             ) : (
               currentVisitors.map((visitor) => (
                 <div key={visitor.id} className="flex items-center justify-between p-2.5 bg-white/50 dark:bg-slate-800/50 rounded-lg hover:bg-white/70 dark:hover:bg-slate-800/70 transition-colors cursor-pointer" data-testid={`visitor-${visitor.id}`} onClick={() => { setSelectedVisitor(visitor); setOpenModal('visitor-details'); }}>
@@ -1209,16 +1209,16 @@ export default function Dashboard() {
                       <span className="text-white font-medium text-sm">{getInitials(`${visitor.firstName} ${visitor.lastName}`)}</span>
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200 text-sm" data-testid={`visitor-name-${visitor.id}`}>
+                      <p className="font-medium text-fixed text-sm" data-testid={`visitor-name-${visitor.id}`}>
                         {visitor.firstName} {visitor.lastName}
                       </p>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">{visitor.company || "No company"}</p>
+                      <p className="text-xs text-variable">{visitor.company || "No company"}</p>
                       <div className="flex items-center gap-2.5 mt-0.5">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">👤 {getStaffName(visitor.hostStaffId || undefined)}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">🕐 {formatTime(visitor.checkedInAt)}</p>
+                        <p className="text-xs text-variable">👤 {getStaffName(visitor.hostStaffId || undefined)}</p>
+                        <p className="text-xs text-variable">🕐 {formatTime(visitor.checkedInAt)}</p>
                       </div>
                       {visitor.phoneNumber && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">📞 {visitor.phoneNumber}</p>
+                        <p className="text-xs text-variable mt-0.5">📞 {visitor.phoneNumber}</p>
                       )}
                     </div>
                   </div>
@@ -1226,7 +1226,7 @@ export default function Dashboard() {
                     <Badge variant="default" className="text-xs mb-0.5">
                       On-site
                     </Badge>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                    <p className="text-xs text-variable">
                       {Math.floor((Date.now() - new Date(visitor.checkedInAt).getTime()) / (1000 * 60))}m ago
                     </p>
                   </div>
@@ -1239,7 +1239,7 @@ export default function Dashboard() {
         {/* Recent Activity */}
         <GlassCard>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-800">Recent Activity</h3>
+            <h3 className="text-lg font-semibold text-fixed">Recent Activity</h3>
             <button 
               className="text-blue-600 hover:text-blue-700 text-sm font-medium" 
               onClick={handleViewAllActivity}
@@ -1251,9 +1251,9 @@ export default function Dashboard() {
           
           <div className="space-y-4">
             {activityLoading ? (
-              <div className="text-center py-4 text-slate-600">Loading activity...</div>
+              <div className="text-center py-4 text-variable">Loading activity...</div>
             ) : !recentActivity || recentActivity.length === 0 ? (
-              <div className="text-center py-8 text-slate-600">
+              <div className="text-center py-8 text-variable">
                 <p>No recent activity</p>
                 <p className="text-sm mt-2">Activity will appear here as it happens</p>
               </div>
@@ -1261,11 +1261,11 @@ export default function Dashboard() {
               recentActivity.slice(0, 6).map((activity) => (
                 <div key={activity.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl" data-testid={`activity-${activity.id}`}>
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-[var(--background)] rounded-full flex items-center justify-center">
                       <span className="text-lg">{getActivityIcon(activity.type)}</span>
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800" data-testid={`activity-name-${activity.id}`}>
+                      <p className="font-medium text-fixed" data-testid={`activity-name-${activity.id}`}>
                         {activity.name}
                       </p>
                       <p className={`text-sm capitalize ${getActivityColor(activity.type)}`}>
@@ -1275,7 +1275,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-variable">
                       {formatTime(activity.timestamp)}
                     </p>
                   </div>
@@ -1292,7 +1292,7 @@ export default function Dashboard() {
       <Dialog open={openModal === 'visitors'} onOpenChange={() => setOpenModal(null)}>
         <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-fixed">
               <UsersRound className="text-blue-600" size={24} />
               Current Visitors ({currentVisitors?.length || 0})
             </DialogTitle>
@@ -1311,21 +1311,21 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
-                      <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
+                      <p className="font-medium text-fixed">{visitor.firstName} {visitor.lastName}</p>
+                      <p className="text-sm text-variable">{visitor.company || "No company"}</p>
                       <div className="flex items-center gap-4 mt-1">
-                        <p className="text-xs text-slate-500">👤 Host: {getStaffName(visitor.hostStaffId || undefined)}</p>
-                        <p className="text-xs text-slate-400">🕐 Arrived: {formatTime(visitor.checkedInAt)}</p>
+                        <p className="text-xs text-variable">👤 Host: {getStaffName(visitor.hostStaffId || undefined)}</p>
+                        <p className="text-xs text-variable">🕐 Arrived: {formatTime(visitor.checkedInAt)}</p>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="default" className="text-xs">
                           On-site
                         </Badge>
                         {visitor.phoneNumber && (
-                          <span className="text-xs text-slate-400">📞 {visitor.phoneNumber}</span>
+                          <span className="text-xs text-variable">📞 {visitor.phoneNumber}</span>
                         )}
                         {visitor.email && (
-                          <span className="text-xs text-slate-400">✉️ {visitor.email}</span>
+                          <span className="text-xs text-variable">✉️ {visitor.email}</span>
                         )}
                       </div>
                     </div>
@@ -1344,7 +1344,7 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-variable">
                 No visitors currently on-site
               </div>
             )}
@@ -1356,7 +1356,7 @@ export default function Dashboard() {
       <Dialog open={openModal === 'checkins'} onOpenChange={() => setOpenModal(null)}>
         <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-fixed">
               <AtSign className="text-green-600" size={24} />
               Today's Check-ins ({todayVisitors?.length || 0})
             </DialogTitle>
@@ -1373,9 +1373,9 @@ export default function Dashboard() {
                       <User className="text-green-600" size={20} />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
-                      <p className="text-sm text-slate-600">{visitor.company || "No company"}</p>
-                      <p className="text-xs text-slate-500">Checked in: {formatTime(visitor.checkedInAt)}</p>
+                      <p className="font-medium text-fixed">{visitor.firstName} {visitor.lastName}</p>
+                      <p className="text-sm text-variable">{visitor.company || "No company"}</p>
+                      <p className="text-xs text-variable">Checked in: {formatTime(visitor.checkedInAt)}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className="text-xs">
                           {visitor.isCheckedIn ? "On-site" : "Checked out"}
@@ -1399,7 +1399,7 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-variable">
                 No visitors checked in today
               </div>
             )}
@@ -1411,7 +1411,7 @@ export default function Dashboard() {
       <Dialog open={openModal === 'staff'} onOpenChange={() => setOpenModal(null)}>
         <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-fixed">
               <BadgeInfo className="text-purple-600" size={24} />
               Staff On-Site ({checkedInStaff?.length || 0})
             </DialogTitle>
@@ -1430,8 +1430,8 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{`${staffMember.firstName} ${staffMember.lastName}`}</p>
-                      <p className="text-sm text-slate-600">{staffMember.department}</p>
+                      <p className="font-medium text-fixed">{`${staffMember.firstName} ${staffMember.lastName}`}</p>
+                      <p className="text-sm text-variable">{staffMember.department}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-xs">
                           {staffMember.employeeId}
@@ -1453,7 +1453,7 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-variable">
                 No staff members currently on-site
               </div>
             )}
@@ -1481,7 +1481,7 @@ export default function Dashboard() {
             
             {departmentDetailsLoading || !departmentDetails ? (
               <div className="text-center py-8">
-                <div className="text-lg font-medium text-slate-600">Loading department details...</div>
+                <div className="text-lg font-medium text-variable">Loading department details...</div>
               </div>
             ) : (
               <div className="space-y-6">
@@ -1509,16 +1509,16 @@ export default function Dashboard() {
 
                 {/* Staff Section */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                  <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center">
                     <User className="mr-2" size={20} />
                     Staff Members ({departmentDetails.staffMembers.length})
                   </h3>
                   <div className="space-y-3">
                     {departmentDetails.staffMembers.length === 0 ? (
-                      <div className="text-center py-4 text-slate-600">No staff assigned to this department</div>
+                      <div className="text-center py-4 text-variable">No staff assigned to this department</div>
                     ) : (
                       departmentDetails.staffMembers.map((staffMember) => (
-                        <div key={staffMember.id} className="flex items-center justify-between p-4 bg-white border rounded-lg">
+                        <div key={staffMember.id} className="flex items-center justify-between p-4 bg-[var(--card)] border rounded-lg">
                           <div className="flex items-center space-x-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                               staffMember.isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
@@ -1526,15 +1526,15 @@ export default function Dashboard() {
                               <User size={20} />
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800">{staffMember.firstName} {staffMember.lastName}</p>
-                              <p className="text-sm text-slate-600 capitalize">{staffMember.accessLevel}</p>
+                              <p className="font-medium text-fixed">{staffMember.firstName} {staffMember.lastName}</p>
+                              <p className="text-sm text-variable capitalize">{staffMember.accessLevel}</p>
                             </div>
                           </div>
                           <div className="text-right">
                             {staffMember.isCheckedIn ? (
                               <div>
                                 <Badge variant="default" className="mb-1">On-Site</Badge>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-variable">
                                   Since: {staffMember.checkedInAt ? formatTime(staffMember.checkedInAt) : 'Unknown'}
                                 </p>
                               </div>
@@ -1550,16 +1550,16 @@ export default function Dashboard() {
 
                 {/* Visitors Section */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                  <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center">
                     <UsersRound className="mr-2" size={20} />
                     Current Visitors ({departmentDetails.visitors.length})
                   </h3>
                   <div className="space-y-3">
                     {departmentDetails.visitors.length === 0 ? (
-                      <div className="text-center py-4 text-slate-600">No visitors currently hosted by this department</div>
+                      <div className="text-center py-4 text-variable">No visitors currently hosted by this department</div>
                     ) : (
                       departmentDetails.visitors.map((visitor) => (
-                        <div key={visitor.id} className="flex items-center justify-between p-4 bg-white border rounded-lg">
+                        <div key={visitor.id} className="flex items-center justify-between p-4 bg-[var(--card)] border rounded-lg">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                               <span className="text-blue-600 font-medium text-sm">
@@ -1567,14 +1567,14 @@ export default function Dashboard() {
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800">{visitor.firstName} {visitor.lastName}</p>
-                              <p className="text-sm text-slate-600">{visitor.company || 'No company'}</p>
-                              <p className="text-xs text-slate-500">Host: {visitor.hostName}</p>
+                              <p className="font-medium text-fixed">{visitor.firstName} {visitor.lastName}</p>
+                              <p className="text-sm text-variable">{visitor.company || 'No company'}</p>
+                              <p className="text-xs text-variable">Host: {visitor.hostName}</p>
                             </div>
                           </div>
                           <div className="text-right">
                             <Badge variant="default" className="mb-1">Checked In</Badge>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-variable">
                               Since: {formatTime(visitor.checkedInAt)}
                             </p>
                           </div>
@@ -1599,7 +1599,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <div className="text-xl">{selectedVisitor?.firstName} {selectedVisitor?.lastName}</div>
-                  <div className="text-sm text-slate-600 font-normal">{selectedVisitor?.company || "No company listed"}</div>
+                  <div className="text-sm text-variable font-normal">{selectedVisitor?.company || "No company listed"}</div>
                 </div>
               </DialogTitle>
             </DialogHeader>
@@ -1630,7 +1630,7 @@ export default function Dashboard() {
                       <label className="text-sm font-medium text-red-700 dark:text-red-400">
                         {selectedVisitor.mobileNumber ? "Mobile Number" : "Phone Number"}
                       </label>
-                      <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                      <p className="text-lg font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                         {selectedVisitor.mobileNumber || selectedVisitor.phoneNumber || "Not provided"}
                       </p>
                       {selectedVisitor.mobileNumber && selectedVisitor.phoneNumber && (
@@ -1644,7 +1644,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-red-700 dark:text-red-400">Email Address</label>
-                      <p className="text-lg font-mono bg-white dark:bg-slate-800 p-2 rounded border">
+                      <p className="text-lg font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                         {selectedVisitor.email || "Not provided"}
                       </p>
                     </div>
@@ -1659,13 +1659,13 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Visiting</label>
-                      <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                         {getStaffName(selectedVisitor.hostStaffId)}
                       </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
-                      <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                      <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                         {staff?.find(s => s.id === selectedVisitor.hostStaffId)?.department || "Unknown"}
                       </p>
                     </div>
@@ -1673,17 +1673,17 @@ export default function Dashboard() {
                 </div>
 
                 {/* Visit Timeline */}
-                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
                     ⏰ Visit Timeline
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Check-in Time</span>
+                      <span className="text-sm font-medium text-variable">Check-in Time</span>
                       <span className="text-lg font-mono">{formatTime(selectedVisitor.checkedInAt)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Duration on Site</span>
+                      <span className="text-sm font-medium text-variable">Duration on Site</span>
                       <span className="text-lg font-mono">
                         {(() => {
                           const minutes = Math.floor((Date.now() - new Date(selectedVisitor.checkedInAt).getTime()) / (1000 * 60));
@@ -1694,7 +1694,7 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Expected Duration</span>
+                      <span className="text-sm font-medium text-variable">Expected Duration</span>
                       <span className="text-lg">
                         {selectedVisitor.expectedDuration ? `${selectedVisitor.expectedDuration} minutes` : "Not specified"}
                       </span>
@@ -1703,21 +1703,21 @@ export default function Dashboard() {
                 </div>
 
                 {/* Visit Details */}
-                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
                     📋 Visit Details
                   </h3>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Purpose of Visit</label>
-                      <p className="text-base bg-white dark:bg-slate-800 p-2 rounded border">
+                      <label className="text-sm font-medium text-variable">Purpose of Visit</label>
+                      <p className="text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                         {selectedVisitor.purpose || "Not specified"}
                       </p>
                     </div>
                     {selectedVisitor.notes && (
                       <div>
-                        <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Additional Notes</label>
-                        <p className="text-base bg-white dark:bg-slate-800 p-2 rounded border">
+                        <label className="text-sm font-medium text-variable">Additional Notes</label>
+                        <p className="text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                           {selectedVisitor.notes}
                         </p>
                       </div>
@@ -1792,7 +1792,7 @@ export default function Dashboard() {
       <Dialog open={openModal === 'contractors'} onOpenChange={() => setOpenModal(null)}>
         <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-fixed">
               <HardHat className="text-orange-600" size={24} />
               Contractors On-Site ({checkedInContractors?.length || 0})
             </DialogTitle>
@@ -1808,13 +1808,13 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div>
-                      <div className="font-medium text-slate-800">
+                      <div className="font-medium text-fixed">
                         {contractor.firstName} {contractor.lastName}
                       </div>
-                      <div className="text-sm text-slate-600">
+                      <div className="text-sm text-variable">
                         {contractor.company || 'Company not specified'}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-variable">
                         Role: {contractor.role || 'General Contractor'} • Checked in: {contractor.checkedInAt ? formatDistanceToNow(new Date(contractor.checkedInAt), { addSuffix: true }) : 'Recently'}
                       </div>
                     </div>
@@ -1833,7 +1833,7 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-slate-600">
+              <div className="text-center py-8 text-variable">
                 No contractors currently on-site
               </div>
             )}
@@ -1845,7 +1845,7 @@ export default function Dashboard() {
       <Dialog open={openModal === 'total-people'} onOpenChange={() => setOpenModal(null)}>
         <DialogContent className="glass-effect border border-white/30 max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-fixed">
               <Users className="text-green-600" size={24} />
               All People On-Site ({((currentVisitors?.length || 0) + (checkedInStaff?.length || 0) + (checkedInContractors?.length || 0))})
             </DialogTitle>
@@ -1855,7 +1855,7 @@ export default function Dashboard() {
             {/* Visitors Section */}
             {currentVisitors && currentVisitors.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+                <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center">
                   <UsersRound className="mr-2 text-blue-600" size={20} />
                   Visitors ({currentVisitors.length})
                 </h3>
@@ -1869,10 +1869,10 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div>
-                          <div className="font-medium text-slate-800">
+                          <div className="font-medium text-fixed">
                             {visitor.firstName} {visitor.lastName}
                           </div>
-                          <div className="text-sm text-slate-600">{visitor.company}</div>
+                          <div className="text-sm text-variable">{visitor.company}</div>
                         </div>
                       </div>
                       <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
@@ -1887,7 +1887,7 @@ export default function Dashboard() {
             {/* Staff Section */}
             {checkedInStaff && checkedInStaff.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+                <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center">
                   <BadgeInfo className="mr-2 text-purple-600" size={20} />
                   Staff ({checkedInStaff.length})
                 </h3>
@@ -1901,10 +1901,10 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div>
-                          <div className="font-medium text-slate-800">
+                          <div className="font-medium text-fixed">
                             {staff.firstName} {staff.lastName}
                           </div>
-                          <div className="text-sm text-slate-600">{staff.department}</div>
+                          <div className="text-sm text-variable">{staff.department}</div>
                         </div>
                       </div>
                       <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-300">
@@ -1919,7 +1919,7 @@ export default function Dashboard() {
             {/* Contractors Section */}
             {checkedInContractors && checkedInContractors.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+                <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center">
                   <HardHat className="mr-2 text-orange-600" size={20} />
                   Contractors ({checkedInContractors.length})
                 </h3>
@@ -1933,10 +1933,10 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div>
-                          <div className="font-medium text-slate-800">
+                          <div className="font-medium text-fixed">
                             {contractor.firstName} {contractor.lastName}
                           </div>
-                          <div className="text-sm text-slate-600">{contractor.company || 'Contractor'}</div>
+                          <div className="text-sm text-variable">{contractor.company || 'Contractor'}</div>
                         </div>
                       </div>
                       <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
@@ -1952,7 +1952,7 @@ export default function Dashboard() {
             {(!currentVisitors || currentVisitors.length === 0) && 
              (!checkedInStaff || checkedInStaff.length === 0) && 
              (!checkedInContractors || checkedInContractors.length === 0) && (
-              <div className="text-center py-8 text-slate-600">
+              <div className="text-center py-8 text-variable">
                 No people currently on-site
               </div>
             )}
@@ -1970,7 +1970,7 @@ export default function Dashboard() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-base sm:text-xl font-semibold truncate">Visitor Pre-Booking Details</div>
-                <div className="text-xs sm:text-sm text-slate-600 font-normal truncate">
+                <div className="text-xs sm:text-sm text-variable font-normal truncate">
                   {selectedVisitorBooking?.visitorFirstName} {selectedVisitorBooking?.visitorLastName}
                 </div>
               </div>
@@ -2013,33 +2013,33 @@ export default function Dashboard() {
               </div>
 
               {/* Visitor Information */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:p-4">
-                <h3 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:p-4">
+                <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
                   <User className="text-indigo-600 flex-shrink-0" size={18} />
                   Visitor Information
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Full Name</label>
-                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
+                    <label className="text-xs sm:text-sm font-medium text-variable">Full Name</label>
+                    <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.visitorFirstName} {selectedVisitorBooking.visitorLastName}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Email Address</label>
-                    <p className="text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 p-2 rounded border break-all">
+                    <label className="text-xs sm:text-sm font-medium text-variable">Email Address</label>
+                    <p className="text-xs sm:text-sm font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-all">
                       {selectedVisitorBooking.visitorEmail}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Company</label>
-                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
+                    <label className="text-xs sm:text-sm font-medium text-variable">Company</label>
+                    <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.company || 'Not specified'}
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Visit Date & Time</label>
-                    <p className="text-xs sm:text-sm bg-white dark:bg-slate-800 p-2 rounded border break-words">
+                    <label className="text-xs sm:text-sm font-medium text-variable">Visit Date & Time</label>
+                    <p className="text-xs sm:text-sm bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {new Date(selectedVisitorBooking.visitDate).toLocaleDateString('en-GB', { 
                         weekday: 'long', 
                         year: 'numeric', 
@@ -2060,25 +2060,25 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Host</label>
-                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
+                    <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.hostFirstName} {selectedVisitorBooking.hostLastName}
                     </p>
                   </div>
                   <div>
                     <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Department</label>
-                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
+                    <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.hostDepartment}
                     </p>
                   </div>
                   <div>
                     <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Host Email</label>
-                    <p className="text-xs sm:text-sm font-mono bg-white dark:bg-slate-800 p-2 rounded border break-all">
+                    <p className="text-xs sm:text-sm font-mono bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-all">
                       {selectedVisitorBooking.hostEmail}
                     </p>
                   </div>
                   <div>
                     <label className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400">Purpose of Visit</label>
-                    <p className="text-sm sm:text-base bg-white dark:bg-slate-800 p-2 rounded border break-words">
+                    <p className="text-sm sm:text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border break-words">
                       {selectedVisitorBooking.purpose || 'Not specified'}
                     </p>
                   </div>
@@ -2093,7 +2093,7 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                    <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
                       <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">☕ Refreshment Services</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
@@ -2111,7 +2111,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     
-                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                    <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
                       <h4 className="font-medium text-purple-700 dark:text-purple-400 mb-2">🏢 Building Services</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
@@ -2132,8 +2132,8 @@ export default function Dashboard() {
                   
                   <div>
                     <label className="text-sm font-medium text-purple-700 dark:text-purple-400">Additional Notes for Reception</label>
-                    <div className="bg-white dark:bg-slate-800 p-3 rounded border mt-1">
-                      <p className="text-sm text-slate-600 dark:text-slate-400 italic">
+                    <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border mt-1">
+                      <p className="text-sm text-variable italic">
                         {selectedVisitorBooking.purpose ? 
                           `Meeting purpose: ${selectedVisitorBooking.purpose}. Please ensure visitor is greeted professionally and host is notified immediately upon arrival.` :
                           'Please ensure visitor is greeted professionally and host is notified immediately upon arrival.'
@@ -2208,7 +2208,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <div className="text-xl">Meeting Room Booking Details</div>
-                <div className="text-sm text-slate-600 font-normal">
+                <div className="text-sm text-variable font-normal">
                   {selectedMeetingBooking?.title}
                 </div>
               </div>
@@ -2236,27 +2236,27 @@ export default function Dashboard() {
               </div>
 
               {/* Meeting Information */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+              <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
                   <Calendar className="text-purple-600" size={20} />
                   Meeting Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Meeting Title</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-sm font-medium text-variable">Meeting Title</label>
+                    <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.title}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Room</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-sm font-medium text-variable">Room</label>
+                    <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.roomName}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Date</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-sm font-medium text-variable">Date</label>
+                    <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {new Date(selectedMeetingBooking.date).toLocaleDateString('en-GB', { 
                         weekday: 'long', 
                         year: 'numeric', 
@@ -2266,16 +2266,16 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Time</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <label className="text-sm font-medium text-variable">Time</label>
+                    <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.startTime} - {selectedMeetingBooking.endTime}
                     </p>
                   </div>
                 </div>
                 {selectedMeetingBooking.description && (
                   <div className="mt-4">
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Description</label>
-                    <p className="text-base bg-white dark:bg-slate-800 p-2 rounded border mt-1">
+                    <label className="text-sm font-medium text-variable">Description</label>
+                    <p className="text-base bg-[var(--card)] dark:bg-slate-800 p-2 rounded border mt-1">
                       {selectedMeetingBooking.description}
                     </p>
                   </div>
@@ -2291,13 +2291,13 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Meeting Organizer</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.organizer}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-blue-700 dark:text-blue-400">Expected Attendees</label>
-                    <p className="text-lg bg-white dark:bg-slate-800 p-2 rounded border">
+                    <p className="text-lg bg-[var(--card)] dark:bg-slate-800 p-2 rounded border">
                       {selectedMeetingBooking.expectedAttendees || 0} people
                     </p>
                   </div>
@@ -2312,7 +2312,7 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                    <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
                       <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">☕ Catering Services</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
@@ -2334,7 +2334,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     
-                    <div className="bg-white dark:bg-slate-800 p-3 rounded border">
+                    <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border">
                       <h4 className="font-medium text-orange-700 dark:text-orange-400 mb-2">🔧 Technical Setup</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
@@ -2359,8 +2359,8 @@ export default function Dashboard() {
                   
                   <div>
                     <label className="text-sm font-medium text-orange-700 dark:text-orange-400">Room Setup Notes</label>
-                    <div className="bg-white dark:bg-slate-800 p-3 rounded border mt-1">
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <div className="bg-[var(--card)] dark:bg-slate-800 p-3 rounded border mt-1">
+                      <p className="text-sm text-variable">
                         Room configured for {selectedMeetingBooking.expectedAttendees || 'small group'} attendees. 
                         {selectedMeetingBooking.description ? ` Meeting purpose: ${selectedMeetingBooking.description}` : ' Standard meeting room setup required.'}
                       </p>
@@ -2370,24 +2370,24 @@ export default function Dashboard() {
               </div>
 
               {/* Room Information */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
-                  <Building2 className="text-slate-600" size={20} />
+              <div className="bg-[var(--background)] dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center gap-2">
+                  <Building2 className="text-variable" size={20} />
                   Room Information
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Room Name</span>
+                    <span className="text-sm font-medium text-variable">Room Name</span>
                     <span className="text-base font-mono">{selectedMeetingBooking.roomName}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Capacity</span>
+                    <span className="text-sm font-medium text-variable">Capacity</span>
                     <span className="text-base">
                       {meetingRooms?.find(room => room.name === selectedMeetingBooking.roomName)?.capacity || 'Unknown'} people
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Equipment</span>
+                    <span className="text-sm font-medium text-variable">Equipment</span>
                     <span className="text-base">
                       {'Standard AV equipment'}
                     </span>

@@ -165,7 +165,7 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
           setOpen(!open);
         }}
       >
-        <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+        <ChevronsUpDown className="h-4 w-4 text-variable" />
       </Button>
       
       <Popover open={open} onOpenChange={setOpen}>
@@ -182,7 +182,7 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
             {/* Show existing companies */}
             {filteredCompanies.length > 0 && (
               <CommandGroup>
-                <div className="px-2 py-1.5 text-xs font-medium text-slate-500 uppercase tracking-wide">
+                <div className="px-2 py-1.5 text-xs font-medium text-variable uppercase tracking-wide">
                   Existing Companies
                 </div>
                 {filteredCompanies.map((company) => (
@@ -200,7 +200,7 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
                         )}
                       />
                     </div>
-                    <span className="text-slate-700 truncate">{company}</span>
+                    <span className="text-fixed truncate">{company}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -230,9 +230,9 @@ function CompanyCombobox({ value, onChange, companies, placeholder = "Select or 
             
             {/* Empty state - only show when user has typed but no matches */}
             {filteredCompanies.length === 0 && inputValue.trim() && (
-              <div className="px-4 py-6 text-center text-slate-500">
+              <div className="px-4 py-6 text-center text-variable">
                 <div className="text-sm mb-1">No existing companies found</div>
-                <div className="text-xs text-slate-400">Press Enter to add "{inputValue.trim()}" as new company</div>
+                <div className="text-xs text-variable">Press Enter to add "{inputValue.trim()}" as new company</div>
               </div>
             )}
           </CommandList>
@@ -896,9 +896,9 @@ export default function Visitors() {
                         <div className="flex-1">
                           <h3 className="font-semibold text-fixed">{visitor.firstName} {visitor.lastName}</h3>
                           {visitor.company && (
-                            <p className="text-sm text-slate-600">{visitor.company}</p>
+                            <p className="text-sm text-variable">{visitor.company}</p>
                           )}
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs text-variable mt-1">
                             Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
                               day: 'numeric', 
                               month: 'short', 
@@ -930,7 +930,7 @@ export default function Visitors() {
                               )}
                             </span>
                             {visitor.isCheckedIn && visitor.checkedInAt && (
-                              <span className="text-xs text-gray-500 flex items-center">
+                              <span className="text-xs text-variable flex items-center">
                                 <Clock size={10} className="mr-1" />
                                 {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
                                   hour: '2-digit', 
@@ -989,7 +989,7 @@ export default function Visitors() {
                   </div>
                 ))
               ) : (
-                <div className="col-span-full text-center py-8 text-slate-500">
+                <div className="col-span-full text-center py-8 text-variable">
                   {searchTerm ? "No visitors found matching your search." : "No previous visitors found."}
                 </div>
               )}
@@ -1019,18 +1019,18 @@ export default function Visitors() {
                 <UserPlus className="text-green-600" size={24} />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-slate-800">Walk-in Registration</h2>
-                <p className="text-slate-600">Register a new visitor who just turned up</p>
+                <h2 className="text-xl font-semibold text-fixed">Walk-in Registration</h2>
+                <p className="text-variable">Register a new visitor who just turned up</p>
               </div>
             </div>
 
             <form onSubmit={handleWalkInSubmit} className="space-y-6">
               {/* Required Fields */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">Required Information</h3>
+                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">Required Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-fixed">
                       Visitor First Name *
                     </Label>
                     <Input
@@ -1038,7 +1038,7 @@ export default function Visitors() {
                       type="text"
                       value={walkInData.firstName}
                       onChange={(e) => handleWalkInInputChange("firstName", e.target.value)}
-                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                         walkInValidationErrors.firstName 
                           ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                           : 'border-white/30 focus:ring-green-500'
@@ -1049,7 +1049,7 @@ export default function Visitors() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-fixed">
                       Visitor Last Name *
                     </Label>
                     <Input
@@ -1057,7 +1057,7 @@ export default function Visitors() {
                       type="text"
                       value={walkInData.lastName}
                       onChange={(e) => handleWalkInInputChange("lastName", e.target.value)}
-                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                         walkInValidationErrors.lastName 
                           ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                           : 'border-white/30 focus:ring-green-500'
@@ -1070,7 +1070,7 @@ export default function Visitors() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="company-required" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="company-required" className="text-sm font-medium text-fixed">
                       Company *
                     </Label>
                     <CompanyCombobox
@@ -1078,7 +1078,7 @@ export default function Visitors() {
                       onChange={(value) => handleWalkInInputChange("company", value)}
                       companies={companies}
                       placeholder="Select or type company name..."
-                      className={`px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                      className={`px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                         walkInValidationErrors.company 
                           ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                           : 'border-white/30 focus:ring-green-500'
@@ -1088,7 +1088,7 @@ export default function Visitors() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="email-required" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="email-required" className="text-sm font-medium text-fixed">
                       Email Address *
                     </Label>
                     <Input
@@ -1096,7 +1096,7 @@ export default function Visitors() {
                       type="email"
                       value={walkInData.email}
                       onChange={(e) => handleWalkInInputChange("email", e.target.value)}
-                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-slate-800 ${
+                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 text-fixed ${
                         walkInValidationErrors.email 
                           ? 'border-red-500 focus:ring-red-500 ring-red-200' 
                           : 'border-white/30 focus:ring-green-500'
@@ -1110,10 +1110,10 @@ export default function Visitors() {
 
               {/* Optional Visitor Profile */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">Additional Information (Optional)</h3>
+                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">Additional Information (Optional)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="phoneNumber" className="text-sm font-medium text-fixed">
                       Phone Number
                     </Label>
                     <Input
@@ -1121,13 +1121,13 @@ export default function Visitors() {
                       type="tel"
                       value={walkInData.phoneNumber}
                       onChange={(e) => setWalkInData(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-fixed"
                       data-testid="input-walkin-phone"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="mobileNumber" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="mobileNumber" className="text-sm font-medium text-fixed">
                       Mobile Number
                     </Label>
                     <Input
@@ -1135,13 +1135,13 @@ export default function Visitors() {
                       type="tel"
                       value={walkInData.mobileNumber}
                       onChange={(e) => setWalkInData(prev => ({ ...prev, mobileNumber: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-fixed"
                       data-testid="input-walkin-mobile"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="jobTitle" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="jobTitle" className="text-sm font-medium text-fixed">
                       Job Title
                     </Label>
                     <Input
@@ -1149,7 +1149,7 @@ export default function Visitors() {
                       type="text"
                       value={walkInData.jobTitle}
                       onChange={(e) => setWalkInData(prev => ({ ...prev, jobTitle: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-fixed"
                       data-testid="input-walkin-jobtitle"
                     />
                   </div>
@@ -1157,14 +1157,14 @@ export default function Visitors() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="address" className="text-sm font-medium text-fixed">
                     Address
                   </Label>
                   <Textarea
                     id="address"
                     value={walkInData.address}
                     onChange={(e) => setWalkInData(prev => ({ ...prev, address: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800 min-h-[80px]"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-fixed min-h-[80px]"
                     placeholder="Enter full address (street, city, postcode)"
                     data-testid="input-walkin-address"
                   />
@@ -1173,9 +1173,9 @@ export default function Visitors() {
 
               {/* Host Selection */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">Visit Details</h3>
+                <h3 className="text-lg font-semibold text-fixed border-b border-slate-200 pb-2">Visit Details</h3>
                 <div className="space-y-2">
-                  <Label htmlFor="hostStaffId" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
                     Host Staff Member *
                   </Label>
                   <Select 
@@ -1210,7 +1210,7 @@ export default function Visitors() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="purpose" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="purpose" className="text-sm font-medium text-fixed">
                     Purpose of Visit
                   </Label>
                   <Input
@@ -1218,13 +1218,13 @@ export default function Visitors() {
                     type="text"
                     value={walkInData.purpose}
                     onChange={(e) => setWalkInData(prev => ({ ...prev, purpose: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-fixed"
                     data-testid="input-walkin-purpose"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="carRegistration" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="carRegistration" className="text-sm font-medium text-fixed">
                     Car Registration
                   </Label>
                   <Input
@@ -1232,7 +1232,7 @@ export default function Visitors() {
                     type="text"
                     value={walkInData.carRegistration}
                     onChange={(e) => setWalkInData(prev => ({ ...prev, carRegistration: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 text-fixed"
                     data-testid="input-walkin-car"
                   />
                 </div>
@@ -1261,8 +1261,8 @@ export default function Visitors() {
                   <CalendarPlus className="text-blue-600" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-800">Create Pre-booking</h2>
-                  <p className="text-slate-600">Schedule a future visitor</p>
+                  <h2 className="text-xl font-semibold text-fixed">Create Pre-booking</h2>
+                  <p className="text-variable">Schedule a future visitor</p>
                 </div>
               </div>
               
@@ -1294,13 +1294,13 @@ export default function Visitors() {
                       // Small delay to allow click on dropdown item
                       setTimeout(() => setShowVisitorSearch(false), 200);
                     }}
-                    className="pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-blue-300"
+                    className="pl-10 pr-4 py-2 bg-[var(--card)] border-blue-300"
                     data-testid="input-prebook-search"
                   />
                   
                   {/* Search Results Dropdown */}
                   {showVisitorSearch && preBookSearchTerm.length >= 2 && (
-                    <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-h-60 overflow-auto">
+                    <div className="absolute z-10 w-full mt-2 bg-[var(--card)] rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-h-60 overflow-auto">
                       {allVisitors?.filter((v: Visitor) => 
                         (v.firstName?.toLowerCase().includes(preBookSearchTerm.toLowerCase()) ||
                          v.lastName?.toLowerCase().includes(preBookSearchTerm.toLowerCase()) ||
@@ -1315,10 +1315,10 @@ export default function Visitors() {
                           data-testid={`button-select-prebookvisitor-${visitor.id}`}
                         >
                           <div>
-                            <div className="font-medium text-slate-800 dark:text-slate-200">
+                            <div className="font-medium text-fixed">
                               {visitor.firstName} {visitor.lastName}
                             </div>
-                            <div className="text-sm text-slate-600 dark:text-slate-400">
+                            <div className="text-sm text-variable">
                               {visitor.company || 'No company'} • {visitor.email || 'No email'}
                             </div>
                           </div>
@@ -1331,7 +1331,7 @@ export default function Visitors() {
                          v.company?.toLowerCase().includes(preBookSearchTerm.toLowerCase())) &&
                         !v.isCheckedIn
                       ).length === 0 && (
-                        <div className="px-4 py-3 text-center text-slate-500">
+                        <div className="px-4 py-3 text-center text-variable">
                           No visitors found matching "{preBookSearchTerm}"
                         </div>
                       )}
@@ -1343,7 +1343,7 @@ export default function Visitors() {
               <form onSubmit={handlePreBookingSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="visitorFirstName" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="visitorFirstName" className="text-sm font-medium text-fixed">
                       Visitor First Name *
                     </Label>
                     <Input
@@ -1351,14 +1351,14 @@ export default function Visitors() {
                       type="text"
                       value={preBookingData.visitorFirstName || ""}
                       onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorFirstName: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                       required
                       data-testid="input-prebook-firstname"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="visitorLastName" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="visitorLastName" className="text-sm font-medium text-fixed">
                       Visitor Last Name *
                     </Label>
                     <Input
@@ -1366,14 +1366,14 @@ export default function Visitors() {
                       type="text"
                       value={preBookingData.visitorLastName || ""}
                       onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorLastName: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                       required
                       data-testid="input-prebook-lastname"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="visitorEmail" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="visitorEmail" className="text-sm font-medium text-fixed">
                       Visitor Email *
                     </Label>
                     <Input
@@ -1381,7 +1381,7 @@ export default function Visitors() {
                       type="email"
                       value={preBookingData.visitorEmail || ""}
                       onChange={(e) => setPreBookingData(prev => ({ ...prev, visitorEmail: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                       required
                       data-testid="input-prebook-email"
                     />
@@ -1389,7 +1389,7 @@ export default function Visitors() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="company" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="company" className="text-sm font-medium text-fixed">
                     Company *
                   </Label>
                   <CompanyCombobox
@@ -1397,13 +1397,13 @@ export default function Visitors() {
                     onChange={(value) => setPreBookingData(prev => ({ ...prev, company: value }))}
                     companies={companies}
                     placeholder="Select or type company name..."
-                    className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     testId="input-prebook-company"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="hostStaffId" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
                     Host Staff Member *
                   </Label>
                   <Select 
@@ -1430,7 +1430,7 @@ export default function Visitors() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">Visit Date *</Label>
+                    <Label className="text-sm font-medium text-fixed">Visit Date *</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -1454,7 +1454,7 @@ export default function Visitors() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="visitTime" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="visitTime" className="text-sm font-medium text-fixed">
                       Visit Time *
                     </Label>
                     <Input
@@ -1462,20 +1462,20 @@ export default function Visitors() {
                       type="time"
                       defaultValue="09:00"
                       onChange={(e) => handleTimeChange(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="purpose" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="purpose" className="text-sm font-medium text-fixed">
                     Purpose of Visit
                   </Label>
                   <Textarea
                     id="purpose"
                     value={preBookingData.purpose || ""}
                     onChange={(e) => setPreBookingData(prev => ({ ...prev, purpose: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     placeholder="Brief description of the visit purpose"
                     rows={3}
                     data-testid="textarea-prebook-purpose"
@@ -1501,8 +1501,8 @@ export default function Visitors() {
                   <Clock className="text-amber-600" size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-800">Upcoming Visits</h2>
-                  <p className="text-slate-600">Recent and scheduled pre-bookings</p>
+                  <h2 className="text-xl font-semibold text-fixed">Upcoming Visits</h2>
+                  <p className="text-variable">Recent and scheduled pre-bookings</p>
                 </div>
               </div>
 
@@ -1512,9 +1512,9 @@ export default function Visitors() {
                     <div key={booking.id} className="p-4 bg-white/50 rounded-xl border border-white/30">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-slate-800">{booking.visitorFirstName} {booking.visitorLastName}</h4>
-                          <p className="text-sm text-slate-600">{booking.company}</p>
-                          <p className="text-xs text-slate-500 mt-1">
+                          <h4 className="font-semibold text-fixed">{booking.visitorFirstName} {booking.visitorLastName}</h4>
+                          <p className="text-sm text-variable">{booking.company}</p>
+                          <p className="text-xs text-variable mt-1">
                             {formatBookingDate(booking.visitDate)}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
@@ -1522,7 +1522,7 @@ export default function Visitors() {
                               {getStatusText(booking)}
                             </Badge>
                             {staff?.find(s => s.id === booking.hostStaffId) && (
-                              <span className="text-xs text-slate-500">
+                              <span className="text-xs text-variable">
                                 Host: {staff.find(s => s.id === booking.hostStaffId)?.firstName} {staff.find(s => s.id === booking.hostStaffId)?.lastName}
                               </span>
                             )}
@@ -1545,7 +1545,7 @@ export default function Visitors() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-slate-500">
+                  <div className="text-center py-8 text-variable">
                     No upcoming visits scheduled.
                   </div>
                 )}
@@ -1562,11 +1562,11 @@ export default function Visitors() {
             <DialogTitle>Select Host for {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-slate-600">
+            <p className="text-variable">
               Who is {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName} visiting today?
             </p>
             <div className="space-y-2">
-              <Label htmlFor="hostSelection" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="hostSelection" className="text-sm font-medium text-fixed">
                 Host Staff Member *
               </Label>
               <Select 
@@ -1626,15 +1626,15 @@ export default function Visitors() {
       <Dialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
         <DialogContent className="glass-effect border border-white/30 max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-fixed">
               ℹ️ Visitor Already On-Site
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-slate-600">
+            <p className="text-variable">
               {duplicateMessage}
             </p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-variable">
               The visitor is currently checked in. If they need to check out and check in again, please check them out first.
             </p>
             <div className="flex justify-end">

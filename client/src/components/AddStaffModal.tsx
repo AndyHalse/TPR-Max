@@ -313,7 +313,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md max-h-[85vh] glass-effect border-white/20 overflow-y-auto" data-testid="add-staff-modal">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-slate-800">
+          <DialogTitle className="text-xl font-bold text-fixed">
             {isEditMode ? "Edit Staff Member" : "Add New Staff Member"}
           </DialogTitle>
         </DialogHeader>
@@ -321,7 +321,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="firstName" className="text-sm font-medium text-fixed">
                 First Name *
               </Label>
               <Input
@@ -330,14 +330,14 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 required
                 value={formData.firstName}
                 onChange={(e) => handleInputChange("firstName", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder="First name"
                 data-testid="input-first-name"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="lastName" className="text-sm font-medium text-fixed">
                 Last Name *
               </Label>
               <Input
@@ -346,7 +346,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 required
                 value={formData.lastName}
                 onChange={(e) => handleInputChange("lastName", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder="Last name"
                 data-testid="input-last-name"
               />
@@ -354,7 +354,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="email" className="text-sm font-medium text-fixed">
               Email Address *
             </Label>
             <Input
@@ -363,18 +363,18 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               required
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="email@company.com"
               data-testid="input-email"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="department" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="department" className="text-sm font-medium text-fixed">
               Department *
             </Label>
             <Select value={formData.department} onValueChange={(value) => handleInputChange("department", value)}>
-              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-department">
+              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-department">
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
@@ -397,7 +397,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="employeeId" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="employeeId" className="text-sm font-medium text-fixed">
               Employee ID
             </Label>
             <Input
@@ -405,14 +405,14 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               type="text"
               value={formData.employeeId}
               onChange={(e) => handleInputChange("employeeId", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Auto-generated if left blank"
               data-testid="input-employee-id"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="biostarUserId" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="biostarUserId" className="text-sm font-medium text-fixed">
               Biostar 2 User ID
             </Label>
             <Input
@@ -420,21 +420,21 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               type="text"
               value={formData.biostarUserId}
               onChange={(e) => handleInputChange("biostarUserId", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Optional - For access control sync"
               data-testid="input-biostar-user-id"
             />
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-variable">
               Links this staff member to a user in Biostar 2 access control system
             </p>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="accessLevel" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="accessLevel" className="text-sm font-medium text-fixed">
               Access Level *
             </Label>
             <Select value={formData.accessLevel} onValueChange={(value) => handleInputChange("accessLevel", value)}>
-              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-access-level">
+              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-access-level">
                 <SelectValue placeholder="Select access level" />
               </SelectTrigger>
               <SelectContent>
@@ -526,7 +526,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="phoneNumber" className="text-sm font-medium text-fixed">
                 Phone Number
               </Label>
               <Input
@@ -534,21 +534,21 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 type="tel"
                 value={formData.phoneNumber}
                 onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder="+44 20 1234 5678"
                 data-testid="input-phone-number"
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-variable">
                 Required for voice notifications (UK format: +44...)
               </p>
             </div>
             
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <Label className="text-sm font-medium text-slate-700">
+                <Label className="text-sm font-medium text-fixed">
                   Enable Voice Notifications
                 </Label>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-variable mt-1">
                   Receive automated voice calls when visitors arrive
                 </p>
               </div>
@@ -562,11 +562,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             {formData.voiceNotificationsEnabled && formData.phoneNumber && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="preferredNotificationMethod" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="preferredNotificationMethod" className="text-sm font-medium text-fixed">
                     Preferred Notification Method
                   </Label>
                   <Select value={formData.preferredNotificationMethod} onValueChange={(value) => handleInputChange("preferredNotificationMethod", value)}>
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-notification-method">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-notification-method">
                       <SelectValue placeholder="Select notification method" />
                     </SelectTrigger>
                     <SelectContent>
@@ -579,11 +579,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="voiceLanguage" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="voiceLanguage" className="text-sm font-medium text-fixed">
                       Voice Language
                     </Label>
                     <Select value={formData.voiceLanguage} onValueChange={(value) => handleInputChange("voiceLanguage", value)}>
-                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-voice-language">
+                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-voice-language">
                         <SelectValue placeholder="Select language" />
                       </SelectTrigger>
                       <SelectContent>
@@ -597,11 +597,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="voiceProfile" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="voiceProfile" className="text-sm font-medium text-fixed">
                       Voice Profile
                     </Label>
                     <Select value={formData.voiceProfile} onValueChange={(value) => handleInputChange("voiceProfile", value)}>
-                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800" data-testid="select-voice-profile">
+                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-voice-profile">
                         <SelectValue placeholder="Select voice" />
                       </SelectTrigger>
                       <SelectContent>
@@ -620,7 +620,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
           
           {(formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && (
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="password" className="text-sm font-medium text-fixed">
                 Password * {isEditMode ? "(leave blank to keep current)" : ""}
               </Label>
               <Input
@@ -628,19 +628,19 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder="Enter secure password"
                 data-testid="input-password"
                 required={!isEditMode}
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-variable">
                 Admin and supervisor access requires password authentication
               </p>
             </div>
           )}
           
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700">
+            <Label className="text-sm font-medium text-fixed">
               Photo
             </Label>
             {uploadedPhoto ? (
@@ -659,7 +659,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 >
                   <X size={14} />
                 </Button>
-                <p className="text-sm text-slate-600">Photo uploaded successfully</p>
+                <p className="text-sm text-variable">Photo uploaded successfully</p>
               </div>
             ) : (
               <div className="border-2 border-dashed border-white/30 rounded-xl p-6 text-center">
@@ -679,8 +679,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                     </>
                   ) : (
                     <>
-                      <CloudUpload className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                      <p className="text-sm text-slate-600">Click to upload photo or drag and drop</p>
+                      <CloudUpload className="mx-auto h-8 w-8 text-variable mb-2" />
+                      <p className="text-sm text-variable">Click to upload photo or drag and drop</p>
                     </>
                   )}
                 </label>
@@ -693,7 +693,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               type="button" 
               variant="outline"
               onClick={handleClose}
-              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-fixed font-medium hover:bg-slate-50 transition-colors"
               data-testid="button-cancel-add-staff"
             >
               Cancel
@@ -728,7 +728,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             <DialogTitle>Select ID Card Template</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-sm text-variable mb-4">
               Choose a template to print {staffToEdit?.firstName} {staffToEdit?.lastName}'s ID card
             </p>
             
@@ -741,7 +741,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               >
                 <div className="text-left">
                   <div className="font-medium">Staff Standard</div>
-                  <div className="text-xs text-slate-500">General employee template</div>
+                  <div className="text-xs text-variable">General employee template</div>
                 </div>
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               </Button>
@@ -754,7 +754,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               >
                 <div className="text-left">
                   <div className="font-medium">Management</div>
-                  <div className="text-xs text-slate-500">Executive & supervisor template</div>
+                  <div className="text-xs text-variable">Executive & supervisor template</div>
                 </div>
               </Button>
               
@@ -766,7 +766,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               >
                 <div className="text-left">
                   <div className="font-medium">Contractor</div>
-                  <div className="text-xs text-slate-500">Temporary access template</div>
+                  <div className="text-xs text-variable">Temporary access template</div>
                 </div>
               </Button>
               
@@ -778,13 +778,13 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               >
                 <div className="text-left">
                   <div className="font-medium">Security</div>
-                  <div className="text-xs text-slate-500">High-security access template</div>
+                  <div className="text-xs text-variable">High-security access template</div>
                 </div>
               </Button>
             </div>
             
             <div className="mt-6 pt-4 border-t border-slate-200">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-xs text-variable">
                 <Shield size={14} />
                 <span>Templates configured in Settings → ID Cards</span>
               </div>

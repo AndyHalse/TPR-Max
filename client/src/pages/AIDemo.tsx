@@ -179,7 +179,7 @@ export default function AIDemo() {
             {securityMutation.data && (
               <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-800 dark:text-slate-200">AI Assessment</h3>
+                  <h3 className="font-semibold text-fixed">AI Assessment</h3>
                   <Badge 
                     variant={securityMutation.data.riskLevel === 'high' ? 'destructive' : 'secondary'}
                     data-testid="risk-level-badge"
@@ -190,7 +190,7 @@ export default function AIDemo() {
                 <p className="text-sm text-slate-700 dark:text-slate-300" data-testid="security-assessment">
                   {securityMutation.data.alert}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-variable">
                   Generated: {new Date(securityMutation.data.timestamp).toLocaleString()}
                 </p>
               </div>
@@ -229,7 +229,7 @@ export default function AIDemo() {
                 />
                 
                 {photoMutation.isPending && (
-                  <div className="text-center text-sm text-slate-600 dark:text-slate-400">
+                  <div className="text-center text-sm text-variable">
                     AI analyzing photo quality...
                   </div>
                 )}
@@ -237,7 +237,7 @@ export default function AIDemo() {
                 {photoMutation.data && (
                   <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-slate-800 dark:text-slate-200">AI Photo Analysis</h3>
+                      <h3 className="font-semibold text-fixed">AI Photo Analysis</h3>
                       <Badge 
                         variant={photoMutation.data.analysis.qualityScore >= 7 ? 'default' : 'secondary'}
                         data-testid="quality-score-badge"
@@ -253,7 +253,7 @@ export default function AIDemo() {
                       
                       <div>
                         <strong className="text-sm text-slate-700 dark:text-slate-300">AI Summary:</strong>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1" data-testid="ai-photo-summary">
+                        <p className="text-sm text-variable mt-1" data-testid="ai-photo-summary">
                           {photoMutation.data.analysis.aiSummary}
                         </p>
                       </div>
@@ -261,7 +261,7 @@ export default function AIDemo() {
                       {photoMutation.data.analysis.enhancementSuggestions.length > 0 && (
                         <div>
                           <strong className="text-sm text-slate-700 dark:text-slate-300">Suggestions:</strong>
-                          <ul className="text-sm text-slate-600 dark:text-slate-400 mt-1 space-y-1">
+                          <ul className="text-sm text-variable mt-1 space-y-1">
                             {photoMutation.data.analysis.enhancementSuggestions.map((suggestion: string, index: number) => (
                               <li key={index} className="flex items-start">
                                 <span className="text-purple-600 mr-2">•</span>
@@ -290,38 +290,38 @@ export default function AIDemo() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg text-center">
             <Shield className="mx-auto mb-2 text-green-600" size={24} />
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Security AI</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Threat assessment & risk analysis</p>
+            <h3 className="font-semibold text-fixed mb-1">Security AI</h3>
+            <p className="text-xs text-variable">Threat assessment & risk analysis</p>
           </div>
           
           <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg text-center">
             <Camera className="mx-auto mb-2 text-purple-600" size={24} />
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Photo AI</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Quality assessment for ID badges</p>
+            <h3 className="font-semibold text-fixed mb-1">Photo AI</h3>
+            <p className="text-xs text-variable">Quality assessment for ID badges</p>
           </div>
           
           <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg text-center">
             <Brain className="mx-auto mb-2 text-blue-600" size={24} />
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Predictive AI</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Visitor patterns & capacity forecasting</p>
+            <h3 className="font-semibold text-fixed mb-1">Predictive AI</h3>
+            <p className="text-xs text-variable">Visitor patterns & capacity forecasting</p>
           </div>
           
           <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg text-center">
             <Sparkles className="mx-auto mb-2 text-yellow-600" size={24} />
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Smart Insights</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Business recommendations & intelligence</p>
+            <h3 className="font-semibold text-fixed mb-1">Smart Insights</h3>
+            <p className="text-xs text-variable">Business recommendations & intelligence</p>
           </div>
           
           <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg text-center">
             <Calculator className="mx-auto mb-2 text-green-600" size={24} />
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">ROI AI</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Business value & savings calculation</p>
+            <h3 className="font-semibold text-fixed mb-1">ROI AI</h3>
+            <p className="text-xs text-variable">Business value & savings calculation</p>
           </div>
           
           <div className="bg-white/70 dark:bg-slate-800/70 p-4 rounded-lg text-center">
             <TrendingUp className="mx-auto mb-2 text-pink-600" size={24} />
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Experience AI</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Visitor satisfaction & compliance analysis</p>
+            <h3 className="font-semibold text-fixed mb-1">Experience AI</h3>
+            <p className="text-xs text-variable">Visitor satisfaction & compliance analysis</p>
           </div>
         </div>
         

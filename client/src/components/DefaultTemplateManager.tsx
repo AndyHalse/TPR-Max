@@ -117,8 +117,8 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
     return (
       <div className={`space-y-6 ${className}`}>
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
-          <span className="ml-2 text-slate-500">Loading default templates...</span>
+          <Loader2 className="w-8 h-8 animate-spin text-variable" />
+          <span className="ml-2 text-variable">Loading default templates...</span>
         </div>
       </div>
     );
@@ -142,11 +142,11 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
             <FileText className="w-5 h-5" />
             Default UK H&S Document Templates
           </h3>
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="text-sm text-variable mt-1">
             Customize your default templates that will be used when creating new documents.
           </p>
         </div>
@@ -174,10 +174,10 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
               <div className="flex flex-col h-full">
                 {/* Template Header */}
                 <div className="flex-1 mb-4">
-                  <h4 className="font-semibold text-slate-800 mb-2 leading-tight">
+                  <h4 className="font-semibold text-fixed mb-2 leading-tight">
                     {template.documentName}
                   </h4>
-                  <p className="text-sm text-slate-600 mb-3 line-clamp-2">
+                  <p className="text-sm text-variable mb-3 line-clamp-2">
                     {template.documentDescription || 'No description available'}
                   </p>
                   
@@ -191,7 +191,7 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
                     </Badge>
                     
                     {template.legalReference && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-variable">
                         <strong>Legal Ref:</strong> {template.legalReference}
                       </p>
                     )}
@@ -200,7 +200,7 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
 
                 {/* Auto-fill Info */}
                 <div className="mb-4">
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <div className="flex items-center gap-1 text-xs text-variable">
                     <CheckCircle className="w-3 h-3" />
                     <span>Auto-fill enabled ({template.autoFillFields.length} fields)</span>
                   </div>
@@ -236,7 +236,7 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
 
                 {/* Last Updated */}
                 <div className="mt-2 pt-2 border-t border-slate-100">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-variable">
                     Updated: {new Date(template.updatedAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -250,8 +250,8 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
       {defaultTemplates.length === 0 && (
         <div className="text-center py-12">
           <FileText className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-          <h3 className="text-lg font-medium text-slate-700 mb-2">No Default Templates Found</h3>
-          <p className="text-slate-500">
+          <h3 className="text-lg font-medium text-fixed mb-2">No Default Templates Found</h3>
+          <p className="text-variable">
             Your default UK H&S document templates will appear here once they are seeded.
           </p>
         </div>

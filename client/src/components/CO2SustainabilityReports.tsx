@@ -391,7 +391,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
 
   const getTransportColor = (method: string) => {
     const transport = transportMethods.find(t => t.value === method);
-    return transport ? transport.color : 'text-gray-600';
+    return transport ? transport.color : 'text-variable';
   };
 
   const getEmissionLevel = (kg: number) => {
@@ -581,7 +581,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                   <Card>
                     <CardHeader>
                       <div className="flex items-center gap-2">
-                        <PieChart className="w-4 h-4 text-gray-600" />
+                        <PieChart className="w-4 h-4 text-variable" />
                         <CardTitle className="text-base">Transport Method Breakdown</CardTitle>
                       </div>
                     </CardHeader>
@@ -730,8 +730,8 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                                  <Users className="w-5 h-5 text-gray-600" />
+                                <div className="w-10 h-10 bg-[var(--background)] rounded-full flex items-center justify-center">
+                                  <Users className="w-5 h-5 text-variable" />
                                 </div>
                                 <div>
                                   <p className="font-medium">{worker.workerName}</p>
@@ -1010,7 +1010,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                 return (
                                   <div className={`flex items-center gap-1 ${
                                     trend.trend === 'down' ? 'text-green-600' : 
-                                    trend.trend === 'up' ? 'text-red-600' : 'text-gray-600'
+                                    trend.trend === 'up' ? 'text-red-600' : 'text-variable'
                                   }`}>
                                     {trend.trend === 'down' ? <TrendingDown className="w-4 h-4" /> :
                                      trend.trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
@@ -1296,7 +1296,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
             ) : fullReport?.data ? (
               <div className="space-y-6">
                 {/* Key Metrics */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-3 gap-4 p-4 bg-[var(--background)] rounded-lg">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600">{fullReport.data.totalWorkersCovered}</div>
                     <div className="text-sm text-muted-foreground">Workers Analyzed</div>
@@ -1317,7 +1317,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                     <BarChart3 className="w-5 h-5 text-blue-600" />
                     Executive Summary
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">{fullReport.data.executiveSummary}</p>
+                  <p className="text-variable leading-relaxed">{fullReport.data.executiveSummary}</p>
                 </div>
 
                 {/* Current Emissions Status */}
@@ -1326,7 +1326,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                     <TrendingUp className="w-5 h-5 text-orange-600" />
                     Current Emissions Status
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">{fullReport.data.currentEmissionsStatus}</p>
+                  <p className="text-variable leading-relaxed">{fullReport.data.currentEmissionsStatus}</p>
                 </div>
 
                 {/* Environmental Impact Analysis */}
@@ -1335,7 +1335,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                     <Leaf className="w-5 h-5 text-green-600" />
                     Environmental Impact Analysis
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">{fullReport.data.environmentalImpactAnalysis}</p>
+                  <p className="text-variable leading-relaxed">{fullReport.data.environmentalImpactAnalysis}</p>
                 </div>
 
                 {/* Reduction Recommendations */}
@@ -1344,7 +1344,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                     <Target className="w-5 h-5 text-green-600" />
                     Reduction Recommendations
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">{fullReport.data.reductionRecommendations}</p>
+                  <p className="text-variable leading-relaxed">{fullReport.data.reductionRecommendations}</p>
                 </div>
 
                 {/* Action Plan */}
@@ -1353,7 +1353,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                     <Calendar className="w-5 h-5 text-purple-600" />
                     Action Plan
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">{fullReport.data.actionPlan}</p>
+                  <p className="text-variable leading-relaxed">{fullReport.data.actionPlan}</p>
                 </div>
 
                 {/* Top Recommendation */}

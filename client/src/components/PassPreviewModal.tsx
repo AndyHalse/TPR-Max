@@ -305,7 +305,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md glass-effect border-white/20" data-testid="pass-preview-modal">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-slate-800 text-center">
+          <DialogTitle className="text-xl font-bold text-fixed text-center">
             Visitor Pass Generated
           </DialogTitle>
         </DialogHeader>
@@ -325,8 +325,8 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                   <h4 className="font-bold text-sm text-blue-900 leading-tight">
                     {tenantCompany?.companyName || "Company Name"}
                   </h4>
-                  <p className="text-xs text-slate-600 font-semibold">Visitor Pass</p>
-                  <p className="text-xs text-slate-500 mt-1 leading-tight">
+                  <p className="text-xs text-variable font-semibold">Visitor Pass</p>
+                  <p className="text-xs text-variable mt-1 leading-tight">
                     {tenantCompany?.address || "Address not provided"}
                   </p>
                 </div>
@@ -349,16 +349,16 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               
               <div className="flex-1 flex items-center justify-between">
                 <div className="flex-1 pr-3">
-                  <p className="font-bold text-xl text-slate-800" data-testid="pass-visitor-name">
+                  <p className="font-bold text-xl text-fixed" data-testid="pass-visitor-name">
                     {visitor.firstName} {visitor.lastName}
                   </p>
-                  <p className="text-sm text-slate-600" data-testid="pass-visitor-company">
+                  <p className="text-sm text-variable" data-testid="pass-visitor-company">
                     {visitor.company || "Business Partners"}
                   </p>
-                  <p className="text-xs text-slate-500" data-testid="pass-visit-date">
+                  <p className="text-xs text-variable" data-testid="pass-visit-date">
                     {formatDate(visitor.checkedInAt)}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-variable">
                     Host: <span data-testid="pass-host-name">{hostName || "Essia Halse"}</span>
                   </p>
                 </div>
@@ -381,10 +381,10 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               <div className="mt-auto pt-1">
                 <div className="flex justify-between items-center text-xs">
                   <div className="text-left">
-                    <div className="text-slate-500 mb-0.5">📞 +44 1344 771550</div>
+                    <div className="text-variable mb-0.5">📞 +44 1344 771550</div>
                     <div className="text-blue-600">🌐 acsltd.eu</div>
                   </div>
-                  <span className="text-slate-400">VisiGate Pro</span>
+                  <span className="text-variable">VisiGate Pro</span>
                 </div>
               </div>
             </div>
@@ -392,13 +392,13 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
           
           <div className="space-y-6 mt-6">
             <div className="text-center">
-              <p className="text-slate-600 text-base leading-relaxed px-4">
+              <p className="text-variable text-base leading-relaxed px-4">
                 {isPreBooked 
                   ? "Welcome! Your pre-booking has been confirmed and your visitor pass has been generated." 
                   : "Your visitor pass has been generated and is ready to print."
                 }
               </p>
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-variable mt-2">
                 Show this pass to reception or scan the QR code to check out.
               </p>
             </div>
@@ -407,7 +407,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               <Button 
                 variant="outline"
                 onClick={onClose}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-fixed font-medium hover:bg-slate-50 transition-colors"
                 data-testid="button-close-pass-preview"
               >
                 Close

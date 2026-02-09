@@ -407,7 +407,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[95vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-fixed">
               <HardHat className="h-5 w-5" />
               Edit Contractor Profile
             </DialogTitle>
@@ -447,7 +447,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Personal Information */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-700">Personal Information</h3>
+                  <h3 className="font-semibold text-fixed">Personal Information</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -523,7 +523,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         placeholder="e.g. OX28 4BH"
                         data-testid="input-contractor-postcode"
                       />
-                      <p className="text-xs text-slate-500 mt-1">For CO2 emissions calculation</p>
+                      <p className="text-xs text-variable mt-1">For CO2 emissions calculation</p>
                     </div>
                     <div>
                       <Label htmlFor="transportMethod">Vehicle Fuel Type</Label>
@@ -545,19 +545,19 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         <option value="van_diesel">Diesel Van</option>
                         <option value="van_petrol">Petrol Van</option>
                       </select>
-                      <p className="text-xs text-slate-500 mt-1">For CO2 emissions calculation</p>
+                      <p className="text-xs text-variable mt-1">For CO2 emissions calculation</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Work Details */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-700">Work Details</h3>
+                  <h3 className="font-semibold text-fixed">Work Details</h3>
                 </div>
 
                 {/* Certifications & Compliance */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-700">Certifications & Compliance</h3>
+                  <h3 className="font-semibold text-fixed">Certifications & Compliance</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -621,7 +621,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
                 {/* Safety Training */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-700">Safety Training</h3>
+                  <h3 className="font-semibold text-fixed">Safety Training</h3>
                   
                   <div className="space-y-2">
                     <label className="flex items-center space-x-2">
@@ -659,7 +659,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
                 {/* Compliance & Safety */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-700">Compliance & Safety</h3>
+                  <h3 className="font-semibold text-fixed">Compliance & Safety</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
                     {/* H&S Rules Status */}
@@ -670,8 +670,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         <div className="h-5 w-5 rounded-full border-2 border-slate-300 mt-0.5" />
                       )}
                       <div className="flex-1">
-                        <div className="font-medium text-slate-800">H&S Rules</div>
-                        <div className="text-sm text-slate-600">
+                        <div className="font-medium text-fixed">H&S Rules</div>
+                        <div className="text-sm text-variable">
                           {worker.hsRulesAccepted && worker.hsRulesAcceptedAt 
                             ? `Accepted on ${format(new Date(worker.hsRulesAcceptedAt), 'dd/MM/yyyy HH:mm')}`
                             : 'Not accepted'
@@ -688,8 +688,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         <div className="h-5 w-5 rounded-full border-2 border-slate-300 mt-0.5" />
                       )}
                       <div className="flex-1">
-                        <div className="font-medium text-slate-800">Induction</div>
-                        <div className="text-sm text-slate-600">
+                        <div className="font-medium text-fixed">Induction</div>
+                        <div className="text-sm text-variable">
                           {worker.inductionCompleted 
                             ? 'Completed'
                             : 'Not completed'
@@ -754,7 +754,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
             <TabsContent value="history" className="space-y-4 px-1">
               {workerHistory.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
+                <div className="text-center py-8 text-variable">
                   No visit history found for this contractor
                 </div>
               ) : (
@@ -763,7 +763,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                     <div key={visit.id} className="bg-white/50 rounded-lg p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-slate-500" />
+                          <Clock className="h-4 w-4 text-variable" />
                           <span className="font-semibold">Visit #{workerHistory.length - index}</span>
                         </div>
                         {!visit.checkedOutAt && new Date(visit.checkedInAt).toDateString() === new Date().toDateString() && (
@@ -780,14 +780,14 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-slate-600">Check-in:</span>
+                          <span className="text-variable">Check-in:</span>
                           <div className="font-medium">
                             {format(new Date(visit.checkedInAt), 'dd/MM/yyyy HH:mm')}
                           </div>
                         </div>
                         
                         <div>
-                          <span className="text-slate-600">Check-out:</span>
+                          <span className="text-variable">Check-out:</span>
                           <div className="font-medium">
                             {visit.checkedOutAt 
                               ? format(new Date(visit.checkedOutAt), 'dd/MM/yyyy HH:mm')
@@ -800,14 +800,14 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       
                       {visit.duration && (
                         <div className="text-sm">
-                          <span className="text-slate-600">Duration: </span>
+                          <span className="text-variable">Duration: </span>
                           <span className="font-medium">{visit.duration}</span>
                         </div>
                       )}
                       
                       {visit.purpose && (
                         <div className="text-sm">
-                          <span className="text-slate-600">Purpose: </span>
+                          <span className="text-variable">Purpose: </span>
                           <span className="font-medium">{visit.purpose}</span>
                         </div>
                       )}
@@ -821,7 +821,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
               {/* Worker Documents Section - Show uploaded documents FIRST */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
                     <Upload className="h-5 w-5" />
                     Worker Documents
                   </h3>
@@ -832,7 +832,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
                 {/* Document Upload Form */}
                 <div className="bg-white/80 border border-slate-200 rounded-lg p-4">
-                  <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                  <h4 className="font-medium text-fixed mb-3 flex items-center gap-2">
                     <FileText className="h-4 w-4" />
                     Upload New Document
                   </h4>
@@ -851,7 +851,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         data-testid="input-document-file"
                       />
                       {selectedFile && (
-                        <p className="text-sm text-slate-600 mt-1" data-testid="text-selected-file">
+                        <p className="text-sm text-variable mt-1" data-testid="text-selected-file">
                           Selected: {selectedFile.name}
                         </p>
                       )}
@@ -981,10 +981,10 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                 {documentsLoading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="text-slate-500 mt-2">Loading documents...</p>
+                    <p className="text-variable mt-2">Loading documents...</p>
                   </div>
                 ) : workerDocuments.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">
+                  <div className="text-center py-8 text-variable">
                     <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                     <p className="font-medium">No documents uploaded</p>
                     <p className="text-sm">Upload worker certifications, insurance, and compliance documents above</p>
@@ -1003,7 +1003,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                             <div className="flex items-start gap-3 flex-1">
                               <FileText className="h-5 w-5 text-blue-500 mt-0.5" />
                               <div className="flex-1">
-                                <h4 className="font-semibold text-slate-800" data-testid={`text-document-name-${doc.id}`}>
+                                <h4 className="font-semibold text-fixed" data-testid={`text-document-name-${doc.id}`}>
                                   {doc.documentName}
                                 </h4>
                                 <div className="flex items-center gap-2 mt-1">
@@ -1051,39 +1051,39 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             {doc.expiryDate && (
                               <div>
-                                <span className="text-slate-600 flex items-center gap-1">
+                                <span className="text-variable flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
                                   Expiry Date:
                                 </span>
-                                <div className={`font-medium ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-yellow-600' : 'text-slate-800'}`}>
+                                <div className={`font-medium ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-yellow-600' : 'text-fixed'}`}>
                                   {format(new Date(doc.expiryDate), 'dd/MM/yyyy')}
                                 </div>
                               </div>
                             )}
                             
                             <div>
-                              <span className="text-slate-600">Uploaded:</span>
-                              <div className="font-medium text-slate-800">
+                              <span className="text-variable">Uploaded:</span>
+                              <div className="font-medium text-fixed">
                                 {format(new Date(doc.uploadedAt), 'dd/MM/yyyy')}
                               </div>
                             </div>
 
                             {doc.issuedBy && (
                               <div>
-                                <span className="text-slate-600">Issued By:</span>
-                                <div className="font-medium text-slate-800">{doc.issuedBy}</div>
+                                <span className="text-variable">Issued By:</span>
+                                <div className="font-medium text-fixed">{doc.issuedBy}</div>
                               </div>
                             )}
 
                             {doc.policyNumber && (
                               <div>
-                                <span className="text-slate-600">Policy Number:</span>
-                                <div className="font-medium text-slate-800">{doc.policyNumber}</div>
+                                <span className="text-variable">Policy Number:</span>
+                                <div className="font-medium text-fixed">{doc.policyNumber}</div>
                               </div>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-200">
+                          <div className="flex items-center gap-2 text-xs text-variable pt-2 border-t border-slate-200">
                             <span>Status: {doc.status}</span>
                           </div>
                         </div>
@@ -1098,7 +1098,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
               {/* H&S Document Assignments Section - Below Worker Documents */}
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-fixed flex items-center gap-2 mb-4">
                   <Shield className="h-5 w-5" />
                   H&S Document Assignments
                 </h3>
@@ -1106,10 +1106,10 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                 {hsLoading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="text-slate-500 mt-2">Loading H&S assignments...</p>
+                    <p className="text-variable mt-2">Loading H&S assignments...</p>
                   </div>
                 ) : hsAssignments.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">
+                  <div className="text-center py-8 text-variable">
                     <Shield className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                     <p className="font-medium">No H&S assignments</p>
                     <p className="text-sm">No UK H&S document templates assigned yet</p>
@@ -1153,7 +1153,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         case 'induction':
                           return 'bg-indigo-100 text-indigo-800';
                         default:
-                          return 'bg-slate-100 text-slate-800';
+                          return 'bg-slate-100 text-fixed';
                       }
                     };
 
@@ -1163,13 +1163,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       <div key={assignment.id} className="bg-white/50 rounded-lg p-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3 flex-1">
-                            <FileText className="h-5 w-5 text-slate-500 mt-0.5" />
+                            <FileText className="h-5 w-5 text-variable mt-0.5" />
                             <div className="flex-1">
                               <div className="flex items-start justify-between mb-2">
                                 <div>
-                                  <h4 className="font-semibold text-slate-800">{template.documentName}</h4>
+                                  <h4 className="font-semibold text-fixed">{template.documentName}</h4>
                                   {template.documentDescription && (
-                                    <p className="text-sm text-slate-600 mt-1">{template.documentDescription}</p>
+                                    <p className="text-sm text-variable mt-1">{template.documentDescription}</p>
                                   )}
                                 </div>
                                 {getStatusBadge(assignment.status)}
@@ -1183,7 +1183,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                                   {template.complianceCategory.replace('_', ' ').toUpperCase()}
                                 </Badge>
                                 {template.legalReference && (
-                                  <span className="text-xs text-slate-500">
+                                  <span className="text-xs text-variable">
                                     {template.legalReference}
                                   </span>
                                 )}
@@ -1194,7 +1194,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <span className="text-slate-600 flex items-center gap-1">
+                            <span className="text-variable flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
                               Assigned:
                             </span>
@@ -1205,7 +1205,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           
                           {assignment.emailSentAt && (
                             <div>
-                              <span className="text-slate-600 flex items-center gap-1">
+                              <span className="text-variable flex items-center gap-1">
                                 <Send className="h-3 w-3" />
                                 Email sent:
                               </span>
@@ -1217,7 +1217,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           
                           {assignment.acceptedAt && (
                             <div>
-                              <span className="text-slate-600 flex items-center gap-1">
+                              <span className="text-variable flex items-center gap-1">
                                 <CheckCircle className="h-3 w-3" />
                                 Accepted:
                               </span>
@@ -1229,7 +1229,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           
                           {assignment.rejectedAt && (
                             <div>
-                              <span className="text-slate-600 flex items-center gap-1">
+                              <span className="text-variable flex items-center gap-1">
                                 <X className="h-3 w-3" />
                                 Rejected:
                               </span>
@@ -1241,12 +1241,12 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           
                           {assignment.dueDate && (
                             <div>
-                              <span className="text-slate-600 flex items-center gap-1">
+                              <span className="text-variable flex items-center gap-1">
                                 <AlertTriangle className="h-3 w-3" />
                                 Due date:
                               </span>
                               <div className={`font-medium ${
-                                new Date(assignment.dueDate) < new Date() ? 'text-red-600' : 'text-slate-800'
+                                new Date(assignment.dueDate) < new Date() ? 'text-red-600' : 'text-fixed'
                               }`}>
                                 {format(new Date(assignment.dueDate), 'dd/MM/yyyy')}
                               </div>
@@ -1262,9 +1262,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         )}
 
                         {assignment.notes && (
-                          <div className="mt-2 p-2 bg-slate-50 rounded text-sm">
-                            <span className="text-slate-700 font-medium">Notes: </span>
-                            <span className="text-slate-600">{assignment.notes}</span>
+                          <div className="mt-2 p-2 bg-[var(--background)] rounded text-sm">
+                            <span className="text-fixed font-medium">Notes: </span>
+                            <span className="text-variable">{assignment.notes}</span>
                           </div>
                         )}
 
@@ -1299,7 +1299,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
             <TabsContent value="notes" className="space-y-4 px-1">
               {/* Manual Note Form */}
               <div className="bg-white/80 border border-slate-200 rounded-lg p-4">
-                <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                <h4 className="font-medium text-fixed mb-3 flex items-center gap-2">
                   <Edit3 className="h-4 w-4" />
                   Add Manual Note
                 </h4>
@@ -1347,17 +1347,17 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
               {notesLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="text-slate-500 mt-2">Loading audit trail...</p>
+                  <p className="text-variable mt-2">Loading audit trail...</p>
                 </div>
               ) : workerNotes.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+                <div className="text-center py-8 text-variable">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-variable" />
                   <p className="text-lg font-medium">No audit trail entries</p>
                   <p className="text-sm">Changes to this worker will appear here</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <h4 className="font-medium text-slate-700 flex items-center gap-2">
+                  <h4 className="font-medium text-fixed flex items-center gap-2">
                     <FileText className="h-4 w-4" />
                     All Changes & Notes ({workerNotes.length})
                   </h4>
@@ -1381,9 +1381,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                                 {note.changeType === 'manual_note' && 'Manual Note'}
                                 {!['card_reset', 'card_status_change', 'certification_update', 'hs_acceptance', 'profile_update', 'manual_note'].includes(note.changeType) && note.changeType}
                               </Badge>
-                              <span className="text-sm text-slate-600">{note.changedBy || 'System'}</span>
+                              <span className="text-sm text-variable">{note.changedBy || 'System'}</span>
                             </div>
-                            <span className="text-xs text-slate-500">
+                            <span className="text-xs text-variable">
                               {note.changedAt ? format(new Date(note.changedAt), 'MMM dd, yyyy HH:mm') : 'Unknown date'}
                             </span>
                           </div>
@@ -1391,18 +1391,18 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           {note.oldValue && note.newValue && (
                             <div className="text-sm space-y-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-slate-500">From:</span>
+                                <span className="text-variable">From:</span>
                                 <span className="bg-red-100 text-red-800 px-2 py-1 rounded">{note.oldValue}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-slate-500">To:</span>
+                                <span className="text-variable">To:</span>
                                 <span className="bg-green-100 text-green-800 px-2 py-1 rounded">{note.newValue}</span>
                               </div>
                             </div>
                           )}
                           
                           {note.notes && (
-                            <p className="text-sm text-slate-600 mt-2 italic">"{note.notes}"</p>
+                            <p className="text-sm text-variable mt-2 italic">"{note.notes}"</p>
                           )}
                         </div>
                       ))}
