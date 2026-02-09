@@ -60,10 +60,8 @@ export default function Dashboard() {
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
     } else {
-      // Tomorrow only - add 1 day!
-      start.setDate(start.getDate() + 1);
+      // Tomorrow only - currentDate is already set to tomorrow by the button handler
       start.setHours(0, 0, 0, 0);
-      end.setDate(end.getDate() + 1);
       end.setHours(23, 59, 59, 999);
     }
     
@@ -928,6 +926,11 @@ export default function Dashboard() {
                             </div>
                             
                             <div className="text-right">
+                              {diaryViewMode === 'weekly' && booking.date && (
+                                <div className="text-xs text-variable mb-0.5">
+                                  {new Date(booking.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                </div>
+                              )}
                               <div className="text-sm font-medium text-fixed">
                                 {booking.startTime} - {booking.endTime}
                               </div>
@@ -1023,6 +1026,11 @@ export default function Dashboard() {
                                   </div>
                                   
                                   <div className="text-right">
+                                    {diaryViewMode === 'weekly' && (
+                                      <div className="text-xs text-variable mb-0.5">
+                                        {new Date(entry.visitDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                      </div>
+                                    )}
                                     <div className="text-sm font-medium text-fixed">
                                       {visitTime}
                                     </div>
