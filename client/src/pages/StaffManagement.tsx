@@ -238,43 +238,62 @@ export default function StaffManagement() {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                   }`}>
                     {member.isActive ? 'Active' : 'Inactive'}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      member.isCheckedIn 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-100 text-gray-600'
-                    }`} data-testid={`staff-checkin-status-${member.id}`}>
-                      {member.isCheckedIn ? (
-                        <>
-                          <UserCheck size={12} className="mr-1" />
-                          Checked In
-                          {member.manualCheckIn && <span className="ml-1" title="Manual check-in due to lost card">📝</span>}
-                        </>
-                      ) : (
-                        <>
-                          <UserX size={12} className="mr-1" />
-                          Checked Out
-                        </>
-                      )}
-                    </span>
-                    {member.isCheckedIn && member.checkedInAt && (
-                      <span className="text-xs text-variable flex items-center">
-                        <Clock size={10} className="mr-1" />
-                        {new Date(member.checkedInAt).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    member.isCheckedIn 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`} data-testid={`staff-checkin-status-${member.id}`}>
+                    {member.isCheckedIn ? (
+                      <>
+                        <UserCheck size={12} className="mr-1" />
+                        Checked In
+                        {member.manualCheckIn && <span className="ml-1" title="Manual check-in due to lost card">📝</span>}
+                      </>
+                    ) : (
+                      <>
+                        <UserX size={12} className="mr-1" />
+                        Checked Out
+                      </>
                     )}
-                  </div>
+                  </span>
+                  {member.isCheckedIn && member.checkedInAt && (
+                    <span className="text-xs text-variable flex items-center">
+                      <Clock size={10} className="mr-1" />
+                      {new Date(member.checkedInAt).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  )}
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => setEditingStaff(member)}
+                    className="p-2"
+                    data-testid={`button-edit-staff-${member.id}`}
+                    title="Edit staff member"
+                  >
+                    <Edit size={14} />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => deleteMutation.mutate(member.id)}
+                    disabled={deleteMutation.isPending}
+                    className="p-2 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 hover:bg-red-50"
+                    data-testid={`button-delete-staff-${member.id}`}
+                    title="Delete staff member"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
                   {member.isActive && (
                     <>
                       {!member.isCheckedIn ? (
@@ -306,21 +325,6 @@ export default function StaffManagement() {
                       )}
                     </>
                   )}
-                  <button 
-                    onClick={() => setEditingStaff(member)}
-                    className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors" 
-                    data-testid={`button-edit-staff-${member.id}`}
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button 
-                    onClick={() => deleteMutation.mutate(member.id)}
-                    disabled={deleteMutation.isPending}
-                    className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                    data-testid={`button-delete-staff-${member.id}`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
                 </div>
               </div>
             </GlassCard>

@@ -690,14 +690,14 @@ export default function ContractorManagement() {
                   <div className="space-y-3">
                     {/* Contractor Info */}
                     <div>
-                      <h3 className="font-semibold text-slate-800">
+                      <h3 className="font-semibold text-fixed">
                         {contractor.firstName} {contractor.lastName}
                       </h3>
-                      <p className="text-sm text-slate-600 flex items-center gap-1">
+                      <p className="text-sm text-variable flex items-center gap-1">
                         <Building2 className="h-3 w-3" />
                         {contractor.companyName}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-variable">
                         Last visit: {contractor.updatedAt ? new Date(contractor.updatedAt).toLocaleDateString() : 'Unknown'}
                       </p>
                     </div>
@@ -733,7 +733,6 @@ export default function ContractorManagement() {
                         {contractor.safetyRating}
                       </Badge>
                       
-                      {/* Card Status Badges */}
                       {(contractor as any).hasRedCard && (
                         <Badge className="bg-red-200 text-red-900">
                           Red Card
@@ -751,71 +750,40 @@ export default function ContractorManagement() {
                       )}
                     </div>
 
-                    {/* Check-in Time */}
-                    {contractor.isCheckedIn && contractor.checkedInAt && (
-                      <div className="text-xs text-slate-600 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(contractor.checkedInAt).toLocaleTimeString()}
+                    {/* Bottom Row: Status + Time on left, Action buttons on right */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {contractor.isCheckedIn && contractor.checkedInAt && (
+                          <span className="text-xs text-variable flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {new Date(contractor.checkedInAt).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                        )}
                       </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="space-y-2">
-                      {/* Primary Check In/Out Button */}
-                      {!contractor.isCheckedIn ? (
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setWorkerForCheckIn(contractor);
-                            setCompanyForCheckIn(contractor.companyName);
-                            setShowHSModal(true);
-                          }}
-                          disabled={checkInMutation.isPending}
-                          variant="outline"
-                          className="w-full text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                          data-testid={`button-checkin-${contractor.id}`}
-                        >
-                          <LogIn className="mr-2 h-4 w-4" />
-                          Check In
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            checkOutMutation.mutate(contractor.id);
-                          }}
-                          disabled={checkOutMutation.isPending}
-                          variant="outline"
-                          className="w-full text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                          data-testid={`button-checkout-${contractor.id}`}
-                        >
-                          <LogOut className="mr-2 h-4 w-4" />
-                          Check Out
-                        </Button>
-                      )}
-                      
-                      {/* Secondary Actions Row */}
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-2">
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="flex-1 text-blue-600 hover:bg-blue-50"
+                          className="p-2"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedWorkerForEdit(contractor);
                             setSelectedWorkerCompanyName(contractor.companyName);
-                            setShowContractorEditModal(true); // Use comprehensive modal with tabs
+                            setShowContractorEditModal(true);
                           }}
                           data-testid={`button-edit-worker-${contractor.id}`}
+                          title="Edit contractor"
                         >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
                         
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="text-orange-600 hover:bg-orange-50"
+                          className="p-2"
                           onClick={(e) => {
                             e.stopPropagation();
                             sendInductionMutation.mutate(contractor.id);
@@ -824,14 +792,14 @@ export default function ContractorManagement() {
                           title="Send Site Induction Email"
                           data-testid={`button-send-induction-${contractor.id}`}
                         >
-                          <Mail className="h-3 w-3" />
+                          <Mail className="h-3.5 w-3.5" />
                         </Button>
                         
                         {contractor.isCheckedIn && (
                           <Button 
                             size="sm" 
                             variant="outline" 
-                            className="text-purple-600 hover:bg-purple-50"
+                            className="p-2"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedWorker(contractor);
@@ -841,9 +809,42 @@ export default function ContractorManagement() {
                             title="Print Pass"
                             data-testid={`button-print-pass-${contractor.id}`}
                           >
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                             </svg>
+                          </Button>
+                        )}
+                        {!contractor.isCheckedIn ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWorkerForCheckIn(contractor);
+                              setCompanyForCheckIn(contractor.companyName);
+                              setShowHSModal(true);
+                            }}
+                            disabled={checkInMutation.isPending}
+                            className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                            data-testid={`button-checkin-${contractor.id}`}
+                          >
+                            <LogIn className="mr-1 h-4 w-4" />
+                            Check In
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              checkOutMutation.mutate(contractor.id);
+                            }}
+                            disabled={checkOutMutation.isPending}
+                            className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                            data-testid={`button-checkout-${contractor.id}`}
+                          >
+                            <LogOut className="mr-1 h-4 w-4" />
+                            Check Out
                           </Button>
                         )}
                       </div>
