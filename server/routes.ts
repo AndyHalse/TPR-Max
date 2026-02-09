@@ -15976,10 +15976,14 @@ This is an automated notification from your visitor management system.`;
       
       const context = simpleDatabaseService.createCustomerContext(req.user.username);
       
-      // Get today's date range
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+      const { date, days } = req.query;
+      const targetDate = date ? new Date(date as string) : new Date();
+      const daysAhead = days ? parseInt(days as string) : 1;
+      
+      const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const endDate = new Date(startOfDay);
+      endDate.setDate(endDate.getDate() + daysAhead - 1);
+      const endOfDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
       
       // Get customer database connection
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);

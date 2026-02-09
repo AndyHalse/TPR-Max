@@ -44,28 +44,35 @@ export default function Dashboard() {
   const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('today');
   const [currentDate, setCurrentDate] = useState(new Date());
   
-  // Helper function for date range calculation (needed before queries)
-  const getDateRange = () => {
-    const start = new Date(currentDate);
-    const end = new Date(currentDate);
-    
-    if (diaryViewMode === 'weekly') {
-      // Get start of week (Monday)
+  const formatLocalDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getQueryDateAndDays = (mode: 'today' | 'tomorrow' | 'weekly', refDate: Date) => {
+    if (mode === 'weekly') {
+      const start = new Date(refDate);
       const dayOfWeek = start.getDay();
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       start.setDate(start.getDate() - daysToMonday);
-      end.setDate(start.getDate() + 6);
-    } else if (diaryViewMode === 'today') {
-      // Today only
       start.setHours(0, 0, 0, 0);
+      return { dateParam: formatLocalDate(start), days: 7, start, end: new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999) };
+    } else if (mode === 'tomorrow') {
+      const target = new Date(refDate);
+      target.setDate(target.getDate() + 1);
+      target.setHours(0, 0, 0, 0);
+      const end = new Date(target);
       end.setHours(23, 59, 59, 999);
+      return { dateParam: formatLocalDate(target), days: 1, start: target, end };
     } else {
-      // Tomorrow only - currentDate is already set to tomorrow by the button handler
-      start.setHours(0, 0, 0, 0);
+      const today = new Date(refDate);
+      today.setHours(0, 0, 0, 0);
+      const end = new Date(today);
       end.setHours(23, 59, 59, 999);
+      return { dateParam: formatLocalDate(today), days: 1, start: today, end };
     }
-    
-    return { start, end };
   };
   
   // Get current user for authentication check
@@ -150,24 +157,22 @@ export default function Dashboard() {
     enabled: !!currentUser,
   });
 
-  // Meeting room booking data for today
   const { data: todayRoomBookings, isLoading: roomBookingsLoading } = useQuery<TransformedRoomBooking[]>({
-    queryKey: ["/api/room-bookings/today"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    queryKey: ["/api/room-bookings/today", diaryViewMode, currentDate.toISOString()],
+    queryFn: async () => {
+      const { dateParam, days } = getQueryDateAndDays(diaryViewMode, currentDate);
+      const response = await fetch(
+        `/api/room-bookings/today?date=${dateParam}&days=${days}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) throw new Error('Failed to fetch room bookings');
+      return response.json();
+    },
+    refetchInterval: 30000,
     enabled: !!currentUser,
   });
 
-  // Get room bookings based on view mode - for now using today's data for all modes
-  // TODO: Add separate API endpoints for tomorrow and weekly room bookings
-  const getCurrentViewRoomBookings = () => {
-    if (!todayRoomBookings) return [];
-    
-    // For now, showing today's bookings for all views
-    // In the future, this should filter based on diaryViewMode and currentDate
-    return todayRoomBookings;
-  };
-
-  const currentViewRoomBookings = getCurrentViewRoomBookings();
+  const currentViewRoomBookings = todayRoomBookings || [];
 
   const { data: meetingRooms } = useQuery<MeetingRoom[]>({
     queryKey: ["/api/meeting-rooms"],
@@ -231,11 +236,7 @@ export default function Dashboard() {
       currentDate.toISOString()
     ],
     queryFn: async () => {
-      const { start } = getDateRange();
-      const days = diaryViewMode === 'weekly' ? 7 : 1;
-      
-      // Format date for API (YYYY-MM-DD)
-      const dateParam = start.toISOString().split('T')[0];
+      const { dateParam, days } = getQueryDateAndDays(diaryViewMode, currentDate);
       
       const response = await fetch(
         `/api/reception/diary?date=${dateParam}&days=${days}`,
@@ -332,7 +333,7 @@ export default function Dashboard() {
   const getFilteredDiary = () => {
     if (!receptionDiary) return [];
     
-    const { start, end } = getDateRange();
+    const { start, end } = getQueryDateAndDays(diaryViewMode, currentDate);
     
     return receptionDiary.filter(entry => {
       const visitDate = new Date(entry.visitDate);
@@ -353,18 +354,20 @@ export default function Dashboard() {
         return currentDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
       }
     } else if (diaryViewMode === 'tomorrow') {
+      const targetDate = new Date(currentDate);
+      targetDate.setDate(targetDate.getDate() + 1);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      if (currentDate.toDateString() === tomorrow.toDateString()) {
+      if (targetDate.toDateString() === tomorrow.toDateString()) {
         return 'Tomorrow';
       } else {
-        return currentDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
+        return targetDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'short', day: 'numeric' });
       }
     } else {
       if (isCurrentWeek) {
         return 'This Week';
       } else {
-        const { start, end } = getDateRange();
+        const { start, end } = getQueryDateAndDays(diaryViewMode, currentDate);
         return `${start.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}`;
       }
     }
@@ -761,9 +764,7 @@ export default function Dashboard() {
               size="sm"
               onClick={() => {
                 setDiaryViewMode('tomorrow');
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                setCurrentDate(tomorrow);
+                setCurrentDate(new Date());
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-tomorrow"
