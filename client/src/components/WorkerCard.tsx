@@ -149,7 +149,8 @@ export function WorkerCard({
                 e.stopPropagation();
                 onCheckIn?.(worker);
               }}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              variant="outline"
+              className="flex-1 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
               data-testid={`button-checkin-${worker.id}`}
             >
               <LogIn className="mr-2 h-4 w-4" />
@@ -162,7 +163,7 @@ export function WorkerCard({
                 onCheckOut?.(worker.id);
               }}
               variant="outline"
-              className="flex-1"
+              className="flex-1 text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
               data-testid={`button-checkout-${worker.id}`}
             >
               <LogOut className="mr-2 h-4 w-4" />
