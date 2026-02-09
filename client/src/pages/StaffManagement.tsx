@@ -278,25 +278,31 @@ export default function StaffManagement() {
                   {member.isActive && (
                     <>
                       {!member.isCheckedIn ? (
-                        <button
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => checkInMutation.mutate(member.id)}
                           disabled={checkInMutation.isPending}
-                          className="text-green-600 hover:text-green-700 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50"
+                          className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                           data-testid={`button-checkin-${member.id}`}
                           title="Manual check-in (lost card)"
                         >
-                          <UserCheck size={16} />
-                        </button>
+                          <UserCheck size={16} className="mr-1" />
+                          Check In
+                        </Button>
                       ) : (
-                        <button
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => checkOutMutation.mutate(member.id)}
                           disabled={checkOutMutation.isPending}
-                          className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                          className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                           data-testid={`button-checkout-${member.id}`}
                           title="Check out staff member"
                         >
-                          <UserX size={16} />
-                        </button>
+                          <UserX size={16} className="mr-1" />
+                          Check Out
+                        </Button>
                       )}
                     </>
                   )}
