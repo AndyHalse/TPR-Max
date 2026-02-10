@@ -1450,7 +1450,7 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300 text-sm">
-                        Multi-tenant database isolation
+                        Customer-isolated database security
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">

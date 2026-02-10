@@ -293,7 +293,7 @@ export default function Login() {
           
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Secure multi-tenant access • TPR Max
+              Secure access • TPR Max
             </p>
           </div>
         </CardContent>

@@ -55,7 +55,7 @@ const features = [
   "Meeting room booking",
   "Time & attendance tracking",
   "Professional ID card printing",
-  "Multi-tenant support",
+  "Dedicated database per customer",
   "Real-time notifications",
   "Comprehensive reporting",
   "API access & integrations",

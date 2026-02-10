@@ -152,7 +152,6 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings" },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk" },
     { path: "/ai-demo", icon: Brain, label: "AI Demo", featureKey: "featureAiDemo" },
-    { path: "/multi-tenant", icon: Building2, label: "Multi-Tenant", featureKey: "featureMultiTenant" },
     { path: "/settings", icon: Settings, label: "Settings", alwaysVisible: true },
   ];
 

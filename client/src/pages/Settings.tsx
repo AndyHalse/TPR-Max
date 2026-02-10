@@ -5012,24 +5012,6 @@ export default function Settings() {
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Multi-Tenant */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Building2 className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Multi-Tenant</h4>
-                      <p className="text-xs text-variable">Building overview & tenant management</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureMultiTenant !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureMultiTenant", checked)}
-                    data-testid="toggle-multi-tenant"
-                  />
-                </div>
-
                 {/* Meeting Rooms */}
                 <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-3">

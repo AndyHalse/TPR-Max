@@ -146,7 +146,6 @@ export default function Dashboard() {
 
   // Company settings for feature toggles
   const { data: settings } = useQuery<{
-    featureMultiTenant?: boolean;
     featureMeetingRooms?: boolean;
     featureTimeAttendance?: boolean;
     featureInductionSettings?: boolean;
@@ -638,86 +637,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Multi-Tenant Building Overview - Only show if feature is enabled */}
-      {settings?.featureMultiTenant !== false && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
-              <Building2 className="text-blue-600" size={20} />
-              Building Overview
-            </h2>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setLocation('/multi-tenant')}
-              className="flex items-center gap-2"
-              data-testid="button-multi-tenant-dashboard"
-            >
-              <Settings className="w-4 h-4" />
-              Multi-Tenant Dashboard
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <GlassCard className="dark:glass-dark">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Total Companies</p>
-                  <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-total-companies">
-                    {stats?.totalCompanies || 0}
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                    Active tenants in building
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                  <Building2 className="text-blue-600 dark:text-blue-400" size={24} />
-                </div>
-              </div>
-            </GlassCard>
-            
-            <GlassCard hover className="cursor-pointer dark:glass-dark" onClick={() => setLocation('/multi-tenant')}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Today's Activity</p>
-                  <p className="text-2xl font-bold text-fixed mt-1" data-testid="stat-tenant-activity">
-                    {stats?.todayCheckins || 0}
-                  </p>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    Today's check-ins
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <UsersRound className="text-green-600 dark:text-green-400" size={24} />
-                </div>
-              </div>
-            </GlassCard>
-            
-            <GlassCard className="dark:glass-dark">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Quick Actions</p>
-                  <div className="mt-2 space-y-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full text-xs flex items-center justify-center gap-2"
-                      onClick={() => setLocation('/multi-tenant')}
-                      data-testid="button-manage-tenants"
-                    >
-                      <Eye className="w-3 h-3" />
-                      View All Tenants
-                    </Button>
-                  </div>
-                </div>
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                  <Settings className="text-purple-600 dark:text-purple-400" size={24} />
-                </div>
-              </div>
-            </GlassCard>
-          </div>
-        </div>
-      )}
 
 
       {/* Reception Diary - Comprehensive Operations Overview */}

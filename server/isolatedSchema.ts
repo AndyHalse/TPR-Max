@@ -429,7 +429,6 @@ export const companySettings = pgTable("company_settings", {
   defaultVoiceProfile: text("default_voice_profile").default("en-GB-Standard-A"), // Voice profile for text-to-speech
   
   // Feature Toggles - Allow customers to disable unused features for simplified UI
-  featureMultiTenant: boolean("feature_multi_tenant").default(false),
   featureMeetingRooms: boolean("feature_meeting_rooms").default(false),
   featureTimeAttendance: boolean("feature_time_attendance").default(false),
   featureInductionSettings: boolean("feature_induction_settings").default(false),

@@ -110,7 +110,6 @@ export function ThermalPassDesigner() {
     companyName: 'Default Company',
     logoUrl: null,
     primaryColor: '#0066cc',
-    tenantName: null
   });
 
   // Drag and drop state
@@ -189,8 +188,7 @@ export function ThermalPassDesigner() {
         setCompanyData({
           companyName: settings.companyName || 'Default Company',
           logoUrl: settings.logoUrl || null,
-          primaryColor: settings.primaryColor || '#0066cc',
-          tenantName: settings.tenantName || null
+          primaryColor: settings.primaryColor || '#0066cc'
         });
         
         console.log(`🏢 Loaded company data for customer isolation`);
@@ -916,7 +914,7 @@ export function ThermalPassDesigner() {
     const qrData = {
       id: `VG-${customerId.substring(0, 4)}-${randomId}`,
       visitor: previewData.name,
-      company: companyData.tenantName || companyData.companyName,
+      company: companyData.companyName,
       timestamp,
       checkInTime: new Date().toISOString(),
       customerId,
@@ -938,8 +936,7 @@ export function ThermalPassDesigner() {
     switch (element.variableType) {
       case 'name': return previewData.name;
       case 'company': 
-        // Use customer's company name from database or tenant name if multi-tenant
-        return companyData.tenantName || companyData.companyName;
+        return companyData.companyName;
       case 'host': return previewData.host;
       case 'purpose': return previewData.purpose;
       case 'phone': return previewData.phone;

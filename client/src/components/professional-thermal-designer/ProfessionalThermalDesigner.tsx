@@ -45,7 +45,6 @@ export function ProfessionalThermalDesigner() {
     companyName: 'Default Company',
     logoUrl: null,
     primaryColor: '#0066cc',
-    tenantName: 'Professional Corp'
   });
 
   // Preview data for testing

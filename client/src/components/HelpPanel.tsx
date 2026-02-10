@@ -126,7 +126,6 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
       "/induction-settings": "Induction Settings",
       "/kiosk": "Kiosk Mode",
       "/ai-demo": "AI Demo",
-      "/multi-tenant": "Multi-Tenant",
       "/settings": "Settings",
     };
     return pageMap[location] || "Help";
