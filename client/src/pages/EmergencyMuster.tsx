@@ -392,21 +392,21 @@ export default function EmergencyMuster() {
       {/* Emergency Stats */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-6`}>
         <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div>
               <p className="text-variable text-sm font-medium">Total People</p>
               <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-total-people">
                 {totalPeople}
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
               <Users className="text-blue-600 dark:text-blue-400" size={24} />
             </div>
           </div>
         </GlassCard>
         
         <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div>
               <p className="text-variable text-sm font-medium">Accounted For</p>
               <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1" data-testid="stat-accounted">
@@ -416,49 +416,49 @@ export default function EmergencyMuster() {
                 {totalPeople > 0 ? Math.round((accountedFor / totalPeople) * 100) : 0}% Complete
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0">
               <CheckCircle className="text-green-600 dark:text-green-400" size={24} />
             </div>
           </div>
         </GlassCard>
         
         <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div>
               <p className="text-variable text-sm font-medium">Staff On-Site</p>
               <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-count">
                 {staffCount}
               </p>
             </div>
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
               <Users className="text-purple-600 dark:text-purple-400" size={24} />
             </div>
           </div>
         </GlassCard>
         
         <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div>
               <p className="text-variable text-sm font-medium">Visitors</p>
               <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-visitor-count">
                 {visitorCount}
               </p>
             </div>
-            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
               <User className="text-orange-600 dark:text-orange-400" size={24} />
             </div>
           </div>
         </GlassCard>
         
         <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div>
               <p className="text-variable text-sm font-medium">Contractors</p>
               <p className="text-3xl font-bold text-teal-600 dark:text-teal-400 mt-1" data-testid="stat-contractor-count">
                 {contractorCount}
               </p>
             </div>
-            <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center shrink-0">
               <HardHat className="text-teal-600 dark:text-teal-400" size={24} />
             </div>
           </div>
@@ -466,14 +466,14 @@ export default function EmergencyMuster() {
 
         {memberCount > 0 && (
           <GlassCard hover className="dark:glass-dark">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between">
               <div>
                 <p className="text-variable text-sm font-medium">Members</p>
                 <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-member-count">
                   {memberCount}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
                 <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
               </div>
             </div>
