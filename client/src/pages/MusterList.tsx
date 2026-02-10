@@ -21,7 +21,7 @@ interface BiostarStaffMember {
 interface MusterEntry {
   id: string;
   name: string;
-  type: "staff" | "visitor";
+  type: "staff" | "visitor" | "contractor" | "member";
   department?: string;
   company?: string;
   employeeId?: string;
@@ -33,7 +33,7 @@ interface MusterEntry {
 }
 
 export default function MusterList() {
-  const [activeFilter, setActiveFilter] = useState<"all" | "staff" | "visitors">("all");
+  const [activeFilter, setActiveFilter] = useState<"all" | "staff" | "visitors" | "contractors" | "members">("all");
   const [showBiostarData, setShowBiostarData] = useState(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -113,12 +113,16 @@ export default function MusterList() {
   const getCounts = () => {
     const staff = enhancedMusterList.filter(e => e.type === "staff").length;
     const visitors = enhancedMusterList.filter(e => e.type === "visitor").length;
+    const contractors = enhancedMusterList.filter(e => e.type === "contractor").length;
+    const members = enhancedMusterList.filter(e => e.type === "member").length;
     const biostarOnly = enhancedMusterList.filter(e => e.isBiostarOnly).length;
     
     return {
       all: enhancedMusterList.length,
       staff,
       visitors,
+      contractors,
+      members,
       biostarOnly
     };
   };
@@ -129,6 +133,8 @@ export default function MusterList() {
     if (activeFilter === "all") return true;
     if (activeFilter === "staff") return entry.type === "staff";
     if (activeFilter === "visitors") return entry.type === "visitor";
+    if (activeFilter === "contractors") return entry.type === "contractor";
+    if (activeFilter === "members") return entry.type === "member";
     return true;
   });
 
@@ -228,6 +234,34 @@ export default function MusterList() {
         >
           Visitors ({counts.visitors})
         </Button>
+        {counts.contractors > 0 && (
+          <Button
+            variant="ghost"
+            onClick={() => setActiveFilter("contractors")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              activeFilter === "contractors" 
+                ? "bg-[var(--card)] text-blue-600 shadow-sm" 
+                : "text-variable hover:text-fixed"
+            }`}
+            data-testid="filter-contractors"
+          >
+            Contractors ({counts.contractors})
+          </Button>
+        )}
+        {counts.members > 0 && (
+          <Button
+            variant="ghost"
+            onClick={() => setActiveFilter("members")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              activeFilter === "members" 
+                ? "bg-[var(--card)] text-blue-600 shadow-sm" 
+                : "text-variable hover:text-fixed"
+            }`}
+            data-testid="filter-members"
+          >
+            Members ({counts.members})
+          </Button>
+        )}
       </GlassCard>
 
       {/* Muster List Table */}
@@ -287,10 +321,15 @@ export default function MusterList() {
                       <div className="flex items-center gap-2">
                         <Badge 
                           variant={entry.type === "staff" ? "default" : "secondary"}
-                          className={entry.type === "staff" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
+                          className={
+                            entry.type === "staff" ? "bg-blue-100 text-blue-800" : 
+                            entry.type === "visitor" ? "bg-green-100 text-green-800" :
+                            entry.type === "contractor" ? "bg-yellow-100 text-yellow-800" :
+                            "bg-purple-100 text-purple-800"
+                          }
                         >
                           <UserCheck className="mr-1" size={12} />
-                          {entry.type === "staff" ? "Staff" : "Visitor"}
+                          {entry.type === "staff" ? "Staff" : entry.type === "visitor" ? "Visitor" : entry.type === "contractor" ? "Contractor" : "Member"}
                         </Badge>
                         {entry.isBiostarOnly && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">

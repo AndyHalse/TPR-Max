@@ -40,7 +40,7 @@ import {
 interface PersonOnSite {
   id: string;
   name: string;
-  type: 'staff' | 'visitor' | 'contractor';
+  type: 'staff' | 'visitor' | 'contractor' | 'member';
   department?: string;
   company?: string;
   location: string;
@@ -693,8 +693,16 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                   </div>
                   <div className="text-sm text-gray-600 space-y-1">
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {person.type}
+                      <Badge 
+                        variant="secondary" 
+                        className={`text-xs ${
+                          person.type === 'member' ? 'bg-purple-100 text-purple-800' :
+                          person.type === 'contractor' ? 'bg-yellow-100 text-yellow-800' :
+                          person.type === 'staff' ? 'bg-blue-100 text-blue-800' :
+                          'bg-green-100 text-green-800'
+                        }`}
+                      >
+                        {person.type.charAt(0).toUpperCase() + person.type.slice(1)}
                       </Badge>
                       <span>{person.department || person.company}</span>
                     </div>

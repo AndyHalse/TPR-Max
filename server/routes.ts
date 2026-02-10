@@ -2557,10 +2557,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let checkedInMembers: any[] = [];
       try {
         const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-        checkedInMembers = await custDb
+        const [settings] = await custDb
           .select()
-          .from(isolatedSchema.members)
-          .where(eq(isolatedSchema.members.isCheckedIn, true));
+          .from(isolatedSchema.companySettings)
+          .limit(1);
+        if (settings?.featureMembers === true) {
+          checkedInMembers = await custDb
+            .select()
+            .from(isolatedSchema.members)
+            .where(eq(isolatedSchema.members.isCheckedIn, true));
+        }
       } catch (e) {
       }
       
@@ -4195,10 +4201,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let checkedInMembers: any[] = [];
       try {
-        checkedInMembers = await customerDb
+        const [custSettings] = await customerDb
           .select()
-          .from(isolatedSchema.members)
-          .where(eq(isolatedSchema.members.isCheckedIn, true));
+          .from(isolatedSchema.companySettings)
+          .limit(1);
+        if (custSettings?.featureMembers === true) {
+          checkedInMembers = await customerDb
+            .select()
+            .from(isolatedSchema.members)
+            .where(eq(isolatedSchema.members.isCheckedIn, true));
+        }
       } catch (e) {
       }
       
@@ -4762,7 +4774,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else if (type === 'contractor') {
         success = await databaseService.toggleContractorAccountedStatus(context, personId);
-        // Get contractor name when contractor system is fully implemented
+      } else if (type === 'member') {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+          const [member] = await custDb
+            .select()
+            .from(isolatedSchema.members)
+            .where(eq(isolatedSchema.members.id, personId));
+          if (member) {
+            const newMemberStatus = !member.isAccountedFor;
+            await custDb
+              .update(isolatedSchema.members)
+              .set({ isAccountedFor: newMemberStatus, updatedAt: new Date() })
+              .where(eq(isolatedSchema.members.id, personId));
+            personName = `${member.firstName} ${member.lastName}`;
+            accounted = member.isAccountedFor || false;
+            success = true;
+          }
+        } catch (e) {
+          console.error('Failed to toggle member accounted status:', e);
+        }
       } else {
         return res.status(400).json({ error: "Invalid person type" });
       }
@@ -4779,7 +4810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             personId,
             personName,
-            personType: type as 'staff' | 'visitor' | 'contractor',
+            personType: type as 'staff' | 'visitor' | 'contractor' | 'member',
             isAccountedFor: !accounted
           }
         );
@@ -6909,10 +6940,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updated = true;
         }
       } else if (type === 'contractor') {
-        // TODO: Implement contractor toggle with customer isolation
         const result = await storage.toggleContractorAccountedStatus(personId);
         updated = result;
         newStatus = true;
+      } else if (type === 'member') {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+          const [member] = await custDb
+            .select()
+            .from(isolatedSchema.members)
+            .where(eq(isolatedSchema.members.id, personId));
+          if (member) {
+            newStatus = !member.isAccountedFor;
+            personName = `${member.firstName} ${member.lastName}`;
+            await custDb
+              .update(isolatedSchema.members)
+              .set({ isAccountedFor: newStatus, updatedAt: new Date() })
+              .where(eq(isolatedSchema.members.id, personId));
+            updated = true;
+          }
+        } catch (e) {
+          console.error('Failed to toggle member accounted status:', e);
+        }
       }
       
       if (!updated) {
@@ -6928,7 +6977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             personId,
             personName,
-            personType: type as 'staff' | 'visitor' | 'contractor',
+            personType: type as 'staff' | 'visitor' | 'contractor' | 'member',
             isAccountedFor: newStatus
           }
         );
@@ -6988,7 +7037,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const totalPersonnel = checkedInStaff.length + currentVisitors.length + checkedInContractors.length;
+      // Mark all members as accounted for (if feature enabled)
+      let memberCount = 0;
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const [custSettings] = await custDb
+          .select()
+          .from(isolatedSchema.companySettings)
+          .limit(1);
+        if (custSettings?.featureMembers === true) {
+          const checkedInMembers = await custDb
+            .select()
+            .from(isolatedSchema.members)
+            .where(eq(isolatedSchema.members.isCheckedIn, true));
+          
+          memberCount = checkedInMembers.length;
+          for (const member of checkedInMembers) {
+            try {
+              await custDb
+                .update(isolatedSchema.members)
+                .set({ isAccountedFor: true, updatedAt: new Date() })
+                .where(eq(isolatedSchema.members.id, member.id));
+              updatedCount++;
+            } catch (error) {
+              errors.push(`Member ${member.firstName} ${member.lastName}: ${error}`);
+            }
+          }
+        }
+      } catch (e) {
+        // Members table may not exist yet
+      }
+
+      const totalPersonnel = checkedInStaff.length + currentVisitors.length + checkedInContractors.length + memberCount;
 
       res.json({
         success: true,

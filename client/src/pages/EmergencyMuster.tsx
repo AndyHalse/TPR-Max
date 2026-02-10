@@ -11,6 +11,7 @@ import {
   AlertTriangle, 
   Users, 
   User,
+  UserCheck,
   CheckCircle, 
   XCircle, 
   Search,
@@ -26,7 +27,7 @@ import {
 interface MusterListItem {
   id: string;
   name: string;
-  type: 'staff' | 'visitor' | 'contractor';
+  type: 'staff' | 'visitor' | 'contractor' | 'member';
   department?: string;
   company?: string;
   checkedInAt: string;
@@ -295,6 +296,7 @@ export default function EmergencyMuster() {
   const staffCount = musterList.filter(p => p.type === 'staff').length;
   const visitorCount = musterList.filter(p => p.type === 'visitor').length;
   const contractorCount = musterList.filter(p => p.type === 'contractor').length;
+  const memberCount = musterList.filter(p => p.type === 'member').length;
 
   const handleEmergencyToggle = () => {
     setEmergencyActive(!emergencyActive);
@@ -388,7 +390,7 @@ export default function EmergencyMuster() {
       )}
 
       {/* Emergency Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-6`}>
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-center justify-between">
             <div>
@@ -461,6 +463,22 @@ export default function EmergencyMuster() {
             </div>
           </div>
         </GlassCard>
+
+        {memberCount > 0 && (
+          <GlassCard hover className="dark:glass-dark">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-variable text-sm font-medium">Members</p>
+                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-member-count">
+                  {memberCount}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
+              </div>
+            </div>
+          </GlassCard>
+        )}
       </div>
 
       {/* Search and Actions */}
@@ -528,7 +546,8 @@ export default function EmergencyMuster() {
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${
                       person.type === 'staff' ? 'bg-blue-500' : 
-                      person.type === 'visitor' ? 'bg-orange-500' : 'bg-yellow-500'
+                      person.type === 'visitor' ? 'bg-orange-500' : 
+                      person.type === 'member' ? 'bg-purple-500' : 'bg-yellow-500'
                     }`}>
                       <span className="text-white font-medium text-sm">
                         {person.name.split(' ').map(n => n[0]).join('').toUpperCase()}

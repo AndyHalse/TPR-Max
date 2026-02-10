@@ -24,7 +24,7 @@ import {
 interface PersonOnSite {
   id: string;
   name: string;
-  type: 'staff' | 'visitor';
+  type: 'staff' | 'visitor' | 'contractor' | 'member';
   department?: string;
   company?: string;
   isAccountedFor: boolean;
@@ -472,8 +472,15 @@ function PersonCard({
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-lg">{person.name}</h3>
-              <Badge variant={person.type === 'staff' ? 'default' : 'secondary'}>
-                {person.type}
+              <Badge 
+                variant={person.type === 'staff' ? 'default' : 'secondary'}
+                className={
+                  person.type === 'member' ? 'bg-purple-100 text-purple-800' :
+                  person.type === 'contractor' ? 'bg-yellow-100 text-yellow-800' :
+                  undefined
+                }
+              >
+                {person.type.charAt(0).toUpperCase() + person.type.slice(1)}
               </Badge>
               {person.isAccountedFor && (
                 <Badge variant="outline" className="bg-green-100 text-green-700">

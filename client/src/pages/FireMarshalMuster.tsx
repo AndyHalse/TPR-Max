@@ -21,7 +21,7 @@ import {
 interface MusterListItem {
   id: string;
   name: string;
-  type: 'staff' | 'visitor' | 'contractor';
+  type: 'staff' | 'visitor' | 'contractor' | 'member';
   department?: string;
   company?: string;
   checkedInAt: string;
@@ -358,7 +358,8 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
               <div className="flex items-center space-x-3">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
                   person.type === 'staff' ? 'bg-blue-600' : 
-                  person.type === 'visitor' ? 'bg-orange-600' : 'bg-yellow-600'
+                  person.type === 'visitor' ? 'bg-orange-600' : 
+                  person.type === 'member' ? 'bg-purple-600' : 'bg-yellow-600'
                 }`}>
                   {person.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                 </div>
@@ -377,7 +378,11 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
               <div className="flex flex-col items-end space-y-2">
                 <Badge 
                   variant={person.type === 'staff' ? 'default' : 'secondary'}
-                  className="text-xs"
+                  className={`text-xs ${
+                    person.type === 'member' ? 'bg-purple-100 text-purple-800' :
+                    person.type === 'contractor' ? 'bg-yellow-100 text-yellow-800' :
+                    ''
+                  }`}
                 >
                   {person.type.toUpperCase()}
                 </Badge>
