@@ -390,21 +390,22 @@ export default function EmergencyMuster() {
       )}
 
       {/* Emergency Stats */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-6`}>
-        <GlassCard hover className="dark:glass-dark">
+      <div className="flex flex-col lg:flex-row gap-6">
+        <GlassCard hover className="dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-800 lg:w-48 shrink-0">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-variable text-sm font-medium">Total People</p>
-              <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-total-people">
+              <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Total People</p>
+              <p className="text-4xl font-bold text-emerald-700 dark:text-emerald-300 mt-1" data-testid="stat-total-people">
                 {totalPeople}
               </p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">On-Site Now</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <Users className="text-blue-600 dark:text-blue-400" size={24} />
+            <div className="w-12 h-12 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
+              <Users className="text-emerald-700 dark:text-emerald-300" size={24} />
             </div>
           </div>
         </GlassCard>
-        
+
         <GlassCard hover className="dark:glass-dark">
           <div className="flex items-start justify-between">
             <div>
@@ -421,64 +422,66 @@ export default function EmergencyMuster() {
             </div>
           </div>
         </GlassCard>
-        
-        <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-variable text-sm font-medium">Staff On-Site</p>
-              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-count">
-                {staffCount}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <Users className="text-purple-600 dark:text-purple-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-        
-        <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-variable text-sm font-medium">Visitors</p>
-              <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-visitor-count">
-                {visitorCount}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <User className="text-orange-600 dark:text-orange-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-        
-        <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-variable text-sm font-medium">Contractors</p>
-              <p className="text-3xl font-bold text-teal-600 dark:text-teal-400 mt-1" data-testid="stat-contractor-count">
-                {contractorCount}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <HardHat className="text-teal-600 dark:text-teal-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
 
-        {memberCount > 0 && (
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 flex-1`}>
           <GlassCard hover className="dark:glass-dark">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-variable text-sm font-medium">Members</p>
-                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-member-count">
-                  {memberCount}
+                <p className="text-variable text-sm font-medium">Staff</p>
+                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-count">
+                  {staffCount}
                 </p>
               </div>
               <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-                <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
+                <Users className="text-purple-600 dark:text-purple-400" size={24} />
               </div>
             </div>
           </GlassCard>
-        )}
+          
+          <GlassCard hover className="dark:glass-dark">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-variable text-sm font-medium">Visitors</p>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-visitor-count">
+                  {visitorCount}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <User className="text-blue-600 dark:text-blue-400" size={24} />
+              </div>
+            </div>
+          </GlassCard>
+          
+          <GlassCard hover className="dark:glass-dark">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-variable text-sm font-medium">Contractors</p>
+                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractor-count">
+                  {contractorCount}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <HardHat className="text-orange-600 dark:text-orange-400" size={24} />
+              </div>
+            </div>
+          </GlassCard>
+
+          {memberCount > 0 && (
+            <GlassCard hover className="dark:glass-dark">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-variable text-sm font-medium">Members</p>
+                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-member-count">
+                    {memberCount}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
+                </div>
+              </div>
+            </GlassCard>
+          )}
+        </div>
       </div>
 
       {/* Search and Actions */}
