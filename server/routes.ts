@@ -1752,6 +1752,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /**
+   * Delete customer account permanently
+   */
+  app.delete("/platform-admin/customers/:customerId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+
+      const existing = await db.select().from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId));
+      if (!existing.length) {
+        return res.status(404).json({ success: false, error: 'Customer not found' });
+      }
+
+      const customerName = existing[0].companyName;
+
+      await db.delete(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId));
+
+      console.log(`🗑️ Customer account deleted: ${customerName} (${customerId})`);
+
+      res.json({ success: true, message: `Customer "${customerName}" has been permanently deleted` });
+    } catch (error) {
+      console.error('❌ Error deleting customer:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete customer' });
+    }
+  });
+
+  /**
    * Update customer details (PATCH endpoint for edit functionality)
    */
   app.patch("/platform-admin/customers/:customerId", requirePlatformAdmin, async (req, res) => {

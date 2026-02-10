@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +53,8 @@ export default function PlatformAdminDashboard() {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Check authentication
   const { data: admin, isLoading: adminLoading, error } = useQuery<PlatformAdmin>({
@@ -279,6 +281,29 @@ export default function PlatformAdminDashboard() {
     },
   });
 
+  const deleteCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("DELETE", `/platform-admin/customers/${customerId}`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
+      setDeletingCustomer(null);
+      setDeleteConfirmText('');
+      toast({
+        title: "Customer Deleted",
+        description: data.message || "Customer account has been permanently deleted",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete customer account",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (adminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -484,6 +509,18 @@ export default function PlatformAdminDashboard() {
                       >
                         {customer.isActive ? "Deactivate" : "Activate"}
                       </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setDeletingCustomer(customer);
+                          setDeleteConfirmText('');
+                        }}
+                        data-testid={`button-delete-${customer.id}`}
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -508,6 +545,67 @@ export default function PlatformAdminDashboard() {
               queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingCustomer} onOpenChange={(open) => { if (!open) { setDeletingCustomer(null); setDeleteConfirmText(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Delete Customer Account</span>
+            </DialogTitle>
+            <DialogDescription>
+              This action is permanent and cannot be undone. All data for this customer will be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                You are about to permanently delete:
+              </p>
+              <p className="text-lg font-bold text-red-900 dark:text-red-100 mt-1">
+                {deletingCustomer?.companyName}
+              </p>
+              <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                {deletingCustomer?.contactEmail}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="delete-confirm" className="text-sm font-medium">
+                Type <span className="font-bold text-red-600">DELETE</span> to confirm
+              </Label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                className="mt-1"
+                data-testid="input-delete-confirm"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => { setDeletingCustomer(null); setDeleteConfirmText(''); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteConfirmText !== 'DELETE' || deleteCustomerMutation.isPending}
+                onClick={() => {
+                  if (deletingCustomer) {
+                    deleteCustomerMutation.mutate(deletingCustomer.id);
+                  }
+                }}
+                data-testid="button-confirm-delete"
+              >
+                {deleteCustomerMutation.isPending ? 'Deleting...' : 'Permanently Delete'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
