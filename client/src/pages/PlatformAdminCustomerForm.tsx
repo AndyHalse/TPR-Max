@@ -45,9 +45,16 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
       });
     },
     onError: (error: any) => {
+      let description = "Failed to create customer";
+      if (error.message) {
+        description = error.message;
+      }
+      if (description.includes("adminUsername") || description.includes("Username")) {
+        description = "Username can only contain letters, numbers, underscores, and hyphens (min 3 characters)";
+      }
       toast({
         title: "Error",
-        description: error.message || "Failed to create customer",
+        description,
         variant: "destructive",
       });
     },
@@ -175,9 +182,11 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
               id="adminUsername"
               data-testid="input-admin-username"
               value={formData.adminUsername}
-              onChange={(e) => handleChange("adminUsername", e.target.value)}
+              onChange={(e) => handleChange("adminUsername", e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+              placeholder="e.g. john_smith"
               required
             />
+            <p className="text-xs text-muted-foreground">Letters, numbers, underscores, and hyphens only. Min 3 characters.</p>
           </div>
           
           <div className="space-y-2">

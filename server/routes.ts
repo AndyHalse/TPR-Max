@@ -1593,9 +1593,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('❌ Platform admin customer provisioning error:', error);
       
       if (error instanceof z.ZodError) {
+        const messages = error.errors.map(e => e.message).join('. ');
         return res.status(400).json({
           success: false,
-          error: 'Invalid request data',
+          error: messages || 'Invalid request data',
           details: error.errors
         });
       }
