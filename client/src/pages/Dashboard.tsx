@@ -571,7 +571,7 @@ export default function Dashboard() {
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-variable text-sm font-medium">Current Visitors</p>
+                  <p className="text-variable text-sm font-medium">Visitors</p>
                   <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-current-visitors">
                     {stats?.currentVisitors || 0}
                   </p>
