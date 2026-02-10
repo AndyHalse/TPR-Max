@@ -2225,8 +2225,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use the contractor count from the updated getStats method
       const contractorsOnSite = stats.contractorsOnSite || 0;
       
+      // Check members feature and count
+      let membersOnSite = 0;
+      let featureMembers = false;
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const [custSettings] = await custDb
+          .select()
+          .from(isolatedSchema.companySettings)
+          .limit(1);
+        if (custSettings?.featureMembers === true) {
+          featureMembers = true;
+          const checkedInMembers = await custDb
+            .select()
+            .from(isolatedSchema.members)
+            .where(eq(isolatedSchema.members.isCheckedIn, true));
+          membersOnSite = checkedInMembers.length;
+        }
+      } catch (e) {
+        // Members table may not exist yet
+      }
+      
       // Calculate total people on-site using actual stats
-      const totalPeopleOnSite = stats.currentVisitors + stats.staffOnSite + contractorsOnSite;
+      const totalPeopleOnSite = stats.currentVisitors + stats.staffOnSite + contractorsOnSite + membersOnSite;
       
       // Get total companies count with customer isolation
       const visitors = await databaseService.getAllVisitors(context);
@@ -2238,6 +2259,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         staffOnSite: stats.staffOnSite,
         totalStaff: stats.totalStaff,
         contractorsOnSite,
+        membersOnSite,
+        featureMembers,
         totalPeopleOnSite,
         totalCompanies
       });
