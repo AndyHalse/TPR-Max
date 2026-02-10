@@ -28,10 +28,6 @@ import type {
   InsertInductionSettings,
   NvqQualification,
   InsertNvqQualification,
-  TenantCompany,
-  InsertTenantCompany,
-  BuildingSettings,
-  InsertBuildingSettings,
   MeetingRoom,
   InsertMeetingRoom,
   RoomBooking,
@@ -69,9 +65,7 @@ export interface IStorage {
   createUser(insertUser: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   
-  // Tenant-specific authentication
-  authenticateTenantUser(username: string, password: string, tenantId?: string): Promise<User | null>;
-  getUsersByTenant(tenantId: string): Promise<User[]>;
+  authenticateUser(username: string, password: string): Promise<User | null>;
 
   // Staff methods
   getAllStaff(): Promise<Staff[]>;
@@ -81,10 +75,6 @@ export interface IStorage {
   createStaff(insertStaff: InsertStaff): Promise<Staff>;
   updateStaff(id: string, updates: Partial<InsertStaff>): Promise<Staff | undefined>;
   deleteStaff(id: string): Promise<boolean>;
-  
-  // Tenant-specific staff methods
-  getStaffByTenant(tenantId: string): Promise<Staff[]>;
-  getCheckedInStaffByTenant(tenantId: string): Promise<Staff[]>;
   
   // Staff authentication methods
   authenticateStaff(email: string, password: string): Promise<Staff | null>;
@@ -131,12 +121,6 @@ export interface IStorage {
   searchVisitors(searchTerm: string): Promise<Visitor[]>;
   getUniqueCompanies(): Promise<string[]>;
   
-  // Tenant-specific visitor methods
-  getVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
-  getCurrentVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
-  getTodayVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
-  getPreBookedVisitorsByTenant(tenantId: string): Promise<Visitor[]>;
-
   // Company settings methods
   getCompanySettings(): Promise<CompanySettings | undefined>;
   updateCompanySettings(updates: Partial<InsertCompanySettings>): Promise<CompanySettings | undefined>;
@@ -232,36 +216,6 @@ export interface IStorage {
   updateWorkerCompetency(id: string, updates: Partial<InsertWorkerCompetency>): Promise<WorkerCompetency | undefined>;
   deleteWorkerCompetency(id: string): Promise<boolean>;
 
-  // Multi-Tenant methods
-  getAllTenantCompanies(): Promise<TenantCompany[]>;
-  getTenantCompanyById(id: string): Promise<TenantCompany | undefined>;
-  getTenantCompanyBySlug(slug: string): Promise<TenantCompany | undefined>;
-  createTenantCompany(insertTenant: InsertTenantCompany): Promise<TenantCompany>;
-  updateTenantCompany(id: string, updates: Partial<InsertTenantCompany>): Promise<TenantCompany | undefined>;
-  updateTenantStatus(id: string, isActive: boolean): Promise<TenantCompany>;
-  deleteTenantCompany(id: string): Promise<boolean>;
-  
-  // Building Statistics for Super Admin
-  getBuildingStats(): Promise<{
-    totalTenants: number;
-    activeTenants: number;
-    totalStaff: number;
-    totalVisitors: number;
-    visitorsToday: number;
-    staffOnSite: number;
-  }>;
-
-  // Building Settings methods
-  getBuildingSettings(): Promise<BuildingSettings | undefined>;
-  updateBuildingSettings(updates: Partial<InsertBuildingSettings>): Promise<BuildingSettings | undefined>;
-  
-  // Meeting Room methods
-  getAllMeetingRooms(): Promise<MeetingRoom[]>;
-  getMeetingRoomById(id: string): Promise<MeetingRoom | undefined>;
-  createMeetingRoom(insertRoom: InsertMeetingRoom): Promise<MeetingRoom>;
-  updateMeetingRoom(id: string, updates: Partial<InsertMeetingRoom>): Promise<MeetingRoom | undefined>;
-  deleteMeetingRoom(id: string): Promise<boolean>;
-
   // NVQ Qualification methods
   getAllNvqQualifications(): Promise<NvqQualification[]>;
   getActiveNvqQualifications(): Promise<NvqQualification[]>;
@@ -354,17 +308,16 @@ export interface IStorage {
   // Meeting Room methods
   getAllMeetingRooms(): Promise<MeetingRoom[]>;
   getMeetingRoomById(id: string): Promise<MeetingRoom | undefined>;
-  getMeetingRoomsByTenant(tenantId: string): Promise<MeetingRoom[]>;
   getSharedMeetingRooms(): Promise<MeetingRoom[]>;
   createMeetingRoom(insertRoom: InsertMeetingRoom): Promise<MeetingRoom>;
   updateMeetingRoom(id: string, updates: Partial<InsertMeetingRoom>): Promise<MeetingRoom | undefined>;
   deleteMeetingRoom(id: string): Promise<boolean>;
-  checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean>;
+  checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, customerId?: string): Promise<boolean>;
 
   // Room Booking methods
   getRoomBookings(startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]>;
   getRoomBookingsByRoom(roomId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { organizer: Staff })[]>;
-  getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]>;
+  getRoomBookingsByCustomer(customerId: string, startDate?: Date, endDate?: Date): Promise<RoomBookingWithRelations[]>;
   getRoomBookingById(id: string): Promise<RoomBookingWithRelations | undefined>;
   createRoomBooking(insertBooking: InsertRoomBooking): Promise<RoomBooking>;
   updateRoomBooking(id: string, updates: Partial<InsertRoomBooking>): Promise<RoomBooking | undefined>;
@@ -456,8 +409,6 @@ export class MemStorage implements IStorage {
   private inductionSettings: InductionSettings[];
   private reports: Map<string, Report>;
   private preBookings: Map<string, PreBooking>;
-  private tenantCompanies: Map<string, TenantCompany>;
-  private buildingSettings: BuildingSettings | undefined;
   private meetingRooms: Map<string, MeetingRoom>;
   private roomBookings: Map<string, RoomBooking>;
   private roomBookingAttendees: Map<string, RoomBookingAttendee>;
@@ -491,7 +442,6 @@ export class MemStorage implements IStorage {
     this.inductionSettings = [];
     this.reports = new Map();
     this.preBookings = new Map();
-    this.tenantCompanies = new Map();
     this.meetingRooms = new Map();
     this.roomBookings = new Map();
     this.roomBookingAttendees = new Map();
@@ -502,8 +452,6 @@ export class MemStorage implements IStorage {
     this.contractorVisits = new Map();
     this.complianceDocuments = new Map();
     this.departments = new Map();
-    this.buildingSettings = undefined;
-    
     // Ensure data directory exists
     this.ensureDataDirectory();
     
@@ -893,17 +841,9 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
-  // Tenant-specific authentication methods
-  async authenticateTenantUser(username: string, password: string, tenantId?: string): Promise<User | null> {
+  async authenticateUser(username: string, password: string): Promise<User | null> {
     try {
       let user = Array.from(this.users.values()).find(u => u.username === username && u.isActive);
-      
-      // If tenantId is provided, filter by tenant
-      if (tenantId && user) {
-        if (user.tenantCompanyId !== tenantId) {
-          return null;
-        }
-      }
 
       if (!user || !user.password) {
         return null;
@@ -914,20 +854,13 @@ export class MemStorage implements IStorage {
         return null;
       }
 
-      // Update last login time
       await this.updateUser(user.id, { lastLoginAt: new Date() });
 
       return user;
     } catch (error) {
-      console.error('Tenant user authentication error:', error);
+      console.error('User authentication error:', error);
       return null;
     }
-  }
-
-  async getUsersByTenant(tenantId: string): Promise<User[]> {
-    return Array.from(this.users.values())
-      .filter(user => user.tenantCompanyId === tenantId)
-      .sort((a, b) => a.username.localeCompare(b.username));
   }
 
   // Staff methods
@@ -1137,19 +1070,6 @@ export class MemStorage implements IStorage {
   async getCheckedInStaff(): Promise<Staff[]> {
     return Array.from(this.staffMembers.values())
       .filter(staff => staff.isCheckedIn && staff.isActive)
-      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
-  }
-
-  // Tenant-specific staff methods
-  async getStaffByTenant(tenantId: string): Promise<Staff[]> {
-    return Array.from(this.staffMembers.values())
-      .filter(staff => staff.tenantCompanyId === tenantId)
-      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
-  }
-
-  async getCheckedInStaffByTenant(tenantId: string): Promise<Staff[]> {
-    return Array.from(this.staffMembers.values())
-      .filter(staff => staff.tenantCompanyId === tenantId && staff.isCheckedIn && staff.isActive)
       .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
   }
 
@@ -1403,44 +1323,6 @@ export class MemStorage implements IStorage {
     return Array.from(companies).sort();
   }
 
-  // Tenant-specific visitor methods
-  async getVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    return Array.from(this.visitors.values())
-      .filter(visitor => visitor.tenantCompanyId === tenantId)
-      .sort((a, b) => b.checkedInAt.getTime() - a.checkedInAt.getTime());
-  }
-
-  async getCurrentVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    return Array.from(this.visitors.values())
-      .filter(visitor => visitor.tenantCompanyId === tenantId && visitor.isCheckedIn)
-      .sort((a, b) => b.checkedInAt.getTime() - a.checkedInAt.getTime());
-  }
-
-  async getTodayVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    return Array.from(this.visitors.values())
-      .filter(visitor => {
-        const checkedInAt = new Date(visitor.checkedInAt || 0);
-        return visitor.tenantCompanyId === tenantId &&
-               checkedInAt >= today && checkedInAt < tomorrow;
-      })
-      .sort((a, b) => new Date(a.checkedInAt || 0).getTime() - new Date(b.checkedInAt || 0).getTime());
-  }
-
-  async getPreBookedVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    return Array.from(this.visitors.values())
-      .filter(visitor => 
-        visitor.tenantCompanyId === tenantId &&
-        visitor.isPreBooked === true &&
-        visitor.isCheckedIn === false
-      )
-      .sort((a, b) => new Date(b.checkedInAt || 0).getTime() - new Date(a.checkedInAt || 0).getTime());
-  }
-
   // Company settings methods
   async getCompanySettings(): Promise<CompanySettings | undefined> {
     return this.companySettings;
@@ -1558,7 +1440,7 @@ export class MemStorage implements IStorage {
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + daysAhead);
     
-    // Enhance pre-bookings with staff and tenant details
+    // Enhance pre-bookings with staff details
     const bookings = Array.from(this.preBookings.values())
       .filter(booking => {
         const bookingDate = new Date(booking.visitDate);
@@ -1568,8 +1450,7 @@ export class MemStorage implements IStorage {
     
     // Enrich with host staff details
     return bookings.map(booking => {
-      const hostStaff = booking.hostStaffId ? this.staff.get(booking.hostStaffId) : null;
-      const tenant = hostStaff?.tenantCompanyId ? this.tenantCompanies.get(hostStaff.tenantCompanyId) : null;
+      const hostStaff = booking.hostStaffId ? this.staffMembers.get(booking.hostStaffId) : null;
       
       return {
         ...booking,
@@ -1577,9 +1458,6 @@ export class MemStorage implements IStorage {
         hostLastName: hostStaff?.lastName || null,
         hostDepartment: hostStaff?.department || null,
         hostEmail: hostStaff?.email || null,
-        tenantCompanyName: tenant?.companyName || null,
-        tenantSlug: tenant?.slug || null,
-        tenantPrimaryColor: tenant?.primaryColor || null,
       };
     });
   }
@@ -1951,128 +1829,6 @@ export class MemStorage implements IStorage {
     }
   }
 
-  // Multi-Tenant methods implementation
-  async getAllTenantCompanies(): Promise<TenantCompany[]> {
-    return Array.from(this.tenantCompanies.values());
-  }
-
-  async getTenantCompanyById(id: string): Promise<TenantCompany | undefined> {
-    return this.tenantCompanies.get(id);
-  }
-
-  async getTenantCompanyBySlug(slug: string): Promise<TenantCompany | undefined> {
-    return Array.from(this.tenantCompanies.values()).find(tenant => tenant.slug === slug);
-  }
-
-  async createTenantCompany(insertTenant: InsertTenantCompany): Promise<TenantCompany> {
-    const tenant: TenantCompany = {
-      id: randomUUID(),
-      ...insertTenant,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    this.tenantCompanies.set(tenant.id, tenant);
-    return tenant;
-  }
-
-  async updateTenantCompany(id: string, updates: Partial<InsertTenantCompany>): Promise<TenantCompany | undefined> {
-    const tenant = this.tenantCompanies.get(id);
-    if (!tenant) return undefined;
-
-    const updatedTenant = {
-      ...tenant,
-      ...updates,
-      updatedAt: new Date(),
-    };
-
-    this.tenantCompanies.set(id, updatedTenant);
-    return updatedTenant;
-  }
-
-  async updateTenantStatus(id: string, isActive: boolean): Promise<TenantCompany> {
-    const tenant = this.tenantCompanies.get(id);
-    if (!tenant) {
-      throw new Error(`Tenant with id ${id} not found`);
-    }
-
-    const updatedTenant = {
-      ...tenant,
-      isActive,
-      updatedAt: new Date(),
-    };
-
-    this.tenantCompanies.set(id, updatedTenant);
-    return updatedTenant;
-  }
-
-  async deleteTenantCompany(id: string): Promise<boolean> {
-    return this.tenantCompanies.delete(id);
-  }
-
-  async getBuildingStats(): Promise<{
-    totalTenants: number;
-    activeTenants: number;
-    totalStaff: number;
-    totalVisitors: number;
-    visitorsToday: number;
-    staffOnSite: number;
-  }> {
-    const allTenants = Array.from(this.tenantCompanies.values());
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const todayVisitors = Array.from(this.visitors.values()).filter(v => 
-      v.checkedInAt >= today
-    );
-
-    const staffOnSite = Array.from(this.staffMembers.values()).filter(s => 
-      s.isActive && s.isCheckedIn
-    ).length;
-
-    return {
-      totalTenants: allTenants.length,
-      activeTenants: allTenants.filter(t => t.isActive).length,
-      totalStaff: this.staffMembers.size,
-      totalVisitors: this.visitors.size,
-      visitorsToday: todayVisitors.length,
-      staffOnSite,
-    };
-  }
-
-  async getBuildingSettings(): Promise<BuildingSettings | undefined> {
-    return this.buildingSettings;
-  }
-
-  async updateBuildingSettings(updates: Partial<InsertBuildingSettings>): Promise<BuildingSettings | undefined> {
-    if (!this.buildingSettings) {
-      this.buildingSettings = {
-        id: randomUUID(),
-        buildingName: "Default Building",
-        address: "",
-        contactEmail: "",
-        phone: "",
-        buildingManagerName: "",
-        buildingManagerEmail: "",
-        maxTenants: 50,
-        operatingHours: "9:00-17:00",
-        emergencyContacts: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...updates,
-      };
-    } else {
-      this.buildingSettings = {
-        ...this.buildingSettings,
-        ...updates,
-        updatedAt: new Date(),
-      };
-    }
-
-    return this.buildingSettings;
-  }
-
   // Meeting Room persistence methods
   private loadOrInitializeMeetingRooms(): void {
     try {
@@ -2156,7 +1912,6 @@ export class MemStorage implements IStorage {
         location: "Floor 25, North Wing",
         capacity: 14,
         isSharedRoom: false,
-        tenantCompanyId: null,
         hasProjector: true,
         hasVideoConference: true,
         hasWhiteboard: true,
@@ -2171,7 +1926,6 @@ export class MemStorage implements IStorage {
         location: "Floor 12, Creative Zone",
         capacity: 8,
         isSharedRoom: true,
-        tenantCompanyId: null,
         hasProjector: false,
         hasVideoConference: true,
         hasWhiteboard: true,
@@ -2186,7 +1940,6 @@ export class MemStorage implements IStorage {
         location: "Floor 8, Tech Hub",
         capacity: 12,
         isSharedRoom: true,
-        tenantCompanyId: null,
         hasProjector: true,
         hasVideoConference: true,
         hasWhiteboard: false,
@@ -2201,7 +1954,6 @@ export class MemStorage implements IStorage {
         location: "Floor 5, East Wing",
         capacity: 4,
         isSharedRoom: true,
-        tenantCompanyId: null,
         hasProjector: false,
         hasVideoConference: false,
         hasWhiteboard: true,
@@ -2216,7 +1968,6 @@ export class MemStorage implements IStorage {
         location: "Floor 3, Training Wing",
         capacity: 24,
         isSharedRoom: true,
-        tenantCompanyId: null,
         hasProjector: true,
         hasVideoConference: true,
         hasWhiteboard: true,
@@ -2231,7 +1982,6 @@ export class MemStorage implements IStorage {
         location: "Floor 7, Open Office Area",
         capacity: 3,
         isSharedRoom: true,
-        tenantCompanyId: null,
         hasProjector: false,
         hasVideoConference: true,
         hasWhiteboard: false,
@@ -2525,8 +2275,8 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]> {
-    let bookings = Array.from(this.roomBookings.values()).filter(b => b.tenantCompanyId === tenantId);
+  async getRoomBookingsByCustomer(customerId: string, startDate?: Date, endDate?: Date): Promise<(RoomBooking & { room: MeetingRoom; organizer: Staff })[]> {
+    let bookings = Array.from(this.roomBookings.values());
     
     if (startDate) {
       bookings = bookings.filter(b => new Date(b.startDateTime) >= startDate);
@@ -2642,8 +2392,7 @@ export class MemStorage implements IStorage {
     return result;
   }
 
-  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean> {
-    // Get the room to check if it's shared or tenant-specific
+  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, customerId?: string): Promise<boolean> {
     const room = this.meetingRooms.get(roomId);
     if (!room) return false;
     
@@ -2652,15 +2401,7 @@ export class MemStorage implements IStorage {
         if (b.roomId !== roomId || b.status === 'cancelled') return false;
         if (excludeBookingId && b.id === excludeBookingId) return false;
         
-        // For shared rooms, check all bookings
-        // For tenant-specific rooms, only check bookings from the same tenant
-        if (room.isSharedRoom) {
-          return true; // Check all bookings for shared rooms
-        } else if (tenantId) {
-          return b.tenantCompanyId === tenantId; // Only check same tenant bookings
-        }
-        
-        return true; // Default: check all bookings
+        return true; // Check all bookings
       });
     
     const hasConflict = roomBookings.some(booking => {

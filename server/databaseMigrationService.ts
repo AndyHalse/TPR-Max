@@ -92,7 +92,6 @@ export class DatabaseMigrationService {
         staffSessions: [],
         departments: [],
         users: [],
-        tenantCompanies: [],
         preBookings: [],
         meetingRooms: [],
         roomBookings: [],
@@ -141,12 +140,6 @@ export class DatabaseMigrationService {
         .from(sharedSchema.users)
         .where(eq(sharedSchema.users.customerId, customerId));
 
-      // Export tenant companies
-      exportData.tenantCompanies = await db
-        .select()
-        .from(sharedSchema.tenantCompanies)
-        .where(eq(sharedSchema.tenantCompanies.customerId, customerId));
-
       // Export pre-bookings
       exportData.preBookings = await db
         .select()
@@ -182,7 +175,6 @@ export class DatabaseMigrationService {
         visitorHistory: exportData.visitorHistory.length,
         departments: exportData.departments.length,
         users: exportData.users.length,
-        tenantCompanies: exportData.tenantCompanies.length,
         preBookings: exportData.preBookings.length
       });
 
@@ -224,16 +216,6 @@ export class DatabaseMigrationService {
         });
         
         await db.insert(isolatedSchema.departments).values(departmentsToImport);
-      }
-
-      // Import tenant companies (remove customerId)
-      if (exportData.tenantCompanies.length > 0) {
-        const tenantsToImport = exportData.tenantCompanies.map(tenant => {
-          const { customerId: _, ...tenantWithoutCustomerId } = tenant;
-          return tenantWithoutCustomerId;
-        });
-        
-        await db.insert(isolatedSchema.tenantCompanies).values(tenantsToImport);
       }
 
       // Import users (remove customerId)
@@ -324,7 +306,6 @@ export class DatabaseMigrationService {
         visitorHistory: await this.countRecords(db, isolatedSchema.visitorHistory),
         departments: await this.countRecords(db, isolatedSchema.departments),
         users: await this.countRecords(db, isolatedSchema.users),
-        tenantCompanies: await this.countRecords(db, isolatedSchema.tenantCompanies),
         preBookings: await this.countRecords(db, isolatedSchema.preBookings),
         staffSessions: await this.countRecords(db, isolatedSchema.staffSessions)
       };
@@ -337,7 +318,6 @@ export class DatabaseMigrationService {
         visitorHistory: originalData.visitorHistory.length,
         departments: originalData.departments.length,
         users: originalData.users.length,
-        tenantCompanies: originalData.tenantCompanies.length,
         preBookings: originalData.preBookings.length,
         staffSessions: originalData.staffSessions.length
       };
@@ -490,7 +470,6 @@ export interface CustomerExportData {
   staffSessions: any[];
   departments: any[];
   users: any[];
-  tenantCompanies: any[];
   preBookings: any[];
   meetingRooms: any[];
   roomBookings: any[];

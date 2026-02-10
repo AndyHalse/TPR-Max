@@ -223,8 +223,6 @@ export class CustomerOnboardingService {
         contactEmail: request.contactEmail,
         databaseUrl: '', // Will be updated after database provisioning
         isActive: true,
-        maxTenants: this.getMaxTenantsByPlan(request.planType),
-        maxUsersPerTenant: this.getMaxUsersByPlan(request.planType),
         maxVisitorsPerMonth: this.getMaxVisitorsByPlan(request.planType),
         onboardingCompleted: false,
         supportContactEmail: request.contactEmail,
@@ -649,26 +647,6 @@ export class CustomerOnboardingService {
         .where(eq(sharedSchema.customers.id, customerId));
     } finally {
       await managementPool.end();
-    }
-  }
-
-  private getMaxTenantsByPlan(planType: string): number {
-    switch (planType) {
-      case 'trial': return 2;
-      case 'basic': return 5;
-      case 'professional': return 15;
-      case 'enterprise': return 50;
-      default: return 2;
-    }
-  }
-
-  private getMaxUsersByPlan(planType: string): number {
-    switch (planType) {
-      case 'trial': return 10;
-      case 'basic': return 25;
-      case 'professional': return 100;
-      case 'enterprise': return 500;
-      default: return 10;
     }
   }
 

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { databaseService } from "./databaseService";
 import { simpleDatabaseService } from "./simpleDatabaseService";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
-import { insertCompanySettingsSchema, tenantCompanies } from "./isolatedSchema";
+import { insertCompanySettingsSchema } from "./isolatedSchema";
 import { 
   insertStaffSchema, 
   insertVisitorSchema, 
@@ -1406,10 +1406,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Tenant-specific authentication route
+  // Customer authentication route
   app.post("/api/auth/tenant-login", async (req, res) => {
     try {
-      const { username, password, tenantId } = req.body;
+      const { username, password } = req.body;
       
       if (!username || !password) {
         return res.status(400).json({ error: "Username and password are required" });
@@ -1418,25 +1418,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get customer context for isolation based on login attempt
       const context = simpleDatabaseService.createCustomerContext(username);
       
-      const user = await databaseService.authenticateTenantUser(context, username, password, tenantId);
+      const user = await databaseService.authenticateUser(context, username, password);
       if (!user) {
-        return res.status(401).json({ error: "Invalid credentials or unauthorized tenant access" });
+        return res.status(401).json({ error: "Invalid credentials" });
       }
 
       // Set session
       req.session.userId = user.id;
-      // Note: tenantId stored in userId for this session
       
       res.json({ 
         success: true, 
         user: { 
           id: user.id, 
-          username: user.username, 
-          tenantCompanyId: user.tenantCompanyId 
+          username: user.username
         }
       });
     } catch (error) {
-      console.error("Tenant login error:", error);
+      console.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
     }
   });
@@ -1655,8 +1653,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           contactEmail: customer.contactEmail,
           isActive: customer.isActive,
           onboardingCompleted: customer.onboardingCompleted,
-          maxTenants: customer.maxTenants,
-          maxUsersPerTenant: customer.maxUsersPerTenant,
           maxVisitorsPerMonth: customer.maxVisitorsPerMonth,
           stripeCustomerId: customer.stripeCustomerId,
           createdAt: customer.createdAt,
@@ -1766,8 +1762,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateCustomerSchema = z.object({
         companyName: z.string().trim().min(1).optional(),
         contactEmail: z.string().trim().email().optional(),
-        maxTenants: z.number().int().positive().optional(),
-        maxUsersPerTenant: z.number().int().positive().optional(),
         maxVisitorsPerMonth: z.number().int().positive().optional(),
         supportContactEmail: z.string().trim().email().optional().nullable(),
       });
@@ -3277,13 +3271,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Evacuation ID is required" });
       }
       
-      // Get the evacuation record with TENANT ISOLATION
+      // Get the evacuation record with customer isolation
       const evacuation = await db
         .select()
         .from(evacuations)
         .where(and(
           eq(evacuations.evacuationId, evacuationId),
-          eq(evacuations.customerId, customerId) // CRITICAL: Ensure Fire Marshal can only access their tenant's evacuations
+          eq(evacuations.customerId, customerId) // CRITICAL: Ensure Fire Marshal can only access their customer's evacuations
         ))
         .limit(1);
       
@@ -3470,13 +3464,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use the newly created evacuation ID for the rest of the function
         evacuationId = newEvacuationId;
       } else {
-        // Get the evacuation with TENANT ISOLATION
+        // Get the evacuation with customer isolation
         evacuation = await db
           .select()
           .from(evacuations)
           .where(and(
             eq(evacuations.evacuationId, evacuationId),
-            eq(evacuations.customerId, customerId) // CRITICAL: Verify Fire Marshal can only access their tenant's evacuations
+            eq(evacuations.customerId, customerId) // CRITICAL: Verify Fire Marshal can only access their customer's evacuations
           ))
           .limit(1);
         
@@ -3661,13 +3655,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Valid checkOutMode required: 'keep_checked_in' or 'check_out_all'" });
       }
 
-      // Get the evacuation with TENANT ISOLATION
+      // Get the evacuation with customer isolation
       const evacuation = await db
         .select()
         .from(evacuations)
         .where(and(
           eq(evacuations.evacuationId, evacuationId),
-          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only complete their tenant's evacuations
+          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only complete their customer's evacuations
         ))
         .limit(1);
       
@@ -8626,7 +8620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { workerId } = req.params;
       
-      // Verify worker belongs to current customer (multi-tenant security)
+      // Verify worker belongs to current customer (customer isolation security)
       const username = req.user?.username || 'Andy';
       const context = simpleDatabaseService.createCustomerContext(username);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
@@ -9561,7 +9555,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         purpose: preBooking.purpose,
         carRegistration: null,
         hostStaffId: preBooking.hostStaffId,
-        visitingTenantId: preBooking.tenantCompanyId,
         isPreBooked: true,
         expectedDateTime: preBooking.visitDate,
         visitPurpose: preBooking.purpose,
@@ -9805,7 +9798,6 @@ This is an automated notification from your visitor management system.`;
             purpose: preBooking.purpose,
             carRegistration: null,
             hostStaffId: preBooking.hostStaffId,
-            visitingTenantId: preBooking.tenantCompanyId,
             isPreBooked: true,
             expectedDateTime: preBooking.visitDate,
             visitPurpose: preBooking.purpose,
@@ -9871,7 +9863,7 @@ This is an automated notification from your visitor management system.`;
       // Get customer database connection
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
-      // Query pre-bookings with staff and tenant joins for host details
+      // Query pre-bookings with staff joins for host details
       const allPreBookings = await customerDb.select({
         id: isolatedSchema.preBookings.id,
         visitorFirstName: isolatedSchema.preBookings.visitorFirstName,
@@ -9887,15 +9879,10 @@ This is an automated notification from your visitor management system.`;
         hostFirstName: isolatedSchema.staff.firstName,
         hostLastName: isolatedSchema.staff.lastName,
         hostDepartment: isolatedSchema.staff.department,
-        hostEmail: isolatedSchema.staff.email,
-        // Tenant company details
-        tenantCompanyName: isolatedSchema.tenantCompanies.companyName,
-        tenantSlug: isolatedSchema.tenantCompanies.slug,
-        tenantPrimaryColor: isolatedSchema.tenantCompanies.primaryColor
+        hostEmail: isolatedSchema.staff.email
       })
       .from(isolatedSchema.preBookings)
       .leftJoin(isolatedSchema.staff, eq(isolatedSchema.preBookings.hostStaffId, isolatedSchema.staff.id))
-      .leftJoin(isolatedSchema.tenantCompanies, eq(isolatedSchema.staff.tenantCompanyId, isolatedSchema.tenantCompanies.id))
       .where(
         and(
           sql`${isolatedSchema.preBookings.visitDate} >= ${targetDate}`,
@@ -10971,7 +10958,7 @@ This is an automated notification from your visitor management system.`;
   app.delete("/api/invitations/:id", requireAuth, async (req, res) => {
     try {
       if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Missing tenant context" });
+        return res.status(401).json({ error: "Missing customer context" });
       }
       const context = { customerId: req.session.customerId };
       
@@ -10993,7 +10980,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
       if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Missing tenant context" });
+        return res.status(401).json({ error: "Missing customer context" });
       }
       const context = { customerId: req.session.customerId };
 
@@ -11044,7 +11031,7 @@ This is an automated notification from your visitor management system.`;
 
       // Get customer context for isolation using the authenticated user's real customerId
       if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Missing tenant context" });
+        return res.status(401).json({ error: "Missing customer context" });
       }
       const context = { customerId: req.session.customerId };
 
@@ -11095,7 +11082,7 @@ This is an automated notification from your visitor management system.`;
   app.put("/api/users/:id", requireAuth, async (req, res) => {
     try {
       if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Missing tenant context" });
+        return res.status(401).json({ error: "Missing customer context" });
       }
       const context = { customerId: req.session.customerId };
       
@@ -11157,7 +11144,7 @@ This is an automated notification from your visitor management system.`;
   app.delete("/api/users/:id", requireAuth, async (req, res) => {
     try {
       if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Missing tenant context" });
+        return res.status(401).json({ error: "Missing customer context" });
       }
       const context = { customerId: req.session.customerId };
       
@@ -13184,7 +13171,7 @@ This is an automated notification from your visitor management system.`;
         .where(and(
           eq(workerDocumentAssignments.acceptanceToken, token),
           eq(workerDocumentAssignments.isActive, true),
-          // CRITICAL: Ensure all related entities belong to the same customer for multi-tenant isolation
+          // CRITICAL: Ensure all related entities belong to the same customer for customer isolation
           eq(workerDocumentAssignments.customerId, ukHSDocumentTemplates.customerId)
         ));
       
@@ -15337,435 +15324,6 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // Multi-Tenant Super Admin API Routes
-  app.get("/api/super-admin/tenants", requireAuth, async (req, res) => {
-    try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      // Only allow super admin access for Andy (dev-customer-001)
-      if (context.customerId !== 'dev-customer-001') {
-        return res.status(403).json({ error: 'Access denied - Super admin only' });
-      }
-      
-      const tenants = await storage.getAllTenantCompanies();
-      res.json(tenants);
-    } catch (error) {
-      console.error("Error fetching tenants:", error);
-      res.status(500).json({ error: "Failed to fetch tenant companies" });
-    }
-  });
-
-  app.post("/api/super-admin/tenants", requireAuth, async (req, res) => {
-    try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      // Only allow super admin access for Andy (dev-customer-001)
-      if (context.customerId !== 'dev-customer-001') {
-        return res.status(403).json({ error: 'Access denied - Super admin only' });
-      }
-      
-      const tenantData = req.body;
-      // Override frontend's fake customerId with the correct one
-      console.log(`🔍 Frontend sent customerId: ${tenantData.customerId}`);
-      console.log(`🔍 Context customerId: ${context.customerId}`);
-      tenantData.customerId = context.customerId;
-      console.log(`🔍 Using final customerId: ${tenantData.customerId}`);
-      
-      const tenant = await storage.createTenantCompany(tenantData);
-      console.log(`🏢 Created new tenant company: ${tenant.companyName} (${tenant.slug}) for customer: ${context.customerId}`);
-      res.json(tenant);
-    } catch (error) {
-      console.error("Error creating tenant:", error);
-      res.status(500).json({ error: "Failed to create tenant company" });
-    }
-  });
-
-  app.patch("/api/super-admin/tenants/:tenantId/status", async (req, res) => {
-    try {
-      const { tenantId } = req.params;
-      const { isActive } = req.body;
-      const tenant = await storage.updateTenantStatus(tenantId, isActive);
-      console.log(`🏢 Updated tenant ${tenant.companyName} status to: ${isActive ? 'active' : 'inactive'}`);
-      res.json(tenant);
-    } catch (error) {
-      console.error("Error updating tenant status:", error);
-      res.status(500).json({ error: "Failed to update tenant status" });
-    }
-  });
-
-  app.get("/api/super-admin/stats", requireAuth, async (req, res) => {
-    try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
-      const context = simpleDatabaseService.createCustomerContext(username);
-      
-      // Only allow super admin access for Andy (dev-customer-001)
-      if (context.customerId !== 'dev-customer-001') {
-        return res.status(403).json({ error: 'Access denied - Super admin only' });
-      }
-      
-      const stats = await storage.getBuildingStats();
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching building stats:", error);
-      res.status(500).json({ error: "Failed to fetch building statistics" });
-    }
-  });
-
-  // MIGRATION ENDPOINT - Migrate Andy's data from MemStorage to isolated database
-  app.post("/api/super-admin/migrate-andy-data", requireAuth, async (req, res) => {
-    try {
-      console.log("🚀 Migration endpoint called - starting Andy's data migration...");
-      
-      // Import migration function
-      const { migrateAndyData } = await import("./migrate-andy-data");
-      
-      // Execute migration
-      await migrateAndyData();
-      
-      console.log("✅ Migration completed successfully!");
-      res.json({ 
-        success: true, 
-        message: "Andy's data has been successfully migrated from MemStorage to isolated database" 
-      });
-    } catch (error) {
-      console.error("❌ Migration failed:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: "Migration failed", 
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  // DEBUG MIGRATION ENDPOINT - No auth required for testing
-  app.get("/api/debug/migrate-andy", async (req, res) => {
-    try {
-      console.log("🚀 DEBUG: Migration endpoint called - starting Andy's data migration...");
-      
-      // Import simpler migration function
-      const { runMigration } = await import("./migration-runner");
-      
-      // Execute migration
-      const result = await runMigration();
-      
-      console.log("✅ DEBUG: Migration completed successfully!");
-      res.json({ 
-        success: true, 
-        message: "Andy's data has been successfully migrated from MemStorage to isolated database",
-        result
-      });
-    } catch (error) {
-      console.error("❌ DEBUG: Migration failed:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: "Migration failed", 
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  // Tenant-specific endpoints
-  app.get("/api/super-admin/tenants/:slug", async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const tenant = await storage.getTenantCompanyBySlug(slug);
-      if (!tenant) {
-        return res.status(404).json({ error: "Tenant not found" });
-      }
-      res.json(tenant);
-    } catch (error) {
-      console.error("Error fetching tenant:", error);
-      res.status(500).json({ error: "Failed to fetch tenant" });
-    }
-  });
-
-  // Get tenant by ID (for visitor pass printing)
-  app.get("/api/super-admin/tenants/by-id/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const tenant = await storage.getTenantCompanyById(id);
-      if (!tenant) {
-        return res.status(404).json({ error: "Tenant not found" });
-      }
-      res.json(tenant);
-    } catch (error) {
-      console.error("Error fetching tenant by ID:", error);
-      res.status(500).json({ error: "Failed to fetch tenant" });
-    }
-  });
-
-  app.patch("/api/super-admin/tenants/:tenantId", async (req, res) => {
-    try {
-      const { tenantId } = req.params;
-      const updateData = req.body;
-      const tenant = await storage.updateTenantCompany(tenantId, updateData);
-      res.json(tenant);
-    } catch (error) {
-      console.error("Error updating tenant:", error);
-      res.status(500).json({ error: "Failed to update tenant" });
-    }
-  });
-
-  app.get("/api/tenants/:slug/staff", async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const tenant = await storage.getTenantCompanyBySlug(slug);
-      if (!tenant) {
-        return res.status(404).json({ error: "Tenant not found" });
-      }
-      const staff = await storage.getStaffByTenant(tenant.id);
-      res.json(staff);
-    } catch (error) {
-      console.error("Error fetching tenant staff:", error);
-      res.status(500).json({ error: "Failed to fetch tenant staff" });
-    }
-  });
-
-  app.get("/api/tenants/:slug/visitors", async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const tenant = await storage.getTenantCompanyBySlug(slug);
-      if (!tenant) {
-        return res.status(404).json({ error: "Tenant not found" });
-      }
-      const visitors = await storage.getVisitorsByTenant(tenant.id);
-      res.json(visitors);
-    } catch (error) {
-      console.error("Error fetching tenant visitors:", error);
-      res.status(500).json({ error: "Failed to fetch tenant visitors" });
-    }
-  });
-
-  // Generate sample tenant companies with staff for testing
-  app.post("/api/super-admin/generate-sample-tenants", async (req, res) => {
-    try {
-      const sampleTenants = [
-        {
-          companyName: "TechVenture Solutions",
-          slug: "techventure",
-          contactEmail: "admin@techventure.com",
-          phone: "+44 20 7123 4567",
-          address: "Floor 3, Innovation Hub",
-          website: "https://techventure.com",
-          adminFirstName: "Sarah",
-          adminLastName: "Chen",
-          adminEmail: "sarah.chen@techventure.com",
-
-          maxUsers: 25,
-          primaryColor: "#3b82f6",
-          secondaryColor: "#64748b"
-        },
-        {
-          companyName: "Creative Design Studio",
-          slug: "creativestudio",
-          contactEmail: "hello@creativestudio.com",
-          phone: "+44 20 7987 6543",
-          address: "Floor 2, Creative Quarter",
-          website: "https://creativestudio.com",
-          adminFirstName: "Marcus",
-          adminLastName: "Rivera",
-          adminEmail: "marcus.rivera@creativestudio.com",
-          maxUsers: 15,
-          primaryColor: "#8b5cf6",
-          secondaryColor: "#64748b"
-        },
-        {
-          companyName: "FinanceFirst Consulting",
-          slug: "financefirst",
-          contactEmail: "contact@financefirst.com",
-          phone: "+44 20 7456 7890",
-          address: "Floor 4, Business Centre",
-          website: "https://financefirst.com",
-          adminFirstName: "Emma",
-          adminLastName: "Thompson",
-          adminEmail: "emma.thompson@financefirst.com",
-          maxUsers: 50,
-          primaryColor: "#059669",
-          secondaryColor: "#64748b"
-        },
-        {
-          companyName: "Digital Marketing Pro",
-          slug: "digitalmarketing",
-          contactEmail: "info@digitalmarketing.com",
-          phone: "+44 20 7234 5678",
-          address: "Floor 1, Marketing Suite",
-          website: "https://digitalmarketing.com",
-          adminFirstName: "James",
-          adminLastName: "Wilson",
-          adminEmail: "james.wilson@digitalmarketing.com",
-
-          maxUsers: 30,
-          primaryColor: "#dc2626",
-          secondaryColor: "#64748b"
-        },
-        {
-          companyName: "CloudSoft Innovations",
-          slug: "cloudsoft",
-          contactEmail: "support@cloudsoft.com",
-          phone: "+44 20 7345 6789",
-          address: "Floor 5, Tech Hub",
-          website: "https://cloudsoft.com",
-          adminFirstName: "Priya",
-          adminLastName: "Patel",
-          adminEmail: "priya.patel@cloudsoft.com",
-
-          maxUsers: 40,
-          primaryColor: "#f59e0b",
-          secondaryColor: "#64748b"
-        }
-      ];
-
-      const createdTenants = [];
-      for (const tenantData of sampleTenants) {
-        try {
-          const existing = await storage.getTenantCompanyBySlug(tenantData.slug);
-          if (!existing) {
-            const tenant = await storage.createTenantCompany(tenantData);
-            createdTenants.push(tenant);
-            console.log(`✅ Created tenant: ${tenant.companyName}`);
-          } else {
-            console.log(`⏭️ Tenant ${tenantData.companyName} already exists`);
-          }
-        } catch (error) {
-          console.error(`❌ Failed to create tenant ${tenantData.companyName}:`, error);
-        }
-      }
-
-      res.json({
-        success: true,
-        message: `Generated ${createdTenants.length} sample tenant companies`,
-        tenants: createdTenants
-      });
-    } catch (error) {
-      console.error("Error generating sample tenants:", error);
-      res.status(500).json({ error: "Failed to generate sample tenants" });
-    }
-  });
-
-  // Generate sample staff for each tenant
-  app.post("/api/super-admin/generate-sample-staff", async (req, res) => {
-    try {
-      const tenants = await storage.getAllTenantCompanies();
-      const createdStaff = [];
-
-      const sampleStaffByTenant = {
-        "techventure": [
-          { firstName: "Sarah", lastName: "Chen", email: "sarah.chen@techventure.com", department: "Management", employeeId: "TV001", accessLevel: "admin" },
-          { firstName: "David", lastName: "Kumar", email: "david.kumar@techventure.com", department: "Engineering", employeeId: "TV002", accessLevel: "staff" },
-          { firstName: "Lisa", lastName: "Rodriguez", email: "lisa.rodriguez@techventure.com", department: "Product", employeeId: "TV003", accessLevel: "staff" },
-          { firstName: "Michael", lastName: "Brown", email: "michael.brown@techventure.com", department: "Sales", employeeId: "TV004", accessLevel: "staff" },
-          { firstName: "Anita", lastName: "Singh", email: "anita.singh@techventure.com", department: "Marketing", employeeId: "TV005", accessLevel: "supervisor" }
-        ],
-        "creativestudio": [
-          { firstName: "Marcus", lastName: "Rivera", email: "marcus.rivera@creativestudio.com", department: "Creative Director", employeeId: "CS001", accessLevel: "admin" },
-          { firstName: "Sophie", lastName: "Martin", email: "sophie.martin@creativestudio.com", department: "Design", employeeId: "CS002", accessLevel: "staff" },
-          { firstName: "Alex", lastName: "Johnson", email: "alex.johnson@creativestudio.com", department: "Photography", employeeId: "CS003", accessLevel: "staff" },
-          { firstName: "Maya", lastName: "Patel", email: "maya.patel@creativestudio.com", department: "Animation", employeeId: "CS004", accessLevel: "staff" }
-        ],
-        "financefirst": [
-          { firstName: "Emma", lastName: "Thompson", email: "emma.thompson@financefirst.com", department: "Management", employeeId: "FF001", accessLevel: "admin" },
-          { firstName: "Robert", lastName: "Davis", email: "robert.davis@financefirst.com", department: "Financial Analysis", employeeId: "FF002", accessLevel: "manager" },
-          { firstName: "Grace", lastName: "Lee", email: "grace.lee@financefirst.com", department: "Accounting", employeeId: "FF003", accessLevel: "staff" },
-          { firstName: "Thomas", lastName: "White", email: "thomas.white@financefirst.com", department: "Tax Advisory", employeeId: "FF004", accessLevel: "staff" },
-          { firstName: "Rachel", lastName: "Green", email: "rachel.green@financefirst.com", department: "Compliance", employeeId: "FF005", accessLevel: "supervisor" },
-          { firstName: "Daniel", lastName: "Anderson", email: "daniel.anderson@financefirst.com", department: "Investment", employeeId: "FF006", accessLevel: "staff" }
-        ],
-        "digitalmarketing": [
-          { firstName: "James", lastName: "Wilson", email: "james.wilson@digitalmarketing.com", department: "Management", employeeId: "DM001", accessLevel: "admin" },
-          { firstName: "Kelly", lastName: "Turner", email: "kelly.turner@digitalmarketing.com", department: "SEO", employeeId: "DM002", accessLevel: "staff" },
-          { firstName: "Ryan", lastName: "Clark", email: "ryan.clark@digitalmarketing.com", department: "Social Media", employeeId: "DM003", accessLevel: "staff" },
-          { firstName: "Natalie", lastName: "Moore", email: "natalie.moore@digitalmarketing.com", department: "Content", employeeId: "DM004", accessLevel: "staff" },
-          { firstName: "Chris", lastName: "Garcia", email: "chris.garcia@digitalmarketing.com", department: "PPC", employeeId: "DM005", accessLevel: "supervisor" }
-        ],
-        "cloudsoft": [
-          { firstName: "Priya", lastName: "Patel", email: "priya.patel@cloudsoft.com", department: "Management", employeeId: "CS001", accessLevel: "admin" },
-          { firstName: "Kevin", lastName: "Zhang", email: "kevin.zhang@cloudsoft.com", department: "DevOps", employeeId: "CS002", accessLevel: "manager" },
-          { firstName: "Amanda", lastName: "Taylor", email: "amanda.taylor@cloudsoft.com", department: "Cloud Architecture", employeeId: "CS003", accessLevel: "staff" },
-          { firstName: "Ian", lastName: "Mitchell", email: "ian.mitchell@cloudsoft.com", department: "Security", employeeId: "CS004", accessLevel: "staff" },
-          { firstName: "Laura", lastName: "Adams", email: "laura.adams@cloudsoft.com", department: "Support", employeeId: "CS005", accessLevel: "staff" },
-          { firstName: "Ben", lastName: "Carter", email: "ben.carter@cloudsoft.com", department: "Sales", employeeId: "CS006", accessLevel: "supervisor" }
-        ]
-      };
-
-      for (const tenant of tenants) {
-        if (sampleStaffByTenant[tenant.slug]) {
-          const staffList = sampleStaffByTenant[tenant.slug];
-          for (const staffData of staffList) {
-            try {
-              const existingStaff = await storage.getStaffByEmail(staffData.email);
-              if (!existingStaff) {
-                const newStaff = await storage.createStaff({
-                  ...staffData,
-                  tenantCompanyId: tenant.id,
-                  password: staffData.accessLevel === 'admin' || staffData.accessLevel === 'supervisor' ? 'tempPassword123' : null,
-                  isCheckedIn: Math.random() > 0.5, // Randomly check in some staff
-                  checkedInAt: Math.random() > 0.5 ? new Date() : null
-                });
-                createdStaff.push(newStaff);
-                console.log(`✅ Created staff: ${staffData.firstName} ${staffData.lastName} for ${tenant.companyName}`);
-              } else {
-                console.log(`⏭️ Staff ${staffData.firstName} ${staffData.lastName} already exists`);
-              }
-            } catch (error) {
-              console.error(`❌ Failed to create staff ${staffData.firstName} ${staffData.lastName}:`, error);
-            }
-          }
-        }
-      }
-
-      res.json({
-        success: true,
-        message: `Generated ${createdStaff.length} sample staff members`,
-        staff: createdStaff
-      });
-    } catch (error) {
-      console.error("Error generating sample staff:", error);
-      res.status(500).json({ error: "Failed to generate sample staff" });
-    }
-  });
-
-  app.get("/api/tenants/:slug/visitors/pre-booked", async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const tenant = await storage.getTenantCompanyBySlug(slug);
-      if (!tenant) {
-        return res.status(404).json({ error: "Tenant not found" });
-      }
-      const preBookedVisitors = await storage.getPreBookedVisitorsByTenant(tenant.id);
-      res.json(preBookedVisitors);
-    } catch (error) {
-      console.error("Error fetching pre-booked visitors:", error);
-      res.status(500).json({ error: "Failed to fetch pre-booked visitors" });
-    }
-  });
-
-  app.post("/api/tenants/:slug/visitors/pre-book", async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const tenant = await storage.getTenantBySlug(slug);
-      if (!tenant) {
-        return res.status(404).json({ error: "Tenant not found" });
-      }
-      const visitorData = {
-        ...req.body,
-        tenantId: tenant.id,
-        isPreBooked: true,
-        checkedInAt: null,
-        checkedOutAt: null,
-        isCheckedIn: false,
-      };
-      const visitor = await storage.createVisitor(visitorData);
-      res.json(visitor);
-    } catch (error) {
-      console.error("Error pre-booking visitor:", error);
-      res.status(500).json({ error: "Failed to pre-book visitor" });
-    }
-  });
 
   // ===== MEETING ROOM ENDPOINTS =====
   // Meeting Rooms Management
@@ -15862,21 +15420,12 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to check availability" });
       }
       
-      // CRITICAL FIX: Map customerId to tenant_company_id (same logic as POST booking)
-      const tenantCompanyResult = await db
-        .select({ id: tenantCompanies.id })
-        .from(tenantCompanies)
-        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
-        .limit(1);
-      
-      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId;
-      
       const isAvailable = await storage.checkRoomAvailability(
         roomId as string,
         new Date(startDateTime as string),
         new Date(endDateTime as string),
         excludeBookingId as string,
-        tenantCompanyId
+        customerId
       );
       
       if (isAvailable) {
@@ -15942,18 +15491,8 @@ This is an automated notification from your visitor management system.`;
       
       const { room_id, start_date, end_date } = req.query;
       
-      // Map customerId to tenant_company_id for database query
-      const tenantCompanyResult = await db
-        .select({ id: tenantCompanies.id })
-        .from(tenantCompanies)
-        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
-        .limit(1);
-      
-      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId;
-      
-      // Always filter by customer for multi-tenant isolation
-      const bookings = await storage.getRoomBookingsByTenant(
-        tenantCompanyId,
+      const bookings = await storage.getRoomBookingsByCustomer(
+        customerId,
         start_date ? new Date(start_date as string) : undefined,
         end_date ? new Date(end_date as string) : undefined
       );
@@ -15998,7 +15537,6 @@ This is an automated notification from your visitor management system.`;
           startTime: isolatedSchema.roomBookings.startTime,
           endTime: isolatedSchema.roomBookings.endTime,
           bookedByStaffId: isolatedSchema.roomBookings.bookedByStaffId,
-          tenantCompanyId: isolatedSchema.roomBookings.tenantCompanyId,
           attendeeCount: isolatedSchema.roomBookings.attendeeCount,
           expectedAttendees: isolatedSchema.roomBookings.expectedAttendees,
           status: isolatedSchema.roomBookings.status,
@@ -16091,11 +15629,6 @@ This is an automated notification from your visitor management system.`;
         return res.status(404).json({ error: "Room booking not found" });
       }
       
-      // SECURITY: Verify customer owns this booking
-      if (booking.tenantCompanyId !== customerId) {
-        return res.status(403).json({ error: "Not authorized to view this booking" });
-      }
-      
       res.json(booking);
     } catch (error) {
       console.error("Error fetching room booking:", error);
@@ -16127,16 +15660,6 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Unable to identify staff member for booking" });
       }
       
-      // CRITICAL FIX: Get tenant company ID from customer ID (database has customer_id column)
-      // Query tenant_companies to find the row where customer_id = req.customerId
-      const tenantCompanyResult = await db
-        .select({ id: tenantCompanies.id })
-        .from(tenantCompanies)
-        .where(sql`${tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${customerId})`)
-        .limit(1);
-      
-      const tenantCompanyId = tenantCompanyResult[0]?.id || customerId; // Fallback to customerId for availability check compatibility
-      
       // Validate required fields
       if (!bookingData.roomId || !bookingData.startDateTime || !bookingData.endDateTime) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -16148,7 +15671,7 @@ This is an automated notification from your visitor management system.`;
         new Date(bookingData.startDateTime),
         new Date(bookingData.endDateTime),
         undefined,
-        tenantCompanyId
+        customerId
       );
 
       if (!isAvailable) {
@@ -16157,10 +15680,9 @@ This is an automated notification from your visitor management system.`;
         });
       }
 
-      // Create the booking with tenant isolation
+      // Create the booking
       const booking = await storage.createRoomBooking({
         ...bookingData,
-        tenantCompanyId,
         bookedByStaffId,
       });
       
@@ -16218,21 +15740,15 @@ This is an automated notification from your visitor management system.`;
       const { id } = req.params;
       const updates = req.body;
       
-      // SECURITY: Strictly use authenticated user's customer context
-      const tenantCompanyId = req.customerId;
-      if (!tenantCompanyId) {
+      const customerId = req.customerId;
+      if (!customerId) {
         return res.status(401).json({ error: "Please log in to update bookings" });
       }
       
-      // SECURITY: Verify tenant ownership before any updates
+      // Verify booking exists
       const currentBooking = await storage.getRoomBookingById(id);
       if (!currentBooking) {
         return res.status(404).json({ error: "Room booking not found" });
-      }
-      
-      // CRITICAL: Enforce data isolation - prevent unauthorized updates
-      if (currentBooking.tenantCompanyId !== tenantCompanyId) {
-        return res.status(403).json({ error: "You don't have permission to modify this booking" });
       }
       
       // If updating time, check availability
@@ -16245,7 +15761,7 @@ This is an automated notification from your visitor management system.`;
           startTime,
           endTime,
           id, // Exclude current booking from availability check
-          tenantCompanyId
+          customerId
         );
 
         if (!isAvailable) {
@@ -16320,11 +15836,6 @@ This is an automated notification from your visitor management system.`;
         return res.status(404).json({ error: "Room booking not found" });
       }
       
-      // SECURITY: Verify customer owns this booking
-      if (fullBooking.tenantCompanyId !== customerId) {
-        return res.status(403).json({ error: "Not authorized to cancel this booking" });
-      }
-      
       const booking = await storage.cancelRoomBooking(id, cancelledBy);
       
       if (!booking) {
@@ -16374,10 +15885,6 @@ This is an automated notification from your visitor management system.`;
       const booking = await storage.getRoomBookingById(id);
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
-      }
-      
-      if (booking.tenantCompanyId !== customerId) {
-        return res.status(403).json({ error: "Not authorized to delete this booking" });
       }
       
       const success = await storage.deleteRoomBooking(id);
@@ -16454,12 +15961,7 @@ This is an automated notification from your visitor management system.`;
         minutes ? parseInt(minutes as string) : 15
       );
       
-      // SECURITY: Filter by customer
-      const filteredBookings = upcomingBookings.filter(
-        booking => booking.tenantCompanyId === customerId
-      );
-      
-      res.json(filteredBookings);
+      res.json(upcomingBookings);
     } catch (error) {
       console.error("Error fetching upcoming bookings:", error);
       res.status(500).json({ error: "Failed to fetch upcoming bookings" });
@@ -19070,25 +18572,14 @@ This is an automated notification from your visitor management system.`;
       // If authenticated, get booking count for this customer
       if (req.customerId) {
         try {
-          const tenantCompanyResult = await db
-            .select({ id: sharedSchema.tenantCompanies.id })
-            .from(sharedSchema.tenantCompanies)
-            .where(sql`${sharedSchema.tenantCompanies.id} IN (SELECT id FROM tenant_companies WHERE customer_id = ${req.customerId})`)
-            .limit(1);
+          const bookingsCount = await db
+            .select({ count: sql`count(*)` })
+            .from(isolatedSchema.roomBookings);
           
-          const tenantCompanyId = tenantCompanyResult[0]?.id;
-          
-          if (tenantCompanyId) {
-            const bookingsCount = await db
-              .select({ count: sql`count(*)` })
-              .from(isolatedSchema.roomBookings)
-              .where(eq(isolatedSchema.roomBookings.tenantCompanyId, tenantCompanyId));
-            
-            diagnostics.database = {
-              tenantCompanyId,
-              roomBookingsCount: Number(bookingsCount[0]?.count || 0)
-            };
-          }
+          diagnostics.database = {
+            customerId: req.customerId,
+            roomBookingsCount: Number(bookingsCount[0]?.count || 0)
+          };
         } catch (dbError) {
           diagnostics.database = {
             error: 'Failed to query database',

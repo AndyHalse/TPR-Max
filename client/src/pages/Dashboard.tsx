@@ -226,9 +226,6 @@ export default function Dashboard() {
     hostLastName: string | null;
     hostDepartment: string | null;
     hostEmail: string | null;
-    tenantCompanyName: string | null;
-    tenantSlug: string | null;
-    tenantPrimaryColor: string | null;
   }>>({
     queryKey: [
       "/api/reception/diary",
@@ -995,9 +992,6 @@ export default function Dashboard() {
                                           {entry.visitorFirstName} {entry.visitorLastName}
                                         </span>
                                       </div>
-                                      <Badge variant="outline" className="text-xs" style={{ backgroundColor: entry.tenantPrimaryColor + '20', borderColor: entry.tenantPrimaryColor }}>
-                                        {entry.tenantCompanyName}
-                                      </Badge>
                                     </div>
                                     
                                     <div className="space-y-1 text-xs sm:text-sm">
@@ -2008,16 +2002,6 @@ export default function Dashboard() {
                       {formatVisitTime(new Date(selectedVisitorBooking.visitDate))}
                     </span>
                   </div>
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs whitespace-nowrap w-fit" 
-                    style={{ 
-                      backgroundColor: selectedVisitorBooking.tenantPrimaryColor + '20', 
-                      borderColor: selectedVisitorBooking.tenantPrimaryColor 
-                    }}
-                  >
-                    {selectedVisitorBooking.tenantCompanyName}
-                  </Badge>
                 </div>
               </div>
 

@@ -19,7 +19,6 @@ import {
   Clock,
   TrendingUp,
   Users,
-  Building,
   HardDrive
 } from "lucide-react";
 
@@ -38,7 +37,6 @@ interface SubscriptionPlan {
     maxVisitorsPerMonth: number;
     maxStaff: number;
     maxMeetingRooms: number;
-    maxTenants: number;
     maxStorageGb: number;
   };
 }
@@ -347,17 +345,6 @@ export default function Billing() {
                     <div className="text-2xl font-bold">{usage.staffCount}</div>
                     <div className="text-xs text-muted-foreground">
                       of {limits.maxStaff} limit
-                    </div>
-                  </div>
-                  
-                  <div className="bg-background/50 p-4 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Building className="h-4 w-4 text-purple-600" />
-                      <span className="text-sm font-medium">Tenants</span>
-                    </div>
-                    <div className="text-2xl font-bold">{usage.tenantsCount}</div>
-                    <div className="text-xs text-muted-foreground">
-                      of {limits.maxTenants} limit
                     </div>
                   </div>
                   

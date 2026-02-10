@@ -15,8 +15,6 @@ export const customers = pgTable("customers", {
   // Status
   isActive: boolean("is_active").default(true).notNull(),
   // System limits  
-  maxTenants: integer("max_tenants").default(10), // How many building tenants this customer can have
-  maxUsersPerTenant: integer("max_users_per_tenant").default(50),
   maxVisitorsPerMonth: integer("max_visitors_per_month").default(1000),
   // Onboarding & Support
   onboardingCompleted: boolean("onboarding_completed").default(false),
@@ -161,8 +159,6 @@ export const staff = pgTable("staff", {
   email: text("email").notNull().unique(),
   department: text("department").notNull(),
   employeeId: text("employee_id").notNull().unique(),
-  // Multi-Tenant: Link staff to tenant company
-  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   photoUrl: text("photo_url"),
   accessLevel: text("access_level").notNull().default("staff"), // admin, supervisor, manager, staff, security, visitor, fire_marshal
   password: text("password"), // Only for admin and supervisor levels
@@ -323,8 +319,6 @@ export const visitors = pgTable("visitors", {
   purpose: text("purpose"),
   carRegistration: text("car_registration"),
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
-  // Multi-Tenant: Link visitor to the tenant company they're visiting
-  visitingTenantId: varchar("visiting_tenant_id").references(() => tenantCompanies.id),
   // Pre-booking functionality
   isPreBooked: boolean("is_pre_booked").default(false).notNull(),
   expectedDateTime: timestamp("expected_date_time"),
@@ -369,9 +363,6 @@ export const visitorHistory = pgTable("visitor_history", {
   purpose: text("purpose"),
   hostStaffId: varchar("host_staff_id").references(() => staff.id),
   hostName: text("host_name"), // Store host name for historical reference
-  // Tenant information
-  visitingTenantId: varchar("visiting_tenant_id").references(() => tenantCompanies.id),
-  tenantCompanyName: text("tenant_company_name"), // Store for history even if tenant is deleted
   // Compliance tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),
@@ -436,9 +427,6 @@ export const preBookings = pgTable("pre_bookings", {
   emailSentAt: timestamp("email_sent_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  // Multi-tenant columns - not used yet
-  // meetingRoomId: varchar("meeting_room_id").references(() => meetingRooms.id),
-  // tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
 });
 
 // ==============================================
@@ -459,7 +447,6 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   maxVisitorsPerMonth: integer("max_visitors_per_month").notNull().default(1000),
   maxStaff: integer("max_staff").notNull().default(50),
   maxMeetingRooms: integer("max_meeting_rooms").notNull().default(10),
-  maxTenants: integer("max_tenants").notNull().default(5),
   maxStorageGb: integer("max_storage_gb").notNull().default(10),
   // Feature Flags - JSON array of enabled features
   features: text("features").array().notNull().default([]), // ["api_access", "advanced_reporting", "custom_branding"]
@@ -991,77 +978,10 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email"),
   role: text("role").notNull().default("user"), // admin, user, tenant_admin, tenant_staff
-  // Multi-Tenant: Link user to tenant company for tenant isolation
-  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   firstName: text("first_name"),
   lastName: text("last_name"),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// Multi-Tenant Serviced Office Management
-// Tenant Companies - Each company renting space in the building
-export const tenantCompanies = pgTable("tenant_companies", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  // CUSTOMER ISOLATION: Each tenant company belongs to a specific customer
-  customerId: varchar("customer_id").notNull().references(() => customers.id),
-  companyName: text("company_name").notNull().unique(),
-  slug: text("slug").notNull().unique(), // For URL routing: acme.replit.app or /acme/login
-  logoUrl: text("logo_url"),
-  // Contact Information
-  contactEmail: text("contact_email").notNull(),
-  phone: text("phone"),
-  address: text("address"),
-  website: text("website"),
-  // Tenant Admin Contact
-  adminFirstName: text("admin_first_name"),
-  adminLastName: text("admin_last_name"),
-  adminEmail: text("admin_email"),
-  // Subscription & Status
-  isActive: boolean("is_active").default(true).notNull(),
-  subscriptionTier: text("subscription_tier").default("basic"), // basic, premium, enterprise
-  subscriptionExpires: timestamp("subscription_expires"),
-  maxUsers: integer("max_users").default(50),
-  maxVisitorsPerMonth: integer("max_visitors_per_month").default(1000),
-  // Branding Settings
-  primaryColor: text("primary_color").default("#3b82f6"),
-  secondaryColor: text("secondary_color").default("#64748b"),
-  // Custom Fields for Visitor Registration
-  customVisitorFields: text("custom_visitor_fields").array().default([]), // JSON field names
-  // API Access
-  apiKeyEnabled: boolean("api_key_enabled").default(false),
-  apiKey: text("api_key"), // For integrations
-  // Data Privacy & GDPR
-  dataRetentionDays: integer("data_retention_days").default(365),
-  gdprContactEmail: text("gdpr_contact_email"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// Building/Super Admin Settings (replaces single companySettings)
-export const buildingSettings = pgTable("building_settings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  // CUSTOMER ISOLATION: Each building setting belongs to a specific customer
-  customerId: varchar("customer_id").notNull().references(() => customers.id),
-  buildingName: text("building_name").notNull().default("Serviced Office Building"),
-  buildingAddress: text("building_address"),
-  managementCompany: text("management_company").notNull().default("Building Management Ltd"),
-  logoUrl: text("logo_url"),
-  // Super Admin Contact
-  superAdminEmail: text("super_admin_email").notNull(),
-  phone: text("phone"),
-  website: text("website"),
-  // Global Settings for All Tenants
-  allowTenantSelfSignup: boolean("allow_tenant_self_signup").default(false),
-  maxTenantsAllowed: integer("max_tenants_allowed").default(100),
-  defaultVisitorRetention: integer("default_visitor_retention").default(90), // days
-  // Emergency & Security
-  emergencyPhone: text("emergency_phone"),
-  securityCompany: text("security_company"),
-  // Notifications
-  notifyNewTenantSignup: boolean("notify_new_tenant_signup").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -2149,24 +2069,6 @@ export type InsertContractorVisit = z.infer<typeof insertContractorVisitSchema>;
 export type ContractorPreBooking = typeof contractorPreBookings.$inferSelect;
 export type InsertContractorPreBooking = z.infer<typeof insertContractorPreBookingSchema>;
 
-// Multi-Tenant Types and Schemas
-export const insertTenantCompanySchema = createInsertSchema(tenantCompanies).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertBuildingSettingsSchema = createInsertSchema(buildingSettings).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type TenantCompany = typeof tenantCompanies.$inferSelect;
-export type InsertTenantCompany = z.infer<typeof insertTenantCompanySchema>;
-export type BuildingSettings = typeof buildingSettings.$inferSelect;
-export type InsertBuildingSettings = z.infer<typeof insertBuildingSettingsSchema>;
-
 // Meeting Room Management System
 export const meetingRooms = pgTable("meeting_rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2175,8 +2077,6 @@ export const meetingRooms = pgTable("meeting_rooms", {
   location: text("location").notNull(), // Floor, Wing, etc.
   capacity: integer("capacity").notNull(),
   
-  // Multi-tenant support
-  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   isSharedRoom: boolean("is_shared_room").default(false).notNull(), // Available to all tenants
   
   // Equipment and amenities
@@ -2216,7 +2116,6 @@ export const roomBookings = pgTable("room_bookings", {
   
   // Who booked it
   bookedByStaffId: varchar("booked_by_staff_id").notNull().references(() => staff.id),
-  tenantCompanyId: varchar("tenant_company_id").references(() => tenantCompanies.id),
   
   // Attendees
   expectedAttendees: integer("expected_attendees").notNull(),

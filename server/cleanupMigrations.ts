@@ -170,7 +170,6 @@ export const removeCustomerIdColumnsMigration: Migration = {
       'pre_bookings',
       'departments',
       'users',
-      'tenant_companies',
       'company_settings'
     ];
 
@@ -234,7 +233,6 @@ export const createMeetingRoomsMigration: Migration = {
           location TEXT,
           equipment TEXT[] DEFAULT ARRAY[]::TEXT[],
           is_active BOOLEAN DEFAULT true NOT NULL,
-          tenant_company_id VARCHAR REFERENCES tenant_companies(id),
           hourly_rate DOUBLE PRECISION DEFAULT 0,
           created_at TIMESTAMP DEFAULT NOW() NOT NULL,
           updated_at TIMESTAMP DEFAULT NOW() NOT NULL
@@ -258,7 +256,6 @@ export const createMeetingRoomsMigration: Migration = {
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
           meeting_room_id VARCHAR NOT NULL REFERENCES meeting_rooms(id),
           booked_by_staff_id VARCHAR REFERENCES staff(id),
-          tenant_company_id VARCHAR REFERENCES tenant_companies(id),
           title TEXT NOT NULL,
           description TEXT,
           start_time TIMESTAMP NOT NULL,

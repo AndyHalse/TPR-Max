@@ -97,7 +97,6 @@ export function registerBillingRoutes(app: Express) {
             maxVisitorsPerMonth: plan.maxVisitorsPerMonth,
             maxStaff: plan.maxStaff,
             maxMeetingRooms: plan.maxMeetingRooms,
-            maxTenants: plan.maxTenants,
             maxStorageGb: plan.maxStorageGb
           }
         }
@@ -378,7 +377,6 @@ export function registerBillingRoutes(app: Express) {
           maxVisitorsPerMonth: subscriptionData.plan.maxVisitorsPerMonth,
           maxStaff: subscriptionData.plan.maxStaff,
           maxMeetingRooms: subscriptionData.plan.maxMeetingRooms,
-          maxTenants: subscriptionData.plan.maxTenants,
           maxStorageGb: subscriptionData.plan.maxStorageGb
         } : null,
         subscription: subscriptionData

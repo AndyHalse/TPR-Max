@@ -214,8 +214,6 @@ export class CustomerDatabaseService {
           createdAt: new Date('2024-01-01'),
           planType: 'premium',
           subscriptionStatus: 'active',
-          maxTenants: 5,
-          maxUsersPerTenant: 50,
           maxVisitorsPerMonth: 1000,
           supportContactEmail: customerData.contactEmail,
           apiKeyEnabled: true

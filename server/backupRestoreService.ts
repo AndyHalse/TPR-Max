@@ -253,7 +253,6 @@ export class BackupRestoreService {
       visitorHistory: exportData.visitorHistory?.length || 0,
       departments: exportData.departments?.length || 0,
       users: exportData.users?.length || 0,
-      tenantCompanies: exportData.tenantCompanies?.length || 0,
       preBookings: exportData.preBookings?.length || 0,
       staffSessions: exportData.staffSessions?.length || 0
     };
@@ -334,7 +333,6 @@ export class BackupRestoreService {
       visitorHistory: 0,
       departments: 0,
       users: 0,
-      tenantCompanies: 0,
       preBookings: 0,
       staffSessions: 0
     };
@@ -374,7 +372,6 @@ export interface TableStats {
   visitorHistory: number;
   departments: number;
   users: number;
-  tenantCompanies: number;
   preBookings: number;
   staffSessions: number;
 }

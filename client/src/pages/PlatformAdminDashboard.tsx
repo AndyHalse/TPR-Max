@@ -28,8 +28,6 @@ interface Customer {
   contactEmail: string;
   isActive: boolean;
   onboardingCompleted: boolean;
-  maxTenants: number;
-  maxUsersPerTenant: number;
   maxVisitorsPerMonth: number;
   stripeCustomerId: string | null;
   createdAt: string;
@@ -230,8 +228,6 @@ export default function PlatformAdminDashboard() {
   const [editForm, setEditForm] = useState({
     companyName: '',
     contactEmail: '',
-    maxTenants: 10,
-    maxUsersPerTenant: 50,
     maxVisitorsPerMonth: 1000,
   });
 
@@ -245,8 +241,6 @@ export default function PlatformAdminDashboard() {
       setEditForm({
         companyName: editingCustomer.companyName,
         contactEmail: editingCustomer.contactEmail,
-        maxTenants: editingCustomer.maxTenants,
-        maxUsersPerTenant: editingCustomer.maxUsersPerTenant,
         maxVisitorsPerMonth: editingCustomer.maxVisitorsPerMonth,
       });
       setCredentialReset({ username: '', password: '' });
@@ -464,10 +458,6 @@ export default function PlatformAdminDashboard() {
                         {customer.contactEmail} • {customer.slug}
                       </p>
                       <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                        <span>Max {customer.maxTenants} tenants</span>
-                        <span>•</span>
-                        <span>{customer.maxUsersPerTenant} users/tenant</span>
-                        <span>•</span>
                         <span>{customer.maxVisitorsPerMonth} visitors/month</span>
                       </div>
                     </div>
@@ -691,29 +681,7 @@ export default function PlatformAdminDashboard() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-maxTenants">Max Tenants</Label>
-                <Input
-                  id="edit-maxTenants"
-                  type="number"
-                  value={editForm.maxTenants}
-                  onChange={(e) => setEditForm({ ...editForm, maxTenants: parseInt(e.target.value) })}
-                  data-testid="input-edit-max-tenants"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-maxUsersPerTenant">Max Users/Tenant</Label>
-                <Input
-                  id="edit-maxUsersPerTenant"
-                  type="number"
-                  value={editForm.maxUsersPerTenant}
-                  onChange={(e) => setEditForm({ ...editForm, maxUsersPerTenant: parseInt(e.target.value) })}
-                  data-testid="input-edit-max-users-per-tenant"
-                />
-              </div>
-
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-maxVisitorsPerMonth">Max Visitors/Month</Label>
                 <Input

@@ -66,7 +66,6 @@ export default function MeetingRooms() {
       hasCatering: false,
       isActive: true,
       isSharedRoom: true,
-      tenantCompanyId: null,
     },
   });
 
@@ -140,7 +139,6 @@ export default function MeetingRooms() {
       hasCatering: room.hasCatering,
       isActive: room.isActive,
       isSharedRoom: room.isSharedRoom,
-      tenantCompanyId: room.tenantCompanyId,
     });
     setIsDialogOpen(true);
   };
@@ -708,7 +706,6 @@ export default function MeetingRooms() {
             onBookingEdit={handleBookingEdit}
             onBookingCancel={handleBookingCancel}
             onCreateBooking={handleCreateBooking}
-            tenantId="0f97f5a9-2b83-45ae-9ebf-cead4a9abd6a"
           />
         </TabsContent>
       </Tabs>

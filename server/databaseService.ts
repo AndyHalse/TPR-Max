@@ -13,8 +13,6 @@ import type {
   InsertCompanySettings,
   Department,
   InsertDepartment,
-  TenantCompany,
-  InsertTenantCompany,
   PreBooking,
   InsertPreBooking,
 } from "./isolatedSchema";
@@ -34,7 +32,6 @@ import bcrypt from "bcryptjs";
  * - True database-level isolation per customer
  * - No customerId filters needed (each DB belongs to one customer)
  * - Complete data separation at the infrastructure level
- * - Tenant-level isolation within customer databases
  * 
  * Each method requires CustomerContext to route to the correct customer database.
  */
@@ -85,23 +82,14 @@ export class DatabaseService {
   }
 
   /**
-   * STAFF METHODS - Customer & Tenant Isolated
+   * STAFF METHODS - Customer Isolated
    */
   async getAllStaff(context: CustomerContext): Promise<Staff[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    if (context.tenantId) {
-      // Filter by tenant within this customer's database
-      return await db
-        .select()
-        .from(isolatedSchema.staff)
-        .where(eq(isolatedSchema.staff.tenantCompanyId, context.tenantId));
-    } else {
-      // Get all staff in this customer's database
-      return await db
-        .select()
-        .from(isolatedSchema.staff);
-    }
+    return await db
+      .select()
+      .from(isolatedSchema.staff);
   }
 
   async getStaffById(context: CustomerContext, id: string): Promise<Staff | undefined> {
@@ -313,7 +301,7 @@ export class DatabaseService {
   }
 
   /**
-   * VISITOR METHODS - Customer & Tenant Isolated
+   * VISITOR METHODS - Customer Isolated
    */
   async getAllVisitors(context: CustomerContext): Promise<Visitor[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
@@ -412,7 +400,7 @@ export class DatabaseService {
         checkOutTime: null,
         purpose: visitor.purpose || '',
         hostStaffId: visitor.hostStaffId,
-        visitingTenantId: visitor.visitingTenantId,
+
         inductionCompleted: visitor.inductionCompleted || false,
         inductionCompletedAt: visitor.inductionCompletedAt,
         hsRulesAccepted: visitor.hsRulesAccepted || false,
@@ -498,7 +486,7 @@ export class DatabaseService {
           checkOutTime: checkOutTime,
           purpose: visitor.purpose || '',
           hostStaffId: visitor.hostStaffId,
-          visitingTenantId: visitor.visitingTenantId,
+  
           inductionCompleted: visitor.inductionCompleted || false,
           inductionCompletedAt: visitor.inductionCompletedAt,
           hsRulesAccepted: visitor.hsRulesAccepted || false,
@@ -527,21 +515,11 @@ export class DatabaseService {
       }
     }
     
-    // Get tenant company name if tenant ID is provided
-    let tenantCompanyName = undefined;
-    if (historyData.visitingTenantId) {
-      const tenant = await this.getTenantCompanyById(context, historyData.visitingTenantId);
-      if (tenant) {
-        tenantCompanyName = tenant.companyName;
-      }
-    }
-    
     const [history] = await db
       .insert(isolatedSchema.visitorHistory)
       .values({
         ...historyData,
         hostName,
-        tenantCompanyName
       })
       .returning();
     
@@ -558,18 +536,6 @@ export class DatabaseService {
       .orderBy(desc(isolatedSchema.visitorHistory.checkInTime));
   }
   
-  async getTenantCompanyById(context: CustomerContext, id: string): Promise<TenantCompany | undefined> {
-    const db = await customerDbService.getCustomerDatabase(context.customerId);
-    
-    const [tenant] = await db
-      .select()
-      .from(isolatedSchema.tenantCompanies)
-      .where(eq(isolatedSchema.tenantCompanies.id, id))
-      .limit(1);
-    
-    return tenant;
-  }
-
   async deleteVisitor(context: CustomerContext, id: string): Promise<boolean> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
@@ -651,7 +617,7 @@ export class DatabaseService {
         checkOutTime: null,
         purpose: visitor.purpose || '',
         hostStaffId: visitor.hostStaffId,
-        visitingTenantId: visitor.visitingTenantId,
+
         inductionCompleted: visitor.inductionCompleted || false,
         inductionCompletedAt: visitor.inductionCompletedAt,
         hsRulesAccepted: visitor.hsRulesAccepted || false,
@@ -1155,15 +1121,10 @@ export class DatabaseService {
     return user || undefined;
   }
 
-  async authenticateTenantUser(context: CustomerContext, username: string, password: string, tenantId?: string): Promise<User | null> {
+  async authenticateUser(context: CustomerContext, username: string, password: string): Promise<User | null> {
     try {
       const user = await this.getUserByUsername(context, username);
       if (!user) {
-        return null;
-      }
-
-      // Verify tenant access if specified
-      if (tenantId && user.tenantCompanyId !== tenantId) {
         return null;
       }
 
@@ -1174,7 +1135,7 @@ export class DatabaseService {
 
       return user;
     } catch (error) {
-      console.error('Tenant authentication error:', error);
+      console.error('Authentication error:', error);
       return null;
     }
   }
@@ -2916,7 +2877,6 @@ export class DatabaseService {
   createDevelopmentContext(): CustomerContext {
     return {
       customerId: 'dev-customer-001',
-      // No tenant specified - gets all data for this customer
     };
   }
 }

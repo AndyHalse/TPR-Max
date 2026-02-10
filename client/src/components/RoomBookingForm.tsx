@@ -70,7 +70,6 @@ interface RoomBookingFormProps {
   selectedDate?: Date;
   selectedRoomId?: string;
   editBooking?: any; // BookingWithDetails type
-  tenantId?: string;
 }
 
 export function RoomBookingForm({
@@ -79,7 +78,6 @@ export function RoomBookingForm({
   selectedDate,
   selectedRoomId,
   editBooking,
-  tenantId
 }: RoomBookingFormProps) {
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'checking' | 'available' | 'conflict' | 'error' | null>(null);
@@ -238,7 +236,6 @@ export function RoomBookingForm({
     mutationFn: async (data: BookingFormData) => {
       return await apiRequest('POST', '/api/room-bookings', {
         ...data,
-        tenantCompanyId: tenantId,
         status: 'confirmed',
         startDateTime: new Date(data.startDateTime).toISOString(),
         endDateTime: new Date(data.endDateTime).toISOString(),

@@ -1,6 +1,5 @@
-import { apiRequest } from "@/lib/queryClient";
 import { generateQRCode } from "@/lib/qr-generator";
-import type { Visitor, TenantCompany, Staff } from "@shared/schema";
+import type { Visitor, Staff } from "@shared/schema";
 
 interface PrintVisitorPassOptions {
   visitor: Visitor;
@@ -10,24 +9,9 @@ interface PrintVisitorPassOptions {
 
 export async function printVisitorPass({ visitor, staff, toast }: PrintVisitorPassOptions) {
   try {
-    // Fetch tenant company information for branding
-    let tenantCompany: TenantCompany | null = null;
-    
-    if (visitor.visitingTenantId) {
-      try {
-        const tenantResponse = await apiRequest("GET", `/api/super-admin/tenants/by-id/${visitor.visitingTenantId}`);
-        tenantCompany = await tenantResponse.json();
-      } catch (error) {
-        console.warn("Failed to fetch tenant company info:", error);
-      }
-    }
-    
-    // Get tenant-specific information with fallbacks
-    const companyName = tenantCompany?.companyName || "VisiGate Pro";
-    const companyAddress = tenantCompany?.address || "Address not provided";
-    const companyPhone = tenantCompany?.phone || "";
-    const companyWebsite = tenantCompany?.website || "";
-    const companyLogo = tenantCompany?.logoUrl;
+    const companyName = "VisiGate Pro";
+    const companyAddress = "Address not provided";
+    const companyLogo = null;
     
     // Find host staff member
     const hostStaff = staff?.find(s => s.id === visitor.hostStaffId);

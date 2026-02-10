@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { generateQRCode } from "@/lib/qr-generator";
 import { useQuery } from "@tanstack/react-query";
-import type { Visitor, CompanySettings, TenantCompany } from "@shared/schema";
+import type { Visitor, CompanySettings } from "@shared/schema";
 
 interface PassPreviewModalProps {
   isOpen: boolean;
@@ -20,12 +20,6 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
   // Load customer's visitor pass design
   const { data: passDesign } = useQuery<{ success: boolean; design: any[] }>({
     queryKey: ["/api/thermal-passes/design/visitor"],
-  });
-
-  // Fetch tenant company information for the visitor
-  const { data: tenantCompany } = useQuery<TenantCompany>({
-    queryKey: [`/api/super-admin/tenants/by-id/${visitor.visitingTenantId}`],
-    enabled: !!visitor.visitingTenantId,
   });
 
   const formatDate = (date: Date | string) => {
@@ -83,7 +77,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
       } else {
         // Fallback to default design if no custom design
         console.log('📄 Using default pass design');
-        printDefaultPass(visitorData, tenantCompany);
+        printDefaultPass(visitorData);
       }
     } catch (error) {
       console.error('❌ Print error:', error);
@@ -96,17 +90,16 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         passId: visitor.qrCode || visitor.id,
         qrCode: visitor.qrCode || visitor.id
-      }, tenantCompany);
+      });
     }
   };
 
-  const printDefaultPass = (visitorData: any, tenantCompany: any) => {
-    // Get tenant-specific information
-    const companyName = tenantCompany?.companyName || "Company Name";
-    const companyAddress = tenantCompany?.address || "Address not provided";
-    const companyPhone = tenantCompany?.phone || "";
-    const companyWebsite = tenantCompany?.website || "";
-    const companyLogo = tenantCompany?.logoUrl;
+  const printDefaultPass = (visitorData: any) => {
+    const companyName = "Company Name";
+    const companyAddress = "Address not provided";
+    const companyPhone = "";
+    const companyWebsite = "";
+    const companyLogo = null;
     
     // Direct printing with tenant-specific information
     const printWindow = window.open('', '_blank');
@@ -323,27 +316,17 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               <div className="flex items-start justify-between mb-2">
                 <div className="text-left flex-1 pr-2">
                   <h4 className="font-bold text-sm text-blue-900 leading-tight">
-                    {tenantCompany?.companyName || "Company Name"}
+                    {"Company Name"}
                   </h4>
                   <p className="text-xs text-variable font-semibold">Visitor Pass</p>
                   <p className="text-xs text-variable mt-1 leading-tight">
-                    {tenantCompany?.address || "Address not provided"}
+                    {"Address not provided"}
                   </p>
                 </div>
                 <div className="w-12 h-10 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  {tenantCompany?.logoUrl ? (
-                    <img 
-                      src={tenantCompany.logoUrl} 
-                      alt={`${tenantCompany.companyName} Logo`}
-                      className="max-w-full max-h-full object-contain"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">
-                        {(tenantCompany?.companyName || "CO").substring(0, 3).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
+                  <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center">
+                    <span className="text-white text-sm font-bold">CO</span>
+                  </div>
                 </div>
               </div>
               

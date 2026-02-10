@@ -27,8 +27,6 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
     trialDays: 14,
     timezone: "Europe/London",
     currency: "GBP",
-    maxTenants: 10,
-    maxUsersPerTenant: 50,
     maxVisitorsPerMonth: 1000,
   });
 
@@ -213,31 +211,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">System Limits</h3>
         
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="maxTenants">Max Tenants</Label>
-            <Input
-              id="maxTenants"
-              type="number"
-              data-testid="input-max-tenants"
-              value={formData.maxTenants}
-              onChange={(e) => handleChange("maxTenants", parseInt(e.target.value))}
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="maxUsersPerTenant">Max Users/Tenant</Label>
-            <Input
-              id="maxUsersPerTenant"
-              type="number"
-              data-testid="input-max-users-per-tenant"
-              value={formData.maxUsersPerTenant}
-              onChange={(e) => handleChange("maxUsersPerTenant", parseInt(e.target.value))}
-              required
-            />
-          </div>
-          
+        <div className="grid grid-cols-1 gap-4">
           <div className="space-y-2">
             <Label htmlFor="maxVisitorsPerMonth">Max Visitors/Month</Label>
             <Input

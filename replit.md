@@ -1,7 +1,7 @@
 # TPR Max - Visitor Management System
 
 ## Overview
-TPR Max is a cloud-based Software-as-a-Service (SAAS) visitor management system designed to efficiently manage visitors, contractors, and staff. It generates standardized ID passes with unique QR codes for tracking and security. The system features a modern glassmorphism UI, an intuitive kiosk-style check-in interface, and comprehensive administrative dashboards. Built on a multi-tenant architecture (React, Express, PostgreSQL), it ensures data isolation for each company, aiming to provide an enterprise-grade, stable, and secure visitor management solution.
+TPR Max is a cloud-based Software-as-a-Service (SAAS) visitor management system designed to efficiently manage visitors, contractors, and staff. It generates standardized ID passes with unique QR codes for tracking and security. The system features a modern glassmorphism UI, an intuitive kiosk-style check-in interface, and comprehensive administrative dashboards. Built on a single-tenant-per-database architecture (React, Express, PostgreSQL), each customer gets their own isolated PostgreSQL database, aiming to provide an enterprise-grade, stable, and secure visitor management solution.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -23,28 +23,28 @@ Preferred communication style: Simple, everyday language.
 - **Schema Validation**: Zod
 
 ### Data Storage
-- **Database**: PostgreSQL (multi-tenant)
+- **Database**: PostgreSQL (isolated per customer)
 - **ORM**: Drizzle ORM (schema-first)
 - **Migration Strategy**: Drizzle Kit
 
 ### Authentication & Authorization
 - **Authentication**: Session-based with `connect-pg-simple`
-- **Multi-tenancy**: Database-level isolation with tenant-specific connections
+- **Customer Isolation**: Database-level isolation with customer-specific connections
 
 ### Key Features & Technical Implementations
 - **Multi-Method Thermal Printing**: Supports TEC/Toshiba and Zebra thermal printers, including direct, browser, and Windows printing solutions with print quality and job tracking.
 - **QR Code Generation**: Integrated for visitor tracking.
 - **Real-time Updates**: Optimistic updates via React Query.
 - **Feature Toggle System**: Database-driven toggles for enabling/disabling features per customer.
-- **Reports System**: Multi-tenant isolated report generation, viewing, and emailing.
+- **Reports System**: Customer-isolated report generation, viewing, and emailing.
 - **Pre-booking System**: Supports visitor pre-bookings, invitations, and management.
-- **User Management**: Comprehensive user, role, and invitation management with multi-tenant isolation and CSRF protection.
+- **User Management**: Comprehensive user, role, and invitation management with customer isolation and CSRF protection.
 - **Voice Notification System**: Visitor arrival announcements via 8x8 API.
-- **Room Booking System**: Full CRUD operations for room bookings, including staff attendees, availability checks, and multi-tenant isolation.
-- **Fire Marshal Static URL System**: Fully implemented and tested permanent, non-expiring static URLs for Fire Marshal emergency access (/fire-marshal/:urlId format). Auto-generates 12-character URL-safe IDs for both new and existing Fire Marshals. Cross-tenant database search locates Fire Marshals across all customer databases. Frontend bypasses session auth for public Fire Marshal routes. UI shows URL status with copy functionality in Staff Management. **Enhanced with "Peace Time" mode**: Fire Marshal URLs ALWAYS display current on-site personnel (staff, visitors, contractors) at ANY point in time, regardless of evacuation status. Default filter set to 'all' ensures everyone is visible even when 100% accounted for. Personnel query always enabled to maintain real-time visibility. Auto-refreshes every 5 seconds with search/filter capabilities.
+- **Room Booking System**: Full CRUD operations for room bookings, including staff attendees, availability checks, and customer isolation.
+- **Fire Marshal Static URL System**: Fully implemented and tested permanent, non-expiring static URLs for Fire Marshal emergency access (/fire-marshal/:urlId format). Auto-generates 12-character URL-safe IDs for both new and existing Fire Marshals. Cross-database search locates Fire Marshals across all customer databases. Frontend bypasses session auth for public Fire Marshal routes. UI shows URL status with copy functionality in Staff Management. **Enhanced with "Peace Time" mode**: Fire Marshal URLs ALWAYS display current on-site personnel (staff, visitors, contractors) at ANY point in time, regardless of evacuation status. Default filter set to 'all' ensures everyone is visible even when 100% accounted for. Personnel query always enabled to maintain real-time visibility. Auto-refreshes every 5 seconds with search/filter capabilities.
 - **Emergency Evacuation Email System**: Production-ready, life-safety critical email alert system with comprehensive pre-flight validation. **Auto-generates Fire Marshal URLs** when staff is created/updated (department contains "safety"/"security" OR isFireMarshal=true). **Pre-flight checks** before activation: database accessibility, company settings verification, Fire Marshal URL validation. Staff, visitors, and contractors receive evacuation alerts with unique self-service mark-safe links using production URLs (REPLIT_DOMAINS). Fire Marshals receive dedicated emergency alerts with their permanent Fire Marshal panel URLs. Smart email distribution prevents duplicate emails - Fire Marshals receive only their specialized alert, not the regular staff alert. All safety tokens are customer-isolated and expire after 24 hours. Mark-safe functionality updates the main application database in real-time, reflecting instantly across all Fire Marshal views. **Production tested**: Successfully sends all evacuation and Fire Marshal emails with zero failures.
 - **AI-Powered Induction Video System**: Production-ready safety training video generation using Replit AI Integrations (OpenAI). GPT-5 generates context-aware safety scripts tailored to company requirements. **GPT-Image-1** creates photorealistic, scene-specific workplace safety images via Replit AI Integrations - billed to Replit credits, bypassing personal API billing limits. OpenAI TTS provides professional voice narration with role-specific voices (alloy/onyx/nova). Fallback chain ensures reliability: GPT-Image-1 → Gemini → SVG. Both GPT-Image-1 and Gemini use contextual prompts to generate images relevant to each specific scene, eliminating generic "high-vis jacket" defaults.
-- **CO2 Sustainability Reporting System**: Comprehensive carbon footprint tracking for contractor commutes using Gemini AI (via Replit AI Integrations). Gemini-2.5-flash calculates distances between UK postcodes with intelligent route type detection (motorway/A-roads/mixed). Generates detailed sustainability reports analyzing total emissions, worker breakdowns, and actionable recommendations. All reports are multi-tenant isolated with database storage. Fallback logic ensures reliability when AI is unavailable. Billed to Replit credits with no API key management required.
+- **CO2 Sustainability Reporting System**: Comprehensive carbon footprint tracking for contractor commutes using Gemini AI (via Replit AI Integrations). Gemini-2.5-flash calculates distances between UK postcodes with intelligent route type detection (motorway/A-roads/mixed). Generates detailed sustainability reports analyzing total emissions, worker breakdowns, and actionable recommendations. All reports are customer-isolated with database storage. Fallback logic ensures reliability when AI is unavailable. Billed to Replit credits with no API key management required.
 
 ## External Dependencies
 - **@tanstack/react-query**: Server state management.

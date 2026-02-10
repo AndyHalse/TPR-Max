@@ -8,7 +8,7 @@ import {
   staff, staffSessions, visitors, users, reports, preBookings, userInvitations,
   contractorCompanies, contractorWorkers, contractorVisits, complianceDocuments, documentTypes, workerCompetencies,
   documentApprovals, departments, cardOffences, cardIssues, workerCertifications, ramsDocuments,
-  co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications, tenantCompanies, buildingSettings,
+  co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications,
   voiceNotificationLogs
 } from "@shared/schema";
 import { meetingRooms, roomBookings, roomBookingAttendees } from "./isolatedSchema";
@@ -22,7 +22,6 @@ import type {
   WorkerCertification, InsertWorkerCertification, RamsDocument, InsertRamsDocument,
   Co2Record, InsertCo2Record, LocalLabourRecord, InsertLocalLabourRecord,
   EnhancedCompanyDetails, InsertEnhancedCompanyDetails, NvqQualification, InsertNvqQualification,
-  TenantCompany, InsertTenantCompany, BuildingSettings, InsertBuildingSettings,
   VoiceNotificationLog, InsertVoiceNotificationLog
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -245,20 +244,12 @@ export class DatabaseStorage implements IStorage {
     return updatedUser || undefined;
   }
 
-  // Tenant-specific authentication methods
-  async authenticateTenantUser(username: string, password: string, tenantId?: string): Promise<User | null> {
+  async authenticateUser(username: string, password: string): Promise<User | null> {
     try {
-      let whereConditions = [eq(users.username, username), eq(users.isActive, true)];
-      
-      // If tenantId is provided, filter by tenant
-      if (tenantId) {
-        whereConditions.push(eq(users.tenantCompanyId, tenantId));
-      }
-
       const [user] = await db
         .select()
         .from(users)
-        .where(and(...whereConditions));
+        .where(and(eq(users.username, username), eq(users.isActive, true)));
 
       if (!user) {
         return null;
@@ -269,24 +260,13 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Update last login time
       await this.updateUser(user.id, { lastLoginAt: new Date() });
 
       return user;
     } catch (error) {
-      console.error('Tenant user authentication error:', error);
+      console.error('User authentication error:', error);
       return null;
     }
-  }
-
-  async getUsersByTenant(tenantId: string): Promise<User[]> {
-    const results = await db
-      .select()
-      .from(users)
-      .where(eq(users.tenantCompanyId, tenantId))
-      .orderBy(asc(users.username));
-    
-    return results;
   }
 
   // Staff methods
@@ -460,29 +440,6 @@ export class DatabaseStorage implements IStorage {
 
   async getCheckedInStaff(): Promise<Staff[]> {
     const results = await db.select().from(staff).where(eq(staff.isCheckedIn, true));
-    return results;
-  }
-
-  // Tenant-specific staff methods
-  async getStaffByTenant(tenantId: string): Promise<Staff[]> {
-    const results = await db
-      .select()
-      .from(staff)
-      .where(eq(staff.tenantCompanyId, tenantId))
-      .orderBy(asc(staff.firstName));
-    
-    return results;
-  }
-
-  async getCheckedInStaffByTenant(tenantId: string): Promise<Staff[]> {
-    const results = await db
-      .select()
-      .from(staff)
-      .where(and(
-        eq(staff.tenantCompanyId, tenantId),
-        eq(staff.isCheckedIn, true)
-      ));
-    
     return results;
   }
 
@@ -839,46 +796,6 @@ export class DatabaseStorage implements IStorage {
     return results.map(result => result.company as string).filter(Boolean);
   }
 
-  // Tenant-specific visitor methods
-  async getVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    const results = await db
-      .select()
-      .from(visitors)
-      .where(eq(visitors.tenantCompanyId, tenantId))
-      .orderBy(desc(visitors.checkedInAt));
-    
-    return results;
-  }
-
-  async getCurrentVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    const results = await db
-      .select()
-      .from(visitors)
-      .where(and(
-        eq(visitors.tenantCompanyId, tenantId),
-        eq(visitors.isCheckedIn, true)
-      ))
-      .orderBy(desc(visitors.checkedInAt));
-    
-    return results;
-  }
-
-  async getTodayVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const results = await db
-      .select()
-      .from(visitors)
-      .where(and(
-        eq(visitors.tenantCompanyId, tenantId),
-        gte(visitors.checkedInAt, today)
-      ))
-      .orderBy(desc(visitors.checkedInAt));
-    
-    return results;
-  }
-
   // Company settings methods
   async getCompanySettings(): Promise<CompanySettings | undefined> {
     const [settings] = await db.select().from(companySettings).limit(1);
@@ -989,7 +906,7 @@ export class DatabaseStorage implements IStorage {
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + daysAhead);
     
-    // Get all pre-bookings in the date range with enhanced details (staff and tenant info)
+    // Get all pre-bookings in the date range with enhanced details
     const diaryEntries = await db.select({
       id: preBookings.id,
       visitorFirstName: preBookings.visitorFirstName,
@@ -1007,14 +924,9 @@ export class DatabaseStorage implements IStorage {
       hostLastName: staff.lastName,
       hostDepartment: staff.department,
       hostEmail: staff.email,
-      // Tenant company details
-      tenantCompanyName: tenantCompanies.companyName,
-      tenantSlug: tenantCompanies.slug,
-      tenantPrimaryColor: tenantCompanies.primaryColor
     })
     .from(preBookings)
     .leftJoin(staff, eq(preBookings.hostStaffId, staff.id))
-    .leftJoin(tenantCompanies, eq(staff.tenantCompanyId, tenantCompanies.id))
     .where(
       and(
         eq(preBookings.customerId, customerId),
@@ -1103,14 +1015,9 @@ export class DatabaseStorage implements IStorage {
       hostLastName: staff.lastName,
       hostDepartment: staff.department,
       hostEmail: staff.email,
-      // Tenant company details
-      tenantCompanyName: tenantCompanies.companyName,
-      tenantSlug: tenantCompanies.slug,
-      tenantPrimaryColor: tenantCompanies.primaryColor
     })
     .from(preBookings)
     .leftJoin(staff, eq(preBookings.hostStaffId, staff.id))
-    .leftJoin(tenantCompanies, eq(staff.tenantCompanyId, tenantCompanies.id))
     .where(
       and(
         gte(preBookings.visitDate, startDate),
@@ -2053,9 +1960,8 @@ export class DatabaseStorage implements IStorage {
 
   async validateEmergencyToken(token: string, customerId?: string): Promise<Staff | null> {
     try {
-      console.log(`🔍 VALIDATE TOKEN: Searching for token: ${token.substring(0, 20)}... ${customerId ? `for customer: ${customerId}` : '(NO TENANT FILTER - SECURITY RISK!)'}`);
+      console.log(`🔍 VALIDATE TOKEN: Searching for token: ${token.substring(0, 20)}... ${customerId ? `for customer: ${customerId}` : '(NO CUSTOMER FILTER - SECURITY RISK!)'}`);
       
-      // Build query conditions
       const conditions = [
         eq(staff.emergencyToken, token),
         gt(staff.emergencyTokenExpires, new Date()),
@@ -2063,7 +1969,6 @@ export class DatabaseStorage implements IStorage {
         eq(staff.isActive, true)
       ];
       
-      // CRITICAL: Add tenant isolation if customerId provided
       if (customerId) {
         conditions.push(eq(staff.customerId, customerId));
       }
@@ -2076,7 +1981,7 @@ export class DatabaseStorage implements IStorage {
       if (staffMember) {
         console.log(`✅ VALIDATE TOKEN: Found staff ${staffMember.firstName} ${staffMember.lastName} (Customer: ${staffMember.customerId})`);
       } else {
-        console.log(`❌ VALIDATE TOKEN: No match found ${customerId ? `for customer ${customerId}` : '(cross-tenant search)'}`);
+        console.log(`❌ VALIDATE TOKEN: No match found ${customerId ? `for customer ${customerId}` : '(cross-customer search)'}`);
         // Debug: Show what fire marshals exist (filtered by customer if provided)
         const debugConditions = [eq(staff.isFireMarshal, true)];
         if (customerId) {
@@ -2890,155 +2795,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Multi-Tenant methods implementation
-  async getAllTenantCompanies(): Promise<TenantCompany[]> {
-    return await db.select().from(tenantCompanies).orderBy(asc(tenantCompanies.companyName));
-  }
-
-  async getTenantCompanyById(id: string): Promise<TenantCompany | undefined> {
-    const [tenant] = await db.select().from(tenantCompanies).where(eq(tenantCompanies.id, id));
-    return tenant;
-  }
-
-  async getTenantCompanyBySlug(slug: string): Promise<TenantCompany | undefined> {
-    const [tenant] = await db.select().from(tenantCompanies).where(eq(tenantCompanies.slug, slug));
-    return tenant;
-  }
-
-  async createTenantCompany(insertTenant: InsertTenantCompany): Promise<TenantCompany> {
-    const tenant: TenantCompany = {
-      id: randomUUID(),
-      ...insertTenant,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await db.insert(tenantCompanies).values(tenant);
-    return tenant;
-  }
-
-  async updateTenantCompany(id: string, updates: Partial<InsertTenantCompany>): Promise<TenantCompany | undefined> {
-    const [updated] = await db
-      .update(tenantCompanies)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(tenantCompanies.id, id))
-      .returning();
-    return updated;
-  }
-
-  async updateTenantStatus(id: string, isActive: boolean): Promise<TenantCompany> {
-    const [updated] = await db
-      .update(tenantCompanies)
-      .set({ isActive, updatedAt: new Date() })
-      .where(eq(tenantCompanies.id, id))
-      .returning();
-    
-    if (!updated) {
-      throw new Error(`Tenant with id ${id} not found`);
-    }
-    
-    return updated;
-  }
-
-  async deleteTenantCompany(id: string): Promise<boolean> {
-    const result = await db.delete(tenantCompanies).where(eq(tenantCompanies.id, id));
-    return result.rowCount > 0;
-  }
-
-  async getBuildingStats(): Promise<{
-    totalTenants: number;
-    activeTenants: number;
-    totalStaff: number;
-    totalVisitors: number;
-    visitorsToday: number;
-    staffOnSite: number;
-  }> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Get tenant counts
-    const totalTenants = await db.select({ count: count() }).from(tenantCompanies);
-    const activeTenants = await db.select({ count: count() }).from(tenantCompanies).where(eq(tenantCompanies.isActive, true));
-
-    // Get staff counts
-    const totalStaff = await db.select({ count: count() }).from(staff);
-    const staffOnSite = await db.select({ count: count() }).from(staff).where(eq(staff.isCheckedIn, true));
-
-    // Get visitor counts
-    const totalVisitors = await db.select({ count: count() }).from(visitors);
-    const visitorsToday = await db.select({ count: count() }).from(visitors).where(gte(visitors.checkedInAt, today));
-
-    return {
-      totalTenants: totalTenants[0]?.count || 0,
-      activeTenants: activeTenants[0]?.count || 0,
-      totalStaff: totalStaff[0]?.count || 0,
-      totalVisitors: totalVisitors[0]?.count || 0,
-      visitorsToday: visitorsToday[0]?.count || 0,
-      staffOnSite: staffOnSite[0]?.count || 0,
-    };
-  }
-
-  async getTenantBySlug(slug: string): Promise<TenantCompany | undefined> {
-    return this.getTenantCompanyBySlug(slug);
-  }
-
-  async getTenantByCompanyName(companyName: string): Promise<TenantCompany | undefined> {
-    const [tenant] = await db.select().from(tenantCompanies).where(
-      ilike(tenantCompanies.companyName, companyName)
-    );
-    return tenant;
-  }
-
-
-  async getPreBookedVisitorsByTenant(tenantId: string): Promise<Visitor[]> {
-    return await db.select().from(visitors).where(
-      and(
-        eq(visitors.visitingTenantId, tenantId),
-        eq(visitors.isPreBooked, true),
-        eq(visitors.isCheckedIn, false)
-      )
-    );
-  }
-
-  async getBuildingSettings(): Promise<BuildingSettings | undefined> {
-    const [settings] = await db.select().from(buildingSettings);
-    return settings;
-  }
-
-  async updateBuildingSettings(updates: Partial<InsertBuildingSettings>): Promise<BuildingSettings | undefined> {
-    const existing = await this.getBuildingSettings();
-    
-    if (!existing) {
-      // Create new building settings
-      const newSettings: BuildingSettings = {
-        id: randomUUID(),
-        buildingName: "Default Building",
-        address: "",
-        contactEmail: "",
-        phone: "",
-        buildingManagerName: "",
-        buildingManagerEmail: "",
-        maxTenants: 50,
-        operatingHours: "9:00-17:00",
-        emergencyContacts: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...updates,
-      };
-
-      await db.insert(buildingSettings).values(newSettings);
-      return newSettings;
-    } else {
-      // Update existing settings
-      const [updated] = await db
-        .update(buildingSettings)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(buildingSettings.id, existing.id))
-        .returning();
-      return updated;
-    }
-  }
 
   // ======= VOICE NOTIFICATION METHODS =======
 
@@ -3210,19 +2966,10 @@ export class DatabaseStorage implements IStorage {
     return rooms[0];
   }
 
-  async getMeetingRoomsByTenant(tenantId: string): Promise<any[]> {
-    return await db
-      .select()
-      .from(meetingRooms)
-      .where(eq(meetingRooms.tenantCompanyId, tenantId))
-      .orderBy(asc(meetingRooms.name));
-  }
-
   async getSharedMeetingRooms(): Promise<any[]> {
     return await db
       .select()
       .from(meetingRooms)
-      .where(eq(meetingRooms.isShared, true))
       .orderBy(asc(meetingRooms.name));
   }
 
@@ -3253,16 +3000,16 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
-  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, tenantId?: string): Promise<boolean> {
+  async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, customerId?: string): Promise<boolean> {
     console.log("🔍 Checking room availability:", {
       roomId,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       excludeBookingId,
-      tenantId
+      customerId
     });
 
-    // Build conditions array for multi-tenant isolation
+    // Build conditions array for room availability check
     const conditions = [
       eq(roomBookings.meetingRoomId, roomId),
       sql`${roomBookings.status} != 'cancelled'`, // Exclude cancelled bookings
@@ -3270,11 +3017,6 @@ export class DatabaseStorage implements IStorage {
       sql`${roomBookings.startTime} < ${endTime}`,
       sql`${roomBookings.endTime} > ${startTime}`
     ];
-
-    // CRITICAL: Filter by tenant for multi-tenant isolation
-    if (tenantId) {
-      conditions.push(eq(roomBookings.tenantCompanyId, tenantId));
-    }
 
     // If updating an existing booking, exclude it from the check
     if (excludeBookingId) {
@@ -3292,7 +3034,6 @@ export class DatabaseStorage implements IStorage {
       start: c.startTime,
       end: c.endTime,
       status: c.status,
-      tenantCompanyId: c.tenantCompanyId
     })));
     
     // Room is available if there are no conflicts
@@ -3311,7 +3052,6 @@ export class DatabaseStorage implements IStorage {
         startTime: new Date(bookingData.startDateTime),
         endTime: new Date(bookingData.endDateTime),
         bookedByStaffId: bookingData.bookedByStaffId,
-        tenantCompanyId: bookingData.tenantCompanyId,
         expectedAttendees: bookingData.expectedAttendees || bookingData.attendeeCount || 1,
         attendeeEmails: bookingData.attendeeEmails || [],
         requiresCatering: bookingData.requiresCatering || false,
@@ -3336,7 +3076,6 @@ export class DatabaseStorage implements IStorage {
         startTime: roomBookings.startTime,
         endTime: roomBookings.endTime,
         bookedByStaffId: roomBookings.bookedByStaffId,
-        tenantCompanyId: roomBookings.tenantCompanyId,
         attendeeCount: roomBookings.attendeeCount,
         setupRequirements: roomBookings.setupRequirements,
         isPrivate: roomBookings.isPrivate,
@@ -3415,7 +3154,6 @@ export class DatabaseStorage implements IStorage {
         startTime: roomBookings.startTime,
         endTime: roomBookings.endTime,
         bookedByStaffId: roomBookings.bookedByStaffId,
-        tenantCompanyId: roomBookings.tenantCompanyId,
         attendeeCount: roomBookings.attendeeCount,
         status: roomBookings.status,
         room: {
@@ -3468,7 +3206,7 @@ export class DatabaseStorage implements IStorage {
     return await query.orderBy(asc(roomBookings.startTime));
   }
 
-  async getRoomBookingsByTenant(tenantId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
+  async getRoomBookingsByCustomer(customerId: string, startDate?: Date, endDate?: Date): Promise<any[]> {
     let query = db
       .select({
         id: roomBookings.id,
@@ -3478,7 +3216,6 @@ export class DatabaseStorage implements IStorage {
         startTime: roomBookings.startTime,
         endTime: roomBookings.endTime,
         bookedByStaffId: roomBookings.bookedByStaffId,
-        tenantCompanyId: roomBookings.tenantCompanyId,
         attendeeCount: roomBookings.attendeeCount,
         expectedAttendees: roomBookings.expectedAttendees,
         status: roomBookings.status,
@@ -3503,13 +3240,11 @@ export class DatabaseStorage implements IStorage {
       })
       .from(roomBookings)
       .leftJoin(meetingRooms, eq(roomBookings.meetingRoomId, meetingRooms.id))
-      .leftJoin(staff, eq(roomBookings.bookedByStaffId, staff.id))
-      .where(eq(roomBookings.tenantCompanyId, tenantId));
+      .leftJoin(staff, eq(roomBookings.bookedByStaffId, staff.id));
 
     if (startDate && endDate) {
       query = query.where(
         and(
-          eq(roomBookings.tenantCompanyId, tenantId),
           sql`${roomBookings.startTime} >= ${startDate}`,
           sql`${roomBookings.endTime} <= ${endDate}`
         )

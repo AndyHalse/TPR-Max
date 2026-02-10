@@ -264,7 +264,6 @@ export class StripeService {
           maxVisitorsPerMonth: 10000,
           maxStaff: 500,
           maxMeetingRooms: 50,
-          maxTenants: 20,
           maxStorageGb: 100,
           features: [
             'unlimited_visitors',

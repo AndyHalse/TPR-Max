@@ -54,9 +54,6 @@ export const createVisitorHistoryTableMigration: Migration = {
         purpose TEXT,
         host_staff_id VARCHAR REFERENCES staff(id),
         host_name TEXT,
-        -- Tenant information
-        visiting_tenant_id VARCHAR REFERENCES tenant_companies(id),
-        tenant_company_name TEXT,
         -- Compliance tracking
         induction_completed BOOLEAN NOT NULL DEFAULT false,
         induction_completed_at TIMESTAMP,

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { generateQRCode } from "@/lib/qr-generator";
-import type { Staff, InsertVisitor, Visitor, TenantCompany } from "@shared/schema";
+import type { Staff, InsertVisitor, Visitor } from "@shared/schema";
 
 // Extend Visitor type to include e-Pass properties from backend
 interface VisitorWithEPass extends Visitor {
@@ -41,16 +41,9 @@ export default function VisitorCheckIn() {
   // Function to automatically print visitor pass
   const printVisitorPass = async (visitor: Visitor) => {
     try {
-      // Fetch tenant company information for branding
-      const tenantResponse = await apiRequest("GET", `/api/super-admin/tenants/by-id/${visitor.visitingTenantId}`);
-      const tenantCompany: TenantCompany = await tenantResponse.json();
-      
-      // Get tenant-specific information
-      const companyName = tenantCompany?.companyName || "Company Name";
-      const companyAddress = tenantCompany?.address || "Address not provided";
-      const companyPhone = tenantCompany?.phone || "";
-      const companyWebsite = tenantCompany?.website || "";
-      const companyLogo = tenantCompany?.logoUrl;
+      const companyName = "Company Name";
+      const companyAddress = "Address not provided";
+      const companyLogo = null;
       
       // Find host staff member
       const hostStaff = staff?.find(s => s.id === visitor.hostStaffId);

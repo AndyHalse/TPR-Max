@@ -608,42 +608,10 @@ export class DatabaseProvisioningService {
         password text NOT NULL,
         email text,
         role text NOT NULL DEFAULT 'user',
-        tenant_company_id varchar,
         first_name text,
         last_name text,
         is_active boolean DEFAULT true,
         last_login_at timestamp,
-        created_at timestamp DEFAULT now() NOT NULL,
-        updated_at timestamp DEFAULT now() NOT NULL
-      )
-    `);
-
-    // Tenant Companies table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS tenant_companies (
-        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
-        company_name text NOT NULL UNIQUE,
-        slug text NOT NULL UNIQUE,
-        logo_url text,
-        contact_email text NOT NULL,
-        phone text,
-        address text,
-        website text,
-        admin_first_name text,
-        admin_last_name text,
-        admin_email text,
-        is_active boolean DEFAULT true NOT NULL,
-        subscription_tier text DEFAULT 'basic',
-        subscription_expires timestamp,
-        max_users integer DEFAULT 50,
-        max_visitors_per_month integer DEFAULT 1000,
-        primary_color text DEFAULT '#3b82f6',
-        secondary_color text DEFAULT '#64748b',
-        custom_visitor_fields text[] DEFAULT ARRAY[]::text[],
-        api_key_enabled boolean DEFAULT false,
-        api_key text,
-        data_retention_days integer DEFAULT 365,
-        gdpr_contact_email text,
         created_at timestamp DEFAULT now() NOT NULL,
         updated_at timestamp DEFAULT now() NOT NULL
       )
@@ -658,7 +626,6 @@ export class DatabaseProvisioningService {
         email text NOT NULL UNIQUE,
         department text NOT NULL,
         employee_id text NOT NULL UNIQUE,
-        tenant_company_id varchar REFERENCES tenant_companies(id),
         photo_url text,
         access_level text NOT NULL DEFAULT 'staff',
         password text,
@@ -711,7 +678,6 @@ export class DatabaseProvisioningService {
         purpose text,
         car_registration text,
         host_staff_id varchar REFERENCES staff(id),
-        visiting_tenant_id varchar REFERENCES tenant_companies(id),
         is_pre_booked boolean DEFAULT false NOT NULL,
         expected_date_time timestamp,
         visit_purpose text,
@@ -749,7 +715,6 @@ export class DatabaseProvisioningService {
         location text,
         equipment text[] DEFAULT ARRAY[]::text[],
         is_active boolean DEFAULT true NOT NULL,
-        tenant_company_id varchar REFERENCES tenant_companies(id),
         hourly_rate double precision DEFAULT 0,
         created_at timestamp DEFAULT now() NOT NULL,
         updated_at timestamp DEFAULT now() NOT NULL
