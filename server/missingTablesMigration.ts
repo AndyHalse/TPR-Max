@@ -504,9 +504,51 @@ export const addEPassSentColumnMigration: Migration = {
   }
 };
 
+export const createMembersTableMigration: Migration = {
+  version: '20260210_001_create_members_table',
+  description: 'Create members table for member management and muster tracking',
+  async up(db: any) {
+    console.log('🔄 Creating members table...');
+
+    await ensurePgcrypto(db);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS members (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        email TEXT,
+        phone_number TEXT,
+        company TEXT,
+        membership_type TEXT DEFAULT 'standard',
+        membership_id TEXT,
+        department TEXT,
+        notes TEXT,
+        is_checked_in BOOLEAN NOT NULL DEFAULT false,
+        checked_in_at TIMESTAMP,
+        checked_out_at TIMESTAMP,
+        checkout_type TEXT,
+        is_accounted_for BOOLEAN NOT NULL DEFAULT false,
+        qr_code TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await db.execute(`
+      ALTER TABLE company_settings 
+      ADD COLUMN IF NOT EXISTS feature_members BOOLEAN DEFAULT false
+    `);
+
+    console.log('✅ Members table and feature toggle created successfully');
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
   createUKHSDocumentSystemMigration,
-  addEPassSentColumnMigration
+  addEPassSentColumnMigration,
+  createMembersTableMigration
 ];

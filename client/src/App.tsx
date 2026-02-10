@@ -16,6 +16,7 @@ import EmergencyMuster from "@/pages/EmergencyMuster";
 import Settings from "@/pages/Settings";
 import TimeAttendance from "@/pages/TimeAttendance";
 import Visitors from "@/pages/Visitors";
+import Members from "@/pages/Members";
 import Reports from "@/pages/Reports";
 import AIDemo from "@/pages/AIDemo";
 import Contractors from "@/pages/Contractors";
@@ -284,6 +285,7 @@ function Router() {
             <Route path="/" component={Dashboard} />
             <Route path="/staff" component={StaffManagement} />
             <Route path="/visitors" component={Visitors} />
+            <Route path="/members" component={Members} />
             <Route path="/contractors" component={ContractorManagement} />
             <Route path="/contractors/legacy" component={Contractors} />
             <Route path="/contractors/:id" component={ContractorDetails} />

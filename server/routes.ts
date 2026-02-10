@@ -2554,6 +2554,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all checked-in contractors using customer-isolated database service
       const checkedInContractors = await databaseService.getCheckedInContractors(context);
       
+      let checkedInMembers: any[] = [];
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+        checkedInMembers = await custDb
+          .select()
+          .from(isolatedSchema.members)
+          .where(eq(isolatedSchema.members.isCheckedIn, true));
+      } catch (e) {
+      }
+      
       // Combine all personnel for muster list
       const musterList = [
         ...checkedInStaff.map(staff => ({
@@ -2582,6 +2592,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           checkedInAt: contractor.checkedInAt || contractor.createdAt,
           location: 'Site',
           accounted: contractor.isAccountedFor || false
+        })),
+        ...checkedInMembers.map(member => ({
+          id: member.id,
+          name: `${member.firstName} ${member.lastName}`,
+          type: 'member' as const,
+          company: member.company,
+          department: member.department,
+          checkedInAt: member.checkedInAt || member.createdAt,
+          location: 'Building A',
+          accounted: member.isAccountedFor || false
         }))
       ];
       
@@ -4173,6 +4193,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
       
+      let checkedInMembers: any[] = [];
+      try {
+        checkedInMembers = await customerDb
+          .select()
+          .from(isolatedSchema.members)
+          .where(eq(isolatedSchema.members.isCheckedIn, true));
+      } catch (e) {
+      }
+      
       // CRITICAL FIX: Get active evacuation from public schema (filtered by customerId)
       // ORDER BY createdAt DESC to get the MOST RECENT active evacuation
       const activeEvacuation = await db
@@ -4249,6 +4278,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             department: contractor.department,
             checkedInAt: contractor.checkedInAt,
             location: accountabilityRecord?.lastKnownLocation || 'Site',
+            isAccountedFor: accountabilityRecord?.isAccountedFor || false,
+            accountedBy: accountabilityRecord?.accountedBy,
+            accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
+            musterPoint: accountabilityRecord?.musterPoint
+          };
+        }),
+        ...checkedInMembers.map(member => {
+          const accountabilityRecord = accountabilityMap.get(member.id);
+          return {
+            id: member.id,
+            name: `${member.firstName} ${member.lastName}`,
+            type: 'member' as const,
+            company: member.company,
+            department: member.department,
+            checkedInAt: member.checkedInAt || member.createdAt,
+            location: accountabilityRecord?.lastKnownLocation || 'Building A',
             isAccountedFor: accountabilityRecord?.isAccountedFor || false,
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
@@ -5658,6 +5703,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching companies:", error);
       res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
+  // Member endpoints
+  app.get("/api/members", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const allMembers = await customerDb
+        .select()
+        .from(isolatedSchema.members)
+        .where(eq(isolatedSchema.members.isActive, true))
+        .orderBy(desc(isolatedSchema.members.createdAt));
+      
+      res.json(allMembers);
+    } catch (error) {
+      console.error("Failed to fetch members:", error);
+      res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+
+  app.post("/api/members", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const memberData = req.body;
+      const qrCode = `MEM-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const [newMember] = await customerDb
+        .insert(isolatedSchema.members)
+        .values({
+          ...memberData,
+          qrCode,
+        })
+        .returning();
+      
+      res.status(201).json(newMember);
+    } catch (error) {
+      console.error("Failed to create member:", error);
+      res.status(500).json({ error: "Failed to create member" });
+    }
+  });
+
+  app.patch("/api/members/:id", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const [updated] = await customerDb
+        .update(isolatedSchema.members)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(isolatedSchema.members.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update member:", error);
+      res.status(500).json({ error: "Failed to update member" });
+    }
+  });
+
+  app.delete("/api/members/:id", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const { id } = req.params;
+      
+      const [deactivated] = await customerDb
+        .update(isolatedSchema.members)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(isolatedSchema.members.id, id))
+        .returning();
+      
+      if (!deactivated) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      res.json({ message: "Member removed successfully" });
+    } catch (error) {
+      console.error("Failed to delete member:", error);
+      res.status(500).json({ error: "Failed to delete member" });
+    }
+  });
+
+  app.post("/api/members/:id/check-in", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const { id } = req.params;
+      
+      const [updated] = await customerDb
+        .update(isolatedSchema.members)
+        .set({ 
+          isCheckedIn: true, 
+          checkedInAt: new Date(),
+          checkedOutAt: null,
+          isAccountedFor: false,
+          updatedAt: new Date() 
+        })
+        .where(eq(isolatedSchema.members.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to check in member:", error);
+      res.status(500).json({ error: "Failed to check in member" });
+    }
+  });
+
+  app.post("/api/members/:id/check-out", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const { id } = req.params;
+      
+      const [updated] = await customerDb
+        .update(isolatedSchema.members)
+        .set({ 
+          isCheckedIn: false, 
+          checkedOutAt: new Date(),
+          checkoutType: 'manual',
+          updatedAt: new Date() 
+        })
+        .where(eq(isolatedSchema.members.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to check out member:", error);
+      res.status(500).json({ error: "Failed to check out member" });
     }
   });
 

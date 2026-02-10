@@ -148,6 +148,28 @@ export const visitors = pgTable("visitors", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const members = pgTable("members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  phoneNumber: text("phone_number"),
+  company: text("company"),
+  membershipType: text("membership_type").default("standard"),
+  membershipId: text("membership_id"),
+  department: text("department"),
+  notes: text("notes"),
+  isCheckedIn: boolean("is_checked_in").default(false).notNull(),
+  checkedInAt: timestamp("checked_in_at"),
+  checkedOutAt: timestamp("checked_out_at"),
+  checkoutType: text("checkout_type"),
+  isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  qrCode: text("qr_code"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Visitor history table for tracking all visits
 export const visitorHistory = pgTable("visitor_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -435,6 +457,7 @@ export const companySettings = pgTable("company_settings", {
   featureKiosk: boolean("feature_kiosk").default(false),
   featureAiDemo: boolean("feature_ai_demo").default(false),
   featureContractorPage: boolean("feature_contractor_page").default(false),
+  featureMembers: boolean("feature_members").default(false),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1392,6 +1415,14 @@ export const insertVisitorSchema = createInsertSchema(visitors).omit({
   updatedAt: true,
 });
 
+export const insertMemberSchema = createInsertSchema(members).omit({
+  id: true,
+  checkedInAt: true,
+  checkedOutAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertVisitorHistorySchema = createInsertSchema(visitorHistory).omit({
   id: true,
   createdAt: true,
@@ -1683,6 +1714,8 @@ export type StaffSession = typeof staffSessions.$inferSelect;
 export type InsertStaffSession = z.infer<typeof insertStaffSessionSchema>;
 export type Visitor = typeof visitors.$inferSelect;
 export type InsertVisitor = z.infer<typeof insertVisitorSchema>;
+export type Member = typeof members.$inferSelect;
+export type InsertMember = z.infer<typeof insertMemberSchema>;
 export type VisitorHistory = typeof visitorHistory.$inferSelect;
 export type InsertVisitorHistory = z.infer<typeof insertVisitorHistorySchema>;
 export type StaffAttendanceHistory = typeof staffAttendanceHistory.$inferSelect;

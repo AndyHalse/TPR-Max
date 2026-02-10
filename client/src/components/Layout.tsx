@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2 } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -145,6 +145,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/contractors", icon: HardHat, label: "Contractors", alwaysVisible: true },
     { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", featureKey: "featureContractorPage" },
     { path: "/staff", icon: Users, label: "Staff", alwaysVisible: true },
+    { path: "/members", icon: UserCheck, label: "Members", featureKey: "featureMembers" },
     { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms" },
     { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance" },
     { path: "/muster", icon: ListChecks, label: "Muster List", alwaysVisible: true },
@@ -162,7 +163,7 @@ export default function Layout({ children }: LayoutProps) {
     
     // For items with feature toggles, check if the feature is enabled
     if (item.featureKey && settings) {
-      return settings[item.featureKey as keyof CompanySettings] !== false;
+      return settings[item.featureKey as keyof CompanySettings] === true;
     }
     
     // If no settings loaded yet, show all items (avoid hiding during loading)
