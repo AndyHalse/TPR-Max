@@ -572,12 +572,12 @@ export default function Dashboard() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Visitors</p>
-                  <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-current-visitors">
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-current-visitors">
                     {stats?.currentVisitors || 0}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-                  <User className="text-blue-600" size={24} />
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <User className="text-blue-600 dark:text-blue-400" size={24} />
                 </div>
               </div>
             </GlassCard>
@@ -586,12 +586,12 @@ export default function Dashboard() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Staff</p>
-                  <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-staff-onsite">
+                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-onsite">
                     {stats?.staffOnSite || 0}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
-                  <Users className="text-purple-600" size={24} />
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <Users className="text-purple-600 dark:text-purple-400" size={24} />
                 </div>
               </div>
             </GlassCard>
@@ -600,12 +600,12 @@ export default function Dashboard() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Contractors</p>
-                  <p className="text-3xl font-bold text-fixed mt-1" data-testid="stat-contractors-onsite">
+                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractors-onsite">
                     {stats?.contractorsOnSite || 0}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center shrink-0">
-                  <HardHat className="text-orange-600" size={24} />
+                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <HardHat className="text-orange-600 dark:text-orange-400" size={24} />
                 </div>
               </div>
             </GlassCard>
@@ -615,12 +615,12 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-variable text-sm font-medium">Members</p>
-                    <p className="text-3xl font-bold text-purple-600 mt-1" data-testid="stat-members-onsite">
+                    <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
                       {stats?.membersOnSite || 0}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
-                    <UserCheck className="text-purple-600" size={24} />
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
+                    <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
                   </div>
                 </div>
               </GlassCard>
