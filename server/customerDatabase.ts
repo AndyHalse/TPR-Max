@@ -86,23 +86,14 @@ export class CustomerDatabaseService {
       }
     }
 
-    // Create new connection pool for this customer using schema-based isolation
-    const baseUrl = customer.databaseUrl;
+    // Create new connection pool for this customer - direct connection to their database URL
+    // Both development and production use the same direct connection strategy
+    // Each customer's databaseUrl points to their own isolated database
     let pool: Pool;
     let db: ReturnType<typeof drizzle>;
     
     try {
-      if (process.env.NODE_ENV === 'production') {
-        // Production: Each customer has their own database
-        pool = new Pool({ connectionString: customer.databaseUrl });
-      } else {
-        // Development: Use schema-based isolation with search_path
-        const schemaName = `c_${customerId.replace(/-/g, '_').toLowerCase().substring(0, 8)}`;
-        pool = new Pool({ 
-          connectionString: baseUrl,
-          options: `-c search_path=${schemaName},public`
-        });
-      }
+      pool = new Pool({ connectionString: customer.databaseUrl });
       
       db = drizzle({ client: pool, schema: isolatedSchema });
 
