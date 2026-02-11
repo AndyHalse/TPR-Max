@@ -36,7 +36,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'contractors' | 'total-people' | 'department-details' | 'visitor-details' | 'visitor-booking-details' | 'meeting-booking-details' | null>(null);
+  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'contractors' | 'members' | 'total-people' | 'department-details' | 'visitor-details' | 'visitor-booking-details' | 'meeting-booking-details' | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [selectedVisitor, setSelectedVisitor] = useState<any>(null);
   const [selectedVisitorBooking, setSelectedVisitorBooking] = useState<any>(null);
@@ -110,6 +110,11 @@ export default function Dashboard() {
   const { data: checkedInContractors } = useQuery<any[]>({
     queryKey: ["/api/contractors/checked-in"],
     enabled: !!currentUser,
+  });
+
+  const { data: checkedInMembers } = useQuery<any[]>({
+    queryKey: ["/api/members/checked-in"],
+    enabled: !!currentUser && !!stats?.featureMembers,
   });
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<Activity[]>({
@@ -554,6 +559,30 @@ export default function Dashboard() {
     },
   });
 
+  const checkoutMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const response = await apiRequest("POST", `/api/members/${memberId}/check-out`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      toast({
+        title: "Success",
+        description: "Member checked out successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to check out member",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (statsLoading) {
     return <div>Loading dashboard...</div>;
   }
@@ -611,7 +640,7 @@ export default function Dashboard() {
             </GlassCard>
 
             {stats?.featureMembers && (
-              <GlassCard hover className="cursor-pointer">
+              <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('members')}>
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-variable text-sm font-medium">Members</p>
@@ -1770,13 +1799,69 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Members On-Site Modal */}
+      <Dialog open={openModal === 'members'} onOpenChange={() => setOpenModal(null)}>
+        <DialogContent className="glass-effect border border-white/30 max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-fixed">
+              <UserCheck className="text-purple-600" size={24} />
+              Members On-Site ({checkedInMembers?.length || 0})
+            </DialogTitle>
+            <DialogDescription>
+              View and manage all members currently checked in on-site.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
+            {checkedInMembers && checkedInMembers.length > 0 ? (
+              checkedInMembers.map((member) => (
+                <div key={member.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30 hover:bg-white/70 transition-colors">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                      <span className="text-purple-600 font-medium text-sm">
+                        {getInitials(`${member.firstName} ${member.lastName}`)}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-fixed">
+                        {member.firstName} {member.lastName}
+                      </div>
+                      <div className="text-sm text-variable">
+                        {member.membershipType || 'Standard Member'}
+                      </div>
+                      <div className="text-xs text-variable">
+                        {member.email && `${member.email} • `}Checked in: {member.checkedInAt ? formatDistanceToNow(new Date(member.checkedInAt), { addSuffix: true }) : 'Recently'}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => checkoutMemberMutation.mutate(member.id)}
+                    disabled={checkoutMemberMutation.isPending}
+                    className="flex items-center gap-1"
+                    data-testid={`checkout-member-${member.id}`}
+                  >
+                    <LogOut size={14} />
+                    Check Out
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-variable">
+                No members currently on-site
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Total People Modal */}
       <Dialog open={openModal === 'total-people'} onOpenChange={() => setOpenModal(null)}>
         <DialogContent className="glass-effect border border-white/30 max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-fixed">
               <Users className="text-green-600" size={24} />
-              All People On-Site ({((currentVisitors?.length || 0) + (checkedInStaff?.length || 0) + (checkedInContractors?.length || 0))})
+              All People On-Site ({((currentVisitors?.length || 0) + (checkedInStaff?.length || 0) + (checkedInContractors?.length || 0) + (checkedInMembers?.length || 0))})
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
@@ -1877,10 +1962,43 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* Members Section */}
+            {checkedInMembers && checkedInMembers.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-fixed mb-3 flex items-center">
+                  <UserCheck className="mr-2 text-purple-600" size={20} />
+                  Members ({checkedInMembers.length})
+                </h3>
+                <div className="space-y-2">
+                  {checkedInMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-purple-50/50 rounded-lg border border-purple-200/30">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                          <span className="text-purple-600 font-medium text-sm">
+                            {getInitials(`${member.firstName} ${member.lastName}`)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-fixed">
+                            {member.firstName} {member.lastName}
+                          </div>
+                          <div className="text-sm text-variable">{member.membershipType || 'Member'}</div>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-300">
+                        Member
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Empty State */}
             {(!currentVisitors || currentVisitors.length === 0) && 
              (!checkedInStaff || checkedInStaff.length === 0) && 
-             (!checkedInContractors || checkedInContractors.length === 0) && (
+             (!checkedInContractors || checkedInContractors.length === 0) &&
+             (!checkedInMembers || checkedInMembers.length === 0) && (
               <div className="text-center py-8 text-variable">
                 No people currently on-site
               </div>

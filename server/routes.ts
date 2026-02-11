@@ -5942,6 +5942,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/members/checked-in", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "No tenant context" });
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      
+      const checkedIn = await customerDb
+        .select()
+        .from(isolatedSchema.members)
+        .where(
+          and(
+            eq(isolatedSchema.members.isActive, true),
+            eq(isolatedSchema.members.isCheckedIn, true)
+          )
+        )
+        .orderBy(desc(isolatedSchema.members.checkedInAt));
+      
+      res.json(checkedIn);
+    } catch (error) {
+      console.error("Failed to fetch checked-in members:", error);
+      res.status(500).json({ error: "Failed to fetch checked-in members" });
+    }
+  });
+
   // Visitor endpoints
   app.get("/api/visitors", requireAuth, async (req, res) => {
     try {
