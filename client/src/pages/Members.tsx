@@ -218,7 +218,7 @@ export default function Members() {
           <h1 className="text-2xl font-bold text-fixed">Members</h1>
           <Badge variant="secondary" className="ml-2">{members.length} total</Badge>
         </div>
-        <Button onClick={openAddDialog} className="gap-2">
+        <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-2">
           <UserPlus className="h-4 w-4" />
           Add Member
         </Button>
@@ -247,7 +247,7 @@ export default function Members() {
                 : "Add your first member to get started"}
             </p>
             {!searchTerm && (
-              <Button onClick={openAddDialog} className="gap-2">
+              <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-2">
                 <UserPlus className="h-4 w-4" />
                 Add Member
               </Button>
