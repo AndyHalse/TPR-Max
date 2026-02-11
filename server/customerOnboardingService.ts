@@ -341,11 +341,18 @@ export class CustomerOnboardingService {
       email: request.contactEmail,
     };
     
-    await customerDb
-      .insert(isolatedSchema.companySettings)
-      .values(companySettingsData);
+    const existingSettings = await customerDb
+      .select()
+      .from(isolatedSchema.companySettings)
+      .limit(1);
     
-    // Create default departments
+    if (existingSettings.length === 0) {
+      await customerDb
+        .insert(isolatedSchema.companySettings)
+        .values(companySettingsData);
+    }
+    
+    // Create default departments (skip if they already exist)
     const defaultDepartments = [
       { name: 'Administration', isActive: true },
       { name: 'Security', isActive: true },
@@ -354,12 +361,19 @@ export class CustomerOnboardingService {
     ];
     
     for (const dept of defaultDepartments) {
-      await customerDb
-        .insert(isolatedSchema.departments)
-        .values(dept);
+      const existing = await customerDb
+        .select()
+        .from(isolatedSchema.departments)
+        .where(eq(isolatedSchema.departments.name, dept.name))
+        .limit(1);
+      if (existing.length === 0) {
+        await customerDb
+          .insert(isolatedSchema.departments)
+          .values(dept);
+      }
     }
     
-    // Create default meeting rooms
+    // Create default meeting rooms (skip if they already exist)
     const defaultMeetingRooms = [
       { 
         name: 'Conference Room A', 
@@ -376,12 +390,19 @@ export class CustomerOnboardingService {
     ];
     
     for (const room of defaultMeetingRooms) {
-      await customerDb
-        .insert(isolatedSchema.meetingRooms)
-        .values(room);
+      const existing = await customerDb
+        .select()
+        .from(isolatedSchema.meetingRooms)
+        .where(eq(isolatedSchema.meetingRooms.name, room.name))
+        .limit(1);
+      if (existing.length === 0) {
+        await customerDb
+          .insert(isolatedSchema.meetingRooms)
+          .values(room);
+      }
     }
     
-    // Create default muster points for emergency evacuations
+    // Create default muster points for emergency evacuations (skip if they already exist)
     const defaultMusterPoints = [
       { 
         name: 'Main Car Park', 
@@ -401,9 +422,16 @@ export class CustomerOnboardingService {
     ];
     
     for (const point of defaultMusterPoints) {
-      await customerDb
-        .insert(isolatedSchema.musterPoints)
-        .values(point);
+      const existing = await customerDb
+        .select()
+        .from(isolatedSchema.musterPoints)
+        .where(eq(isolatedSchema.musterPoints.name, point.name))
+        .limit(1);
+      if (existing.length === 0) {
+        await customerDb
+          .insert(isolatedSchema.musterPoints)
+          .values(point);
+      }
     }
   }
 
