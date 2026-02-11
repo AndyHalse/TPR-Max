@@ -278,27 +278,46 @@ export class CustomerOnboardingService {
       isActive: true,
     };
     
-    const [adminUser] = await customerDb
-      .insert(isolatedSchema.users)
-      .values(adminUserData)
-      .returning();
+    const existingUsers = await customerDb
+      .select()
+      .from(isolatedSchema.users)
+      .where(eq(isolatedSchema.users.username, request.adminUsername))
+      .limit(1);
+
+    let adminUser;
+    if (existingUsers.length > 0) {
+      adminUser = existingUsers[0];
+    } else {
+      const [newUser] = await customerDb
+        .insert(isolatedSchema.users)
+        .values(adminUserData)
+        .returning();
+      adminUser = newUser;
+    }
     
-    // Create corresponding staff record for the admin
-    const staffData = {
-      firstName: request.adminFirstName,
-      lastName: request.adminLastName,
-      email: request.adminEmail,
-      department: 'Administration',
-      employeeId: 'ADMIN-001',
-      accessLevel: 'admin' as const,
-      password: hashedPassword,
-      userId: adminUser.id,
-      isActive: true,
-    };
-    
-    await customerDb
-      .insert(isolatedSchema.staff)
-      .values(staffData);
+    const existingStaff = await customerDb
+      .select()
+      .from(isolatedSchema.staff)
+      .where(eq(isolatedSchema.staff.email, request.adminEmail))
+      .limit(1);
+
+    if (existingStaff.length === 0) {
+      const staffData = {
+        firstName: request.adminFirstName,
+        lastName: request.adminLastName,
+        email: request.adminEmail,
+        department: 'Administration',
+        employeeId: 'ADMIN-001',
+        accessLevel: 'admin' as const,
+        password: hashedPassword,
+        userId: adminUser.id,
+        isActive: true,
+      };
+      
+      await customerDb
+        .insert(isolatedSchema.staff)
+        .values(staffData);
+    }
     
     return adminUser.id;
   }
