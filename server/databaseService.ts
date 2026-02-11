@@ -1297,6 +1297,7 @@ export class DatabaseService {
           lastName: isolatedSchema.contractorWorkers.lastName,
           email: isolatedSchema.contractorWorkers.email,
           isCheckedIn: isolatedSchema.contractorWorkers.isCheckedIn,
+          isAccountedFor: isolatedSchema.contractorWorkers.isAccountedFor,
           checkedInAt: isolatedSchema.contractorWorkers.checkedInAt,
           hsRulesAccepted: isolatedSchema.contractorWorkers.hsRulesAccepted,
           hsRulesAcceptedAt: isolatedSchema.contractorWorkers.hsRulesAcceptedAt,
