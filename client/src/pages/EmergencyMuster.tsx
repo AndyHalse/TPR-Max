@@ -43,6 +43,7 @@ interface ActiveEvacuation {
 
 export default function EmergencyMuster() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<'all' | 'staff' | 'visitor' | 'contractor' | 'member'>('all');
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const { toast } = useToast();
@@ -272,11 +273,14 @@ export default function EmergencyMuster() {
     }
   };
 
-  const filteredList = musterList.filter(person => 
-    (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredList = musterList.filter(person => {
+    const matchesType = typeFilter === 'all' || person.type === typeFilter;
+    const matchesSearch = searchTerm === '' || 
+      (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesType && matchesSearch;
+  });
 
   const totalPeople = musterList.length;
   const accountedFor = musterList.filter(p => p.accounted).length;
@@ -378,7 +382,7 @@ export default function EmergencyMuster() {
 
       {/* Emergency Stats */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <GlassCard hover className="dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-800 lg:w-48 shrink-0">
+        <GlassCard hover className={`dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 lg:w-48 shrink-0 cursor-pointer transition-all ${typeFilter === 'all' ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-600' : 'border-emerald-200 dark:border-emerald-800'}`} onClick={() => setTypeFilter('all')}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Total People</p>
@@ -411,7 +415,7 @@ export default function EmergencyMuster() {
         </GlassCard>
 
         <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 flex-1`}>
-          <GlassCard hover className="dark:glass-dark">
+          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-variable text-sm font-medium">Staff</p>
@@ -425,7 +429,7 @@ export default function EmergencyMuster() {
             </div>
           </GlassCard>
           
-          <GlassCard hover className="dark:glass-dark">
+          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'visitor' ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'visitor' ? 'all' : 'visitor')}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-variable text-sm font-medium">Visitors</p>
@@ -439,7 +443,7 @@ export default function EmergencyMuster() {
             </div>
           </GlassCard>
           
-          <GlassCard hover className="dark:glass-dark">
+          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'contractor' ? 'border-orange-500 dark:border-orange-400 ring-2 ring-orange-300 dark:ring-orange-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'contractor' ? 'all' : 'contractor')}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-variable text-sm font-medium">Contractors</p>
@@ -454,7 +458,7 @@ export default function EmergencyMuster() {
           </GlassCard>
 
           {memberCount > 0 && (
-            <GlassCard hover className="dark:glass-dark">
+            <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'member' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'member' ? 'all' : 'member')}>
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Members</p>
@@ -476,7 +480,15 @@ export default function EmergencyMuster() {
         <div className="lg:col-span-2">
           <GlassCard className="dark:glass-dark">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-              <h3 className="text-base sm:text-lg font-semibold text-fixed">Personnel Accountability</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-fixed">
+                Personnel Accountability
+                {typeFilter !== 'all' && (
+                  <span className="ml-2 text-xs font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                    {typeFilter === 'staff' ? 'Staff' : typeFilter === 'visitor' ? 'Visitors' : typeFilter === 'contractor' ? 'Contractors' : 'Members'}
+                    <button onClick={() => setTypeFilter('all')} className="ml-1 hover:text-blue-900 dark:hover:text-blue-100">&times;</button>
+                  </span>
+                )}
+              </h3>
               <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
                 {hasActiveEvacuation && (
                   <Button 
