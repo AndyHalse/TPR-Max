@@ -552,9 +552,10 @@ export default function Contractors() {
       setSelectedWorkerForCheckIn(null);
       setSelectedHostForWorker("");
       
-      // Refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
     } catch (error: any) {
       toast({
         title: "Check-in Failed",
@@ -574,14 +575,14 @@ export default function Contractors() {
         description: "Worker checked out successfully"
       });
       
-      // Refresh all contractor-related data using predicate to match partial query keys
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
           return typeof key === 'string' && key.includes('/api/contractors');
         }
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
     } catch (error: any) {
       toast({
         title: "Check-out Failed",

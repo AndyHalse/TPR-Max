@@ -358,14 +358,15 @@ export default function Visitors() {
       return response.json();
     },
     onSuccess: () => {
-      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
       if (isTenantView) {
         queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success",
         description: "Visitor checked out successfully",
@@ -445,13 +446,15 @@ export default function Visitors() {
         setShowPassPreview(true);
       }
       
-      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
       if (isTenantView) {
         queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       }
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       
       setCheckedInVisitor(visitor);
       
@@ -548,13 +551,15 @@ export default function Visitors() {
         });
       }
       
-      // GDPR FIX: Invalidate tenant-specific cache when in tenant view
       if (isTenantView) {
         queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       }
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       setCheckedInVisitor(visitor);
       setShowHostSelection(false);
       setSelectedPreviousVisitor(null);
@@ -592,7 +597,9 @@ export default function Visitors() {
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success",
         description: "Visitor checked in manually!",
