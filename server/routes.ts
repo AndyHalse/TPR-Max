@@ -7057,9 +7057,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updated = true;
         }
       } else if (type === 'contractor') {
-        const result = await storage.toggleContractorAccountedStatus(personId);
-        updated = result;
-        newStatus = true;
+        const checkedInContractors = await databaseService.getCheckedInContractors(context);
+        const contractor = checkedInContractors.find(c => c.id === personId);
+        if (contractor) {
+          newStatus = !contractor.isAccountedFor;
+          personName = `${contractor.firstName} ${contractor.lastName}`;
+          const result = await databaseService.toggleContractorAccountedStatus(context, personId);
+          updated = result;
+        }
       } else if (type === 'member') {
         try {
           const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -7127,8 +7132,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark all staff as accounted for
       for (const staff of checkedInStaff) {
         try {
-          const result = await storage.toggleStaffAccountedStatus(staff.id);
-          if (result) updatedCount++;
+          if (!staff.isAccountedFor) {
+            const result = await databaseService.toggleStaffAccountedStatus(context, staff.id);
+            if (result) updatedCount++;
+          } else {
+            updatedCount++;
+          }
         } catch (error) {
           errors.push(`Staff ${staff.firstName} ${staff.lastName}: ${error}`);
         }
@@ -7137,8 +7146,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark all visitors as accounted for  
       for (const visitor of currentVisitors) {
         try {
-          const result = await storage.toggleVisitorAccountedStatus(visitor.id);
-          if (result) updatedCount++;
+          if (!visitor.isAccountedFor) {
+            const result = await databaseService.toggleVisitorAccountedStatus(context, visitor.id);
+            if (result) updatedCount++;
+          } else {
+            updatedCount++;
+          }
         } catch (error) {
           errors.push(`Visitor ${visitor.firstName} ${visitor.lastName}: ${error}`);
         }
@@ -7147,8 +7160,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark all contractors as accounted for
       for (const contractor of checkedInContractors) {
         try {
-          const result = await storage.toggleContractorAccountedStatus(contractor.id);
-          if (result) updatedCount++;
+          if (!contractor.isAccountedFor) {
+            const result = await databaseService.toggleContractorAccountedStatus(context, contractor.id);
+            if (result) updatedCount++;
+          } else {
+            updatedCount++;
+          }
         } catch (error) {
           errors.push(`Contractor ${contractor.firstName} ${contractor.lastName}: ${error}`);
         }
