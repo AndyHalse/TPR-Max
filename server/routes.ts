@@ -2878,6 +2878,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentVisitors = await databaseService.getCurrentVisitors(context);
       const checkedInContractors = await databaseService.getCheckedInContractors(context);
       
+      // Get checked-in members if feature is enabled
+      let checkedInMembers: any[] = [];
+      try {
+        if (companySettings?.featureMembers === true) {
+          const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+          checkedInMembers = await custDb
+            .select()
+            .from(isolatedSchema.members)
+            .where(eq(isolatedSchema.members.isCheckedIn, true));
+        }
+      } catch (e) {
+        console.log(`⚠️ Members query failed during evacuation: ${e}`);
+      }
+      
       // PRE-FLIGHT CHECK 3: Validate Fire Marshals have emergency URLs
       const allFireMarshals = checkedInStaff.filter(s => 
         s.department?.toLowerCase().includes('safety') || 
@@ -2899,10 +2913,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ PRE-FLIGHT CHECKS PASSED - Emergency activation proceeding`);
       console.log(`============================================\n`);
       
-      if (checkedInStaff.length === 0 && currentVisitors.length === 0 && checkedInContractors.length === 0) {
+      if (checkedInStaff.length === 0 && currentVisitors.length === 0 && checkedInContractors.length === 0 && checkedInMembers.length === 0) {
         return res.status(400).json({
           error: "No people on site",
-          message: "There are no staff, visitors, or contractors currently on site."
+          message: "There are no staff, visitors, contractors, or members currently on site."
         });
       }
       
@@ -2916,7 +2930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         evacuationId,
         status: 'active',
         activatedBy,
-        totalPeopleOnSite: checkedInStaff.length + currentVisitors.length + checkedInContractors.length,
+        totalPeopleOnSite: checkedInStaff.length + currentVisitors.length + checkedInContractors.length + checkedInMembers.length,
         totalAccountedFor: 0,
         musterPoints
       });
@@ -2955,6 +2969,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: c.company || '',
           lastKnownLocation: 'On Site',
           isAccountedFor: false
+        })),
+        ...checkedInMembers.map(m => ({
+          customerId: context.customerId,
+          evacuationId,
+          personId: m.id,
+          personType: 'member',
+          personName: `${m.firstName} ${m.lastName}`,
+          department: m.department || '',
+          company: m.company || '',
+          lastKnownLocation: 'On Site',
+          isAccountedFor: false
         }))
       ];
       
@@ -2967,10 +2992,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const evacuationData = {
         evacuationId,
         timestamp: new Date().toISOString(),
-        totalPeople: checkedInStaff.length + currentVisitors.length + checkedInContractors.length,
+        totalPeople: checkedInStaff.length + currentVisitors.length + checkedInContractors.length + checkedInMembers.length,
         staff: checkedInStaff.length,
         visitors: currentVisitors.length,
         contractors: checkedInContractors.length,
+        members: checkedInMembers.length,
         musterPoints,
         message: '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
         notificationsSent: 0,
@@ -3371,7 +3397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const people = accountabilityRecords.map(record => ({
         id: record.personId,
         name: record.personName,
-        type: record.personType as 'staff' | 'visitor' | 'contractor',
+        type: record.personType as 'staff' | 'visitor' | 'contractor' | 'member',
         department: record.department || '',
         company: record.company || '',
         location: record.lastKnownLocation || 'Unknown',
