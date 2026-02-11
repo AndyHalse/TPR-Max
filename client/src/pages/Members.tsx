@@ -116,6 +116,8 @@ export default function Members() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({ title: "Success", description: "Member checked in successfully" });
     },
     onError: () => {
@@ -130,6 +132,8 @@ export default function Members() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({ title: "Success", description: "Member checked out successfully" });
     },
     onError: () => {
