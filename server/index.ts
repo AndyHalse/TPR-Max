@@ -197,6 +197,7 @@ function createCSRFMiddleware() {
     
     // Skip CSRF for login endpoint (always) and super-admin operations (dev only)
     if (req.originalUrl === '/api/auth/login' || 
+        req.originalUrl === '/platform-admin/auth/login' ||
         req.originalUrl === '/api/users/manual' ||
         req.originalUrl === '/api/invitations' ||
         (process.env.NODE_ENV !== 'production' && req.originalUrl.startsWith('/api/super-admin/'))) {
