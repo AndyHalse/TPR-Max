@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import DOMPurify from "dompurify";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -284,7 +285,7 @@ export default function HSDocumentAcceptance({ token }: HSDocumentAcceptanceProp
           <h3 className="text-xl font-semibold text-slate-800 mb-4">Document Content</h3>
           <div className="prose prose-slate max-w-none">
             <div dangerouslySetInnerHTML={{ 
-              __html: documentData.template.templateContent || documentData.template.documentDescription || 'Document content loading...'
+              __html: DOMPurify.sanitize(documentData.template.templateContent || documentData.template.documentDescription || 'Document content loading...')
             }} />
           </div>
           {documentData.template.legalReference && (
