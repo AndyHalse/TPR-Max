@@ -32,6 +32,11 @@ export class CustomerDatabaseService {
 
   private constructor() {}
 
+  private generateSchemaName(customerId: string): string {
+    const schemaPrefix = customerId.replace(/-/g, '_').toLowerCase().substring(0, 8);
+    return `c_${schemaPrefix}`;
+  }
+
   static getInstance(): CustomerDatabaseService {
     if (!CustomerDatabaseService.instance) {
       CustomerDatabaseService.instance = new CustomerDatabaseService();
@@ -86,18 +91,31 @@ export class CustomerDatabaseService {
       }
     }
 
-    // Create new connection pool for this customer - direct connection to their database URL
-    // Both development and production use the same direct connection strategy
-    // Each customer's databaseUrl points to their own isolated database
     let pool: Pool;
     let db: ReturnType<typeof drizzle>;
     
     try {
       pool = new Pool({ connectionString: customer.databaseUrl });
       
+      if (process.env.NODE_ENV !== 'production') {
+        const schemaName = this.generateSchemaName(customerId);
+        const schemaCheck = await pool.query(
+          `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'company_settings' LIMIT 1`,
+          [schemaName]
+        );
+        if (schemaCheck.rows.length > 0) {
+          pool.on('connect', (client) => {
+            client.query(`SET search_path TO ${schemaName}, public`);
+          });
+          await pool.query(`SET search_path TO ${schemaName}, public`);
+          console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
+        } else {
+          console.log(`📋 Using public schema for customer ${customerId} (schema ${schemaName} not fully provisioned)`);
+        }
+      }
+      
       db = drizzle({ client: pool, schema: isolatedSchema });
 
-      // Store connections for reuse
       this.customerPools.set(customerId, pool);
       this.customerConnections.set(customerId, db);
     } catch (error) {

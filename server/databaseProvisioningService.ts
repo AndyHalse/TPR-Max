@@ -297,6 +297,18 @@ export class DatabaseProvisioningService {
     const { databaseUrl } = await this.generateDatabaseUrl(customerId);
     
     const pool = new Pool({ connectionString: databaseUrl });
+    
+    if (process.env.NODE_ENV !== 'production') {
+      const schemaName = this.generateSchemaName(customerId);
+      await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
+      pool.on('connect', (client) => {
+        client.query(`SET search_path TO ${schemaName}, public`);
+      });
+      await pool.query(`SET search_path TO ${schemaName}, public`);
+      const db = drizzle({ client: pool, schema: isolatedSchema });
+      return { pool, db, schemaName };
+    }
+    
     const db = drizzle({ client: pool, schema: isolatedSchema });
     return { pool, db, schemaName: null };
   }
