@@ -5135,6 +5135,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      websocketService.broadcastPersonnelUpdate(context.customerId, {
+        personId: staff.id,
+        personName: `${staff.firstName} ${staff.lastName}`,
+        personType: 'staff',
+        action: 'checkin'
+      });
+      
       res.json({ success: true, staff });
     } catch (error) {
       console.error("Error checking in staff:", error);
@@ -5157,6 +5164,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found or not checked in" });
       }
+      
+      websocketService.broadcastPersonnelUpdate(context.customerId, {
+        personId: staff.id,
+        personName: `${staff.firstName} ${staff.lastName}`,
+        personType: 'staff',
+        action: 'checkout'
+      });
       
       res.json({ success: true, staff });
     } catch (error) {
@@ -5905,6 +5919,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Member not found" });
       }
       
+      websocketService.broadcastPersonnelUpdate(customerId, {
+        personId: updated.id,
+        personName: `${updated.firstName} ${updated.lastName}`,
+        personType: 'member',
+        action: 'checkin'
+      });
+      
       res.json(updated);
     } catch (error) {
       console.error("Failed to check in member:", error);
@@ -5934,6 +5955,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updated) {
         return res.status(404).json({ error: "Member not found" });
       }
+      
+      websocketService.broadcastPersonnelUpdate(customerId, {
+        personId: updated.id,
+        personName: `${updated.firstName} ${updated.lastName}`,
+        personType: 'member',
+        action: 'checkout'
+      });
       
       res.json(updated);
     } catch (error) {
@@ -6209,6 +6237,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      websocketService.broadcastPersonnelUpdate(context.customerId, {
+        personId: visitor.id,
+        personName: `${visitor.firstName} ${visitor.lastName}`,
+        personType: 'visitor',
+        action: 'checkin'
+      });
+      
       res.json(visitor);
     } catch (error) {
       console.error("❌ Error during visitor check-in:", error);
@@ -6259,6 +6294,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!visitor) {
         return res.status(404).json({ error: "Visitor not found or already checked out" });
       }
+      
+      websocketService.broadcastPersonnelUpdate(context.customerId, {
+        personId: visitor.id,
+        personName: `${visitor.firstName} ${visitor.lastName}`,
+        personType: 'visitor',
+        action: 'checkout'
+      });
       
       res.json(visitor);
     } catch (error) {
@@ -14417,6 +14459,13 @@ This is an automated notification from your visitor management system.`;
         }
       }
 
+      websocketService.broadcastPersonnelUpdate(context.customerId, {
+        personId: workerId,
+        personName: `${worker.firstName} ${worker.lastName}`,
+        personType: 'contractor',
+        action: 'checkin'
+      });
+
       res.json({
         success: true,
         worker: updatedWorker,
@@ -14461,6 +14510,13 @@ This is an automated notification from your visitor management system.`;
         });
         console.log(`📋 Completed visit record for ${worker.firstName} ${worker.lastName}`);
       }
+
+      websocketService.broadcastPersonnelUpdate(context.customerId, {
+        personId: workerId,
+        personName: `${worker.firstName} ${worker.lastName}`,
+        personType: 'contractor',
+        action: 'checkout'
+      });
 
       res.json({
         success: true,

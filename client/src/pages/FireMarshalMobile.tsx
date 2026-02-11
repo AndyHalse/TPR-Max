@@ -176,16 +176,20 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
           if (message.type === 'muster_update') {
             console.log('🚨 REAL-TIME UPDATE RECEIVED:', message.personName, message.isAccountedFor ? 'SAFE' : 'UNSAFE');
             
-            // CRITICAL: Invalidate queries with EXACT key patterns to trigger refetch
             queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
             queryClient.invalidateQueries({ queryKey: ['/api/emergency/accountability', activeEvacuationId || ''] });
             
-            // Show toast notification
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
             toast({
               title: "🚨 Real-time Update",
               description: `${message.personName} marked as ${statusText}`,
             });
+          }
+          
+          if (message.type === 'personnel_update') {
+            console.log('👤 PERSONNEL UPDATE:', message.personName, message.action);
+            
+            queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
           }
         } catch (error) {
           console.error('❌ Error parsing WebSocket message:', error);
@@ -242,8 +246,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   }>({
     // CRITICAL: Query key pattern must match WebSocket invalidation pattern exactly
     queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'],
-    enabled: !!urlId, // Always enabled - shows on-site personnel with or without evacuation
-    refetchInterval: 30000 // Reduced to 30 seconds (WebSocket provides real-time updates)
+    enabled: !!urlId,
+    refetchInterval: 5000
   });
 
   // Load marshal name from localStorage (legacy)

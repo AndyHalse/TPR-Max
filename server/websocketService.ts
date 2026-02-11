@@ -149,6 +149,48 @@ class WebSocketService {
     });
   }
 
+  broadcastPersonnelUpdate(
+    customerId: string,
+    update: {
+      personId: string;
+      personName: string;
+      personType: 'staff' | 'visitor' | 'contractor' | 'member';
+      action: 'checkin' | 'checkout';
+    }
+  ) {
+    if (!this.wss) return;
+
+    const message = {
+      type: 'personnel_update',
+      personId: update.personId,
+      personName: update.personName,
+      personType: update.personType,
+      action: update.action,
+      timestamp: new Date().toISOString()
+    };
+
+    const messageStr = JSON.stringify(message);
+    let broadcastCount = 0;
+
+    this.clients.forEach((client, ws) => {
+      if (
+        ws.readyState === WebSocket.OPEN &&
+        client.customerId === customerId
+      ) {
+        ws.send(messageStr);
+        broadcastCount++;
+      }
+    });
+
+    logger.info('Personnel update broadcasted', {
+      customerId,
+      personName: update.personName,
+      action: update.action,
+      broadcastCount,
+      eventType: 'personnel_broadcast'
+    });
+  }
+
   getConnectedClientsCount(customerId?: string, evacuationId?: string): number {
     if (!customerId || !evacuationId) {
       return this.clients.size;
