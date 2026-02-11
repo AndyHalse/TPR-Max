@@ -273,7 +273,7 @@ export class CustomerOnboardingService {
       email: request.adminEmail,
       firstName: request.adminFirstName,
       lastName: request.adminLastName,
-      accessLevel: 'admin' as const,
+      role: 'admin' as const,
       password: hashedPassword,
       isActive: true,
     };
@@ -464,10 +464,9 @@ export class CustomerOnboardingService {
 
     } catch (error) {
       console.error(`Failed to create Stripe customer for ${customerId}:`, error);
-      // In development mode, don't fail the entire onboarding if Stripe is unavailable
-      if (process.env.NODE_ENV !== 'production' && (error instanceof Error && error.message?.includes('Stripe not configured'))) {
+      if (process.env.NODE_ENV !== 'production') {
         console.warn(`⚠️ Stripe unavailable in development mode - continuing onboarding without billing integration`);
-        return { success: false, error: 'Stripe not configured', stripeCustomer: null };
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stripeCustomer: null };
       }
       throw new Error(`Stripe customer creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
