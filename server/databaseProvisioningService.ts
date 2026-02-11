@@ -141,11 +141,9 @@ export class DatabaseProvisioningService {
     }
 
     if (process.env.NODE_ENV === 'production') {
-      // Production: Create actual separate database using Neon API
       const { databaseUrl, databaseId } = await this.createNeonDatabase(customerId);
       return { databaseUrl, databaseId };
     } else {
-      // Development: Use same database with schema isolation
       return { databaseUrl: baseUrl };
     }
   }
@@ -206,23 +204,13 @@ export class DatabaseProvisioningService {
     
     let pool: Pool;
     
-    if (process.env.NODE_ENV === 'production') {
-      pool = new Pool({ 
-        connectionString: databaseUrl,
-        max: 10, // Maximum 10 connections per customer pool
-        idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-        connectionTimeoutMillis: 10000 // Timeout connection attempts after 10 seconds
-      });
-    } else {
-      const schemaName = this.generateSchemaName(customerId);
-      pool = new Pool({ 
-        connectionString: databaseUrl,
-        options: `-c search_path=${schemaName},public`,
-        max: 5, // Smaller pool for development
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000
-      });
-    }
+    const maxConnections = process.env.NODE_ENV === 'production' ? 10 : 5;
+    pool = new Pool({ 
+      connectionString: databaseUrl,
+      max: maxConnections,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000
+    });
 
     this.connectionPools.set(customerId, {
       pool,
@@ -308,24 +296,9 @@ export class DatabaseProvisioningService {
   private async createCustomerConnection(customerId: string): Promise<{ pool: Pool; db: ReturnType<typeof drizzle>; schemaName: string | null }> {
     const { databaseUrl } = await this.generateDatabaseUrl(customerId);
     
-    if (process.env.NODE_ENV === 'production') {
-      // Production: Each customer has their own database
-      const pool = new Pool({ connectionString: databaseUrl });
-      const db = drizzle({ client: pool, schema: isolatedSchema });
-      return { pool, db, schemaName: null };
-    } else {
-      // Development: Use schema-based isolation
-      const schemaName = this.generateSchemaName(customerId);
-      
-      // Create connection with schema search path
-      const pool = new Pool({ 
-        connectionString: databaseUrl,
-        options: `-c search_path=${schemaName},public`
-      });
-      
-      const db = drizzle({ client: pool, schema: isolatedSchema });
-      return { pool, db, schemaName };
-    }
+    const pool = new Pool({ connectionString: databaseUrl });
+    const db = drizzle({ client: pool, schema: isolatedSchema });
+    return { pool, db, schemaName: null };
   }
 
   /**
