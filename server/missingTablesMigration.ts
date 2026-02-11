@@ -545,10 +545,52 @@ export const createMembersTableMigration: Migration = {
   }
 };
 
+export const ensureMembersTableProductionMigration: Migration = {
+  version: '20260211_001_ensure_members_table_production',
+  description: 'Ensure members table exists in production public schema (fixes schema mismatch)',
+  async up(db: any) {
+    console.log('🔄 Ensuring members table exists in current schema...');
+
+    await ensurePgcrypto(db);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS members (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        email TEXT,
+        phone_number TEXT,
+        company TEXT,
+        membership_type TEXT DEFAULT 'standard',
+        membership_id TEXT,
+        department TEXT,
+        notes TEXT,
+        is_checked_in BOOLEAN NOT NULL DEFAULT false,
+        checked_in_at TIMESTAMP,
+        checked_out_at TIMESTAMP,
+        checkout_type TEXT,
+        is_accounted_for BOOLEAN NOT NULL DEFAULT false,
+        qr_code TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await db.execute(`
+      ALTER TABLE company_settings 
+      ADD COLUMN IF NOT EXISTS feature_members BOOLEAN DEFAULT false
+    `);
+
+    console.log('✅ Members table verified/created in current schema');
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
   createUKHSDocumentSystemMigration,
   addEPassSentColumnMigration,
-  createMembersTableMigration
+  createMembersTableMigration,
+  ensureMembersTableProductionMigration
 ];
