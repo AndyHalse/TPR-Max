@@ -63,22 +63,11 @@ export default function EmergencyMuster() {
 
   const hasActiveEvacuation = activeEvacuation?.active || false;
 
-  // WebSocket connection for real-time updates
+  // WebSocket connection for real-time updates (always connected for personnel changes)
   useEffect(() => {
-    // Only connect if we have an active evacuation with customerId and evacuationId
-    if (!hasActiveEvacuation || !activeEvacuation?.evacuationId) {
-      // Disconnect if we had a connection
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-        setWsConnected(false);
-      }
-      return;
-    }
-
     const connectWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host; // Gets hostname:port
+      const host = window.location.host;
       const wsUrl = `${protocol}//${host}/ws/muster`;
       
       console.log('Connecting to WebSocket:', wsUrl, 'Host:', host);
@@ -88,11 +77,10 @@ export default function EmergencyMuster() {
         console.log('WebSocket connected');
         setWsConnected(true);
         
-        // Register with evacuation context (customerId comes from session on server)
         ws.send(JSON.stringify({
           type: 'register',
-          customerId: activeEvacuation.customerId || 'default',
-          evacuationId: activeEvacuation.evacuationId
+          customerId: activeEvacuation?.customerId || 'default',
+          evacuationId: activeEvacuation?.evacuationId || 'muster-standby'
         }));
       };
 
@@ -102,15 +90,17 @@ export default function EmergencyMuster() {
           console.log('WebSocket message received:', message);
           
           if (message.type === 'muster_update') {
-            // Update the cache immediately for real-time sync
             queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
             
-            // Show toast notification for the update
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
             toast({
               title: "Real-time Update",
               description: `${message.personName} marked as ${statusText}`,
             });
+          }
+          
+          if (message.type === 'personnel_update') {
+            queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -126,13 +116,10 @@ export default function EmergencyMuster() {
         console.log('WebSocket disconnected');
         setWsConnected(false);
         
-        // Attempt to reconnect after 3 seconds if we still have an active evacuation
-        if (hasActiveEvacuation && activeEvacuation?.evacuationId) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect WebSocket...');
-            connectWebSocket();
-          }, 3000);
-        }
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('Attempting to reconnect WebSocket...');
+          connectWebSocket();
+        }, 3000);
       };
 
       wsRef.current = ws;

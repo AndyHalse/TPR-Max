@@ -3272,11 +3272,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ 
           active: true,
           evacuationId: evacuation.evacuationId,
-          startedAt: evacuation.startedAt.toISOString()
+          startedAt: evacuation.startedAt.toISOString(),
+          customerId
         });
       } else {
         res.json({ 
-          active: false 
+          active: false,
+          customerId
         });
       }
     } catch (error) {
