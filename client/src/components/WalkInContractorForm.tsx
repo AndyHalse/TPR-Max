@@ -81,6 +81,9 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success",
         description: `Walk-in contractor ${data.contractor.name} registered successfully. Pending approval and document verification.`,

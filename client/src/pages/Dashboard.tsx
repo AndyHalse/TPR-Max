@@ -498,6 +498,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success",
         description: "Visitor checked out successfully",
@@ -521,6 +522,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success", 
         description: "Contractor checked out successfully",
@@ -545,6 +547,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success", 
         description: "Staff member checked out successfully",
@@ -569,6 +572,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success",
         description: "Member checked out successfully",

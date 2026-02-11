@@ -48,7 +48,9 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       setCreatedVisitor(visitor);
       setShowPassPreview(true);
       queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "Success",
         description: "Visitor checked in successfully!",

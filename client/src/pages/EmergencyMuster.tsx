@@ -52,7 +52,7 @@ export default function EmergencyMuster() {
 
   const { data: musterList = [], isLoading } = useQuery<MusterListItem[]>({
     queryKey: ["/api/muster"],
-    refetchInterval: 30000, // Reduced to 30 seconds (WebSocket is primary source)
+    refetchInterval: 5000, // Poll every 5 seconds for live updates
   });
 
   // Check for active evacuation
