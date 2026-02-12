@@ -251,6 +251,22 @@ export class DatabaseService {
     return updated[0];
   }
 
+  async checkOutContractorWorker(context: CustomerContext, id: string): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updated = await db
+      .update(isolatedSchema.contractorWorkers)
+      .set({ 
+        isCheckedIn: false,
+        checkedOutAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(isolatedSchema.contractorWorkers.id, id))
+      .returning();
+    
+    return updated[0];
+  }
+
   /**
    * FIRE MARSHAL METHODS - Cross-Customer Search
    * FIXED: Query PUBLIC staff table directly to get correct customer_id

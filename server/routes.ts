@@ -3836,52 +3836,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const emergencyToken = req.emergencyToken;
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       
+      let customerId: string;
+      
       if (emergencyToken) {
-        // Legacy token-based auth
         validatedStaff = await storage.validateEmergencyToken(emergencyToken);
         if (!validatedStaff) {
           return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
         }
+        customerId = validatedStaff.customerId;
       } else if (fireMarshalId) {
-        // Fire Marshal URL ID authentication
         const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
         if (!marshal) {
           return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
         }
         validatedStaff = marshal.marshal;
-        console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${marshal.customerId})`);
+        customerId = marshal.customerId;
+        validatedStaff.customerId = customerId;
+        console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${customerId})`);
       } else {
         return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
 
-      const { evacuationId, checkOutMode } = req.body;
-      
-      console.log(`🏁 COMPLETE EVACUATION - EvacID: ${evacuationId}, Mode: ${checkOutMode}, By: ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${validatedStaff.customerId})`);
-      
-      if (!evacuationId) {
-        return res.status(400).json({ error: "Evacuation ID is required" });
-      }
+      const { evacuationId: requestedEvacuationId, checkOutMode } = req.body;
 
       if (!checkOutMode || !['keep_checked_in', 'check_out_all'].includes(checkOutMode)) {
         return res.status(400).json({ error: "Valid checkOutMode required: 'keep_checked_in' or 'check_out_all'" });
       }
 
-      // Get the evacuation with customer isolation
-      const evacuation = await db
+      // Resolve to latest active evacuation for this customer
+      const latestEvacs = await db
         .select()
         .from(evacuations)
         .where(and(
-          eq(evacuations.evacuationId, evacuationId),
-          eq(evacuations.customerId, validatedStaff.customerId) // CRITICAL: Verify Fire Marshal can only complete their customer's evacuations
+          eq(evacuations.customerId, customerId),
+          eq(evacuations.status, 'active')
         ))
+        .orderBy(desc(evacuations.startedAt))
         .limit(1);
+
+      let evacuationId: string;
       
-      if (!evacuation || evacuation.length === 0) {
-        console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to complete evacuation ${evacuationId} but it doesn't belong to their customer ${validatedStaff.customerId}`);
-        return res.status(404).json({ error: "Evacuation not found" });
+      if (latestEvacs.length > 0) {
+        evacuationId = latestEvacs[0].evacuationId;
+        if (requestedEvacuationId && requestedEvacuationId !== evacuationId) {
+          console.log(`🔄 Complete Evacuation: Resolved stale evacuationId ${requestedEvacuationId} -> latest: ${evacuationId}`);
+        }
+      } else if (requestedEvacuationId) {
+        const specificEvac = await db
+          .select()
+          .from(evacuations)
+          .where(and(
+            eq(evacuations.evacuationId, requestedEvacuationId),
+            eq(evacuations.customerId, customerId)
+          ))
+          .limit(1);
+        if (specificEvac.length > 0) {
+          evacuationId = specificEvac[0].evacuationId;
+        } else {
+          return res.status(404).json({ error: "Evacuation not found" });
+        }
+      } else {
+        return res.status(404).json({ error: "No active evacuation found" });
       }
+
+      console.log(`🏁 COMPLETE EVACUATION - EvacID: ${evacuationId}, Mode: ${checkOutMode}, By: ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${customerId})`);
       
-      const customerId = evacuation[0].customerId;
       const context = { customerId };
 
       // Mark evacuation as completed
@@ -3915,17 +3934,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`📤 Checking out ${accountedPeople.length} accounted people`);
 
-        // Check out each person based on their type
         for (const person of accountedPeople) {
           try {
             if (person.personType === 'staff') {
-              await databaseService.checkOutStaff(person.personId);
+              await databaseService.checkOutStaff(context, person.personId);
               staffCheckedOut++;
             } else if (person.personType === 'visitor') {
-              await databaseService.checkOutVisitor(person.personId);
+              await databaseService.checkOutVisitor(context, person.personId);
               visitorsCheckedOut++;
             } else if (person.personType === 'contractor') {
-              await databaseService.checkOutContractor(person.personId);
+              await databaseService.checkOutContractorWorker(context, person.personId);
               contractorsCheckedOut++;
             }
             checkedOutCount++;
