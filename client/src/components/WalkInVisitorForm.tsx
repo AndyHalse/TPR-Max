@@ -436,7 +436,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
             ) : activeField === "hostSearch" ? (
               <div className="max-w-4xl mx-auto">
                 {hostSearch.trim().length >= 3 && filteredStaff.length > 0 && (
-                  <div className="mb-2 bg-white rounded-xl border-2 border-blue-300 max-h-40 overflow-y-auto shadow-lg">
+                  <div className="mb-2 bg-white rounded-xl border-2 border-blue-300 overflow-y-auto shadow-lg" style={{ maxHeight: `${Math.min(filteredStaff.slice(0, 10).length * 52 + 4, 260)}px` }}>
                     <div className="divide-y divide-gray-100">
                       {filteredStaff.slice(0, 10).map((member) => (
                         <button
