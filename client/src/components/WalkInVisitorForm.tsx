@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,9 +16,18 @@ interface WalkInVisitorFormProps {
   onBack: () => void;
 }
 
+const FIELD_ORDER: Array<"firstName" | "lastName" | "company" | "purpose"> = ["firstName", "lastName", "company", "purpose"];
+
+const FIELD_LABELS: Record<string, string> = {
+  firstName: "Last Name",
+  lastName: "Company",
+  company: "Purpose of Visit",
+  purpose: "Host Selection",
+};
+
 export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const { toast } = useToast();
-  const [activeField, setActiveField] = useState<"firstName" | "lastName" | "company" | "purpose" | null>(null);
+  const [activeField, setActiveField] = useState<"firstName" | "lastName" | "company" | "purpose" | null>("firstName");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -29,7 +38,6 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const [createdVisitor, setCreatedVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
 
-  // GDPR Fix: Get company-specific staff based on company field
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff/by-company", formData.company],
     enabled: !!formData.company && formData.company.trim().length > 0,
@@ -38,6 +46,61 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
+
+  useEffect(() => {
+    const brandSettings = settings as any;
+    if (brandSettings?.backgroundColor || brandSettings?.fixedTextColor || brandSettings?.variableTextColor || brandSettings?.accentColor) {
+      const root = document.documentElement;
+      
+      const hexToHsl = (hex: string) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (!result) return null;
+        const r = parseInt(result[1], 16) / 255;
+        const g = parseInt(result[2], 16) / 255;
+        const b = parseInt(result[3], 16) / 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0, s = 0;
+        const l = (max + min) / 2;
+        if (max !== min) {
+          const d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+          }
+          h /= 6;
+        }
+        return `${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%`;
+      };
+
+      if (brandSettings.backgroundColor) {
+        const hsl = hexToHsl(brandSettings.backgroundColor);
+        if (hsl) {
+          root.style.setProperty('--background', `hsl(${hsl})`);
+          root.style.setProperty('--card', `hsl(${hsl})`);
+          root.style.setProperty('--popover', `hsl(${hsl})`);
+        }
+      }
+      if (brandSettings.fixedTextColor) {
+        const hsl = hexToHsl(brandSettings.fixedTextColor);
+        if (hsl) root.style.setProperty('--fixed-text', `hsl(${hsl})`);
+      }
+      if (brandSettings.variableTextColor) {
+        const hsl = hexToHsl(brandSettings.variableTextColor);
+        if (hsl) root.style.setProperty('--variable-text', `hsl(${hsl})`);
+      }
+      if (brandSettings.accentColor) {
+        const hsl = hexToHsl(brandSettings.accentColor);
+        if (hsl) {
+          root.style.setProperty('--primary', `hsl(${hsl})`);
+          root.style.setProperty('--accent', `hsl(${hsl})`);
+          root.style.setProperty('--ring', `hsl(${hsl})`);
+        }
+      }
+    }
+  }, [settings]);
 
   const checkinMutation = useMutation({
     mutationFn: async (visitor: InsertVisitor) => {
@@ -67,42 +130,37 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
 
   const handleFieldChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Auto-advance to next required field if current field has meaningful content (3+ characters)
-    if (value.trim().length >= 2) {
-      if (field === "firstName" && !formData.lastName) {
-        setTimeout(() => setActiveField("lastName"), 500);
-      } else if (field === "lastName" && !formData.hostStaffId) {
-        setTimeout(() => setActiveField(null), 500); // Close keyboard to show host selector
-      }
+  };
+
+  const handleNextField = () => {
+    if (!activeField) return;
+    const currentIndex = FIELD_ORDER.indexOf(activeField);
+    if (currentIndex < FIELD_ORDER.length - 1) {
+      setActiveField(FIELD_ORDER[currentIndex + 1]);
+    } else {
+      setActiveField(null);
     }
+  };
+
+  const getNextLabel = () => {
+    if (!activeField) return "Next";
+    return `Next: ${FIELD_LABELS[activeField] || "Next"}`;
   };
 
   const handleSubmit = () => {
     if (!formData.firstName.trim()) {
-      toast({
-        title: "Error",
-        description: "First name is required",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "First name is required", variant: "destructive" });
+      setActiveField("firstName");
       return;
     }
-
     if (!formData.lastName.trim()) {
-      toast({
-        title: "Error",
-        description: "Last name is required",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Last name is required", variant: "destructive" });
+      setActiveField("lastName");
       return;
     }
-
     if (!formData.hostStaffId) {
-      toast({
-        title: "Error",
-        description: "Please select a host",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please select a host", variant: "destructive" });
+      setActiveField(null);
       return;
     }
 
@@ -121,9 +179,9 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const canSubmit = formData.firstName.trim() && formData.lastName.trim() && formData.hostStaffId;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 overflow-hidden">
+    <div className="min-h-screen bg-[var(--background)] overflow-hidden">
       <div className="flex flex-col h-screen">
-        {/* Company Banner - Compact for touchscreen */}
+        {/* Company Banner */}
         {settings?.bannerUrl && (
           <div className="w-full flex-shrink-0 bg-white/90 backdrop-blur-sm border-b border-white/30">
             <div className="flex items-center justify-center py-3 px-6">
@@ -132,12 +190,9 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                 alt={settings.companyName}
                 className="h-10 max-w-sm object-contain"
                 onError={(e) => {
-                  console.error("Kiosk banner failed to load:", settings.bannerUrl);
                   e.currentTarget.style.display = 'none';
                   const container = e.currentTarget.parentElement?.parentElement;
-                  if (container) {
-                    container.style.display = 'none';
-                  }
+                  if (container) container.style.display = 'none';
                 }}
               />
             </div>
@@ -164,7 +219,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
           </div>
         </div>
 
-        {/* Main Content Area - scrollable if needed */}
+        {/* Main Content Area */}
         <div className="flex-1 px-6 pb-4 overflow-y-auto" style={{ maxHeight: "calc(100vh - 400px)" }}>
           <div className="max-w-4xl mx-auto">
             <GlassCard className="p-8">
@@ -195,12 +250,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
                         activeField === "firstName" 
                           ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
-                          : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
+                          : formData.firstName 
+                            ? "border-green-400 bg-green-50 shadow-md"
+                            : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-first-name"
                     >
                       <span className={formData.firstName ? "text-fixed" : "text-variable"}>
-                        {formData.firstName || "👆 Touch here to enter first name"}
+                        {formData.firstName || "Touch to enter first name"}
                       </span>
                     </div>
                   </div>
@@ -215,12 +272,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
                         activeField === "lastName" 
                           ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
-                          : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
+                          : formData.lastName
+                            ? "border-green-400 bg-green-50 shadow-md"
+                            : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-last-name"
                     >
                       <span className={formData.lastName ? "text-fixed" : "text-variable"}>
-                        {formData.lastName || "👆 Touch here to enter last name"}
+                        {formData.lastName || "Touch to enter last name"}
                       </span>
                     </div>
                   </div>
@@ -238,12 +297,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
                         activeField === "company" 
                           ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
-                          : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
+                          : formData.company
+                            ? "border-green-400 bg-green-50 shadow-md"
+                            : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-company"
                     >
                       <span className={formData.company ? "text-fixed" : "text-variable"}>
-                        {formData.company || "👆 Touch here to enter company name"}
+                        {formData.company || "Touch to enter company name"}
                       </span>
                     </div>
                   </div>
@@ -258,12 +319,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
                         activeField === "purpose" 
                           ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
-                          : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
+                          : formData.purpose
+                            ? "border-green-400 bg-green-50 shadow-md"
+                            : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-purpose"
                     >
                       <span className={formData.purpose ? "text-fixed" : "text-variable"}>
-                        {formData.purpose || "👆 Touch here to enter purpose of visit"}
+                        {formData.purpose || "Touch to enter purpose of visit"}
                       </span>
                     </div>
                   </div>
@@ -279,11 +342,11 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                     value={formData.hostStaffId} 
                     onValueChange={(value) => {
                       handleFieldChange("hostStaffId", value);
-                      setActiveField(null); // Close keyboard when host is selected
+                      setActiveField(null);
                     }}
                   >
                     <SelectTrigger className="w-full px-8 py-8 rounded-2xl border-2 border-white/40 bg-white/60 text-xl font-medium hover:bg-white/80 hover:border-blue-300" data-testid="select-host">
-                      <SelectValue placeholder="👆 Touch here to select your host" className="text-variable" />
+                      <SelectValue placeholder="Touch to select your host" className="text-variable" />
                     </SelectTrigger>
                     <SelectContent className="text-lg">
                       {staff?.map((member) => (
@@ -316,7 +379,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   <Button
                     onClick={onBack}
                     variant="outline"
-                    className="flex-1 py-8 text-2xl rounded-2xl border-2 border-slate-300 hover:bg-slate-50"
+                    className="flex-1 py-8 text-2xl rounded-2xl border-2 border-slate-300 text-slate-700 hover:bg-slate-50"
                     data-testid="button-cancel"
                   >
                     Cancel
@@ -351,12 +414,15 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   placeholder={`Enter ${activeField.replace(/([A-Z])/g, ' $1').toLowerCase()}`}
                   type="text"
                   fieldType={activeField === "firstName" || activeField === "lastName" ? "name" : "general"}
+                  onNext={handleNextField}
+                  nextLabel={getNextLabel()}
+                  showNext={true}
                 />
               </div>
             ) : (
               <div className="max-w-4xl mx-auto text-center py-8">
                 <div className="text-variable">
-                  <p className="text-xl mb-2">👆 Touch any field above to start typing</p>
+                  <p className="text-xl mb-2">Touch any field above to start typing</p>
                   <p className="text-lg">The keyboard will appear here when you need it</p>
                 </div>
               </div>
@@ -370,7 +436,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
             onClose={() => {
               setShowPassPreview(false);
               setCreatedVisitor(null);
-              onBack(); // Return to kiosk main screen after pass preview
+              onBack();
             }}
             visitor={createdVisitor}
             hostName={staff?.find(s => s.id === createdVisitor.hostStaffId) ? `${staff.find(s => s.id === createdVisitor.hostStaffId)?.firstName} ${staff.find(s => s.id === createdVisitor.hostStaffId)?.lastName}` : undefined}

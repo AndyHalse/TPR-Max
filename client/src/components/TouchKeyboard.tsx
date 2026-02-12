@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Delete, Space } from "lucide-react";
+import { Delete, Space, ArrowRight } from "lucide-react";
 import { formatName } from "@/utils/textFormat";
 
 interface TouchKeyboardProps {
@@ -8,7 +8,10 @@ interface TouchKeyboardProps {
   onChange: (value: string) => void;
   placeholder?: string;
   type?: "text" | "email" | "phone";
-  fieldType?: "name" | "general"; // Add field type for name formatting
+  fieldType?: "name" | "general";
+  onNext?: () => void;
+  nextLabel?: string;
+  showNext?: boolean;
 }
 
 const KEYBOARD_LAYOUTS = {
@@ -33,12 +36,11 @@ const KEYBOARD_LAYOUTS = {
   ]
 };
 
-export default function TouchKeyboard({ value, onChange, placeholder, type = "text", fieldType = "general" }: TouchKeyboardProps) {
+export default function TouchKeyboard({ value, onChange, placeholder, type = "text", fieldType = "general", onNext, nextLabel, showNext = true }: TouchKeyboardProps) {
   const [layout, setLayout] = useState<"text" | "numbers" | "symbols">("text");
   const [isUppercase, setIsUppercase] = useState(true);
 
   const handleKeyPress = (key: string) => {
-    // Add haptic feedback for better touch experience
     if (navigator.vibrate) {
       navigator.vibrate(10);
     }
@@ -55,7 +57,6 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
       const finalKey = layout === "text" && !isUppercase ? key.toLowerCase() : key;
       const newValue = value + finalKey;
       
-      // Apply name formatting for name fields
       if (fieldType === "name" && layout === "text") {
         onChange(formatName(newValue));
       } else {
@@ -93,6 +94,15 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
             {value || placeholder || "Type here..."}
           </span>
           <span className="ml-2 animate-pulse text-variable text-2xl font-light">|</span>
+          {onNext && showNext && (
+            <Button
+              onClick={onNext}
+              className="ml-auto h-14 px-8 text-lg font-bold bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all transform active:scale-95 shadow-lg"
+            >
+              {nextLabel || "Next"}
+              <ArrowRight className="ml-2" size={20} />
+            </Button>
+          )}
         </div>
       </div>
 
