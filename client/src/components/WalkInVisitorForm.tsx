@@ -49,7 +49,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
 
   const filteredStaff = useMemo(() => {
     if (!allStaff) return [];
-    if (!hostSearch.trim()) return allStaff;
+    if (hostSearch.trim().length < 3) return [];
     const search = hostSearch.toLowerCase().trim();
     return allStaff.filter(
       (s) =>
@@ -390,15 +390,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
 
                   {activeField === "hostSearch" && (
                     <div className="bg-white/80 rounded-xl border-2 border-blue-200 max-h-48 overflow-y-auto">
-                      {hostSearch.trim() === "" && !allStaff?.length ? (
-                        <div className="p-4 text-center text-slate-500">No staff members found</div>
+                      {hostSearch.trim().length < 3 ? (
+                        <div className="px-4 py-3 text-center text-slate-500 text-sm">
+                          Type at least 3 letters to search for staff
+                        </div>
+                      ) : filteredStaff.length === 0 ? (
+                        <div className="p-4 text-center text-slate-500">No matches for "{hostSearch}"</div>
                       ) : (
                         <>
-                          {hostSearch.trim() === "" && (
-                            <div className="px-4 py-2 bg-blue-50 border-b text-sm text-blue-700 font-medium">
-                              Type a surname below to filter, or tap a name to select
-                            </div>
-                          )}
                           <div className="divide-y divide-gray-100">
                             {filteredStaff.slice(0, 20).map((member) => (
                               <button
@@ -421,9 +420,6 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                                 </div>
                               </button>
                             ))}
-                            {filteredStaff.length === 0 && hostSearch.trim() !== "" && (
-                              <div className="p-4 text-center text-slate-500">No matches for "{hostSearch}"</div>
-                            )}
                             {filteredStaff.length > 20 && (
                               <div className="px-4 py-2 text-center text-sm text-slate-500 bg-gray-50">
                                 Showing first 20 results - type more to narrow down
