@@ -538,16 +538,27 @@ export default function Contractors() {
     if (!selectedWorkerForCheckIn || !selectedHostForWorker) return;
     
     try {
-      await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
+      const response = await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
         hostId: selectedHostForWorker
       });
       
-      toast({
-        title: "Success",
-        description: `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName} checked in successfully`
-      });
+      const data = await response.json();
       
-      // Reset state
+      if (data.ePassSent) {
+        toast({
+          title: "Digital Pass Sent",
+          description: `E-Pass has been sent to ${selectedWorkerForCheckIn.email || 'contractor'}. They can use it to check out.`,
+          duration: 5000
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName} checked in successfully`
+        });
+        setWorkerForCard(selectedWorkerForCheckIn);
+        setShowIssueCardModal(true);
+      }
+      
       setShowHostSelection(false);
       setSelectedWorkerForCheckIn(null);
       setSelectedHostForWorker("");
