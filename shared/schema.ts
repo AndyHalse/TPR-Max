@@ -755,7 +755,7 @@ export const customerOnboardingRequestSchema = z.object({
     .max(50, "Last name must be less than 50 characters"),
   
   // Subscription & Trial Configuration
-  planType: z.enum(["trial", "basic", "professional", "enterprise"])
+  planType: z.enum(["trial", "enterprise"])
     .default("trial"),
   trialDays: z.number()
     .min(0, "Trial days cannot be negative")

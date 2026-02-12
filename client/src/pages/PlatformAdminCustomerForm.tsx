@@ -23,7 +23,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
     adminPassword: "",
     adminFirstName: "",
     adminLastName: "",
-    planType: "trial" as "trial" | "basic" | "professional" | "enterprise",
+    planType: "trial" as "trial" | "enterprise",
     trialDays: 14,
     timezone: "Europe/London",
     currency: "GBP",
@@ -140,8 +140,6 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="basic">Basic</SelectItem>
-                <SelectItem value="professional">Professional</SelectItem>
                 <SelectItem value="enterprise">Enterprise</SelectItem>
               </SelectContent>
             </Select>

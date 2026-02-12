@@ -6,11 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlatformAdminCustomerForm from "./PlatformAdminCustomerForm";
+import acsLogoPath from "@assets/acs-logo-2460A9-200px.jpg";
 
 interface PlatformAdmin {
   id: string;
@@ -154,6 +156,77 @@ export default function PlatformAdminDashboard() {
   });
   
   const [logoFile, setLogoFile] = useState<File | null>(null);
+
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState<any | null>(null);
+  const [newAdminForm, setNewAdminForm] = useState({
+    username: '', email: '', password: '', firstName: '', lastName: '', role: 'admin',
+  });
+  const [editAdminForm, setEditAdminForm] = useState({
+    email: '', firstName: '', lastName: '', password: '', role: 'admin',
+  });
+
+  const { data: adminsData, isLoading: adminsLoading, error: adminsError } = useQuery<{ success: boolean; admins: any[] }>({
+    queryKey: ["/platform-admin/admins"],
+    queryFn: async () => {
+      const response = await fetch("/platform-admin/admins", { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch admins");
+      return response.json();
+    },
+    enabled: !!admin && showSettings,
+  });
+
+  const createAdminMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/platform-admin/admins", newAdminForm);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/admins"] });
+      setShowAddAdmin(false);
+      setNewAdminForm({ username: '', email: '', password: '', firstName: '', lastName: '', role: 'admin' });
+      toast({ title: "Success", description: "Admin user created" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create admin", variant: "destructive" });
+    },
+  });
+
+  const updateAdminMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingAdmin) throw new Error("No admin selected");
+      const payload: any = {};
+      if (editAdminForm.email) payload.email = editAdminForm.email;
+      if (editAdminForm.firstName) payload.firstName = editAdminForm.firstName;
+      if (editAdminForm.lastName) payload.lastName = editAdminForm.lastName;
+      if (editAdminForm.password) payload.password = editAdminForm.password;
+      if (editAdminForm.role) payload.role = editAdminForm.role;
+      const response = await apiRequest("PATCH", `/platform-admin/admins/${editingAdmin.id}`, payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/admins"] });
+      setEditingAdmin(null);
+      toast({ title: "Success", description: "Admin user updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update admin", variant: "destructive" });
+    },
+  });
+
+  const deleteAdminMutation = useMutation({
+    mutationFn: async (adminId: string) => {
+      const response = await apiRequest("DELETE", `/platform-admin/admins/${adminId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/admins"] });
+      toast({ title: "Success", description: "Admin user deleted" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete admin", variant: "destructive" });
+    },
+  });
 
   useEffect(() => {
     if (brandingData?.branding) {
@@ -335,21 +408,17 @@ export default function PlatformAdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              {brandingData?.branding?.logoUrl ? (
-                <img 
-                  src={brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
+              <img 
+                src={brandingData?.branding?.logoUrl 
+                  ? (brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
                     ? brandingData.branding.logoUrl 
-                    : `/public-objects/${brandingData.branding.logoUrl}`
-                  } 
-                  alt={brandingData.branding.platformName} 
-                  className="h-10 object-contain"
-                  data-testid="img-dashboard-logo"
-                />
-              ) : (
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Shield className="w-6 h-6 text-white" />
-                </div>
-              )}
+                    : `/public-objects/${brandingData.branding.logoUrl}`)
+                  : acsLogoPath
+                } 
+                alt={brandingData?.branding?.platformName || "ACS Platform Admin"} 
+                className="h-10 object-contain bg-white/90 rounded p-1"
+                data-testid="img-dashboard-logo"
+              />
               <div>
                 <h1 className="text-2xl font-bold text-white">
                   {brandingData?.branding?.platformName || "Platform Admin"}
@@ -610,141 +679,201 @@ export default function PlatformAdminDashboard() {
       </Dialog>
 
       {/* Settings Dialog */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={showSettings} onOpenChange={(open) => { setShowSettings(open); if (!open) { setShowAddAdmin(false); setEditingAdmin(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
-              <Palette className="w-5 h-5" />
-              <span>Platform Branding Settings</span>
+              <Settings className="w-5 h-5" />
+              <span>Platform Settings</span>
             </DialogTitle>
             <DialogDescription>
-              Customize colors and branding for white-label deployment
+              Manage branding and admin users
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="primaryColor">Primary Color</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="primaryColor"
-                    type="color"
-                    value={brandingForm.primaryColor}
-                    onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
-                    className="w-20 h-10"
-                    data-testid="input-primary-color"
-                  />
-                  <Input
-                    type="text"
-                    value={brandingForm.primaryColor}
-                    onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })}
-                    placeholder="#2460A9"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
+          <Tabs defaultValue="branding" className="mt-2">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="branding"><Palette className="w-4 h-4 mr-2" />Branding</TabsTrigger>
+              <TabsTrigger value="admins"><Users className="w-4 h-4 mr-2" />Admin Users</TabsTrigger>
+            </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="secondaryColor">Secondary Color</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="secondaryColor"
-                    type="color"
-                    value={brandingForm.secondaryColor}
-                    onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })}
-                    className="w-20 h-10"
-                    data-testid="input-secondary-color"
-                  />
-                  <Input
-                    type="text"
-                    value={brandingForm.secondaryColor}
-                    onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })}
-                    placeholder="#1E3A8A"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="accentColor">Accent Color</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="accentColor"
-                    type="color"
-                    value={brandingForm.accentColor}
-                    onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })}
-                    className="w-20 h-10"
-                    data-testid="input-accent-color"
-                  />
-                  <Input
-                    type="text"
-                    value={brandingForm.accentColor}
-                    onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })}
-                    placeholder="#3B82F6"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="logoFile">Logo Upload</Label>
-                <Input
-                  id="logoFile"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                  data-testid="input-logo-file"
-                />
-                {(logoFile || brandingForm.logoUrl) && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">
-                      {logoFile ? `Selected: ${logoFile.name}` : `Current: ${brandingForm.logoUrl}`}
-                    </p>
-                    {brandingForm.logoUrl && !logoFile && (
-                      <img src={brandingForm.logoUrl} alt="Logo preview" className="mt-2 h-16 object-contain" />
-                    )}
+            <TabsContent value="branding" className="space-y-6 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="primaryColor">Primary Color</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input id="primaryColor" type="color" value={brandingForm.primaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })} className="w-20 h-10" data-testid="input-primary-color" />
+                    <Input type="text" value={brandingForm.primaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })} placeholder="#2460A9" className="flex-1" />
                   </div>
-                )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="secondaryColor">Secondary Color</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input id="secondaryColor" type="color" value={brandingForm.secondaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })} className="w-20 h-10" data-testid="input-secondary-color" />
+                    <Input type="text" value={brandingForm.secondaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })} placeholder="#1E3A8A" className="flex-1" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accentColor">Accent Color</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input id="accentColor" type="color" value={brandingForm.accentColor} onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })} className="w-20 h-10" data-testid="input-accent-color" />
+                    <Input type="text" value={brandingForm.accentColor} onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })} placeholder="#3B82F6" className="flex-1" />
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="logoFile">Logo Upload</Label>
+                  <Input id="logoFile" type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} data-testid="input-logo-file" />
+                  {(logoFile || brandingForm.logoUrl) && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-600">{logoFile ? `Selected: ${logoFile.name}` : `Current: ${brandingForm.logoUrl}`}</p>
+                      {brandingForm.logoUrl && !logoFile && (<img src={brandingForm.logoUrl} alt="Logo preview" className="mt-2 h-16 object-contain" />)}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="platformName">Platform Name</Label>
+                  <Input id="platformName" type="text" value={brandingForm.platformName} onChange={(e) => setBrandingForm({ ...brandingForm, platformName: e.target.value })} placeholder="TPR Max" data-testid="input-platform-name" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyName">Company Name</Label>
+                  <Input id="companyName" type="text" value={brandingForm.companyName} onChange={(e) => setBrandingForm({ ...brandingForm, companyName: e.target.value })} placeholder="Your Company" data-testid="input-company-name" />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setShowSettings(false)}>Cancel</Button>
+                <Button onClick={() => updateBrandingMutation.mutate()} disabled={updateBrandingMutation.isPending} data-testid="button-save-branding">
+                  {updateBrandingMutation.isPending ? "Saving..." : "Save Branding"}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="admins" className="space-y-4 py-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">Manage platform administrator accounts</p>
+                <Button size="sm" onClick={() => { setShowAddAdmin(true); setNewAdminForm({ username: '', email: '', password: '', firstName: '', lastName: '', role: 'admin' }); }}>
+                  <UserPlus className="w-4 h-4 mr-2" />Add Admin
+                </Button>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="platformName">Platform Name</Label>
-                <Input
-                  id="platformName"
-                  type="text"
-                  value={brandingForm.platformName}
-                  onChange={(e) => setBrandingForm({ ...brandingForm, platformName: e.target.value })}
-                  placeholder="TPR Max"
-                  data-testid="input-platform-name"
-                />
-              </div>
+              {showAddAdmin && (
+                <Card className="border-blue-200 bg-blue-50/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">New Admin User</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">First Name</Label>
+                        <Input value={newAdminForm.firstName} onChange={(e) => setNewAdminForm({ ...newAdminForm, firstName: e.target.value })} placeholder="First name" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Last Name</Label>
+                        <Input value={newAdminForm.lastName} onChange={(e) => setNewAdminForm({ ...newAdminForm, lastName: e.target.value })} placeholder="Last name" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Username</Label>
+                        <Input value={newAdminForm.username} onChange={(e) => setNewAdminForm({ ...newAdminForm, username: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })} placeholder="username" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Email</Label>
+                        <Input type="email" value={newAdminForm.email} onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })} placeholder="email@example.com" />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Password</Label>
+                        <Input type="password" value={newAdminForm.password} onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })} placeholder="Min 8 characters" />
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => setShowAddAdmin(false)}>Cancel</Button>
+                      <Button size="sm" onClick={() => createAdminMutation.mutate()} disabled={createAdminMutation.isPending}>
+                        {createAdminMutation.isPending ? "Creating..." : "Create Admin"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="companyName">Company Name</Label>
-                <Input
-                  id="companyName"
-                  type="text"
-                  value={brandingForm.companyName}
-                  onChange={(e) => setBrandingForm({ ...brandingForm, companyName: e.target.value })}
-                  placeholder="Your Company"
-                  data-testid="input-company-name"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setShowSettings(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={() => updateBrandingMutation.mutate()}
-                disabled={updateBrandingMutation.isPending}
-                data-testid="button-save-branding"
-              >
-                {updateBrandingMutation.isPending ? "Saving..." : "Save Settings"}
-              </Button>
-            </div>
-          </div>
+              {adminsLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Loading admins...</p>
+                </div>
+              ) : adminsError ? (
+                <div className="text-center py-4 text-red-600">
+                  <AlertTriangle className="w-6 h-6 mx-auto mb-2" />
+                  <p className="text-sm">Failed to load admin users. Please try again.</p>
+                </div>
+              ) : (adminsData?.admins || []).length === 0 ? (
+                <div className="text-center py-4">
+                  <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">No admin users found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(adminsData?.admins || []).map((adm: any) => (
+                    <div key={adm.id} className="border rounded-lg p-4">
+                      {editingAdmin?.id === adm.id ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs">First Name</Label>
+                              <Input value={editAdminForm.firstName} onChange={(e) => setEditAdminForm({ ...editAdminForm, firstName: e.target.value })} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Last Name</Label>
+                              <Input value={editAdminForm.lastName} onChange={(e) => setEditAdminForm({ ...editAdminForm, lastName: e.target.value })} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Email</Label>
+                              <Input type="email" value={editAdminForm.email} onChange={(e) => setEditAdminForm({ ...editAdminForm, email: e.target.value })} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">New Password (leave blank to keep)</Label>
+                              <Input type="password" value={editAdminForm.password} onChange={(e) => setEditAdminForm({ ...editAdminForm, password: e.target.value })} placeholder="Leave blank to keep current" />
+                            </div>
+                          </div>
+                          <div className="flex justify-end space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingAdmin(null)}>Cancel</Button>
+                            <Button size="sm" onClick={() => updateAdminMutation.mutate()} disabled={updateAdminMutation.isPending}>
+                              {updateAdminMutation.isPending ? "Saving..." : "Save Changes"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-semibold">{adm.firstName} {adm.lastName}</span>
+                              <Badge variant="outline" className="text-xs">{adm.role}</Badge>
+                              {adm.id === admin?.id && <Badge className="bg-blue-100 text-blue-800 text-xs">You</Badge>}
+                            </div>
+                            <p className="text-sm text-gray-500">{adm.username} &bull; {adm.email}</p>
+                            {adm.lastLoginAt && <p className="text-xs text-gray-400 mt-1">Last login: {new Date(adm.lastLoginAt).toLocaleString()}</p>}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => {
+                              setEditingAdmin(adm);
+                              setEditAdminForm({ email: adm.email, firstName: adm.firstName, lastName: adm.lastName, password: '', role: adm.role });
+                            }}>
+                              <Edit className="w-3 h-3 mr-1" />Edit
+                            </Button>
+                            {adm.id !== admin?.id && (
+                              <Button variant="destructive" size="sm" onClick={() => {
+                                if (confirm(`Delete admin "${adm.username}"? This cannot be undone.`)) {
+                                  deleteAdminMutation.mutate(adm.id);
+                                }
+                              }}>
+                                <Trash2 className="w-3 h-3 mr-1" />Delete
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

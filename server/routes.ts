@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import bcrypt from 'bcryptjs';
 import { storage } from "./storage";
 import { databaseService } from "./databaseService";
 import { simpleDatabaseService } from "./simpleDatabaseService";
@@ -18620,6 +18621,147 @@ This is an automated notification from your visitor management system.`;
         success: false,
         error: 'Failed to update credentials'
       });
+    }
+  });
+
+  app.get("/platform-admin/admins", requirePlatformAdmin, async (req, res) => {
+    try {
+      const admins = await db
+        .select({
+          id: sharedSchema.platformAdmins.id,
+          username: sharedSchema.platformAdmins.username,
+          email: sharedSchema.platformAdmins.email,
+          firstName: sharedSchema.platformAdmins.firstName,
+          lastName: sharedSchema.platformAdmins.lastName,
+          role: sharedSchema.platformAdmins.role,
+          isActive: sharedSchema.platformAdmins.isActive,
+          lastLoginAt: sharedSchema.platformAdmins.lastLoginAt,
+          createdAt: sharedSchema.platformAdmins.createdAt,
+        })
+        .from(sharedSchema.platformAdmins)
+        .orderBy(sharedSchema.platformAdmins.createdAt);
+
+      res.json({ success: true, admins });
+    } catch (error) {
+      console.error('Error fetching platform admins:', error);
+      res.status(500).json({ error: 'Failed to fetch admins' });
+    }
+  });
+
+  app.post("/platform-admin/admins", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { username, email, password, firstName, lastName, role } = req.body;
+
+      if (!username || !email || !password || !firstName || !lastName) {
+        return res.status(400).json({ error: 'All fields are required' });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+
+      const existing = await db
+        .select()
+        .from(sharedSchema.platformAdmins)
+        .where(eq(sharedSchema.platformAdmins.username, username))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return res.status(409).json({ error: 'Username already exists' });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const [newAdmin] = await db
+        .insert(sharedSchema.platformAdmins)
+        .values({
+          username,
+          email,
+          password: hashedPassword,
+          firstName,
+          lastName,
+          role: role || 'admin',
+        })
+        .returning({
+          id: sharedSchema.platformAdmins.id,
+          username: sharedSchema.platformAdmins.username,
+          email: sharedSchema.platformAdmins.email,
+          firstName: sharedSchema.platformAdmins.firstName,
+          lastName: sharedSchema.platformAdmins.lastName,
+          role: sharedSchema.platformAdmins.role,
+          isActive: sharedSchema.platformAdmins.isActive,
+          createdAt: sharedSchema.platformAdmins.createdAt,
+        });
+
+      console.log(`✅ Platform admin created: ${username}`);
+      res.json({ success: true, admin: newAdmin });
+    } catch (error) {
+      console.error('Error creating platform admin:', error);
+      res.status(500).json({ error: 'Failed to create admin' });
+    }
+  });
+
+  app.patch("/platform-admin/admins/:adminId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { adminId } = req.params;
+      const { password, firstName, lastName, email, role } = req.body;
+
+      const updateData: any = { updatedAt: new Date() };
+      if (password) updateData.password = await bcrypt.hash(password, 10);
+      if (firstName) updateData.firstName = firstName;
+      if (lastName) updateData.lastName = lastName;
+      if (email) updateData.email = email;
+      if (role) updateData.role = role;
+
+      const [updated] = await db
+        .update(sharedSchema.platformAdmins)
+        .set(updateData)
+        .where(eq(sharedSchema.platformAdmins.id, adminId))
+        .returning({
+          id: sharedSchema.platformAdmins.id,
+          username: sharedSchema.platformAdmins.username,
+          email: sharedSchema.platformAdmins.email,
+          firstName: sharedSchema.platformAdmins.firstName,
+          lastName: sharedSchema.platformAdmins.lastName,
+          role: sharedSchema.platformAdmins.role,
+          isActive: sharedSchema.platformAdmins.isActive,
+        });
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Admin not found' });
+      }
+
+      console.log(`✅ Platform admin updated: ${updated.username}`);
+      res.json({ success: true, admin: updated });
+    } catch (error) {
+      console.error('Error updating platform admin:', error);
+      res.status(500).json({ error: 'Failed to update admin' });
+    }
+  });
+
+  app.delete("/platform-admin/admins/:adminId", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { adminId } = req.params;
+      const currentAdminId = req.session.platformAdminId;
+
+      if (adminId === currentAdminId) {
+        return res.status(400).json({ error: 'Cannot delete your own account' });
+      }
+
+      const [deleted] = await db
+        .delete(sharedSchema.platformAdmins)
+        .where(eq(sharedSchema.platformAdmins.id, adminId))
+        .returning({ id: sharedSchema.platformAdmins.id, username: sharedSchema.platformAdmins.username });
+
+      if (!deleted) {
+        return res.status(404).json({ error: 'Admin not found' });
+      }
+
+      console.log(`✅ Platform admin deleted: ${deleted.username}`);
+      res.json({ success: true, message: `Admin ${deleted.username} deleted` });
+    } catch (error) {
+      console.error('Error deleting platform admin:', error);
+      res.status(500).json({ error: 'Failed to delete admin' });
     }
   });
 

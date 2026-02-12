@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Shield } from "lucide-react";
+import acsLogoPath from "@assets/acs-logo-2460A9-200px.jpg";
 
 interface BrandingSettings {
   id: string;
@@ -85,21 +86,17 @@ export default function PlatformAdminLogin() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            {brandingData?.branding?.logoUrl ? (
-              <img 
-                src={brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
+            <img 
+              src={brandingData?.branding?.logoUrl 
+                ? (brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
                   ? brandingData.branding.logoUrl 
-                  : `/public-objects/${brandingData.branding.logoUrl}`
-                } 
-                alt={brandingData.branding.platformName || "Platform Logo"} 
-                className="h-16 object-contain"
-                data-testid="img-platform-logo"
-              />
-            ) : (
-              <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
-                <Shield className="w-10 h-10 text-blue-600 dark:text-blue-400" />
-              </div>
-            )}
+                  : `/public-objects/${brandingData.branding.logoUrl}`)
+                : acsLogoPath
+              } 
+              alt={brandingData?.branding?.platformName || "ACS Platform Admin"} 
+              className="h-16 object-contain"
+              data-testid="img-platform-logo"
+            />
           </div>
           <CardTitle className="text-2xl font-bold">
             {brandingData?.branding?.platformName || "Platform Admin"}
