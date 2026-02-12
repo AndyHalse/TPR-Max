@@ -97,21 +97,19 @@ export class CustomerDatabaseService {
     try {
       pool = new Pool({ connectionString: customer.databaseUrl });
       
-      if (process.env.NODE_ENV !== 'production') {
-        const schemaName = this.generateSchemaName(customerId);
-        const schemaCheck = await pool.query(
-          `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'company_settings' LIMIT 1`,
-          [schemaName]
-        );
-        if (schemaCheck.rows.length > 0) {
-          pool.on('connect', (client) => {
-            client.query(`SET search_path TO ${schemaName}, public`);
-          });
-          await pool.query(`SET search_path TO ${schemaName}, public`);
-          console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
-        } else {
-          console.log(`📋 Using public schema for customer ${customerId} (schema ${schemaName} not fully provisioned)`);
-        }
+      const schemaName = this.generateSchemaName(customerId);
+      const schemaCheck = await pool.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'company_settings' LIMIT 1`,
+        [schemaName]
+      );
+      if (schemaCheck.rows.length > 0) {
+        pool.on('connect', (client) => {
+          client.query(`SET search_path TO ${schemaName}, public`);
+        });
+        await pool.query(`SET search_path TO ${schemaName}, public`);
+        console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
+      } else {
+        console.log(`📋 Using public schema for customer ${customerId} (schema ${schemaName} not fully provisioned)`);
       }
       
       db = drizzle({ client: pool, schema: isolatedSchema });
