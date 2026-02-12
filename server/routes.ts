@@ -7181,8 +7181,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Person not found" });
       }
       
-      // Broadcast update via WebSocket for real-time sync
       if (activeEvacuation) {
+        const existingRecord = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+            eq(evacuationAccountability.personId, personId),
+            eq(evacuationAccountability.customerId, context.customerId)
+          ))
+          .limit(1);
+        
+        if (existingRecord.length > 0) {
+          await db
+            .update(evacuationAccountability)
+            .set({
+              isAccountedFor: newStatus,
+              accountedBy: newStatus ? (req.user?.username || 'System') : null,
+              accountedAt: newStatus ? new Date() : null,
+              updatedAt: new Date()
+            })
+            .where(and(
+              eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+              eq(evacuationAccountability.personId, personId),
+              eq(evacuationAccountability.customerId, context.customerId)
+            ));
+          console.log(`✅ Updated evacuationAccountability: ${personName} -> ${newStatus ? 'SAFE' : 'UNSAFE'}`);
+        } else {
+          await db.insert(evacuationAccountability).values({
+            evacuationId: activeEvacuation.evacuationId,
+            customerId: context.customerId,
+            personId,
+            personType: type,
+            personName,
+            isAccountedFor: newStatus,
+            accountedBy: newStatus ? (req.user?.username || 'System') : null,
+            accountedAt: newStatus ? new Date() : null,
+          });
+          console.log(`✅ Created evacuationAccountability: ${personName} -> ${newStatus ? 'SAFE' : 'UNSAFE'}`);
+        }
+        
+        const accountedCount = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+            eq(evacuationAccountability.customerId, context.customerId),
+            eq(evacuationAccountability.isAccountedFor, true)
+          ));
+        
+        const totalCount = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+            eq(evacuationAccountability.customerId, context.customerId)
+          ));
+        
+        await db
+          .update(evacuations)
+          .set({
+            accountedFor: accountedCount[0]?.count || 0,
+            totalPeople: totalCount[0]?.count || 0,
+          })
+          .where(eq(evacuations.evacuationId, activeEvacuation.evacuationId));
+        
         websocketService.broadcastMusterUpdate(
           context.customerId,
           activeEvacuation.evacuationId,
@@ -7195,7 +7258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
       
-      res.json({ success: true, personId, type });
+      res.json({ success: true, personId, type, accounted: newStatus });
     } catch (error) {
       console.error("Failed to toggle accounted status:", error);
       res.status(500).json({ error: "Failed to toggle accounted status" });
