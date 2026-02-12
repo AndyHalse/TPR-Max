@@ -12701,10 +12701,17 @@ This is an automated notification from your visitor management system.`;
       // Generate H&S acceptance token for new worker
       const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       
+      const body = req.body;
       const workerData = insertContractorWorkerSchema.parse({
-        ...req.body,
+        ...body,
         companyId,
-        hsRulesAcceptanceToken: hsToken
+        hsRulesAcceptanceToken: hsToken,
+        siteInductionCompleted: body.inductionCompleted !== undefined 
+          ? Boolean(body.inductionCompleted) 
+          : false,
+        asbestosAwareness: body.asbestosAwareness !== undefined ? Boolean(body.asbestosAwareness) : false,
+        manualHandling: body.manualHandling !== undefined ? Boolean(body.manualHandling) : false,
+        workingAtHeight: body.workingAtHeight !== undefined ? Boolean(body.workingAtHeight) : false,
       });
       
       // Use customer-isolated database service instead of old storage
