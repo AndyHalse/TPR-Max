@@ -2594,7 +2594,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) {
       }
       
-      // Combine all personnel for muster list
+      const customerId = req.customerId;
+      let accountabilityMap = new Map<string, boolean>();
+      
+      if (customerId) {
+        const activeEvacs = await db
+          .select()
+          .from(evacuations)
+          .where(and(
+            eq(evacuations.customerId, customerId),
+            eq(evacuations.status, 'active')
+          ))
+          .orderBy(desc(evacuations.createdAt))
+          .limit(1);
+        
+        if (activeEvacs.length > 0) {
+          const accountabilityRecords = await db
+            .select()
+            .from(evacuationAccountability)
+            .where(and(
+              eq(evacuationAccountability.evacuationId, activeEvacs[0].evacuationId),
+              eq(evacuationAccountability.customerId, customerId)
+            ));
+          
+          accountabilityRecords.forEach(record => {
+            accountabilityMap.set(record.personId, record.isAccountedFor);
+          });
+        }
+      }
+      
       const musterList = [
         ...checkedInStaff.map(staff => ({
           id: staff.id,
@@ -2603,7 +2631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           department: staff.department,
           checkedInAt: staff.checkedInAt || staff.createdAt,
           location: 'Building A',
-          accounted: staff.isAccountedFor || false
+          accounted: accountabilityMap.get(staff.id) ?? false
         })),
         ...currentVisitors.map(visitor => ({
           id: visitor.id,
@@ -2612,7 +2640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: visitor.company,
           checkedInAt: visitor.checkedInAt,
           location: 'Building A', 
-          accounted: visitor.isAccountedFor || false
+          accounted: accountabilityMap.get(visitor.id) ?? false
         })),
         ...checkedInContractors.map(contractor => ({
           id: contractor.id,
@@ -2621,7 +2649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: contractor.companyName || contractor.company,
           checkedInAt: contractor.checkedInAt || contractor.createdAt,
           location: 'Site',
-          accounted: contractor.isAccountedFor || false
+          accounted: accountabilityMap.get(contractor.id) ?? false
         })),
         ...checkedInMembers.map(member => ({
           id: member.id,
@@ -2631,7 +2659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           department: member.department,
           checkedInAt: member.checkedInAt || member.createdAt,
           location: 'Building A',
-          accounted: member.isAccountedFor || false
+          accounted: accountabilityMap.get(member.id) ?? false
         }))
       ];
       
@@ -3609,8 +3637,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Update result: ${result.length} rows updated`);
 
       if (result.length === 0) {
-        console.error(`❌ Person not found - PersonID: ${personId}, EvacID: ${evacuationId}`);
-        return res.status(404).json({ error: "Person not found in evacuation" });
+        console.log(`⚠️ Person not in accountability table - creating record (late check-in). PersonID: ${personId}, EvacID: ${evacuationId}`);
+        
+        let personName = 'Unknown';
+        let personType = 'staff';
+        let department: string | null = null;
+        let company: string | null = null;
+        
+        const customerDb = await customerDbService.getCustomerDatabase(customerIdFinal);
+        
+        const [staffMatch] = await customerDb.select().from(isolatedSchema.staff).where(eq(isolatedSchema.staff.id, personId)).limit(1);
+        if (staffMatch) {
+          personName = `${staffMatch.firstName} ${staffMatch.lastName}`;
+          personType = 'staff';
+          department = staffMatch.department;
+        } else {
+          const [visitorMatch] = await customerDb.select().from(isolatedSchema.visitors).where(eq(isolatedSchema.visitors.id, personId)).limit(1);
+          if (visitorMatch) {
+            personName = `${visitorMatch.firstName} ${visitorMatch.lastName}`;
+            personType = 'visitor';
+            company = visitorMatch.company;
+          } else {
+            const [contractorMatch] = await customerDb.select().from(isolatedSchema.contractorWorkers).where(eq(isolatedSchema.contractorWorkers.id, personId)).limit(1);
+            if (contractorMatch) {
+              personName = `${contractorMatch.firstName} ${contractorMatch.lastName}`;
+              personType = 'contractor';
+              department = contractorMatch.department;
+            } else {
+              try {
+                const [memberMatch] = await customerDb.select().from(isolatedSchema.members).where(eq(isolatedSchema.members.id, personId)).limit(1);
+                if (memberMatch) {
+                  personName = `${memberMatch.firstName} ${memberMatch.lastName}`;
+                  personType = 'member';
+                  company = memberMatch.company;
+                }
+              } catch (e) {}
+            }
+          }
+        }
+        
+        const insertResult = await db.insert(evacuationAccountability).values({
+          evacuationId,
+          customerId: customerIdFinal,
+          personId,
+          personType,
+          personName,
+          department,
+          company,
+          lastKnownLocation: musterPoint || 'Safe Location',
+          isAccountedFor: true,
+          accountedBy: marshalName,
+          accountedAt: new Date(),
+          musterPoint
+        }).returning();
+        
+        if (insertResult.length > 0) {
+          console.log(`✅ Created accountability record and marked safe: ${personName}`);
+          result.push(insertResult[0]);
+        } else {
+          console.error(`❌ Failed to create accountability record for PersonID: ${personId}`);
+          return res.status(500).json({ error: "Failed to create accountability record" });
+        }
       }
       
       // Update the evacuation's total accounted count
