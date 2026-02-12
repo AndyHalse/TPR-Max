@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock, User, LogIn, Building, ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
+import acsLogoPath from "@assets/acs-logo-2460A9-200px.jpg";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -131,8 +132,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4">
       <Card className="w-full max-w-md bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
-            <Lock className="text-white" size={32} />
+          <div className="mx-auto">
+            <img src={acsLogoPath} alt="ACS Logo" className="h-16 object-contain" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold text-slate-800 dark:text-slate-200">
@@ -232,6 +233,9 @@ export default function Login() {
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Secure access • TPR Max
             </p>
+            <a href="https://www.acsltd.eu" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+              www.acsltd.eu
+            </a>
           </div>
         </CardContent>
       </Card>
