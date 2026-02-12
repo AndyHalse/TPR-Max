@@ -375,10 +375,15 @@ app.use((req, res, next) => {
       const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
       await seedRoleSpecificQuestions();
 
-      // Seed UK H&S compliance documents
+      // Seed UK H&S compliance documents (management DB)
       console.log('🌱 Seeding UK H&S compliance documents...');
       const { seedUKHSDocuments } = await import("./seed-uk-hs-documents");
       await seedUKHSDocuments();
+
+      // Seed UK H&S document templates into ALL customer isolated databases
+      console.log('🌱 Seeding UK H&S document templates for all customers...');
+      const { seedAllCustomerHSTemplates } = await import("./seed-isolated-hs-templates");
+      await seedAllCustomerHSTemplates();
     } catch (error) {
       console.error("Failed to seed induction data:", error);
     }

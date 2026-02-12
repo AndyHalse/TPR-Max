@@ -107,6 +107,16 @@ export class CustomerOnboardingService {
       provisioiningState.settingsInitialized = true;
       
       console.log(`✅ Company defaults initialized: ${customerId}`);
+
+      // Step 5b: Seed UK H&S document templates into isolated database
+      try {
+        const { seedIsolatedHSTemplates } = await import('./seed-isolated-hs-templates');
+        const customerDb = await this.customerDbService.getCustomerDatabase(customerId);
+        await seedIsolatedHSTemplates(customerDb, `${request.companyName} (${customerId})`, customerId);
+        console.log(`✅ UK H&S document templates seeded for: ${customerId}`);
+      } catch (hsError) {
+        console.warn(`⚠️ Non-critical: Could not seed H&S templates for ${customerId}:`, hsError);
+      }
       
       // Step 6: Create Stripe customer (conditional on Stripe availability)
       let stripeCustomerResult: any = null;
