@@ -3397,25 +3397,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${customerId}) accessed accountability list`);
       
-      const evacuationId = req.params.evacuationId;
+      const requestedEvacuationId = req.params.evacuationId;
       
-      if (!evacuationId) {
-        return res.status(400).json({ error: "Evacuation ID is required" });
-      }
-      
-      // Get the evacuation record with customer isolation
-      const evacuation = await db
+      // ALWAYS resolve to the latest active evacuation for this customer
+      const latestEvacs = await db
         .select()
         .from(evacuations)
         .where(and(
-          eq(evacuations.evacuationId, evacuationId),
-          eq(evacuations.customerId, customerId) // CRITICAL: Ensure Fire Marshal can only access their customer's evacuations
+          eq(evacuations.customerId, customerId),
+          eq(evacuations.status, 'active')
         ))
+        .orderBy(desc(evacuations.startedAt))
         .limit(1);
       
-      if (evacuation.length === 0) {
-        console.log(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to access evacuation ${evacuationId} but it doesn't belong to their customer ${customerId}`);
-        return res.status(404).json({ error: "Evacuation not found" });
+      let evacuation;
+      let evacuationId: string;
+      
+      if (latestEvacs.length > 0) {
+        evacuation = latestEvacs;
+        evacuationId = latestEvacs[0].evacuationId;
+        if (requestedEvacuationId && requestedEvacuationId !== evacuationId) {
+          console.log(`🔄 Accountability: Resolved stale evacuationId ${requestedEvacuationId} -> latest: ${evacuationId}`);
+        }
+      } else if (requestedEvacuationId) {
+        const specificEvac = await db
+          .select()
+          .from(evacuations)
+          .where(and(
+            eq(evacuations.evacuationId, requestedEvacuationId),
+            eq(evacuations.customerId, customerId)
+          ))
+          .limit(1);
+        if (specificEvac.length > 0) {
+          evacuation = specificEvac;
+          evacuationId = requestedEvacuationId;
+        } else {
+          return res.status(404).json({ error: "Evacuation not found" });
+        }
+      } else {
+        return res.status(404).json({ error: "No active evacuation found" });
       }
       
       // Get all accountability records for this evacuation
@@ -3496,16 +3516,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${requestedEvacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
       console.log(`✅ Validated Fire Marshal: ${validatedStaff.firstName} ${validatedStaff.lastName} (${validatedStaff.email})`);
       
-      if (!requestedEvacuationId) {
-        console.error("❌ Evacuation ID missing in request");
-        return res.status(400).json({ error: "Evacuation ID is required" });
-      }
-      
       let evacuation;
       let evacuationId = requestedEvacuationId;
       
-      // Handle 'standalone' mode - Fire Marshal URL works independently without formal evacuation
-      if (requestedEvacuationId === 'standalone') {
+      // ALWAYS resolve to the LATEST active evacuation for this customer
+      // This prevents stale evacuationId from client causing mismatches
+      const latestActiveEvac = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.customerId, customerId),
+          eq(evacuations.status, 'active')
+        ))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
+      if (latestActiveEvac.length > 0) {
+        evacuationId = latestActiveEvac[0].evacuationId;
+        evacuation = latestActiveEvac;
+        if (evacuationId !== requestedEvacuationId) {
+          console.log(`🔄 Resolved stale evacuationId ${requestedEvacuationId} -> latest active: ${evacuationId}`);
+        }
+      }
+      
+      // Handle 'standalone' mode or no active evacuation - auto-create one
+      if (!evacuation || evacuation.length === 0) {
         console.log(`🔥 STANDALONE MODE: Fire Marshal ${marshalName} marking person safe without active evacuation - auto-creating emergency evacuation`);
         
         // Auto-create an emergency evacuation on-demand
@@ -3588,28 +3623,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update total people count
         await db
           .update(evacuations)
-          .set({ totalPeople: accountabilityRecords.length })
+          .set({ totalPeopleOnSite: accountabilityRecords.length })
           .where(eq(evacuations.evacuationId, newEvacuationId));
         
         console.log(`✅ Auto-created emergency evacuation: ${newEvacuationId} with ${accountabilityRecords.length} people`);
         
         // Use the newly created evacuation ID for the rest of the function
         evacuationId = newEvacuationId;
-      } else {
-        // Get the evacuation with customer isolation
-        evacuation = await db
-          .select()
-          .from(evacuations)
-          .where(and(
-            eq(evacuations.evacuationId, evacuationId),
-            eq(evacuations.customerId, customerId) // CRITICAL: Verify Fire Marshal can only access their customer's evacuations
-          ))
-          .limit(1);
-        
-        if (!evacuation || evacuation.length === 0) {
-          console.error(`❌ SECURITY: Fire Marshal ${validatedStaff.firstName} attempted to mark safe in evacuation ${requestedEvacuationId} but it doesn't belong to their customer ${customerId}`);
-          return res.status(404).json({ error: "Evacuation not found" });
-        }
       }
       
       const customerIdFinal = evacuation[0].customerId;
@@ -7241,8 +7261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await db
           .update(evacuations)
           .set({
-            accountedFor: accountedCount[0]?.count || 0,
-            totalPeople: totalCount[0]?.count || 0,
+            totalAccountedFor: accountedCount[0]?.count || 0,
+            totalPeopleOnSite: totalCount[0]?.count || 0,
           })
           .where(eq(evacuations.evacuationId, activeEvacuation.evacuationId));
         
