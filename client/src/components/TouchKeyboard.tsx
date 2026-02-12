@@ -142,7 +142,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
             {row.map((key) => (
               <Button
                 key={key}
-                className="h-16 flex-1 max-w-[70px] text-xl font-semibold bg-white hover:bg-blue-50 border-2 border-slate-300 hover:border-blue-400 transition-all transform active:scale-95 hover:shadow-md rounded-xl"
+                className="h-16 flex-1 max-w-[70px] text-xl font-semibold bg-white text-slate-800 hover:bg-blue-50 border-2 border-slate-300 hover:border-blue-400 transition-all transform active:scale-95 hover:shadow-md rounded-xl"
                 onClick={() => handleKeyPress(key)}
               >
                 {layout === "text" && !isUppercase ? key.toLowerCase() : key}
@@ -167,7 +167,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
           )}
           
           <Button
-            className="h-16 flex-1 max-w-[140px] text-lg font-semibold bg-white hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 rounded-xl transition-all transform active:scale-95"
+            className="h-16 flex-1 max-w-[140px] text-lg font-semibold bg-white text-slate-600 hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 rounded-xl transition-all transform active:scale-95"
             onClick={() => handleKeyPress("SPACE")}
           >
             <Space className="mr-2" size={20} />
