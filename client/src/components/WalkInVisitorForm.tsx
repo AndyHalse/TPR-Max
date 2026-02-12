@@ -119,17 +119,26 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       const response = await apiRequest("POST", "/api/visitors/checkin", visitor);
       return response.json();
     },
-    onSuccess: (visitor: Visitor) => {
-      setCreatedVisitor(visitor);
-      setShowPassPreview(true);
+    onSuccess: (visitor: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({
-        title: "Success",
-        description: "Visitor checked in successfully!",
-      });
+
+      if (visitor.ePassSent) {
+        toast({
+          title: "Digital Pass Sent",
+          description: `A digital e-pass has been sent to ${visitor.firstName} ${visitor.lastName}. Visitor checked in successfully!`,
+        });
+        setTimeout(() => onBack(), 2000);
+      } else {
+        setCreatedVisitor(visitor);
+        setShowPassPreview(true);
+        toast({
+          title: "Success",
+          description: "Visitor checked in successfully!",
+        });
+      }
     },
     onError: () => {
       toast({
