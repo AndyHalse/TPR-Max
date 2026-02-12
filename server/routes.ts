@@ -3921,13 +3921,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let stats = {};
       if (activeEvacuation) {
         for (const point of points) {
-          const accountedAt = await customerDb
+          const accountedAt = await db
             .select()
-            .from(isolatedSchema.evacuationAccountability)
+            .from(evacuationAccountability)
             .where(and(
-              eq(isolatedSchema.evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
-              eq(isolatedSchema.evacuationAccountability.musterPoint, point.name),
-              eq(isolatedSchema.evacuationAccountability.isAccountedFor, true)
+              eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+              eq(evacuationAccountability.customerId, customerId),
+              eq(evacuationAccountability.musterPoint, point.name),
+              eq(evacuationAccountability.isAccountedFor, true)
             ));
           
           stats[point.name] = accountedAt.length;
@@ -4283,20 +4284,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let accountabilityMap = new Map<string, any>();
       
       if (activeEvacuation.length > 0) {
-        // HYBRID FIX: Fetch accountability records from ISOLATED SCHEMA (customerDb)
-        const accountabilityRecords = await customerDb
+        const accountabilityRecords = await db
           .select()
-          .from(isolatedSchema.evacuationAccountability)
+          .from(evacuationAccountability)
           .where(
-            eq(isolatedSchema.evacuationAccountability.evacuationId, activeEvacuation[0].evacuationId)
+            and(
+              eq(evacuationAccountability.evacuationId, activeEvacuation[0].evacuationId),
+              eq(evacuationAccountability.customerId, customerId)
+            )
           );
         
-        // Create a map for quick lookup
         accountabilityRecords.forEach(record => {
           accountabilityMap.set(record.personId, record);
         });
         
-        console.log(`✅ Loaded ${accountabilityRecords.length} accountability records from ISOLATED SCHEMA for evacuation ${activeEvacuation[0].evacuationId}`);
+        console.log(`✅ Loaded ${accountabilityRecords.length} accountability records from PUBLIC SCHEMA for evacuation ${activeEvacuation[0].evacuationId}`);
       } else {
         console.log(`⚠️ No active evacuation found for customer ${customerId} - accountability status will default to false`);
       }

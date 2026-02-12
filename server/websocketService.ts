@@ -126,12 +126,10 @@ class WebSocketService {
     const messageStr = JSON.stringify(message);
     let broadcastCount = 0;
 
-    // Broadcast to all clients for this customer and evacuation
     this.clients.forEach((client, ws) => {
       if (
         ws.readyState === WebSocket.OPEN &&
-        client.customerId === customerId &&
-        client.evacuationId === evacuationId
+        client.customerId === customerId
       ) {
         ws.send(messageStr);
         broadcastCount++;
