@@ -328,22 +328,28 @@ export default function ContractorDetails() {
     if (!selectedWorkerForCheckIn || !selectedHostForWorker) return;
     
     try {
-      // Call the API directly with hostId parameter (same as visitor workflow)
-      await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
+      const response = await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
         hostId: selectedHostForWorker
       });
+      const data = await response.json();
       
-      toast({
-        title: "Success", 
-        description: `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName} checked in successfully`
-      });
+      if (data.ePassSent) {
+        toast({
+          title: "Digital Pass Sent",
+          description: `E-Pass has been sent to ${data.worker?.email || 'contractor'}. They can use it to check out.`,
+          duration: 5000
+        });
+      } else {
+        toast({
+          title: "Success", 
+          description: `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName} checked in successfully`
+        });
+      }
       
-      // Reset state
       setShowHostSelection(false);
       setSelectedWorkerForCheckIn(null);
       setSelectedHostForWorker("");
       
-      // Refresh data
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
     } catch (error: any) {
       toast({

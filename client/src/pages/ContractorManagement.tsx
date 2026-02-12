@@ -454,21 +454,27 @@ export default function ContractorManagement() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       
-      // Find the company name for the worker
-      const worker = data.worker;
-      const company = companies.find(c => c.id === worker.companyId);
-      
-      // Set up for pass preview and printing
-      setSelectedWorker(worker);
-      setSelectedCompanyName(company?.name || "Unknown Company");
-      setShowPassPreview(true);
-      
-      toast({
-        title: "Success",
-        description: "Contractor checked in successfully! Pass preview will open for printing.",
-      });
+      if (data.ePassSent) {
+        toast({
+          title: "Digital Pass Sent",
+          description: `E-Pass has been sent to ${data.worker?.email || 'contractor'}. They can use it to check out.`,
+          duration: 5000
+        });
+      } else {
+        const worker = data.worker;
+        const company = companies.find(c => c.id === worker.companyId);
+        
+        setSelectedWorker(worker);
+        setSelectedCompanyName(company?.name || "Unknown Company");
+        setShowPassPreview(true);
+        
+        toast({
+          title: "Success",
+          description: "Contractor checked in successfully! Pass preview will open for printing.",
+        });
+      }
     },
     onError: (error) => {
       let errorMessage = "Failed to check in contractor";
