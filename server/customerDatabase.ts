@@ -219,12 +219,15 @@ export class CustomerDatabaseService {
           isActive: true,
           onboardingCompleted: false,
           createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
           planType: 'premium',
           subscriptionStatus: 'active',
           maxVisitorsPerMonth: 1000,
           supportContactEmail: customerData.contactEmail,
-          apiKeyEnabled: true
-        } as Customer;
+          apiKeyEnabled: true,
+          apiKey: null,
+          stripeCustomerId: null
+        } as unknown as Customer;
       }
       
       throw new Error(`Failed to create customer: ${error}`);
@@ -425,7 +428,7 @@ export class CustomerDatabaseService {
       throw new Error(`Customer not found: ${customerId}`);
     }
 
-    return await databaseProvisioningService.backupCustomerDatabase(customerId, customer.databaseUrl);
+    return await databaseProvisioningService.backupCustomerDatabase(customerId);
   }
 
   /**
@@ -437,7 +440,7 @@ export class CustomerDatabaseService {
       throw new Error(`Customer not found: ${customerId}`);
     }
 
-    await databaseProvisioningService.restoreCustomerDatabase(customerId, customer.databaseUrl, backupId);
+    await databaseProvisioningService.restoreCustomerDatabase(customerId, backupId);
     
     // Clear connection cache to force reconnection
     this.customerConnections.delete(customerId);

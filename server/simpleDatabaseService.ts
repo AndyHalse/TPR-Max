@@ -33,17 +33,24 @@ export class SimpleDatabaseService {
   }
 
   /**
-   * Create customer context based on username
+   * Create customer context from session customerId (preferred) or username fallback
    */
-  createCustomerContext(username: string): CustomerContext {
-    // Map usernames to customer IDs for proper isolation
+  createCustomerContext(usernameOrCustomerId: string, sessionCustomerId?: string): CustomerContext {
+    if (sessionCustomerId) {
+      return { customerId: sessionCustomerId };
+    }
+    
+    if (usernameOrCustomerId && usernameOrCustomerId.includes('-')) {
+      return { customerId: usernameOrCustomerId };
+    }
+    
     const customerMapping: { [key: string]: string } = {
       "Andy": "dev-customer-001",
       "Emma": "dev-customer-002",
       "TestUser": "test-customer-trial"
     };
     
-    const customerId = customerMapping[username] || "dev-customer-001";
+    const customerId = customerMapping[usernameOrCustomerId] || "dev-customer-001";
     
     return {
       customerId
