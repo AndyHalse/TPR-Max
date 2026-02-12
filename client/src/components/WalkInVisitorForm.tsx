@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -7,9 +7,8 @@ import TouchKeyboard from "@/components/TouchKeyboard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { User, ArrowLeft, Check } from "lucide-react";
+import { User, ArrowLeft, Check, Search, X, UserCheck } from "lucide-react";
 import type { Staff, InsertVisitor, Visitor, CompanySettings } from "@shared/schema";
 
 interface WalkInVisitorFormProps {
@@ -27,7 +26,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const { toast } = useToast();
-  const [activeField, setActiveField] = useState<"firstName" | "lastName" | "company" | "purpose" | null>("firstName");
+  const [activeField, setActiveField] = useState<"firstName" | "lastName" | "company" | "purpose" | "hostSearch" | null>("firstName");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -35,17 +34,30 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     purpose: "",
     hostStaffId: "",
   });
+  const [hostSearch, setHostSearch] = useState("");
+  const [selectedHost, setSelectedHost] = useState<Staff | null>(null);
   const [createdVisitor, setCreatedVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
 
-  const { data: staff } = useQuery<Staff[]>({
-    queryKey: ["/api/staff/by-company", formData.company],
-    enabled: !!formData.company && formData.company.trim().length > 0,
+  const { data: allStaff } = useQuery<Staff[]>({
+    queryKey: ["/api/staff"],
   });
 
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
+
+  const filteredStaff = useMemo(() => {
+    if (!allStaff) return [];
+    if (!hostSearch.trim()) return allStaff;
+    const search = hostSearch.toLowerCase().trim();
+    return allStaff.filter(
+      (s) =>
+        s.lastName?.toLowerCase().includes(search) ||
+        s.firstName?.toLowerCase().includes(search) ||
+        s.department?.toLowerCase().includes(search)
+    );
+  }, [allStaff, hostSearch]);
 
   useEffect(() => {
     const brandSettings = settings as any;
@@ -134,7 +146,11 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
 
   const handleNextField = () => {
     if (!activeField) return;
-    const currentIndex = FIELD_ORDER.indexOf(activeField);
+    if (activeField === "hostSearch") {
+      setActiveField(null);
+      return;
+    }
+    const currentIndex = FIELD_ORDER.indexOf(activeField as any);
     if (currentIndex < FIELD_ORDER.length - 1) {
       setActiveField(FIELD_ORDER[currentIndex + 1]);
     } else {
@@ -143,8 +159,15 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   };
 
   const getNextLabel = () => {
-    if (!activeField) return "Next";
+    if (!activeField || activeField === "hostSearch") return "Done";
     return `Next: ${FIELD_LABELS[activeField] || "Next"}`;
+  };
+
+  const handleSelectHost = (member: Staff) => {
+    setFormData(prev => ({ ...prev, hostStaffId: member.id }));
+    setSelectedHost(member);
+    setActiveField(null);
+    setHostSearch("");
   };
 
   const handleSubmit = () => {
@@ -181,14 +204,13 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   return (
     <div className="min-h-screen bg-[var(--background)] overflow-hidden">
       <div className="flex flex-col h-screen">
-        {/* Company Banner */}
         {settings?.bannerUrl && (
           <div className="w-full flex-shrink-0 bg-white/90 backdrop-blur-sm border-b border-white/30">
-            <div className="flex items-center justify-center py-3 px-6">
+            <div className="flex items-center justify-center py-2 px-6">
               <img 
                 src={`/objects${settings.bannerUrl}`} 
                 alt={settings.companyName}
-                className="h-10 max-w-sm object-contain"
+                className="h-8 max-w-sm object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const container = e.currentTarget.parentElement?.parentElement;
@@ -199,187 +221,226 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
           </div>
         )}
 
-        {/* Header with Back Button */}
-        <div className="px-6 py-4 flex-shrink-0">
+        <div className="px-6 py-3 flex-shrink-0">
           <div className="flex items-center gap-4">
             <Button
               onClick={onBack}
               variant="outline"
               size="lg"
-              className="flex items-center gap-3 bg-white/50 border-white/30 text-fixed hover:bg-white/70 px-6 py-4 text-lg"
+              className="flex items-center gap-3 bg-white/50 border-white/30 text-fixed hover:bg-white/70 px-6 py-3 text-lg"
               data-testid="button-back"
             >
               <ArrowLeft size={20} />
               Back
             </Button>
             <div>
-              <h2 className="text-3xl font-bold text-fixed">Manual Check-In</h2>
-              <p className="text-variable text-lg">Touch the fields below to enter visitor details</p>
+              <h2 className="text-2xl font-bold text-fixed">Manual Check-In</h2>
+              <p className="text-variable text-sm">Touch the fields below to enter visitor details</p>
             </div>
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 px-6 pb-4 overflow-y-auto" style={{ maxHeight: "calc(100vh - 400px)" }}>
+        <div className="flex-1 px-6 pb-2 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
-            <GlassCard className="p-8">
-              <div className="space-y-8">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 gradient-blue rounded-full flex items-center justify-center">
-                    <User className="text-white" size={24} />
+            <GlassCard className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 gradient-blue rounded-full flex items-center justify-center">
+                    <User className="text-white" size={20} />
                   </div>
-                  <h3 className="text-2xl font-semibold text-fixed">Visitor Information</h3>
-                  {activeField && (
-                    <div className="ml-auto px-4 py-2 bg-blue-100 rounded-lg">
-                      <span className="text-blue-800 font-medium">
+                  <h3 className="text-xl font-semibold text-fixed">Visitor Information</h3>
+                  {activeField && activeField !== "hostSearch" && (
+                    <div className="ml-auto px-3 py-1 bg-blue-100 rounded-lg">
+                      <span className="text-blue-800 font-medium text-sm">
                         Entering: {activeField.replace(/([A-Z])/g, ' $1').toLowerCase()}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Name Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
-                      <span className="w-6 h-6 bg-red-500 text-white rounded-full text-sm flex items-center justify-center">1</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-base font-semibold text-fixed flex items-center gap-2">
+                      <span className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">1</span>
                       First Name *
                     </Label>
                     <div
                       onClick={() => setActiveField("firstName")}
-                      className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
+                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium ${
                         activeField === "firstName" 
-                          ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg" 
                           : formData.firstName 
                             ? "border-green-400 bg-green-50 shadow-md"
                             : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-first-name"
                     >
-                      <span className={formData.firstName ? "text-fixed" : "text-variable"}>
+                      <span className={formData.firstName ? "text-slate-800" : "text-slate-400"}>
                         {formData.firstName || "Touch to enter first name"}
                       </span>
                     </div>
                   </div>
                   
-                  <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
-                      <span className="w-6 h-6 bg-red-500 text-white rounded-full text-sm flex items-center justify-center">2</span>
+                  <div className="space-y-1">
+                    <Label className="text-base font-semibold text-fixed flex items-center gap-2">
+                      <span className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">2</span>
                       Last Name *
                     </Label>
                     <div
                       onClick={() => setActiveField("lastName")}
-                      className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
+                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium ${
                         activeField === "lastName" 
-                          ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg" 
                           : formData.lastName
                             ? "border-green-400 bg-green-50 shadow-md"
                             : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-last-name"
                     >
-                      <span className={formData.lastName ? "text-fixed" : "text-variable"}>
+                      <span className={formData.lastName ? "text-slate-800" : "text-slate-400"}>
                         {formData.lastName || "Touch to enter last name"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Company and Purpose */}
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
-                      <span className="w-6 h-6 bg-gray-500 text-white rounded-full text-sm flex items-center justify-center">3</span>
-                      Company <span className="text-sm text-variable font-normal">(Optional)</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-base font-semibold text-fixed flex items-center gap-2">
+                      <span className="w-5 h-5 bg-gray-500 text-white rounded-full text-xs flex items-center justify-center">3</span>
+                      Company <span className="text-xs text-variable font-normal">(Optional)</span>
                     </Label>
                     <div
                       onClick={() => setActiveField("company")}
-                      className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
+                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium ${
                         activeField === "company" 
-                          ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg" 
                           : formData.company
                             ? "border-green-400 bg-green-50 shadow-md"
                             : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-company"
                     >
-                      <span className={formData.company ? "text-fixed" : "text-variable"}>
-                        {formData.company || "Touch to enter company name"}
+                      <span className={formData.company ? "text-slate-800" : "text-slate-400"}>
+                        {formData.company || "Touch to enter company"}
                       </span>
                     </div>
                   </div>
                   
-                  <div className="space-y-3">
-                    <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
-                      <span className="w-6 h-6 bg-gray-500 text-white rounded-full text-sm flex items-center justify-center">4</span>
-                      Purpose of Visit <span className="text-sm text-variable font-normal">(Optional)</span>
+                  <div className="space-y-1">
+                    <Label className="text-base font-semibold text-fixed flex items-center gap-2">
+                      <span className="w-5 h-5 bg-gray-500 text-white rounded-full text-xs flex items-center justify-center">4</span>
+                      Purpose <span className="text-xs text-variable font-normal">(Optional)</span>
                     </Label>
                     <div
                       onClick={() => setActiveField("purpose")}
-                      className={`w-full px-8 py-8 rounded-2xl border-2 cursor-pointer transition-all text-xl font-medium ${
+                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium ${
                         activeField === "purpose" 
-                          ? "border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-lg" 
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg" 
                           : formData.purpose
                             ? "border-green-400 bg-green-50 shadow-md"
                             : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-purpose"
                     >
-                      <span className={formData.purpose ? "text-fixed" : "text-variable"}>
-                        {formData.purpose || "Touch to enter purpose of visit"}
+                      <span className={formData.purpose ? "text-slate-800" : "text-slate-400"}>
+                        {formData.purpose || "Touch to enter purpose"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Host Selection */}
-                <div className="space-y-3">
-                  <Label className="text-xl font-semibold text-fixed flex items-center gap-2">
-                    <span className="w-6 h-6 bg-red-500 text-white rounded-full text-sm flex items-center justify-center">5</span>
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold text-fixed flex items-center gap-2">
+                    <span className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">5</span>
                     Who are you here to see? *
                   </Label>
-                  <Select 
-                    value={formData.hostStaffId} 
-                    onValueChange={(value) => {
-                      handleFieldChange("hostStaffId", value);
-                      setActiveField(null);
-                    }}
+                  
+                  <div
+                    onClick={() => setActiveField("hostSearch")}
+                    className={`w-full px-6 py-4 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium flex items-center gap-3 ${
+                      activeField === "hostSearch"
+                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg"
+                        : selectedHost
+                          ? "border-green-400 bg-green-50 shadow-md"
+                          : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
+                    }`}
+                    data-testid="input-host-search"
                   >
-                    <SelectTrigger className="w-full px-8 py-8 rounded-2xl border-2 border-white/40 bg-white/60 text-xl font-medium hover:bg-white/80 hover:border-blue-300" data-testid="select-host">
-                      <SelectValue placeholder="Touch to select your host" className="text-variable" />
-                    </SelectTrigger>
-                    <SelectContent className="text-lg">
-                      {staff?.map((member) => (
-                        <SelectItem key={member.id} value={member.id} className="py-3">
-                          {member.firstName} {member.lastName} - {member.department}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <Search size={20} className="text-slate-400 flex-shrink-0" />
+                    <span className={selectedHost ? "text-slate-800" : "text-slate-400"}>
+                      {selectedHost 
+                        ? `${selectedHost.firstName} ${selectedHost.lastName}${selectedHost.department ? ` - ${selectedHost.department}` : ''}`
+                        : "Touch to search by surname..."}
+                    </span>
+                    {selectedHost && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedHost(null);
+                          setFormData(prev => ({ ...prev, hostStaffId: "" }));
+                          setHostSearch("");
+                        }}
+                        className="ml-auto p-1 hover:bg-red-100 rounded-full"
+                      >
+                        <X size={18} className="text-red-500" />
+                      </button>
+                    )}
+                  </div>
+
+                  {activeField === "hostSearch" && (
+                    <div className="bg-white/80 rounded-xl border-2 border-blue-200 max-h-48 overflow-y-auto">
+                      {hostSearch.trim() === "" && !allStaff?.length ? (
+                        <div className="p-4 text-center text-slate-500">No staff members found</div>
+                      ) : (
+                        <>
+                          {hostSearch.trim() === "" && (
+                            <div className="px-4 py-2 bg-blue-50 border-b text-sm text-blue-700 font-medium">
+                              Type a surname below to filter, or tap a name to select
+                            </div>
+                          )}
+                          <div className="divide-y divide-gray-100">
+                            {filteredStaff.slice(0, 20).map((member) => (
+                              <button
+                                key={member.id}
+                                onClick={() => handleSelectHost(member)}
+                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left"
+                              >
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <UserCheck size={16} className="text-blue-600" />
+                                </div>
+                                <div>
+                                  <span className="text-base font-medium text-slate-800">
+                                    {member.firstName} {member.lastName}
+                                  </span>
+                                  {member.department && (
+                                    <span className="text-sm text-slate-500 ml-2">
+                                      {member.department}
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                            {filteredStaff.length === 0 && hostSearch.trim() !== "" && (
+                              <div className="p-4 text-center text-slate-500">No matches for "{hostSearch}"</div>
+                            )}
+                            {filteredStaff.length > 20 && (
+                              <div className="px-4 py-2 text-center text-sm text-slate-500 bg-gray-50">
+                                Showing first 20 results - type more to narrow down
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Progress Indicator */}
-                <div className="bg-white/50 rounded-xl p-6">
-                  <div className="flex items-center justify-between text-sm text-variable mb-2">
-                    <span>Progress</span>
-                    <span>{[formData.firstName, formData.lastName, formData.hostStaffId].filter(Boolean).length}/3 required fields completed</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-blue-500 h-3 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${([formData.firstName, formData.lastName, formData.hostStaffId].filter(Boolean).length / 3) * 100}%` 
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-6 pt-4">
+                <div className="flex gap-4 pt-2">
                   <Button
                     onClick={onBack}
                     variant="outline"
-                    className="flex-1 py-8 text-2xl rounded-2xl border-2 border-slate-300 text-slate-700 hover:bg-slate-50"
+                    className="flex-1 py-6 text-xl rounded-xl border-2 border-slate-300 text-slate-700 hover:bg-slate-50"
                     data-testid="button-cancel"
                   >
                     Cancel
@@ -387,14 +448,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   <Button
                     onClick={handleSubmit}
                     disabled={!canSubmit || checkinMutation.isPending}
-                    className={`flex-1 py-8 text-2xl rounded-2xl font-bold transition-all ${
+                    className={`flex-1 py-6 text-xl rounded-xl font-bold transition-all ${
                       canSubmit 
                         ? "gradient-blue text-white shadow-lg hover:shadow-xl transform hover:scale-105" 
                         : "bg-gray-300 text-variable cursor-not-allowed"
                     }`}
                     data-testid="button-submit"
                   >
-                    <Check className="mr-3" size={24} />
+                    <Check className="mr-2" size={20} />
                     {checkinMutation.isPending ? "Checking In..." : "Complete Check-In"}
                   </Button>
                 </div>
@@ -403,10 +464,9 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
           </div>
         </div>
 
-        {/* Fixed Bottom Keyboard */}
         <div className="flex-shrink-0 bg-white/95 backdrop-blur-sm border-t border-white/50">
-          <div className="px-6 py-4">
-            {activeField ? (
+          <div className="px-6 py-2">
+            {activeField && activeField !== "hostSearch" ? (
               <div className="max-w-4xl mx-auto">
                 <TouchKeyboard
                   value={formData[activeField]}
@@ -419,14 +479,20 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   showNext={true}
                 />
               </div>
-            ) : (
-              <div className="max-w-4xl mx-auto text-center py-8">
-                <div className="text-variable">
-                  <p className="text-xl mb-2">Touch any field above to start typing</p>
-                  <p className="text-lg">The keyboard will appear here when you need it</p>
-                </div>
+            ) : activeField === "hostSearch" ? (
+              <div className="max-w-4xl mx-auto">
+                <TouchKeyboard
+                  value={hostSearch}
+                  onChange={(value) => setHostSearch(value)}
+                  placeholder="Type surname to filter staff list..."
+                  type="text"
+                  fieldType="name"
+                  onNext={() => setActiveField(null)}
+                  nextLabel="Done"
+                  showNext={true}
+                />
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -439,7 +505,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
               onBack();
             }}
             visitor={createdVisitor}
-            hostName={staff?.find(s => s.id === createdVisitor.hostStaffId) ? `${staff.find(s => s.id === createdVisitor.hostStaffId)?.firstName} ${staff.find(s => s.id === createdVisitor.hostStaffId)?.lastName}` : undefined}
+            hostName={selectedHost ? `${selectedHost.firstName} ${selectedHost.lastName}` : undefined}
           />
         )}
       </div>
