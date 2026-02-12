@@ -1342,26 +1342,6 @@ export default function MarketingPage() {
             </TabsContent>
           </Tabs>
 
-          {/* Call to Action */}
-          <div className="text-center pt-12 border-t border-slate-200 dark:border-slate-700">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
-              Ready to Transform Your Personnel Management?
-            </h3>
-            <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-2xl mx-auto">
-              Join hundreds of companies using TPR Max for complete personnel
-              oversight, compliance management, and emergency preparedness.
-            </p>
-            <Button
-              size="lg"
-              onClick={() => scrollToSection("contact")}
-              className="text-white text-lg px-8"
-              style={{ backgroundColor: "#2460A9" }}
-              data-testid="button-features-cta"
-            >
-              Start Your Free Trial
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </Button>
-          </div>
         </div>
       </section>
 
