@@ -45,7 +45,7 @@ function Router() {
   const emergencyToken = urlParams.get('token');
   
   // Platform Admin routes (separate authentication system)
-  if (window.location.pathname === '/platform-admin/login') {
+  if (window.location.pathname === '/platform-admin' || window.location.pathname === '/platform-admin/' || window.location.pathname === '/platform-admin/login') {
     return <PlatformAdminLogin />;
   }
   
