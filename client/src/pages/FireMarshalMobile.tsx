@@ -247,7 +247,12 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     // CRITICAL: Query key pattern must match WebSocket invalidation pattern exactly
     queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'],
     enabled: !!urlId,
-    refetchInterval: 5000
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const response = await fetch(`/api/emergency/fire-marshal/${urlId}/personnel`);
+      if (!response.ok) throw new Error('Failed to fetch personnel data');
+      return response.json();
+    }
   });
 
   // Load marshal name from localStorage (legacy)
