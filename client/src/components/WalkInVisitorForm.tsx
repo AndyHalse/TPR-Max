@@ -388,48 +388,6 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                     )}
                   </div>
 
-                  {activeField === "hostSearch" && (
-                    <div className="bg-white/80 rounded-xl border-2 border-blue-200 max-h-48 overflow-y-auto">
-                      {hostSearch.trim().length < 3 ? (
-                        <div className="px-4 py-3 text-center text-slate-500 text-sm">
-                          Type at least 3 letters to search for staff
-                        </div>
-                      ) : filteredStaff.length === 0 ? (
-                        <div className="p-4 text-center text-slate-500">No matches for "{hostSearch}"</div>
-                      ) : (
-                        <>
-                          <div className="divide-y divide-gray-100">
-                            {filteredStaff.slice(0, 20).map((member) => (
-                              <button
-                                key={member.id}
-                                onClick={() => handleSelectHost(member)}
-                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left"
-                              >
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <UserCheck size={16} className="text-blue-600" />
-                                </div>
-                                <div>
-                                  <span className="text-base font-medium text-slate-800">
-                                    {member.firstName} {member.lastName}
-                                  </span>
-                                  {member.department && (
-                                    <span className="text-sm text-slate-500 ml-2">
-                                      {member.department}
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                            {filteredStaff.length > 20 && (
-                              <div className="px-4 py-2 text-center text-sm text-slate-500 bg-gray-50">
-                                Showing first 20 results - type more to narrow down
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex gap-4 pt-2">
@@ -477,10 +435,48 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
               </div>
             ) : activeField === "hostSearch" ? (
               <div className="max-w-4xl mx-auto">
+                {hostSearch.trim().length >= 3 && filteredStaff.length > 0 && (
+                  <div className="mb-2 bg-white rounded-xl border-2 border-blue-300 max-h-40 overflow-y-auto shadow-lg">
+                    <div className="divide-y divide-gray-100">
+                      {filteredStaff.slice(0, 10).map((member) => (
+                        <button
+                          key={member.id}
+                          onClick={() => handleSelectHost(member)}
+                          className="w-full px-5 py-3 flex items-center gap-3 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left"
+                        >
+                          <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <UserCheck size={18} className="text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-lg font-semibold text-slate-800">
+                              {member.firstName} {member.lastName}
+                            </span>
+                            {member.department && (
+                              <span className="text-sm text-slate-500 ml-2">
+                                {member.department}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-blue-600 font-medium text-sm">Select</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {hostSearch.trim().length >= 3 && filteredStaff.length === 0 && (
+                  <div className="mb-2 bg-white rounded-xl border-2 border-orange-200 p-3 text-center text-slate-500 shadow">
+                    No staff found matching "{hostSearch}"
+                  </div>
+                )}
+                {hostSearch.trim().length > 0 && hostSearch.trim().length < 3 && (
+                  <div className="mb-2 bg-blue-50 rounded-xl border border-blue-200 p-2 text-center text-blue-600 text-sm">
+                    Type {3 - hostSearch.trim().length} more letter{3 - hostSearch.trim().length > 1 ? 's' : ''} to search...
+                  </div>
+                )}
                 <TouchKeyboard
                   value={hostSearch}
                   onChange={(value) => setHostSearch(value)}
-                  placeholder="Type surname to filter staff list..."
+                  placeholder="Type surname to find staff..."
                   type="text"
                   fieldType="name"
                   onNext={() => setActiveField(null)}
