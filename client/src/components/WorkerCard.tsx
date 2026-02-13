@@ -1,11 +1,10 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-// Note: Avatar component not available in current setup, using placeholder
 import { 
   Shield, AlertTriangle, XCircle, CheckCircle2, 
-  Calendar, Phone, Mail, Award, Clock,
-  LogIn, LogOut, Edit, Printer, FileText, Send
+  Phone, Mail, Award, Clock,
+  LogIn, LogOut, Edit, Printer, FileText, Send, CalendarPlus
 } from "lucide-react";
 import type { ContractorWorker } from "@shared/schema";
 
@@ -18,6 +17,7 @@ interface WorkerCardProps {
   onCheckOut?: (workerId: string) => void;
   onEdit?: (worker: ContractorWorker) => void;
   onPrint?: (worker: ContractorWorker) => void;
+  onPreBook?: (worker: ContractorWorker) => void;
   onResendHSDocument?: (assignmentId: string) => void;
   canManageCards?: boolean;
   hsAssignments?: any[];
@@ -32,6 +32,7 @@ export function WorkerCard({
   onCheckOut,
   onEdit,
   onPrint,
+  onPreBook,
   onResendHSDocument,
   canManageCards = false,
   hsAssignments = []
@@ -41,16 +42,16 @@ export function WorkerCard({
       case 'red': return 'bg-red-500';
       case 'yellow': return 'bg-yellow-500';
       case 'clear': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      default: return 'bg-green-500';
     }
   };
 
   const getCardStatusIcon = (status: string) => {
     switch (status) {
-      case 'red': return <XCircle className="w-6 h-6 text-white" />;
-      case 'yellow': return <AlertTriangle className="w-6 h-6 text-white" />;
-      case 'clear': return <CheckCircle2 className="w-6 h-6 text-white" />;
-      default: return <Shield className="w-6 h-6 text-white" />;
+      case 'red': return <XCircle className="w-5 h-5 text-white" />;
+      case 'yellow': return <AlertTriangle className="w-5 h-5 text-white" />;
+      case 'clear': return <CheckCircle2 className="w-5 h-5 text-white" />;
+      default: return <CheckCircle2 className="w-5 h-5 text-white" />;
     }
   };
 
@@ -59,18 +60,7 @@ export function WorkerCard({
       case 'red': return 'RED CARD - BANNED';
       case 'yellow': return 'YELLOW CARD - WARNING';
       case 'clear': return 'CLEAR - COMPLIANT';
-      default: return 'UNKNOWN STATUS';
-    }
-  };
-
-  const getCertificationStatus = (status: string | null) => {
-    switch (status) {
-      case 'valid': return { variant: 'default' as const, text: 'Valid' };
-      case 'expired': return { variant: 'destructive' as const, text: 'Expired' };
-      case 'expiring': return { variant: 'secondary' as const, text: 'Expiring' };
-      case 'missing': return { variant: 'outline' as const, text: 'Missing' };
-      case null: return { variant: 'outline' as const, text: 'Unknown' };
-      default: return { variant: 'outline' as const, text: 'Unknown' };
+      default: return 'CLEAR - COMPLIANT';
     }
   };
 
@@ -78,206 +68,162 @@ export function WorkerCard({
     worker.redCardBanUntil && 
     new Date(worker.redCardBanUntil) > new Date();
 
+  const isClearForWork = !isRedCardBanned && worker.isActive && 
+    (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
+
   return (
     <Card 
-      className="relative w-full max-w-sm mx-auto overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer" 
+      className="relative w-full overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer border-0" 
       data-testid={`worker-card-${worker.id}`}
       onClick={() => onViewDetails?.(worker)}
     >
-      {/* Card Status Header - Large visual indicator */}
-      <div className={`${getCardStatusColor(worker.currentCardStatus)} p-4 text-center relative`}>
-        <div className="flex items-center justify-center gap-2 mb-2">
+      <div className={`${getCardStatusColor(worker.currentCardStatus)} px-4 py-3 text-center`}>
+        <div className="flex items-center justify-center gap-2">
           {getCardStatusIcon(worker.currentCardStatus)}
-          <span className="text-white font-bold text-lg">
+          <span className="text-white font-bold text-sm tracking-wide">
             {getCardStatusText(worker.currentCardStatus)}
           </span>
         </div>
         {isRedCardBanned && (
-          <div className="text-white text-sm opacity-90">
+          <div className="text-white/90 text-xs mt-1">
             Banned until: {new Date(worker.redCardBanUntil!).toLocaleDateString()}
           </div>
         )}
       </div>
 
-      <CardHeader className="text-center pb-2">
+      <div className="px-5 pt-5 pb-2 text-center">
         <div className="flex justify-center mb-3">
-          <div className="w-20 h-20 border-4 border-white shadow-lg rounded-full bg-blue-100 flex items-center justify-center text-lg font-bold">
+          <div className="w-16 h-16 border-3 border-white shadow-md rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 flex items-center justify-center text-lg font-bold text-blue-700 dark:text-blue-200">
             {worker.firstName[0]}{worker.lastName[0]}
           </div>
         </div>
-        <h3 className="font-bold text-xl" data-testid={`worker-name-${worker.id}`}>
+        <h3 className="font-bold text-lg leading-tight" data-testid={`worker-name-${worker.id}`}>
           {worker.firstName} {worker.lastName}
         </h3>
-        <p className="text-muted-foreground">Contractor Worker</p>
-        {/* Show checked-in status like visitor cards */}
+        <p className="text-muted-foreground text-sm mt-0.5">Contractor Worker</p>
+      </div>
+
+      <CardContent className="px-5 pb-5 space-y-3">
         {worker.isCheckedIn && worker.checkedInAt && (
-          <div className="flex items-center justify-center gap-2 mt-2 text-sm text-green-600">
-            <CheckCircle2 className="w-4 h-4" />
-            <span className="font-medium">Checked In</span>
-            <span className="text-muted-foreground">
-              {new Date(worker.checkedInAt).toLocaleTimeString('en-GB', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
+          <div className="flex items-center justify-center gap-2 text-sm bg-green-50 dark:bg-green-900/20 rounded-lg py-2 px-3 border border-green-200 dark:border-green-800">
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+            <span className="font-medium text-green-700 dark:text-green-400">Checked In</span>
+            <span className="text-green-600/70 dark:text-green-400/70">
+              {new Date(worker.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
         )}
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Contact Information */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {worker.email && (
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="w-4 h-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{worker.email}</span>
             </div>
           )}
           {worker.phone && (
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="w-4 h-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Phone className="w-3.5 h-3.5 shrink-0" />
               <span>{worker.phone}</span>
             </div>
           )}
         </div>
 
-        {/* Action Buttons - Same as Visitor Cards */}
         <div className="flex items-center gap-2">
           {!worker.isCheckedIn ? (
             <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCheckIn?.(worker);
-              }}
+              onClick={(e) => { e.stopPropagation(); onCheckIn?.(worker); }}
               variant="outline"
+              size="sm"
               className="flex-1 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
               data-testid={`button-checkin-${worker.id}`}
             >
-              <LogIn className="mr-2 h-4 w-4" />
+              <LogIn className="mr-1.5 h-3.5 w-3.5" />
               Check In
             </Button>
           ) : (
             <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCheckOut?.(worker.id);
-              }}
+              onClick={(e) => { e.stopPropagation(); onCheckOut?.(worker.id); }}
               variant="outline"
+              size="sm"
               className="flex-1 text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
               data-testid={`button-checkout-${worker.id}`}
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="mr-1.5 h-3.5 w-3.5" />
               Check Out
             </Button>
           )}
           
-          {/* H&S Acceptance Status - Show when checked in but not accepted */}
           {worker.isCheckedIn && !worker.hsRulesAccepted && (
-            <Badge
-              variant="outline"
-              className="text-orange-600 border-orange-600 bg-orange-50"
-            >
-              <Shield className="h-4 w-4 mr-1" />
+            <Badge variant="outline" className="text-orange-600 border-orange-400 bg-orange-50 text-xs px-2 py-1">
+              <Shield className="h-3 w-3 mr-1" />
               H&S Pending
             </Badge>
           )}
+
           <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit?.(worker);
-            }}
+            onClick={(e) => { e.stopPropagation(); onEdit?.(worker); }}
             size="icon"
-            variant="outline"
-            className="shrink-0"
+            variant="ghost"
+            className="shrink-0 h-8 w-8"
             data-testid={`button-edit-${worker.id}`}
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-3.5 w-3.5" />
           </Button>
           <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onPrint?.(worker);
-            }}
+            onClick={(e) => { e.stopPropagation(); onPrint?.(worker); }}
             size="icon"
-            variant="outline"
-            className="shrink-0"
+            variant="ghost"
+            className="shrink-0 h-8 w-8"
             data-testid={`button-print-${worker.id}`}
           >
-            <Printer className="h-4 w-4" />
+            <Printer className="h-3.5 w-3.5" />
           </Button>
         </div>
 
-        {/* Status Badges */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           <Badge variant={worker.inductionCompleted ? "default" : "destructive"} className="text-xs">
             {worker.inductionCompleted ? "Inducted" : "No Induction"}
           </Badge>
         </div>
 
-        {/* Core Certifications */}
         <div className="space-y-2">
-          <h4 className="font-semibold text-sm flex items-center gap-1">
-            <Award className="w-4 h-4" />
+          <h4 className="font-semibold text-xs flex items-center gap-1 text-muted-foreground uppercase tracking-wider">
+            <Award className="w-3.5 h-3.5" />
             Certifications
           </h4>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="text-xs">
-              <span className="font-medium">CSCS:</span>
-              <Badge {...getCertificationStatus(worker.cscsStatus)} className="ml-1 text-xs">
-                {getCertificationStatus(worker.cscsStatus).text}
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <div className="text-xs flex items-center gap-1">
+              <span className="text-muted-foreground">CSCS:</span>
+              <Badge variant={worker.cscsStatus === 'valid' ? 'default' : worker.cscsStatus === 'expired' ? 'destructive' : 'outline'} className="text-xs h-5 px-1.5">
+                {worker.cscsStatus === 'valid' ? 'Valid' : worker.cscsStatus === 'expired' ? 'Expired' : worker.cscsStatus || 'Unknown'}
               </Badge>
             </div>
-            <div className="text-xs">
-              <span className="font-medium">IPAF:</span>
-              <Badge {...getCertificationStatus(worker.ipafStatus)} className="ml-1 text-xs">
-                {getCertificationStatus(worker.ipafStatus).text}
+            <div className="text-xs flex items-center gap-1">
+              <span className="text-muted-foreground">IPAF:</span>
+              <Badge variant={worker.ipafStatus && worker.ipafStatus !== 'none' && worker.ipafStatus !== 'expired' ? 'default' : worker.ipafStatus === 'expired' ? 'destructive' : 'outline'} className="text-xs h-5 px-1.5">
+                {worker.ipafStatus === 'none' || !worker.ipafStatus ? 'Unknown' : worker.ipafStatus === 'expired' ? 'Expired' : worker.ipafStatus}
               </Badge>
             </div>
-            {worker.cibtCard && (
-              <div className="text-xs">
-                <span className="font-medium">CIBT:</span>
-                <Badge {...getCertificationStatus(worker.cibtStatus)} className="ml-1 text-xs">
-                  {getCertificationStatus(worker.cibtStatus).text}
-                </Badge>
-              </div>
-            )}
-            {worker.cpcsCard && (
-              <div className="text-xs">
-                <span className="font-medium">CPCS:</span>
-                <Badge {...getCertificationStatus(worker.cpcsStatus)} className="ml-1 text-xs">
-                  {getCertificationStatus(worker.cpcsStatus).text}
-                </Badge>
-              </div>
-            )}
-            {worker.nvqLevel && (
-              <div className="text-xs">
-                <span className="font-medium">NVQ:</span>
-                <Badge {...getCertificationStatus(worker.nvqStatus)} className="ml-1 text-xs">
-                  Level {worker.nvqLevel}
-                </Badge>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Training Badges */}
         <div className="flex flex-wrap gap-1">
           {worker.asbestosAwareness && (
-            <Badge variant="outline" className="text-xs">Asbestos Aware</Badge>
+            <Badge variant="outline" className="text-xs h-5 px-1.5">Asbestos Aware</Badge>
           )}
           {worker.manualHandling && (
-            <Badge variant="outline" className="text-xs">Manual Handling</Badge>
+            <Badge variant="outline" className="text-xs h-5 px-1.5">Manual Handling</Badge>
           )}
         </div>
 
-        {/* H&S Document Assignments */}
         {hsAssignments && hsAssignments.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-semibold text-sm flex items-center gap-1">
-              <FileText className="w-4 h-4" />
+          <div className="space-y-1.5">
+            <h4 className="font-semibold text-xs flex items-center gap-1 text-muted-foreground uppercase tracking-wider">
+              <FileText className="w-3.5 h-3.5" />
               H&S Documents ({hsAssignments.length})
             </h4>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
+            <div className="space-y-1.5 max-h-24 overflow-y-auto">
               {hsAssignments.map((assignment: any) => {
                 const getStatusColor = (status: string) => {
                   switch (status) {
@@ -291,49 +237,19 @@ export function WorkerCard({
                 };
                 
                 return (
-                  <div key={assignment.assignment.id} className="p-2 border rounded-md bg-white/50">
-                    <div className="flex items-start justify-between gap-2">
+                  <div key={assignment.assignment.id} className="p-2 border rounded bg-white/50 dark:bg-slate-800/50">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate" title={assignment.template.documentName}>
                           {assignment.template.documentName}
                         </p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Badge className={`text-xs ${getStatusColor(assignment.assignment.status)}`}>
-                            {assignment.assignment.status.charAt(0).toUpperCase() + assignment.assignment.status.slice(1)}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {assignment.assignment.status === 'accepted' && assignment.assignment.acceptedAt ? (
-                            <span className="text-green-600">
-                              Accepted: {new Date(assignment.assignment.acceptedAt).toLocaleDateString()} at {' '}
-                              {new Date(assignment.assignment.acceptedAt).toLocaleTimeString('en-GB', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                          ) : assignment.assignment.emailSentAt ? (
-                            <span>
-                              Sent: {new Date(assignment.assignment.emailSentAt).toLocaleDateString()} at {' '}
-                              {new Date(assignment.assignment.emailSentAt).toLocaleTimeString('en-GB', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                          ) : (
-                            <span>
-                              Assigned: {new Date(assignment.assignment.assignedAt).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
+                        <Badge className={`text-xs mt-0.5 ${getStatusColor(assignment.assignment.status)}`}>
+                          {assignment.assignment.status.charAt(0).toUpperCase() + assignment.assignment.status.slice(1)}
+                        </Badge>
                       </div>
-                      
-                      {/* Resend Email Button */}
                       {assignment.assignment.status !== 'accepted' && onResendHSDocument && (
                         <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onResendHSDocument(assignment.assignment.id);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); onResendHSDocument(assignment.assignment.id); }}
                           size="sm"
                           variant="outline"
                           className="shrink-0 h-6 px-2 text-xs"
@@ -351,17 +267,13 @@ export function WorkerCard({
           </div>
         )}
 
-        {/* Card Management Actions */}
         {canManageCards && (
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-1 border-t">
             <Button 
               size="sm" 
               variant="outline" 
-              onClick={(e) => {
-                e.stopPropagation();
-                onIssueCard?.(worker.id);
-              }}
-              className="flex-1"
+              onClick={(e) => { e.stopPropagation(); onIssueCard?.(worker.id); }}
+              className="flex-1 text-xs h-8"
               data-testid={`issue-card-${worker.id}`}
             >
               Issue Card
@@ -370,11 +282,8 @@ export function WorkerCard({
               <Button 
                 size="sm" 
                 variant="default" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onResetCard?.(worker.id);
-                }}
-                className="flex-1"
+                onClick={(e) => { e.stopPropagation(); onResetCard?.(worker.id); }}
+                className="flex-1 text-xs h-8"
                 data-testid={`reset-card-${worker.id}`}
               >
                 Reset to Yellow
@@ -383,11 +292,22 @@ export function WorkerCard({
           </div>
         )}
 
-        {/* Last Updated */}
+        {isClearForWork && onPreBook && (
+          <Button
+            onClick={(e) => { e.stopPropagation(); onPreBook(worker); }}
+            variant="outline"
+            size="sm"
+            className="w-full text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50 text-xs h-8"
+          >
+            <CalendarPlus className="mr-1.5 h-3.5 w-3.5" />
+            Pre-Book
+          </Button>
+        )}
+
         {worker.cardStatusUpdatedAt && (
-          <div className="text-xs text-muted-foreground flex items-center gap-1">
+          <div className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
             <Clock className="w-3 h-3" />
-            Status updated: {new Date(worker.cardStatusUpdatedAt).toLocaleDateString()}
+            Updated: {new Date(worker.cardStatusUpdatedAt).toLocaleDateString()}
           </div>
         )}
       </CardContent>

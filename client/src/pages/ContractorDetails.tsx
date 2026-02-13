@@ -16,10 +16,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { ContractorWorker, CardOffence, CardIssue, WorkerCertification } from "@shared/schema";
 import { z } from "zod";
 import { toast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { 
   Building2, Users, FileText, Shield, AlertTriangle, CheckCircle2, 
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
-  XCircle, Clock, AlertCircle
+  XCircle, Clock, AlertCircle, CalendarPlus
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import { apiRequest } from "@/lib/queryClient";
@@ -48,7 +51,12 @@ export default function ContractorDetails() {
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
-  // Removed H&S modal state - H&S acceptance now happens via e-pass link
+  const [preBookingWorker, setPreBookingWorker] = useState<ContractorWorker | null>(null);
+  const [preBookDate, setPreBookDate] = useState<Date>(new Date());
+  const [preBookTime, setPreBookTime] = useState("09:00");
+  const [preBookPurpose, setPreBookPurpose] = useState("Site work");
+  const [preBookDuration, setPreBookDuration] = useState("8");
+  const [preBookNotes, setPreBookNotes] = useState("");
 
   // Fetch contractor details
   const { data: contractor, isLoading } = useQuery({
@@ -311,6 +319,56 @@ export default function ContractorDetails() {
       });
     }
   });
+
+  const preBookWorkerMutation = useMutation({
+    mutationFn: async (data: { worker: ContractorWorker; date: Date; time: string; purpose: string; duration: string; notes: string }) => {
+      const response = await apiRequest('POST', '/api/contractors/prebookings', {
+        companyName: contractorData?.name || '',
+        contactEmail: data.worker.email || '',
+        contactPhone: data.worker.phone || '',
+        workerName: `${data.worker.firstName} ${data.worker.lastName}`,
+        workerEmail: data.worker.email || '',
+        purpose: data.purpose,
+        scheduledDate: data.date.toISOString(),
+        scheduledTime: data.time,
+        duration: data.duration,
+        notes: data.notes,
+        documentsRequired: [],
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Worker pre-booked successfully", description: "The booking has been created and will appear in the Reception Diary" });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/prebookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/reception/diary'] });
+      setPreBookingWorker(null);
+      setPreBookDate(new Date());
+      setPreBookTime("09:00");
+      setPreBookPurpose("Site work");
+      setPreBookDuration("8");
+      setPreBookNotes("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to pre-book worker", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handlePreBookWorker = () => {
+    if (!preBookingWorker) return;
+    preBookWorkerMutation.mutate({
+      worker: preBookingWorker,
+      date: preBookDate,
+      time: preBookTime,
+      purpose: preBookPurpose,
+      duration: preBookDuration,
+      notes: preBookNotes,
+    });
+  };
+
+  const isWorkerClearForWork = (worker: ContractorWorker) => {
+    const isBanned = worker.currentCardStatus === 'red' && worker.redCardBanUntil && new Date(worker.redCardBanUntil) > new Date();
+    return !isBanned && worker.isActive && (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
+  };
 
   // Host selection state for contractor check-in (same as visitor workflow)
   const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
@@ -771,6 +829,7 @@ export default function ContractorDetails() {
                   onCheckOut={handleWorkerCheckOut}
                   onEdit={handleWorkerEdit}
                   onPrint={handleWorkerPrint}
+                  onPreBook={(worker) => setPreBookingWorker(worker)}
                   onIssueCard={(workerId) => {
                     cardIssueForm.setValue('workerId', workerId);
                     setIssuingCard(true);
@@ -1166,6 +1225,22 @@ export default function ContractorDetails() {
                   )}
                 </div>
               </div>
+
+              {isWorkerClearForWork(viewingWorker) && (
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      setPreBookingWorker(viewingWorker);
+                      setViewingWorker(null);
+                    }}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                    size="lg"
+                  >
+                    <CalendarPlus className="w-5 h-5 mr-2" />
+                    Pre-Book This Worker
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -1192,6 +1267,126 @@ export default function ContractorDetails() {
           companyName={contractorData.name}
         />
       )}
+
+      {/* Pre-Book Worker Modal */}
+      <Dialog open={!!preBookingWorker} onOpenChange={(open) => !open && setPreBookingWorker(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarPlus className="w-5 h-5 text-indigo-600" />
+              Pre-Book Worker
+            </DialogTitle>
+            <DialogDescription>
+              Schedule {preBookingWorker?.firstName} {preBookingWorker?.lastName} from {contractorData?.name} for an upcoming site visit.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                  {preBookingWorker?.firstName} {preBookingWorker?.lastName} - Cleared for Work
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {format(preBookDate, "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker
+                    mode="single"
+                    selected={preBookDate}
+                    onSelect={(date) => date && setPreBookDate(date)}
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const checkDate = new Date(date);
+                      checkDate.setHours(0, 0, 0, 0);
+                      return checkDate < today;
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Arrival Time</Label>
+                <Input
+                  type="time"
+                  value={preBookTime}
+                  onChange={(e) => setPreBookTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Duration (hours)</Label>
+                <Select value={preBookDuration} onValueChange={setPreBookDuration}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 hours</SelectItem>
+                    <SelectItem value="4">4 hours (Half day)</SelectItem>
+                    <SelectItem value="8">8 hours (Full day)</SelectItem>
+                    <SelectItem value="10">10 hours</SelectItem>
+                    <SelectItem value="12">12 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Purpose</Label>
+              <Select value={preBookPurpose} onValueChange={setPreBookPurpose}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Site work">Site Work</SelectItem>
+                  <SelectItem value="Maintenance">Maintenance</SelectItem>
+                  <SelectItem value="Installation">Installation</SelectItem>
+                  <SelectItem value="Inspection">Inspection</SelectItem>
+                  <SelectItem value="Repair">Repair</SelectItem>
+                  <SelectItem value="Survey">Survey</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Textarea
+                value={preBookNotes}
+                onChange={(e) => setPreBookNotes(e.target.value)}
+                placeholder="Any additional notes..."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreBookingWorker(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePreBookWorker}
+              disabled={preBookWorkerMutation.isPending}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {preBookWorkerMutation.isPending ? "Booking..." : "Confirm Pre-Booking"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Worker Modal */}
       <Dialog open={addingWorker} onOpenChange={setAddingWorker}>
