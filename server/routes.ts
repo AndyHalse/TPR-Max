@@ -10286,7 +10286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prebookings/checkin", async (req, res) => {
+  app.post("/api/prebookings/checkin", requireAuth, async (req, res) => {
     try {
       const { qrCode, deviceType, deviceIp } = req.body;
       if (!qrCode) {
@@ -10308,8 +10308,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Pre-booking already checked in" });
       }
       
-      // Create visitor record from pre-booking
-      const visitor = await storage.createVisitor({
+      // Get customer context for tenant-isolated visitor creation
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      
+      // Create visitor in isolated customer database with checked-in status
+      const visitor = await databaseService.createVisitor(context, {
         firstName: preBooking.visitorFirstName,
         lastName: preBooking.visitorLastName,
         email: preBooking.visitorEmail,
@@ -10320,6 +10324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isPreBooked: true,
         expectedDateTime: preBooking.visitDate,
         visitPurpose: preBooking.purpose,
+        isCheckedIn: true,
+        checkedInAt: new Date(),
       });
       
       // Update pre-booking as checked in
@@ -10328,6 +10334,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedInAt: new Date(),
         visitorId: visitor.id,
       });
+      
+      console.log(`✅ Visitor checked in from pre-booking: ${visitor.firstName} ${visitor.lastName} (ID: ${visitor.id}) in customer DB`);
       
       res.json({ visitor, preBooking });
     } catch (error) {

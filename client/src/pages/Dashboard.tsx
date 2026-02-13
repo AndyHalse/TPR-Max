@@ -676,12 +676,17 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       toast({ title: "Visitor Checked In", description: "Visitor has been checked in from pre-booking" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to check in visitor", variant: "destructive" });
+    onError: (error: any) => {
+      const message = error?.message || "Failed to check in visitor";
+      toast({ title: "Error", description: message, variant: "destructive" });
     },
   });
 
@@ -695,12 +700,14 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       toast({ title: "Contractor Checked In", description: "Contractor has been checked in from pre-booking" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to check in contractor", variant: "destructive" });
+    onError: (error: any) => {
+      const message = error?.message || "Failed to check in contractor";
+      toast({ title: "Error", description: message, variant: "destructive" });
     },
   });
 
