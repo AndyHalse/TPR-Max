@@ -130,17 +130,28 @@ export default function StaffManagement() {
 
   const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
 
+  const getPassBranding = () => {
+    const brandColor = companySettings?.backgroundColor || companySettings?.primaryColor || '#2460A9';
+    const accentColor = companySettings?.accentColor || brandColor;
+    const companyName = companySettings?.companyName || 'Company';
+    const logoPath = companySettings?.logoUrl || '';
+    const logoUrl = logoPath
+      ? (logoPath.startsWith('http')
+        ? logoPath
+        : `${window.location.origin}/objects${logoPath.startsWith('/') ? '' : '/'}${logoPath}`)
+      : '';
+    return { brandColor, accentColor, companyName, logoUrl };
+  };
+
   const getBrandedPassHtml = (qrCode: string, staffName: string, department: string, employeeId: string) => {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
-    const companyName = companySettings?.companyName || 'Company';
-    const primaryColor = companySettings?.primaryColor || '#2460A9';
-    const logoUrl = companySettings?.logoUrl ? `${window.location.origin}${companySettings.logoUrl}` : '';
+    const { brandColor, companyName, logoUrl } = getPassBranding();
     const logoHtml = logoUrl
       ? `<img src="${logoUrl}" style="max-height:40px;max-width:160px;margin:0 auto 6px auto;display:block;" crossorigin="anonymous">`
       : '';
     return `
-      <div style="border:2px solid ${primaryColor};border-radius:14px;padding:20px 18px;max-width:280px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;text-align:center;background:#fff;">
-        <div style="background:${primaryColor};margin:-20px -18px 12px -18px;border-radius:12px 12px 0 0;padding:14px 12px 10px 12px;">
+      <div style="border:2px solid ${brandColor};border-radius:14px;padding:20px 18px;max-width:280px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;text-align:center;background:#fff;">
+        <div style="background:${brandColor};margin:-20px -18px 12px -18px;border-radius:12px 12px 0 0;padding:14px 12px 10px 12px;">
           ${logoHtml}
           <div style="color:#fff;font-size:15px;font-weight:700;letter-spacing:0.5px;">${companyName}</div>
           <div style="color:rgba(255,255,255,0.8);font-size:10px;margin-top:2px;">STAFF CHECK-IN PASS</div>
@@ -178,9 +189,7 @@ export default function StaffManagement() {
     setQrPassStaff(null);
     setQrPassData(null);
 
-    const primaryColor = companySettings?.primaryColor || '#2460A9';
-    const companyName = companySettings?.companyName || 'Company';
-    const logoUrl = companySettings?.logoUrl || '';
+    const { brandColor, companyName, logoUrl } = getPassBranding();
 
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
 
@@ -217,14 +226,14 @@ export default function StaffManagement() {
     };
 
     roundRect(cardX, cardY, cardW, cardH, cardR);
-    ctx.strokeStyle = primaryColor;
+    ctx.strokeStyle = brandColor;
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.save();
     ctx.clip();
 
     const headerH = logoImg ? 80 : 65;
-    ctx.fillStyle = primaryColor;
+    ctx.fillStyle = brandColor;
     ctx.fillRect(cardX, cardY, cardW, headerH);
 
     const cx = W / 2;
@@ -239,7 +248,7 @@ export default function StaffManagement() {
     }
 
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
+    ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
     ctx.fillText(companyName, cx, textY);
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = '9px "Segoe UI", Arial, sans-serif';
