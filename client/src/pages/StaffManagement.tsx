@@ -473,37 +473,37 @@ export default function StaffManagement() {
                 )}
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <Button 
                     size="sm" 
                     variant="ghost" 
                     onClick={() => setEditingStaff(member)}
-                    className="h-7 w-7 p-0"
+                    className="h-8 w-8 p-0"
                     data-testid={`button-edit-staff-${member.id}`}
                     title="Edit"
                   >
-                    <Edit size={13} />
+                    <Edit size={15} />
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setQrPassStaff(member)}
-                    className="h-7 w-7 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                    className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                     data-testid={`button-qr-pass-${member.id}`}
                     title="QR Pass"
                   >
-                    <QrCode size={13} />
+                    <QrCode size={15} />
                   </Button>
                   <Button 
                     size="sm" 
                     variant="ghost" 
                     onClick={() => deleteMutation.mutate(member.id)}
                     disabled={deleteMutation.isPending}
-                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                     data-testid={`button-delete-staff-${member.id}`}
                     title="Delete"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={15} />
                   </Button>
                 </div>
                 {member.isActive && (
@@ -514,12 +514,12 @@ export default function StaffManagement() {
                         variant="outline"
                         onClick={() => checkInMutation.mutate(member.id)}
                         disabled={checkInMutation.isPending}
-                        className="h-7 px-2 text-xs text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                        className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                         data-testid={`button-checkin-${member.id}`}
                         title="Manual check-in"
                       >
-                        <UserCheck size={12} className="mr-1" />
-                        In
+                        <UserCheck size={16} className="mr-1.5" />
+                        Check In
                       </Button>
                     ) : (
                       <Button
@@ -527,12 +527,12 @@ export default function StaffManagement() {
                         variant="outline"
                         onClick={() => checkOutMutation.mutate(member.id)}
                         disabled={checkOutMutation.isPending}
-                        className="h-7 px-2 text-xs text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                        className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                         data-testid={`button-checkout-${member.id}`}
                         title="Check out"
                       >
-                        <UserX size={12} className="mr-1" />
-                        Out
+                        <UserX size={16} className="mr-1.5" />
+                        Check Out
                       </Button>
                     )}
                   </>
