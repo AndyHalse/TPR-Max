@@ -10616,43 +10616,22 @@ This is an automated notification from your visitor management system.`;
       
       const { date, days = 7 } = req.query;
       const targetDate = date ? new Date(date as string) : new Date();
+      targetDate.setHours(0, 0, 0, 0);
       const daysAhead = parseInt(days as string) || 7;
       
       // Calculate end date
       const endDate = new Date(targetDate);
       endDate.setDate(targetDate.getDate() + daysAhead);
+      endDate.setHours(23, 59, 59, 999);
       
-      // Get customer database connection
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      // Query visitor pre-bookings using storage (same database as CRUD routes)
+      const allStoredPreBookings = await storage.getAllPreBookings();
+      const visitorPreBookings = allStoredPreBookings.filter((pb: any) => {
+        const visitDate = new Date(pb.visitDate);
+        return visitDate >= targetDate && visitDate <= endDate;
+      });
       
-      // Query pre-bookings with staff joins for host details
-      const allPreBookings = await customerDb.select({
-        id: isolatedSchema.preBookings.id,
-        visitorFirstName: isolatedSchema.preBookings.visitorFirstName,
-        visitorLastName: isolatedSchema.preBookings.visitorLastName,
-        visitorEmail: isolatedSchema.preBookings.visitorEmail,
-        company: isolatedSchema.preBookings.company,
-        visitDate: isolatedSchema.preBookings.visitDate,
-        purpose: isolatedSchema.preBookings.purpose,
-        isCheckedIn: isolatedSchema.preBookings.isCheckedIn,
-        qrCode: isolatedSchema.preBookings.qrCode,
-        createdAt: isolatedSchema.preBookings.createdAt,
-        hostStaffId: isolatedSchema.preBookings.hostStaffId,
-        // Host staff details
-        hostFirstName: isolatedSchema.staff.firstName,
-        hostLastName: isolatedSchema.staff.lastName,
-        hostDepartment: isolatedSchema.staff.department,
-        hostEmail: isolatedSchema.staff.email
-      })
-      .from(isolatedSchema.preBookings)
-      .leftJoin(isolatedSchema.staff, eq(isolatedSchema.preBookings.hostStaffId, isolatedSchema.staff.id))
-      .where(
-        and(
-          sql`${isolatedSchema.preBookings.visitDate} >= ${targetDate}`,
-          sql`${isolatedSchema.preBookings.visitDate} <= ${endDate}`
-        )
-      )
-      .orderBy(isolatedSchema.preBookings.visitDate);
+      console.log(`📅 Diary query: targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
       
       // Query contractor pre-bookings for the same date range using storage (same connection as CRUD routes)
       let contractorBookings: any[] = [];
@@ -10667,7 +10646,7 @@ This is an automated notification from your visitor management system.`;
       }
       
       res.json({
-        visitors: allPreBookings,
+        visitors: visitorPreBookings,
         contractors: contractorBookings,
       });
     } catch (error) {
@@ -10845,7 +10824,7 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Contractor pre-booking check-in
-  app.post("/api/contractors/prebookings/checkin", async (req, res) => {
+  app.post("/api/contractors/prebookings/checkin", requireAuth, async (req, res) => {
     try {
       const { qrCode } = req.body;
       
@@ -10866,21 +10845,20 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Pre-booking already completed" });
       }
       
-      // Find or create contractor company
-      let company = await storage.getContractorCompanies().then(companies => 
-        companies.find(c => c.name === preBooking.companyName)
-      );
+      // Get customer context and database for contractor company lookup
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      // Find contractor company by name in customer database
+      const [company] = await customerDb.select()
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.companyName, preBooking.companyName))
+        .limit(1);
       
       if (!company) {
-        // Create company if it doesn't exist
-        company = await storage.createContractorCompany({
-          name: preBooking.companyName,
-          contactEmail: preBooking.contactEmail,
-          contactPhone: preBooking.contactPhone,
-          status: 'pending', // New companies start as pending
-          address: '',
-          contactFirstName: preBooking.workerName.split(' ')[0] || preBooking.workerName,
-          contactLastName: preBooking.workerName.split(' ').slice(1).join(' ') || ''
+        return res.status(400).json({ 
+          error: "Contractor company not found",
+          details: `Company "${preBooking.companyName}" not found. Please add it first.`
         });
       }
       
@@ -10888,36 +10866,41 @@ This is an automated notification from your visitor management system.`;
       if (company.status !== 'approved') {
         return res.status(400).json({ 
           error: "Contractor company not approved",
-          details: `Cannot check in: Company ${company.name} is not approved (status: ${company.status || 'pending'})`,
+          details: `Cannot check in: Company ${company.companyName} is not approved (status: ${company.status || 'pending'})`,
           issues: [`Contractor company is not approved (status: ${company.status || 'pending'})`]
         });
       }
       
-      // Find or create worker
-      let worker = await storage.getContractorWorkers().then(workers => 
-        workers.find(w => 
-          w.companyId === company.id && 
-          `${w.firstName} ${w.lastName}` === preBooking.workerName
-        )
+      // Find worker in customer database
+      const allWorkers = await customerDb.select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.companyId, company.id));
+      let worker = allWorkers.find(w => 
+        `${w.firstName} ${w.lastName}` === preBooking.workerName
       );
       
       if (!worker) {
-        // Create worker if doesn't exist
+        // Create worker in customer database
         const nameParts = preBooking.workerName.split(' ');
         const firstName = nameParts[0] || preBooking.workerName;
         const lastName = nameParts.slice(1).join(' ') || '';
+        const workerId = randomUUID();
         
-        worker = await storage.createContractorWorker({
-          companyId: company.id,
-          firstName,
-          lastName,
-          email: preBooking.workerEmail,
-          phone: preBooking.contactPhone,
-          rightToWork: 'pending',
-          isActive: true,
-          inductionCompleted: false,
-          safetyRating: 'N/A'
-        });
+        const [newWorker] = await customerDb.insert(isolatedSchema.contractorWorkers)
+          .values({
+            id: workerId,
+            companyId: company.id,
+            firstName,
+            lastName,
+            email: preBooking.workerEmail,
+            phone: preBooking.contactPhone,
+            rightToWork: 'pending',
+            isActive: true,
+            inductionCompleted: false,
+            safetyRating: 'N/A'
+          })
+          .returning();
+        worker = newWorker;
       }
       
       // Check worker status
@@ -10952,23 +10935,29 @@ This is an automated notification from your visitor management system.`;
       // Update pre-booking status
       await storage.updateContractorPreBooking(preBooking.id, { status: 'completed' });
       
-      // Update worker check-in status
-      await storage.updateContractorWorker(worker.id, {
-        isCheckedIn: true,
-        checkedInAt: new Date(),
-        qrCode: qrCode
-      });
+      // Update worker check-in status in customer database
+      await customerDb.update(isolatedSchema.contractorWorkers)
+        .set({
+          isCheckedIn: true,
+          checkedInAt: new Date(),
+          qrCode: qrCode
+        })
+        .where(eq(isolatedSchema.contractorWorkers.id, worker.id));
       
-      // Create contractor visit record
-      const visit = await storage.createContractorVisit({
-        workerId: worker.id,
-        companyId: company.id,
-        purpose: preBooking.purpose,
-        hsRulesAccepted: true,
-        hsRulesAcceptedAt: new Date(),
-        qrCode: qrCode,
-        checkedInAt: new Date()
-      });
+      // Create contractor visit record in customer database
+      const visitId = randomUUID();
+      const [visit] = await customerDb.insert(isolatedSchema.contractorVisits)
+        .values({
+          id: visitId,
+          workerId: worker.id,
+          companyId: company.id,
+          purpose: preBooking.purpose,
+          hsRulesAccepted: true,
+          hsRulesAcceptedAt: new Date(),
+          qrCode: qrCode,
+          checkedInAt: new Date()
+        })
+        .returning();
       
       res.json({
         success: true,
