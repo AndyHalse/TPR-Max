@@ -586,11 +586,43 @@ export const ensureMembersTableProductionMigration: Migration = {
   }
 };
 
+export const addStaffQrCodeColumnMigration: Migration = {
+  version: '20260213_001_staff_qr_code',
+  description: 'Add qr_code column to staff table for kiosk QR check-in',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        ALTER TABLE staff 
+        ADD COLUMN IF NOT EXISTS qr_code TEXT UNIQUE
+      `);
+      console.log('✅ Added qr_code column to staff table');
+    } catch (error: any) {
+      if (error?.message?.includes('already exists')) {
+        console.log('ℹ️ qr_code column already exists on staff table');
+      } else {
+        throw error;
+      }
+    }
+    
+    try {
+      const result = await db.execute(`
+        UPDATE staff 
+        SET qr_code = 'STF-' || SUBSTRING(REPLACE(gen_random_uuid()::text, '-', ''), 1, 12) 
+        WHERE qr_code IS NULL
+      `);
+      console.log('✅ Generated QR codes for existing staff members');
+    } catch (error: any) {
+      console.error('⚠️ Failed to generate QR codes for existing staff:', error.message);
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
   createUKHSDocumentSystemMigration,
   addEPassSentColumnMigration,
   createMembersTableMigration,
-  ensureMembersTableProductionMigration
+  ensureMembersTableProductionMigration,
+  addStaffQrCodeColumnMigration
 ];

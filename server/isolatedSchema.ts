@@ -37,6 +37,7 @@ export const staff = pgTable("staff", {
   emergencyToken: text("emergency_token"), // Secure token for emergency access without login
   emergencyTokenExpires: timestamp("emergency_token_expires"), // Token expiration
   userId: varchar("user_id").references(() => users.id), // Link to user account
+  qrCode: text("qr_code").unique(),
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),
