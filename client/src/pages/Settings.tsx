@@ -757,21 +757,22 @@ export default function Settings() {
     event.target.value = '';
   };
 
-  // Auto-save functionality
+  const pendingUpdatesRef = useRef<Record<string, any>>({});
+
   const triggerAutoSave = (field: string, value: any) => {
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
     
-    // Update form data immediately for UI responsiveness
     setFormData(prev => ({ ...prev, [field]: value }));
+    pendingUpdatesRef.current = { ...pendingUpdatesRef.current, [field]: value };
     
-    // Debounce the auto-save
     autoSaveTimeoutRef.current = setTimeout(() => {
-      const updates = { [field]: value };
-      console.log('Auto-saving:', field, '=', value);
+      const updates = { ...pendingUpdatesRef.current };
+      console.log('Auto-saving all pending:', updates);
+      pendingUpdatesRef.current = {};
       updateSettingsMutation.mutate(updates);
-    }, 1500); // 1.5 second delay
+    }, 800);
   };
 
   const handleInputChange = (field: string, value: any) => {
