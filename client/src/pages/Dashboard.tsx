@@ -1017,6 +1017,7 @@ export default function Dashboard() {
                   type: 'visitor' | 'contractor' | 'meeting';
                   name: string;
                   company: string;
+                  host: string;
                   time: string;
                   sortTime: string;
                   date: Date;
@@ -1033,6 +1034,7 @@ export default function Dashboard() {
                     type: 'visitor',
                     name: `${entry.visitorFirstName} ${entry.visitorLastName}`,
                     company: entry.company || '',
+                    host: entry.hostFirstName && entry.hostLastName ? `${entry.hostFirstName} ${entry.hostLastName}` : '',
                     time: visitTime,
                     sortTime: new Date(entry.visitDate).toISOString(),
                     date: new Date(entry.visitDate),
@@ -1049,6 +1051,7 @@ export default function Dashboard() {
                     type: 'contractor',
                     name: entry.workerName,
                     company: entry.companyName,
+                    host: '',
                     time: entry.scheduledTime,
                     sortTime: `${new Date(entry.scheduledDate).toISOString().split('T')[0]}T${entry.scheduledTime}`,
                     date: new Date(entry.scheduledDate),
@@ -1065,6 +1068,7 @@ export default function Dashboard() {
                     type: 'meeting',
                     name: booking.title || 'Meeting',
                     company: booking.roomName || '',
+                    host: booking.organizer || '',
                     time: booking.startTime || '',
                     sortTime: booking.startTime || '',
                     date: booking.date ? new Date(booking.date) : new Date(),
@@ -1097,10 +1101,11 @@ export default function Dashboard() {
 
                 return (
                   <div className="border rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[60px_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+                    <div className="grid grid-cols-[60px_1fr_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
                       <span>Time</span>
                       <span>Name</span>
                       <span>Company</span>
+                      <span>Host</span>
                       <span>Type</span>
                       <span>Status</span>
                       <span className="text-right">Action</span>
@@ -1110,11 +1115,12 @@ export default function Dashboard() {
                       return (
                         <div
                           key={event.id}
-                          className={`grid grid-cols-[60px_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 border-t text-xs items-center ${isPast ? 'opacity-50 bg-gray-50 dark:bg-gray-800/30' : 'hover:bg-white/60 dark:hover:bg-slate-800/60'}`}
+                          className={`grid grid-cols-[60px_1fr_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 border-t text-xs items-center ${isPast ? 'opacity-50 bg-gray-50 dark:bg-gray-800/30' : 'hover:bg-white/60 dark:hover:bg-slate-800/60'}`}
                         >
                           <span className="font-medium text-fixed">{event.time}</span>
                           <span className="truncate font-medium text-fixed">{event.name}</span>
                           <span className="truncate text-variable">{event.company}</span>
+                          <span className="truncate text-variable">{event.host || '—'}</span>
                           <Badge className={`text-[10px] px-1.5 py-0 ${event.type === 'visitor' ? 'bg-indigo-100 text-indigo-700' : event.type === 'contractor' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'}`}>
                             {event.type === 'visitor' ? 'Visitor' : event.type === 'contractor' ? 'Contractor' : 'Meeting'}
                           </Badge>
