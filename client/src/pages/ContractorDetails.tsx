@@ -53,7 +53,13 @@ export default function ContractorDetails() {
   const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
   const [preBookingWorker, setPreBookingWorker] = useState<ContractorWorker | null>(null);
   const [preBookDate, setPreBookDate] = useState<Date>(new Date());
-  const [preBookTime, setPreBookTime] = useState("09:00");
+  const [preBookTime, setPreBookTime] = useState(() => {
+    const now = new Date();
+    const nextHour = new Date(now);
+    nextHour.setMinutes(0);
+    nextHour.setHours(nextHour.getHours() + 1);
+    return `${String(nextHour.getHours()).padStart(2, '0')}:00`;
+  });
   const [preBookPurpose, setPreBookPurpose] = useState("Site work");
   const [preBookDuration, setPreBookDuration] = useState("8");
   const [preBookNotes, setPreBookNotes] = useState("");
@@ -348,7 +354,11 @@ export default function ContractorDetails() {
       queryClient.invalidateQueries({ queryKey: ['/api/reception/diary'] });
       setPreBookingWorker(null);
       setPreBookDate(new Date());
-      setPreBookTime("09:00");
+      const now2 = new Date();
+      const nextHour2 = new Date(now2);
+      nextHour2.setMinutes(0);
+      nextHour2.setHours(nextHour2.getHours() + 1);
+      setPreBookTime(`${String(nextHour2.getHours()).padStart(2, '0')}:00`);
       setPreBookPurpose("Site work");
       setPreBookDuration("8");
       setPreBookNotes("");
@@ -1330,6 +1340,17 @@ export default function ContractorDetails() {
                   type="time"
                   value={preBookTime}
                   onChange={(e) => setPreBookTime(e.target.value)}
+                  min={(() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const selectedDay = new Date(preBookDate);
+                    selectedDay.setHours(0, 0, 0, 0);
+                    if (selectedDay.getTime() === today.getTime()) {
+                      const now = new Date();
+                      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    }
+                    return undefined;
+                  })()}
                 />
               </div>
               <div className="space-y-2">
