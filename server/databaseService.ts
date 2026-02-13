@@ -104,6 +104,18 @@ export class DatabaseService {
     return staff[0];
   }
 
+  async getStaffByQrCode(context: CustomerContext, qrCode: string): Promise<Staff | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const staffResult = await db
+      .select()
+      .from(isolatedSchema.staff)
+      .where(eq(isolatedSchema.staff.qrCode, qrCode))
+      .limit(1);
+    
+    return staffResult[0];
+  }
+
   async createStaff(context: CustomerContext, insertStaff: InsertStaff): Promise<Staff> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
@@ -119,6 +131,9 @@ export class DatabaseService {
       fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
       console.log(`🔥 Generated Fire Marshal URL ID for new staff ${insertStaff.firstName} ${insertStaff.lastName}: ${fireMarshalUrlId}`);
     }
+
+    // Auto-generate QR code for staff check-in
+    const qrCode = insertStaff.qrCode || `STF-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
     
     const created = await db
       .insert(isolatedSchema.staff)
@@ -126,6 +141,7 @@ export class DatabaseService {
         ...insertStaff,
         password: hashedPassword,
         fireMarshalUrlId,
+        qrCode,
       })
       .returning();
     

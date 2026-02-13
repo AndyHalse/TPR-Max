@@ -5,14 +5,17 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Staff } from "@shared/schema";
 
 export default function StaffManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [qrPassStaff, setQrPassStaff] = useState<Staff | null>(null);
+  const [qrPassData, setQrPassData] = useState<{ qrCode: string; staffName: string } | null>(null);
   const { toast } = useToast();
   const { slug } = useParams<{ slug: string }>();
   const [location] = useLocation();
@@ -99,6 +102,71 @@ export default function StaffManagement() {
       });
     },
   });
+
+  const sendQrPassMutation = useMutation({
+    mutationFn: async ({ id, method }: { id: string; method: string }) => {
+      const response = await apiRequest("POST", `/api/staff/${id}/send-qr-pass`, { method });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.method === 'email') {
+        toast({
+          title: "QR Pass Sent",
+          description: data.message || "QR check-in pass has been emailed to the staff member",
+        });
+        setQrPassStaff(null);
+      } else {
+        setQrPassData({ qrCode: data.qrCode, staffName: data.staffName });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send QR pass",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDownloadQrPass = (qrCode: string, staffName: string) => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrCode)}`;
+    const link = document.createElement('a');
+    link.href = qrUrl;
+    link.download = `qr-pass-${staffName.replace(/\s+/g, '-').toLowerCase()}.png`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Download Started", description: "QR pass image is downloading" });
+    setQrPassStaff(null);
+    setQrPassData(null);
+  };
+
+  const handlePrintQrPass = (qrCode: string, staffName: string, department: string, employeeId: string) => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head><title>Staff QR Pass - ${staffName}</title></head>
+          <body style="margin:0;padding:20px;font-family:Arial,sans-serif;text-align:center;">
+            <div style="border:2px solid #333;border-radius:12px;padding:20px;max-width:300px;margin:0 auto;">
+              <h2 style="margin:0 0 5px 0;font-size:18px;">Staff Check-In Pass</h2>
+              <hr style="border:1px solid #ddd;margin:10px 0;">
+              <img src="${qrUrl}" style="width:200px;height:200px;margin:10px auto;display:block;" onload="window.print();">
+              <h3 style="margin:10px 0 2px 0;">${staffName}</h3>
+              <p style="margin:2px 0;color:#666;font-size:14px;">${department}</p>
+              <p style="margin:2px 0;color:#999;font-size:12px;">ID: ${employeeId}</p>
+              <p style="margin:10px 0 0 0;font-size:11px;color:#999;">Scan at kiosk to check in/out</p>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+    setQrPassStaff(null);
+    setQrPassData(null);
+  };
 
   const getInitials = (staff: Staff) => {
     return `${staff.firstName[0]}${staff.lastName[0]}`.toUpperCase();
@@ -267,6 +335,16 @@ export default function StaffManagement() {
                   >
                     <Edit size={14} />
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setQrPassStaff(member)}
+                    className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50"
+                    data-testid={`button-qr-pass-${member.id}`}
+                    title="Send QR check-in pass"
+                  >
+                    <QrCode size={14} />
+                  </Button>
                   <Button 
                     size="sm" 
                     variant="outline" 
@@ -324,6 +402,112 @@ export default function StaffManagement() {
         }}
         staffToEdit={editingStaff}
       />
+
+      <Dialog open={!!qrPassStaff} onOpenChange={(open) => { if (!open) { setQrPassStaff(null); setQrPassData(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-indigo-600" />
+              Staff QR Check-In Pass
+            </DialogTitle>
+            <DialogDescription>
+              Send a QR code pass to {qrPassStaff?.firstName} {qrPassStaff?.lastName} for quick kiosk check-in and check-out.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">
+                    {qrPassStaff ? `${qrPassStaff.firstName[0]}${qrPassStaff.lastName[0]}` : ''}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800">{qrPassStaff?.firstName} {qrPassStaff?.lastName}</p>
+                  <p className="text-sm text-gray-600">{qrPassStaff?.department} | ID: {qrPassStaff?.employeeId}</p>
+                </div>
+              </div>
+            </div>
+
+            {qrPassData && (
+              <div className="text-center p-4 bg-white rounded-lg border">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPassData.qrCode)}`}
+                  alt="Staff QR Code"
+                  className="w-40 h-40 mx-auto mb-2 rounded-lg shadow-sm"
+                />
+                <p className="text-xs text-gray-500 font-mono">{qrPassData.qrCode}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3">
+              <Button
+                onClick={() => qrPassStaff && sendQrPassMutation.mutate({ id: qrPassStaff.id, method: 'email' })}
+                disabled={sendQrPassMutation.isPending}
+                className="w-full justify-start gap-3 h-14 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Mail size={20} />
+                <div className="text-left">
+                  <div className="font-medium">Email QR Pass</div>
+                  <div className="text-xs opacity-80">Send branded pass with QR code to {qrPassStaff?.email}</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!qrPassStaff) return;
+                  sendQrPassMutation.mutate({ id: qrPassStaff.id, method: 'print' }, {
+                    onSuccess: (data) => {
+                      handlePrintQrPass(
+                        data.qrCode,
+                        data.staffName,
+                        data.department,
+                        data.employeeId
+                      );
+                    }
+                  });
+                }}
+                disabled={sendQrPassMutation.isPending}
+                className="w-full justify-start gap-3 h-14"
+              >
+                <Printer size={20} className="text-green-600" />
+                <div className="text-left">
+                  <div className="font-medium">Print QR Pass</div>
+                  <div className="text-xs text-gray-500">Print a card-sized pass with QR code</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!qrPassStaff) return;
+                  sendQrPassMutation.mutate({ id: qrPassStaff.id, method: 'download' }, {
+                    onSuccess: (data) => {
+                      handleDownloadQrPass(data.qrCode, data.staffName);
+                    }
+                  });
+                }}
+                disabled={sendQrPassMutation.isPending}
+                className="w-full justify-start gap-3 h-14"
+              >
+                <Download size={20} className="text-purple-600" />
+                <div className="text-left">
+                  <div className="font-medium">Download QR Image</div>
+                  <div className="text-xs text-gray-500">Save QR code as image file</div>
+                </div>
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setQrPassStaff(null); setQrPassData(null); }}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

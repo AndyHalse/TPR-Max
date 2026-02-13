@@ -5309,6 +5309,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Staff QR code check-in from kiosk
+  app.post("/api/staff/qr-checkin", async (req, res) => {
+    try {
+      const { qrCode } = req.body;
+      if (!qrCode) {
+        return res.status(400).json({ error: "QR code is required" });
+      }
+      
+      const customers = await customerDbService.getAllCustomers();
+      let foundStaff = null;
+      let foundContext = null;
+      
+      for (const customer of customers) {
+        if (!customer.isActive) continue;
+        try {
+          const context = { customerId: customer.id, username: 'kiosk' };
+          const staffMember = await databaseService.getStaffByQrCode(context, qrCode);
+          if (staffMember) {
+            foundStaff = staffMember;
+            foundContext = context;
+            break;
+          }
+        } catch (err) {
+          continue;
+        }
+      }
+      
+      if (!foundStaff || !foundContext) {
+        return res.status(404).json({ error: "Staff member not found for this QR code" });
+      }
+      
+      if (foundStaff.isCheckedIn) {
+        const checkedOut = await databaseService.checkOutStaff(foundContext, foundStaff.id);
+        
+        websocketService.broadcastPersonnelUpdate(foundContext.customerId, {
+          personId: foundStaff.id,
+          personName: `${foundStaff.firstName} ${foundStaff.lastName}`,
+          personType: 'staff',
+          action: 'checkout'
+        });
+        
+        return res.json({ 
+          success: true, 
+          action: 'checkout',
+          staff: checkedOut,
+          message: `${foundStaff.firstName} ${foundStaff.lastName} checked out successfully`
+        });
+      }
+      
+      const checkedIn = await databaseService.checkInStaff(foundContext, foundStaff.id, false);
+      
+      websocketService.broadcastPersonnelUpdate(foundContext.customerId, {
+        personId: foundStaff.id,
+        personName: `${foundStaff.firstName} ${foundStaff.lastName}`,
+        personType: 'staff',
+        action: 'checkin'
+      });
+      
+      res.json({ 
+        success: true, 
+        action: 'checkin',
+        staff: checkedIn,
+        message: `${foundStaff.firstName} ${foundStaff.lastName} checked in successfully`
+      });
+    } catch (error) {
+      console.error("Error processing staff QR check-in:", error);
+      res.status(500).json({ error: "Failed to process staff QR check-in" });
+    }
+  });
+
+  // Send staff QR pass via email
+  app.post("/api/staff/:id/send-qr-pass", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { method = 'email' } = req.body;
+      
+      const username = req.user?.username || 'Andy';
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      
+      const staffMember = await databaseService.getStaffById(context, id);
+      if (!staffMember) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+      
+      if (!staffMember.qrCode) {
+        const qrCode = 'STF-' + randomUUID().replace(/-/g, '').substring(0, 12);
+        await databaseService.updateStaff(context, id, { qrCode } as any);
+        staffMember.qrCode = qrCode;
+      }
+      
+      const settings = await databaseService.getCompanySettings(context);
+      
+      if (method === 'email') {
+        if (!staffMember.email) {
+          return res.status(400).json({ error: "Staff member has no email address" });
+        }
+        
+        const emailSent = await emailService.sendStaffQrPass(
+          staffMember.email,
+          `${staffMember.firstName} ${staffMember.lastName}`,
+          staffMember.department,
+          staffMember.employeeId,
+          staffMember.qrCode,
+          settings
+        );
+        
+        return res.json({ 
+          success: true, 
+          method: 'email', 
+          emailSent,
+          qrCode: staffMember.qrCode,
+          message: emailSent ? `QR pass sent to ${staffMember.email}` : 'Failed to send email'
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        method,
+        qrCode: staffMember.qrCode,
+        staffName: `${staffMember.firstName} ${staffMember.lastName}`,
+        department: staffMember.department,
+        employeeId: staffMember.employeeId,
+        email: staffMember.email
+      });
+    } catch (error) {
+      console.error("Error sending staff QR pass:", error);
+      res.status(500).json({ error: "Failed to send staff QR pass" });
+    }
+  });
+
   // ID Card printing endpoint
   app.post("/api/staff/:id/print-id-card", async (req, res) => {
     try {

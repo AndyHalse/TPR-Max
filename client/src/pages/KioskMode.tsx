@@ -21,6 +21,7 @@ export default function KioskMode() {
   const [showPreview, setShowPreview] = useState(false);
   const [hostName, setHostName] = useState<string>();
   const [isPreBookedCheckIn, setIsPreBookedCheckIn] = useState(false);
+  const [staffCheckResult, setStaffCheckResult] = useState<{ action: string; staff: any; message: string } | null>(null);
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -164,6 +165,38 @@ export default function KioskMode() {
     },
   });
 
+  const staffQrMutation = useMutation({
+    mutationFn: async (qrCode: string) => {
+      const response = await apiRequest("POST", "/api/staff/qr-checkin", { qrCode });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      
+      setStaffCheckResult(data);
+      setScannedCode("");
+      
+      toast({
+        title: "Success",
+        description: data.message,
+      });
+      
+      setTimeout(() => {
+        setStaffCheckResult(null);
+        setActiveSection("main");
+      }, 5000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Staff QR code not recognized",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleQrScan = async () => {
     if (!scannedCode.trim()) {
       toast({
@@ -174,21 +207,23 @@ export default function KioskMode() {
       return;
     }
     
-    // Check if it's a checkout (existing visitor QR code)
-    try {
-      await checkOutMutation.mutateAsync(scannedCode);
+    if (scannedCode.startsWith("STF-")) {
+      staffQrMutation.mutate(scannedCode);
       return;
-    } catch (error) {
-      // If checkout fails, continue to try pre-booking check-in
     }
     
-    // Check if it's a pre-booking QR code (starts with PBK-)
     if (scannedCode.startsWith("PBK-")) {
       preBookingCheckInMutation.mutate(scannedCode);
       return;
     }
     
-    // If not a known format, show error
+    try {
+      await checkOutMutation.mutateAsync(scannedCode);
+      return;
+    } catch (error) {
+      // Not a visitor QR code
+    }
+    
     toast({
       title: "Error",
       description: "QR code not recognized. Please try again or proceed with manual check-in.",
@@ -258,12 +293,12 @@ export default function KioskMode() {
                 <div className="flex gap-3 sm:gap-4">
                   <Button
                     onClick={handleQrScan}
-                    disabled={checkOutMutation.isPending || preBookingCheckInMutation.isPending}
+                    disabled={checkOutMutation.isPending || preBookingCheckInMutation.isPending || staffQrMutation.isPending}
                     className="flex-1 gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 h-12 sm:h-14 lg:h-16 text-base sm:text-lg lg:text-xl"
                     data-testid="button-scan-qr"
                   >
                     <Scan className="mr-2 sm:mr-3" size={20} />
-                    {(checkOutMutation.isPending || preBookingCheckInMutation.isPending) ? "Processing..." : "Scan"}
+                    {(checkOutMutation.isPending || preBookingCheckInMutation.isPending || staffQrMutation.isPending) ? "Processing..." : "Scan"}
                   </Button>
                   
                   <Button
@@ -279,10 +314,31 @@ export default function KioskMode() {
                 </div>
               </div>
               
-              <div className="text-sm sm:text-base lg:text-lg space-y-2" style={{color: 'white'}}>
-                <p>✓ Pre-booked visitors: Scan your email QR code to check in</p>
-                <p>✓ Current visitors: Scan your pass QR code to check out</p>
-              </div>
+              {staffCheckResult ? (
+                <div className={`p-6 rounded-xl border-2 ${staffCheckResult.action === 'checkin' ? 'bg-green-50 border-green-400' : 'bg-orange-50 border-orange-400'}`}>
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    {staffCheckResult.action === 'checkin' ? (
+                      <UserPlus className="w-8 h-8 text-green-600" />
+                    ) : (
+                      <LogOut className="w-8 h-8 text-orange-600" />
+                    )}
+                    <h3 className={`text-xl font-bold ${staffCheckResult.action === 'checkin' ? 'text-green-700' : 'text-orange-700'}`}>
+                      {staffCheckResult.action === 'checkin' ? 'Checked In' : 'Checked Out'}
+                    </h3>
+                  </div>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {staffCheckResult.staff?.firstName} {staffCheckResult.staff?.lastName}
+                  </p>
+                  <p className="text-sm text-gray-600">{staffCheckResult.staff?.department}</p>
+                  <p className="text-xs text-gray-500 mt-2">This screen will close automatically...</p>
+                </div>
+              ) : (
+                <div className="text-sm sm:text-base lg:text-lg space-y-2" style={{color: 'white'}}>
+                  <p>✓ Staff: Scan your QR pass to check in or out</p>
+                  <p>✓ Pre-booked visitors: Scan your email QR code to check in</p>
+                  <p>✓ Current visitors: Scan your pass QR code to check out</p>
+                </div>
+              )}
             </div>
           </GlassCard>
 
@@ -366,7 +422,7 @@ export default function KioskMode() {
             </GlassCard>
           </div>
 
-          <div className="cursor-pointer" data-testid="button-staff-checkin">
+          <div className="cursor-pointer" onClick={() => setActiveSection("scan")} data-testid="button-staff-checkin">
             <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <BadgeInfo className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
