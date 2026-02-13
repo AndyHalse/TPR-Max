@@ -10634,41 +10634,40 @@ This is an automated notification from your visitor management system.`;
       
       const newPreBooking = await storage.createContractorPreBooking(preBookingData);
       
-      // Send confirmation email if email provided
-      if (newPreBooking.contactEmail) {
+      // Auto-send pre-booking pass with QR code to contractor's email
+      const emailTarget = newPreBooking.workerEmail || newPreBooking.contactEmail;
+      if (emailTarget) {
         try {
           const { simpleDatabaseService } = await import("./simpleDatabaseService");
           const context = simpleDatabaseService.createCustomerContext('Andy');
           const companySettings = await simpleDatabaseService.getCompanySettings(context);
           
-          if (companySettings) {
-            const emailService = new EmailService();
-            // Send contractor pre-booking confirmation email
-            const subject = `Contractor Pre-booking Confirmed - ${companySettings.companyName}`;
-            const html = `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Contractor Pre-booking Confirmed</h2>
-                <p>Dear ${newPreBooking.workerName},</p>
-                <p>Your contractor visit has been pre-booked for ${new Date(newPreBooking.scheduledDate).toLocaleDateString()} at ${newPreBooking.scheduledTime}.</p>
-                <p><strong>Company:</strong> ${newPreBooking.companyName}</p>
-                <p><strong>Purpose:</strong> ${newPreBooking.purpose}</p>
-                <p><strong>QR Code:</strong> ${newPreBooking.qrCode}</p>
-                <p>Please use this QR code for check-in upon arrival.</p>
-              </div>
-            `;
-            await emailService.sendEmail({
-              to: newPreBooking.contactEmail,
-              subject,
-              html,
-              text: html.replace(/<[^>]*>/g, '')
-            });
+          const emailService = new EmailService();
+          const emailSent = await emailService.sendContractorPreBookingPass(
+            emailTarget,
+            newPreBooking.workerName,
+            newPreBooking.companyName,
+            newPreBooking.qrCode,
+            newPreBooking.scheduledDate,
+            newPreBooking.scheduledTime,
+            newPreBooking.duration || '4',
+            newPreBooking.purpose,
+            newPreBooking.notes || '',
+            companySettings
+          );
+          
+          if (emailSent) {
+            console.log(`✅ Pre-booking pass with QR code sent to ${emailTarget}`);
+            return res.json({ ...newPreBooking, emailSent: true });
+          } else {
+            console.log(`⚠️ Failed to send pre-booking pass to ${emailTarget}`);
           }
         } catch (emailError) {
-          console.error("Failed to send contractor pre-booking email:", emailError);
+          console.error("Failed to send contractor pre-booking pass:", emailError);
         }
       }
       
-      res.json(newPreBooking);
+      res.json({ ...newPreBooking, emailSent: false });
     } catch (error) {
       console.error("Error creating contractor pre-booking:", error);
       res.status(500).json({ error: "Failed to create contractor pre-booking" });

@@ -11,7 +11,7 @@ import {
   co2Records, localLabourRecords, enhancedCompanyDetails, nvqQualifications,
   voiceNotificationLogs
 } from "@shared/schema";
-import { meetingRooms, roomBookings, roomBookingAttendees } from "./isolatedSchema";
+import { meetingRooms, roomBookings, roomBookingAttendees, contractorPreBookings as isoContractorPreBookings } from "./isolatedSchema";
 import type { 
   Staff, InsertStaff, StaffSession, InsertStaffSession, Visitor, InsertVisitor, User, InsertUser, 
   CompanySettings, InsertCompanySettings, Report, PreBooking, InsertPreBooking, UserInvitation, InsertUserInvitation,
@@ -3333,5 +3333,82 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(staff)
       .where(inArray(staff.id, ids));
+  }
+
+  async createContractorPreBooking(booking: any): Promise<any> {
+    const id = randomUUID();
+    const qrCode = `CPB-${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const preBookingData = {
+      id,
+      ...booking,
+      qrCode,
+      status: booking.status || 'pending',
+      scheduledDate: booking.scheduledDate instanceof Date ? booking.scheduledDate : new Date(booking.scheduledDate),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const [result] = await db.insert(isoContractorPreBookings).values(preBookingData).returning();
+    return result;
+  }
+
+  async updateContractorPreBooking(id: string, updates: any): Promise<any> {
+    const [result] = await db
+      .update(isoContractorPreBookings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(isoContractorPreBookings.id, id))
+      .returning();
+    return result;
+  }
+
+  async getContractorPreBookings(): Promise<any[]> {
+    return await db
+      .select()
+      .from(isoContractorPreBookings)
+      .orderBy(desc(isoContractorPreBookings.scheduledDate));
+  }
+
+  async getContractorPreBookingById(id: string): Promise<any> {
+    const [result] = await db
+      .select()
+      .from(isoContractorPreBookings)
+      .where(eq(isoContractorPreBookings.id, id));
+    return result;
+  }
+
+  async getUpcomingContractorPreBookings(): Promise<any[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(isoContractorPreBookings)
+      .where(and(
+        gte(isoContractorPreBookings.scheduledDate, now),
+        eq(isoContractorPreBookings.status, 'pending')
+      ))
+      .orderBy(asc(isoContractorPreBookings.scheduledDate));
+  }
+
+  async getTodaysContractorPreBookings(): Promise<any[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return await db
+      .select()
+      .from(isoContractorPreBookings)
+      .where(and(
+        gte(isoContractorPreBookings.scheduledDate, today),
+        lt(isoContractorPreBookings.scheduledDate, tomorrow),
+        eq(isoContractorPreBookings.status, 'pending')
+      ))
+      .orderBy(asc(isoContractorPreBookings.scheduledDate));
+  }
+
+  async deleteContractorPreBooking(id: string): Promise<boolean> {
+    const result = await db
+      .delete(isoContractorPreBookings)
+      .where(eq(isoContractorPreBookings.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }

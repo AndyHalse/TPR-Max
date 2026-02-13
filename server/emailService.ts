@@ -2423,6 +2423,212 @@ TPR Max Visitor Management System
       return { workerEmailSent: false, contractorEmailSent: false };
     }
   }
+
+  async sendContractorPreBookingPass(
+    email: string,
+    workerName: string,
+    companyName: string,
+    qrCode: string,
+    scheduledDate: Date,
+    scheduledTime: string,
+    duration: string,
+    purpose: string,
+    notes: string,
+    companySettings: any
+  ): Promise<boolean> {
+    try {
+      const siteName = companySettings?.companyName || 'VisiGate Pro';
+      const primaryColor = companySettings?.accentColor || '#3b82f6';
+      const backgroundColor = companySettings?.backgroundColor || '#f8fafc';
+      const textColor = companySettings?.foregroundColor || '#1e293b';
+      const variableTextColor = companySettings?.variableTextColor || '#374151';
+      const logoDataUrl = await this.getLogoForEmail(companySettings);
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+
+      const formattedDate = new Date(scheduledDate).toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+
+      const durationText = duration === '4' ? 'Half day (4 hours)' :
+                           duration === '8' ? 'Full day (8 hours)' :
+                           `${duration} hours`;
+
+      const subject = `Contractor Pre-Booking Pass - ${workerName} at ${siteName}`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Contractor Pre-Booking Pass - ${siteName}</title>
+            <style>
+              @media only screen and (max-width: 600px) {
+                .mobile-padding { padding: 15px !important; }
+                .mobile-full-width { width: 100% !important; }
+                h1 { font-size: 22px !important; }
+                h2 { font-size: 18px !important; }
+                .qr-code { width: 150px !important; height: 150px !important; }
+              }
+            </style>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: ${backgroundColor};">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td align="center" style="padding: 20px 0;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                    <!-- Header -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); padding: 30px 20px; text-align: center;">
+                        ${logoDataUrl ? `
+                        <img src="${logoDataUrl}" alt="${siteName}" style="width: 70px; height: 70px; margin: 0 auto 12px; display: block; border-radius: 12px; background: white; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        ` : `
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 70px; height: 70px; background: white; border-radius: 12px; margin: 0 auto 12px; display: inline-block; overflow: hidden;">
+                          <tr><td align="center" valign="middle" style="width: 70px; height: 70px; font-size: 24px; font-weight: bold; color: ${primaryColor};">
+                            ${siteName.substring(0, 3).toUpperCase()}
+                          </td></tr>
+                        </table>
+                        `}
+                        <h1 style="margin: 0; color: white; font-size: 24px; font-weight: 700;">
+                          📋 Pre-Booking Pass
+                        </h1>
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                          Contractor Site Visit Confirmation
+                        </p>
+                      </td>
+                    </tr>
+
+                    <!-- Welcome -->
+                    <tr>
+                      <td class="mobile-padding" style="padding: 25px 25px 15px;">
+                        <h2 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 20px;">
+                          Hello ${workerName},
+                        </h2>
+                        <p style="margin: 0; color: ${variableTextColor}; font-size: 15px; line-height: 1.5;">
+                          Your visit to <strong>${siteName}</strong> has been pre-booked. Please present this QR code upon arrival for fast check-in.
+                        </p>
+                      </td>
+                    </tr>
+
+                    <!-- QR Code -->
+                    <tr>
+                      <td class="mobile-padding" style="padding: 10px 25px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td style="background: linear-gradient(to bottom, #ffffff, #f8fafc); border: 2px solid ${primaryColor}30; border-radius: 12px; padding: 25px; text-align: center;">
+                              <img src="${qrCodeUrl}" alt="Pre-Booking QR Code" class="qr-code" style="width: 200px; height: 200px; margin: 0 auto 15px; display: block; border: 3px solid white; box-shadow: 0 4px 16px rgba(0,0,0,0.12); border-radius: 10px;">
+                              <p style="margin: 0 0 4px 0; color: ${textColor}; font-weight: 700; font-size: 16px;">
+                                Pass ID: ${qrCode}
+                              </p>
+                              <p style="margin: 0; color: ${variableTextColor}; font-size: 13px;">
+                                Scan this QR code at the reception kiosk for instant check-in
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Visit Details -->
+                    <tr>
+                      <td class="mobile-padding" style="padding: 15px 25px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
+                          <tr>
+                            <td style="background: ${primaryColor}10; padding: 12px 18px; border-bottom: 1px solid #e5e7eb;">
+                              <h3 style="margin: 0; color: ${textColor}; font-size: 16px; font-weight: 700;">
+                                🏗️ Visit Details
+                              </h3>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 15px 18px;">
+                              <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                  <td style="padding: 8px 0; color: ${variableTextColor}; font-size: 14px; width: 35%;">👷 Name:</td>
+                                  <td style="padding: 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${workerName}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 8px 0; color: ${variableTextColor}; font-size: 14px;">🏢 Company:</td>
+                                  <td style="padding: 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${companyName}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 8px 0; color: ${variableTextColor}; font-size: 14px;">📅 Date:</td>
+                                  <td style="padding: 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${formattedDate}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 8px 0; color: ${variableTextColor}; font-size: 14px;">🕐 Time:</td>
+                                  <td style="padding: 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${scheduledTime}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 8px 0; color: ${variableTextColor}; font-size: 14px;">⏱️ Duration:</td>
+                                  <td style="padding: 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${durationText}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding: 8px 0; color: ${variableTextColor}; font-size: 14px;">📋 Purpose:</td>
+                                  <td style="padding: 8px 0; color: ${textColor}; font-size: 14px; font-weight: 600;">${purpose}</td>
+                                </tr>
+                                ${notes ? `
+                                <tr>
+                                  <td style="padding: 8px 0; color: ${variableTextColor}; font-size: 14px;">📝 Notes:</td>
+                                  <td style="padding: 8px 0; color: ${textColor}; font-size: 14px;">${notes}</td>
+                                </tr>
+                                ` : ''}
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Important Notice -->
+                    <tr>
+                      <td class="mobile-padding" style="padding: 15px 25px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td style="background: #fef3c7; border: 1px solid #f59e0b40; border-radius: 10px; padding: 15px;">
+                              <p style="margin: 0 0 5px 0; font-weight: 700; color: #92400e; font-size: 14px;">⚠️ Important</p>
+                              <ul style="margin: 0; padding-left: 20px; color: #92400e; font-size: 13px; line-height: 1.8;">
+                                <li>Bring valid photo ID and any required PPE</li>
+                                <li>Report to reception and scan your QR code</li>
+                                <li>All visitors must sign out before leaving site</li>
+                                <li>Follow all site Health & Safety regulations</li>
+                              </ul>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background: #f1f5f9; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                        <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px;">
+                          This pre-booking pass was sent by <strong>${siteName}</strong>
+                        </p>
+                        <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+                          Powered by TPR Max Visitor Management
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const text = `Pre-Booking Pass - ${siteName}\n\nHello ${workerName},\n\nYour visit to ${siteName} has been pre-booked.\n\nVisit Details:\n- Company: ${companyName}\n- Date: ${formattedDate}\n- Time: ${scheduledTime}\n- Duration: ${durationText}\n- Purpose: ${purpose}\n- Pass ID: ${qrCode}\n${notes ? `- Notes: ${notes}\n` : ''}\nPlease present this pass upon arrival for fast check-in.\n\nImportant:\n- Bring valid photo ID and any required PPE\n- Report to reception and scan your QR code\n- Follow all site Health & Safety regulations`;
+
+      return await this.sendEmail({ to: email, subject, html, text });
+    } catch (error) {
+      console.error('Failed to send contractor pre-booking pass email:', error);
+      return false;
+    }
+  }
 }
 
 export { EmailService };

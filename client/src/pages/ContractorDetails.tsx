@@ -337,8 +337,13 @@ export default function ContractorDetails() {
       });
       return response.json();
     },
-    onSuccess: () => {
-      toast({ title: "Worker pre-booked successfully", description: "The booking has been created and will appear in the Reception Diary" });
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Worker pre-booked successfully", 
+        description: data?.emailSent 
+          ? "Pre-booking pass with QR code has been emailed to the contractor" 
+          : "The booking has been created and will appear in the Reception Diary" 
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/prebookings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/reception/diary'] });
       setPreBookingWorker(null);
