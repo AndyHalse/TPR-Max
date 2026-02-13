@@ -267,127 +267,121 @@ export default function StaffManagement() {
         ) : (
           staff.map((member, index) => (
             <GlassCard key={member.id} hover>
-              <div className="flex items-center space-x-4 mb-4">
+              <div className="flex items-start space-x-3 mb-3">
                 {member.photoUrl ? (
                   <img 
                     src={member.photoUrl} 
                     alt={getFullName(member)}
-                    className="w-16 h-16 rounded-full object-cover"
+                    className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                   />
                 ) : (
-                  <div className={`w-16 h-16 ${getGradientClass(index)} rounded-full flex items-center justify-center`}>
-                    <span className="text-white font-bold text-lg">{getInitials(member)}</span>
+                  <div className={`w-12 h-12 ${getGradientClass(index)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-white font-bold text-sm">{getInitials(member)}</span>
                   </div>
                 )}
-                <div className="flex-1">
-                  <h3 className="font-semibold text-fixed" data-testid={`staff-name-${member.id}`}>
-                    {getFullName(member)}
-                  </h3>
-                  <p className="text-variable text-sm" data-testid={`staff-email-${member.id}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-fixed text-sm truncate" data-testid={`staff-name-${member.id}`}>
+                      {getFullName(member)}
+                    </h3>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
+                      member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {member.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <p className="text-variable text-xs truncate" data-testid={`staff-email-${member.id}`}>
                     {member.email}
                   </p>
-                  <p className="text-variable text-sm" data-testid={`staff-department-${member.id}`}>
-                    {member.department}
+                  <p className="text-variable text-xs" data-testid={`staff-department-${member.id}`}>
+                    {member.department} <span className="text-variable/60">| {member.employeeId}</span>
                   </p>
-                  <p className="text-variable text-xs" data-testid={`staff-id-${member.id}`}>
-                    ID: {member.employeeId}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getAccessLevelBadgeColor(member.accessLevel || 'staff')}`}>
-                      {getAccessLevelIcon(member.accessLevel || 'staff')} {getAccessLevelLabel(member.accessLevel || 'staff')}
-                    </span>
-                    {member.isFireMarshal && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800" data-testid={`fire-marshal-badge-${member.id}`}>
-                        🚨 Fire Marshal
-                      </span>
-                    )}
-                    {(member.accessLevel === 'admin' || member.accessLevel === 'supervisor') && member.lastLoginAt && (
-                      <span className="text-xs text-green-600">Last login: {new Date(member.lastLoginAt).toLocaleDateString()}</span>
-                    )}
-                  </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {member.isActive ? 'Active' : 'Inactive'}
+              <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getAccessLevelBadgeColor(member.accessLevel || 'staff')}`}>
+                  {getAccessLevelIcon(member.accessLevel || 'staff')} {getAccessLevelLabel(member.accessLevel || 'staff')}
+                </span>
+                {member.isFireMarshal && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-800" data-testid={`fire-marshal-badge-${member.id}`}>
+                    🚨 Fire Marshal
                   </span>
-                  {member.isCheckedIn && member.checkedInAt && (
-                    <span className="text-xs text-variable flex items-center">
-                      <Clock size={10} className="mr-1" />
-                      {new Date(member.checkedInAt).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
+                )}
+                {member.isCheckedIn && member.checkedInAt && (
+                  <span className="text-[10px] text-variable flex items-center ml-auto">
+                    <Clock size={9} className="mr-0.5" />
+                    {new Date(member.checkedInAt).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+                <div className="flex items-center gap-1">
                   <Button 
                     size="sm" 
-                    variant="outline" 
+                    variant="ghost" 
                     onClick={() => setEditingStaff(member)}
-                    className="p-2"
+                    className="h-7 w-7 p-0"
                     data-testid={`button-edit-staff-${member.id}`}
-                    title="Edit staff member"
+                    title="Edit"
                   >
-                    <Edit size={14} />
+                    <Edit size={13} />
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => setQrPassStaff(member)}
-                    className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50"
+                    className="h-7 w-7 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                     data-testid={`button-qr-pass-${member.id}`}
-                    title="Send QR check-in pass"
+                    title="QR Pass"
                   >
-                    <QrCode size={14} />
+                    <QrCode size={13} />
                   </Button>
                   <Button 
                     size="sm" 
-                    variant="outline" 
+                    variant="ghost" 
                     onClick={() => deleteMutation.mutate(member.id)}
                     disabled={deleteMutation.isPending}
-                    className="p-2 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 hover:bg-red-50"
+                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                     data-testid={`button-delete-staff-${member.id}`}
-                    title="Delete staff member"
+                    title="Delete"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={13} />
                   </Button>
-                  {member.isActive && (
-                    <>
-                      {!member.isCheckedIn ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => checkInMutation.mutate(member.id)}
-                          disabled={checkInMutation.isPending}
-                          className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                          data-testid={`button-checkin-${member.id}`}
-                          title="Manual check-in (lost card)"
-                        >
-                          <UserCheck size={16} className="mr-1" />
-                          Check In
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => checkOutMutation.mutate(member.id)}
-                          disabled={checkOutMutation.isPending}
-                          className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                          data-testid={`button-checkout-${member.id}`}
-                          title="Check out staff member"
-                        >
-                          <UserX size={16} className="mr-1" />
-                          Check Out
-                        </Button>
-                      )}
-                    </>
-                  )}
                 </div>
+                {member.isActive && (
+                  <>
+                    {!member.isCheckedIn ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => checkInMutation.mutate(member.id)}
+                        disabled={checkInMutation.isPending}
+                        className="h-7 px-2 text-xs text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                        data-testid={`button-checkin-${member.id}`}
+                        title="Manual check-in"
+                      >
+                        <UserCheck size={12} className="mr-1" />
+                        In
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => checkOutMutation.mutate(member.id)}
+                        disabled={checkOutMutation.isPending}
+                        className="h-7 px-2 text-xs text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                        data-testid={`button-checkout-${member.id}`}
+                        title="Check out"
+                      >
+                        <UserX size={12} className="mr-1" />
+                        Out
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             </GlassCard>
           ))
