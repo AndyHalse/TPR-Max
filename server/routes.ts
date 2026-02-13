@@ -16333,38 +16333,38 @@ This is an automated notification from your visitor management system.`;
       
       const bookings = await db
         .select({
-          id: sharedSchema.roomBookings.id,
-          meetingRoomId: sharedSchema.roomBookings.meetingRoomId,
-          title: sharedSchema.roomBookings.title,
-          description: sharedSchema.roomBookings.description,
-          startTime: sharedSchema.roomBookings.startTime,
-          endTime: sharedSchema.roomBookings.endTime,
-          bookedByStaffId: sharedSchema.roomBookings.bookedByStaffId,
-          attendeeCount: sharedSchema.roomBookings.attendeeCount,
-          expectedAttendees: sharedSchema.roomBookings.expectedAttendees,
-          status: sharedSchema.roomBookings.status,
-          requiresCatering: sharedSchema.roomBookings.requiresCatering,
-          cateringNotes: sharedSchema.roomBookings.cateringNotes,
-          specialRequirements: sharedSchema.roomBookings.specialRequirements,
-          attendeeEmails: sharedSchema.roomBookings.attendeeEmails,
-          roomName: sharedSchema.meetingRooms.name,
-          roomCapacity: sharedSchema.meetingRooms.capacity,
-          roomLocation: sharedSchema.meetingRooms.location,
-          organizerFirstName: sharedSchema.staff.firstName,
-          organizerLastName: sharedSchema.staff.lastName,
-          organizerEmail: sharedSchema.staff.email,
-          organizerDepartment: sharedSchema.staff.department,
+          id: isolatedSchema.roomBookings.id,
+          meetingRoomId: isolatedSchema.roomBookings.meetingRoomId,
+          title: isolatedSchema.roomBookings.title,
+          description: isolatedSchema.roomBookings.description,
+          startTime: isolatedSchema.roomBookings.startTime,
+          endTime: isolatedSchema.roomBookings.endTime,
+          bookedByStaffId: isolatedSchema.roomBookings.bookedByStaffId,
+          attendeeCount: isolatedSchema.roomBookings.attendeeCount,
+          expectedAttendees: isolatedSchema.roomBookings.expectedAttendees,
+          status: isolatedSchema.roomBookings.status,
+          requiresCatering: isolatedSchema.roomBookings.requiresCatering,
+          cateringNotes: isolatedSchema.roomBookings.cateringNotes,
+          specialRequirements: isolatedSchema.roomBookings.specialRequirements,
+          attendeeEmails: isolatedSchema.roomBookings.attendeeEmails,
+          roomName: isolatedSchema.meetingRooms.name,
+          roomCapacity: isolatedSchema.meetingRooms.capacity,
+          roomLocation: isolatedSchema.meetingRooms.location,
+          organizerFirstName: isolatedSchema.staff.firstName,
+          organizerLastName: isolatedSchema.staff.lastName,
+          organizerEmail: isolatedSchema.staff.email,
+          organizerDepartment: isolatedSchema.staff.department,
         })
-        .from(sharedSchema.roomBookings)
-        .leftJoin(sharedSchema.meetingRooms, eq(sharedSchema.roomBookings.meetingRoomId, sharedSchema.meetingRooms.id))
-        .leftJoin(sharedSchema.staff, eq(sharedSchema.roomBookings.bookedByStaffId, sharedSchema.staff.id))
+        .from(isolatedSchema.roomBookings)
+        .leftJoin(isolatedSchema.meetingRooms, eq(isolatedSchema.roomBookings.meetingRoomId, isolatedSchema.meetingRooms.id))
+        .leftJoin(isolatedSchema.staff, eq(isolatedSchema.roomBookings.bookedByStaffId, isolatedSchema.staff.id))
         .where(
           and(
-            sql`${sharedSchema.roomBookings.startTime} >= ${startOfDay}`,
-            sql`${sharedSchema.roomBookings.endTime} <= ${endOfDay}`
+            sql`${isolatedSchema.roomBookings.startTime} >= ${startOfDay}`,
+            sql`${isolatedSchema.roomBookings.endTime} <= ${endOfDay}`
           )
         )
-        .orderBy(sharedSchema.roomBookings.startTime);
+        .orderBy(isolatedSchema.roomBookings.startTime);
       
       // Transform data to match frontend expectations
       const transformedBookings = bookings
