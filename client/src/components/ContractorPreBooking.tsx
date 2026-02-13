@@ -100,6 +100,7 @@ export default function ContractorPreBooking() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
         title: "Pre-booking Created",
         description: "Contractor pre-booking has been created successfully",
@@ -107,10 +108,14 @@ export default function ContractorPreBooking() {
       form.reset();
       setShowForm(false);
     },
-    onError: () => {
+    onError: (error: any) => {
+      let message = "Failed to create contractor pre-booking";
+      if (error?.message?.includes('409')) {
+        message = "This worker already has a pre-booking at the same date and time";
+      }
       toast({
-        title: "Error",
-        description: "Failed to create contractor pre-booking",
+        title: error?.message?.includes('409') ? "Duplicate Booking" : "Error",
+        description: message,
         variant: "destructive",
       });
     },
@@ -124,6 +129,9 @@ export default function ContractorPreBooking() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
         title: "Pre-booking Updated",
         description: "Contractor pre-booking has been updated successfully",
@@ -149,6 +157,9 @@ export default function ContractorPreBooking() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
         title: "Pre-booking Deleted",
         description: "Contractor pre-booking has been deleted successfully",

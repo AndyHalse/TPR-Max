@@ -587,6 +587,8 @@ export default function ContractorManagement() {
           : "The booking has been created and will appear in the Reception Diary"
       });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/prebookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/prebookings/today'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/prebookings/upcoming'] });
       queryClient.invalidateQueries({ queryKey: ['/api/reception/diary'] });
       setPreBookingWorker(null);
       setPreBookDate(new Date());

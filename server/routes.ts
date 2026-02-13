@@ -10653,30 +10653,14 @@ This is an automated notification from your visitor management system.`;
       )
       .orderBy(isolatedSchema.preBookings.visitDate);
       
-      // Query contractor pre-bookings for the same date range
+      // Query contractor pre-bookings for the same date range using storage (same connection as CRUD routes)
       let contractorBookings: any[] = [];
       try {
-        contractorBookings = await customerDb.select({
-          id: isolatedSchema.contractorPreBookings.id,
-          companyName: isolatedSchema.contractorPreBookings.companyName,
-          contactEmail: isolatedSchema.contractorPreBookings.contactEmail,
-          workerName: isolatedSchema.contractorPreBookings.workerName,
-          workerEmail: isolatedSchema.contractorPreBookings.workerEmail,
-          purpose: isolatedSchema.contractorPreBookings.purpose,
-          scheduledDate: isolatedSchema.contractorPreBookings.scheduledDate,
-          scheduledTime: isolatedSchema.contractorPreBookings.scheduledTime,
-          duration: isolatedSchema.contractorPreBookings.duration,
-          status: isolatedSchema.contractorPreBookings.status,
-          notes: isolatedSchema.contractorPreBookings.notes,
-        })
-        .from(isolatedSchema.contractorPreBookings)
-        .where(
-          and(
-            sql`${isolatedSchema.contractorPreBookings.scheduledDate} >= ${targetDate}`,
-            sql`${isolatedSchema.contractorPreBookings.scheduledDate} <= ${endDate}`
-          )
-        )
-        .orderBy(isolatedSchema.contractorPreBookings.scheduledDate);
+        const allContractorBookings = await storage.getContractorPreBookings();
+        contractorBookings = allContractorBookings.filter((booking: any) => {
+          const scheduledDate = new Date(booking.scheduledDate);
+          return scheduledDate >= targetDate && scheduledDate <= endDate;
+        });
       } catch (contractorError) {
         console.log("Note: contractor_prebookings table may not exist yet:", (contractorError as any).message);
       }
@@ -10761,6 +10745,24 @@ This is an automated notification from your visitor management system.`;
         ...req.body,
         scheduledDate: new Date(req.body.scheduledDate)
       };
+      
+      // Duplicate prevention: check for existing booking with same worker, company, date, and time
+      const existingBookings = await storage.getContractorPreBookings();
+      const scheduledDateStr = preBookingData.scheduledDate.toDateString();
+      const duplicate = existingBookings.find((b: any) => 
+        b.workerName === preBookingData.workerName &&
+        b.companyName === preBookingData.companyName &&
+        new Date(b.scheduledDate).toDateString() === scheduledDateStr &&
+        b.scheduledTime === preBookingData.scheduledTime &&
+        b.status !== 'cancelled'
+      );
+      
+      if (duplicate) {
+        return res.status(409).json({ 
+          error: "Duplicate booking", 
+          message: `${preBookingData.workerName} from ${preBookingData.companyName} already has a pre-booking on this date at ${preBookingData.scheduledTime}` 
+        });
+      }
       
       const newPreBooking = await storage.createContractorPreBooking(preBookingData);
       
