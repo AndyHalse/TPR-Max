@@ -10633,6 +10633,21 @@ This is an automated notification from your visitor management system.`;
       
       console.log(`📅 Diary query: targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
       
+      // Enrich visitor pre-bookings with host staff details (first name, last name, department)
+      const allStaff = await storage.getAllStaff();
+      const staffMap = new Map(allStaff.map((s: any) => [s.id, s]));
+      
+      const enrichedVisitors = visitorPreBookings.map((pb: any) => {
+        const hostStaff = pb.hostStaffId ? staffMap.get(pb.hostStaffId) : null;
+        return {
+          ...pb,
+          hostFirstName: hostStaff?.firstName || (pb.hostName ? pb.hostName.split(' ')[0] : null),
+          hostLastName: hostStaff?.lastName || (pb.hostName ? pb.hostName.split(' ').slice(1).join(' ') : null),
+          hostDepartment: hostStaff?.department || null,
+          hostEmail: hostStaff?.email || null,
+        };
+      });
+      
       // Query contractor pre-bookings for the same date range using storage (same connection as CRUD routes)
       let contractorBookings: any[] = [];
       try {
@@ -10646,7 +10661,7 @@ This is an automated notification from your visitor management system.`;
       }
       
       res.json({
-        visitors: visitorPreBookings,
+        visitors: enrichedVisitors,
         contractors: contractorBookings,
       });
     } catch (error) {
