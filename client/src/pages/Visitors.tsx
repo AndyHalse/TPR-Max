@@ -254,8 +254,22 @@ export default function Visitors() {
   const [activeTab, setActiveTab] = useState("existing");
   
   // Pre-booking form state
+  const getNextFullHourTime = () => {
+    const now = new Date();
+    const nextHour = new Date(now);
+    nextHour.setMinutes(0);
+    nextHour.setHours(nextHour.getHours() + 1);
+    return {
+      timeStr: `${String(nextHour.getHours()).padStart(2, '0')}:00`,
+      date: nextHour
+    };
+  };
+
+  const { timeStr: defaultTime, date: defaultDate } = getNextFullHourTime();
+  const [visitTimeValue, setVisitTimeValue] = useState(defaultTime);
+
   const [preBookingData, setPreBookingData] = useState<Partial<InsertPreBooking>>({
-    visitDate: new Date(),
+    visitDate: defaultDate,
   });
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
@@ -400,8 +414,10 @@ export default function Visitors() {
         title: "Success",
         description: "Pre-booking created and confirmation emails sent!",
       });
+      const { timeStr: resetTime, date: resetDate } = getNextFullHourTime();
+      setVisitTimeValue(resetTime);
       setPreBookingData({ 
-        visitDate: new Date(),
+        visitDate: resetDate,
         visitorFirstName: "",
         visitorLastName: "",
         visitorEmail: "",
@@ -768,14 +784,16 @@ export default function Visitors() {
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
+      const [hours, minutes] = visitTimeValue.split(":").map(Number);
       const dateWithTime = new Date(date);
-      dateWithTime.setHours(9, 0, 0, 0);
+      dateWithTime.setHours(hours, minutes, 0, 0);
       setSelectedDate(date);
       setPreBookingData(prev => ({ ...prev, visitDate: dateWithTime }));
     }
   };
 
   const handleTimeChange = (time: string) => {
+    setVisitTimeValue(time);
     if (selectedDate) {
       const [hours, minutes] = time.split(":").map(Number);
       const newDate = new Date(selectedDate);
@@ -1456,7 +1474,7 @@ export default function Visitors() {
                     <Input
                       id="visitTime"
                       type="time"
-                      defaultValue="09:00"
+                      value={visitTimeValue}
                       onChange={(e) => handleTimeChange(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     />

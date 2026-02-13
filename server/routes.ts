@@ -10635,6 +10635,7 @@ This is an automated notification from your visitor management system.`;
         visitDate: isolatedSchema.preBookings.visitDate,
         purpose: isolatedSchema.preBookings.purpose,
         isCheckedIn: isolatedSchema.preBookings.isCheckedIn,
+        qrCode: isolatedSchema.preBookings.qrCode,
         createdAt: isolatedSchema.preBookings.createdAt,
         hostStaffId: isolatedSchema.preBookings.hostStaffId,
         // Host staff details

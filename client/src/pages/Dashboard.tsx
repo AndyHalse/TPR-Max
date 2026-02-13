@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ export default function Dashboard() {
   // Reception Diary view state
   const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('today');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [diaryLayout, setDiaryLayout] = useState<'cards' | 'compact'>('cards');
   
   const formatLocalDate = (d: Date) => {
     const year = d.getFullYear();
@@ -641,6 +642,43 @@ export default function Dashboard() {
     },
   });
 
+  // Check-in from diary pre-booking (visitor)
+  const diaryVisitorCheckInMutation = useMutation({
+    mutationFn: async (booking: any) => {
+      const response = await apiRequest("POST", "/api/prebookings/checkin", { qrCode: booking.qrCode || `PBK-${booking.id}` });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      toast({ title: "Visitor Checked In", description: "Visitor has been checked in from pre-booking" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to check in visitor", variant: "destructive" });
+    },
+  });
+
+  // Check-in from diary pre-booking (contractor)
+  const diaryContractorCheckInMutation = useMutation({
+    mutationFn: async (booking: any) => {
+      const response = await apiRequest("POST", "/api/contractors/prebookings/checkin", { qrCode: booking.qrCode });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
+      toast({ title: "Contractor Checked In", description: "Contractor has been checked in from pre-booking" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to check in contractor", variant: "destructive" });
+    },
+  });
+
   if (statsLoading) {
     return <div>Loading dashboard...</div>;
   }
@@ -823,6 +861,26 @@ export default function Dashboard() {
             >
               <ChevronRight size={16} />
             </Button>
+
+            <div className="border-l border-indigo-300 dark:border-indigo-700 h-6 mx-1 hidden sm:block" />
+            <Button
+              variant={diaryLayout === 'cards' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDiaryLayout('cards')}
+              className="h-8 w-8 p-0 hidden sm:flex"
+              title="Card view"
+            >
+              <LayoutGrid size={14} />
+            </Button>
+            <Button
+              variant={diaryLayout === 'compact' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDiaryLayout('compact')}
+              className="h-8 w-8 p-0 hidden sm:flex"
+              title="Compact list view"
+            >
+              <LayoutList size={14} />
+            </Button>
           </div>
         </div>
 
@@ -890,6 +948,130 @@ export default function Dashboard() {
               <CalendarDays className="mx-auto mb-3 text-variable" size={40} />
               <p className="font-medium">No activities scheduled for {getViewTitle().toLowerCase()}</p>
               <p className="text-sm mt-2">Visitor pre-bookings, contractor bookings, and meetings will appear here</p>
+            </div>
+          ) : diaryLayout === 'compact' ? (
+            /* Compact List View - All events in unified sorted rows */
+            <div className="space-y-1">
+              {(() => {
+                const allEvents: Array<{
+                  id: string;
+                  type: 'visitor' | 'contractor' | 'meeting';
+                  name: string;
+                  company: string;
+                  time: string;
+                  sortTime: string;
+                  date: Date;
+                  status: string;
+                  isCheckedIn: boolean;
+                  raw: any;
+                }> = [];
+
+                // Add visitor pre-bookings
+                filteredDiary?.forEach(entry => {
+                  const visitTime = new Date(entry.visitDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  allEvents.push({
+                    id: `v-${entry.id}`,
+                    type: 'visitor',
+                    name: `${entry.visitorFirstName} ${entry.visitorLastName}`,
+                    company: entry.company || '',
+                    time: visitTime,
+                    sortTime: new Date(entry.visitDate).toISOString(),
+                    date: new Date(entry.visitDate),
+                    status: entry.isCheckedIn ? 'checked-in' : 'pending',
+                    isCheckedIn: !!entry.isCheckedIn,
+                    raw: entry,
+                  });
+                });
+
+                // Add contractor pre-bookings
+                filteredContractors?.forEach(entry => {
+                  allEvents.push({
+                    id: `c-${entry.id}`,
+                    type: 'contractor',
+                    name: entry.workerName,
+                    company: entry.companyName,
+                    time: entry.scheduledTime,
+                    sortTime: `${new Date(entry.scheduledDate).toISOString().split('T')[0]}T${entry.scheduledTime}`,
+                    date: new Date(entry.scheduledDate),
+                    status: entry.status || 'pending',
+                    isCheckedIn: entry.status === 'completed',
+                    raw: entry,
+                  });
+                });
+
+                // Add meetings
+                currentViewRoomBookings?.forEach(booking => {
+                  allEvents.push({
+                    id: `m-${booking.id}`,
+                    type: 'meeting',
+                    name: booking.title || 'Meeting',
+                    company: booking.roomName || '',
+                    time: booking.startTime || '',
+                    sortTime: booking.startTime || '',
+                    date: booking.date ? new Date(booking.date) : new Date(),
+                    status: 'scheduled',
+                    isCheckedIn: false,
+                    raw: booking,
+                  });
+                });
+
+                allEvents.sort((a, b) => a.sortTime.localeCompare(b.sortTime));
+
+                if (allEvents.length === 0) return null;
+
+                return (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-[60px_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+                      <span>Time</span>
+                      <span>Name</span>
+                      <span>Company</span>
+                      <span>Type</span>
+                      <span>Status</span>
+                      <span className="text-right">Action</span>
+                    </div>
+                    {allEvents.map(event => {
+                      const isPast = isHistorical(event.date);
+                      return (
+                        <div
+                          key={event.id}
+                          className={`grid grid-cols-[60px_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 border-t text-xs items-center ${isPast ? 'opacity-50 bg-gray-50 dark:bg-gray-800/30' : 'hover:bg-white/60 dark:hover:bg-slate-800/60'}`}
+                        >
+                          <span className="font-medium text-fixed">{event.time}</span>
+                          <span className="truncate font-medium text-fixed">{event.name}</span>
+                          <span className="truncate text-variable">{event.company}</span>
+                          <Badge className={`text-[10px] px-1.5 py-0 ${event.type === 'visitor' ? 'bg-indigo-100 text-indigo-700' : event.type === 'contractor' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'}`}>
+                            {event.type === 'visitor' ? 'Visitor' : event.type === 'contractor' ? 'Contractor' : 'Meeting'}
+                          </Badge>
+                          <Badge className={`text-[10px] px-1.5 py-0 ${event.isCheckedIn ? 'bg-green-100 text-green-700' : event.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {event.isCheckedIn ? 'Arrived' : event.status === 'confirmed' ? 'Confirmed' : 'Pending'}
+                          </Badge>
+                          <div className="text-right">
+                            {!isPast && !event.isCheckedIn && event.type !== 'meeting' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-[10px] text-green-600 border-green-300 hover:bg-green-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (event.type === 'visitor') {
+                                    diaryVisitorCheckInMutation.mutate(event.raw);
+                                  } else {
+                                    diaryContractorCheckInMutation.mutate(event.raw);
+                                  }
+                                }}
+                                disabled={diaryVisitorCheckInMutation.isPending || diaryContractorCheckInMutation.isPending}
+                              >
+                                <LogIn size={10} className="mr-0.5" />
+                                Check In
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <div className="space-y-4">
@@ -1072,6 +1254,21 @@ export default function Dashboard() {
                                         Pending
                                       </Badge>
                                     )}
+                                    {!isPast && contractor.status !== 'completed' && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs text-green-600 border-green-300 hover:bg-green-50 mt-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          diaryContractorCheckInMutation.mutate(contractor);
+                                        }}
+                                        disabled={diaryContractorCheckInMutation.isPending}
+                                      >
+                                        <LogIn size={12} className="mr-1" />
+                                        Check In
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1186,6 +1383,21 @@ export default function Dashboard() {
                                       <Badge className="bg-green-100 text-green-800 text-xs mt-1">
                                         Checked In
                                       </Badge>
+                                    )}
+                                    {!isPast && !entry.isCheckedIn && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs text-green-600 border-green-300 hover:bg-green-50 mt-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          diaryVisitorCheckInMutation.mutate(entry);
+                                        }}
+                                        disabled={diaryVisitorCheckInMutation.isPending}
+                                      >
+                                        <LogIn size={12} className="mr-1" />
+                                        Check In
+                                      </Button>
                                     )}
                                   </div>
                                 </div>
