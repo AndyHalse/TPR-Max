@@ -211,40 +211,23 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const canSubmit = formData.firstName.trim() && formData.lastName.trim() && formData.hostStaffId;
 
   return (
-    <div className="min-h-screen bg-[var(--background)] overflow-hidden">
-      <div className="flex flex-col h-screen">
-        {settings?.bannerUrl && (
-          <div className="w-full flex-shrink-0 bg-white/90 backdrop-blur-sm border-b border-white/30">
-            <div className="flex items-center justify-center py-2 px-6">
-              <img 
-                src={`/objects${settings.bannerUrl}`} 
-                alt={settings.companyName}
-                className="h-8 max-w-sm object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const container = e.currentTarget.parentElement?.parentElement;
-                  if (container) container.style.display = 'none';
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="px-6 py-3 flex-shrink-0">
-          <div className="flex items-center gap-4">
+    <div className="h-screen bg-[var(--background)] overflow-hidden">
+      <div className="flex flex-col h-full">
+        <div className="px-4 py-2 flex-shrink-0">
+          <div className="flex items-center gap-3">
             <Button
               onClick={onBack}
               variant="outline"
-              size="lg"
-              className="flex items-center gap-3 bg-white/50 border-white/30 text-fixed hover:bg-white/70 px-6 py-3 text-lg"
+              size="default"
+              className="flex items-center gap-2 bg-white/50 border-white/30 text-fixed hover:bg-white/70 px-4 py-2"
               data-testid="button-back"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
               Back
             </Button>
             <div>
-              <h2 className="text-2xl font-bold text-fixed">Manual Check-In</h2>
-              <p className="text-variable text-sm">Touch the fields below to enter visitor details</p>
+              <h2 className="text-xl font-bold text-fixed">Manual Check-In</h2>
+              <p className="text-variable text-xs">Touch the fields below to enter visitor details</p>
             </div>
           </div>
         </div>
