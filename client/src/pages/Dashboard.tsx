@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('today');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [diaryLayout, setDiaryLayout] = useState<'cards' | 'compact'>('cards');
+  const [diaryFilter, setDiaryFilter] = useState<'all' | 'visitors' | 'contractors' | 'meetings' | 'arrived'>('all');
   
   const formatLocalDate = (d: Date) => {
     const year = d.getFullYear();
@@ -440,6 +441,34 @@ export default function Dashboard() {
     return groups;
   }, {} as Record<string, typeof filteredContractors>) || {};
 
+  const displayedVisitors = diaryFilter === 'visitors' ? filteredDiary.filter(e => !e.isCheckedIn)
+    : diaryFilter === 'arrived' ? filteredDiary.filter(e => e.isCheckedIn)
+    : diaryFilter === 'contractors' || diaryFilter === 'meetings' ? []
+    : filteredDiary;
+
+  const displayedContractors = diaryFilter === 'contractors' ? filteredContractors.filter(e => e.status !== 'completed')
+    : diaryFilter === 'arrived' ? filteredContractors.filter(e => e.status === 'completed')
+    : diaryFilter === 'visitors' || diaryFilter === 'meetings' ? []
+    : filteredContractors;
+
+  const displayedMeetings = diaryFilter === 'meetings' ? currentViewRoomBookings
+    : diaryFilter === 'visitors' || diaryFilter === 'contractors' || diaryFilter === 'arrived' ? []
+    : currentViewRoomBookings;
+
+  const displayedGroupedDiary = displayedVisitors.reduce((groups: Record<string, typeof displayedVisitors>, entry) => {
+    const dateKey = new Date(entry.visitDate).toDateString();
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(entry);
+    return groups;
+  }, {});
+
+  const displayedGroupedContractors = displayedContractors.reduce((groups: Record<string, typeof displayedContractors>, entry) => {
+    const dateKey = new Date(entry.scheduledDate).toDateString();
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(entry);
+    return groups;
+  }, {});
+
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
@@ -804,6 +833,7 @@ export default function Dashboard() {
               onClick={() => {
                 setDiaryViewMode('today');
                 setCurrentDate(new Date());
+                setDiaryFilter('all');
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-today"
@@ -816,6 +846,7 @@ export default function Dashboard() {
               onClick={() => {
                 setDiaryViewMode('tomorrow');
                 setCurrentDate(new Date());
+                setDiaryFilter('all');
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-tomorrow"
@@ -828,6 +859,7 @@ export default function Dashboard() {
               onClick={() => {
                 setDiaryViewMode('weekly');
                 setCurrentDate(new Date());
+                setDiaryFilter('all');
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-weekly"
@@ -887,31 +919,40 @@ export default function Dashboard() {
         {/* Quick Summary Bar */}
         {((filteredDiary && filteredDiary.length > 0) || (filteredContractors && filteredContractors.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
+            <div 
+              className={`bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'visitors' ? 'border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-700 shadow-md' : 'border-indigo-200 dark:border-indigo-800 hover:shadow-sm'}`}
+              onClick={() => setDiaryFilter(diaryFilter === 'visitors' ? 'all' : 'visitors')}
+            >
               <div className="flex items-center gap-2">
                 <Users className="text-indigo-600" size={20} />
                 <div>
                   <div className="text-lg font-bold text-indigo-800 dark:text-indigo-200">
-                    {filteredDiary?.length || 0}
+                    {filteredDiary?.filter(entry => !entry.isCheckedIn).length || 0}
                   </div>
                   <div className="text-xs text-indigo-600 dark:text-indigo-400">Expected Visitors</div>
                 </div>
               </div>
             </div>
             
-            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+            <div 
+              className={`bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'contractors' ? 'border-orange-500 ring-2 ring-orange-300 dark:ring-orange-700 shadow-md' : 'border-orange-200 dark:border-orange-800 hover:shadow-sm'}`}
+              onClick={() => setDiaryFilter(diaryFilter === 'contractors' ? 'all' : 'contractors')}
+            >
               <div className="flex items-center gap-2">
                 <HardHat className="text-orange-600" size={20} />
                 <div>
                   <div className="text-lg font-bold text-orange-800 dark:text-orange-200">
-                    {filteredContractors?.length || 0}
+                    {filteredContractors?.filter(entry => entry.status !== 'completed').length || 0}
                   </div>
                   <div className="text-xs text-orange-600 dark:text-orange-400">Expected Contractors</div>
                 </div>
               </div>
             </div>
             
-            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+            <div 
+              className={`bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'meetings' ? 'border-purple-500 ring-2 ring-purple-300 dark:ring-purple-700 shadow-md' : 'border-purple-200 dark:border-purple-800 hover:shadow-sm'}`}
+              onClick={() => setDiaryFilter(diaryFilter === 'meetings' ? 'all' : 'meetings')}
+            >
               <div className="flex items-center gap-2">
                 <Calendar className="text-purple-600" size={20} />
                 <div>
@@ -923,12 +964,15 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+            <div 
+              className={`bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'arrived' ? 'border-green-500 ring-2 ring-green-300 dark:ring-green-700 shadow-md' : 'border-green-200 dark:border-green-800 hover:shadow-sm'}`}
+              onClick={() => setDiaryFilter(diaryFilter === 'arrived' ? 'all' : 'arrived')}
+            >
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="text-green-600" size={20} />
                 <div>
                   <div className="text-lg font-bold text-green-800 dark:text-green-200">
-                    {filteredDiary?.filter(entry => entry.isCheckedIn).length || 0}
+                    {(filteredDiary?.filter(entry => entry.isCheckedIn).length || 0) + (filteredContractors?.filter(entry => entry.status === 'completed').length || 0)}
                   </div>
                   <div className="text-xs text-green-600 dark:text-green-400">Already Arrived</div>
                 </div>
@@ -1017,7 +1061,19 @@ export default function Dashboard() {
 
                 allEvents.sort((a, b) => a.sortTime.localeCompare(b.sortTime));
 
-                if (allEvents.length === 0) return null;
+                const displayEvents = diaryFilter === 'all' ? allEvents 
+                  : diaryFilter === 'visitors' ? allEvents.filter(e => e.type === 'visitor' && !e.isCheckedIn)
+                  : diaryFilter === 'contractors' ? allEvents.filter(e => e.type === 'contractor' && !e.isCheckedIn)
+                  : diaryFilter === 'meetings' ? allEvents.filter(e => e.type === 'meeting')
+                  : diaryFilter === 'arrived' ? allEvents.filter(e => e.isCheckedIn)
+                  : allEvents;
+
+                if (displayEvents.length === 0) return (
+                  <div className="text-center py-6 text-variable">
+                    <p className="text-sm">No {diaryFilter === 'all' ? 'events' : diaryFilter} to display</p>
+                    <Button variant="ghost" size="sm" onClick={() => setDiaryFilter('all')} className="mt-2 text-xs">Show All</Button>
+                  </div>
+                );
 
                 return (
                   <div className="border rounded-lg overflow-hidden">
@@ -1029,7 +1085,7 @@ export default function Dashboard() {
                       <span>Status</span>
                       <span className="text-right">Action</span>
                     </div>
-                    {allEvents.map(event => {
+                    {displayEvents.map(event => {
                       const isPast = isHistorical(event.date);
                       return (
                         <div
@@ -1076,19 +1132,19 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-4">
               {/* Meeting Room Bookings for Current View */}
-              {currentViewRoomBookings && currentViewRoomBookings.length > 0 && (
+              {displayedMeetings && displayedMeetings.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-medium">
                       {diaryViewMode === 'today' ? "Today's" : diaryViewMode === 'tomorrow' ? "Tomorrow's" : "Scheduled"} Meetings
                     </Badge>
                     <span className="text-xs text-variable">
-                      {currentViewRoomBookings.length} meeting{currentViewRoomBookings.length !== 1 ? 's' : ''}
+                      {displayedMeetings.length} meeting{displayedMeetings.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                   
                   <div className="space-y-2 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
-                    {currentViewRoomBookings
+                    {displayedMeetings
                       .sort((a, b) => new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime())
                       .map((booking) => {
                         const meetingPast = booking.date ? isHistorical(booking.date) : false;
@@ -1165,7 +1221,7 @@ export default function Dashboard() {
               )}
 
               {/* Contractor Pre-bookings */}
-              {filteredContractors && filteredContractors.length > 0 && Object.entries(groupedContractors)
+              {displayedContractors && displayedContractors.length > 0 && Object.entries(displayedGroupedContractors)
                 .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
                 .map(([dateKey, contractors]) => {
                   const date = new Date(dateKey);
@@ -1280,7 +1336,7 @@ export default function Dashboard() {
                 })}
 
               {/* Visitor Pre-bookings */}
-              {filteredDiary && filteredDiary.length > 0 && Object.entries(groupedDiary)
+              {displayedVisitors && displayedVisitors.length > 0 && Object.entries(displayedGroupedDiary)
                 .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
                 .slice(0, diaryViewMode === 'weekly' ? 7 : 4)
                 .map(([dateKey, entries]) => {
@@ -1408,6 +1464,13 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
+
+              {diaryFilter !== 'all' && displayedVisitors.length === 0 && displayedContractors.length === 0 && displayedMeetings.length === 0 && (
+                <div className="text-center py-6 text-variable">
+                  <p className="text-sm">No {diaryFilter === 'arrived' ? 'arrived entries' : diaryFilter} to display</p>
+                  <Button variant="ghost" size="sm" onClick={() => setDiaryFilter('all')} className="mt-2 text-xs text-indigo-600">Show All Events</Button>
+                </div>
+              )}
             </div>
           )}
         </div>
