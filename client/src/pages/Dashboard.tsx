@@ -217,7 +217,7 @@ export default function Dashboard() {
   });
 
   // Reception Diary Data - dynamic query based on view mode and date
-  const { data: receptionDiary, isLoading: diaryLoading } = useQuery<Array<{
+  interface VisitorBooking {
     id: string;
     visitorFirstName: string;
     visitorLastName: string;
@@ -232,7 +232,26 @@ export default function Dashboard() {
     hostLastName: string | null;
     hostDepartment: string | null;
     hostEmail: string | null;
-  }>>({
+  }
+  
+  interface ContractorBooking {
+    id: string;
+    companyName: string;
+    contactEmail: string;
+    workerName: string;
+    workerEmail: string | null;
+    purpose: string;
+    scheduledDate: Date;
+    scheduledTime: string;
+    duration: string | null;
+    status: string | null;
+    notes: string | null;
+  }
+
+  const { data: receptionDiaryData, isLoading: diaryLoading } = useQuery<{
+    visitors: VisitorBooking[];
+    contractors: ContractorBooking[];
+  }>({
     queryKey: [
       "/api/reception/diary",
       diaryViewMode,
@@ -250,11 +269,18 @@ export default function Dashboard() {
         throw new Error('Failed to fetch reception diary');
       }
       
-      return response.json();
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return { visitors: data, contractors: [] };
+      }
+      return data;
     },
     refetchInterval: 30000,
     enabled: !!currentUser,
   });
+  
+  const receptionDiary = receptionDiaryData?.visitors || [];
+  const contractorDiary = receptionDiaryData?.contractors || [];
 
   const getStaffName = (staffId?: string) => {
     if (!staffId || !staff) return "Unknown";
@@ -311,11 +337,21 @@ export default function Dashboard() {
     return { label: formatDate(date), color: 'bg-[var(--background)] text-variable' };
   };
 
+  const isHistorical = (dateValue: Date | string) => {
+    const date = new Date(dateValue);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate < now;
+  };
+
   const getPriorityLevel = (entry: any) => {
-    const visitDate = new Date(entry.visitDate);
+    const visitDate = new Date(entry.visitDate || entry.scheduledDate);
     const now = new Date();
     const hoursUntilVisit = (visitDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     
+    if (hoursUntilVisit < 0) return { level: 'past', color: 'bg-gray-100 text-gray-500 border-gray-200' };
     if (hoursUntilVisit < 2) return { level: 'urgent', color: 'bg-red-100 text-red-800 border-red-200' };
     if (hoursUntilVisit < 24) return { level: 'high', color: 'bg-orange-100 text-orange-800 border-orange-200' };
     if (hoursUntilVisit < 72) return { level: 'medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
@@ -376,14 +412,32 @@ export default function Dashboard() {
     }
   };
 
+  // Filter contractor diary entries
+  const getFilteredContractorDiary = () => {
+    if (!contractorDiary) return [];
+    const { start, end } = getQueryDateAndDays(diaryViewMode, currentDate);
+    return contractorDiary.filter(entry => {
+      const scheduledDate = new Date(entry.scheduledDate);
+      return scheduledDate >= start && scheduledDate <= end;
+    });
+  };
+
   // Group diary entries by date
   const filteredDiary = getFilteredDiary();
+  const filteredContractors = getFilteredContractorDiary();
   const groupedDiary = filteredDiary.reduce((groups, entry) => {
     const dateKey = new Date(entry.visitDate).toDateString();
     if (!groups[dateKey]) groups[dateKey] = [];
     groups[dateKey].push(entry);
     return groups;
   }, {} as Record<string, typeof filteredDiary>) || {};
+  
+  const groupedContractors = filteredContractors.reduce((groups, entry) => {
+    const dateKey = new Date(entry.scheduledDate).toDateString();
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(entry);
+    return groups;
+  }, {} as Record<string, typeof filteredContractors>) || {};
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -686,12 +740,15 @@ export default function Dashboard() {
             <CalendarDays className="mr-2 sm:mr-3 text-indigo-600 dark:text-indigo-400 flex-shrink-0" size={28} />
             <div>
               <h3 className="text-lg sm:text-xl font-bold text-indigo-800 dark:text-indigo-200">Reception Diary</h3>
-              <p className="text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hidden sm:block">Complete operational overview - visitors & meetings</p>
+              <p className="text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hidden sm:block">Complete operational overview - visitors, contractors & meetings</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-xs">
               {filteredDiary?.length || 0} Visitors
+            </Badge>
+            <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800 text-xs">
+              {filteredContractors?.length || 0} Contractors
             </Badge>
             <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs">
               {currentViewRoomBookings?.length || 0} Meetings
@@ -770,8 +827,8 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Summary Bar */}
-        {((filteredDiary && filteredDiary.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {((filteredDiary && filteredDiary.length > 0) || (filteredContractors && filteredContractors.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
               <div className="flex items-center gap-2">
                 <Users className="text-indigo-600" size={20} />
@@ -780,6 +837,18 @@ export default function Dashboard() {
                     {filteredDiary?.length || 0}
                   </div>
                   <div className="text-xs text-indigo-600 dark:text-indigo-400">Expected Visitors</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+              <div className="flex items-center gap-2">
+                <HardHat className="text-orange-600" size={20} />
+                <div>
+                  <div className="text-lg font-bold text-orange-800 dark:text-orange-200">
+                    {filteredContractors?.length || 0}
+                  </div>
+                  <div className="text-xs text-orange-600 dark:text-orange-400">Expected Contractors</div>
                 </div>
               </div>
             </div>
@@ -816,11 +885,11 @@ export default function Dashboard() {
               <Calendar className="mx-auto mb-3 text-variable" size={40} />
               <p>Loading reception diary...</p>
             </div>
-          ) : (!filteredDiary || filteredDiary.length === 0) && (!currentViewRoomBookings || currentViewRoomBookings.length === 0) ? (
+          ) : (!filteredDiary || filteredDiary.length === 0) && (!filteredContractors || filteredContractors.length === 0) && (!currentViewRoomBookings || currentViewRoomBookings.length === 0) ? (
             <div className="text-center py-8 text-variable">
               <CalendarDays className="mx-auto mb-3 text-variable" size={40} />
               <p className="font-medium">No activities scheduled for {getViewTitle().toLowerCase()}</p>
-              <p className="text-sm mt-2">Visitor pre-bookings and meeting room bookings will appear here</p>
+              <p className="text-sm mt-2">Visitor pre-bookings, contractor bookings, and meetings will appear here</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -839,15 +908,19 @@ export default function Dashboard() {
                   <div className="space-y-2 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
                     {currentViewRoomBookings
                       .sort((a, b) => new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime())
-                      .map((booking) => (
+                      .map((booking) => {
+                        const meetingPast = booking.date ? isHistorical(booking.date) : false;
+                        return (
                         <div
                           key={booking.id}
-                          className="p-4 rounded-xl border border-purple-200 bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors cursor-pointer"
+                          className={`p-4 rounded-xl border ${meetingPast ? 'bg-gray-100 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-60' : 'border-purple-200 bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 cursor-pointer'} transition-colors`}
                           data-testid={`meeting-${booking.id}`}
                           onClick={() => {
+                            if (meetingPast) return;
                             setSelectedMeetingBooking(booking);
                             setOpenModal('meeting-booking-details');
                           }}
+                          style={meetingPast ? { pointerEvents: 'none' as const } : {}}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -891,21 +964,128 @@ export default function Dashboard() {
                               <div className="text-sm font-medium text-fixed">
                                 {booking.startTime} - {booking.endTime}
                               </div>
-                              <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
-                                Meeting
-                              </Badge>
+                              {meetingPast && (
+                                <Badge className="bg-gray-200 text-gray-500 text-xs mt-1">
+                                  Past
+                                </Badge>
+                              )}
+                              {!meetingPast && (
+                                <Badge className="bg-purple-100 text-purple-800 text-xs mt-1">
+                                  Meeting
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </div>
-                      ))}
+                      );})}
                   </div>
                 </div>
               )}
 
+              {/* Contractor Pre-bookings */}
+              {filteredContractors && filteredContractors.length > 0 && Object.entries(groupedContractors)
+                .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+                .map(([dateKey, contractors]) => {
+                  const date = new Date(dateKey);
+                  const dayStatus = getDayStatus(date);
+                  
+                  return (
+                    <div key={`contractor-${dateKey}`} className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-medium">
+                          {dayStatus.label} - Contractors
+                        </Badge>
+                        <span className="text-xs text-variable">
+                          {contractors.length} contractor{contractors.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2 pl-4 border-l-2 border-orange-200 dark:border-orange-800">
+                        {contractors
+                          .sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime))
+                          .map((contractor) => {
+                            const isPast = isHistorical(contractor.scheduledDate);
+                            
+                            return (
+                              <div
+                                key={contractor.id}
+                                className={`p-4 rounded-xl border ${isPast ? 'bg-gray-100 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-60' : 'bg-white/70 dark:bg-slate-800/70 border-orange-200 dark:border-orange-800'} transition-colors`}
+                                data-testid={`contractor-entry-${contractor.id}`}
+                                style={isPast ? { pointerEvents: 'none' as const } : {}}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="flex items-center gap-1">
+                                        <HardHat className={isPast ? "text-gray-400" : "text-orange-600"} size={16} />
+                                        <span className={`font-semibold ${isPast ? 'text-gray-500' : 'text-fixed'}`}>
+                                          {contractor.workerName}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-1 text-xs sm:text-sm">
+                                      <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
+                                        <Building2 size={14} className="flex-shrink-0" />
+                                        <span className="truncate">{contractor.companyName}</span>
+                                      </div>
+                                      <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
+                                        <AtSign size={14} className="flex-shrink-0" />
+                                        <span className="line-clamp-1">{contractor.purpose}</span>
+                                      </div>
+                                      {contractor.workerEmail && (
+                                        <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
+                                          <Mail size={14} className="flex-shrink-0" />
+                                          <span className="truncate">{contractor.workerEmail}</span>
+                                        </div>
+                                      )}
+                                      {contractor.duration && (
+                                        <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
+                                          <Clock3 size={14} className="flex-shrink-0" />
+                                          <span>{contractor.duration}h duration</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="text-right">
+                                    {diaryViewMode === 'weekly' && (
+                                      <div className="text-xs text-variable mb-0.5">
+                                        {new Date(contractor.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                      </div>
+                                    )}
+                                    <div className={`text-sm font-medium ${isPast ? 'text-gray-500' : 'text-fixed'}`}>
+                                      {contractor.scheduledTime}
+                                    </div>
+                                    {isPast && (
+                                      <Badge className="bg-gray-200 text-gray-500 text-xs mt-1">
+                                        Past
+                                      </Badge>
+                                    )}
+                                    {contractor.status === 'confirmed' && !isPast && (
+                                      <Badge className="bg-green-100 text-green-800 text-xs mt-1">
+                                        Confirmed
+                                      </Badge>
+                                    )}
+                                    {contractor.status === 'pending' && !isPast && (
+                                      <Badge className="bg-yellow-100 text-yellow-800 text-xs mt-1">
+                                        Pending
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  );
+                })}
+
               {/* Visitor Pre-bookings */}
               {filteredDiary && filteredDiary.length > 0 && Object.entries(groupedDiary)
                 .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-                .slice(0, diaryViewMode === 'weekly' ? 7 : 4) // Show all 7 days for weekly view, 4 for others
+                .slice(0, diaryViewMode === 'weekly' ? 7 : 4)
                 .map(([dateKey, entries]) => {
                   const date = new Date(dateKey);
                   const dayStatus = getDayStatus(date);
@@ -927,16 +1107,19 @@ export default function Dashboard() {
                           .map((entry) => {
                             const priority = getPriorityLevel(entry);
                             const visitTime = getVisitDisplayTime(entry);
+                            const isPast = isHistorical(entry.visitDate);
                             
                             return (
                               <div
                                 key={entry.id}
-                                className={`p-4 rounded-xl border ${priority.color} bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 transition-colors cursor-pointer`}
+                                className={`p-4 rounded-xl border ${isPast ? 'bg-gray-100 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-60' : `${priority.color} bg-white/70 dark:bg-slate-800/70 hover:bg-white/90 dark:hover:bg-slate-700/90 cursor-pointer`} transition-colors`}
                                 data-testid={`diary-entry-${entry.id}`}
                                 onClick={() => {
+                                  if (isPast) return;
                                   setSelectedVisitorBooking(entry);
                                   setOpenModal('visitor-booking-details');
                                 }}
+                                style={isPast ? { pointerEvents: 'none' as const } : {}}
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
@@ -988,7 +1171,12 @@ export default function Dashboard() {
                                     <div className="text-sm font-medium text-fixed">
                                       {visitTime}
                                     </div>
-                                    {priority.level === 'urgent' && (
+                                    {isPast && (
+                                      <Badge className="bg-gray-200 text-gray-500 text-xs mt-1">
+                                        Past
+                                      </Badge>
+                                    )}
+                                    {!isPast && priority.level === 'urgent' && (
                                       <Badge className="bg-red-100 text-red-800 text-xs mt-1">
                                         <AlertCircle size={12} className="mr-1" />
                                         Urgent
@@ -1012,7 +1200,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {((receptionDiary && receptionDiary.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
+        {((receptionDiary && receptionDiary.length > 0) || (filteredContractors && filteredContractors.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
           <div className="mt-6 pt-4 border-t border-indigo-200 dark:border-indigo-800">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm">
               <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
@@ -1022,7 +1210,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded flex-shrink-0"></div>
-                  <span className="text-variable">High</span>
+                  <span className="text-variable">Contractor</span>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <CheckCircle2 className="text-green-600 flex-shrink-0" size={14} />
@@ -1031,6 +1219,10 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <Calendar className="text-purple-600 flex-shrink-0" size={14} />
                   <span className="text-variable">Meeting</span>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="w-3 h-3 bg-gray-200 border border-gray-300 rounded flex-shrink-0 opacity-60"></div>
+                  <span className="text-variable">Past</span>
                 </div>
               </div>
               <span className="text-variable text-xs hidden sm:block">Auto-refreshes every 30s</span>

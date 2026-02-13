@@ -10523,7 +10523,38 @@ This is an automated notification from your visitor management system.`;
       )
       .orderBy(isolatedSchema.preBookings.visitDate);
       
-      res.json(allPreBookings);
+      // Query contractor pre-bookings for the same date range
+      let contractorBookings: any[] = [];
+      try {
+        contractorBookings = await customerDb.select({
+          id: isolatedSchema.contractorPreBookings.id,
+          companyName: isolatedSchema.contractorPreBookings.companyName,
+          contactEmail: isolatedSchema.contractorPreBookings.contactEmail,
+          workerName: isolatedSchema.contractorPreBookings.workerName,
+          workerEmail: isolatedSchema.contractorPreBookings.workerEmail,
+          purpose: isolatedSchema.contractorPreBookings.purpose,
+          scheduledDate: isolatedSchema.contractorPreBookings.scheduledDate,
+          scheduledTime: isolatedSchema.contractorPreBookings.scheduledTime,
+          duration: isolatedSchema.contractorPreBookings.duration,
+          status: isolatedSchema.contractorPreBookings.status,
+          notes: isolatedSchema.contractorPreBookings.notes,
+        })
+        .from(isolatedSchema.contractorPreBookings)
+        .where(
+          and(
+            sql`${isolatedSchema.contractorPreBookings.scheduledDate} >= ${targetDate}`,
+            sql`${isolatedSchema.contractorPreBookings.scheduledDate} <= ${endDate}`
+          )
+        )
+        .orderBy(isolatedSchema.contractorPreBookings.scheduledDate);
+      } catch (contractorError) {
+        console.log("Note: contractor_prebookings table may not exist yet:", (contractorError as any).message);
+      }
+      
+      res.json({
+        visitors: allPreBookings,
+        contractors: contractorBookings,
+      });
     } catch (error) {
       console.error("Error fetching reception diary:", error);
       

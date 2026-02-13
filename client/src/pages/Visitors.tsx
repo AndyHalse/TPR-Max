@@ -255,9 +255,9 @@ export default function Visitors() {
   
   // Pre-booking form state
   const [preBookingData, setPreBookingData] = useState<Partial<InsertPreBooking>>({
-    visitDate: addDays(new Date(), 1),
+    visitDate: new Date(),
   });
-  const [selectedDate, setSelectedDate] = useState<Date>(addDays(new Date(), 1));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
   // Walk-in visitor form state
   const [walkInData, setWalkInData] = useState({
@@ -401,7 +401,7 @@ export default function Visitors() {
         description: "Pre-booking created and confirmation emails sent!",
       });
       setPreBookingData({ 
-        visitDate: addDays(new Date(), 1),
+        visitDate: new Date(),
         visitorFirstName: "",
         visitorLastName: "",
         visitorEmail: "",
@@ -409,7 +409,7 @@ export default function Visitors() {
         hostStaffId: "",
         purpose: ""
       });
-      setSelectedDate(addDays(new Date(), 1));
+      setSelectedDate(new Date());
     },
     onError: () => {
       toast({
@@ -1437,7 +1437,11 @@ export default function Visitors() {
                           mode="single"
                           selected={selectedDate}
                           onSelect={handleDateSelect}
-                          disabled={(date) => date < new Date()}
+                          disabled={(date) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            return date < today;
+                          }}
                           initialFocus
                         />
                       </PopoverContent>

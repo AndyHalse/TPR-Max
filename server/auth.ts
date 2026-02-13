@@ -345,26 +345,10 @@ export function getMockRoomBookings() {
 
 export function getMockReceptionDiary() {
   console.log('🚀 DEV_DATA_BYPASS: Returning mock reception diary');
-  return [
-    {
-      id: 'diary-001',
-      time: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-      type: 'visitor_expected',
-      title: 'Expected Visitor: Alex Cooper',
-      description: 'Visitor from ABC Corp for 2:30 PM meeting',
-      priority: 'normal',
-      createdAt: new Date()
-    },
-    {
-      id: 'diary-002',
-      time: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-      type: 'delivery',
-      title: 'Package Delivery Expected',
-      description: 'Important delivery from FedEx',
-      priority: 'high',
-      createdAt: new Date()
-    }
-  ];
+  return {
+    visitors: [],
+    contractors: [],
+  };
 }
 
 // Extend session interface
