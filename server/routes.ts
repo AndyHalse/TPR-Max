@@ -10903,27 +10903,28 @@ This is an automated notification from your visitor management system.`;
         worker = newWorker;
       }
       
-      // Check worker status
-      const issues = [];
+      // Check worker status - only block for critical issues (inactive/red card)
+      // Induction and right-to-work are warnings for pre-booked contractors
+      const blockingIssues = [];
+      const warnings = [];
       if (!worker.isActive) {
-        issues.push("Worker account is inactive");
+        blockingIssues.push("Worker account is inactive");
+      }
+      if (worker.currentCardStatus === 'red') {
+        blockingIssues.push("Worker has active Red Card (site ban)");
       }
       if (!worker.inductionCompleted) {
-        issues.push("Induction not completed");
+        warnings.push("Induction not completed");
       }
       if (worker.rightToWork !== 'valid') {
-        issues.push(`Right to work status: ${worker.rightToWork || 'missing'}`);
-      }
-      // Check for Red Card (site ban) - Yellow Cards are warnings only, not blockages
-      if (worker.currentCardStatus === 'red') {
-        issues.push("Worker has active Red Card (site ban)");
+        warnings.push(`Right to work status: ${worker.rightToWork || 'pending'}`);
       }
       
-      if (issues.length > 0) {
+      if (blockingIssues.length > 0) {
         return res.status(400).json({ 
           error: "Worker not cleared for check-in",
-          details: `Cannot check in: ${issues.join(', ')}`,
-          issues: issues
+          details: `Cannot check in: ${blockingIssues.join(', ')}`,
+          issues: blockingIssues
         });
       }
       
@@ -10961,10 +10962,13 @@ This is an automated notification from your visitor management system.`;
       
       res.json({
         success: true,
-        message: "Contractor checked in successfully",
+        message: warnings.length > 0 
+          ? `Contractor checked in successfully (Note: ${warnings.join(', ')})` 
+          : "Contractor checked in successfully",
         visit: visit,
         worker: worker,
-        company: company
+        company: company,
+        warnings: warnings
       });
     } catch (error) {
       console.error("Error checking in contractor from pre-booking:", error);
