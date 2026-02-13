@@ -895,8 +895,9 @@ export default function Visitors() {
                 (showAllPreviousVisitors ? filteredVisitors : filteredVisitors.slice(0, 24)).map((visitor) => (
                   <div
                     key={visitor.id}
-                    className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all"
+                    className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all cursor-pointer"
                     data-testid={`card-visitor-${visitor.id}`}
+                    onClick={() => handlePreBookVisitor(visitor)}
                   >
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
@@ -931,7 +932,7 @@ export default function Visitors() {
                           <Button 
                             size="sm" 
                             variant="outline" 
-                            onClick={() => handleEditVisitor(visitor)}
+                            onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
                             data-testid={`button-edit-visitor-${visitor.id}`}
                             className="p-2"
                             title="Edit visitor details"
@@ -941,7 +942,7 @@ export default function Visitors() {
                           <Button 
                             size="sm" 
                             variant="outline" 
-                            onClick={() => handlePreBookVisitor(visitor)}
+                            onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
                             data-testid={`button-prebook-visitor-${visitor.id}`}
                             className="p-2"
                             title="Pre-book this visitor"
@@ -952,7 +953,7 @@ export default function Visitors() {
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => checkoutVisitorMutation.mutate(visitor.id)}
+                              onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
                               disabled={checkoutVisitorMutation.isPending}
                               data-testid={`button-checkout-visitor-${visitor.id}`}
                               title="Check out visitor"
@@ -965,7 +966,7 @@ export default function Visitors() {
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => handlePreviousVisitorSelect(visitor)}
+                              onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
                               data-testid={`button-select-visitor-${visitor.id}`}
                               title="Check in visitor"
                               className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
