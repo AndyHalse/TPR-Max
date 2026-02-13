@@ -128,37 +128,179 @@ export default function StaffManagement() {
     },
   });
 
-  const handleDownloadQrPass = (qrCode: string, staffName: string) => {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrCode)}`;
-    const link = document.createElement('a');
-    link.href = qrUrl;
-    link.download = `qr-pass-${staffName.replace(/\s+/g, '-').toLowerCase()}.png`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: "Download Started", description: "QR pass image is downloading" });
+  const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
+
+  const getBrandedPassHtml = (qrCode: string, staffName: string, department: string, employeeId: string) => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+    const companyName = companySettings?.companyName || 'Company';
+    const primaryColor = companySettings?.primaryColor || '#1e40af';
+    const logoUrl = companySettings?.logoUrl ? `${window.location.origin}${companySettings.logoUrl}` : '';
+    const logoHtml = logoUrl
+      ? `<img src="${logoUrl}" style="max-height:40px;max-width:160px;margin:0 auto 6px auto;display:block;" crossorigin="anonymous">`
+      : '';
+    return `
+      <div style="border:2px solid ${primaryColor};border-radius:14px;padding:20px 18px;max-width:280px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;text-align:center;background:#fff;">
+        <div style="background:${primaryColor};margin:-20px -18px 12px -18px;border-radius:12px 12px 0 0;padding:14px 12px 10px 12px;">
+          ${logoHtml}
+          <div style="color:#fff;font-size:15px;font-weight:700;letter-spacing:0.5px;">${companyName}</div>
+          <div style="color:rgba(255,255,255,0.8);font-size:10px;margin-top:2px;">STAFF CHECK-IN PASS</div>
+        </div>
+        <img src="${qrUrl}" style="width:180px;height:180px;margin:6px auto 10px auto;display:block;border-radius:8px;border:1px solid #e5e7eb;">
+        <h3 style="margin:0 0 2px 0;font-size:16px;color:#111;">${staffName}</h3>
+        <p style="margin:2px 0;color:#555;font-size:13px;">${department}</p>
+        <p style="margin:2px 0;color:#888;font-size:11px;">ID: ${employeeId}</p>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:10px;color:#aaa;">Scan at kiosk to check in / check out</p>
+        </div>
+      </div>`;
+  };
+
+  const handleDownloadQrPass = (qrCode: string, staffName: string, department: string, employeeId: string) => {
+    const passHtml = getBrandedPassHtml(qrCode, staffName, department, employeeId);
+    const primaryColor = companySettings?.primaryColor || '#1e40af';
+    const offscreen = document.createElement('iframe');
+    offscreen.style.position = 'fixed';
+    offscreen.style.left = '-9999px';
+    offscreen.style.width = '320px';
+    offscreen.style.height = '520px';
+    document.body.appendChild(offscreen);
+    const doc = offscreen.contentDocument!;
+    doc.open();
+    doc.write(`<html><body style="margin:0;padding:10px;background:#fff;">${passHtml}</body></html>`);
+    doc.close();
+
+    const qrImg = doc.querySelector('img[src*="qrserver"]') as HTMLImageElement | null;
+    const logoImg = doc.querySelector('img[src*="/objects/"]') as HTMLImageElement | null;
+
+    const renderCanvas = () => {
+      const canvas = document.createElement('canvas');
+      const scale = 2;
+      canvas.width = 320 * scale;
+      canvas.height = 480 * scale;
+      const ctx = canvas.getContext('2d')!;
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, 320, 480);
+
+      const cx = 160;
+      const cardX = 20, cardW = 280, cardR = 14;
+      const headerH = 70;
+
+      ctx.beginPath();
+      ctx.moveTo(cardX + cardR, 0);
+      ctx.lineTo(cardX + cardW - cardR, 0);
+      ctx.quadraticCurveTo(cardX + cardW, 0, cardX + cardW, cardR);
+      ctx.lineTo(cardX + cardW, 480 - cardR);
+      ctx.quadraticCurveTo(cardX + cardW, 480, cardX + cardW - cardR, 480);
+      ctx.lineTo(cardX + cardR, 480);
+      ctx.quadraticCurveTo(cardX, 480, cardX, 480 - cardR);
+      ctx.lineTo(cardX, cardR);
+      ctx.quadraticCurveTo(cardX, 0, cardX + cardR, 0);
+      ctx.closePath();
+      ctx.strokeStyle = primaryColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.save();
+      ctx.clip();
+
+      ctx.fillStyle = primaryColor;
+      ctx.fillRect(cardX, 0, cardW, headerH);
+
+      let headerTextY = 22;
+      if (logoImg && logoImg.naturalWidth > 0) {
+        const lh = 28;
+        const lw = Math.min(120, (logoImg.naturalWidth / logoImg.naturalHeight) * lh);
+        ctx.drawImage(logoImg, cx - lw / 2, 8, lw, lh);
+        headerTextY = 42;
+      }
+
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      const companyName = companySettings?.companyName || 'Company';
+      ctx.fillText(companyName, cx, headerTextY);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.font = '9px "Segoe UI", Arial, sans-serif';
+      ctx.fillText('STAFF CHECK-IN PASS', cx, headerTextY + 14);
+
+      if (qrImg && qrImg.naturalWidth > 0) {
+        const qrSize = 170;
+        const qrY = headerH + 16;
+        ctx.drawImage(qrImg, cx - qrSize / 2, qrY, qrSize, qrSize);
+      }
+
+      const textY = headerH + 200;
+      ctx.fillStyle = '#111';
+      ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(staffName, cx, textY);
+      ctx.fillStyle = '#555';
+      ctx.font = '13px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(department, cx, textY + 20);
+      ctx.fillStyle = '#888';
+      ctx.font = '11px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(`ID: ${employeeId}`, cx, textY + 38);
+
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cardX + 16, textY + 52);
+      ctx.lineTo(cardX + cardW - 16, textY + 52);
+      ctx.stroke();
+      ctx.fillStyle = '#aaa';
+      ctx.font = '9px "Segoe UI", Arial, sans-serif';
+      ctx.fillText('Scan at kiosk to check in / check out', cx, textY + 68);
+      ctx.restore();
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `qr-pass-${staffName.replace(/\s+/g, '-').toLowerCase()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+        document.body.removeChild(offscreen);
+      }, 'image/png');
+    };
+
+    const waitForImages = () => {
+      const images = [qrImg, logoImg].filter(Boolean) as HTMLImageElement[];
+      let loaded = 0;
+      const total = images.length;
+      if (total === 0) { renderCanvas(); return; }
+      images.forEach(img => {
+        if (img.complete && img.naturalWidth > 0) { loaded++; if (loaded >= total) renderCanvas(); }
+        else { img.onload = () => { loaded++; if (loaded >= total) renderCanvas(); }; img.onerror = () => { loaded++; if (loaded >= total) renderCanvas(); }; }
+      });
+    };
+    setTimeout(waitForImages, 200);
+
+    toast({ title: "Generating Pass", description: "Branded QR pass is being created..." });
     setQrPassStaff(null);
     setQrPassData(null);
   };
 
   const handlePrintQrPass = (qrCode: string, staffName: string, department: string, employeeId: string) => {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+    const passHtml = getBrandedPassHtml(qrCode, staffName, department, employeeId);
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (printWindow) {
       printWindow.document.write(`
         <html>
           <head><title>Staff QR Pass - ${staffName}</title></head>
-          <body style="margin:0;padding:20px;font-family:Arial,sans-serif;text-align:center;">
-            <div style="border:2px solid #333;border-radius:12px;padding:20px;max-width:300px;margin:0 auto;">
-              <h2 style="margin:0 0 5px 0;font-size:18px;">Staff Check-In Pass</h2>
-              <hr style="border:1px solid #ddd;margin:10px 0;">
-              <img src="${qrUrl}" style="width:200px;height:200px;margin:10px auto;display:block;" onload="window.print();">
-              <h3 style="margin:10px 0 2px 0;">${staffName}</h3>
-              <p style="margin:2px 0;color:#666;font-size:14px;">${department}</p>
-              <p style="margin:2px 0;color:#999;font-size:12px;">ID: ${employeeId}</p>
-              <p style="margin:10px 0 0 0;font-size:11px;color:#999;">Scan at kiosk to check in/out</p>
-            </div>
+          <body style="margin:0;padding:20px;background:#fff;">
+            ${passHtml}
+            <script>
+              var imgs = document.querySelectorAll('img');
+              var total = imgs.length, loaded = 0;
+              if (total === 0) window.print();
+              imgs.forEach(function(img) {
+                if (img.complete) { loaded++; if (loaded >= total) window.print(); }
+                else { img.onload = function() { loaded++; if (loaded >= total) window.print(); }; img.onerror = function() { loaded++; if (loaded >= total) window.print(); }; }
+              });
+            </script>
           </body>
         </html>
       `);
@@ -479,7 +621,7 @@ export default function StaffManagement() {
                   if (!qrPassStaff) return;
                   sendQrPassMutation.mutate({ id: qrPassStaff.id, method: 'download' }, {
                     onSuccess: (data) => {
-                      handleDownloadQrPass(data.qrCode, data.staffName);
+                      handleDownloadQrPass(data.qrCode, data.staffName, data.department, data.employeeId);
                     }
                   });
                 }}
@@ -489,7 +631,7 @@ export default function StaffManagement() {
                 <Download size={20} className="text-purple-600" />
                 <div className="text-left">
                   <div className="font-medium">Download QR Image</div>
-                  <div className="text-xs text-gray-500">Save QR code as image file</div>
+                  <div className="text-xs text-gray-500">Download branded pass as image</div>
                 </div>
               </Button>
             </div>
