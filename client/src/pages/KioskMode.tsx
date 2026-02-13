@@ -306,13 +306,13 @@ export default function KioskMode() {
   }
 
   return (
-    <div className="min-h-screen max-h-screen overflow-auto bg-background p-2 sm:p-3 flex flex-col">
+    <div className="h-screen bg-background flex flex-col px-4 sm:px-6 lg:px-8 py-3 sm:py-4 overflow-hidden">
       {settings?.bannerUrl && (
-        <div className="w-full max-w-3xl mx-auto mb-2 sm:mb-3 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
+        <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0" style={{ maxHeight: '18vh' }}>
           <img 
             src={`/objects${settings.bannerUrl}`} 
             alt={settings.companyName}
-            className="w-full h-auto object-contain max-h-28 sm:max-h-36 lg:max-h-40"
+            className="w-full h-full object-contain"
             onError={(e) => {
               console.error("Main kiosk banner failed to load:", settings.bannerUrl);
               e.currentTarget.style.display = 'none';
@@ -324,30 +324,31 @@ export default function KioskMode() {
           />
         </div>
       )}
-      <div className="max-w-6xl mx-auto flex-1 flex flex-col">
-        <div className="text-center flex-shrink-0 mb-2 sm:mb-3 lg:mb-4">
-          <h2 
-            className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-0.5 sm:mb-1 select-none" 
-            onClick={() => setLocation("/")}
-            style={{ cursor: 'default' }}
-          >
-            Welcome to {settings?.companyName || 'TechCorp Ltd'}
-          </h2>
-          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">Please select your check-in option below</p>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+      <div className="text-center flex-shrink-0 py-2 sm:py-3">
+        <h2 
+          className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-0.5 select-none" 
+          onClick={() => setLocation("/")}
+          style={{ cursor: 'default' }}
+        >
+          Welcome to {settings?.companyName || 'TechCorp Ltd'}
+        </h2>
+        <p className="text-muted-foreground text-sm sm:text-base">Please select your check-in option below</p>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full min-h-0">
+        <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
           <div 
             className="cursor-pointer" 
             onClick={() => setActiveSection("scan")}
             data-testid="button-qr-scanner"
           >
-            <GlassCard hover className="text-center p-3 sm:p-4 lg:p-5 group flex flex-col justify-center items-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 group-hover:scale-110 transition-transform">
-                <QrCode className="text-white" size={28} />
+            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+                <QrCode className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1 sm:mb-2">QR Scanner</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm lg:text-base">Scan to check in or check out</p>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">QR Scanner</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">Scan to check in or check out</p>
             </GlassCard>
           </div>
 
@@ -356,64 +357,62 @@ export default function KioskMode() {
             onClick={() => setActiveSection("walkin")}
             data-testid="button-manual-checkin"
           >
-            <GlassCard hover className="text-center p-3 sm:p-4 lg:p-5 group flex flex-col justify-center items-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 gradient-blue rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 group-hover:scale-110 transition-transform">
-                <UserPlus className="text-white" size={28} />
+            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 gradient-blue rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+                <UserPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1 sm:mb-2">Manual Check-In</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm lg:text-base">Walk-in visitor entry</p>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Manual Check-In</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">Walk-in visitor entry</p>
             </GlassCard>
           </div>
 
           <div className="cursor-pointer" data-testid="button-staff-checkin">
-            <GlassCard hover className="text-center p-3 sm:p-4 lg:p-5 group flex flex-col justify-center items-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 group-hover:scale-110 transition-transform">
-                <BadgeInfo className="text-white" size={28} />
+            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+                <BadgeInfo className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1 sm:mb-2">Staff Check-In</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm lg:text-base">Scan your employee ID</p>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Staff Check-In</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">Scan your employee ID</p>
             </GlassCard>
           </div>
         </div>
 
-        <div className="mt-3 sm:mt-4 lg:mt-5">
-        <GlassCard className="p-3 sm:p-4 lg:p-6 flex-shrink-0">
-          <h3 className="text-lg sm:text-xl lg:text-2xl font-semibold text-fixed mb-3 sm:mb-4 lg:mb-6 text-center">Instructions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 text-variable">
+        <GlassCard className="p-4 sm:p-5 flex-shrink-0">
+          <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 text-center">Instructions</h3>
+          <div className="grid grid-cols-3 gap-4 sm:gap-6 text-variable">
             <div className="text-center">
-              <QrCode className="mx-auto mb-2 text-purple-600" size={24} />
-              <p className="font-medium mb-1 text-sm sm:text-base text-[#ab94e0]">Pre-booked visitors</p>
-              <p className="text-xs sm:text-sm" style={{color: 'white'}}>Use QR Scanner with your email QR code</p>
+              <QrCode className="mx-auto mb-1.5 text-purple-600" size={22} />
+              <p className="font-medium mb-0.5 text-sm text-[#ab94e0]">Pre-booked visitors</p>
+              <p className="text-xs" style={{color: 'white'}}>Use QR Scanner with your email QR code</p>
             </div>
             <div className="text-center">
-              <UserPlus className="mx-auto mb-2 text-blue-600" size={24} />
-              <p className="font-medium mb-1 text-sm sm:text-base text-[#9b81d6]">New visitors</p>
-              <p className="text-xs sm:text-sm" style={{color: 'white'}}>Use Manual Check-In to register</p>
+              <UserPlus className="mx-auto mb-1.5 text-blue-600" size={22} />
+              <p className="font-medium mb-0.5 text-sm text-[#9b81d6]">New visitors</p>
+              <p className="text-xs" style={{color: 'white'}}>Use Manual Check-In to register</p>
             </div>
             <div className="text-center">
-              <LogOut className="mx-auto mb-2 text-green-600" size={24} />
-              <p className="font-medium mb-1 text-sm sm:text-base text-[#a587e5]">Leaving</p>
-              <p className="text-xs sm:text-sm" style={{color: 'white'}}>Use QR Scanner with your pass QR code</p>
+              <LogOut className="mx-auto mb-1.5 text-green-600" size={22} />
+              <p className="font-medium mb-0.5 text-sm text-[#a587e5]">Leaving</p>
+              <p className="text-xs" style={{color: 'white'}}>Use QR Scanner with your pass QR code</p>
             </div>
           </div>
         </GlassCard>
-        </div>
-
-        {showPreview && currentVisitor && (
-          <PassPreviewModal
-            isOpen={showPreview}
-            onClose={() => {
-              setShowPreview(false);
-              setCurrentVisitor(null);
-              setHostName(undefined);
-              setIsPreBookedCheckIn(false);
-            }}
-            visitor={currentVisitor}
-            hostName={hostName}
-            isPreBooked={isPreBookedCheckIn}
-          />
-        )}
       </div>
+
+      {showPreview && currentVisitor && (
+        <PassPreviewModal
+          isOpen={showPreview}
+          onClose={() => {
+            setShowPreview(false);
+            setCurrentVisitor(null);
+            setHostName(undefined);
+            setIsPreBookedCheckIn(false);
+          }}
+          visitor={currentVisitor}
+          hostName={hostName}
+          isPreBooked={isPreBookedCheckIn}
+        />
+      )}
     </div>
   );
 }
