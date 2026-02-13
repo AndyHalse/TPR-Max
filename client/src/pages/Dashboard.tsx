@@ -46,7 +46,7 @@ export default function Dashboard() {
   const [diaryViewMode, setDiaryViewMode] = useState<'today' | 'tomorrow' | 'weekly'>('today');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [diaryLayout, setDiaryLayout] = useState<'cards' | 'compact'>('cards');
-  const [diaryFilter, setDiaryFilter] = useState<'all' | 'visitors' | 'contractors' | 'meetings' | 'arrived'>('all');
+  const [showHistory, setShowHistory] = useState(false);
   
   const formatLocalDate = (d: Date) => {
     const year = d.getFullYear();
@@ -441,19 +441,14 @@ export default function Dashboard() {
     return groups;
   }, {} as Record<string, typeof filteredContractors>) || {};
 
-  const displayedVisitors = diaryFilter === 'visitors' ? filteredDiary.filter(e => !e.isCheckedIn)
-    : diaryFilter === 'arrived' ? filteredDiary.filter(e => e.isCheckedIn)
-    : diaryFilter === 'contractors' || diaryFilter === 'meetings' ? []
-    : filteredDiary;
+  const pendingVisitors = filteredDiary.filter(e => !e.isCheckedIn);
+  const arrivedVisitors = filteredDiary.filter(e => e.isCheckedIn);
+  const pendingContractors = filteredContractors.filter(e => e.status !== 'completed');
+  const arrivedContractors = filteredContractors.filter(e => e.status === 'completed');
 
-  const displayedContractors = diaryFilter === 'contractors' ? filteredContractors.filter(e => e.status !== 'completed')
-    : diaryFilter === 'arrived' ? filteredContractors.filter(e => e.status === 'completed')
-    : diaryFilter === 'visitors' || diaryFilter === 'meetings' ? []
-    : filteredContractors;
-
-  const displayedMeetings = diaryFilter === 'meetings' ? currentViewRoomBookings
-    : diaryFilter === 'visitors' || diaryFilter === 'contractors' || diaryFilter === 'arrived' ? []
-    : currentViewRoomBookings;
+  const displayedVisitors = showHistory ? filteredDiary : pendingVisitors;
+  const displayedContractors = showHistory ? filteredContractors : pendingContractors;
+  const displayedMeetings = currentViewRoomBookings;
 
   const displayedGroupedDiary = displayedVisitors.reduce((groups: Record<string, typeof displayedVisitors>, entry) => {
     const dateKey = new Date(entry.visitDate).toDateString();
@@ -812,10 +807,13 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-xs">
-              {filteredDiary?.length || 0} Visitors
+              {pendingVisitors.length} Expected
             </Badge>
             <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800 text-xs">
-              {filteredContractors?.length || 0} Contractors
+              {pendingContractors.length} Contractors
+            </Badge>
+            <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 text-xs">
+              {arrivedVisitors.length + arrivedContractors.length} Arrived
             </Badge>
             <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs">
               {currentViewRoomBookings?.length || 0} Meetings
@@ -833,7 +831,7 @@ export default function Dashboard() {
               onClick={() => {
                 setDiaryViewMode('today');
                 setCurrentDate(new Date());
-                setDiaryFilter('all');
+                setShowHistory(false);
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-today"
@@ -846,7 +844,7 @@ export default function Dashboard() {
               onClick={() => {
                 setDiaryViewMode('tomorrow');
                 setCurrentDate(new Date());
-                setDiaryFilter('all');
+                setShowHistory(false);
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-tomorrow"
@@ -859,7 +857,7 @@ export default function Dashboard() {
               onClick={() => {
                 setDiaryViewMode('weekly');
                 setCurrentDate(new Date());
-                setDiaryFilter('all');
+                setShowHistory(false);
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-weekly"
@@ -913,48 +911,50 @@ export default function Dashboard() {
             >
               <LayoutList size={14} />
             </Button>
+            <div className="border-l border-indigo-300 dark:border-indigo-700 h-6 mx-1 hidden sm:block" />
+            <Button
+              variant={showHistory ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowHistory(!showHistory)}
+              className={`h-8 px-3 text-xs ${showHistory ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+              title={showHistory ? 'Hide arrived entries' : 'Show arrived entries'}
+            >
+              <Clock3 size={14} className="mr-1" />
+              {showHistory ? 'Hide History' : 'Show History'}
+            </Button>
           </div>
         </div>
 
         {/* Quick Summary Bar */}
         {((filteredDiary && filteredDiary.length > 0) || (filteredContractors && filteredContractors.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div 
-              className={`bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'visitors' ? 'border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-700 shadow-md' : 'border-indigo-200 dark:border-indigo-800 hover:shadow-sm'}`}
-              onClick={() => setDiaryFilter(diaryFilter === 'visitors' ? 'all' : 'visitors')}
-            >
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800">
               <div className="flex items-center gap-2">
-                <Users className="text-indigo-600" size={20} />
+                <Users className="text-indigo-600" size={18} />
                 <div>
                   <div className="text-lg font-bold text-indigo-800 dark:text-indigo-200">
-                    {filteredDiary?.filter(entry => !entry.isCheckedIn).length || 0}
+                    {pendingVisitors.length}
                   </div>
                   <div className="text-xs text-indigo-600 dark:text-indigo-400">Expected Visitors</div>
                 </div>
               </div>
             </div>
             
-            <div 
-              className={`bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'contractors' ? 'border-orange-500 ring-2 ring-orange-300 dark:ring-orange-700 shadow-md' : 'border-orange-200 dark:border-orange-800 hover:shadow-sm'}`}
-              onClick={() => setDiaryFilter(diaryFilter === 'contractors' ? 'all' : 'contractors')}
-            >
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-200 dark:border-orange-800">
               <div className="flex items-center gap-2">
-                <HardHat className="text-orange-600" size={20} />
+                <HardHat className="text-orange-600" size={18} />
                 <div>
                   <div className="text-lg font-bold text-orange-800 dark:text-orange-200">
-                    {filteredContractors?.filter(entry => entry.status !== 'completed').length || 0}
+                    {pendingContractors.length}
                   </div>
                   <div className="text-xs text-orange-600 dark:text-orange-400">Expected Contractors</div>
                 </div>
               </div>
             </div>
             
-            <div 
-              className={`bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'meetings' ? 'border-purple-500 ring-2 ring-purple-300 dark:ring-purple-700 shadow-md' : 'border-purple-200 dark:border-purple-800 hover:shadow-sm'}`}
-              onClick={() => setDiaryFilter(diaryFilter === 'meetings' ? 'all' : 'meetings')}
-            >
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-200 dark:border-purple-800">
               <div className="flex items-center gap-2">
-                <Calendar className="text-purple-600" size={20} />
+                <Calendar className="text-purple-600" size={18} />
                 <div>
                   <div className="text-lg font-bold text-purple-800 dark:text-purple-200">
                     {currentViewRoomBookings?.length || 0}
@@ -965,16 +965,18 @@ export default function Dashboard() {
             </div>
             
             <div 
-              className={`bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'arrived' ? 'border-green-500 ring-2 ring-green-300 dark:ring-green-700 shadow-md' : 'border-green-200 dark:border-green-800 hover:shadow-sm'}`}
-              onClick={() => setDiaryFilter(diaryFilter === 'arrived' ? 'all' : 'arrived')}
+              className={`bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border cursor-pointer transition-all ${showHistory ? 'border-green-500 ring-2 ring-green-300 dark:ring-green-700 shadow-md' : 'border-green-200 dark:border-green-800 hover:shadow-sm'}`}
+              onClick={() => setShowHistory(!showHistory)}
             >
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="text-green-600" size={20} />
+                <CheckCircle2 className="text-green-600" size={18} />
                 <div>
                   <div className="text-lg font-bold text-green-800 dark:text-green-200">
-                    {(filteredDiary?.filter(entry => entry.isCheckedIn).length || 0) + (filteredContractors?.filter(entry => entry.status === 'completed').length || 0)}
+                    {arrivedVisitors.length + arrivedContractors.length}
                   </div>
-                  <div className="text-xs text-green-600 dark:text-green-400">Already Arrived</div>
+                  <div className="text-xs text-green-600 dark:text-green-400">
+                    {showHistory ? 'Showing History' : 'Already Arrived'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1061,17 +1063,16 @@ export default function Dashboard() {
 
                 allEvents.sort((a, b) => a.sortTime.localeCompare(b.sortTime));
 
-                const displayEvents = diaryFilter === 'all' ? allEvents 
-                  : diaryFilter === 'visitors' ? allEvents.filter(e => e.type === 'visitor' && !e.isCheckedIn)
-                  : diaryFilter === 'contractors' ? allEvents.filter(e => e.type === 'contractor' && !e.isCheckedIn)
-                  : diaryFilter === 'meetings' ? allEvents.filter(e => e.type === 'meeting')
-                  : diaryFilter === 'arrived' ? allEvents.filter(e => e.isCheckedIn)
-                  : allEvents;
+                const displayEvents = showHistory ? allEvents : allEvents.filter(e => !e.isCheckedIn);
 
                 if (displayEvents.length === 0) return (
                   <div className="text-center py-6 text-variable">
-                    <p className="text-sm">No {diaryFilter === 'all' ? 'events' : diaryFilter} to display</p>
-                    <Button variant="ghost" size="sm" onClick={() => setDiaryFilter('all')} className="mt-2 text-xs">Show All</Button>
+                    <p className="text-sm">{showHistory ? 'No events scheduled' : 'No pending arrivals'}</p>
+                    {!showHistory && (arrivedVisitors.length > 0 || arrivedContractors.length > 0) && (
+                      <Button variant="ghost" size="sm" onClick={() => setShowHistory(true)} className="mt-2 text-xs text-green-600">
+                        Show {arrivedVisitors.length + arrivedContractors.length} arrived
+                      </Button>
+                    )}
                   </div>
                 );
 
@@ -1465,10 +1466,12 @@ export default function Dashboard() {
                   );
                 })}
 
-              {diaryFilter !== 'all' && displayedVisitors.length === 0 && displayedContractors.length === 0 && displayedMeetings.length === 0 && (
-                <div className="text-center py-6 text-variable">
-                  <p className="text-sm">No {diaryFilter === 'arrived' ? 'arrived entries' : diaryFilter} to display</p>
-                  <Button variant="ghost" size="sm" onClick={() => setDiaryFilter('all')} className="mt-2 text-xs text-indigo-600">Show All Events</Button>
+              {!showHistory && displayedVisitors.length === 0 && displayedContractors.length === 0 && (arrivedVisitors.length > 0 || arrivedContractors.length > 0) && (
+                <div className="text-center py-4 text-variable">
+                  <p className="text-sm">All pre-booked visitors and contractors have arrived</p>
+                  <Button variant="ghost" size="sm" onClick={() => setShowHistory(true)} className="mt-2 text-xs text-green-600">
+                    Show {arrivedVisitors.length + arrivedContractors.length} arrived
+                  </Button>
                 </div>
               )}
             </div>
