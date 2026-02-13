@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [diaryLayout, setDiaryLayout] = useState<'cards' | 'compact'>('cards');
   const [showHistory, setShowHistory] = useState(false);
+  const [diaryFilter, setDiaryFilter] = useState<'all' | 'visitors' | 'contractors' | 'meetings'>('all');
   
   const formatLocalDate = (d: Date) => {
     const year = d.getFullYear();
@@ -832,6 +833,7 @@ export default function Dashboard() {
                 setDiaryViewMode('today');
                 setCurrentDate(new Date());
                 setShowHistory(false);
+                setDiaryFilter('all');
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-today"
@@ -845,6 +847,7 @@ export default function Dashboard() {
                 setDiaryViewMode('tomorrow');
                 setCurrentDate(new Date());
                 setShowHistory(false);
+                setDiaryFilter('all');
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-tomorrow"
@@ -858,6 +861,7 @@ export default function Dashboard() {
                 setDiaryViewMode('weekly');
                 setCurrentDate(new Date());
                 setShowHistory(false);
+                setDiaryFilter('all');
               }}
               className="text-xs flex-1 sm:flex-initial"
               data-testid="button-diary-weekly"
@@ -928,7 +932,10 @@ export default function Dashboard() {
         {/* Quick Summary Bar */}
         {((filteredDiary && filteredDiary.length > 0) || (filteredContractors && filteredContractors.length > 0) || (todayRoomBookings && todayRoomBookings.length > 0)) && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800">
+            <div 
+              className={`bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'visitors' ? 'border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-700 shadow-md' : 'border-indigo-200 dark:border-indigo-800 hover:shadow-sm'}`}
+              onClick={() => setDiaryFilter(diaryFilter === 'visitors' ? 'all' : 'visitors')}
+            >
               <div className="flex items-center gap-2">
                 <Users className="text-indigo-600" size={18} />
                 <div>
@@ -940,7 +947,10 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-200 dark:border-orange-800">
+            <div 
+              className={`bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'contractors' ? 'border-orange-500 ring-2 ring-orange-300 dark:ring-orange-700 shadow-md' : 'border-orange-200 dark:border-orange-800 hover:shadow-sm'}`}
+              onClick={() => setDiaryFilter(diaryFilter === 'contractors' ? 'all' : 'contractors')}
+            >
               <div className="flex items-center gap-2">
                 <HardHat className="text-orange-600" size={18} />
                 <div>
@@ -952,7 +962,10 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-200 dark:border-purple-800">
+            <div 
+              className={`bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border cursor-pointer transition-all ${diaryFilter === 'meetings' ? 'border-purple-500 ring-2 ring-purple-300 dark:ring-purple-700 shadow-md' : 'border-purple-200 dark:border-purple-800 hover:shadow-sm'}`}
+              onClick={() => setDiaryFilter(diaryFilter === 'meetings' ? 'all' : 'meetings')}
+            >
               <div className="flex items-center gap-2">
                 <Calendar className="text-purple-600" size={18} />
                 <div>
@@ -1063,7 +1076,13 @@ export default function Dashboard() {
 
                 allEvents.sort((a, b) => a.sortTime.localeCompare(b.sortTime));
 
-                const displayEvents = showHistory ? allEvents : allEvents.filter(e => !e.isCheckedIn);
+                const displayEvents = allEvents.filter(e => {
+                  if (!showHistory && e.isCheckedIn) return false;
+                  if (diaryFilter === 'visitors') return e.type === 'visitor';
+                  if (diaryFilter === 'contractors') return e.type === 'contractor';
+                  if (diaryFilter === 'meetings') return e.type === 'meeting';
+                  return true;
+                });
 
                 if (displayEvents.length === 0) return (
                   <div className="text-center py-6 text-variable">
@@ -1133,7 +1152,7 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-4">
               {/* Meeting Room Bookings for Current View */}
-              {displayedMeetings && displayedMeetings.length > 0 && (
+              {displayedMeetings && displayedMeetings.length > 0 && (diaryFilter === 'all' || diaryFilter === 'meetings') && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-medium">
@@ -1222,7 +1241,7 @@ export default function Dashboard() {
               )}
 
               {/* Contractor Pre-bookings */}
-              {displayedContractors && displayedContractors.length > 0 && Object.entries(displayedGroupedContractors)
+              {displayedContractors && displayedContractors.length > 0 && (diaryFilter === 'all' || diaryFilter === 'contractors') && Object.entries(displayedGroupedContractors)
                 .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
                 .map(([dateKey, contractors]) => {
                   const date = new Date(dateKey);
@@ -1337,7 +1356,7 @@ export default function Dashboard() {
                 })}
 
               {/* Visitor Pre-bookings */}
-              {displayedVisitors && displayedVisitors.length > 0 && Object.entries(displayedGroupedDiary)
+              {displayedVisitors && displayedVisitors.length > 0 && (diaryFilter === 'all' || diaryFilter === 'visitors') && Object.entries(displayedGroupedDiary)
                 .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
                 .slice(0, diaryViewMode === 'weekly' ? 7 : 4)
                 .map(([dateKey, entries]) => {
