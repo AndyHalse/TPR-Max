@@ -471,6 +471,7 @@ export default function ContractorManagement() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       
       if (data.ePassSent) {
@@ -525,8 +526,9 @@ export default function ContractorManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] }); // Refresh dashboard stats
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] }); // Refresh contractor list
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       toast({
         title: "Success",
         description: "Contractor checked out successfully!",

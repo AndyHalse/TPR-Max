@@ -600,9 +600,12 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
         title: "Success", 
         description: "Contractor checked out successfully",
@@ -701,6 +704,8 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       toast({ title: "Contractor Checked In", description: "Contractor has been checked in from pre-booking" });
@@ -2276,7 +2281,7 @@ export default function Dashboard() {
                         {contractor.firstName} {contractor.lastName}
                       </div>
                       <div className="text-sm text-variable">
-                        {contractor.company || 'Company not specified'}
+                        {contractor.companyName || contractor.company || 'Company not specified'}
                       </div>
                       <div className="text-xs text-variable">
                         Role: {contractor.role || 'General Contractor'} • Checked in: {contractor.checkedInAt ? formatDistanceToNow(new Date(contractor.checkedInAt), { addSuffix: true }) : 'Recently'}
