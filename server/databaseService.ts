@@ -1672,23 +1672,36 @@ export class DatabaseService {
   async getAllContractorWorkers(context: CustomerContext): Promise<ContractorWorker[]> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // In isolated customer databases, no customerId filter needed - all companies belong to this customer
     const companies = await db
       .select()
       .from(isolatedSchema.contractorCompanies);
     
     if (companies.length === 0) {
-      return []; // No companies, no workers
+      return [];
     }
     
-    // Get workers for all companies
     const companyIds = companies.map(c => c.id);
     
-    return await db
+    const workers = await db
       .select()
       .from(isolatedSchema.contractorWorkers)
       .where(inArray(isolatedSchema.contractorWorkers.companyId, companyIds))
       .orderBy(asc(isolatedSchema.contractorWorkers.firstName));
+
+    return workers.map(worker => ({
+      ...worker,
+      currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
+      inductionCompleted: worker.siteInductionCompleted || false,
+      phone: worker.phoneNumber,
+      rightToWork: worker.rightToWork || 'pending',
+      cscsCard: worker.cscsCard || '',
+      cscsStatus: worker.cscsStatus || 'pending',
+      ipafStatus: worker.ipafStatus || 'none',
+      asbestosAwareness: worker.asbestosAwareness || false,
+      manualHandling: worker.manualHandling || false,
+      transportMethod: worker.transportMethod || 'car_diesel',
+      isActive: worker.isActive ?? true,
+    } as ContractorWorker));
   }
 
   // Card issues methods
