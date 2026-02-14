@@ -1955,12 +1955,14 @@ export class DatabaseService {
         updateData.rightToWork = updates.rightToWork;
       }
       if (updates.inductionCompleted !== undefined) {
-        updateData.inductionCompleted = typeof updates.inductionCompleted === 'string' 
+        const inductionVal = typeof updates.inductionCompleted === 'string' 
           ? (updates.inductionCompleted === 'true') 
           : Boolean(updates.inductionCompleted);
-        if (updateData.inductionCompleted) {
-          updateData.inductionCompletedAt = new Date();
+        updateData.siteInductionCompleted = inductionVal;
+        if (inductionVal) {
+          updateData.siteInductionCompletedAt = new Date();
         }
+        console.log(`🔧 FIELD MAP: inductionCompleted → siteInductionCompleted = ${inductionVal}`);
       }
       if (updates.ipafStatus !== undefined) {
         updateData.ipafStatus = updates.ipafStatus;
