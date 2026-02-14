@@ -56,6 +56,18 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     issuedBy: '',
     policyNumber: '',
   });
+
+  // Fetch FRESH worker data directly from API when modal opens
+  // This ensures we always have the latest data, not stale parent state
+  const { data: freshWorker } = useQuery<ContractorWorker>({
+    queryKey: [`/api/contractors/workers/${worker?.id}`],
+    enabled: !!worker?.id && open,
+    refetchOnMount: 'always',
+    staleTime: 0,
+  });
+
+  // Use fresh data when available, fall back to prop
+  const activeWorker = freshWorker || worker;
   
   const [formData, setFormData] = useState({
     firstName: worker?.firstName || '',
@@ -74,27 +86,29 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     companyId: worker?.companyId || '',
   });
 
-  // Update form data when worker changes
+  // Update form data when fresh worker data loads or modal opens
   useEffect(() => {
-    if (worker) {
+    if (activeWorker && open) {
+      const inductionVal = activeWorker.inductionCompleted === true || (activeWorker as any).siteInductionCompleted === true;
+      console.log('🔍 FORM INIT - inductionCompleted:', inductionVal, 'source:', freshWorker ? 'fresh API' : 'prop');
       setFormData({
-        firstName: worker.firstName || '',
-        lastName: worker.lastName || '',
-        email: worker.email || '',
-        phone: worker.phone || '',
-        postcode: worker.postcode || '',
-        transportMethod: worker.transportMethod || 'car_diesel',
-        rightToWork: worker.rightToWork || 'pending',
-        cscsCard: worker.cscsCard || '',
-        cscsStatus: worker.cscsStatus || 'pending',
-        ipafStatus: worker.ipafStatus || 'none',
-        asbestosAwareness: worker.asbestosAwareness || false,
-        manualHandling: worker.manualHandling || false,
-        inductionCompleted: worker.inductionCompleted || false,
-        companyId: worker.companyId || '',
+        firstName: activeWorker.firstName || '',
+        lastName: activeWorker.lastName || '',
+        email: activeWorker.email || '',
+        phone: activeWorker.phone || '',
+        postcode: activeWorker.postcode || '',
+        transportMethod: activeWorker.transportMethod || 'car_diesel',
+        rightToWork: activeWorker.rightToWork || 'pending',
+        cscsCard: activeWorker.cscsCard || '',
+        cscsStatus: activeWorker.cscsStatus || 'pending',
+        ipafStatus: activeWorker.ipafStatus || 'none',
+        asbestosAwareness: activeWorker.asbestosAwareness || false,
+        manualHandling: activeWorker.manualHandling || false,
+        inductionCompleted: inductionVal,
+        companyId: activeWorker.companyId || '',
       });
     }
-  }, [worker]);
+  }, [activeWorker, open, freshWorker]);
 
   // Fetch contractor visit history
   const { data: workerHistory = [], refetch: refetchHistory } = useQuery<ContractorVisit[]>({
@@ -142,6 +156,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/checked-in'] });
       refetchNotes();
