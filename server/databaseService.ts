@@ -1955,10 +1955,12 @@ export class DatabaseService {
         updateData.rightToWork = updates.rightToWork;
       }
       if (updates.inductionCompleted !== undefined) {
-        // FIXED: inductionCompleted should be stored as boolean
-        updateData.siteInductionCompleted = typeof updates.inductionCompleted === 'string' 
+        updateData.inductionCompleted = typeof updates.inductionCompleted === 'string' 
           ? (updates.inductionCompleted === 'true') 
           : Boolean(updates.inductionCompleted);
+        if (updateData.inductionCompleted) {
+          updateData.inductionCompletedAt = new Date();
+        }
       }
       if (updates.ipafStatus !== undefined) {
         updateData.ipafStatus = updates.ipafStatus;

@@ -9243,6 +9243,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('🔍 ROUTE - About to call databaseService.updateContractorWorker with:', validatedData);
       
+      // Fetch current worker state BEFORE update for audit trail comparison
+      const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
+      if (!currentWorker) {
+        return res.status(404).json({ error: 'Contractor worker not found' });
+      }
+      
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);
       
       console.log('🔍 ROUTE - databaseService.updateContractorWorker returned:', updatedWorker);
@@ -9251,12 +9257,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Contractor worker not found' });
       }
 
+      // === AUDIT TRAIL: Compare old vs new values and create audit notes ===
+      const auditFieldLabels: Record<string, string> = {
+        firstName: 'First Name',
+        lastName: 'Last Name',
+        email: 'Email',
+        phoneNumber: 'Phone Number',
+        postcode: 'Postcode',
+        transportMethod: 'Transport Method',
+        companyId: 'Contractor Company',
+        rightToWork: 'Right to Work Status',
+        cscsCard: 'CSCS Card Number',
+        cscsStatus: 'CSCS Status',
+        ipafStatus: 'IPAF Status',
+        asbestosAwareness: 'Asbestos Awareness',
+        manualHandling: 'Manual Handling',
+        inductionCompleted: 'Site Induction Completed',
+        workingAtHeight: 'Working at Height',
+        isActive: 'Active Status',
+        currentCardStatus: 'Card Status',
+        hsRulesAccepted: 'H&S Rules Accepted',
+      };
+      
+      const changes: string[] = [];
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      for (const [field, label] of Object.entries(auditFieldLabels)) {
+        if (validatedData[field] !== undefined) {
+          const oldVal = (currentWorker as any)[field];
+          const newVal = validatedData[field];
+          
+          // Compare values (handle booleans and strings)
+          const oldStr = oldVal === null || oldVal === undefined ? 'Not set' : String(oldVal);
+          const newStr = newVal === null || newVal === undefined ? 'Not set' : String(newVal);
+          
+          if (oldStr !== newStr) {
+            changes.push(`${label}: "${oldStr}" → "${newStr}"`);
+            
+            // Create individual audit note for each change
+            try {
+              await db.insert(isolatedSchema.workerNotes).values({
+                workerId: workerId,
+                changeType: 'profile_update',
+                oldValue: oldStr,
+                newValue: newStr,
+                notes: `${label} changed from "${oldStr}" to "${newStr}"`,
+                changedBy: username,
+              });
+            } catch (noteErr) {
+              console.error(`Failed to create audit note for ${field}:`, noteErr);
+            }
+          }
+        }
+      }
+      
+      if (changes.length > 0) {
+        console.log(`📋 AUDIT: ${changes.length} changes recorded by ${username}: ${changes.join(', ')}`);
+      }
+
       // Response field mapping: Convert database field names back to UI field names
       const responseData = {
         ...updatedWorker,
-        // Map database fields back to UI field names
-        cscsStatus: updatedWorker.cscsStatus, // Keep as string value from database
-        inductionCompleted: updatedWorker.inductionCompleted, // Direct mapping
+        cscsStatus: updatedWorker.cscsStatus,
+        inductionCompleted: updatedWorker.inductionCompleted,
       };
 
       res.json({ success: true, worker: responseData });
@@ -14740,6 +14803,21 @@ This is an automated notification from your visitor management system.`;
       await databaseService.createContractorVisit(context, visitData);
       console.log(`📋 Created visit record for ${worker.firstName} ${worker.lastName}`);
 
+      // Create audit trail entry for check-in
+      try {
+        const db = await customerDbService.getCustomerDatabase(context.customerId);
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId: workerId,
+          changeType: 'check_in',
+          oldValue: 'Checked Out',
+          newValue: 'Checked In',
+          notes: `Checked in for: ${purpose || 'Site work'}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('Failed to create check-in audit note:', auditErr);
+      }
+
       // Calculate CO2 emissions for this worker's commute
       let co2CalculationResult = null;
       if (worker.postcode && company.address) {
@@ -14905,6 +14983,21 @@ This is an automated notification from your visitor management system.`;
           checkedOutAt: new Date()
         });
         console.log(`📋 Completed visit record for ${worker.firstName} ${worker.lastName}`);
+      }
+
+      // Create audit trail entry for check-out
+      try {
+        const db = await customerDbService.getCustomerDatabase(context.customerId);
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId: workerId,
+          changeType: 'check_out',
+          oldValue: 'Checked In',
+          newValue: 'Checked Out',
+          notes: `Checked out${checkoutType ? ` (${checkoutType})` : ''}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('Failed to create check-out audit note:', auditErr);
       }
 
       websocketService.broadcastPersonnelUpdate(context.customerId, {

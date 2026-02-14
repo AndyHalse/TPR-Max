@@ -142,6 +142,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/checked-in'] });
+      refetchNotes();
       toast({
         title: 'Success',
         description: 'Contractor profile updated successfully!',
@@ -168,14 +171,19 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/checked-in'] });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/history`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
       toast({
         title: 'Success',
         description: 'Contractor checked in successfully!',
       });
       refetchHistory();
+      refetchNotes();
     },
     onError: (error: any) => {
       toast({
@@ -193,15 +201,19 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/checkout`);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/checked-in'] });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/history`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats'] }); // Refresh dashboard stats
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
       toast({
         title: 'Success',
         description: 'Contractor checked out successfully!',
       });
       refetchHistory();
+      refetchNotes();
     },
     onError: (error: any) => {
       toast({
@@ -1369,17 +1381,23 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                             <div className="flex items-center gap-2">
                               <Badge variant={
                                 note.changeType === 'card_reset' || note.changeType === 'card_status_change' ? 'destructive' : 
+                                note.changeType === 'check_in' ? 'default' :
+                                note.changeType === 'check_out' ? 'secondary' :
                                 note.changeType === 'certification_update' ? 'default' : 
                                 note.changeType === 'hs_acceptance' ? 'secondary' : 
+                                note.changeType === 'document_upload' ? 'outline' :
                                 note.changeType === 'manual_note' ? 'default' :
                                 'outline'
                               }>
-                                {(note.changeType === 'card_reset' || note.changeType === 'card_status_change') && 'Card Status Changed'}
+                                {(note.changeType === 'card_reset' || note.changeType === 'card_status_change') && 'Card Status'}
+                                {note.changeType === 'check_in' && 'Check In'}
+                                {note.changeType === 'check_out' && 'Check Out'}
                                 {note.changeType === 'certification_update' && 'Certification Update'}
                                 {note.changeType === 'hs_acceptance' && 'H&S Acceptance'}
                                 {note.changeType === 'profile_update' && 'Profile Update'}
+                                {note.changeType === 'document_upload' && 'Document Upload'}
                                 {note.changeType === 'manual_note' && 'Manual Note'}
-                                {!['card_reset', 'card_status_change', 'certification_update', 'hs_acceptance', 'profile_update', 'manual_note'].includes(note.changeType) && note.changeType}
+                                {!['card_reset', 'card_status_change', 'check_in', 'check_out', 'certification_update', 'hs_acceptance', 'profile_update', 'document_upload', 'manual_note'].includes(note.changeType) && note.changeType}
                               </Badge>
                               <span className="text-sm text-variable">{note.changedBy || 'System'}</span>
                             </div>
