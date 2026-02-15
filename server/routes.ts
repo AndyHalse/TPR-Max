@@ -10388,8 +10388,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
-      const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
-        .where(eq(isolatedSchema.preBookings.qrCode, qrCode)).limit(1);
+      let preBooking;
+      
+      // Support lookup by QR code or by pre-booking ID (PBK-{id} format from dashboard)
+      if (qrCode.startsWith('PBK-')) {
+        const preBookingId = qrCode.replace('PBK-', '');
+        const [found] = await customerDb.select().from(isolatedSchema.preBookings)
+          .where(eq(isolatedSchema.preBookings.id, preBookingId)).limit(1);
+        preBooking = found;
+      } else {
+        const [found] = await customerDb.select().from(isolatedSchema.preBookings)
+          .where(eq(isolatedSchema.preBookings.qrCode, qrCode)).limit(1);
+        preBooking = found;
+      }
+      
       if (!preBooking) {
         return res.status(404).json({ error: "Pre-booking not found" });
       }
