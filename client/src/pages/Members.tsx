@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users } from "lucide-react";
+import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList } from "lucide-react";
 
 interface Member {
   id: string;
@@ -57,6 +57,7 @@ const emptyForm: MemberFormData = {
 export default function Members() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [formData, setFormData] = useState<MemberFormData>(emptyForm);
@@ -230,14 +231,36 @@ export default function Members() {
         </Button>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-variable" />
-        <Input
-          placeholder="Search members..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-variable" />
+          <Input
+            placeholder="Search members..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('grid')}
+            className="h-8 w-8 p-0"
+            title="Grid view"
+          >
+            <LayoutGrid size={14} />
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="h-8 w-8 p-0"
+            title="List view"
+          >
+            <LayoutList size={14} />
+          </Button>
+        </div>
       </div>
 
       <GlassCard>
@@ -259,7 +282,7 @@ export default function Members() {
               </Button>
             )}
           </div>
-        ) : (
+        ) : viewMode === 'list' ? (
           <div className="space-y-4">
             {filteredMembers.map((member) => (
               <div
@@ -340,6 +363,75 @@ export default function Members() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMembers.map((member) => (
+              <div key={member.id} className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-fixed">{member.firstName} {member.lastName}</h3>
+                    {member.company && <p className="text-sm text-variable">{member.company}</p>}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Badge className={membershipColors[member.membershipType || "standard"]}>
+                      {(member.membershipType || "standard").toUpperCase()}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-1 text-sm text-variable mb-3">
+                  {member.email && <p>{member.email}</p>}
+                  {member.department && <p>Dept: {member.department}</p>}
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+                  <Badge className={member.isCheckedIn ? "bg-green-100 text-green-800" : ""} variant={member.isCheckedIn ? "default" : "secondary"}>
+                    {member.isCheckedIn ? "On Site" : "Off Site"}
+                  </Badge>
+                  <div className="flex items-center gap-1">
+                    {member.isCheckedIn ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => checkOutMutation.mutate(member.id)}
+                        disabled={checkOutMutation.isPending}
+                      >
+                        <UserX className="h-3 w-3 mr-1" />
+                        Out
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => checkInMutation.mutate(member.id)}
+                        disabled={checkInMutation.isPending}
+                      >
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        In
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => openEditDialog(member)}
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => deleteMutation.mutate(member.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

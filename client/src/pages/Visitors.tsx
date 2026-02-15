@@ -31,7 +31,9 @@ import {
   UserCheck,
   UserX,
   History,
-  Edit
+  Edit,
+  LayoutGrid,
+  LayoutList
 } from "lucide-react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -314,6 +316,8 @@ export default function Visitors() {
   const [preBookSearchTerm, setPreBookSearchTerm] = useState("");
   const [showVisitorSearch, setShowVisitorSearch] = useState(false);
 
+  // View mode state for existing visitors
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // GDPR Fix: Get staff by company for walk-in visitors
   const { data: walkInStaff } = useQuery<Staff[]>({
@@ -893,6 +897,28 @@ export default function Visitors() {
               />
             </div>
 
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 mb-4">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="h-8 w-8 p-0"
+                title="Grid view"
+              >
+                <LayoutGrid size={14} />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8 w-8 p-0"
+                title="List view"
+              >
+                <LayoutList size={14} />
+              </Button>
+            </div>
+
             {/* Show All Button */}
             {filteredVisitors.length > 24 && !showAllPreviousVisitors && (
               <div className="mb-4 text-center">
@@ -908,95 +934,115 @@ export default function Visitors() {
             )}
 
             {/* Visitors List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-2"}>
               {filteredVisitors.length > 0 ? (
                 (showAllPreviousVisitors ? filteredVisitors : filteredVisitors.slice(0, 24)).map((visitor) => (
-                  <div
-                    key={visitor.id}
-                    className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all cursor-pointer"
-                    data-testid={`card-visitor-${visitor.id}`}
-                    onClick={() => handlePreBookVisitor(visitor)}
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-fixed">{visitor.firstName} {visitor.lastName}</h3>
-                          {visitor.company && (
-                            <p className="text-sm text-variable">{visitor.company}</p>
-                          )}
-                          <p className="text-xs text-variable mt-1">
-                            Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
-                              day: 'numeric', 
-                              month: 'short', 
-                              year: 'numeric' 
-                            })}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {visitor.isCheckedIn && visitor.checkedInAt && (
-                            <span className="text-xs text-variable flex items-center">
-                              <Clock size={10} className="mr-1" />
-                              {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
+                  viewMode === 'grid' ? (
+                    <div
+                      key={visitor.id}
+                      className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all cursor-pointer"
+                      data-testid={`card-visitor-${visitor.id}`}
+                      onClick={() => handlePreBookVisitor(visitor)}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-fixed">{visitor.firstName} {visitor.lastName}</h3>
+                            {visitor.company && (
+                              <p className="text-sm text-variable">{visitor.company}</p>
+                            )}
+                            <p className="text-xs text-variable mt-1">
+                              Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
+                                day: 'numeric', 
+                                month: 'short', 
+                                year: 'numeric' 
                               })}
-                            </span>
-                          )}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
-                            data-testid={`button-edit-visitor-${visitor.id}`}
-                            className="p-2"
-                            title="Edit visitor details"
-                          >
-                            <Edit size={14} />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
-                            data-testid={`button-prebook-visitor-${visitor.id}`}
-                            className="p-2"
-                            title="Pre-book this visitor"
-                          >
-                            <CalendarPlus size={14} />
-                          </Button>
-                          {visitor.isCheckedIn ? (
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {visitor.isCheckedIn && visitor.checkedInAt && (
+                              <span className="text-xs text-variable flex items-center">
+                                <Clock size={10} className="mr-1" />
+                                {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
-                              disabled={checkoutVisitorMutation.isPending}
-                              data-testid={`button-checkout-visitor-${visitor.id}`}
-                              title="Check out visitor"
-                              className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                              onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
+                              data-testid={`button-edit-visitor-${visitor.id}`}
+                              className="p-2"
+                              title="Edit visitor details"
                             >
-                              <UserX size={16} className="mr-1" />
-                              Check Out
+                              <Edit size={14} />
                             </Button>
-                          ) : (
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
-                              data-testid={`button-select-visitor-${visitor.id}`}
-                              title="Check in visitor"
-                              className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                              onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
+                              data-testid={`button-prebook-visitor-${visitor.id}`}
+                              className="p-2"
+                              title="Pre-book this visitor"
                             >
-                              <UserCheck size={16} className="mr-1" />
-                              Check In
+                              <CalendarPlus size={14} />
                             </Button>
-                          )}
+                            {visitor.isCheckedIn ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
+                                disabled={checkoutVisitorMutation.isPending}
+                                data-testid={`button-checkout-visitor-${visitor.id}`}
+                                title="Check out visitor"
+                                className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                              >
+                                <UserX size={16} className="mr-1" />
+                                Check Out
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
+                                data-testid={`button-select-visitor-${visitor.id}`}
+                                title="Check in visitor"
+                                className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                              >
+                                <UserCheck size={16} className="mr-1" />
+                                Check In
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div 
+                      key={visitor.id} 
+                      className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all cursor-pointer" 
+                      data-testid={`card-visitor-${visitor.id}`}
+                      onClick={() => handlePreBookVisitor(visitor)}
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <span className="font-semibold text-fixed text-sm truncate">{visitor.firstName} {visitor.lastName}</span>
+                        {visitor.company && <span className="text-sm text-variable truncate hidden sm:inline">{visitor.company}</span>}
+                        <span className="text-xs text-variable hidden md:inline">Last: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className={visitor.isCheckedIn ? "bg-green-100 text-green-700" : ""}>
+                          {visitor.isCheckedIn ? "On Site" : "Off Site"}
+                        </Badge>
+                      </div>
+                    </div>
+                  )
                 ))
               ) : (
                 <div className="col-span-full text-center py-8 text-variable">

@@ -5,8 +5,9 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Staff } from "@shared/schema";
@@ -16,6 +17,8 @@ export default function StaffManagement() {
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [qrPassStaff, setQrPassStaff] = useState<Staff | null>(null);
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; staffName: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const { slug } = useParams<{ slug: string }>();
   const [location] = useLocation();
@@ -398,147 +401,204 @@ export default function StaffManagement() {
     return <div>Loading staff...</div>;
   }
 
+  const filteredStaff = (staff || []).filter(member => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
+    return fullName.includes(search) || member.email?.toLowerCase().includes(search) || member.department?.toLowerCase().includes(search);
+  });
+
   return (
     <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-        <h2 className="text-xl sm:text-2xl font-bold text-fixed">Staff Management</h2>
-        <Button
-          onClick={() => setIsAddModalOpen(true)}
-          className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 whitespace-nowrap"
-          data-testid="button-add-staff"
-        >
-          <Plus className="mr-1.5 sm:mr-2" size={16} />
-          <span className="text-sm sm:text-base">Add Staff Member</span>
-        </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-fixed">Staff Management</h2>
+          <Button onClick={() => setIsAddModalOpen(true)} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 whitespace-nowrap" data-testid="button-add-staff">
+            <Plus className="mr-1.5 sm:mr-2" size={16} />
+            <span className="text-sm sm:text-base">Add Staff Member</span>
+          </Button>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-variable" />
+            <Input placeholder="Search staff..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0" title="Grid view">
+              <LayoutGrid size={14} />
+            </Button>
+            <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0" title="List view">
+              <LayoutList size={14} />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Staff Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {!staff || staff.length === 0 ? (
+      <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-2"}>
+        {filteredStaff.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <p className="text-variable text-lg">No staff members found</p>
             <p className="text-variable text-sm mt-2">Add your first staff member to get started</p>
           </div>
         ) : (
-          staff.map((member, index) => (
-            <GlassCard key={member.id} hover>
-              <div className="flex items-start space-x-3 mb-3">
-                {member.photoUrl ? (
-                  <img 
-                    src={member.photoUrl} 
-                    alt={getFullName(member)}
-                    className="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className={`w-12 h-12 ${getGradientClass(index)} rounded-full flex items-center justify-center flex-shrink-0`}>
-                    <span className="text-white font-bold text-sm">{getInitials(member)}</span>
+          filteredStaff.map((member, index) => (
+            viewMode === 'grid' ? (
+              <GlassCard key={member.id} hover>
+                <div className="flex items-start space-x-3 mb-3">
+                  {member.photoUrl ? (
+                    <img 
+                      src={member.photoUrl} 
+                      alt={getFullName(member)}
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className={`w-12 h-12 ${getGradientClass(index)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                      <span className="text-white font-bold text-sm">{getInitials(member)}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-fixed text-sm truncate" data-testid={`staff-name-${member.id}`}>
+                        {getFullName(member)}
+                      </h3>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
+                        member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {member.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <p className="text-variable text-xs truncate" data-testid={`staff-email-${member.id}`}>
+                      {member.email}
+                    </p>
+                    <p className="text-variable text-xs" data-testid={`staff-department-${member.id}`}>
+                      {member.department} <span className="text-variable/60">| {member.employeeId}</span>
+                    </p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-fixed text-sm truncate" data-testid={`staff-name-${member.id}`}>
-                      {getFullName(member)}
-                    </h3>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
-                      member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {member.isActive ? 'Active' : 'Inactive'}
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getAccessLevelBadgeColor(member.accessLevel || 'staff')}`}>
+                    {getAccessLevelIcon(member.accessLevel || 'staff')} {getAccessLevelLabel(member.accessLevel || 'staff')}
+                  </span>
+                  {member.isFireMarshal && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-800" data-testid={`fire-marshal-badge-${member.id}`}>
+                      🚨 Fire Marshal
                     </span>
+                  )}
+                  {member.isCheckedIn && member.checkedInAt && (
+                    <span className="text-[10px] text-variable flex items-center ml-auto">
+                      <Clock size={9} className="mr-0.5" />
+                      {new Date(member.checkedInAt).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+                  <div className="flex items-center gap-1.5">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setEditingStaff(member)}
+                      className="h-8 w-8 p-0"
+                      data-testid={`button-edit-staff-${member.id}`}
+                      title="Edit"
+                    >
+                      <Edit size={15} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setQrPassStaff(member)}
+                      className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                      data-testid={`button-qr-pass-${member.id}`}
+                      title="QR Pass"
+                    >
+                      <QrCode size={15} />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => deleteMutation.mutate(member.id)}
+                      disabled={deleteMutation.isPending}
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      data-testid={`button-delete-staff-${member.id}`}
+                      title="Delete"
+                    >
+                      <Trash2 size={15} />
+                    </Button>
                   </div>
-                  <p className="text-variable text-xs truncate" data-testid={`staff-email-${member.id}`}>
-                    {member.email}
-                  </p>
-                  <p className="text-variable text-xs" data-testid={`staff-department-${member.id}`}>
-                    {member.department} <span className="text-variable/60">| {member.employeeId}</span>
-                  </p>
+                  {member.isActive && (
+                    <>
+                      {!member.isCheckedIn ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => checkInMutation.mutate(member.id)}
+                          disabled={checkInMutation.isPending}
+                          className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                          data-testid={`button-checkin-${member.id}`}
+                          title="Manual check-in"
+                        >
+                          <UserCheck size={16} className="mr-1.5" />
+                          Check In
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => checkOutMutation.mutate(member.id)}
+                          disabled={checkOutMutation.isPending}
+                          className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                          data-testid={`button-checkout-${member.id}`}
+                          title="Check out"
+                        >
+                          <UserX size={16} className="mr-1.5" />
+                          Check Out
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap mb-2">
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getAccessLevelBadgeColor(member.accessLevel || 'staff')}`}>
-                  {getAccessLevelIcon(member.accessLevel || 'staff')} {getAccessLevelLabel(member.accessLevel || 'staff')}
-                </span>
-                {member.isFireMarshal && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-800" data-testid={`fire-marshal-badge-${member.id}`}>
-                    🚨 Fire Marshal
-                  </span>
-                )}
-                {member.isCheckedIn && member.checkedInAt && (
-                  <span className="text-[10px] text-variable flex items-center ml-auto">
-                    <Clock size={9} className="mr-0.5" />
-                    {new Date(member.checkedInAt).toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
-                <div className="flex items-center gap-1.5">
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    onClick={() => setEditingStaff(member)}
-                    className="h-8 w-8 p-0"
-                    data-testid={`button-edit-staff-${member.id}`}
-                    title="Edit"
-                  >
-                    <Edit size={15} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setQrPassStaff(member)}
-                    className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                    data-testid={`button-qr-pass-${member.id}`}
-                    title="QR Pass"
-                  >
-                    <QrCode size={15} />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    onClick={() => deleteMutation.mutate(member.id)}
-                    disabled={deleteMutation.isPending}
-                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                    data-testid={`button-delete-staff-${member.id}`}
-                    title="Delete"
-                  >
-                    <Trash2 size={15} />
-                  </Button>
+              </GlassCard>
+            ) : (
+              <div key={member.id} className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {member.photoUrl ? (
+                    <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className={`w-8 h-8 ${getGradientClass(index)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                      <span className="text-white font-bold text-xs">{getInitials(member)}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-fixed text-sm">{member.firstName} {member.lastName}</span>
+                    <div className="flex items-center gap-3 text-xs text-variable">
+                      <span>{member.department}</span>
+                      {member.email && <span className="hidden sm:inline">{member.email}</span>}
+                    </div>
+                  </div>
                 </div>
-                {member.isActive && (
-                  <>
-                    {!member.isCheckedIn ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => checkInMutation.mutate(member.id)}
-                        disabled={checkInMutation.isPending}
-                        className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                        data-testid={`button-checkin-${member.id}`}
-                        title="Manual check-in"
-                      >
-                        <UserCheck size={16} className="mr-1.5" />
-                        Check In
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${member.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {member.isCheckedIn ? 'On Site' : 'Off Site'}
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-7 w-7 p-0" title="Edit"><Edit size={14} /></Button>
+                  {member.isActive && (
+                    !member.isCheckedIn ? (
+                      <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-7 px-2 text-xs text-green-600 border-green-300">
+                        <UserCheck size={14} className="mr-1" />In
                       </Button>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => checkOutMutation.mutate(member.id)}
-                        disabled={checkOutMutation.isPending}
-                        className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                        data-testid={`button-checkout-${member.id}`}
-                        title="Check out"
-                      >
-                        <UserX size={16} className="mr-1.5" />
-                        Check Out
+                      <Button size="sm" variant="outline" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending} className="h-7 px-2 text-xs text-red-600 border-red-300">
+                        <UserX size={14} className="mr-1" />Out
                       </Button>
-                    )}
-                  </>
-                )}
+                    )
+                  )}
+                </div>
               </div>
-            </GlassCard>
+            )
           ))
         )}
       </div>

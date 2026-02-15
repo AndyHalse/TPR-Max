@@ -42,7 +42,9 @@ import {
   Edit,
   Trash2,
   ChevronsUpDown,
-  Check
+  Check,
+  LayoutGrid,
+  LayoutList
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
@@ -209,6 +211,7 @@ export default function Contractors() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("contractors");
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -914,7 +917,7 @@ export default function Contractors() {
 
       {/* Search and Filters */}
       <GlassCard>
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-variable" size={16} />
             <Input
@@ -926,144 +929,190 @@ export default function Contractors() {
               data-testid="input-search-contractors"
             />
           </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              className="h-8 w-8 p-0"
+              title="Grid view"
+            >
+              <LayoutGrid size={14} />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8 w-8 p-0"
+              title="List view"
+            >
+              <LayoutList size={14} />
+            </Button>
+          </div>
         </div>
       </GlassCard>
 
       {/* Contractors List */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className={viewMode === 'grid' ? "grid grid-cols-1 gap-6" : "space-y-2"}>
         {isLoading ? (
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
             <p className="mt-2 text-variable">Loading contractors...</p>
           </div>
-        ) : filteredContractors.map((contractor) => (
-          <GlassCard key={contractor.id}>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-[var(--background)] rounded-lg flex items-center justify-center">
-                      <Building2 className="text-variable" size={20} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-fixed">{contractor.name}</h3>
-                      <div className="flex items-center space-x-4 text-sm text-variable">
-                        <span className="flex items-center">
-                          <Users className="mr-1" size={14} />
-                          {contractor.workersCount} workers
-                        </span>
-                        <span className="flex items-center">
-                          <Calendar className="mr-1" size={14} />
-                          Updated {contractor.lastUpdated}
-                        </span>
+        ) : filteredContractors.map((contractor) => 
+          viewMode === 'grid' ? (
+            <GlassCard key={contractor.id}>
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-[var(--background)] rounded-lg flex items-center justify-center">
+                        <Building2 className="text-variable" size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-fixed">{contractor.name}</h3>
+                        <div className="flex items-center space-x-4 text-sm text-variable">
+                          <span className="flex items-center">
+                            <Users className="mr-1" size={14} />
+                            {contractor.workersCount} workers
+                          </span>
+                          <span className="flex items-center">
+                            <Calendar className="mr-1" size={14} />
+                            Updated {contractor.lastUpdated}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      {(() => {
+                        const dynamicScore = calculateComplianceScore(contractor.documentsStatus);
+                        return (
+                          <>
+                            {getComplianceIcon(dynamicScore)}
+                            <span className="text-sm font-medium text-slate-700">{dynamicScore}%</span>
+                            {getStatusBadge(contractor.status)}
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {(() => {
-                      const dynamicScore = calculateComplianceScore(contractor.documentsStatus);
-                      return (
-                        <>
-                          {getComplianceIcon(dynamicScore)}
-                          <span className="text-sm font-medium text-slate-700">{dynamicScore}%</span>
-                          {getStatusBadge(contractor.status)}
-                        </>
-                      );
-                    })()}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white/50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-variable">Public Liability</span>
+                        {getDocumentStatusIcon(contractor.documentsStatus.publicLiability)}
+                      </div>
+                      <span className="text-xs text-variable capitalize">
+                        {contractor.documentsStatus.publicLiability}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-variable">Employers Liability</span>
+                        {getDocumentStatusIcon(contractor.documentsStatus.employersLiability)}
+                      </div>
+                      <span className="text-xs text-variable capitalize">
+                        {contractor.documentsStatus.employersLiability}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-variable">Health & Safety</span>
+                        {getDocumentStatusIcon(contractor.documentsStatus.healthSafety)}
+                      </div>
+                      <span className="text-xs text-variable capitalize">
+                        {contractor.documentsStatus.healthSafety}
+                      </span>
+                    </div>
+
+                    <div className="bg-white/50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-variable">CIS Registration</span>
+                        {getDocumentStatusIcon(contractor.documentsStatus.cisRegistration)}
+                      </div>
+                      <span className="text-xs text-variable capitalize">
+                        {contractor.documentsStatus.cisRegistration}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-variable">Public Liability</span>
-                      {getDocumentStatusIcon(contractor.documentsStatus.publicLiability)}
-                    </div>
-                    <span className="text-xs text-variable capitalize">
-                      {contractor.documentsStatus.publicLiability}
-                    </span>
-                  </div>
-
-                  <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-variable">Employers Liability</span>
-                      {getDocumentStatusIcon(contractor.documentsStatus.employersLiability)}
-                    </div>
-                    <span className="text-xs text-variable capitalize">
-                      {contractor.documentsStatus.employersLiability}
-                    </span>
-                  </div>
-
-                  <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-variable">Health & Safety</span>
-                      {getDocumentStatusIcon(contractor.documentsStatus.healthSafety)}
-                    </div>
-                    <span className="text-xs text-variable capitalize">
-                      {contractor.documentsStatus.healthSafety}
-                    </span>
-                  </div>
-
-                  <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-variable">CIS Registration</span>
-                      {getDocumentStatusIcon(contractor.documentsStatus.cisRegistration)}
-                    </div>
-                    <span className="text-xs text-variable capitalize">
-                      {contractor.documentsStatus.cisRegistration}
-                    </span>
+                <div className="grid grid-cols-2 gap-2 lg:w-60">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLocation(`/contractors/${contractor.id}`)}
+                    className="w-full"
+                    data-testid={`button-workers-${contractor.id}`}
+                  >
+                    <Users className="mr-2" size={14} />
+                    Workers
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedContractor(contractor);
+                      setShowWorkersModal(true);
+                    }}
+                    className="w-full"
+                    data-testid={`button-add-worker-${contractor.id}`}
+                  >
+                    <UserPlus className="mr-2" size={14} />
+                    Add Worker
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditContractor(contractor)}
+                    className="w-full"
+                    data-testid={`button-edit-contractor-${contractor.id}`}
+                  >
+                    <Edit className="mr-2" size={14} />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteContractor(contractor.id)}
+                    className="w-full"
+                    data-testid={`button-delete-contractor-${contractor.id}`}
+                  >
+                    <Trash2 className="mr-2" size={14} />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
+          ) : (
+            <div key={contractor.id} className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="w-10 h-10 bg-[var(--background)] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Building2 className="text-variable" size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold text-fixed text-sm">{contractor.name}</span>
+                  <div className="flex items-center gap-3 text-xs text-variable">
+                    <span className="flex items-center"><Users className="mr-1" size={12} />{contractor.workersCount} workers</span>
+                    {contractor.email && <span className="hidden sm:inline">{contractor.email}</span>}
                   </div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 lg:w-60">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLocation(`/contractors/${contractor.id}`)}
-                  className="w-full"
-                  data-testid={`button-workers-${contractor.id}`}
-                >
-                  <Users className="mr-2" size={14} />
-                  Workers
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {getStatusBadge(contractor.status)}
+                <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-8 px-3 text-xs">
+                  <Users className="mr-1" size={12} />Workers
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedContractor(contractor);
-                    setShowWorkersModal(true);
-                  }}
-                  className="w-full"
-                  data-testid={`button-add-worker-${contractor.id}`}
-                >
-                  <UserPlus className="mr-2" size={14} />
-                  Add Worker
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEditContractor(contractor)}
-                  className="w-full"
-                  data-testid={`button-edit-contractor-${contractor.id}`}
-                >
-                  <Edit className="mr-2" size={14} />
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDeleteContractor(contractor.id)}
-                  className="w-full"
-                  data-testid={`button-delete-contractor-${contractor.id}`}
-                >
-                  <Trash2 className="mr-2" size={14} />
-                  Delete
+                <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-8 px-3 text-xs">
+                  <UserPlus className="mr-1" size={12} />Add
                 </Button>
               </div>
             </div>
-          </GlassCard>
-        ))}
+          )
+        )}
       </div>
 
       {/* Add Contractor Dialog */}
