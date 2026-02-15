@@ -16,23 +16,22 @@ import { Link } from "wouter";
 export default function Login() {
   const [, setLocation] = useLocation();
   
-  // Load safe credentials from localStorage (never password)
   const loadStoredCredentials = () => {
     try {
-      const storedCredentials = localStorage.getItem('visigate-login');
+      const storedCredentials = localStorage.getItem('tprmax-last-login');
       if (storedCredentials) {
         const parsed = JSON.parse(storedCredentials);
         return {
-          companyName: parsed.companyName || "Development Customer",
-          username: parsed.username || "Andy"
+          companyName: parsed.companyName || "",
+          username: parsed.username || ""
         };
       }
     } catch (error) {
       console.warn('Failed to load stored credentials:', error);
     }
     return {
-      companyName: "Development Customer",
-      username: "Andy"
+      companyName: "",
+      username: ""
     };
   };
   
@@ -83,14 +82,13 @@ export default function Login() {
       if (response.ok && data.success) {
         // Authentication successful
         
-        // Save only safe fields to localStorage (never password)
         try {
-          localStorage.setItem('visigate-login', JSON.stringify({
+          localStorage.setItem('tprmax-last-login', JSON.stringify({
             companyName: credentials.companyName,
             username: credentials.username
           }));
         } catch (error) {
-          console.warn('Failed to save credentials to localStorage:', error);
+          console.warn('Failed to save login to localStorage:', error);
         }
         
         toast({
