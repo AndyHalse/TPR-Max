@@ -579,6 +579,7 @@ export default function Dashboard() {
       return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
