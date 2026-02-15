@@ -585,14 +585,17 @@ export default function StaffManagement() {
                     {member.isCheckedIn ? 'On Site' : 'Off Site'}
                   </span>
                   <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-7 w-7 p-0" title="Edit"><Edit size={14} /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-7 w-7 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title="QR Pass"><QrCode size={14} /></Button>
                   {member.isActive && (
                     !member.isCheckedIn ? (
-                      <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-7 px-2 text-xs text-green-600 border-green-300">
-                        <UserCheck size={14} className="mr-1" />In
+                      <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50">
+                        <UserCheck size={16} className="mr-1" />
+                        Check In
                       </Button>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending} className="h-7 px-2 text-xs text-red-600 border-red-300">
-                        <UserX size={14} className="mr-1" />Out
+                      <Button size="sm" variant="outline" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending} className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50">
+                        <UserX size={16} className="mr-1" />
+                        Check Out
                       </Button>
                     )
                   )}
