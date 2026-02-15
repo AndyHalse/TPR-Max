@@ -12193,8 +12193,8 @@ This is an automated notification from your visitor management system.`;
       
       // Get documents and create status summary
       const detailDocsDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const documents = await detailDocsDb.select().from(isolatedSchema.complianceDocuments)
-        .where(eq(isolatedSchema.complianceDocuments.companyId, id));
+      const documents = await detailDocsDb.select().from(isolatedSchema.contractorDocuments)
+        .where(eq(isolatedSchema.contractorDocuments.companyId, id));
       const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'];
       const documentsStatus = docTypes.reduce((acc, docType) => {
         const doc = documents.find(d => d.documentType === docType);
@@ -12447,8 +12447,8 @@ This is an automated notification from your visitor management system.`;
       
       const workers = await databaseService.getWorkersByCompanyId(dupContractorContext, id);
       const dupDocsDb = await customerDbService.getCustomerDatabase(dupContractorContext.customerId);
-      const documents = await dupDocsDb.select().from(isolatedSchema.complianceDocuments)
-        .where(eq(isolatedSchema.complianceDocuments.companyId, id));
+      const documents = await dupDocsDb.select().from(isolatedSchema.contractorDocuments)
+        .where(eq(isolatedSchema.contractorDocuments.companyId, id));
       
       // Use existing compliance score without AI calculation for performance
       const safetyRating = contractor.complianceScore || "A+";
@@ -13323,8 +13323,8 @@ This is an automated notification from your visitor management system.`;
       const { companyId } = req.params;
       const compDocsContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const compDocsDb = await customerDbService.getCustomerDatabase(compDocsContext.customerId);
-      const documents = await compDocsDb.select().from(isolatedSchema.complianceDocuments)
-        .where(eq(isolatedSchema.complianceDocuments.companyId, companyId));
+      const documents = await compDocsDb.select().from(isolatedSchema.contractorDocuments)
+        .where(eq(isolatedSchema.contractorDocuments.companyId, companyId));
       res.json(documents);
     } catch (error) {
       console.error("Error fetching documents:", error);
