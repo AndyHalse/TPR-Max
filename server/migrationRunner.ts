@@ -35,11 +35,15 @@ export class MigrationRunner {
     const db = await this.customerDbService.getCustomerDatabase(customerId);
     
     try {
-      // Create schema_version table if it doesn't exist
+      const currentSchemaResult = await db.execute(`SELECT current_schema()`);
+      const currentSchema = currentSchemaResult.rows[0]?.current_schema || 'public';
+      console.log(`📋 Running migrations for customer ${customerId} in schema: ${currentSchema}`);
+
       const schemaVersionExists = await db.execute(`
         SELECT EXISTS (
           SELECT 1 FROM information_schema.tables 
           WHERE table_name = 'schema_version'
+          AND table_schema = '${currentSchema}'
         )
       `);
       
@@ -51,10 +55,12 @@ export class MigrationRunner {
             description TEXT
           )
         `);
+        console.log(`✅ Created schema_version table in schema: ${currentSchema}`);
       }
       
-      // Get applied migrations
-      const appliedMigrations = await db.execute('SELECT version FROM schema_version');
+      const appliedMigrations = await db.execute(`
+        SELECT version FROM schema_version
+      `);
       const appliedVersions = new Set(appliedMigrations.rows.map((row: any) => row.version));
       
       // Run pending migrations
