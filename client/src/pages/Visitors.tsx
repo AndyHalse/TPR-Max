@@ -1040,6 +1040,52 @@ export default function Visitors() {
                         <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className={visitor.isCheckedIn ? "bg-green-100 text-green-700" : ""}>
                           {visitor.isCheckedIn ? "On Site" : "Off Site"}
                         </Badge>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
+                          data-testid={`button-edit-visitor-list-${visitor.id}`}
+                          className="p-2 h-8 w-8"
+                          title="Edit visitor details"
+                        >
+                          <Edit size={14} />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
+                          data-testid={`button-prebook-visitor-list-${visitor.id}`}
+                          className="p-2 h-8 w-8"
+                          title="Pre-book this visitor"
+                        >
+                          <CalendarPlus size={14} />
+                        </Button>
+                        {visitor.isCheckedIn ? (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
+                            disabled={checkoutVisitorMutation.isPending}
+                            data-testid={`button-checkout-visitor-list-${visitor.id}`}
+                            title="Check out visitor"
+                            className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                          >
+                            <UserX size={16} className="mr-1" />
+                            Check Out
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
+                            data-testid={`button-select-visitor-list-${visitor.id}`}
+                            title="Check in visitor"
+                            className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                          >
+                            <UserCheck size={16} className="mr-1" />
+                            Check In
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )
