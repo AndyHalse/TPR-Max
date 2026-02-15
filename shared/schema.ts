@@ -1084,6 +1084,7 @@ export const insertPrinterConfigurationSchema = createInsertSchema(printerConfig
 
 export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   id: true,
+  customerId: true,
   qrCode: true,
   isCheckedIn: true,
   checkedInAt: true,
@@ -1091,6 +1092,7 @@ export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   emailSent: true,
   emailSentAt: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertEvacuationsSchema = createInsertSchema(evacuations).omit({

@@ -5022,6 +5022,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GDPR-compliant endpoint: Get all staff for host selection (company used for cache key only)
+  app.get("/api/staff/by-company", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const allStaff = await databaseService.getAllStaff(context);
+      res.json(allStaff);
+    } catch (error) {
+      console.error("Error fetching staff by company:", error);
+      res.status(500).json({ error: "Failed to fetch staff" });
+    }
+  });
+
   // GDPR-compliant endpoint: Get staff by company name for visitor host selection
   app.get("/api/staff/by-company/:companyName", requireAuth, async (req, res) => {
     try {
@@ -10252,13 +10265,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transformedData = {
         ...req.body,
         visitDate: new Date(req.body.visitDate),
-        qrCode: 'PB-' + randomUUID().replace(/-/g, '').substring(0, 12),
       };
       delete transformedData.customerId;
       
       const preBookingData = insertPreBookingSchema.parse(transformedData);
       const [preBooking] = await customerDb.insert(isolatedSchema.preBookings)
-        .values(preBookingData).returning();
+        .values({
+          ...preBookingData,
+          customerId: context.customerId,
+          qrCode: 'PB-' + randomUUID().replace(/-/g, '').substring(0, 12),
+        }).returning();
       
       let hostStaff;
       try {
