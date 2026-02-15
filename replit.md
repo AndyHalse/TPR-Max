@@ -30,6 +30,11 @@ Preferred communication style: Simple, everyday language.
 ### Authentication & Authorization
 - **Authentication**: Session-based with `connect-pg-simple`
 - **Customer Isolation**: Database-level isolation with customer-specific connections
+- **Route Security**: All API routes use `requireAuth` middleware (134 routes verified). Public/token-based routes (emergency, H&S acceptance, QR checkout) use safe fallback `req.user?.username || 'system'`
+- **CSRF Protection**: Double-submit cookie pattern with exemptions for safe methods, webhooks, and emergency endpoints
+- **Session Security**: `secure: true` (production), `httpOnly: true`, `sameSite: strict` (production), 24-hour expiry
+- **Dev Bypass Safety**: DEV_AUTH_BYPASS and DEV_DATA_BYPASS require BOTH `NODE_ENV === 'development'` AND specific env vars set to `'true'`
+- **Preview Routes**: Induction preview routes gated behind `NODE_ENV === 'development'` to prevent data leakage in production
 
 ### Key Features & Technical Implementations
 - **Multi-Method Thermal Printing**: Supports TEC/Toshiba and Zebra thermal printers, including direct, browser, and Windows printing solutions with print quality and job tracking.
