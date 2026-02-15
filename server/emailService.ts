@@ -1584,6 +1584,87 @@ Powered by VisiGate Pro`;
     });
   }
 
+  async sendArrivalNotification(params: {
+    hostEmail: string;
+    hostFirstName: string;
+    visitorName: string;
+    visitorCompany: string;
+    visitorType: 'visitor' | 'contractor';
+    purpose?: string;
+    checkedInAt: Date;
+    companyName?: string;
+  }): Promise<boolean> {
+    try {
+      const {
+        hostEmail,
+        hostFirstName,
+        visitorName,
+        visitorCompany,
+        visitorType,
+        purpose,
+        checkedInAt,
+        companyName = 'TPR Max'
+      } = params;
+
+      const isContractor = visitorType === 'contractor';
+      const typeLabel = isContractor ? 'Contractor' : 'Visitor';
+      const checkInTime = new Date(checkedInAt).toLocaleString('en-GB');
+      const dashboardUrl = process.env.PUBLIC_URL || 'https://visigate.pro';
+
+      const subject = isContractor 
+        ? `Contractor arrival - ${visitorName}`
+        : `Your visitor has arrived - ${visitorName}`;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 20px;">✅ ${typeLabel} Arrival Notification</h1>
+          </div>
+          
+          <div style="padding: 20px; background: #ecfdf5; border-left: 4px solid #10b981;">
+            <h2 style="color: #333; margin-top: 0;">Hello ${hostFirstName},</h2>
+            
+            <p>A ${typeLabel.toLowerCase()} has just arrived on site and checked in.</p>
+            
+            <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+              <h3 style="color: #10b981; margin-top: 0;">${typeLabel} Details</h3>
+              <p><strong>Name:</strong> ${visitorName}</p>
+              <p><strong>Company:</strong> ${visitorCompany || 'N/A'}</p>
+              ${purpose ? `<p><strong>Purpose:</strong> ${purpose}</p>` : ''}
+              <p><strong>Check-in Time:</strong> ${checkInTime}</p>
+              <p><strong>Type:</strong> ${typeLabel}</p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+              <a href="${dashboardUrl}/dashboard" 
+                 style="display: inline-block; padding: 10px 20px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                View Dashboard
+              </a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 20px;">
+              This is an automated notification from ${companyName}.
+            </p>
+          </div>
+        </div>
+      `;
+
+      const text = `${typeLabel} Arrival Notification\n\nHello ${hostFirstName},\n\nA ${typeLabel.toLowerCase()} has just arrived on site:\n\n${typeLabel} Details:\nName: ${visitorName}\nCompany: ${visitorCompany || 'N/A'}\n${purpose ? `Purpose: ${purpose}\n` : ''}Check-in Time: ${checkInTime}\nType: ${typeLabel}\n\nView details at: ${dashboardUrl}/dashboard\n\nThis is an automated notification from ${companyName}.`;
+
+      return await this.sendEmail({
+        to: hostEmail,
+        subject,
+        html,
+        text,
+        companyName
+      });
+
+    } catch (error) {
+      console.error('Failed to send arrival notification email:', error);
+      return false;
+    }
+  }
+
   async sendMeetingReminder(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
     const subject = `Reminder: ${booking.title} starts in 15 minutes`;
     

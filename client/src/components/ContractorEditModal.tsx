@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +44,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showHSModal, setShowHSModal] = useState(false);
+  const [showHostSelection, setShowHostSelection] = useState(false);
+  const [selectedHostId, setSelectedHostId] = useState('');
   const [manualNote, setManualNote] = useState('');
   
   // Document upload state
@@ -132,6 +134,11 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
+  const { data: staffList = [] } = useQuery<any[]>({
+    queryKey: ['/api/staff'],
+    enabled: open,
+  });
+
   // Fetch worker notes/audit trail
   const { data: workerNotes = [], isLoading: notesLoading, refetch: refetchNotes } = useQuery<any[]>({
     queryKey: [`/api/contractors/workers/${worker?.id}/notes`],
@@ -179,10 +186,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   const checkInMutation = useMutation({
     mutationFn: async () => {
       if (!worker) throw new Error('No worker selected');
+      const selectedHost = staffList.find((s: any) => s.id === selectedHostId);
       const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/checkin`, {
         purpose: 'Site work',
         hsRulesAccepted: true,
         hsRulesAcceptedAt: new Date().toISOString(),
+        hostStaffId: selectedHostId || undefined,
+        hostName: selectedHost ? `${selectedHost.firstName} ${selectedHost.lastName}` : undefined,
       });
       return response.json();
     },
@@ -193,6 +203,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/history`] });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+      setSelectedHostId('');
       toast({
         title: 'Success',
         description: 'Contractor checked in successfully!',
@@ -744,7 +755,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                     ) : (
                       <Button
                         type="button"
-                        onClick={() => setShowHSModal(true)}
+                        onClick={() => setShowHostSelection(true)}
                         disabled={checkInMutation.isPending}
                         className="bg-green-600 hover:bg-green-700 text-white"
                         data-testid="button-contractor-checkin"
@@ -1449,6 +1460,48 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       </DialogContent>
     </Dialog>
     
+    {/* Host Selection Dialog for Check-in */}
+    <Dialog open={showHostSelection} onOpenChange={(open) => { if (!open) { setShowHostSelection(false); setSelectedHostId(''); } }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Select Host for {activeWorker?.firstName} {activeWorker?.lastName}</DialogTitle>
+          <DialogDescription>Who is {activeWorker?.firstName} {activeWorker?.lastName} visiting today?</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="hostStaffMember">Host Staff Member *</Label>
+            <Select value={selectedHostId} onValueChange={setSelectedHostId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select host staff member" />
+              </SelectTrigger>
+              <SelectContent>
+                {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.firstName} {staff.lastName}{staff.department ? ` - ${staff.department}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => { setShowHostSelection(false); setSelectedHostId(''); }}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!selectedHostId}
+            onClick={() => {
+              setShowHostSelection(false);
+              setShowHSModal(true);
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            Continue to Check In
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     {/* H&S Acceptance Modal */}
     {worker && (
       <ContractorHSModal

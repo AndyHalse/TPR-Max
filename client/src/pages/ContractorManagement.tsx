@@ -108,6 +108,11 @@ export default function ContractorManagement() {
   const [preBookDuration, setPreBookDuration] = useState("8");
   const [preBookNotes, setPreBookNotes] = useState("");
   const [preBookCompanyName, setPreBookCompanyName] = useState("");
+  const [preBookHost, setPreBookHost] = useState('');
+  const [showCheckInHostDialog, setShowCheckInHostDialog] = useState(false);
+  const [checkInWorkerId, setCheckInWorkerId] = useState<string | null>(null);
+  const [checkInWorkerName, setCheckInWorkerName] = useState('');
+  const [selectedCheckInHost, setSelectedCheckInHost] = useState('');
   
   // Form states for adding contractor
   const [contractorForm, setContractorForm] = useState({
@@ -209,6 +214,10 @@ export default function ContractorManagement() {
   const { data: allWorkers = [], refetch: refetchWorkers } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors/workers/all", customerId],
     enabled: activeTab === "previous" && !!customerId,
+  });
+
+  const { data: staffList = [] } = useQuery<any[]>({
+    queryKey: ['/api/staff'],
   });
 
   const generateTestWorkersMutation = useMutation({
@@ -461,11 +470,13 @@ export default function ContractorManagement() {
   // Removed unused handleEditWorker functions - now using comprehensive modal directly
 
   const checkInMutation = useMutation({
-    mutationFn: async (workerId: string) => {
-      const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`, {
+    mutationFn: async (data: { workerId: string; hostStaffId?: string; hostName?: string }) => {
+      const response = await apiRequest("POST", `/api/contractors/workers/${data.workerId}/checkin`, {
         hsRulesAccepted: true,
         hsRulesAcceptedAt: new Date().toISOString(),
-        purpose: "Work"
+        purpose: "Work",
+        hostStaffId: data.hostStaffId,
+        hostName: data.hostName,
       });
       return response.json();
     },
@@ -565,7 +576,7 @@ export default function ContractorManagement() {
   });
 
   const preBookWorkerMutation = useMutation({
-    mutationFn: async (data: { worker: ContractorWorker; date: Date; time: string; purpose: string; duration: string; notes: string; companyName: string }) => {
+    mutationFn: async (data: { worker: ContractorWorker; date: Date; time: string; purpose: string; duration: string; notes: string; companyName: string; hostStaffId?: string; hostName?: string }) => {
       const response = await apiRequest('POST', '/api/contractors/prebookings', {
         companyName: data.companyName,
         contactEmail: data.worker.email || '',
@@ -578,6 +589,8 @@ export default function ContractorManagement() {
         duration: data.duration,
         notes: data.notes,
         documentsRequired: [],
+        hostStaffId: data.hostStaffId || undefined,
+        hostName: data.hostName || undefined,
       });
       return response.json();
     },
@@ -603,6 +616,7 @@ export default function ContractorManagement() {
       setPreBookDuration("8");
       setPreBookNotes("");
       setPreBookCompanyName("");
+      setPreBookHost('');
     },
     onError: (error: any) => {
       toast({ title: "Failed to pre-book worker", description: error.message, variant: "destructive" });
@@ -1821,7 +1835,9 @@ export default function ContractorManagement() {
             setCompanyForCheckIn("");
           }}
           onAccept={(worker) => {
-            checkInMutation.mutate(worker.id);
+            setCheckInWorkerId(worker.id);
+            setCheckInWorkerName(`${worker.firstName} ${worker.lastName}`);
+            setShowCheckInHostDialog(true);
             setShowHSModal(false);
             setWorkerForCheckIn(null);
             setCompanyForCheckIn("");
@@ -1937,6 +1953,22 @@ export default function ContractorManagement() {
             </div>
 
             <div className="space-y-2">
+              <Label>Host Staff Member *</Label>
+              <Select value={preBookHost} onValueChange={setPreBookHost}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select host staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.firstName} {staff.lastName}{staff.department ? ` - ${staff.department}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Notes (optional)</Label>
               <Textarea
                 value={preBookNotes}
@@ -1954,6 +1986,7 @@ export default function ContractorManagement() {
             <Button
               onClick={() => {
                 if (!preBookingWorker) return;
+                const preBookHostStaff = staffList.find((s: any) => s.id === preBookHost);
                 preBookWorkerMutation.mutate({
                   worker: preBookingWorker,
                   date: preBookDate,
@@ -1962,12 +1995,64 @@ export default function ContractorManagement() {
                   duration: preBookDuration,
                   notes: preBookNotes,
                   companyName: preBookCompanyName,
+                  hostStaffId: preBookHost || undefined,
+                  hostName: preBookHostStaff ? `${preBookHostStaff.firstName} ${preBookHostStaff.lastName}` : undefined,
                 });
               }}
-              disabled={preBookWorkerMutation.isPending}
+              disabled={preBookWorkerMutation.isPending || !preBookHost}
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {preBookWorkerMutation.isPending ? "Booking..." : "Confirm Pre-Booking"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Host Selection Dialog for Contractor Check-in */}
+      <Dialog open={showCheckInHostDialog} onOpenChange={(open) => { if (!open) { setShowCheckInHostDialog(false); setSelectedCheckInHost(''); setCheckInWorkerId(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Host for {checkInWorkerName}</DialogTitle>
+            <DialogDescription>Who is {checkInWorkerName} visiting today?</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Host Staff Member *</Label>
+              <Select value={selectedCheckInHost} onValueChange={setSelectedCheckInHost}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select host staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.firstName} {staff.lastName}{staff.department ? ` - ${staff.department}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowCheckInHostDialog(false); setSelectedCheckInHost(''); setCheckInWorkerId(null); }}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!selectedCheckInHost || checkInMutation.isPending}
+              onClick={() => {
+                if (!checkInWorkerId) return;
+                const host = staffList.find((s: any) => s.id === selectedCheckInHost);
+                checkInMutation.mutate({
+                  workerId: checkInWorkerId,
+                  hostStaffId: selectedCheckInHost,
+                  hostName: host ? `${host.firstName} ${host.lastName}` : undefined,
+                });
+                setShowCheckInHostDialog(false);
+                setSelectedCheckInHost('');
+                setCheckInWorkerId(null);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {checkInMutation.isPending ? "Checking In..." : "Check In & Print Pass"}
             </Button>
           </DialogFooter>
         </DialogContent>

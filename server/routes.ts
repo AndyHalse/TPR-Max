@@ -6428,17 +6428,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Send email notification if voice failed or if email is preferred/both
+          // Send branded arrival email notification if voice failed or if email is preferred/both
           if (host.email && (!notificationSent || 
               host.preferredNotificationMethod === 'email' || 
               host.preferredNotificationMethod === 'both' ||
               !host.voiceNotificationsEnabled)) {
             try {
-              await emailService.sendHostNotification(visitor, host, settings);
-              console.log(`✅ Email notification sent to host ${host.email}`);
+              await emailService.sendArrivalNotification({
+                hostEmail: host.email,
+                hostFirstName: host.firstName,
+                visitorName: `${visitor.firstName} ${visitor.lastName}`,
+                visitorCompany: visitor.company || 'N/A',
+                visitorType: 'visitor',
+                purpose: visitor.purpose || undefined,
+                checkedInAt: new Date(),
+                companyName: settings?.companyName || 'TPR Max',
+              });
+              console.log(`✅ Arrival notification sent to host ${host.email}`);
               notificationSent = true;
             } catch (emailError) {
-              console.error('Failed to send email notification to host:', emailError);
+              console.error('Failed to send arrival notification to host:', emailError);
             }
           }
           
@@ -14888,6 +14897,30 @@ This is an automated notification from your visitor management system.`;
         } catch (emailError) {
           console.error("Failed to send contractor e-pass:", emailError);
           // Don't fail the check-in if email fails
+        }
+      }
+
+      // Send branded arrival notification to host staff member
+      if (hostStaffId) {
+        try {
+          const hostStaff = await databaseService.getStaffById(context, hostStaffId);
+          if (hostStaff && hostStaff.email) {
+            const companySettings = await simpleDatabaseService.getCompanySettings(context);
+            const arrivalEmailService = new EmailService();
+            await arrivalEmailService.sendArrivalNotification({
+              hostEmail: hostStaff.email,
+              hostFirstName: hostStaff.firstName,
+              visitorName: `${worker.firstName} ${worker.lastName}`,
+              visitorCompany: company.name || 'Contractor',
+              visitorType: 'contractor',
+              purpose: purpose || 'Site work',
+              checkedInAt: new Date(),
+              companyName: companySettings?.companyName || 'TPR Max',
+            });
+            console.log(`📧 Arrival notification sent to host ${hostStaff.firstName} ${hostStaff.lastName} (${hostStaff.email})`);
+          }
+        } catch (notifyError) {
+          console.error('Failed to send arrival notification to host:', notifyError);
         }
       }
 

@@ -77,8 +77,8 @@ export default function ContractorDetails() {
   });
 
   // Staff query for host selection (same as visitor workflow)
-  const { data: staff = [] } = useQuery<any[]>({
-    queryKey: ["/api/staff"],
+  const { data: staffList = [] } = useQuery<any[]>({
+    queryKey: ['/api/staff'],
   });
 
   // Form for issuing card violations
@@ -247,11 +247,12 @@ export default function ContractorDetails() {
 
   // Check-in mutation - sends e-pass directly like visitor flow
   const checkInMutation = useMutation({
-    mutationFn: async (worker: ContractorWorker) => {
-      const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/checkin`, {
+    mutationFn: async (data: { worker: any; hostStaffId?: string; hostName?: string }) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${data.worker.id}/checkin`, {
         purpose: 'Site work',
-        // H&S rules will be accepted via e-pass link, not in app
         hsRulesAccepted: false,
+        hostStaffId: data.hostStaffId,
+        hostName: data.hostName,
       });
       return response.json();
     },
@@ -327,7 +328,7 @@ export default function ContractorDetails() {
   });
 
   const preBookWorkerMutation = useMutation({
-    mutationFn: async (data: { worker: ContractorWorker; date: Date; time: string; purpose: string; duration: string; notes: string }) => {
+    mutationFn: async (data: { worker: ContractorWorker; date: Date; time: string; purpose: string; duration: string; notes: string; hostStaffId?: string; hostName?: string }) => {
       const response = await apiRequest('POST', '/api/contractors/prebookings', {
         companyName: contractorData?.name || '',
         contactEmail: data.worker.email || '',
@@ -340,6 +341,8 @@ export default function ContractorDetails() {
         duration: data.duration,
         notes: data.notes,
         documentsRequired: [],
+        hostStaffId: data.hostStaffId,
+        hostName: data.hostName,
       });
       return response.json();
     },
@@ -362,6 +365,7 @@ export default function ContractorDetails() {
       setPreBookPurpose("Site work");
       setPreBookDuration("8");
       setPreBookNotes("");
+      setPreBookHost('');
     },
     onError: (error: any) => {
       toast({ title: "Failed to pre-book worker", description: error.message, variant: "destructive" });
@@ -370,6 +374,7 @@ export default function ContractorDetails() {
 
   const handlePreBookWorker = () => {
     if (!preBookingWorker) return;
+    const host = staffList.find((s: any) => s.id === preBookHost);
     preBookWorkerMutation.mutate({
       worker: preBookingWorker,
       date: preBookDate,
@@ -377,6 +382,8 @@ export default function ContractorDetails() {
       purpose: preBookPurpose,
       duration: preBookDuration,
       notes: preBookNotes,
+      hostStaffId: preBookHost || undefined,
+      hostName: host ? `${host.firstName} ${host.lastName}` : undefined,
     });
   };
 
@@ -385,52 +392,17 @@ export default function ContractorDetails() {
     return !isBanned && worker.isActive && (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
   };
 
-  // Host selection state for contractor check-in (same as visitor workflow)
-  const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
-  const [showHostSelection, setShowHostSelection] = useState(false);
-  const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
+  // Host selection state for contractor check-in
+  const [showCheckInHostDialog, setShowCheckInHostDialog] = useState(false);
+  const [checkInWorker, setCheckInWorker] = useState<any>(null);
+  const [selectedCheckInHost, setSelectedCheckInHost] = useState('');
+
+  // Host selection state for pre-booking
+  const [preBookHost, setPreBookHost] = useState('');
 
   const handleWorkerCheckIn = (worker: ContractorWorker) => {
-    // Show host selection dialog first (same as visitor workflow)
-    setSelectedWorkerForCheckIn(worker);
-    setShowHostSelection(true);
-  };
-
-  // Handle host selection confirmation
-  const handleHostSelectionConfirm = async () => {
-    if (!selectedWorkerForCheckIn || !selectedHostForWorker) return;
-    
-    try {
-      const response = await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
-        hostId: selectedHostForWorker
-      });
-      const data = await response.json();
-      
-      if (data.ePassSent) {
-        toast({
-          title: "Digital Pass Sent",
-          description: `E-Pass has been sent to ${data.worker?.email || 'contractor'}. They can use it to check out.`,
-          duration: 5000
-        });
-      } else {
-        toast({
-          title: "Success", 
-          description: `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName} checked in successfully`
-        });
-      }
-      
-      setShowHostSelection(false);
-      setSelectedWorkerForCheckIn(null);
-      setSelectedHostForWorker("");
-      
-      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
-    } catch (error: any) {
-      toast({
-        title: "Check-in Failed",
-        description: error.message || "Failed to check in worker",
-        variant: "destructive"
-      });
-    }
+    setCheckInWorker(worker);
+    setShowCheckInHostDialog(true);
   };
 
   const handleWorkerCheckOut = (workerId: string) => {
@@ -1389,6 +1361,22 @@ export default function ContractorDetails() {
             </div>
 
             <div className="space-y-2">
+              <Label>Host Staff Member *</Label>
+              <Select value={preBookHost} onValueChange={setPreBookHost}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select host staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.firstName} {staff.lastName}{staff.department ? ` - ${staff.department}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Notes (optional)</Label>
               <Textarea
                 value={preBookNotes}
@@ -1405,7 +1393,7 @@ export default function ContractorDetails() {
             </Button>
             <Button
               onClick={handlePreBookWorker}
-              disabled={preBookWorkerMutation.isPending}
+              disabled={preBookWorkerMutation.isPending || !preBookHost}
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {preBookWorkerMutation.isPending ? "Booking..." : "Confirm Pre-Booking"}
@@ -1719,54 +1707,52 @@ export default function ContractorDetails() {
         </DialogContent>
       </Dialog>
 
-      {/* Host Selection Dialog for Contractor Check-in (Same as Visitors) */}
-      <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
+      {/* Host Selection Dialog for Contractor Check-in */}
+      <Dialog open={showCheckInHostDialog} onOpenChange={(open) => { if (!open) { setShowCheckInHostDialog(false); setSelectedCheckInHost(''); setCheckInWorker(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              Select Host for {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName}
-            </DialogTitle>
+            <DialogTitle>Select Host for {checkInWorker?.firstName} {checkInWorker?.lastName}</DialogTitle>
+            <DialogDescription>Who is {checkInWorker?.firstName} {checkInWorker?.lastName} visiting today?</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              Who is {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName} working with today?
-            </p>
             <div className="space-y-2">
-              <Label htmlFor="host-select" className="text-sm font-medium">
-                Host Staff Member *
-              </Label>
-              <Select value={selectedHostForWorker} onValueChange={setSelectedHostForWorker}>
+              <Label>Host Staff Member *</Label>
+              <Select value={selectedCheckInHost} onValueChange={setSelectedCheckInHost}>
                 <SelectTrigger data-testid="select-contractor-host">
                   <SelectValue placeholder="Select host staff member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {staff?.map((member: any) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.firstName} {member.lastName} - {member.department}
+                  {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.firstName} {staff.lastName}{staff.department ? ` - ${staff.department}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <DialogFooter className="mt-6">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowHostSelection(false);
-                setSelectedWorkerForCheckIn(null);
-                setSelectedHostForWorker("");
-              }}
-              data-testid="button-cancel-host-selection"
-            >
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowCheckInHostDialog(false); setSelectedCheckInHost(''); setCheckInWorker(null); }} data-testid="button-cancel-host-selection">
               Cancel
             </Button>
             <Button
-              onClick={handleHostSelectionConfirm}
-              disabled={!selectedHostForWorker}
+              disabled={!selectedCheckInHost || checkInMutation.isPending}
+              onClick={() => {
+                if (!checkInWorker) return;
+                const host = staffList.find((s: any) => s.id === selectedCheckInHost);
+                checkInMutation.mutate({
+                  worker: checkInWorker,
+                  hostStaffId: selectedCheckInHost,
+                  hostName: host ? `${host.firstName} ${host.lastName}` : undefined,
+                });
+                setShowCheckInHostDialog(false);
+                setSelectedCheckInHost('');
+                setCheckInWorker(null);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white"
               data-testid="button-confirm-host-selection"
             >
-              Confirm Check-In
+              {checkInMutation.isPending ? "Checking In..." : "Check In"}
             </Button>
           </DialogFooter>
         </DialogContent>
