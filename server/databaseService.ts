@@ -2001,7 +2001,12 @@ export class DatabaseService {
       if (updates.lastName !== undefined) updateData.lastName = updates.lastName;
       if (updates.email !== undefined) updateData.email = updates.email;
       if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
+      if ((updates as any).phone !== undefined && updates.phoneNumber === undefined) updateData.phoneNumber = (updates as any).phone;
       if (updates.postcode !== undefined) updateData.postcode = updates.postcode;
+      if (updates.companyId !== undefined) {
+        updateData.companyId = updates.companyId;
+        console.log(`🔧 FIELD MAP: companyId = ${updates.companyId}`);
+      }
       
       // CRITICAL: Add missing check-in and H&S acceptance field mappings
       if (updates.isCheckedIn !== undefined) {
