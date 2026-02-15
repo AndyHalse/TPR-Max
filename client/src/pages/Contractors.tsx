@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { 
   HardHat, 
@@ -37,12 +40,140 @@ import {
   ThumbsDown,
   UserPlus,
   Edit,
-  Trash2
+  Trash2,
+  ChevronsUpDown,
+  Check
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
 import HSDocumentAssignment from "@/components/HSDocumentAssignment";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface CompanyComboboxProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  companies: string[];
+  placeholder?: string;
+  className?: string;
+}
+
+function CompanyCombobox({ value, onValueChange, companies, placeholder = "Select or type company...", className }: CompanyComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  const handleSelect = (selectedValue: string) => {
+    onValueChange(selectedValue);
+    setInputValue(selectedValue);
+    setOpen(false);
+  };
+
+  const handleInputChange = (newValue: string) => {
+    setInputValue(newValue);
+    onValueChange(newValue);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (newValue.length >= 2) {
+      const hasMatches = companies.some(c => c.toLowerCase().startsWith(newValue.toLowerCase()));
+      if (hasMatches) {
+        timeoutRef.current = setTimeout(() => setOpen(true), 300);
+      } else {
+        setOpen(false);
+      }
+    } else {
+      setOpen(false);
+    }
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && inputValue.trim()) {
+      event.preventDefault();
+      onValueChange(inputValue.trim());
+      setOpen(false);
+    }
+  };
+
+  const filteredCompanies = companies
+    .filter(c => c.toLowerCase().includes(inputValue.toLowerCase()))
+    .sort((a, b) => {
+      const s = inputValue.toLowerCase();
+      if (a.toLowerCase() === s) return -1;
+      if (b.toLowerCase() === s) return 1;
+      const aS = a.toLowerCase().startsWith(s);
+      const bS = b.toLowerCase().startsWith(s);
+      if (aS && !bS) return -1;
+      if (bS && !aS) return 1;
+      return a.localeCompare(b);
+    })
+    .slice(0, 6);
+
+  return (
+    <div className="relative">
+      <Input
+        value={inputValue}
+        onChange={(e) => handleInputChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn("w-full pr-8", className)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+        data-testid="input-company-name"
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        type="button"
+        className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+        onClick={() => setOpen(!open)}
+      >
+        <ChevronsUpDown className="h-4 w-4 text-variable" />
+      </Button>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div className="absolute inset-0 pointer-events-none" />
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-2 shadow-lg border border-slate-200" align="start" style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '320px' }}>
+          <Command>
+            <CommandList className="max-h-64 overflow-auto">
+              {filteredCompanies.length > 0 && (
+                <CommandGroup>
+                  <div className="px-2 py-1.5 text-xs font-medium text-variable uppercase tracking-wide">Existing Companies</div>
+                  {filteredCompanies.map((company) => (
+                    <CommandItem key={company} value={company} onSelect={() => handleSelect(company)} className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer rounded-md mx-2">
+                      <Check className={cn("h-4 w-4 text-blue-600", value === company ? "opacity-100" : "opacity-0")} />
+                      <span className="text-fixed truncate">{company}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {inputValue.trim() && (
+                <CommandGroup>
+                  {filteredCompanies.length > 0 && <div className="border-t border-slate-200 my-1" />}
+                  <div className="px-2 py-1.5 text-xs font-medium text-green-600 uppercase tracking-wide">Add New</div>
+                  <CommandItem value={inputValue} onSelect={() => handleSelect(inputValue.trim())} className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer rounded-md mx-2">
+                    <div className="flex-shrink-0 w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 text-sm font-bold">+</span>
+                    </div>
+                    <span className="text-green-700 font-medium truncate">Use "{inputValue.trim()}"</span>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              {filteredCompanies.length === 0 && inputValue.trim() && (
+                <div className="px-4 py-6 text-center text-variable">
+                  <div className="text-sm mb-1">No existing companies found</div>
+                  <div className="text-xs text-variable">Press Enter to add "{inputValue.trim()}" as new company</div>
+                </div>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 interface ContractorCompany {
   id: string;
@@ -172,6 +303,8 @@ export default function Contractors() {
     enabled: !!currentUser,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  const contractorCompanyNames = contractors.map(c => c.name).filter(Boolean);
 
   // Staff query for host selection (same as visitor workflow) with customer isolation
   const { data: staff = [] } = useQuery<any[]>({
@@ -948,11 +1081,11 @@ export default function Contractors() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Company Name *</label>
-              <Input
+              <CompanyCombobox
                 value={contractorForm.name}
-                onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
-                placeholder="ABC Construction Ltd"
-                data-testid="input-company-name"
+                onValueChange={(value) => setContractorForm({ ...contractorForm, name: value })}
+                companies={contractorCompanyNames}
+                placeholder="Type contractor company name..."
               />
             </div>
             <div className="space-y-2">
@@ -1155,11 +1288,11 @@ export default function Contractors() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Company Name *</label>
-              <Input
+              <CompanyCombobox
                 value={contractorForm.name}
-                onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
-                placeholder="ABC Construction Ltd"
-                data-testid="input-edit-company-name"
+                onValueChange={(value) => setContractorForm({ ...contractorForm, name: value })}
+                companies={contractorCompanyNames}
+                placeholder="Type contractor company name..."
               />
             </div>
             <div className="space-y-2">
