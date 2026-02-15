@@ -328,22 +328,22 @@ export default function Members() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="gap-1"
+                      className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                       onClick={() => checkOutMutation.mutate(member.id)}
                       disabled={checkOutMutation.isPending}
                     >
-                      <UserX className="h-4 w-4" />
+                      <UserX className="h-4 w-4 mr-1" />
                       Check Out
                     </Button>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="gap-1"
+                      className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                       onClick={() => checkInMutation.mutate(member.id)}
                       disabled={checkInMutation.isPending}
                     >
-                      <UserCheck className="h-4 w-4" />
+                      <UserCheck className="h-4 w-4 mr-1" />
                       Check In
                     </Button>
                   )}
@@ -395,23 +395,23 @@ export default function Members() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                         onClick={() => checkOutMutation.mutate(member.id)}
                         disabled={checkOutMutation.isPending}
                       >
-                        <UserX className="h-3 w-3 mr-1" />
-                        Out
+                        <UserX className="h-4 w-4 mr-1" />
+                        Check Out
                       </Button>
                     ) : (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                         onClick={() => checkInMutation.mutate(member.id)}
                         disabled={checkInMutation.isPending}
                       >
-                        <UserCheck className="h-3 w-3 mr-1" />
-                        In
+                        <UserCheck className="h-4 w-4 mr-1" />
+                        Check In
                       </Button>
                     )}
                     <Button
