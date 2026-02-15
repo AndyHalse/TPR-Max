@@ -72,7 +72,7 @@ import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, gte, ne } from "drizzle-orm";
 import { Pool } from 'pg';
 import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -3329,8 +3329,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
       }
       
-      // CRITICAL: Validate token WITHOUT customerId first to get the staff's customerId
-      const validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+      const emergencyContext = simpleDatabaseService.createDevelopmentContext();
+      const validatedStaff = await databaseService.validateEmergencyToken(emergencyContext, emergencyToken);
       console.log(`🔍 EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName + ' (Customer: ' + validatedStaff.customerId + ')' : 'FAILED - No matching staff found'}`);
       
       if (!validatedStaff) {
@@ -3379,14 +3379,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       
       if (emergencyToken) {
-        // Legacy token-based auth
-        validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+        const emContext = simpleDatabaseService.createDevelopmentContext();
+        validatedStaff = await databaseService.validateEmergencyToken(emContext, emergencyToken);
         if (!validatedStaff) {
           return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
         }
         customerId = validatedStaff.customerId;
       } else if (fireMarshalId) {
-        // NEW: Fire Marshal URL ID authentication
         const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
         if (!marshal) {
           return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
@@ -3492,14 +3491,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       
       if (emergencyToken) {
-        // Legacy token-based auth
-        validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+        const emContext2 = simpleDatabaseService.createDevelopmentContext();
+        validatedStaff = await databaseService.validateEmergencyToken(emContext2, emergencyToken);
         if (!validatedStaff) {
           return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
         }
         customerId = validatedStaff.customerId;
       } else if (fireMarshalId) {
-        // NEW: Fire Marshal URL ID authentication
         const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
         if (!marshal) {
           return res.status(401).json({ error: "Invalid Fire Marshal link", code: "INVALID_MARSHAL_ID" });
@@ -3841,7 +3839,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let customerId: string;
       
       if (emergencyToken) {
-        validatedStaff = await storage.validateEmergencyToken(emergencyToken);
+        const emContext3 = simpleDatabaseService.createDevelopmentContext();
+        validatedStaff = await databaseService.validateEmergencyToken(emContext3, emergencyToken);
         if (!validatedStaff) {
           return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
         }
@@ -4787,7 +4786,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the logged-in user's staff record
-      const allStaff = await storage.getAllStaff(customerId);
+      const fmContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const allStaff = await databaseService.getAllStaff(fmContext);
       const staffMember = allStaff.find(s => 
         s.userId === userId && 
         s.isFireMarshal === true && 
@@ -4856,7 +4856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all checked-in contractors
       let checkedInContractors: any[] = [];
       for (const company of contractorCompanies) {
-        const workers = await storage.getWorkersByCompanyId(company.id);
+        const workers = await databaseService.getWorkersByCompanyId(context, company.id);
         checkedInContractors.push(
           ...workers
             .filter(worker => worker.isCheckedIn)
@@ -8871,7 +8871,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let personDetails: { firstName: string; lastName: string; email: string; companyName?: string } | null = null;
 
       if (personType === 'contractor' && tokenData.workerId) {
-        const worker = await storage.getContractorWorkerById(tokenData.workerId);
+        const inductionContext = simpleDatabaseService.createDevelopmentContext();
+        const worker = await databaseService.getContractorWorkerById(inductionContext, tokenData.workerId);
         if (worker) {
           personDetails = {
             firstName: worker.firstName,
@@ -8994,7 +8995,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/contractors/:id/send-induction', requireAuth, async (req, res) => {
     try {
       const contractorId = req.params.id;
-      const contractor = await storage.getContractorWorkerById(contractorId);
+      const sendInductionContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const contractor = await databaseService.getContractorWorkerById(sendInductionContext, contractorId);
       
       if (!contractor) {
         return res.status(404).json({ error: 'Contractor not found' });
@@ -9827,11 +9829,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
       // Get reports filtered by customerId
-      const reports = await storage.getReportsByCustomer(context.customerId);
-      res.json(reports);
+      const customerReports = await db.select().from(sharedSchema.reports)
+        .where(eq(sharedSchema.reports.customerId, context.customerId));
+      res.json(customerReports);
     } catch (error) {
       console.error("Error fetching reports:", error);
       res.status(500).json({ error: "Failed to fetch reports" });
@@ -9844,7 +9847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
       const { reportType, dateFrom, dateTo } = req.body;
       
@@ -9872,17 +9875,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const avgDurationMs = checkedOutVisitors.length > 0 ? totalDuration / checkedOutVisitors.length : 0;
       const avgDurationHours = (avgDurationMs / (1000 * 60 * 60)).toFixed(1);
       
-      const report = await storage.createReport({
-        customerId: context.customerId,
-        reportType,
-        generatedAt: new Date(),
-        dateFrom: fromDate,
-        dateTo: toDate,
-        totalVisitors: visitorsInRange.length.toString(),
-        avgDuration: `${avgDurationHours}h`,
-        emailSent: false,
-        emailSentAt: null,
-      });
+      const [report] = await db.insert(sharedSchema.reports)
+        .values({
+          customerId: context.customerId,
+          reportType,
+          dateFrom: fromDate,
+          dateTo: toDate,
+          totalVisitors: visitorsInRange.length.toString(),
+          avgDuration: `${avgDurationHours}h`,
+          emailSent: false,
+          emailSentAt: null,
+        })
+        .returning();
       
       res.json(report);
     } catch (error) {
@@ -9904,11 +9908,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
       // Get report filtered by customer
-      const reports = await storage.getReportsByCustomer(context.customerId);
-      const report = reports.find(r => r.id === id);
+      const customerReports = await db.select().from(sharedSchema.reports)
+        .where(eq(sharedSchema.reports.customerId, context.customerId));
+      const report = customerReports.find(r => r.id === id);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -9952,10 +9957,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (report.customerId !== context.customerId) {
           return res.status(403).json({ error: "Unauthorized access to report" });
         }
-        await storage.updateReport(id, {
-          emailSent: true,
-          emailSentAt: new Date(),
-        });
+        await db.update(sharedSchema.reports)
+          .set({ emailSent: true, emailSentAt: new Date() })
+          .where(eq(sharedSchema.reports.id, id));
       }
       
       res.json({ success: emailSent });
@@ -9974,11 +9978,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user?.username) {
         return res.status(401).send("<h1>Unauthorized</h1><p>Please log in to view this report.</p>");
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
       // Get report filtered by customer
-      const reports = await storage.getReportsByCustomer(context.customerId);
-      const report = reports.find(r => r.id === id);
+      const customerReports = await db.select().from(sharedSchema.reports)
+        .where(eq(sharedSchema.reports.customerId, context.customerId));
+      const report = customerReports.find(r => r.id === id);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -10102,8 +10107,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             break;
         }
         
-        // Generate and send report
-        const allVisitors = await storage.getAllVisitors();
+        // Generate and send report using customer-isolated data
+        const allVisitors = await databaseService.getAllVisitors(context);
         const visitorsInRange = allVisitors.filter(v => 
           v.checkedInAt >= fromDate && v.checkedInAt <= now
         );
@@ -10119,22 +10124,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const avgDurationMs = checkedOutVisitors.length > 0 ? totalDuration / checkedOutVisitors.length : 0;
         const avgDurationHours = (avgDurationMs / (1000 * 60 * 60)).toFixed(1);
         
-        const report = await storage.createReport({
-          reportType: `auto_${settings.reportFrequency}`,
-          generatedAt: new Date(),
-          dateFrom: fromDate,
-          dateTo: now,
-          totalVisitors: visitorsInRange.length.toString(),
-          avgDuration: `${avgDurationHours}h`,
-          emailSent: false,
-          emailSentAt: null,
-        });
+        const [report] = await db.insert(sharedSchema.reports)
+          .values({
+            customerId: context.customerId,
+            reportType: `auto_${settings.reportFrequency}`,
+            dateFrom: fromDate,
+            dateTo: now,
+            totalVisitors: visitorsInRange.length.toString(),
+            avgDuration: `${avgDurationHours}h`,
+            emailSent: false,
+            emailSentAt: null,
+          })
+          .returning();
         
         // Send email
-        const staff = await storage.getAllStaff();
+        const autoReportStaff = await databaseService.getAllStaff(context);
         const reportData = {
           visitors: visitorsInRange,
-          staff,
+          staff: autoReportStaff,
           checkedOutVisitors
         };
         
@@ -10146,10 +10153,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         
         if (emailSent) {
-          await storage.updateReport(report.id, {
-            emailSent: true,
-            emailSentAt: new Date(),
-          });
+          await db.update(sharedSchema.reports)
+            .set({ emailSent: true, emailSentAt: new Date() })
+            .where(eq(sharedSchema.reports.id, report.id));
           
           await simpleDatabaseService.updateCompanySettings(context, {
             lastReportSent: new Date(),
@@ -10166,46 +10172,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Pre-booking endpoints
   app.get("/api/prebookings", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
-      // Check if prebookings methods exist in storage
-      if (typeof storage.getAllPreBookingsByCustomer === 'function') {
-        const preBookings = await storage.getAllPreBookingsByCustomer(context.customerId);
-        res.json(preBookings);
-      } else {
-        // Return empty array if prebookings not implemented
-        console.log("⚠️ getAllPreBookingsByCustomer not implemented - returning empty array");
-        res.json([]);
-      }
+      const preBookings = await customerDb.select().from(isolatedSchema.preBookings);
+      res.json(preBookings);
     } catch (error) {
-      console.log("⚠️ getAllPreBookingsByCustomer failed - returning empty array:", error.message);
+      console.log("⚠️ getAllPreBookings failed - returning empty array:", (error as any).message);
       res.json([]);
     }
   });
 
   app.get("/api/prebookings/upcoming", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
-      // Check if prebookings methods exist in storage
-      if (typeof storage.getUpcomingPreBookingsByCustomer === 'function') {
-        const preBookings = await storage.getUpcomingPreBookingsByCustomer(context.customerId);
-        res.json(preBookings);
-      } else {
-        // Return empty array if prebookings not implemented
-        console.log("⚠️ getUpcomingPreBookingsByCustomer not implemented - returning empty array");
-        res.json([]);
-      }
+      const now = new Date();
+      const preBookings = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(and(
+          gte(isolatedSchema.preBookings.visitDate, now),
+          ne(isolatedSchema.preBookings.status, 'cancelled')
+        ));
+      res.json(preBookings);
     } catch (error) {
-      console.log("⚠️ getUpcomingPreBookingsByCustomer failed - returning empty array:", error.message);
+      console.log("⚠️ getUpcomingPreBookings failed - returning empty array:", (error as any).message);
       res.json([]);
     }
   });
@@ -10248,41 +10245,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/prebookings", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
-      // Transform the request body to ensure proper date handling and add customerId
       const transformedData = {
         ...req.body,
-        customerId: context.customerId,
-        visitDate: new Date(req.body.visitDate)
+        visitDate: new Date(req.body.visitDate),
+        qrCode: 'PB-' + randomUUID().replace(/-/g, '').substring(0, 12),
       };
+      delete transformedData.customerId;
       
       const preBookingData = insertPreBookingSchema.parse(transformedData);
-      const preBooking = await storage.createPreBooking(preBookingData);
+      const [preBooking] = await customerDb.insert(isolatedSchema.preBookings)
+        .values(preBookingData).returning();
       
-      // Get host staff and meeting room details for email - with customer isolation
       let hostStaff;
       try {
-        // Try to get staff with customer isolation using database service
-        const { DatabaseService } = await import("./databaseService");
-        const databaseService = new DatabaseService();
         hostStaff = preBooking.hostStaffId ? await databaseService.getStaffById(context, preBooking.hostStaffId) : undefined;
       } catch (dbError) {
         console.error(`Error fetching staff for pre-booking:`, dbError);
-        // Fallback to storage (which doesn't have customer isolation)
-        hostStaff = preBooking.hostStaffId ? await storage.getStaffById(preBooking.hostStaffId) : undefined;
       }
       
-      // Meeting room feature temporarily disabled - database doesn't support meeting_room_id yet
-      // const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
       const meetingRoom = null;
       
       if (hostStaff) {
-        // Send visitor invitation email with meeting room details
         try {
-          // Get company settings for branding
           const companySettings = await databaseService.getCompanySettings(context);
           
           const { EmailService } = await import("./emailService");
@@ -10295,16 +10283,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           if (emailSent) {
-            await storage.updatePreBooking(preBooking.id, {
-              emailSent: true,
-              emailSentAt: new Date(),
-            });
+            await customerDb.update(isolatedSchema.preBookings)
+              .set({ emailSent: true, emailSentAt: new Date() })
+              .where(eq(isolatedSchema.preBookings.id, preBooking.id));
           } else {
             console.log(`⚠️ Pre-booking invitation email failed to send to ${preBooking.visitorEmail}`);
           }
         } catch (emailError) {
           console.error("Failed to send visitor invitation email:", emailError);
-          // Don't fail the pre-booking if email fails
         }
       } else {
         console.log("⚠️ No host staff found, skipping pre-booking email");
@@ -10321,11 +10307,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Send visitor invitation email
-  app.post("/api/prebookings/:id/send-invitation", async (req, res) => {
+  app.post("/api/prebookings/:id/send-invitation", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const preBooking = await storage.getPreBookingById(id);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(eq(isolatedSchema.preBookings.id, id)).limit(1);
       
       if (!preBooking) {
         return res.status(404).json({ error: "Pre-booking not found" });
@@ -10335,17 +10324,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invitation already sent" });
       }
       
-      // Get host staff details
-      const hostStaff = await storage.getStaffById(preBooking.hostStaffId!);
-      // Meeting room feature temporarily disabled - database doesn't support meeting_room_id yet
-      // const meetingRoom = preBooking.meetingRoomId ? await storage.getMeetingRoomById(preBooking.meetingRoomId) : null;
+      let hostStaff;
+      if (preBooking.hostStaffId) {
+        const [staff] = await customerDb.select().from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.id, preBooking.hostStaffId)).limit(1);
+        hostStaff = staff;
+      }
       const meetingRoom = null;
       
       if (!hostStaff) {
         return res.status(400).json({ error: "Host staff not found" });
       }
       
-      // Send visitor invitation email
       const { EmailService } = await import("./emailService");
       const emailService = new EmailService();
       const emailSent = await emailService.sendVisitorInvitation(
@@ -10355,10 +10345,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       if (emailSent) {
-        await storage.updatePreBooking(preBooking.id, {
-          emailSent: true,
-          emailSentAt: new Date(),
-        });
+        await customerDb.update(isolatedSchema.preBookings)
+          .set({ emailSent: true, emailSentAt: new Date() })
+          .where(eq(isolatedSchema.preBookings.id, preBooking.id));
       }
       
       res.json({ success: emailSent, preBooking });
@@ -10375,13 +10364,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "QR code is required" });
       }
       
-      // Log X-Station scan event if applicable
       if (deviceType === 'xstation' && deviceIp) {
         console.log(`X-Station QR scan from ${deviceIp}: ${qrCode}`);
       }
       
-      // Check if it's a pre-booking QR code
-      const preBooking = await storage.getPreBookingByQrCode(qrCode);
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(eq(isolatedSchema.preBookings.qrCode, qrCode)).limit(1);
       if (!preBooking) {
         return res.status(404).json({ error: "Pre-booking not found" });
       }
@@ -10390,11 +10382,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Pre-booking already checked in" });
       }
       
-      // Get customer context for tenant-isolated visitor creation
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Create visitor in isolated customer database with checked-in status
       const visitor = await databaseService.createVisitor(context, {
         firstName: preBooking.visitorFirstName,
         lastName: preBooking.visitorLastName,
@@ -10410,12 +10397,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedInAt: new Date(),
       });
       
-      // Update pre-booking as checked in
-      await storage.updatePreBooking(preBooking.id, {
-        isCheckedIn: true,
-        checkedInAt: new Date(),
-        visitorId: visitor.id,
-      });
+      await customerDb.update(isolatedSchema.preBookings)
+        .set({ isCheckedIn: true, checkedInAt: new Date(), visitorId: visitor.id })
+        .where(eq(isolatedSchema.preBookings.id, preBooking.id));
       
       console.log(`✅ Visitor checked in from pre-booking: ${visitor.firstName} ${visitor.lastName} (ID: ${visitor.id}) in customer DB`);
       
@@ -10426,8 +10410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // NEW: Manual check-in for pre-booked visitors (no QR code needed)
-  app.post("/api/prebookings/manual-checkin", async (req, res) => {
+  app.post("/api/prebookings/manual-checkin", requireAuth, async (req, res) => {
     try {
       const { preBookingId } = req.body;
       
@@ -10435,8 +10418,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Pre-booking ID is required" });
       }
 
-      // Find the pre-booking
-      const preBooking = await storage.getPreBookingById(preBookingId);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(eq(isolatedSchema.preBookings.id, preBookingId)).limit(1);
       if (!preBooking) {
         return res.status(404).json({ error: "Pre-booking not found" });
       }
@@ -10445,7 +10431,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Visitor already checked in" });
       }
 
-      // Check if visit date is valid (today or future)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const visitDate = new Date(preBooking.visitDate);
@@ -10455,18 +10440,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Cannot check in for past visits" });
       }
 
-      // Get visitor name parts from pre-booking schema fields
       const firstName = preBooking.visitorFirstName;
       const lastName = preBooking.visitorLastName;
       
       console.log(`🔍 Pre-booking manual check-in: ${firstName} ${lastName} from ${preBooking.company || 'no company'}`);
       
-      // Check if visitor with same name and company is already checked in
-      const existingVisitor = await storage.findCheckedInVisitor(
-        firstName,
-        lastName,
-        preBooking.company
-      );
+      const existingVisitors = await customerDb.select().from(isolatedSchema.visitors)
+        .where(and(
+          eq(isolatedSchema.visitors.isCheckedIn, true),
+          eq(isolatedSchema.visitors.firstName, firstName),
+          eq(isolatedSchema.visitors.lastName, lastName)
+        )).limit(1);
+      const existingVisitor = existingVisitors[0];
       
       if (existingVisitor) {
         console.log(`❌ DUPLICATE FOUND in pre-booking: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id}) is already checked in`);
@@ -10477,13 +10462,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`✅ No duplicate found in pre-booking, creating new visitor: ${firstName} ${lastName}`);
-
-      // Create customer context for database operations
-      const context: CustomerContext = { customerId: preBooking.customerId };
-      
-      // Get the customer database and find host staff in customer DB
-      const customerDbService = CustomerDatabaseService.getInstance();
-      const customerDb = await customerDbService.getCustomerDatabase(preBooking.customerId);
       
       // Look up the host staff member in the customer database by their ID
       let hostStaffInCustomerDb = null;
@@ -10516,12 +10494,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkedInAt: new Date()
       });
 
-      // Update pre-booking to mark as checked in
-      const updatedPreBooking = await storage.updatePreBooking(preBooking.id, {
-        isCheckedIn: true,
-        checkedInAt: new Date(),
-        visitorId: visitor.id,
-      });
+      const [updatedPreBooking] = await customerDb.update(isolatedSchema.preBookings)
+        .set({ isCheckedIn: true, checkedInAt: new Date(), visitorId: visitor.id })
+        .where(eq(isolatedSchema.preBookings.id, preBooking.id)).returning();
 
       // Send email notification to host if host exists
       if (hostStaffInCustomerDb && hostStaffInCustomerDb.email) {
@@ -10626,10 +10601,9 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // X-Station QR Reader webhook endpoint for visitor/contractor check-in/out
   app.post("/api/xstation/qr-scan", async (req, res) => {
     try {
-      const { qrCode, deviceIp, action = 'checkin', timestamp } = req.body;
+      const { qrCode, deviceIp, action = 'checkin', timestamp, customerId: bodyCustomerId } = req.body;
       
       console.log(`X-Station QR scan event:`, { deviceIp, action, qrCode, timestamp });
       
@@ -10637,12 +10611,15 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "QR code is required" });
       }
       
-      // Try to find pre-booking first
-      const preBooking = await storage.getPreBookingByQrCode(qrCode);
+      const resolvedCustomerId = bodyCustomerId || (req as any).customerId || 'dev-customer-001';
+      const context = simpleDatabaseService.createCustomerContext('xstation-device', resolvedCustomerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(eq(isolatedSchema.preBookings.qrCode, qrCode)).limit(1);
       if (preBooking) {
-        // Handle pre-booking check-in
         if (action === 'checkin' && !preBooking.isCheckedIn) {
-          const visitor = await storage.createVisitor({
+          const visitor = await databaseService.createVisitor(context, {
             firstName: preBooking.visitorFirstName,
             lastName: preBooking.visitorLastName,
             email: preBooking.visitorEmail,
@@ -10655,11 +10632,9 @@ This is an automated notification from your visitor management system.`;
             visitPurpose: preBooking.purpose,
           });
           
-          await storage.updatePreBooking(preBooking.id, {
-            isCheckedIn: true,
-            checkedInAt: new Date(),
-            visitorId: visitor.id,
-          });
+          await customerDb.update(isolatedSchema.preBookings)
+            .set({ isCheckedIn: true, checkedInAt: new Date(), visitorId: visitor.id })
+            .where(eq(isolatedSchema.preBookings.id, preBooking.id));
           
           return res.json({
             success: true,
@@ -10672,16 +10647,18 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Pre-booking already checked in" });
       }
       
-      // Try to find visitor by QR code for checkout
-      const visitor = await storage.getVisitorByQrCode(qrCode);
+      const [visitor] = await customerDb.select().from(isolatedSchema.visitors)
+        .where(eq(isolatedSchema.visitors.qrCode, qrCode)).limit(1);
       if (visitor) {
-        if (action === 'checkout' && visitor.checkIn && !visitor.checkOut) {
-          await storage.checkOutVisitor(visitor.id);
+        if (action === 'checkout' && visitor.isCheckedIn) {
+          const [checkedOut] = await customerDb.update(isolatedSchema.visitors)
+            .set({ isCheckedIn: false, checkedOutAt: new Date() })
+            .where(eq(isolatedSchema.visitors.id, visitor.id)).returning();
           return res.json({
             success: true,
             type: 'visitor',
             action: 'checked-out',
-            visitor,
+            visitor: checkedOut,
             deviceIp
           });
         }
@@ -10698,33 +10675,31 @@ This is an automated notification from your visitor management system.`;
   // Reception Diary: Customer-isolated pre-bookings for reception
   app.get("/api/reception/diary", requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
       const { date, days = 7 } = req.query;
       const targetDate = date ? new Date(date as string) : new Date();
       targetDate.setHours(0, 0, 0, 0);
       const daysAhead = parseInt(days as string) || 7;
       
-      // Calculate end date
       const endDate = new Date(targetDate);
       endDate.setDate(targetDate.getDate() + daysAhead);
       endDate.setHours(23, 59, 59, 999);
       
-      // Query visitor pre-bookings using storage (same database as CRUD routes)
-      const allStoredPreBookings = await storage.getAllPreBookings();
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const allStoredPreBookings = await customerDb.select().from(isolatedSchema.preBookings);
       const visitorPreBookings = allStoredPreBookings.filter((pb: any) => {
         const visitDate = new Date(pb.visitDate);
         return visitDate >= targetDate && visitDate <= endDate;
       });
       
-      console.log(`📅 Diary query: targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
+      console.log(`📅 Diary query: customer=${context.customerId}, targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
       
-      // Enrich visitor pre-bookings with host staff details (first name, last name, department)
-      const allStaff = await storage.getAllStaff();
+      const allStaff = await customerDb.select().from(isolatedSchema.staff);
       const staffMap = new Map(allStaff.map((s: any) => [s.id, s]));
       
       const enrichedVisitors = visitorPreBookings.map((pb: any) => {
@@ -10738,10 +10713,9 @@ This is an automated notification from your visitor management system.`;
         };
       });
       
-      // Query contractor pre-bookings for the same date range using storage (same connection as CRUD routes)
       let contractorBookings: any[] = [];
       try {
-        const allContractorBookings = await storage.getContractorPreBookings();
+        const allContractorBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
         contractorBookings = allContractorBookings.filter((booking: any) => {
           const scheduledDate = new Date(booking.scheduledDate);
           return scheduledDate >= targetDate && scheduledDate <= endDate;
@@ -10750,7 +10724,6 @@ This is an automated notification from your visitor management system.`;
         console.log("Note: contractor_prebookings table may not exist yet:", (contractorError as any).message);
       }
       
-      // Enrich contractor pre-bookings with host staff details
       const enrichedContractors = contractorBookings.map((booking: any) => {
         const hostStaff = booking.hostStaffId ? staffMap.get(booking.hostStaffId) : null;
         return {
@@ -10778,10 +10751,15 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/prebookings/today", async (req, res) => {
+  app.get("/api/prebookings/today", requireAuth, async (req, res) => {
     try {
       const today = new Date();
-      const preBookings = await storage.getPreBookingsByDate(today);
+      const pbContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const pbCustomerDb = await customerDbService.getCustomerDatabase(pbContext.customerId);
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+      const preBookings = await pbCustomerDb.select().from(isolatedSchema.preBookings)
+        .where(and(gte(isolatedSchema.preBookings.expectedDate, todayStart), gte(todayEnd, isolatedSchema.preBookings.expectedDate)));
       res.json(preBookings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch today's pre-bookings" });
@@ -10789,9 +10767,11 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Contractor Pre-booking endpoints
-  app.get("/api/contractors/prebookings", async (req, res) => {
+  app.get("/api/contractors/prebookings", requireAuth, async (req, res) => {
     try {
-      const preBookings = await storage.getContractorPreBookings();
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
       res.json(preBookings);
     } catch (error) {
       console.error("Error fetching contractor pre-bookings:", error);
@@ -10799,9 +10779,16 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/contractors/prebookings/upcoming", async (req, res) => {
+  app.get("/api/contractors/prebookings/upcoming", requireAuth, async (req, res) => {
     try {
-      const preBookings = await storage.getUpcomingContractorPreBookings();
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const now = new Date();
+      const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+        .where(and(
+          gte(isolatedSchema.contractorPreBookings.scheduledDate, now),
+          ne(isolatedSchema.contractorPreBookings.status, 'cancelled')
+        ));
       res.json(preBookings);
     } catch (error) {
       console.error("Error fetching upcoming contractor pre-bookings:", error);
@@ -10809,9 +10796,18 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/contractors/prebookings/today", async (req, res) => {
+  app.get("/api/contractors/prebookings/today", requireAuth, async (req, res) => {
     try {
-      const preBookings = await storage.getTodaysContractorPreBookings();
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+      const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+        .where(and(
+          gte(isolatedSchema.contractorPreBookings.scheduledDate, startOfDay),
+          sql`${isolatedSchema.contractorPreBookings.scheduledDate} <= ${endOfDay}`
+        ));
       res.json(preBookings);
     } catch (error) {
       console.error("Error fetching today's contractor pre-bookings:", error);
@@ -10819,10 +10815,13 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/contractors/prebookings/:id", async (req, res) => {
+  app.get("/api/contractors/prebookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const preBooking = await storage.getContractorPreBookingById(id);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [preBooking] = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+        .where(eq(isolatedSchema.contractorPreBookings.id, id));
       
       if (!preBooking) {
         return res.status(404).json({ error: "Contractor pre-booking not found" });
@@ -10837,13 +10836,15 @@ This is an automated notification from your visitor management system.`;
 
   app.post("/api/contractors/prebookings", requireAuth, async (req, res) => {
     try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       const preBookingData = {
         ...req.body,
         scheduledDate: new Date(req.body.scheduledDate)
       };
       
       // Duplicate prevention: check for existing booking with same worker, company, date, and time
-      const existingBookings = await storage.getContractorPreBookings();
+      const existingBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
       const scheduledDateStr = preBookingData.scheduledDate.toDateString();
       const duplicate = existingBookings.find((b: any) => 
         b.workerName === preBookingData.workerName &&
@@ -10860,7 +10861,10 @@ This is an automated notification from your visitor management system.`;
         });
       }
       
-      const newPreBooking = await storage.createContractorPreBooking(preBookingData);
+      const qrCode = 'CPB-' + randomUUID().replace(/-/g, '').substring(0, 12);
+      const [newPreBooking] = await customerDb.insert(isolatedSchema.contractorPreBookings)
+        .values({ ...preBookingData, qrCode })
+        .returning();
       
       // Auto-send pre-booking pass with QR code to contractor's email
       const emailTarget = newPreBooking.workerEmail || newPreBooking.contactEmail;
@@ -10903,15 +10907,21 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.put("/api/contractors/prebookings/:id", async (req, res) => {
+  app.put("/api/contractors/prebookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       const updates = {
         ...req.body,
-        scheduledDate: req.body.scheduledDate ? new Date(req.body.scheduledDate) : undefined
+        scheduledDate: req.body.scheduledDate ? new Date(req.body.scheduledDate) : undefined,
+        updatedAt: new Date()
       };
       
-      const updatedPreBooking = await storage.updateContractorPreBooking(id, updates);
+      const [updatedPreBooking] = await customerDb.update(isolatedSchema.contractorPreBookings)
+        .set(updates)
+        .where(eq(isolatedSchema.contractorPreBookings.id, id))
+        .returning();
       
       if (!updatedPreBooking) {
         return res.status(404).json({ error: "Contractor pre-booking not found" });
@@ -10924,10 +10934,15 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.delete("/api/contractors/prebookings/:id", async (req, res) => {
+  app.delete("/api/contractors/prebookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const deleted = await storage.deleteContractorPreBooking(id);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const [deleted] = await customerDb.delete(isolatedSchema.contractorPreBookings)
+        .where(eq(isolatedSchema.contractorPreBookings.id, id))
+        .returning();
       
       if (!deleted) {
         return res.status(404).json({ error: "Contractor pre-booking not found" });
@@ -10950,8 +10965,10 @@ This is an automated notification from your visitor management system.`;
       }
       
       // Find pre-booking by QR code
-      const preBookings = await storage.getContractorPreBookings();
-      const preBooking = preBookings.find(pb => pb.qrCode === qrCode);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [preBooking] = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+        .where(eq(isolatedSchema.contractorPreBookings.qrCode, qrCode));
       
       if (!preBooking) {
         return res.status(404).json({ error: "Invalid QR code" });
@@ -10962,9 +10979,7 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Pre-booking already completed" });
       }
       
-      // Get customer context and database for contractor company lookup
-      const context = simpleDatabaseService.createCustomerContext(req.user!.username);
-      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      // Customer context and database already created above for QR lookup
       
       // Find contractor company by name in customer database
       const [company] = await customerDb.select()
@@ -11051,7 +11066,9 @@ This is an automated notification from your visitor management system.`;
       }
       
       // Update pre-booking status
-      await storage.updateContractorPreBooking(preBooking.id, { status: 'completed' });
+      await customerDb.update(isolatedSchema.contractorPreBookings)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(eq(isolatedSchema.contractorPreBookings.id, preBooking.id));
       
       // Update worker check-in status in customer database
       await customerDb.update(isolatedSchema.contractorWorkers)
@@ -11105,15 +11122,11 @@ This is an automated notification from your visitor management system.`;
       console.log(`Sending visitor report to: ${email}`);
 
       // Get current data for report
-      const stats = await storage.getVisitorStats();
-      const currentVisitors = await storage.getCurrentVisitors();
-      const staff = await storage.getAllStaff();
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const reportEmailContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const stats = await databaseService.getStats(reportEmailContext);
+      const currentVisitors = await databaseService.getCurrentVisitors(reportEmailContext);
+      const staff = await databaseService.getAllStaff(reportEmailContext);
+      const context = reportEmailContext;
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
@@ -11192,9 +11205,10 @@ This is an automated notification from your visitor management system.`;
   });
 
   // AI customer success metrics endpoint
-  app.get("/api/ai/success-metrics", async (req, res) => {
+  app.get("/api/ai/success-metrics", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getVisitorStats();
+      const metricsContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const stats = await databaseService.getStats(metricsContext);
       
       const metrics = await aiService.generateSuccessMetrics(
         8, // 8 weeks implementation
@@ -11260,7 +11274,7 @@ This is an automated notification from your visitor management system.`;
   });
 
   // AI security alert endpoint
-  app.post("/api/ai/security-alert", async (req, res) => {
+  app.post("/api/ai/security-alert", requireAuth, async (req, res) => {
     try {
       const { pattern } = req.body;
       
@@ -11268,7 +11282,8 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Security pattern description required" });
       }
 
-      const visitors = await storage.getCurrentVisitors();
+      const alertContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const visitors = await databaseService.getCurrentVisitors(alertContext);
       const alert = await aiService.generateSecurityAlert(visitors, pattern);
       
       res.json({
@@ -11731,36 +11746,38 @@ This is an automated notification from your visitor management system.`;
       const validatedData = insertUserInvitationSchema.omit({ token: true, expires: true, createdAt: true, used: true }).parse(req.body);
       
       // Check if invitation already exists for this email
-      const existingInvitation = await storage.getUserInvitationByEmail(validatedData.email);
+      const invContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const invCustomerDb = await customerDbService.getCustomerDatabase(invContext.customerId);
+      
+      const [existingInvitation] = await invCustomerDb.select().from(isolatedSchema.userInvitations)
+        .where(eq(isolatedSchema.userInvitations.email, validatedData.email));
       if (existingInvitation && !existingInvitation.used) {
         return res.status(400).json({ error: "An invitation already exists for this email address" });
       }
 
-      // Check if user already exists
-      const existingUser = await storage.getUserByUsername(validatedData.email);
+      const existingUser = await databaseService.getUserByUsername(invContext, validatedData.email);
       if (existingUser) {
         return res.status(400).json({ error: "A user already exists with this email address" });
       }
 
-      // Get current user
-      const currentUser = await storage.getUser(req.session.userId!);
+      const currentUser = await databaseService.getUser(invContext, req.session.userId!);
       if (!currentUser) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      // Create invitation with invitedBy field
-      const invitation = await storage.createUserInvitation({
-        ...validatedData,
-        invitedBy: currentUser.id
-      });
+      const token = randomUUID();
+      const expires = new Date();
+      expires.setDate(expires.getDate() + 7);
+      const [invitation] = await invCustomerDb.insert(isolatedSchema.userInvitations)
+        .values({
+          ...validatedData,
+          token,
+          expires,
+          invitedBy: currentUser.id
+        })
+        .returning();
 
-      // Get company settings and send email
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const context = invContext;
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       if (companySettings) {
@@ -11796,7 +11813,9 @@ This is an automated notification from your visitor management system.`;
 
   app.get("/api/invitations", requireAuth, async (req, res) => {
     try {
-      const invitations = await storage.getAllUserInvitations();
+      const invListContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const invListDb = await customerDbService.getCustomerDatabase(invListContext.customerId);
+      const invitations = await invListDb.select().from(isolatedSchema.userInvitations);
       res.json(invitations.map(inv => ({
         id: inv.id,
         email: inv.email,
@@ -11820,8 +11839,11 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Token, username, and password are required" });
       }
 
-      // Get invitation
-      const invitation = await storage.getUserInvitationByToken(token);
+      const acceptContext = simpleDatabaseService.createDevelopmentContext();
+      const acceptDb = await customerDbService.getCustomerDatabase(acceptContext.customerId);
+      
+      const [invitation] = await acceptDb.select().from(isolatedSchema.userInvitations)
+        .where(eq(isolatedSchema.userInvitations.token, token));
       if (!invitation) {
         return res.status(404).json({ error: "Invalid or expired invitation token" });
       }
@@ -11834,21 +11856,20 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "This invitation has expired" });
       }
 
-      // Check if user already exists
-      const existingUser = await storage.getUserByUsername(username);
+      const existingUser = await databaseService.getUserByUsername(acceptContext, username);
       if (existingUser) {
         return res.status(400).json({ error: "Username already exists" });
       }
 
-      // Create user
-      const newUser = await storage.createUser({
+      const newUser = await databaseService.createUser(acceptContext, {
         username,
         password,
         email: invitation.email
       });
 
-      // Mark invitation as used
-      await storage.markInvitationAsUsed(token);
+      await acceptDb.update(isolatedSchema.userInvitations)
+        .set({ used: true })
+        .where(eq(isolatedSchema.userInvitations.token, token));
 
       res.json({ 
         success: true, 
@@ -12086,9 +12107,10 @@ This is an automated notification from your visitor management system.`;
       // Add worker counts, document status, and dynamic safety ratings for each contractor
       const contractorsWithStats = await Promise.all(contractors.map(async (contractor) => {
         const workers = await databaseService.getWorkersByCompanyId(context, contractor.id);
-        const documents = await storage.getDocumentsByCompanyId(contractor.id);
+        const docsDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const documents = await docsDb.select().from(isolatedSchema.complianceDocuments)
+          .where(eq(isolatedSchema.complianceDocuments.companyId, contractor.id));
         
-        // Create document status summary
         const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'];
         const documentsStatus = docTypes.reduce((acc, type) => {
           const doc = documents.find(d => d.documentType === type);
@@ -12142,7 +12164,9 @@ This is an automated notification from your visitor management system.`;
       const workers = await databaseService.getWorkersByCompanyId(context, id);
       
       // Get documents and create status summary
-      const documents = await storage.getDocumentsByCompanyId(id);
+      const detailDocsDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const documents = await detailDocsDb.select().from(isolatedSchema.complianceDocuments)
+        .where(eq(isolatedSchema.complianceDocuments.companyId, id));
       const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'];
       const documentsStatus = docTypes.reduce((acc, docType) => {
         const doc = documents.find(d => d.documentType === docType);
@@ -12150,7 +12174,6 @@ This is an automated notification from your visitor management system.`;
         return acc;
       }, {} as Record<string, string>);
 
-      // Enhanced contractor data with workers and documents
       const contractorWithDetails = {
         ...contractor,
         workers,
@@ -12182,9 +12205,11 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.post("/api/card-offences", async (req, res) => {
+  app.post("/api/card-offences", requireAuth, async (req, res) => {
     try {
-      const offence = await storage.createCardOffence(req.body);
+      const offenceContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const offenceDb = await customerDbService.getCustomerDatabase(offenceContext.customerId);
+      const [offence] = await offenceDb.insert(isolatedSchema.cardOffences).values(req.body).returning();
       res.status(201).json(offence);
     } catch (error) {
       console.error("Error creating card offence:", error);
@@ -12291,9 +12316,12 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/workers/:workerId/card-issues", async (req, res) => {
+  app.get("/api/workers/:workerId/card-issues", requireAuth, async (req, res) => {
     try {
-      const issues = await storage.getWorkerCardIssues(req.params.workerId);
+      const ciContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const ciDb = await customerDbService.getCustomerDatabase(ciContext.customerId);
+      const issues = await ciDb.select().from(isolatedSchema.cardIssues)
+        .where(eq(isolatedSchema.cardIssues.workerId, req.params.workerId));
       res.json(issues);
     } catch (error) {
       console.error("Error fetching worker card issues:", error);
@@ -12324,7 +12352,8 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/contractors/:companyId/send-induction-all", async (req, res) => {
     try {
       const { companyId } = req.params;
-      const workers = await storage.getContractorWorkers(companyId);
+      const bulkInductionContext = simpleDatabaseService.createDevelopmentContext();
+      const workers = await databaseService.getWorkersByCompanyId(bulkInductionContext, companyId);
       
       const results = await Promise.all(
         workers.map(async (worker) => {
@@ -12351,9 +12380,12 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Enhanced Worker Certifications Routes
-  app.get("/api/workers/:workerId/certifications", async (req, res) => {
+  app.get("/api/workers/:workerId/certifications", requireAuth, async (req, res) => {
     try {
-      const certifications = await storage.getWorkerCertifications(req.params.workerId);
+      const certContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const certDb = await customerDbService.getCustomerDatabase(certContext.customerId);
+      const certifications = await certDb.select().from(isolatedSchema.workerCertifications)
+        .where(eq(isolatedSchema.workerCertifications.workerId, req.params.workerId));
       res.json(certifications);
     } catch (error) {
       console.error("Error fetching worker certifications:", error);
@@ -12361,10 +12393,13 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.post("/api/workers/:workerId/certifications", async (req, res) => {
+  app.post("/api/workers/:workerId/certifications", requireAuth, async (req, res) => {
     try {
       const certificationData = { ...req.body, workerId: req.params.workerId };
-      const certification = await storage.createWorkerCertification(certificationData);
+      const createCertContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const createCertDb = await customerDbService.getCustomerDatabase(createCertContext.customerId);
+      const [certification] = await createCertDb.insert(isolatedSchema.workerCertifications)
+        .values(certificationData).returning();
       res.status(201).json(certification);
     } catch (error) {
       console.error("Error creating worker certification:", error);
@@ -12372,18 +12407,20 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/contractors/:id", async (req, res) => {
+  app.get("/api/contractors/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const contractor = await storage.getContractorCompanyById(id);
+      const dupContractorContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const contractor = await databaseService.getContractorCompany(dupContractorContext, id);
       
       if (!contractor) {
         return res.status(404).json({ error: "Contractor not found" });
       }
       
-      // Get additional details
-      const workers = await storage.getWorkersByCompanyId(id);
-      const documents = await storage.getDocumentsByCompanyId(id);
+      const workers = await databaseService.getWorkersByCompanyId(dupContractorContext, id);
+      const dupDocsDb = await customerDbService.getCustomerDatabase(dupContractorContext.customerId);
+      const documents = await dupDocsDb.select().from(isolatedSchema.complianceDocuments)
+        .where(eq(isolatedSchema.complianceDocuments.companyId, id));
       
       // Use existing compliance score without AI calculation for performance
       const safetyRating = contractor.complianceScore || "A+";
@@ -12673,10 +12710,14 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.delete("/api/contractors/:id", async (req, res) => {
+  app.delete("/api/contractors/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const success = await storage.deleteContractorCompany(id);
+      const delCompContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const delCompDb = await customerDbService.getCustomerDatabase(delCompContext.customerId);
+      const [deletedComp] = await delCompDb.delete(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, id)).returning();
+      const success = !!deletedComp;
       
       if (!success) {
         return res.status(404).json({ error: "Contractor not found" });
@@ -13074,9 +13115,12 @@ This is an automated notification from your visitor management system.`;
   });
 
   // NVQ Qualifications endpoints
-  app.get("/api/nvq-qualifications", async (req, res) => {
+  app.get("/api/nvq-qualifications", requireAuth, async (req, res) => {
     try {
-      const qualifications = await storage.getActiveNvqQualifications();
+      const nvqContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const nvqDb = await customerDbService.getCustomerDatabase(nvqContext.customerId);
+      const qualifications = await nvqDb.select().from(isolatedSchema.nvqQualifications)
+        .where(eq(isolatedSchema.nvqQualifications.isActive, true));
       res.json(qualifications);
     } catch (error) {
       console.error("Error fetching NVQ qualifications:", error);
@@ -13084,9 +13128,11 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/nvq-qualifications/all", async (req, res) => {
+  app.get("/api/nvq-qualifications/all", requireAuth, async (req, res) => {
     try {
-      const qualifications = await storage.getAllNvqQualifications();
+      const nvqAllContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const nvqAllDb = await customerDbService.getCustomerDatabase(nvqAllContext.customerId);
+      const qualifications = await nvqAllDb.select().from(isolatedSchema.nvqQualifications);
       res.json(qualifications);
     } catch (error) {
       console.error("Error fetching all NVQ qualifications:", error);
@@ -13094,10 +13140,13 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.post("/api/nvq-qualifications", async (req, res) => {
+  app.post("/api/nvq-qualifications", requireAuth, async (req, res) => {
     try {
       const qualificationData = insertNvqQualificationSchema.parse(req.body);
-      const qualification = await storage.createNvqQualification(qualificationData);
+      const nvqCreateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const nvqCreateDb = await customerDbService.getCustomerDatabase(nvqCreateContext.customerId);
+      const [qualification] = await nvqCreateDb.insert(isolatedSchema.nvqQualifications)
+        .values(qualificationData).returning();
       res.json(qualification);
     } catch (error) {
       console.error("Error creating NVQ qualification:", error);
@@ -13105,11 +13154,14 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.put("/api/nvq-qualifications/:id", async (req, res) => {
+  app.put("/api/nvq-qualifications/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = insertNvqQualificationSchema.partial().parse(req.body);
-      const qualification = await storage.updateNvqQualification(id, updates);
+      const nvqUpdateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const nvqUpdateDb = await customerDbService.getCustomerDatabase(nvqUpdateContext.customerId);
+      const [qualification] = await nvqUpdateDb.update(isolatedSchema.nvqQualifications)
+        .set(updates).where(eq(isolatedSchema.nvqQualifications.id, id)).returning();
       
       if (!qualification) {
         return res.status(404).json({ error: "NVQ qualification not found" });
@@ -13122,10 +13174,14 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.delete("/api/nvq-qualifications/:id", async (req, res) => {
+  app.delete("/api/nvq-qualifications/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const success = await storage.deleteNvqQualification(id);
+      const nvqDelContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const nvqDelDb = await customerDbService.getCustomerDatabase(nvqDelContext.customerId);
+      const [deletedNvq] = await nvqDelDb.delete(isolatedSchema.nvqQualifications)
+        .where(eq(isolatedSchema.nvqQualifications.id, id)).returning();
+      const success = !!deletedNvq;
       
       if (!success) {
         return res.status(404).json({ error: "NVQ qualification not found" });
@@ -13194,12 +13250,13 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.put("/api/workers/:id", async (req, res) => {
+  app.put("/api/workers/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
       
-      const worker = await storage.updateContractorWorker(id, updates);
+      const updateWorkerContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const worker = await databaseService.updateContractorWorker(updateWorkerContext, id, updates);
       
       if (!worker) {
         return res.status(404).json({ error: "Worker not found" });
@@ -13212,10 +13269,14 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.delete("/api/workers/:id", async (req, res) => {
+  app.delete("/api/workers/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const success = await storage.deleteContractorWorker(id);
+      const delWorkerContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const delWorkerDb = await customerDbService.getCustomerDatabase(delWorkerContext.customerId);
+      const [deleted] = await delWorkerDb.delete(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, id)).returning();
+      const success = !!deleted;
       
       if (!success) {
         return res.status(404).json({ error: "Worker not found" });
@@ -13229,10 +13290,13 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Compliance Document endpoints
-  app.get("/api/contractors/:companyId/documents", async (req, res) => {
+  app.get("/api/contractors/:companyId/documents", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const documents = await storage.getDocumentsByCompanyId(companyId);
+      const compDocsContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const compDocsDb = await customerDbService.getCustomerDatabase(compDocsContext.customerId);
+      const documents = await compDocsDb.select().from(isolatedSchema.complianceDocuments)
+        .where(eq(isolatedSchema.complianceDocuments.companyId, companyId));
       res.json(documents);
     } catch (error) {
       console.error("Error fetching documents:", error);
@@ -13240,7 +13304,7 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.post("/api/contractors/:companyId/documents", async (req, res) => {
+  app.post("/api/contractors/:companyId/documents", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
       const documentData = insertComplianceDocumentSchema.parse({
@@ -13248,7 +13312,10 @@ This is an automated notification from your visitor management system.`;
         companyId
       });
       
-      const document = await storage.createComplianceDocument(documentData);
+      const createDocContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const createDocDb = await customerDbService.getCustomerDatabase(createDocContext.customerId);
+      const [document] = await createDocDb.insert(isolatedSchema.complianceDocuments)
+        .values(documentData).returning();
       res.json(document);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -13261,10 +13328,13 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Document approval endpoints
-  app.get("/api/contractors/:contractorId/documents/:documentId/approvals", async (req, res) => {
+  app.get("/api/contractors/:contractorId/documents/:documentId/approvals", requireAuth, async (req, res) => {
     try {
       const { documentId } = req.params;
-      const approvals = await storage.getDocumentApprovals(documentId);
+      const approvalsContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const approvalsDb = await customerDbService.getCustomerDatabase(approvalsContext.customerId);
+      const approvals = await approvalsDb.select().from(isolatedSchema.documentApprovals)
+        .where(eq(isolatedSchema.documentApprovals.documentId, documentId));
       res.json(approvals);
     } catch (error) {
       console.error("Error fetching document approvals:", error);
@@ -13273,38 +13343,42 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Approve or reject document
-  app.post("/api/contractors/:contractorId/documents/:documentId/approve", async (req, res) => {
+  app.post("/api/contractors/:contractorId/documents/:documentId/approve", requireAuth, async (req, res) => {
     try {
       const { contractorId, documentId } = req.params;
       const { approvalStatus, comments, rejectionReason } = req.body;
-      // For now, use a default user ID until proper authentication is set up
-      const userId = "andy-smith-001";
+      const userId = req.user!.id || "andy-smith-001";
+      
+      const approveContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const approveDb = await customerDbService.getCustomerDatabase(approveContext.customerId);
 
-      // Get document to get document type
-      const document = await storage.getComplianceDocumentById(documentId);
+      const [document] = await approveDb.select().from(isolatedSchema.complianceDocuments)
+        .where(eq(isolatedSchema.complianceDocuments.id, documentId));
       if (!document) {
         return res.status(404).json({ error: "Document not found" });
       }
 
-      // Create approval record
-      const approval = await storage.createDocumentApproval({
-        documentId,
-        contractorId,
-        documentType: document.documentType,
-        approvalStatus,
-        approvedBy: userId,
-        approvedAt: approvalStatus === "approved" ? new Date() : null,
-        comments,
-        rejectionReason
-      });
+      const [approval] = await approveDb.insert(isolatedSchema.documentApprovals)
+        .values({
+          documentId,
+          contractorId,
+          documentType: document.documentType,
+          approvalStatus,
+          approvedBy: userId,
+          approvedAt: approvalStatus === "approved" ? new Date() : null,
+          comments,
+          rejectionReason
+        })
+        .returning();
 
-      // Update document status
-      await storage.updateComplianceDocument(documentId, {
-        status: approvalStatus === "approved" ? "valid" : approvalStatus === "rejected" ? "rejected" : "pending",
-        reviewedBy: userId,
-        reviewedAt: new Date(),
-        reviewNotes: comments || rejectionReason
-      });
+      await approveDb.update(isolatedSchema.complianceDocuments)
+        .set({
+          status: approvalStatus === "approved" ? "valid" : approvalStatus === "rejected" ? "rejected" : "pending",
+          reviewedBy: userId,
+          reviewedAt: new Date(),
+          reviewNotes: comments || rejectionReason
+        })
+        .where(eq(isolatedSchema.complianceDocuments.id, documentId));
 
       res.json(approval);
     } catch (error) {
@@ -14276,12 +14350,11 @@ This is an automated notification from your visitor management system.`;
       }
       
       // Get company details
-      const company = await storage.getContractorCompanyById(worker.companyId);
+      const company = await databaseService.getContractorCompany(context, worker.companyId);
       if (!company) {
         return res.status(404).json({ error: 'Company not found' });
       }
       
-      // Get company settings
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       if (!companySettings) {
         return res.status(404).json({ error: 'Company settings not found' });
@@ -14421,7 +14494,7 @@ This is an automated notification from your visitor management system.`;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all workers for the company
-      const workers = await storage.getWorkersByCompanyId(companyId);
+      const workers = await databaseService.getWorkersByCompanyId(context, companyId);
       
       // Get all document templates
       const templates = await db
@@ -15146,11 +15219,15 @@ This is an automated notification from your visitor management system.`;
   async function performDailyReset(isManual: boolean = false) {
     const resetTime = new Date();
     
-    // Get all currently checked-in personnel
+    // Use development context for background/scheduled resets
+    const resetContext = simpleDatabaseService.createDevelopmentContext();
+    const resetCustomerDb = await customerDbService.getCustomerDatabase(resetContext.customerId);
+    
+    // Get all currently checked-in personnel using customer-isolated queries
     const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
-      storage.getCurrentVisitors(),
-      storage.getCheckedInStaff(),
-      storage.getCheckedInContractors()
+      databaseService.getCurrentVisitors(resetContext),
+      databaseService.getCheckedInStaff(resetContext),
+      databaseService.getCheckedInContractors(resetContext)
     ]);
     
     const resetCounts = {
@@ -15162,7 +15239,7 @@ This is an automated notification from your visitor management system.`;
     // Check out all visitors
     for (const visitor of currentVisitors) {
       try {
-        await storage.updateVisitor(visitor.id, {
+        await databaseService.updateVisitor(resetContext, visitor.id, {
           isCheckedIn: false,
           checkedOutAt: resetTime
         });
@@ -15173,25 +15250,24 @@ This is an automated notification from your visitor management system.`;
     }
     
     // Check out all staff
-    for (const staff of checkedInStaff) {
+    for (const staffMember of checkedInStaff) {
       try {
-        await storage.updateStaff(staff.id, {
+        await databaseService.updateStaff(resetContext, staffMember.id, {
           isCheckedIn: false,
           checkedOutAt: resetTime
         });
         resetCounts.staffCheckedOut++;
       } catch (error) {
-        console.error(`Failed to check out staff ${staff.id}:`, error);
+        console.error(`Failed to check out staff ${staffMember.id}:`, error);
       }
     }
     
     // Check out all contractors
     for (const contractor of checkedInContractors) {
       try {
-        await storage.updateContractorWorker(contractor.id, {
-          isCheckedIn: false,
-          checkedOutAt: resetTime
-        });
+        await resetCustomerDb.update(isolatedSchema.contractorWorkers)
+          .set({ isCheckedIn: false, checkedOutAt: resetTime })
+          .where(eq(isolatedSchema.contractorWorkers.id, contractor.id));
         resetCounts.contractorsCheckedOut++;
       } catch (error) {
         console.error(`Failed to check out contractor ${contractor.id}:`, error);
@@ -15200,7 +15276,7 @@ This is an automated notification from your visitor management system.`;
     
     // Update settings with last reset time
     try {
-      await simpleDatabaseService.updateCompanySettings(context, {
+      await simpleDatabaseService.updateCompanySettings(resetContext, {
         lastDailyReset: resetTime.toISOString()
       });
     } catch (error) {
@@ -15209,14 +15285,7 @@ This is an automated notification from your visitor management system.`;
     
     // Send notification emails if configured
     try {
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const settings = await simpleDatabaseService.getCompanySettings(context);
+      const settings = await simpleDatabaseService.getCompanySettings(resetContext);
       if (settings?.notifyForgottenCheckouts !== false && settings?.emailReportsEnabled) {
         const totalCheckedOut = resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut;
         if (totalCheckedOut > 0) {
@@ -15272,12 +15341,13 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.post("/api/daily-reset/preview", async (req, res) => {
+  app.post("/api/daily-reset/preview", requireAuth, async (req, res) => {
     try {
+      const previewContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
-        storage.getCurrentVisitors(),
-        storage.getCheckedInStaff(),
-        storage.getCheckedInContractors()
+        databaseService.getCurrentVisitors(previewContext),
+        databaseService.getCheckedInStaff(previewContext),
+        databaseService.getCheckedInContractors(previewContext)
       ]);
 
       res.json({
@@ -15435,22 +15505,18 @@ This is an automated notification from your visitor management system.`;
   // Helper function to send overnight report
   async function sendOvernightReport() {
     try {
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      // Use development context for background/scheduled tasks
+      const overnightContext = simpleDatabaseService.createDevelopmentContext();
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const settings = await simpleDatabaseService.getCompanySettings(context);
+      const settings = await simpleDatabaseService.getCompanySettings(overnightContext);
       if (!settings?.emailReportsEnabled || !settings?.reportRecipients?.length) {
         return;
       }
       
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
-        storage.getCurrentVisitors(),
-        storage.getCheckedInStaff(),
-        storage.getCheckedInContractors()
+        databaseService.getCurrentVisitors(overnightContext),
+        databaseService.getCheckedInStaff(overnightContext),
+        databaseService.getCheckedInContractors(overnightContext)
       ]);
       
       const yesterday = new Date();
@@ -15548,22 +15614,18 @@ This is an automated notification from your visitor management system.`;
   // Helper function to send grace period notification
   async function sendGracePeriodNotification(gracePeriodMinutes: number) {
     try {
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      // Use development context for background/scheduled tasks
+      const graceContext = simpleDatabaseService.createDevelopmentContext();
       
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const settings = await simpleDatabaseService.getCompanySettings(context);
+      const settings = await simpleDatabaseService.getCompanySettings(graceContext);
       if (!settings?.notifyForgottenCheckouts || !settings?.emailReportsEnabled) {
         return;
       }
       
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
-        storage.getCurrentVisitors(),
-        storage.getCheckedInStaff(),
-        storage.getCheckedInContractors()
+        databaseService.getCurrentVisitors(graceContext),
+        databaseService.getCheckedInStaff(graceContext),
+        databaseService.getCheckedInContractors(graceContext)
       ]);
       
       const totalPersonnel = currentVisitors.length + checkedInStaff.length + checkedInContractors.length;
@@ -15647,7 +15709,11 @@ This is an automated notification from your visitor management system.`;
       // TODO: Add admin role check here
       // For now, allowing any authenticated user to reset cards
 
-      await storage.resetWorkerCardStatus(workerId, newStatus, userId);
+      const resetCardContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const resetCardDb = await customerDbService.getCustomerDatabase(resetCardContext.customerId);
+      await resetCardDb.update(isolatedSchema.contractorWorkers)
+        .set({ currentCardStatus: newStatus, updatedAt: new Date() })
+        .where(eq(isolatedSchema.contractorWorkers.id, workerId));
       
       res.json({ success: true, message: 'Card status reset successfully' });
     } catch (error) {
@@ -15758,21 +15824,17 @@ This is an automated notification from your visitor management system.`;
       // Get induction settings for this role to get model type
       let modelType = 'gpt-5';
       
+      const inductionQContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const inductionQDb = await customerDbService.getCustomerDatabase(inductionQContext.customerId);
       try {
-        const inductionSettings = await storage.getInductionSettings();
-        const roleSetting = inductionSettings.find(s => s.roleType === roleType);
+        const inductionSettingsRows = await inductionQDb.select().from(isolatedSchema.inductionSettings);
+        const roleSetting = inductionSettingsRows.find(s => s.roleType === roleType);
         modelType = roleSetting?.modelType || 'gpt-5';
       } catch (error) {
         console.log('Using default model type');
       }
 
-      // Get company settings for AI configuration
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const context = inductionQContext;
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings);
@@ -15854,16 +15916,18 @@ This is an automated notification from your visitor management system.`;
       }
 
       // Get induction settings for this role to determine video format and model
-      let videoFormat = 'hybrid_enhanced'; // Default to enhanced mode
-      let modelType = 'gpt-5'; // GPT-5 is now available and default
+      let videoFormat = 'hybrid_enhanced';
+      let modelType = 'gpt-5';
       
+      const inductionVContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const inductionVDb = await customerDbService.getCustomerDatabase(inductionVContext.customerId);
       try {
-        const inductionSettings = await storage.getInductionSettings();
-        const roleSetting = inductionSettings.find(s => s.roleType === roleType);
+        const inductionSettingsVRows = await inductionVDb.select().from(isolatedSchema.inductionSettings);
+        const roleSetting = inductionSettingsVRows.find(s => s.roleType === roleType);
         videoFormat = roleSetting?.videoFormat || 'hybrid_enhanced';
         modelType = roleSetting?.modelType || 'gpt-5';
       } catch (error) {
-        console.log('Using default video settings - storage method not available yet');
+        console.log('Using default video settings');
       }
       
       console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
@@ -16311,8 +16375,8 @@ This is an automated notification from your visitor management system.`;
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
-      // Fetch actual meeting rooms from storage
-      const rooms = await storage.getAllMeetingRooms();
+      const roomsDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const rooms = await roomsDb.select().from(isolatedSchema.meetingRooms);
       
       res.json(rooms);
     } catch (error) {
@@ -16321,10 +16385,13 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.get("/api/meeting-rooms/:id", async (req, res) => {
+  app.get("/api/meeting-rooms/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const room = await storage.getMeetingRoomById(id);
+      const mrContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const mrDb = await customerDbService.getCustomerDatabase(mrContext.customerId);
+      const [room] = await mrDb.select().from(isolatedSchema.meetingRooms)
+        .where(eq(isolatedSchema.meetingRooms.id, id));
       
       if (!room) {
         return res.status(404).json({ error: "Meeting room not found" });
@@ -16337,10 +16404,12 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.post("/api/meeting-rooms", async (req, res) => {
+  app.post("/api/meeting-rooms", requireAuth, async (req, res) => {
     try {
       const roomData = req.body;
-      const room = await storage.createMeetingRoom(roomData);
+      const mrCreateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const mrCreateDb = await customerDbService.getCustomerDatabase(mrCreateContext.customerId);
+      const [room] = await mrCreateDb.insert(isolatedSchema.meetingRooms).values(roomData).returning();
       res.json(room);
     } catch (error) {
       console.error("Error creating meeting room:", error);
@@ -16348,11 +16417,14 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.patch("/api/meeting-rooms/:id", async (req, res) => {
+  app.patch("/api/meeting-rooms/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
-      const room = await storage.updateMeetingRoom(id, updates);
+      const mrUpdateContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const mrUpdateDb = await customerDbService.getCustomerDatabase(mrUpdateContext.customerId);
+      const [room] = await mrUpdateDb.update(isolatedSchema.meetingRooms)
+        .set(updates).where(eq(isolatedSchema.meetingRooms.id, id)).returning();
       
       if (!room) {
         return res.status(404).json({ error: "Meeting room not found" });
@@ -16365,10 +16437,14 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.delete("/api/meeting-rooms/:id", async (req, res) => {
+  app.delete("/api/meeting-rooms/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const success = await storage.deleteMeetingRoom(id);
+      const mrDelContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const mrDelDb = await customerDbService.getCustomerDatabase(mrDelContext.customerId);
+      const [deletedRoom] = await mrDelDb.delete(isolatedSchema.meetingRooms)
+        .where(eq(isolatedSchema.meetingRooms.id, id)).returning();
+      const success = !!deletedRoom;
       
       if (!success) {
         return res.status(404).json({ error: "Meeting room not found" });
@@ -16398,23 +16474,25 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to check availability" });
       }
       
-      const isAvailable = await storage.checkRoomAvailability(
-        roomId as string,
-        new Date(startDateTime as string),
-        new Date(endDateTime as string),
-        excludeBookingId as string,
-        customerId
-      );
+      const availDb = await customerDbService.getCustomerDatabase(customerId);
+      const startDt = new Date(startDateTime as string);
+      const endDt = new Date(endDateTime as string);
+      const conflictingBookings = await availDb.select().from(isolatedSchema.roomBookings)
+        .where(and(
+          eq(isolatedSchema.roomBookings.meetingRoomId, roomId as string),
+          ne(isolatedSchema.roomBookings.status, 'cancelled'),
+          sql`${isolatedSchema.roomBookings.startTime} < ${endDt}`,
+          sql`${isolatedSchema.roomBookings.endTime} > ${startDt}`
+        ));
+      const filteredAvail = excludeBookingId 
+        ? conflictingBookings.filter(b => b.id !== excludeBookingId) 
+        : conflictingBookings;
+      const isAvailable = filteredAvail.length === 0;
       
       if (isAvailable) {
         res.json({ available: true });
       } else {
-        // Get conflicting bookings for better user experience
-        const conflicts = await storage.getRoomBookingsByRoom(
-          roomId as string,
-          new Date(startDateTime as string),
-          new Date(endDateTime as string)
-        );
+        const conflicts = filteredAvail;
         
         const filteredConflicts = conflicts.filter(booking => 
           booking.id !== excludeBookingId &&
@@ -16443,13 +16521,20 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to check availability" });
       }
       
-      const isAvailable = await storage.checkRoomAvailability(
-        id,
-        new Date(startTime),
-        new Date(endTime),
-        excludeBookingId,
-        customerId
-      );
+      const legacyAvailDb = await customerDbService.getCustomerDatabase(customerId);
+      const legacyStart = new Date(startTime);
+      const legacyEnd = new Date(endTime);
+      const legacyConflicts = await legacyAvailDb.select().from(isolatedSchema.roomBookings)
+        .where(and(
+          eq(isolatedSchema.roomBookings.meetingRoomId, id),
+          ne(isolatedSchema.roomBookings.status, 'cancelled'),
+          sql`${isolatedSchema.roomBookings.startTime} < ${legacyEnd}`,
+          sql`${isolatedSchema.roomBookings.endTime} > ${legacyStart}`
+        ));
+      const filteredLegacy = excludeBookingId 
+        ? legacyConflicts.filter(b => b.id !== excludeBookingId) 
+        : legacyConflicts;
+      const isAvailable = filteredLegacy.length === 0;
       
       res.json({ available: isAvailable });
     } catch (error) {
@@ -16469,11 +16554,9 @@ This is an automated notification from your visitor management system.`;
       
       const { room_id, start_date, end_date } = req.query;
       
-      const bookings = await storage.getRoomBookingsByCustomer(
-        customerId,
-        start_date ? new Date(start_date as string) : undefined,
-        end_date ? new Date(end_date as string) : undefined
-      );
+      const bookingsDb = await customerDbService.getCustomerDatabase(customerId);
+      let bookingsQuery = bookingsDb.select().from(isolatedSchema.roomBookings);
+      const bookings = await bookingsQuery;
 
       res.json(bookings);
     } catch (error) {
@@ -16593,7 +16676,9 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to view booking" });
       }
       
-      const booking = await storage.getRoomBookingById(id);
+      const bookingGetDb = await customerDbService.getCustomerDatabase(customerId);
+      const [booking] = await bookingGetDb.select().from(isolatedSchema.roomBookings)
+        .where(eq(isolatedSchema.roomBookings.id, id));
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -16610,17 +16695,20 @@ This is an automated notification from your visitor management system.`;
     try {
       const bookingData = req.body;
       
-      // SECURITY: Strictly use authenticated user's customer context - no fallback
       const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Please log in to create a booking" });
       }
       
-      // Find staff member by user ID (users and staff are separate tables)
+      const bookingContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const bookingDb = await customerDbService.getCustomerDatabase(bookingContext.customerId);
+      
       let bookedByStaffId = bookingData.bookedByStaffId;
       let staffMember = null;
       if (!bookedByStaffId && req.user?.id) {
-        staffMember = await storage.getStaffByUserId(req.user.id);
+        const [foundStaff] = await bookingDb.select().from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.userId, req.user.id));
+        staffMember = foundStaff;
         if (staffMember) {
           bookedByStaffId = staffMember.id;
         }
@@ -16630,71 +16718,74 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Unable to identify staff member for booking" });
       }
       
-      // Validate required fields
       if (!bookingData.roomId || !bookingData.startDateTime || !bookingData.endDateTime) {
         return res.status(400).json({ error: "Missing required fields" });
       }
       
-      // Check room availability first with MANDATORY customer isolation
-      const isAvailable = await storage.checkRoomAvailability(
-        bookingData.roomId,
-        new Date(bookingData.startDateTime),
-        new Date(bookingData.endDateTime),
-        undefined,
-        customerId
-      );
+      const createStart = new Date(bookingData.startDateTime);
+      const createEnd = new Date(bookingData.endDateTime);
+      const createConflicts = await bookingDb.select().from(isolatedSchema.roomBookings)
+        .where(and(
+          eq(isolatedSchema.roomBookings.meetingRoomId, bookingData.roomId),
+          ne(isolatedSchema.roomBookings.status, 'cancelled'),
+          sql`${isolatedSchema.roomBookings.startTime} < ${createEnd}`,
+          sql`${isolatedSchema.roomBookings.endTime} > ${createStart}`
+        ));
 
-      if (!isAvailable) {
+      if (createConflicts.length > 0) {
         return res.status(409).json({ 
           error: "Room is not available during the requested time" 
         });
       }
 
-      // Create the booking
-      const booking = await storage.createRoomBooking({
-        ...bookingData,
-        bookedByStaffId,
-      });
+      const [booking] = await bookingDb.insert(isolatedSchema.roomBookings)
+        .values({
+          ...bookingData,
+          meetingRoomId: bookingData.roomId,
+          startTime: createStart,
+          endTime: createEnd,
+          bookedByStaffId,
+        })
+        .returning();
       
-      // Create attendee records if staff or external attendees provided
       const staffAttendeeIds = bookingData.staffAttendeeIds || [];
       const externalAttendeeEmails = bookingData.externalAttendeeEmails || [];
       
-      console.log("📋 Booking attendees data:", { 
-        bookingId: booking.id, 
-        staffAttendeeIds, 
-        externalAttendeeEmails,
-        staffCount: staffAttendeeIds.length,
-        externalCount: externalAttendeeEmails.length 
-      });
-      
       if (staffAttendeeIds.length > 0 || externalAttendeeEmails.length > 0) {
-        console.log("✅ Calling createBookingAttendees...");
-        await storage.createBookingAttendees(booking.id, staffAttendeeIds, externalAttendeeEmails);
-        console.log("✅ createBookingAttendees completed");
-      } else {
-        console.log("⚠️ No attendees to create - arrays are empty");
+        const attendeeValues: any[] = [];
+        for (const sid of staffAttendeeIds) {
+          attendeeValues.push({ bookingId: booking.id, staffId: sid, email: '' });
+        }
+        for (const email of externalAttendeeEmails) {
+          attendeeValues.push({ bookingId: booking.id, email, staffId: null });
+        }
+        if (attendeeValues.length > 0) {
+          await bookingDb.insert(isolatedSchema.roomBookingAttendees).values(attendeeValues);
+        }
       }
       
-      // Get full booking details for email
-      const fullBooking = await storage.getRoomBookingById(booking.id);
+      const [fullBooking] = await bookingDb.select().from(isolatedSchema.roomBookings)
+        .where(eq(isolatedSchema.roomBookings.id, booking.id));
       
       if (fullBooking) {
-        // Get staff attendees for email
-        const staffAttendees = staffAttendeeIds.length > 0 ? await storage.getStaffByIds(staffAttendeeIds) : [];
+        const staffAttendees = staffAttendeeIds.length > 0 
+          ? await bookingDb.select().from(isolatedSchema.staff).where(inArray(isolatedSchema.staff.id, staffAttendeeIds))
+          : [];
         
-        // Send confirmation email
         try {
+          const [bookingRoom] = await bookingDb.select().from(isolatedSchema.meetingRooms)
+            .where(eq(isolatedSchema.meetingRooms.id, fullBooking.meetingRoomId));
+          const [organizer] = await bookingDb.select().from(isolatedSchema.staff)
+            .where(eq(isolatedSchema.staff.id, fullBooking.bookedByStaffId));
           await emailService.sendBookingConfirmation(
             fullBooking, 
-            fullBooking.room, 
-            fullBooking.organizer, 
+            bookingRoom, 
+            organizer, 
             staffAttendees,
             externalAttendeeEmails
           );
         } catch (emailError) {
           console.error("Failed to send booking confirmation email:", emailError);
-          // Don't fail the booking creation if email fails
         }
       }
 
@@ -16715,65 +16806,73 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to update bookings" });
       }
       
-      // Verify booking exists
-      const currentBooking = await storage.getRoomBookingById(id);
+      const patchDb = await customerDbService.getCustomerDatabase(customerId);
+      const [currentBooking] = await patchDb.select().from(isolatedSchema.roomBookings)
+        .where(eq(isolatedSchema.roomBookings.id, id));
       if (!currentBooking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
       
-      // If updating time, check availability
       if (updates.startDateTime || updates.endDateTime) {
         const startTime = updates.startDateTime ? new Date(updates.startDateTime) : new Date(currentBooking.startTime);
         const endTime = updates.endDateTime ? new Date(updates.endDateTime) : new Date(currentBooking.endTime);
 
-        const isAvailable = await storage.checkRoomAvailability(
-          currentBooking.meetingRoomId,
-          startTime,
-          endTime,
-          id, // Exclude current booking from availability check
-          customerId
-        );
+        const patchConflicts = await patchDb.select().from(isolatedSchema.roomBookings)
+          .where(and(
+            eq(isolatedSchema.roomBookings.meetingRoomId, currentBooking.meetingRoomId),
+            ne(isolatedSchema.roomBookings.status, 'cancelled'),
+            ne(isolatedSchema.roomBookings.id, id),
+            sql`${isolatedSchema.roomBookings.startTime} < ${endTime}`,
+            sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`
+          ));
 
-        if (!isAvailable) {
+        if (patchConflicts.length > 0) {
           return res.status(409).json({ 
             error: "Room is not available during the updated time" 
           });
         }
       }
 
-      const booking = await storage.updateRoomBooking(id, updates);
+      const [booking] = await patchDb.update(isolatedSchema.roomBookings)
+        .set(updates).where(eq(isolatedSchema.roomBookings.id, id)).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
 
-      // Handle staff attendees if provided
       const { staffAttendeeIds, externalAttendeeEmails } = updates;
       if (staffAttendeeIds || externalAttendeeEmails) {
-        // Clear existing attendees and add new ones
-        const existingAttendees = await storage.getBookingAttendees(id);
-        for (const attendee of existingAttendees) {
-          await storage.removeBookingAttendee(attendee.id);
+        await patchDb.delete(isolatedSchema.roomBookingAttendees)
+          .where(eq(isolatedSchema.roomBookingAttendees.bookingId, id));
+
+        const patchAttendeeValues: any[] = [];
+        for (const sid of (staffAttendeeIds || [])) {
+          patchAttendeeValues.push({ bookingId: id, staffId: sid, email: '' });
+        }
+        for (const email of (externalAttendeeEmails || [])) {
+          patchAttendeeValues.push({ bookingId: id, email, staffId: null });
+        }
+        if (patchAttendeeValues.length > 0) {
+          await patchDb.insert(isolatedSchema.roomBookingAttendees).values(patchAttendeeValues);
         }
 
-        // Add updated attendees
-        await storage.createBookingAttendees(
-          id,
-          staffAttendeeIds || [],
-          externalAttendeeEmails || []
-        );
-
-        // Send update notification email
-        const fullBooking = await storage.getRoomBookingById(id);
-        if (fullBooking) {
-          const staffAttendees = staffAttendeeIds?.length > 0 ? await storage.getStaffByIds(staffAttendeeIds) : [];
+        const [patchFullBooking] = await patchDb.select().from(isolatedSchema.roomBookings)
+          .where(eq(isolatedSchema.roomBookings.id, id));
+        if (patchFullBooking) {
+          const patchStaffAttendees = staffAttendeeIds?.length > 0 
+            ? await patchDb.select().from(isolatedSchema.staff).where(inArray(isolatedSchema.staff.id, staffAttendeeIds))
+            : [];
           
           try {
+            const [patchRoom] = await patchDb.select().from(isolatedSchema.meetingRooms)
+              .where(eq(isolatedSchema.meetingRooms.id, patchFullBooking.meetingRoomId));
+            const [patchOrganizer] = await patchDb.select().from(isolatedSchema.staff)
+              .where(eq(isolatedSchema.staff.id, patchFullBooking.bookedByStaffId));
             await emailService.sendBookingConfirmation(
-              fullBooking, 
-              fullBooking.room, 
-              fullBooking.organizer, 
-              staffAttendees,
+              patchFullBooking, 
+              patchRoom, 
+              patchOrganizer, 
+              patchStaffAttendees,
               externalAttendeeEmails || []
             );
           } catch (emailError) {
@@ -16799,33 +16898,40 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to cancel booking" });
       }
       
-      // Get booking details before cancellation for email
-      const fullBooking = await storage.getRoomBookingById(id);
+      const cancelDb = await customerDbService.getCustomerDatabase(customerId);
+      const [fullBooking] = await cancelDb.select().from(isolatedSchema.roomBookings)
+        .where(eq(isolatedSchema.roomBookings.id, id));
       
       if (!fullBooking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
       
-      const booking = await storage.cancelRoomBooking(id, cancelledBy);
+      const [booking] = await cancelDb.update(isolatedSchema.roomBookings)
+        .set({ status: 'cancelled', cancelledBy, cancelledAt: new Date() })
+        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
 
-      // Send cancellation email if booking details were available
       if (fullBooking) {
         try {
-          // Get attendees for email notifications
-          const attendees = await storage.getBookingAttendees(id);
-          const staffAttendees = await storage.getStaffByIds(
-            attendees.filter(a => a.staffId).map(a => a.staffId!)
-          );
+          const attendees = await cancelDb.select().from(isolatedSchema.roomBookingAttendees)
+            .where(eq(isolatedSchema.roomBookingAttendees.bookingId, id));
+          const staffIds = attendees.filter(a => a.staffId).map(a => a.staffId!);
+          const staffAttendees = staffIds.length > 0 
+            ? await cancelDb.select().from(isolatedSchema.staff).where(inArray(isolatedSchema.staff.id, staffIds))
+            : [];
           const externalEmails = attendees.filter(a => !a.staffId).map(a => a.email);
           
+          const [cancelRoom] = await cancelDb.select().from(isolatedSchema.meetingRooms)
+            .where(eq(isolatedSchema.meetingRooms.id, fullBooking.meetingRoomId));
+          const [cancelOrganizer] = await cancelDb.select().from(isolatedSchema.staff)
+            .where(eq(isolatedSchema.staff.id, fullBooking.bookedByStaffId));
           await emailService.sendBookingCancellation(
             fullBooking, 
-            fullBooking.room, 
-            fullBooking.organizer, 
+            cancelRoom, 
+            cancelOrganizer, 
             staffAttendees,
             externalEmails
           );
@@ -16851,13 +16957,16 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to delete booking" });
       }
       
-      // SECURITY: Verify customer owns this booking before deletion
-      const booking = await storage.getRoomBookingById(id);
+      const delBookingDb = await customerDbService.getCustomerDatabase(customerId);
+      const [booking] = await delBookingDb.select().from(isolatedSchema.roomBookings)
+        .where(eq(isolatedSchema.roomBookings.id, id));
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
       
-      const success = await storage.deleteRoomBooking(id);
+      const [deletedBooking] = await delBookingDb.delete(isolatedSchema.roomBookings)
+        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
+      const success = !!deletedBooking;
       
       if (!success) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -16881,7 +16990,10 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to check in" });
       }
       
-      const booking = await storage.checkInToMeeting(id, staffId);
+      const checkinMeetDb = await customerDbService.getCustomerDatabase(customerId);
+      const [booking] = await checkinMeetDb.update(isolatedSchema.roomBookings)
+        .set({ status: 'in_progress', checkedInAt: new Date() })
+        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -16903,7 +17015,10 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to end meeting" });
       }
       
-      const booking = await storage.endMeeting(id);
+      const endMeetDb = await customerDbService.getCustomerDatabase(customerId);
+      const [booking] = await endMeetDb.update(isolatedSchema.roomBookings)
+        .set({ status: 'completed', endedAt: new Date() })
+        .where(eq(isolatedSchema.roomBookings.id, id)).returning();
       
       if (!booking) {
         return res.status(404).json({ error: "Room booking not found" });
@@ -16926,10 +17041,16 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to view upcoming bookings" });
       }
       
-      const upcomingBookings = await storage.getUpcomingBookings(
-        room_id as string | undefined,
-        minutes ? parseInt(minutes as string) : 15
-      );
+      const upcomingDb = await customerDbService.getCustomerDatabase(customerId);
+      const now = new Date();
+      const futureTime = new Date(now.getTime() + (minutes ? parseInt(minutes as string) : 15) * 60000);
+      let upcomingQuery = upcomingDb.select().from(isolatedSchema.roomBookings)
+        .where(and(
+          ne(isolatedSchema.roomBookings.status, 'cancelled'),
+          sql`${isolatedSchema.roomBookings.startTime} >= ${now}`,
+          sql`${isolatedSchema.roomBookings.startTime} <= ${futureTime}`
+        ));
+      const upcomingBookings = await upcomingQuery;
       
       res.json(upcomingBookings);
     } catch (error) {
@@ -16961,7 +17082,8 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to view analytics" });
       }
       
-      const patterns = await storage.getMeetingPatterns();
+      const patternsDb = await customerDbService.getCustomerDatabase(customerId);
+      const patterns = await patternsDb.select().from(isolatedSchema.roomBookings);
       res.json(patterns);
     } catch (error) {
       console.error("Error fetching meeting patterns:", error);
@@ -17659,10 +17781,11 @@ This is an automated notification from your visitor management system.`;
       };
       
       // Get all people currently on site
+      const musterContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const [visitors, staff, contractors] = await Promise.all([
-        storage.getAllVisitors(),
-        storage.getAllStaff(), 
-        storage.getAllContractorWorkers()
+        databaseService.getAllVisitors(musterContext),
+        databaseService.getAllStaff(musterContext), 
+        databaseService.getAllContractorWorkers(musterContext)
       ]);
       
       // Filter to only those currently checked in
