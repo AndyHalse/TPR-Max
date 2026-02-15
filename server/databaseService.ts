@@ -1073,9 +1073,11 @@ export class DatabaseService {
       .from(isolatedSchema.staff)
       .where(eq(isolatedSchema.staff.isCheckedIn, true));
     
-    // Get checked-in contractors count using the same method as /api/contractors/checked-in
-    const checkedInContractors = await this.getCheckedInContractors(context);
-    const contractorsOnSiteResult = [{ count: checkedInContractors.length }];
+    // Get checked-in contractors count directly from contractor_workers table
+    const contractorsOnSiteResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(isolatedSchema.contractorWorkers)
+      .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true));
     
     // Get total staff
     const totalStaffResult = await db
@@ -1311,10 +1313,8 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Get all checked-in contractor workers with their company information
       const checkedInWorkers = await db
         .select({
-          // Worker fields
           id: isolatedSchema.contractorWorkers.id,
           firstName: isolatedSchema.contractorWorkers.firstName,
           lastName: isolatedSchema.contractorWorkers.lastName,
@@ -1325,14 +1325,13 @@ export class DatabaseService {
           hsRulesAccepted: isolatedSchema.contractorWorkers.hsRulesAccepted,
           hsRulesAcceptedAt: isolatedSchema.contractorWorkers.hsRulesAcceptedAt,
           currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus,
-          // Company fields
-          companyId: isolatedSchema.contractorCompanies.id,
+          companyId: isolatedSchema.contractorWorkers.companyId,
           companyName: isolatedSchema.contractorCompanies.companyName,
           contactEmail: isolatedSchema.contractorCompanies.contactEmail,
           contactPhone: isolatedSchema.contractorCompanies.contactPhone,
         })
         .from(isolatedSchema.contractorWorkers)
-        .innerJoin(
+        .leftJoin(
           isolatedSchema.contractorCompanies,
           eq(isolatedSchema.contractorWorkers.companyId, isolatedSchema.contractorCompanies.id)
         )
@@ -1340,10 +1339,14 @@ export class DatabaseService {
 
       console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInWorkers.length} workers currently checked in`);
       
-      return checkedInWorkers;
+      return checkedInWorkers.map(w => ({
+        ...w,
+        companyName: w.companyName || 'Unknown Company',
+        company: w.companyName || 'Unknown Company',
+      }));
     } catch (error) {
       console.error("❌ Error getting checked-in contractors:", error);
-      throw error;
+      return [];
     }
   }
 
