@@ -1126,6 +1126,8 @@ export const contractorPreBookings = pgTable("contractor_prebookings", {
   status: text("status").default("pending"), // pending, confirmed, cancelled, completed
   qrCode: text("qr_code").unique().notNull(),
   notes: text("notes"),
+  hostStaffId: varchar("host_staff_id"),
+  hostName: text("host_name"),
   documentsRequired: text("documents_required").array().default([]),
   documentsUploaded: text("documents_uploaded").array().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),

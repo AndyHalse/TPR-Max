@@ -249,6 +249,11 @@ export default function Dashboard() {
     duration: string | null;
     status: string | null;
     notes: string | null;
+    hostStaffId: string | null;
+    hostName: string | null;
+    hostFirstName: string | null;
+    hostLastName: string | null;
+    hostDepartment: string | null;
   }
 
   const { data: receptionDiaryData, isLoading: diaryLoading } = useQuery<{
@@ -1063,7 +1068,7 @@ export default function Dashboard() {
                     type: 'contractor',
                     name: entry.workerName,
                     company: entry.companyName,
-                    host: '',
+                    host: entry.hostFirstName && entry.hostLastName ? `${entry.hostFirstName} ${entry.hostLastName}` : (entry.hostName || ''),
                     time: entry.scheduledTime,
                     sortTime: `${new Date(entry.scheduledDate).toISOString().split('T')[0]}T${entry.scheduledTime}`,
                     date: new Date(entry.scheduledDate),
@@ -1309,6 +1314,12 @@ export default function Dashboard() {
                                         <AtSign size={14} className="flex-shrink-0" />
                                         <span className="line-clamp-1">{contractor.purpose}</span>
                                       </div>
+                                      {(contractor.hostFirstName || contractor.hostName) && (
+                                        <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
+                                          <User size={14} className="flex-shrink-0" />
+                                          <span className="truncate">Host: {contractor.hostFirstName && contractor.hostLastName ? `${contractor.hostFirstName} ${contractor.hostLastName}` : contractor.hostName}</span>
+                                        </div>
+                                      )}
                                       {contractor.workerEmail && (
                                         <div className={`flex items-center gap-2 ${isPast ? 'text-gray-400' : 'text-variable'}`}>
                                           <Mail size={14} className="flex-shrink-0" />

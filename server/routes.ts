@@ -10740,9 +10740,20 @@ This is an automated notification from your visitor management system.`;
         console.log("Note: contractor_prebookings table may not exist yet:", (contractorError as any).message);
       }
       
+      // Enrich contractor pre-bookings with host staff details
+      const enrichedContractors = contractorBookings.map((booking: any) => {
+        const hostStaff = booking.hostStaffId ? staffMap.get(booking.hostStaffId) : null;
+        return {
+          ...booking,
+          hostFirstName: hostStaff?.firstName || (booking.hostName ? booking.hostName.split(' ')[0] : null),
+          hostLastName: hostStaff?.lastName || (booking.hostName ? booking.hostName.split(' ').slice(1).join(' ') : null),
+          hostDepartment: hostStaff?.department || null,
+        };
+      });
+      
       res.json({
         visitors: enrichedVisitors,
-        contractors: contractorBookings,
+        contractors: enrichedContractors,
       });
     } catch (error) {
       console.error("Error fetching reception diary:", error);
