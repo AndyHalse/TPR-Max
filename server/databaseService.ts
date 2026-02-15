@@ -288,44 +288,27 @@ export class DatabaseService {
    * FIXED: Query PUBLIC staff table directly to get correct customer_id
    */
   async findFireMarshalByUrlId(urlId: string): Promise<{ marshal: Staff; customerId: string } | null> {
-    const { db: mainDb } = await import("./db");
+    const allCustomers = await customerDbService.getAllCustomers();
     
-    // CRITICAL FIX: Query PUBLIC staff table directly to get the correct customer_id
-    // This prevents false positives from search_path fallback to public schema
-    const marshals = await mainDb
-      .select()
-      .from(sharedSchema.staff)
-      .where(eq(sharedSchema.staff.fireMarshalUrlId, urlId))
-      .limit(1);
-    
-    if (marshals[0]) {
-      const customerId = marshals[0].customerId;
-      console.log(`✅ Found Fire Marshal with URL ID ${urlId} in customer ${customerId} (from PUBLIC schema)`);
-      
-      // Now get the Fire Marshal from their correct isolated schema
+    for (const customer of allCustomers) {
       try {
-        const customerDb = await customerDbService.getCustomerDatabase(customerId);
-        const isolatedMarshal = await customerDb
+        const customerDb = await customerDbService.getCustomerDatabase(customer.id);
+        const marshals = await customerDb
           .select()
           .from(isolatedSchema.staff)
           .where(eq(isolatedSchema.staff.fireMarshalUrlId, urlId))
           .limit(1);
         
-        if (isolatedMarshal[0]) {
+        if (marshals[0]) {
+          console.log(`✅ Found Fire Marshal with URL ID ${urlId} in customer ${customer.companyName} (${customer.id})`);
           return {
-            marshal: isolatedMarshal[0],
-            customerId: customerId
+            marshal: marshals[0],
+            customerId: customer.id
           };
         }
       } catch (error) {
-        console.error(`Error fetching Fire Marshal from isolated schema:`, error);
+        console.log(`⚠️ Skipping customer ${customer.id} during Fire Marshal search: ${(error as Error).message?.substring(0, 60)}`);
       }
-      
-      // Fallback: return PUBLIC schema result if isolated schema fails
-      return {
-        marshal: marshals[0],
-        customerId: customerId
-      };
     }
     
     console.log(`❌ No Fire Marshal found with URL ID: ${urlId}`);
