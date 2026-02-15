@@ -1714,7 +1714,8 @@ Powered by VisiGate Pro`;
     passUrl: string,
     companySettings: CompanySettings,
     workerId?: string,
-    hostName?: string
+    hostName?: string,
+    customerId?: string
   ): Promise<boolean> {
     try {
       const companyName = companySettings?.companyName || 'VisiGate Pro';
@@ -1738,7 +1739,7 @@ Powered by VisiGate Pro`;
       const baseUrl = process.env.REPLIT_DOMAINS 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
         : (process.env.PUBLIC_URL || 'http://localhost:5000');
-      const hsAcceptanceUrl = workerId ? `${baseUrl}/hs-contractor/${workerId}/accept-rules` : passUrl;
+      const hsAcceptanceUrl = workerId ? `${baseUrl}/hs-contractor/${workerId}/accept-rules${customerId ? `?customerId=${encodeURIComponent(customerId)}` : ''}` : passUrl;
       console.log(`🔗 Generated contractor H&S acceptance URL for worker: ${workerId || 'unknown'}`);
       
       const html = `
@@ -1922,7 +1923,7 @@ Powered by VisiGate Pro`;
                               <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
                                 <tr>
                                   <td align="center">
-                                    <a href="${baseUrl}/hs-contractor/${workerId}/accept-rules" 
+                                    <a href="${hsAcceptanceUrl}" 
                                        class="mobile-button"
                                        style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); text-align: center;">
                                       ✅ I Accept Health & Safety Rules

@@ -94,7 +94,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register billing routes (includes Stripe webhook)
   registerBillingRoutes(app);
   
-  // Public Induction Preview Routes (no auth required) - Using different path to avoid /api auth
+  // Public Induction Preview Routes (no auth required) - DEV ONLY
+  if (process.env.NODE_ENV === 'development') {
   app.get('/preview/induction/settings', async (req, res) => {
     try {
       // Use development customer context for public preview
@@ -390,6 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to fetch induction questions' });
     }
   });
+  } // end dev-only preview routes
 
   // Marketing contact endpoint (public, no auth required)
   const marketingContactSchema = z.object({
@@ -2143,7 +2145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/help/articles/general", requireAuth, async (req, res) => {
     try {
       // Handle general help articles
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const articles = await databaseService.getHelpArticlesGeneral(context);
@@ -2218,7 +2220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const stats = await databaseService.getStats(context);
@@ -2291,7 +2293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/voice-notifications/logs", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const { page = 1, limit = 50, staffId, status } = req.query;
@@ -2312,7 +2314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/voice-notifications/test", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const { staffId, customMessage } = req.body;
@@ -2362,7 +2364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/voice-notifications/analytics", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const { startDate, endDate } = req.query;
@@ -2383,7 +2385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/activity/recent", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // DEV DATA BYPASS: Return mock recent activity data instead of empty array
@@ -2411,7 +2413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics/departments", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const departmentData = await databaseService.getDepartmentAnalytics(context);
@@ -2435,7 +2437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { department } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for getting department details
@@ -2451,7 +2453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/departments", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for getting departments
@@ -2466,7 +2468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/departments", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Add customerId to department data for proper customer isolation
@@ -2486,7 +2488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Add customerId to updates for proper customer isolation
@@ -2509,7 +2511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for deleting department
@@ -2528,7 +2530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics/peak-hours", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for peak hours analytics
@@ -2550,7 +2552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/departments/names", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for getting department names
@@ -2566,7 +2568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/muster", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all checked-in staff using customer-isolated database service
@@ -2681,7 +2683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { musterPoints, message, sendEmail, sendSMS } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all people currently on site
@@ -2760,7 +2762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { urgencyReason } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get visitor details
@@ -3772,7 +3774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/emergency/send-update", requireAuth, async (req, res) => {
     try {
       const { evacuationId } = req.body;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all Fire Marshals
@@ -4214,7 +4216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const marshal = await databaseService.validateEmergencyToken(context, token);
@@ -4836,7 +4838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate Fire Marshal token
@@ -4911,7 +4913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { personId, type } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate Fire Marshal token
@@ -5010,7 +5012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/staff", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const staff = await databaseService.getAllStaff(context);
@@ -5029,7 +5031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get staff from customer's isolated database
@@ -5068,7 +5070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/staff", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Add customerId to request data for proper customer isolation
@@ -5100,7 +5102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Add customerId to updates for proper customer isolation
@@ -5142,7 +5144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for deleting staff
@@ -5164,7 +5166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email, password } = staffAuthSchema.parse(req.body);
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const staff = await databaseService.authenticateStaff(context, email, password);
@@ -5191,7 +5193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const staff = await databaseService.getStaffById(context, id);
@@ -5213,7 +5215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { manual = true } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for staff check-in
@@ -5285,7 +5287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for staff check-out
@@ -5385,7 +5387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { method = 'email' } = req.body;
       
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const staffMember = await databaseService.getStaffById(context, id);
@@ -5446,7 +5448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { design } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const staff = await databaseService.getStaffById(context, id);
@@ -5528,7 +5530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const staff = await databaseService.getStaffById(context, staffId);
@@ -5574,7 +5576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { simpleDatabaseService } = await import("./simpleDatabaseService");
         
         // Get customer context for isolation based on logged-in user
-        const username = req.user?.username || 'Andy';
+        const username = req.user!.username;
         const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
         
         const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -5972,7 +5974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/staff/checked-in", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const checkedInStaff = await databaseService.getCheckedInStaff(context);
@@ -5994,7 +5996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contractors/checked-in", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const checkedInContractors = await databaseService.getCheckedInContractors(context);
@@ -6016,7 +6018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/staff/time-attendance", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const { dateFrom, dateTo } = req.query;
@@ -6046,7 +6048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/companies", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get unique companies from visitors with customer isolation
@@ -6258,7 +6260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/visitors", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use deduplicated unique visitors to prevent duplicate entries in "Previous Visitors" list
@@ -6272,7 +6274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/visitors/current", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const visitors = await databaseService.getCurrentVisitors(context);
@@ -6293,7 +6295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/visitors/today", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const todayVisitors = await databaseService.getTodaysVisitors(context);
@@ -6314,7 +6316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/visitors/checkin", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Add customerId to visitor data for proper customer isolation
@@ -6529,7 +6531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Add customerId to updates for proper customer isolation
@@ -6554,7 +6556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service for visitor checkout
@@ -6585,7 +6587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get visitor
@@ -6654,10 +6656,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       const { token } = req.query;
       
-      // Get customer context for isolation (use default for email links - same as visitor pattern)
-      const context = simpleDatabaseService.createCustomerContext('Andy');
+      const customerIdParam = req.query.customerId as string;
+      if (!customerIdParam) {
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Invalid Link</h1>
+              <p>This link is missing required information. Please use the link from your e-Pass email.</p>
+            </body>
+          </html>
+        `);
+      }
+      const context = simpleDatabaseService.createCustomerContext(customerIdParam);
       
-      // Get contractor worker (using customer-isolated database service like visitors)
       const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         return res.status(404).send(`
@@ -6670,7 +6681,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `);
       }
       
-      // Check if H&S rules are already accepted
       if (worker.hsRulesAccepted && worker.hsRulesAcceptedAt) {
         return res.send(`
           <html>
@@ -6684,7 +6694,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `);
       }
       
-      // Update contractor worker with H&S acceptance and complete check-in (same as visitor pattern)
       const now = new Date();
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         hsRulesAccepted: true,
@@ -6734,12 +6743,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/hs-contractor/:workerId/accept-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
-      const { token } = req.body;
+      const { token, customerId: bodyCustomerId } = req.body;
+      const customerIdParam = (req.query.customerId as string) || bodyCustomerId;
+      if (!customerIdParam) {
+        return res.status(400).json({ error: "Missing customerId parameter" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(customerIdParam);
       
-      // Get customer context for isolation (use default for email links - same as visitor pattern)
-      const context = simpleDatabaseService.createCustomerContext('Andy');
-      
-      // Get contractor worker (using customer-isolated database service like visitors)
       const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         return res.status(404).json({ error: "Contractor worker not found" });
@@ -6778,7 +6788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.query;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get visitor
@@ -6872,7 +6882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get visitor
@@ -6988,7 +6998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const visitor = await databaseService.getVisitorByQrCode(context, qrCode);
@@ -7009,7 +7019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const history = await databaseService.getVisitorHistory(context, id);
@@ -7273,7 +7283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { type } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       console.log('Toggle endpoint - personId:', personId, 'type:', type, 'username:', username);
@@ -7446,7 +7456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/muster/mark-all-safe", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all current on-site personnel
@@ -7551,7 +7561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/muster/export", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // For now return empty until we implement customer-isolated muster export
@@ -7605,7 +7615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all on-site personnel
@@ -7698,7 +7708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.updateCompanySettings(context, {
@@ -7724,7 +7734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -7757,7 +7767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get company settings for customer
@@ -7804,7 +7814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { simpleDatabaseService } = await import("./simpleDatabaseService");
         
         // Get customer context for isolation based on logged-in user
-        const username = req.user?.username || 'Andy';
+        const username = req.user!.username;
         const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
         
         await simpleDatabaseService.getCompanySettings(context);
@@ -7823,7 +7833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Fallback to customer-specific SMTP settings
           const { simpleDatabaseService } = await import("./simpleDatabaseService");
-          const username = req.user?.username || 'Andy';
+          const username = req.user!.username;
           const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
           const settings = await simpleDatabaseService.getCompanySettings(context);
           // Check for required SMTP settings: host, username, password, and from name
@@ -7845,7 +7855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { simpleDatabaseService } = await import("./simpleDatabaseService");
         
         // Get customer context for isolation based on logged-in user
-        const username = req.user?.username || 'Andy';
+        const username = req.user!.username;
         const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
         
         await simpleDatabaseService.getCompanySettings(context);
@@ -8178,7 +8188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.updateCompanySettings(context, updates);
@@ -8513,7 +8523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/printers/test/tec", requireAuth, async (req, res) => {
     try {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
 
@@ -8552,7 +8562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/printers/test/zebra", requireAuth, async (req, res) => {
     try {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
 
@@ -8591,7 +8601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code } = req.body;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
 
@@ -8650,7 +8660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code } = req.body;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
 
@@ -9045,7 +9055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contractors/workers/all", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use customer-isolated database service to get all contractor workers
@@ -9068,7 +9078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📋 API ROUTE - Getting contractor worker with ID: ${workerId}`);
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get worker from customer-isolated database service
@@ -9130,7 +9140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔄 Updating contractor worker', workerId, 'with data:', req.body);
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Field mapping from UI field names to database field names
@@ -9353,7 +9363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🟡 Resetting card to yellow for worker:', workerId);
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get current worker data
@@ -9409,7 +9419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📝 Adding manual note for worker:', workerId);
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate required fields
@@ -9455,7 +9465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       
       // Verify worker belongs to current customer (customer isolation security)
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
@@ -9484,7 +9494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { workerId } = req.params;
       const { documentName, documentType, documentUrl, expiryDate, issuedBy, policyNumber } = req.body;
       
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
@@ -9550,7 +9560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { workerId } = req.params;
       
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
@@ -9578,7 +9588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { workerId, documentId } = req.params;
       
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
@@ -9611,7 +9621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/test-data/visitors/duplicates", async (req, res) => {
     try {
       // Get customer context for proper data isolation - same as UI
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       console.log(`🧹 Removing duplicate visitors for customer: ${context.customerId}`);
       
@@ -9683,7 +9693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/test-data/visitors", requireAuth, async (req, res) => {
     try {
       // Get customer context for proper data isolation
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       console.log(`🧪 Generating test visitors for customer: ${context.customerId}`);
       
@@ -10022,7 +10032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get current SMTP settings and create dynamic email service
@@ -10209,7 +10219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // For now return empty until we implement customer-isolated search
@@ -10239,7 +10249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/prebookings", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Transform the request body to ensure proper date handling and add customerId
@@ -10381,7 +10391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for tenant-isolated visitor creation
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Create visitor in isolated customer database with checked-in status
@@ -10825,7 +10835,7 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  app.post("/api/contractors/prebookings", async (req, res) => {
+  app.post("/api/contractors/prebookings", requireAuth, async (req, res) => {
     try {
       const preBookingData = {
         ...req.body,
@@ -10857,8 +10867,9 @@ This is an automated notification from your visitor management system.`;
       if (emailTarget) {
         try {
           const { simpleDatabaseService } = await import("./simpleDatabaseService");
-          const context = simpleDatabaseService.createCustomerContext('Andy');
-          const companySettings = await simpleDatabaseService.getCompanySettings(context);
+          const prebookingUsername = req.user?.username || 'system';
+          const prebookingContext = simpleDatabaseService.createCustomerContext(prebookingUsername, req.customerId);
+          const companySettings = await simpleDatabaseService.getCompanySettings(prebookingContext);
           
           const emailService = new EmailService();
           const emailSent = await emailService.sendContractorPreBookingPass(
@@ -11101,7 +11112,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -11281,7 +11292,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       console.log(`🗄️ Creating SQL Server .bak backup FOR CUSTOMER: ${context.customerId}`);
@@ -11371,7 +11382,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
 
       // Verify backup is for this customer (security check)
@@ -11524,7 +11535,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/ai/visitor-sentiment", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const visitors = await databaseService.getAllVisitors(context);
@@ -11548,7 +11559,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/ai/compliance", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const visitors = await databaseService.getAllVisitors(context);
@@ -11748,7 +11759,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -12066,7 +12077,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/contractors", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all contractors using customer-isolated database service
@@ -12116,7 +12127,7 @@ This is an automated notification from your visitor management system.`;
       const { id } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all contractors and find the specific one (using same pattern as list endpoint)
@@ -12434,7 +12445,7 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/contractors", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Add customerId to request body before validation
@@ -12486,7 +12497,7 @@ This is an automated notification from your visitor management system.`;
       console.log("🔍 DEBUG: Update data received:", JSON.stringify(updates, null, 2));
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       console.log("🔍 DEBUG: Customer context:", JSON.stringify(context, null, 2));
@@ -12541,7 +12552,7 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/contractors/generate-test-workers", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       let companies = await databaseService.getAllContractorCompanies(context);
@@ -13132,7 +13143,7 @@ This is an automated notification from your visitor management system.`;
       const { companyId } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const workers = await databaseService.getWorkersByCompanyId(context, companyId);
@@ -13148,7 +13159,7 @@ This is an automated notification from your visitor management system.`;
       const { companyId } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Generate H&S acceptance token for new worker
@@ -13308,7 +13319,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/templates", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // First check if customer has any templates
@@ -13370,7 +13381,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/templates/:templateId", requireAuth, async (req, res) => {
     try {
       const { templateId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const [template] = await db
@@ -13396,7 +13407,7 @@ This is an automated notification from your visitor management system.`;
   app.put("/api/uk-hs-documents/templates/:templateId", requireAuth, async (req, res) => {
     try {
       const { templateId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate request body
@@ -13452,7 +13463,7 @@ This is an automated notification from your visitor management system.`;
   // Create new UK H&S document template
   app.post("/api/uk-hs-documents/templates", requireAuth, async (req, res) => {
     try {
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate request body
@@ -13509,7 +13520,7 @@ This is an automated notification from your visitor management system.`;
   app.delete("/api/uk-hs-documents/templates/:templateId", requireAuth, async (req, res) => {
     try {
       const { templateId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Check if template exists and belongs to customer
@@ -13569,7 +13580,7 @@ This is an automated notification from your visitor management system.`;
   // Get customer's default UK H&S document templates (the 6 seeded templates)
   app.get("/api/uk-hs-documents/defaults", requireAuth, async (req, res) => {
     try {
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get the 6 default document codes
@@ -13605,7 +13616,7 @@ This is an automated notification from your visitor management system.`;
   app.put("/api/uk-hs-documents/defaults/:templateId", requireAuth, async (req, res) => {
     try {
       const { templateId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate request body - similar to regular template update but enforce it's a default
@@ -13672,7 +13683,7 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/uk-hs-documents/defaults/:templateId/reset", requireAuth, async (req, res) => {
     try {
       const { templateId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get the template to find its document code
@@ -13736,7 +13747,7 @@ This is an automated notification from your visitor management system.`;
       const validatedData = assignmentRequestSchema.parse(req.body);
       const { workerIds, documentTemplateIds, dueDate, assignedBy } = validatedData;
       
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get user ID for assignment tracking - ensure it's a valid user ID from customer's database
@@ -13883,8 +13894,8 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/assignments/worker/:workerId", requireAuth, async (req, res) => {
     try {
       const { workerId } = req.params;
-      const username = req.user?.username || 'Andy';
-      const context = databaseService.createDevelopmentContext();
+      const username = req.user!.username;
+      const context = databaseService.createCustomerContext(username, req.customerId);
       
       const assignments = await databaseService.getWorkerDocumentAssignments(context, workerId);
       
@@ -13899,7 +13910,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/assignments/company/:companyId", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const assignments = await db
@@ -13941,7 +13952,7 @@ This is an automated notification from your visitor management system.`;
       const validatedData = sendEmailRequestSchema.parse(req.body);
       const { assignmentIds } = validatedData;
       
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -14255,7 +14266,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/auto-fill/:workerId/:templateId", requireAuth, async (req, res) => {
     try {
       const { workerId, templateId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get worker details
@@ -14379,7 +14390,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/acceptances/worker/:workerId", requireAuth, async (req, res) => {
     try {
       const { workerId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const acceptances = await db
@@ -14406,7 +14417,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/compliance/company/:companyId", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all workers for the company
@@ -14525,7 +14536,7 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: 'Assignment IDs are required' });
       }
       
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get assignment details for emails
@@ -14616,7 +14627,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/uk-hs-documents/assignments/company/:companyId", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get assignments for specific company with full details
@@ -14734,7 +14745,7 @@ This is an automated notification from your visitor management system.`;
       const { purpose, hostStaffId, hostName, hsRulesAccepted } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get worker details using customer-isolated database service
@@ -14872,11 +14883,8 @@ This is an automated notification from your visitor management system.`;
       // Send e-pass if email is available (H&S will be accepted via e-pass link)
       if (worker.email) {
         try {
-          // Import the simplified database service
           const { simpleDatabaseService } = await import("./simpleDatabaseService");
           
-          // Get customer context (use default for now)
-          const context = simpleDatabaseService.createCustomerContext('Andy');
           const companySettings = await simpleDatabaseService.getCompanySettings(context);
           
           // Check if e-Pass is enabled in settings
@@ -14888,12 +14896,13 @@ This is an automated notification from your visitor management system.`;
             emailSentSuccessfully = await emailService.sendContractorEPass(
               worker.email,
               `${worker.firstName} ${worker.lastName}`,
-              company.name || 'Contractor',  // Use company.name instead of worker.companyName
+              company.name || 'Contractor',
               qrCode,
               passUrl,
               companySettings,
-              workerId,  // Pass worker ID for H&S acceptance link
-              hostName   // Pass host name for e-pass display (same as visitors)
+              workerId,
+              hostName,
+              context.customerId
             );
             
             if (emailSentSuccessfully) {
@@ -15005,7 +15014,7 @@ This is an automated notification from your visitor management system.`;
       const { checkoutType } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get worker details using customer-isolated database service
@@ -15069,7 +15078,7 @@ This is an automated notification from your visitor management system.`;
       const { workerId } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get contractor visits from customer-isolated database
@@ -15103,7 +15112,7 @@ This is an automated notification from your visitor management system.`;
       const { workerId } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get worker notes from customer-isolated database
@@ -15204,7 +15213,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -15430,7 +15439,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -15543,7 +15552,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -15658,7 +15667,7 @@ This is an automated notification from your visitor management system.`;
   app.get('/api/induction/settings', requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // For now return empty until we implement customer-isolated induction settings
@@ -15721,7 +15730,7 @@ This is an automated notification from your visitor management system.`;
   app.get('/api/induction/questions/:roleType', requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // For now return empty until we implement customer-isolated induction questions
@@ -15762,7 +15771,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -15864,7 +15873,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -15980,7 +15989,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -16038,7 +16047,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -16084,7 +16093,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -16299,7 +16308,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/meeting-rooms", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Fetch actual meeting rooms from storage
@@ -16933,7 +16942,7 @@ This is an automated notification from your visitor management system.`;
   app.get("/api/meeting-rooms/analytics/utilization", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // For now return empty until we implement customer-isolated analytics
@@ -16976,7 +16985,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -17012,7 +17021,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const designData = {
@@ -17634,7 +17643,7 @@ This is an automated notification from your visitor management system.`;
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -18775,7 +18784,7 @@ This is an automated notification from your visitor management system.`;
       const { customerId: pathCustomerId } = req.params;
       
       // Get customer context from authenticated user
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Use path customer ID if provided, otherwise use context customer ID
@@ -18809,7 +18818,7 @@ This is an automated notification from your visitor management system.`;
   // Alternative staff endpoint without customer ID parameter
   app.get("/api/staff/me", requireAuth, async (req, res) => {
     try {
-      const username = req.user?.username || 'Andy';
+      const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const staffInfo = {
@@ -18831,9 +18840,10 @@ This is an automated notification from your visitor management system.`;
   });
 
   // ============================================================================
-  // HEALTH CHECK ENDPOINT FOR SETTINGS VALIDATION AND ROUTE ISOLATION
+  // HEALTH CHECK ENDPOINT FOR SETTINGS VALIDATION AND ROUTE ISOLATION (DEV ONLY)
   // ============================================================================
 
+  if (process.env.NODE_ENV !== 'production') {
   app.get('/api/health/settings-isolation', requireAuth, async (req, res) => {
     try {
       const testResults = {
@@ -18848,7 +18858,7 @@ This is an automated notification from your visitor management system.`;
 
       // Test 1: GET /api/settings with customer isolation
       try {
-        const username = req.user?.username || 'Andy';
+        const username = req.user!.username;
         const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
         const settings = await simpleDatabaseService.getCompanySettings(context);
         
@@ -18870,7 +18880,7 @@ This is an automated notification from your visitor management system.`;
 
       // Test 2: PUT /api/settings with known fields
       try {
-        const username = req.user?.username || 'Andy';
+        const username = req.user!.username;
         const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
         
         const testUpdates = {
@@ -18900,7 +18910,7 @@ This is an automated notification from your visitor management system.`;
 
       // Test 3: PUT /api/settings with unknown fields (should gracefully filter)
       try {
-        const username = req.user?.username || 'Andy';
+        const username = req.user!.username;
         const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
         
         const testUpdates = {
@@ -18968,6 +18978,7 @@ This is an automated notification from your visitor management system.`;
       });
     }
   });
+  } // end NODE_ENV !== 'production' guard for health check
 
   // ============================================================================
   // DUPLICATE ROUTE REMOVED - Main /api/settings route handles company settings
