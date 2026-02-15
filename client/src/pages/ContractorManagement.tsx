@@ -41,7 +41,9 @@ import {
   User,
   Users,
   Leaf,
-  Shield
+  Shield,
+  LayoutGrid,
+  List
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -81,6 +83,7 @@ export default function ContractorManagement() {
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [showAllWorkers, setShowAllWorkers] = useState(false);
   const [showAllCompanies, setShowAllCompanies] = useState(false);
+  const [companyViewMode, setCompanyViewMode] = useState<'grid' | 'list'>('grid');
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
@@ -1037,7 +1040,7 @@ export default function ContractorManagement() {
               />
             </div>
 
-            {/* Show All Button */}
+            {/* Show All Button & View Toggle */}
             <div className="flex justify-between items-center">
               <div className="text-sm text-slate-600">
                 Showing {showAllCompanies ? companies.filter(company => 
@@ -1049,23 +1052,45 @@ export default function ContractorManagement() {
                 ).length} contractor companies
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
-              <Button 
-                variant="outline" 
-                className="text-purple-600 border-purple-600 hover:bg-purple-50"
-                onClick={() => setShowAllCompanies(!showAllCompanies)}
-              >
-                {showAllCompanies ? 'Show Less' : `Show All ${companies.length} Contractor Companies`}
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="flex border rounded-lg overflow-hidden">
+                  <Button
+                    size="sm"
+                    variant={companyViewMode === 'grid' ? 'default' : 'outline'}
+                    className="rounded-none border-0 px-2"
+                    onClick={() => setCompanyViewMode('grid')}
+                    title="Grid view"
+                  >
+                    <LayoutGrid size={14} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={companyViewMode === 'list' ? 'default' : 'outline'}
+                    className="rounded-none border-0 px-2"
+                    onClick={() => setCompanyViewMode('list')}
+                    title="List view"
+                  >
+                    <List size={14} />
+                  </Button>
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                  onClick={() => setShowAllCompanies(!showAllCompanies)}
+                >
+                  {showAllCompanies ? 'Show Less' : `Show All ${companies.length} Contractor Companies`}
+                </Button>
+              </div>
             </div>
 
-            {/* Companies Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Companies Grid/List */}
+            <div className={companyViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-2"}>
               {companies.filter(company => 
                 matchesSearch(company, searchTerm)
               ).slice(0, showAllCompanies ? companies.length : 6).map((company) => (
+                companyViewMode === 'grid' ? (
                 <GlassCard key={company.id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="space-y-3">
-                    {/* Company Info */}
                     <div>
                       <h3 className="font-semibold text-slate-800">
                         {company.name}
@@ -1082,7 +1107,6 @@ export default function ContractorManagement() {
                       </p>
                     </div>
 
-                    {/* Status Badges */}
                     <div className="flex flex-wrap gap-1">
                       <Badge 
                         className={company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
@@ -1099,7 +1123,6 @@ export default function ContractorManagement() {
                       </Badge>
                     </div>
 
-                    {/* Action Buttons */}
                     <div className="space-y-2">
                       <div className="flex gap-2">
                         <Button
@@ -1155,12 +1178,84 @@ export default function ContractorManagement() {
                     </div>
                   </div>
                 </GlassCard>
+                ) : (
+                <GlassCard key={company.id} className="p-3 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-slate-800 truncate">{company.name}</h3>
+                          <Badge 
+                            className={`text-xs ${company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                          >
+                            {company.status || 'pending'}
+                          </Badge>
+                          <Badge className={`text-xs ${getSafetyRatingColor(company.complianceScore || 'N/A')}`}>
+                            {company.complianceScore || 'N/A'}
+                          </Badge>
+                          {company.industry && (
+                            <Badge className="text-xs bg-blue-100 text-blue-800 capitalize">
+                              {company.serviceType || company.industry}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-slate-600 mt-1">
+                          <span>{company.contactEmail || company.email}</span>
+                          <span>{(company as any).contactPhone || company.phone || 'No phone'}</span>
+                          <span className="text-xs text-slate-500">Workers: {company.workersCount || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        onClick={() => handleViewContractorDetails(company.id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Workers
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-green-600 border-green-600 hover:bg-green-50"
+                        onClick={() => {
+                          setSelectedContractor(company);
+                          setWorkerForm({ ...workerForm, companyId: company.id });
+                          setShowAddWorkerDialog(true);
+                        }}
+                      >
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Add Worker
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-blue-600 hover:bg-blue-50"
+                        onClick={() => handleEditContractor(company.id)}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteContractor(company.id, company.name)}
+                        disabled={deleteContractorMutation.isPending}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </GlassCard>
+                )
               ))}
             </div>
 
             {companies.filter(company => 
-              (company.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-              (company.contactEmail || "").toLowerCase().includes(searchTerm.toLowerCase())
+              matchesSearch(company, searchTerm)
             ).length === 0 && (
               <div className="text-center py-8 text-slate-500">
                 {searchTerm ? `No contractor companies found matching "${searchTerm}"` : "No contractor companies found"}
