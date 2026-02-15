@@ -11009,13 +11009,41 @@ This is an automated notification from your visitor management system.`;
       
       // Customer context and database already created above for QR lookup
       
-      // Find contractor company by name in customer database
-      const [company] = await customerDb.select()
-        .from(isolatedSchema.contractorCompanies)
-        .where(eq(isolatedSchema.contractorCompanies.companyName, preBooking.companyName))
-        .limit(1);
+      // Strategy: First try to find worker by name across all companies, then resolve company
+      const allCompanies = await customerDb.select()
+        .from(isolatedSchema.contractorCompanies);
+      const allWorkersGlobal = await customerDb.select()
+        .from(isolatedSchema.contractorWorkers);
+      
+      // Try to find worker by name first (most reliable for pre-booking check-ins)
+      let worker = allWorkersGlobal.find(w => 
+        `${w.firstName} ${w.lastName}`.toLowerCase().trim() === preBooking.workerName?.toLowerCase().trim()
+      );
+      
+      let company;
+      
+      if (worker) {
+        // Worker found - resolve company from worker's companyId
+        company = allCompanies.find(c => c.id === worker!.companyId);
+      }
       
       if (!company) {
+        // Fallback: try to find company by name from pre-booking (case-insensitive)
+        company = allCompanies.find(c => 
+          c.companyName?.toLowerCase().trim() === preBooking.companyName?.toLowerCase().trim()
+        );
+        
+        // Fallback: partial match
+        if (!company && preBooking.companyName) {
+          company = allCompanies.find(c => 
+            c.companyName?.toLowerCase().includes(preBooking.companyName.toLowerCase().trim()) ||
+            preBooking.companyName.toLowerCase().trim().includes(c.companyName?.toLowerCase() || '')
+          );
+        }
+      }
+      
+      if (!company) {
+        console.error(`❌ Company lookup failed for pre-booking. workerName: "${preBooking.workerName}", companyName: "${preBooking.companyName}". Available companies:`, allCompanies.map(c => ({ id: c.id, name: c.companyName })));
         return res.status(400).json({ 
           error: "Contractor company not found",
           details: `Company "${preBooking.companyName}" not found. Please add it first.`
@@ -11031,13 +11059,13 @@ This is an automated notification from your visitor management system.`;
         });
       }
       
-      // Find worker in customer database
-      const allWorkers = await customerDb.select()
-        .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.companyId, company.id));
-      let worker = allWorkers.find(w => 
-        `${w.firstName} ${w.lastName}` === preBooking.workerName
-      );
+      // If worker wasn't found earlier, search within this company
+      if (!worker) {
+        const companyWorkers = allWorkersGlobal.filter(w => w.companyId === company!.id);
+        worker = companyWorkers.find(w => 
+          `${w.firstName} ${w.lastName}`.toLowerCase().trim() === preBooking.workerName?.toLowerCase().trim()
+        );
+      }
       
       if (!worker) {
         // Create worker in customer database
@@ -13997,9 +14025,17 @@ This is an automated notification from your visitor management system.`;
     try {
       const { workerId } = req.params;
       const username = req.user!.username;
-      const context = databaseService.createCustomerContext(username, req.customerId);
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
-      const assignments = await databaseService.getWorkerDocumentAssignments(context, workerId);
+      const assignments = await db
+        .select()
+        .from(workerDocumentAssignments)
+        .where(and(
+          eq(workerDocumentAssignments.workerId, workerId),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true)
+        ))
+        .orderBy(desc(workerDocumentAssignments.assignedAt));
       
       res.json(assignments);
     } catch (error) {
