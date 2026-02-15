@@ -357,21 +357,12 @@ export class DatabaseService {
       .from(isolatedSchema.visitors)
       .orderBy(desc(isolatedSchema.visitors.checkedInAt));
     
-    // Deduplicate by email (or firstName+lastName+company if no email)
+    // Deduplicate by name + company (different people can share email addresses)
     const uniqueVisitorsMap = new Map<string, Visitor>();
     
     for (const visitor of allVisitors) {
-      // Create unique key based on email or name+company combination
-      let key: string;
-      if (visitor.email && visitor.email.trim()) {
-        // Use email as primary identifier (case-insensitive)
-        key = visitor.email.toLowerCase().trim();
-      } else {
-        // Fallback to name+company combination
-        key = `${visitor.firstName?.toLowerCase() || ''}_${visitor.lastName?.toLowerCase() || ''}_${visitor.company?.toLowerCase() || ''}`.trim();
-      }
+      const key = `${visitor.firstName?.toLowerCase().trim() || ''}_${visitor.lastName?.toLowerCase().trim() || ''}_${visitor.company?.toLowerCase().trim() || ''}`;
       
-      // Only add if we haven't seen this person before (keeps most recent due to ordering)
       if (!uniqueVisitorsMap.has(key)) {
         uniqueVisitorsMap.set(key, visitor);
       }
