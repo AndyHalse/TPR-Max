@@ -16,7 +16,14 @@ import {
   Building2,
   Shield,
   Search,
-  Plus
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  XCircle
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { ContractorCompany, ContractorWorker, UkHSDocumentTemplate, WorkerDocumentAssignment } from "@shared/schema";
@@ -45,6 +52,7 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCompany, setFilterCompany] = useState("all");
+  const [activeSection, setActiveSection] = useState<'templates' | 'assignments' | null>(null);
   
   // Get current user for customer isolation and admin access control
   const { data: currentUser, isError: authError } = useQuery<{ id: string; username: string; customerId: string; role?: string }>({
@@ -239,17 +247,18 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
       {/* Statistics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div 
-          className="cursor-pointer hover:scale-105 transition-transform" 
-          onClick={() => onNavigateToTab && onNavigateToTab('templates')}
+          className={`cursor-pointer hover:scale-105 transition-all ${activeSection === 'templates' ? 'ring-2 ring-blue-500 rounded-xl' : ''}`}
+          onClick={() => setActiveSection(activeSection === 'templates' ? null : 'templates')}
           data-testid="card-document-templates"
         >
           <GlassCard className="p-4 hover:bg-white/90 transition-colors">
             <div className="flex items-center gap-3">
               <FileText className="w-8 h-8 text-blue-600" />
-              <div>
+              <div className="flex-1">
                 <p className="text-2xl font-bold text-fixed">{documentTemplates.length}</p>
                 <p className="text-sm text-variable">Document Templates</p>
               </div>
+              {activeSection === 'templates' ? <ChevronUp className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4 text-variable" />}
             </div>
           </GlassCard>
         </div>
@@ -287,21 +296,187 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
         </div>
         
         <div 
-          className="cursor-pointer hover:scale-105 transition-transform" 
-          onClick={() => onNavigateToTab && onNavigateToTab('assignments')}
+          className={`cursor-pointer hover:scale-105 transition-all ${activeSection === 'assignments' ? 'ring-2 ring-orange-500 rounded-xl' : ''}`}
+          onClick={() => setActiveSection(activeSection === 'assignments' ? null : 'assignments')}
           data-testid="card-total-assignments"
         >
           <GlassCard className="p-4 hover:bg-white/90 transition-colors">
             <div className="flex items-center gap-3">
               <Send className="w-8 h-8 text-orange-600" />
-              <div>
+              <div className="flex-1">
                 <p className="text-2xl font-bold text-fixed">{allAssignments.length}</p>
                 <p className="text-sm text-variable">Total Assignments</p>
               </div>
+              {activeSection === 'assignments' ? <ChevronUp className="w-4 h-4 text-orange-600" /> : <ChevronDown className="w-4 h-4 text-variable" />}
             </div>
           </GlassCard>
         </div>
       </div>
+
+      {/* Document Templates Detail Panel */}
+      {activeSection === 'templates' && (
+        <GlassCard>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              Document Templates
+            </h3>
+            <Badge variant="secondary">{documentTemplates.length} templates</Badge>
+          </div>
+          {documentTemplates.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="w-12 h-12 text-variable mx-auto mb-3 opacity-50" />
+              <p className="text-variable">No document templates configured yet.</p>
+              <p className="text-sm text-variable mt-1">Use "Assign Documents" to create templates.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {documentTemplates.map((template) => {
+                const assignmentCount = allAssignments.filter(a => a.documentTemplateId === template.id).length;
+                const acceptedCount = allAssignments.filter(a => a.documentTemplateId === template.id && a.status === 'accepted').length;
+                const pendingCount = allAssignments.filter(a => a.documentTemplateId === template.id && a.status === 'pending').length;
+                return (
+                  <div key={template.id} className="p-4 rounded-xl border border-slate-200/60 bg-white/50 hover:bg-white/70 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-semibold text-fixed">{template.documentName}</h4>
+                          {template.isUKHSRequired && (
+                            <Badge className="bg-red-100 text-red-700 text-[10px]">Required</Badge>
+                          )}
+                          {template.isActive ? (
+                            <Badge className="bg-green-100 text-green-700 text-[10px]">Active</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">Inactive</Badge>
+                          )}
+                        </div>
+                        {template.documentDescription && (
+                          <p className="text-sm text-variable mt-1">{template.documentDescription}</p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 flex-wrap">
+                          <span className="text-xs text-variable flex items-center gap-1">
+                            <FileText size={12} />
+                            {template.complianceCategory?.replace(/_/g, ' ')}
+                          </span>
+                          {template.legalReference && (
+                            <span className="text-xs text-variable flex items-center gap-1">
+                              <Shield size={12} />
+                              {template.legalReference}
+                            </span>
+                          )}
+                          <span className="text-xs text-variable">
+                            v{template.version}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="text-center px-3 py-1.5 rounded-lg bg-blue-50">
+                          <p className="text-lg font-bold text-blue-700">{assignmentCount}</p>
+                          <p className="text-[10px] text-blue-600">Assigned</p>
+                        </div>
+                        <div className="text-center px-3 py-1.5 rounded-lg bg-green-50">
+                          <p className="text-lg font-bold text-green-700">{acceptedCount}</p>
+                          <p className="text-[10px] text-green-600">Accepted</p>
+                        </div>
+                        <div className="text-center px-3 py-1.5 rounded-lg bg-amber-50">
+                          <p className="text-lg font-bold text-amber-700">{pendingCount}</p>
+                          <p className="text-[10px] text-amber-600">Pending</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </GlassCard>
+      )}
+
+      {/* Total Assignments Detail Panel */}
+      {activeSection === 'assignments' && (
+        <GlassCard>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
+              <Send className="w-5 h-5 text-orange-600" />
+              Document Assignments
+            </h3>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const accepted = allAssignments.filter(a => a.status === 'accepted').length;
+                const pending = allAssignments.filter(a => a.status === 'pending').length;
+                const rejected = allAssignments.filter(a => a.status === 'rejected').length;
+                return (
+                  <>
+                    <Badge className="bg-green-100 text-green-700">{accepted} accepted</Badge>
+                    <Badge className="bg-amber-100 text-amber-700">{pending} pending</Badge>
+                    {rejected > 0 && <Badge className="bg-red-100 text-red-700">{rejected} rejected</Badge>}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+          {allAssignments.length === 0 ? (
+            <div className="text-center py-8">
+              <Send className="w-12 h-12 text-variable mx-auto mb-3 opacity-50" />
+              <p className="text-variable">No document assignments yet.</p>
+              <p className="text-sm text-variable mt-1">Assign documents to workers using the "Assign Documents" button above.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {allAssignments.map((assignment) => {
+                const worker = allWorkers.find(w => w.id === assignment.workerId);
+                const template = documentTemplates.find(t => t.id === assignment.documentTemplateId);
+                const company = contractors.find(c => c.id === assignment.companyId);
+                const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; bg: string }> = {
+                  accepted: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-100 text-green-700' },
+                  pending: { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100 text-amber-700' },
+                  sent: { icon: Send, color: 'text-blue-600', bg: 'bg-blue-100 text-blue-700' },
+                  rejected: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-100 text-red-700' },
+                  expired: { icon: AlertCircle, color: 'text-gray-600', bg: 'bg-gray-100 text-gray-700' },
+                };
+                const status = statusConfig[assignment.status || 'pending'] || statusConfig.pending;
+                const StatusIcon = status.icon;
+                return (
+                  <div key={assignment.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-200/60 bg-white/50 hover:bg-white/70 transition-colors">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <StatusIcon className={`w-5 h-5 flex-shrink-0 ${status.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-fixed text-sm">
+                            {worker ? `${worker.firstName} ${worker.lastName}` : 'Unknown Worker'}
+                          </span>
+                          {company && (
+                            <span className="text-xs text-variable">({company.name})</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-variable mt-0.5">
+                          {template?.documentName || 'Unknown Document'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <Badge className={status.bg}>
+                        {(assignment.status || 'pending').charAt(0).toUpperCase() + (assignment.status || 'pending').slice(1)}
+                      </Badge>
+                      {assignment.emailSent && (
+                        <Badge variant="outline" className="border-blue-300 text-blue-600 text-[10px]">
+                          Email sent
+                        </Badge>
+                      )}
+                      {assignment.dueDate && (
+                        <span className="text-xs text-variable flex items-center gap-1">
+                          <Calendar size={12} />
+                          Due {new Date(assignment.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </GlassCard>
+      )}
 
       {/* Document Assignment Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
