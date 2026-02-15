@@ -1635,13 +1635,13 @@ export default function Visitors() {
                           </div>
                         </div>
                         
-                        {!booking.isCheckedIn && new Date(booking.visitDate) >= new Date() && (
+                        {!booking.isCheckedIn && booking.status !== 'completed' && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => manualCheckInMutation.mutate(booking.id)}
                             disabled={manualCheckInMutation.isPending}
-                            className="ml-2"
+                            className="ml-2 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
                           >
                             <CheckCircle size={16} className="mr-1" />
                             Check In

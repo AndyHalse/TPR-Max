@@ -10208,11 +10208,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
       const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const preBookings = await customerDb.select().from(isolatedSchema.preBookings)
         .where(and(
-          gte(isolatedSchema.preBookings.visitDate, now),
-          ne(isolatedSchema.preBookings.status, 'cancelled')
-        ));
+          gte(isolatedSchema.preBookings.visitDate, startOfToday),
+          ne(isolatedSchema.preBookings.status, 'cancelled'),
+          ne(isolatedSchema.preBookings.status, 'completed')
+        ))
+        .orderBy(isolatedSchema.preBookings.visitDate);
       res.json(preBookings);
     } catch (error) {
       console.log("⚠️ getUpcomingPreBookings failed - returning empty array:", (error as any).message);
