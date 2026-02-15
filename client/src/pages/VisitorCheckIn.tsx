@@ -1,18 +1,147 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQRCode } from "@/lib/qr-generator";
 import type { Staff, InsertVisitor, Visitor } from "@shared/schema";
+
+interface CompanyComboboxProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  companies: string[];
+  placeholder?: string;
+  className?: string;
+}
+
+function CompanyCombobox({ value, onValueChange, companies, placeholder = "Select or type company...", className }: CompanyComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  const handleSelect = (selectedValue: string) => {
+    onValueChange(selectedValue);
+    setInputValue(selectedValue);
+    setOpen(false);
+  };
+
+  const handleInputChange = (newValue: string) => {
+    setInputValue(newValue);
+    onValueChange(newValue);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (newValue.length >= 2) {
+      const hasMatches = companies.some(c => c.toLowerCase().startsWith(newValue.toLowerCase()));
+      if (hasMatches) {
+        timeoutRef.current = setTimeout(() => setOpen(true), 300);
+      } else {
+        setOpen(false);
+      }
+    } else {
+      setOpen(false);
+    }
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && inputValue.trim()) {
+      event.preventDefault();
+      onValueChange(inputValue.trim());
+      setOpen(false);
+    }
+  };
+
+  const filteredCompanies = companies
+    .filter(c => c.toLowerCase().includes(inputValue.toLowerCase()))
+    .sort((a, b) => {
+      const s = inputValue.toLowerCase();
+      if (a.toLowerCase() === s) return -1;
+      if (b.toLowerCase() === s) return 1;
+      const aS = a.toLowerCase().startsWith(s);
+      const bS = b.toLowerCase().startsWith(s);
+      if (aS && !bS) return -1;
+      if (bS && !aS) return 1;
+      return a.localeCompare(b);
+    })
+    .slice(0, 6);
+
+  return (
+    <div className="relative">
+      <Input
+        value={inputValue}
+        onChange={(e) => handleInputChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn("w-full pr-8", className)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+        data-testid="input-visitor-company"
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        type="button"
+        className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+        onClick={() => setOpen(!open)}
+      >
+        <ChevronsUpDown className="h-4 w-4 text-variable" />
+      </Button>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div className="absolute inset-0 pointer-events-none" />
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-2 shadow-lg border border-slate-200" align="start" style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '320px' }}>
+          <Command>
+            <CommandList className="max-h-64 overflow-auto">
+              {filteredCompanies.length > 0 && (
+                <CommandGroup>
+                  <div className="px-2 py-1.5 text-xs font-medium text-variable uppercase tracking-wide">Existing Companies</div>
+                  {filteredCompanies.map((company) => (
+                    <CommandItem key={company} value={company} onSelect={() => handleSelect(company)} className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer rounded-md mx-2">
+                      <Check className={cn("h-4 w-4 text-blue-600", value === company ? "opacity-100" : "opacity-0")} />
+                      <span className="text-fixed truncate">{company}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {inputValue.trim() && (
+                <CommandGroup>
+                  {filteredCompanies.length > 0 && <div className="border-t border-slate-200 my-1" />}
+                  <div className="px-2 py-1.5 text-xs font-medium text-green-600 uppercase tracking-wide">Add New</div>
+                  <CommandItem value={inputValue} onSelect={() => handleSelect(inputValue.trim())} className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer rounded-md mx-2">
+                    <div className="flex-shrink-0 w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 text-sm font-bold">+</span>
+                    </div>
+                    <span className="text-green-700 font-medium truncate">Use "{inputValue.trim()}"</span>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              {filteredCompanies.length === 0 && inputValue.trim() && (
+                <div className="px-4 py-6 text-center text-variable">
+                  <div className="text-sm mb-1">No existing companies found</div>
+                  <div className="text-xs text-variable">Press Enter to add "{inputValue.trim()}" as new company</div>
+                </div>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 // Extend Visitor type to include e-Pass properties from backend
 interface VisitorWithEPass extends Visitor {
@@ -36,6 +165,10 @@ export default function VisitorCheckIn() {
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
+  });
+
+  const { data: companies = [] } = useQuery<string[]>({
+    queryKey: ["/api/companies"],
   });
 
   // Function to automatically print visitor pass
@@ -385,14 +518,12 @@ export default function VisitorCheckIn() {
               <Label htmlFor="company" className="text-sm font-medium text-slate-700">
                 Company
               </Label>
-              <Input
-                id="company"
-                type="text"
+              <CompanyCombobox
                 value={formData.company}
-                onChange={(e) => handleInputChange("company", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                placeholder="Your company name"
-                data-testid="input-visitor-company"
+                onValueChange={(value) => handleInputChange("company", value)}
+                companies={companies}
+                placeholder="Type company name..."
+                className="px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               />
             </div>
           </div>
