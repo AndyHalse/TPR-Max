@@ -2450,7 +2450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Department management endpoints
-  app.get("/api/departments", async (req, res) => {
+  app.get("/api/departments", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -2465,7 +2465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/departments", async (req, res) => {
+  app.post("/api/departments", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -2483,7 +2483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/departments/:id", async (req, res) => {
+  app.put("/api/departments/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -2506,7 +2506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/departments/:id", async (req, res) => {
+  app.delete("/api/departments/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -2527,7 +2527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Peak hours analytics endpoint
-  app.get("/api/analytics/peak-hours", async (req, res) => {
+  app.get("/api/analytics/peak-hours", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -2549,7 +2549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/departments/names", async (req, res) => {
+  app.get("/api/departments/names", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -4216,7 +4216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const marshal = await databaseService.validateEmergencyToken(context, token);
@@ -4838,7 +4838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.params;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate Fire Marshal token
@@ -4913,7 +4913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { personId, type } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Validate Fire Marshal token
@@ -5067,7 +5067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Remove duplicate object storage endpoints - using proper implementation below
 
-  app.post("/api/staff", async (req, res) => {
+  app.post("/api/staff", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -5097,7 +5097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/staff/:id", async (req, res) => {
+  app.put("/api/staff/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -5139,7 +5139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/staff/:id", async (req, res) => {
+  app.delete("/api/staff/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -5161,7 +5161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Staff authentication endpoint
-  app.post("/api/staff/auth", async (req, res) => {
+  app.post("/api/staff/auth", requireAuth, async (req, res) => {
     try {
       const { email, password } = staffAuthSchema.parse(req.body);
       
@@ -5188,7 +5188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check staff access level endpoint
-  app.get("/api/staff/:id/access", async (req, res) => {
+  app.get("/api/staff/:id/access", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -5209,7 +5209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Staff manual check-in endpoint
-  app.post("/api/staff/:id/checkin", async (req, res) => {
+  app.post("/api/staff/:id/checkin", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { manual = true } = req.body;
@@ -5282,7 +5282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Staff check-out endpoint
-  app.post("/api/staff/:id/checkout", async (req, res) => {
+  app.post("/api/staff/:id/checkout", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -5382,7 +5382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Send staff QR pass via email
-  app.post("/api/staff/:id/send-qr-pass", async (req, res) => {
+  app.post("/api/staff/:id/send-qr-pass", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { method = 'email' } = req.body;
@@ -5442,7 +5442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ID Card printing endpoint
-  app.post("/api/staff/:id/print-id-card", async (req, res) => {
+  app.post("/api/staff/:id/print-id-card", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { design } = req.body;
@@ -5521,7 +5521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test print endpoint with staff selection
-  app.post("/api/idcard/test-print", async (req, res) => {
+  app.post("/api/idcard/test-print", requireAuth, async (req, res) => {
     try {
       const { staffId, design } = req.body;
       
@@ -6015,7 +6015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Time & Attendance report endpoint
-  app.get("/api/staff/time-attendance", async (req, res) => {
+  app.get("/api/staff/time-attendance", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -6313,7 +6313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/visitors/checkin", async (req, res) => {
+  app.post("/api/visitors/checkin", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -6526,7 +6526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/visitors/:id", async (req, res) => {
+  app.put("/api/visitors/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -6551,7 +6551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/visitors/:id/checkout", async (req, res) => {
+  app.post("/api/visitors/:id/checkout", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -6581,7 +6581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Send e-Pass endpoint for testing or re-sending
-  app.post("/api/visitors/:id/send-epass", async (req, res) => {
+  app.post("/api/visitors/:id/send-epass", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { email } = req.body;
@@ -6788,7 +6788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.query;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get visitor
@@ -6882,7 +6882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { token } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get visitor
@@ -6998,7 +6998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const visitor = await databaseService.getVisitorByQrCode(context, qrCode);
@@ -7283,7 +7283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { type } = req.body;
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       console.log('Toggle endpoint - personId:', personId, 'type:', type, 'username:', username);
@@ -7456,7 +7456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/muster/mark-all-safe", async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all current on-site personnel
@@ -7615,7 +7615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
+      const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Get all on-site personnel
@@ -7687,7 +7687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ID Card Design API endpoints - NOW WITH PROPER CUSTOMER ISOLATION!
-  app.put("/api/idcard/design", async (req, res) => {
+  app.put("/api/idcard/design", requireAuth, async (req, res) => {
     try {
       const { elements, background, cardSize } = req.body;
       
@@ -7728,7 +7728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/idcard/design", async (req, res) => {
+  app.get("/api/idcard/design", requireAuth, async (req, res) => {
     try {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
@@ -7761,7 +7761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION AND SECURITY SANITIZATION!
-  app.get("/api/settings", async (req, res) => {
+  app.get("/api/settings", requireAuth, async (req, res) => {
     try {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
@@ -7798,7 +7798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // System status check endpoint
-  app.get("/api/system/status", async (req, res) => {
+  app.get("/api/system/status", requireAuth, async (req, res) => {
     try {
       const status = {
         database: false,
@@ -9618,7 +9618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports endpoints
   // Generate test data for load testing
   // Clear duplicate visitors endpoint
-  app.delete("/api/test-data/visitors/duplicates", async (req, res) => {
+  app.delete("/api/test-data/visitors/duplicates", requireAuth, async (req, res) => {
     try {
       // Get customer context for proper data isolation - same as UI
       const username = req.user!.username;
@@ -10020,7 +10020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/test-email", async (req, res) => {
+  app.post("/api/test-email", requireAuth, async (req, res) => {
     try {
       const { email } = req.body;
       
@@ -10246,7 +10246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/prebookings", async (req, res) => {
+  app.post("/api/prebookings", requireAuth, async (req, res) => {
     try {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -11094,7 +11094,7 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Send manual visitor report endpoint
-  app.post("/api/reports/send", async (req, res) => {
+  app.post("/api/reports/send", requireAuth, async (req, res) => {
     try {
       const { email } = req.body;
       
@@ -16977,7 +16977,7 @@ This is an automated notification from your visitor management system.`;
   const { ZebraPrintService } = await import("./zebraPrintService");
 
   // Get thermal pass design - NOW WITH CUSTOMER ISOLATION!
-  app.get("/api/thermal-passes/design/:type", async (req, res) => {
+  app.get("/api/thermal-passes/design/:type", requireAuth, async (req, res) => {
     try {
       const { type } = req.params; // visitor or contractor
       
@@ -17008,7 +17008,7 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Save thermal pass design - NOW WITH CUSTOMER ISOLATION!
-  app.put("/api/thermal-passes/design/:type", async (req, res) => {
+  app.put("/api/thermal-passes/design/:type", requireAuth, async (req, res) => {
     try {
       const { type } = req.params;
       const { elements, printerSettings } = req.body;
@@ -17637,7 +17637,7 @@ This is an automated notification from your visitor management system.`;
 
 
   // Print emergency muster list
-  app.post("/api/thermal-passes/print-muster", async (req, res) => {
+  app.post("/api/thermal-passes/print-muster", requireAuth, async (req, res) => {
     try {
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
