@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { CustomerDatabaseService } from './customerDatabase';
+import { bootstrapSchemaMigration } from './bootstrapSchemaMigration';
 import { contractorMigrations } from './contractorMigrations';
 import { cleanupMigrations } from './cleanupMigrations';
 import { settingsColumnMigrations } from './settingsColumnMigration';
@@ -135,8 +136,9 @@ export class MigrationRunner {
 export function createMigrationRunner(customerDbService: CustomerDatabaseService): MigrationRunner {
   const runner = new MigrationRunner(customerDbService);
   
-  // Register all migrations in order
+  // Register all migrations in order - bootstrap MUST run first for new schemas
   const allMigrations = [
+    bootstrapSchemaMigration,
     rebuildCompanySettingsMigration,
     ...contractorMigrations,
     ...cleanupMigrations,

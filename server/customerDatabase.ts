@@ -93,24 +93,30 @@ export class CustomerDatabaseService {
 
     let pool: Pool;
     let db: ReturnType<typeof drizzle>;
+    let isNewSchema = false;
     
     try {
       pool = new Pool({ connectionString: customer.databaseUrl });
       
       const schemaName = this.generateSchemaName(customerId);
-      const schemaCheck = await pool.query(
-        `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'company_settings' LIMIT 1`,
+      
+      const schemaExists = await pool.query(
+        `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
         [schemaName]
       );
-      if (schemaCheck.rows.length > 0) {
-        pool.on('connect', (client) => {
-          client.query(`SET search_path TO ${schemaName}, public`);
-        });
-        await pool.query(`SET search_path TO ${schemaName}, public`);
-        console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
-      } else {
-        console.log(`📋 Using public schema for customer ${customerId} (schema ${schemaName} not fully provisioned)`);
+      
+      if (!schemaExists.rows.length) {
+        console.log(`✨ Creating schema ${schemaName} for customer ${customerId}...`);
+        await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
+        console.log(`✅ Schema ${schemaName} created successfully`);
+        isNewSchema = true;
       }
+      
+      pool.on('connect', (client) => {
+        client.query(`SET search_path TO ${schemaName}, public`);
+      });
+      await pool.query(`SET search_path TO ${schemaName}, public`);
+      console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
       
       db = drizzle({ client: pool, schema: isolatedSchema });
 
@@ -139,7 +145,80 @@ export class CustomerDatabaseService {
       await this.migrationRunner.ensureSchema(customerId);
     } catch (error) {
       console.error(`⚠️ Schema migration failed for customer ${customerId}:`, error);
-      // Don't throw - allow connection to proceed as migrations are best-effort
+    }
+    
+    // For newly created schemas, migrate data from public schema if it exists
+    if (isNewSchema) {
+      try {
+        const schemaName = this.generateSchemaName(customerId);
+        const pool = this.customerPools.get(customerId);
+        if (pool) {
+          console.log(`📦 Migrating data from public schema to ${schemaName}...`);
+          const tablesToMigrate = [
+            'users', 'staff', 'visitors', 'members', 'pre_bookings', 'departments',
+            'company_settings', 'meeting_rooms', 'room_bookings', 'room_booking_attendees',
+            'visitor_history', 'staff_sessions', 'staff_attendance_history',
+            'muster_points', 'evacuation_accountability', 'safety_tokens',
+            'user_invitations', 'contractor_companies', 'contractor_workers',
+            'contractor_documents', 'contractor_visits', 'contractor_prebookings',
+            'worker_notes', 'compliance_documents', 'document_types', 'card_offences',
+            'card_issues', 'worker_certifications', 'help_categories', 'help_articles',
+            'induction_settings', 'induction_questions', 'feature_toggles'
+          ];
+          
+          for (const table of tablesToMigrate) {
+            try {
+              const publicTableExists = await pool.query(
+                `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 LIMIT 1`,
+                [table]
+              );
+              const customerTableExists = await pool.query(
+                `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2 LIMIT 1`,
+                [schemaName, table]
+              );
+              if (publicTableExists.rows.length > 0 && customerTableExists.rows.length > 0) {
+                const countResult = await pool.query(`SELECT COUNT(*) as cnt FROM ${schemaName}.${table}`);
+                if (parseInt(countResult.rows[0]?.cnt || '0') === 0) {
+                  const publicCount = await pool.query(`SELECT COUNT(*) as cnt FROM public.${table}`);
+                  if (parseInt(publicCount.rows[0]?.cnt || '0') > 0) {
+                    await pool.query(`INSERT INTO ${schemaName}.${table} SELECT * FROM public.${table}`);
+                    console.log(`  ✅ Migrated ${publicCount.rows[0].cnt} rows: public.${table} → ${schemaName}.${table}`);
+                  }
+                }
+              }
+            } catch (tableError: any) {
+              console.log(`  ⚠️ Skipping ${table}: ${tableError.message?.substring(0, 80)}`);
+            }
+          }
+          console.log(`📦 Data migration complete for ${schemaName}`);
+        }
+      } catch (migrationError) {
+        console.error(`⚠️ Data migration from public schema failed:`, migrationError);
+      }
+    }
+    
+    // Seed or fix company_settings with correct company name
+    try {
+      const settingsCheck = await db.execute(`SELECT id, company_name FROM company_settings LIMIT 1`);
+      if (!settingsCheck.rows || settingsCheck.rows.length === 0) {
+        console.log(`🌱 Seeding company_settings for new customer: ${customer.companyName}`);
+        await db.execute(`
+          INSERT INTO company_settings (id, company_name)
+          VALUES (gen_random_uuid(), '${customer.companyName.replace(/'/g, "''")}')
+        `);
+        console.log(`✅ Company settings seeded for: ${customer.companyName}`);
+      } else if (isNewSchema) {
+        const currentName = settingsCheck.rows[0]?.company_name;
+        if (currentName !== customer.companyName) {
+          console.log(`🔧 Fixing company name: "${currentName}" → "${customer.companyName}"`);
+          await db.execute(`
+            UPDATE company_settings SET company_name = '${customer.companyName.replace(/'/g, "''")}'
+          `);
+          console.log(`✅ Company name corrected to: ${customer.companyName}`);
+        }
+      }
+    } catch (seedError) {
+      console.error(`⚠️ Failed to seed company settings:`, seedError);
     }
     
     return db;
