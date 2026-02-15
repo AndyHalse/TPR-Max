@@ -13643,7 +13643,7 @@ This is an automated notification from your visitor management system.`;
         .select({ count: sql<number>`count(*)` })
         .from(workerDocumentAssignments)
         .where(and(
-          eq(workerDocumentAssignments.templateId, templateId),
+          eq(workerDocumentAssignments.documentTemplateId, templateId),
           eq(workerDocumentAssignments.customerId, context.customerId),
           eq(workerDocumentAssignments.isActive, true),
           sql`${workerDocumentAssignments.status} IN ('pending', 'sent')`
@@ -13902,7 +13902,7 @@ This is an automated notification from your visitor management system.`;
               .from(workerDocumentAssignments)
               .where(and(
                 eq(workerDocumentAssignments.workerId, workerId),
-                eq(workerDocumentAssignments.templateId, templateId),
+                eq(workerDocumentAssignments.documentTemplateId, templateId),
                 eq(workerDocumentAssignments.customerId, context.customerId),
                 eq(workerDocumentAssignments.isActive, true),
                 // Only prevent duplicates for non-completed assignments
@@ -13939,7 +13939,7 @@ This is an automated notification from your visitor management system.`;
               customerId: context.customerId,
               workerId,
               companyId: worker.companyId,
-              templateId: templateId,
+              documentTemplateId: templateId,
               assignedBy: userId,
               dueDate: dueDate ? new Date(dueDate) : null,
               acceptanceToken,
@@ -14027,7 +14027,7 @@ This is an automated notification from your visitor management system.`;
           }
         })
         .from(workerDocumentAssignments)
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
         .where(and(
           eq(workerDocumentAssignments.companyId, companyId),
@@ -14082,7 +14082,7 @@ This is an automated notification from your visitor management system.`;
                 company: contractorCompanies
               })
               .from(workerDocumentAssignments)
-              .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
+              .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
               .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
               .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
               .where(and(
@@ -14179,7 +14179,7 @@ This is an automated notification from your visitor management system.`;
           company: contractorCompanies
         })
         .from(workerDocumentAssignments)
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
         .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
@@ -14607,13 +14607,17 @@ This is an automated notification from your visitor management system.`;
       try {
         assignments = await db
           .select()
-          .from(isolatedSchema.workerDocumentAssignments)
-          .limit(100); // Limit for performance - no customerId filter needed in isolated DB
+          .from(workerDocumentAssignments)
+          .where(and(
+            eq(workerDocumentAssignments.customerId, context.customerId),
+            eq(workerDocumentAssignments.isActive, true)
+          ))
+          .orderBy(desc(workerDocumentAssignments.assignedAt))
+          .limit(500);
           
         console.log(`🔍 DEBUG: Found ${assignments.length} assignments in database`);
       } catch (dbError) {
         console.error('🔥 Database query failed:', dbError);
-        // Return empty array if database query fails
         assignments = [];
       }
       
@@ -14650,7 +14654,7 @@ This is an automated notification from your visitor management system.`;
         })
         .from(workerDocumentAssignments)
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
           inArray(workerDocumentAssignments.id, assignmentIds),
@@ -14741,7 +14745,7 @@ This is an automated notification from your visitor management system.`;
         })
         .from(workerDocumentAssignments)
         .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.templateId, ukHSDocumentTemplates.id))
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
         .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
           eq(workerDocumentAssignments.companyId, companyId),

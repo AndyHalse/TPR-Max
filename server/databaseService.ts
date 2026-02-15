@@ -2540,7 +2540,7 @@ export class DatabaseService {
         .from(isolatedSchema.workerDocumentAssignments)
         .innerJoin(
           isolatedSchema.ukHSDocumentTemplates, 
-          eq(isolatedSchema.workerDocumentAssignments.templateId, isolatedSchema.ukHSDocumentTemplates.id)
+          eq(isolatedSchema.workerDocumentAssignments.documentTemplateId, isolatedSchema.ukHSDocumentTemplates.id)
         )
         .where(and(
           eq(isolatedSchema.workerDocumentAssignments.workerId, workerId),
