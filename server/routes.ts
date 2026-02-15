@@ -12136,8 +12136,8 @@ This is an automated notification from your visitor management system.`;
       const contractorsWithStats = await Promise.all(contractors.map(async (contractor) => {
         const workers = await databaseService.getWorkersByCompanyId(context, contractor.id);
         const docsDb = await customerDbService.getCustomerDatabase(context.customerId);
-        const documents = await docsDb.select().from(isolatedSchema.complianceDocuments)
-          .where(eq(isolatedSchema.complianceDocuments.companyId, contractor.id));
+        const documents = await docsDb.select().from(isolatedSchema.contractorDocuments)
+          .where(eq(isolatedSchema.contractorDocuments.companyId, contractor.id));
         
         const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'];
         const documentsStatus = docTypes.reduce((acc, type) => {
