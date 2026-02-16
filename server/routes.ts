@@ -10765,9 +10765,38 @@ This is an automated notification from your visitor management system.`;
         };
       });
       
+      let roomBookingsForDiary: any[] = [];
+      try {
+        const allRoomBookings = await customerDb.select().from(isolatedSchema.roomBookings);
+        const filteredRoomBookings = allRoomBookings.filter((rb: any) => {
+          const bookingStart = new Date(rb.startTime);
+          return bookingStart >= targetDate && bookingStart <= endDate;
+        });
+        
+        if (filteredRoomBookings.length > 0) {
+          const allRooms = await customerDb.select().from(isolatedSchema.meetingRooms);
+          const roomMap = new Map(allRooms.map((r: any) => [r.id, r]));
+          
+          roomBookingsForDiary = filteredRoomBookings.map((rb: any) => {
+            const room = roomMap.get(rb.meetingRoomId);
+            const organizer = rb.bookedByStaffId ? staffMap.get(rb.bookedByStaffId) : null;
+            return {
+              ...rb,
+              roomName: room?.name || 'Unknown Room',
+              roomLocation: room?.location || '',
+              organizerName: organizer ? `${organizer.firstName} ${organizer.lastName}` : 'Unknown',
+              organizerEmail: organizer?.email || '',
+            };
+          });
+        }
+      } catch (roomBookingError) {
+        console.log("Note: room_bookings table may not exist yet:", (roomBookingError as any).message);
+      }
+      
       res.json({
         visitors: enrichedVisitors,
         contractors: enrichedContractors,
+        roomBookings: roomBookingsForDiary,
       });
     } catch (error) {
       console.error("Error fetching reception diary:", error);
@@ -16617,7 +16646,6 @@ This is an automated notification from your visitor management system.`;
   // Room Bookings Management
   app.get("/api/room-bookings", requireAuth, async (req, res) => {
     try {
-      // SECURITY: Use authenticated customer's ID for isolation
       const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Please log in to view bookings" });
@@ -16626,10 +16654,32 @@ This is an automated notification from your visitor management system.`;
       const { room_id, start_date, end_date } = req.query;
       
       const bookingsDb = await customerDbService.getCustomerDatabase(customerId);
-      let bookingsQuery = bookingsDb.select().from(isolatedSchema.roomBookings);
-      const bookings = await bookingsQuery;
+      const rawBookings = await bookingsDb.select().from(isolatedSchema.roomBookings);
+      
+      const allRooms = await bookingsDb.select().from(isolatedSchema.meetingRooms);
+      const roomMap = new Map(allRooms.map(r => [r.id, r]));
+      
+      const staffIds = [...new Set(rawBookings.map(b => b.bookedByStaffId).filter(Boolean))];
+      let staffMap = new Map<string, any>();
+      if (staffIds.length > 0) {
+        const staffMembers = await bookingsDb.select().from(isolatedSchema.staff)
+          .where(inArray(isolatedSchema.staff.id, staffIds as string[]));
+        staffMap = new Map(staffMembers.map(s => [s.id, s]));
+      }
+      
+      const enrichedBookings = rawBookings.map(booking => {
+        const room = roomMap.get(booking.meetingRoomId);
+        const organizer = booking.bookedByStaffId ? staffMap.get(booking.bookedByStaffId) : null;
+        return {
+          ...booking,
+          room: room || { id: booking.meetingRoomId, name: 'Unknown Room', location: '', capacity: 0 },
+          organizer: organizer 
+            ? { id: organizer.id, firstName: organizer.firstName, lastName: organizer.lastName, email: organizer.email || '' }
+            : { id: '', firstName: 'Unknown', lastName: 'Organizer', email: '' },
+        };
+      });
 
-      res.json(bookings);
+      res.json(enrichedBookings);
     } catch (error) {
       console.error("Error fetching room bookings:", error);
       res.status(500).json({ error: "Failed to fetch room bookings" });
@@ -16654,7 +16704,8 @@ This is an automated notification from your visitor management system.`;
       endDate.setDate(endDate.getDate() + daysAhead - 1);
       const endOfDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
       
-      const bookings = await db
+      const todayBookingsDb = await customerDbService.getCustomerDatabase(customerId);
+      const bookings = await todayBookingsDb
         .select({
           id: isolatedSchema.roomBookings.id,
           meetingRoomId: isolatedSchema.roomBookings.meetingRoomId,
