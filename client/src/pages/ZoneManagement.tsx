@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { MapPin, Plus, Trash2, Edit, Save, Map, Upload, X, GripVertical } from "lucide-react";
+import { MapPin, Plus, Trash2, Edit, Save, Map, Upload, X, GripVertical, Pipette } from "lucide-react";
 
 interface Zone {
   id: string;
@@ -37,7 +37,200 @@ const ZONE_COLORS = [
   "#A855F7", "#D946EF", "#EC4899", "#F43F5E",
 ];
 
-const MAX_ZONES = 16;
+function hexToHSV(hex: string): { h: number; s: number; v: number } {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d + 6) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  const s = max === 0 ? 0 : d / max;
+  return { h, s, v: max };
+}
+
+function hsvToHex(h: number, s: number, v: number): string {
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  const toHex = (n: number) => Math.round((n + m) * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function ColorPickerPanel({ color, onChange }: { color: string; onChange: (c: string) => void }) {
+  const safeHex = /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#EF4444";
+  const hsv = hexToHSV(safeHex);
+  const [hue, setHue] = useState(hsv.h);
+  const [sat, setSat] = useState(hsv.s);
+  const [val, setVal] = useState(hsv.v);
+  const [showPicker, setShowPicker] = useState(false);
+  const gradRef = useRef<HTMLDivElement>(null);
+  const hueRef = useRef<HTMLDivElement>(null);
+  const draggingGrad = useRef(false);
+  const draggingHue = useRef(false);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const newHsv = hexToHSV(/^#[0-9a-fA-F]{6}$/.test(color) ? color : "#EF4444");
+    setHue(newHsv.h);
+    setSat(newHsv.s);
+    setVal(newHsv.v);
+  }, [showPicker]);
+
+  const emitColor = (h: number, s: number, v: number) => {
+    onChange(hsvToHex(h, s, v));
+  };
+
+  const handleGradMove = (e: React.MouseEvent | MouseEvent) => {
+    if (!gradRef.current) return;
+    const rect = gradRef.current.getBoundingClientRect();
+    const s = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const v = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
+    setSat(s);
+    setVal(v);
+    emitColor(hue, s, v);
+  };
+
+  const handleHueMove = (e: React.MouseEvent | MouseEvent) => {
+    if (!hueRef.current) return;
+    const rect = hueRef.current.getBoundingClientRect();
+    const h = Math.max(0, Math.min(359, ((e.clientX - rect.left) / rect.width) * 360));
+    setHue(h);
+    emitColor(h, sat, val);
+  };
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (draggingGrad.current) handleGradMove(e);
+      if (draggingHue.current) handleHueMove(e);
+    };
+    const onUp = () => { draggingGrad.current = false; draggingHue.current = false; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  });
+
+  const pureHueColor = hsvToHex(hue, 1, 1);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded border-2 border-border cursor-pointer shrink-0"
+          style={{ backgroundColor: color }}
+          onClick={() => setShowPicker(!showPicker)}
+        />
+        <Input
+          value={color}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange(v);
+            if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+              const newHsv = hexToHSV(v);
+              setHue(newHsv.h); setSat(newHsv.s); setVal(newHsv.v);
+            }
+          }}
+          className="w-28 font-mono text-sm"
+          maxLength={7}
+        />
+        <div className="flex gap-1 flex-wrap">
+          {ZONE_COLORS.slice(0, 8).map((c) => (
+            <button
+              key={c}
+              className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
+              style={{
+                backgroundColor: c,
+                borderColor: color === c ? "white" : "transparent",
+              }}
+              onClick={() => {
+                onChange(c);
+                const newHsv = hexToHSV(c);
+                setHue(newHsv.h); setSat(newHsv.s); setVal(newHsv.v);
+              }}
+            />
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={() => setShowPicker(!showPicker)}
+          title="Pick color"
+        >
+          <Pipette className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {showPicker && (
+        <div className="rounded-lg border bg-popover p-3 shadow-lg space-y-3 w-[280px]">
+          <div
+            ref={gradRef}
+            className="relative w-full h-[160px] rounded cursor-crosshair select-none"
+            style={{
+              background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pureHueColor})`,
+            }}
+            onMouseDown={(e) => { draggingGrad.current = true; handleGradMove(e); }}
+          >
+            <div
+              className="absolute w-4 h-4 rounded-full border-2 border-white shadow-md transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              style={{
+                left: `${sat * 100}%`,
+                top: `${(1 - val) * 100}%`,
+                backgroundColor: color,
+              }}
+            />
+          </div>
+
+          <div
+            ref={hueRef}
+            className="relative w-full h-3 rounded-full cursor-pointer select-none"
+            style={{
+              background: "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)",
+            }}
+            onMouseDown={(e) => { draggingHue.current = true; handleHueMove(e); }}
+          >
+            <div
+              className="absolute w-4 h-4 rounded-full border-2 border-white shadow-md transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              style={{
+                left: `${(hue / 360) * 100}%`,
+                top: "50%",
+                backgroundColor: pureHueColor,
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span>R</span>
+              <span className="font-mono">{parseInt(color.slice(1, 3), 16) || 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>G</span>
+              <span className="font-mono">{parseInt(color.slice(3, 5), 16) || 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>B</span>
+              <span className="font-mono">{parseInt(color.slice(5, 7), 16) || 0}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ZoneManagement() {
   const { toast } = useToast();
@@ -266,13 +459,11 @@ export default function ZoneManagement() {
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
                 <h3 className="text-lg font-semibold">Zones</h3>
-                <Badge variant="secondary">{zones.length}/{MAX_ZONES} zones</Badge>
+                <Badge variant="secondary">{zones.length} zones</Badge>
               </div>
-              {zones.length < MAX_ZONES && (
-                <Button onClick={openAddDialog} size="sm" className="gap-1">
-                  <Plus className="h-4 w-4" /> Add Zone
-                </Button>
-              )}
+              <Button onClick={openAddDialog} size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Add Zone
+              </Button>
             </div>
 
             {zones.length === 0 ? (
@@ -492,35 +683,11 @@ export default function ZoneManagement() {
               />
             </div>
             <div>
-              <Label htmlFor="zone-color">Color</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  id="zone-color"
-                  type="color"
-                  value={zoneForm.color}
-                  onChange={(e) => setZoneForm({ ...zoneForm, color: e.target.value })}
-                  className="w-10 h-10 rounded cursor-pointer border-0 p-0"
-                />
-                <Input
-                  value={zoneForm.color}
-                  onChange={(e) => setZoneForm({ ...zoneForm, color: e.target.value })}
-                  className="w-28 font-mono text-sm"
-                  maxLength={7}
-                />
-                <div className="flex gap-1 flex-wrap">
-                  {ZONE_COLORS.slice(0, 8).map((c) => (
-                    <button
-                      key={c}
-                      className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
-                      style={{
-                        backgroundColor: c,
-                        borderColor: zoneForm.color === c ? "white" : "transparent",
-                      }}
-                      onClick={() => setZoneForm({ ...zoneForm, color: c })}
-                    />
-                  ))}
-                </div>
-              </div>
+              <Label>Color</Label>
+              <ColorPickerPanel
+                color={zoneForm.color}
+                onChange={(c) => setZoneForm({ ...zoneForm, color: c })}
+              />
             </div>
             <div>
               <Label htmlFor="zone-desc">Description</Label>
@@ -567,35 +734,11 @@ export default function ZoneManagement() {
               />
             </div>
             <div>
-              <Label htmlFor="edit-zone-color">Color</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  id="edit-zone-color"
-                  type="color"
-                  value={zoneForm.color}
-                  onChange={(e) => setZoneForm({ ...zoneForm, color: e.target.value })}
-                  className="w-10 h-10 rounded cursor-pointer border-0 p-0"
-                />
-                <Input
-                  value={zoneForm.color}
-                  onChange={(e) => setZoneForm({ ...zoneForm, color: e.target.value })}
-                  className="w-28 font-mono text-sm"
-                  maxLength={7}
-                />
-                <div className="flex gap-1 flex-wrap">
-                  {ZONE_COLORS.slice(0, 8).map((c) => (
-                    <button
-                      key={c}
-                      className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
-                      style={{
-                        backgroundColor: c,
-                        borderColor: zoneForm.color === c ? "white" : "transparent",
-                      }}
-                      onClick={() => setZoneForm({ ...zoneForm, color: c })}
-                    />
-                  ))}
-                </div>
-              </div>
+              <Label>Color</Label>
+              <ColorPickerPanel
+                color={zoneForm.color}
+                onChange={(c) => setZoneForm({ ...zoneForm, color: c })}
+              />
             </div>
             <div>
               <Label htmlFor="edit-zone-desc">Description</Label>

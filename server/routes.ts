@@ -2550,9 +2550,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const existingZones = await custDb.select().from(isolatedSchema.evacuationZones);
-      if (existingZones.length >= 16) {
-        return res.status(400).json({ error: "Maximum of 16 zones allowed" });
-      }
       const { name, color, description, displayOrder, mapX, mapY } = req.body;
       if (!name) {
         return res.status(400).json({ error: "Zone name is required" });

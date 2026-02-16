@@ -224,6 +224,10 @@ export default function ContractorManagement() {
     queryKey: ['/api/staff'],
   });
 
+  const { data: zones = [] } = useQuery<any[]>({
+    queryKey: ["/api/zones"],
+  });
+
   const generateTestWorkersMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch("/api/contractors/generate-test-workers", {
@@ -851,6 +855,16 @@ export default function ContractorManagement() {
                       <Badge className={getSafetyRatingColor(contractor.safetyRating)}>
                         {contractor.safetyRating}
                       </Badge>
+
+                      {(contractor as any).zoneId && (() => {
+                        const zone = zones.find((z: any) => z.id === (contractor as any).zoneId);
+                        return zone ? (
+                          <span className="inline-flex items-center gap-1 text-xs">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zone.color }} />
+                            {zone.name}
+                          </span>
+                        ) : null;
+                      })()}
                       
                       {(contractor as any).hasRedCard && (
                         <Badge className="bg-red-200 text-red-900">
@@ -1016,6 +1030,15 @@ export default function ContractorManagement() {
                           {(contractor as any).hasRedCard && <Badge className="text-xs bg-red-200 text-red-900">Red Card</Badge>}
                           {(contractor as any).hasYellowCard && <Badge className="text-xs bg-yellow-200 text-yellow-900">Yellow Card</Badge>}
                           {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && <Badge className="text-xs bg-green-200 text-green-900">Clear</Badge>}
+                          {(contractor as any).zoneId && (() => {
+                            const zone = zones.find((z: any) => z.id === (contractor as any).zoneId);
+                            return zone ? (
+                              <span className="inline-flex items-center gap-1 text-xs">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zone.color }} />
+                                {zone.name}
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-variable mt-1">
                           <span>Last visit: {contractor.updatedAt ? new Date(contractor.updatedAt).toLocaleDateString() : 'Unknown'}</span>

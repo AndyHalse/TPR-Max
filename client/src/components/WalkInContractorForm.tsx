@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ interface WalkInContractorFormProps {
 
 export default function WalkInContractorForm({ onBack }: WalkInContractorFormProps) {
   const { toast } = useToast();
+  const { data: zones = [] } = useQuery<any[]>({ queryKey: ["/api/zones"] });
   const [formData, setFormData] = useState({
     companyName: "",
     contactFirstName: "",
@@ -35,6 +36,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
     cscsCard: "",
     purpose: "",
     notes: "",
+    zoneId: "",
   });
 
   const [documents, setDocuments] = useState({
@@ -75,6 +77,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
         cscsStatus: data.cscsCard ? "valid" : "missing",
         inductionCompleted: false, // Walk-ins need induction
         isActive: true,
+        zoneId: data.zoneId || null,
       });
 
       return { contractor, worker: await workerResponse.json() };
@@ -359,6 +362,27 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                 />
               </div>
               
+              {zones.filter((z: any) => z.isActive).length > 0 && (
+                <div>
+                  <Label htmlFor="zoneId">Zone / Location</Label>
+                  <Select value={formData.zoneId} onValueChange={(value) => handleInputChange("zoneId", value)}>
+                    <SelectTrigger data-testid="select-zone">
+                      <SelectValue placeholder="Select zone (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {zones.filter((z: any) => z.isActive).map((zone: any) => (
+                        <SelectItem key={zone.id} value={zone.id}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: zone.color }} />
+                            <span>{zone.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="md:col-span-2">
                 <Label htmlFor="purpose">Purpose of Visit</Label>
                 <Textarea

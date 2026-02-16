@@ -36,6 +36,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     preferredNotificationMethod: "email",
     voiceLanguage: "en-GB",
     voiceProfile: "en-GB-Standard-A",
+    zoneId: "",
   });
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -46,6 +47,10 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
   // Fetch departments dynamically
   const { data: departmentNames } = useQuery<string[]>({
     queryKey: ["/api/departments/names"],
+  });
+
+  const { data: zones = [] } = useQuery<any[]>({
+    queryKey: ["/api/zones"],
   });
 
   // Update form data when staffToEdit changes
@@ -67,6 +72,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         preferredNotificationMethod: staffToEdit.preferredNotificationMethod || "email",
         voiceLanguage: staffToEdit.voiceLanguage || "en-GB",
         voiceProfile: staffToEdit.voiceProfile || "en-GB-Standard-A",
+        zoneId: staffToEdit.zoneId || "",
       });
       setUploadedPhoto(staffToEdit.photoUrl || null);
     } else {
@@ -86,6 +92,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         preferredNotificationMethod: "email",
         voiceLanguage: "en-GB",
         voiceProfile: "en-GB-Standard-A",
+        zoneId: "",
       });
       setUploadedPhoto(null);
     }
@@ -170,6 +177,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       preferredNotificationMethod: "email",
       voiceLanguage: "en-GB",
       voiceProfile: "en-GB-Standard-A",
+      zoneId: "",
     });
     setUploadedPhoto(null);
     onClose();
@@ -295,6 +303,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       preferredNotificationMethod: formData.preferredNotificationMethod,
       voiceLanguage: formData.voiceLanguage,
       voiceProfile: formData.voiceProfile,
+      zoneId: formData.zoneId || null,
     };
 
     // Only include password if it's provided and user has admin/supervisor access
@@ -447,6 +456,29 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               </SelectContent>
             </Select>
           </div>
+          
+          {zones.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="zoneId" className="text-sm font-medium text-fixed">
+                Zone / Location
+              </Label>
+              <Select value={formData.zoneId} onValueChange={(value) => handleInputChange("zoneId", value)}>
+                <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-zone">
+                  <SelectValue placeholder="Select zone (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {zones.filter((z: any) => z.isActive).map((zone: any) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: zone.color }} />
+                        <span>{zone.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           {/* Fire Marshal Assignment */}
           <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">

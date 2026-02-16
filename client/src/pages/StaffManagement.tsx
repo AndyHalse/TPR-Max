@@ -131,6 +131,8 @@ export default function StaffManagement() {
     },
   });
 
+  const { data: zones = [] } = useQuery<any[]>({ queryKey: ["/api/zones"] });
+
   const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
 
   const getPassBranding = () => {
@@ -485,6 +487,15 @@ export default function StaffManagement() {
                       🚨 Fire Marshal
                     </span>
                   )}
+                  {(member as any).zoneId && (() => {
+                    const zone = zones.find((z: any) => z.id === (member as any).zoneId);
+                    return zone ? (
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zone.color }} />
+                        {zone.name}
+                      </span>
+                    ) : null;
+                  })()}
                   {member.isCheckedIn && member.checkedInAt && (
                     <span className="text-[10px] text-variable flex items-center ml-auto">
                       <Clock size={9} className="mr-0.5" />
@@ -577,6 +588,15 @@ export default function StaffManagement() {
                     <div className="flex items-center gap-3 text-xs text-variable">
                       <span>{member.department}</span>
                       {member.email && <span className="hidden sm:inline">{member.email}</span>}
+                      {(member as any).zoneId && (() => {
+                        const zone = zones.find((z: any) => z.id === (member as any).zoneId);
+                        return zone ? (
+                          <span className="inline-flex items-center gap-1 text-xs">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zone.color }} />
+                            {zone.name}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </div>
