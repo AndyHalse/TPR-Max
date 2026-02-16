@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { MapPin, Plus, Trash2, Edit, Save, Map, Upload, X, GripVertical, Pipette } from "lucide-react";
+import { MapPin, Plus, Trash2, Edit, Save, Map, Upload, X, GripVertical, Pipette, ArrowUpDown, ArrowUp, ArrowDown, SortAsc } from "lucide-react";
 
 interface Zone {
   id: string;
@@ -239,6 +239,7 @@ export default function ZoneManagement() {
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [zoneSortBy, setZoneSortBy] = useState<'order' | 'name-asc' | 'name-desc'>('order');
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
   const [selectedZoneForPlacement, setSelectedZoneForPlacement] = useState<string | null>(null);
 
@@ -461,9 +462,31 @@ export default function ZoneManagement() {
                 <h3 className="text-lg font-semibold">Zones</h3>
                 <Badge variant="secondary">{zones.length} zones</Badge>
               </div>
-              <Button onClick={openAddDialog} size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> Add Zone
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center border rounded-lg overflow-hidden text-xs">
+                  {([
+                    { key: 'order', label: 'Order', icon: GripVertical },
+                    { key: 'name-asc', label: 'A-Z', icon: ArrowUp },
+                    { key: 'name-desc', label: 'Z-A', icon: ArrowDown },
+                  ] as const).map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => setZoneSortBy(key)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 transition-colors ${
+                        zoneSortBy === key
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'hover:bg-accent text-muted-foreground'
+                      }`}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <Button onClick={openAddDialog} size="sm" className="gap-1">
+                  <Plus className="h-4 w-4" /> Add Zone
+                </Button>
+              </div>
             </div>
 
             {zones.length === 0 ? (
@@ -475,7 +498,11 @@ export default function ZoneManagement() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {[...zones]
-                  .sort((a, b) => a.displayOrder - b.displayOrder)
+                  .sort((a, b) => {
+                    if (zoneSortBy === 'name-asc') return a.name.localeCompare(b.name);
+                    if (zoneSortBy === 'name-desc') return b.name.localeCompare(a.name);
+                    return a.displayOrder - b.displayOrder;
+                  })
                   .map((zone) => (
                     <div
                       key={zone.id}
