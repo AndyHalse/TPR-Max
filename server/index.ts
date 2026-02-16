@@ -190,7 +190,24 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/room-bookings') ||
         req.originalUrl.startsWith('/api/meeting-rooms') ||
         req.originalUrl.startsWith('/api/card-issues') ||
-        req.originalUrl.startsWith('/api/contractors')) {
+        req.originalUrl.startsWith('/api/contractors') ||
+        req.originalUrl.startsWith('/api/settings') ||
+        req.originalUrl.startsWith('/api/zones') ||
+        req.originalUrl.startsWith('/api/departments') ||
+        req.originalUrl.startsWith('/api/users') ||
+        req.originalUrl.startsWith('/api/muster') ||
+        req.originalUrl.startsWith('/api/evacuation') ||
+        req.originalUrl.startsWith('/api/emergency') ||
+        req.originalUrl.startsWith('/api/members') ||
+        req.originalUrl.startsWith('/api/reports') ||
+        req.originalUrl.startsWith('/api/activity') ||
+        req.originalUrl.startsWith('/api/analytics') ||
+        req.originalUrl.startsWith('/api/help') ||
+        req.originalUrl.startsWith('/api/printers') ||
+        req.originalUrl.startsWith('/api/induction') ||
+        req.originalUrl.startsWith('/api/feature-toggles') ||
+        req.originalUrl.startsWith('/api/co2') ||
+        req.originalUrl.startsWith('/api/reception')) {
       console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }
