@@ -12517,7 +12517,11 @@ This is an automated notification from your visitor management system.`;
     try {
       // Use customer database service with proper isolation
       const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'system', req.customerId);
-      const issue = await databaseService.createCardIssue(context, req.body);
+      
+      // Override issuedBy with the actual authenticated user ID to ensure FK constraint is met
+      const cardData = { ...req.body, issuedBy: req.user?.id || req.body.issuedBy };
+      console.log(`🔍 Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
+      const issue = await databaseService.createCardIssue(context, cardData);
       
       console.log(`✅ Card issue created successfully for customer ${context.customerId}:`, issue);
       
