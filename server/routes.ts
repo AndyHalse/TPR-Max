@@ -12280,7 +12280,7 @@ This is an automated notification from your visitor management system.`;
   // Red and Yellow Card System Routes
   app.get("/api/card-offences", requireAuth, async (req, res) => {
     try {
-      const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'dev-customer-001');
+      const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'system', req.customerId);
       
       // Ensure offences are seeded for this customer
       await databaseService.seedCustomerCardOffences(context);
@@ -12308,7 +12308,7 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/card-issues", requireAuth, async (req, res) => {
     try {
       // Use customer database service with proper isolation
-      const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'dev-customer-001');
+      const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'system', req.customerId);
       const issue = await databaseService.createCardIssue(context, req.body);
       
       console.log(`✅ Card issue created successfully for customer ${context.customerId}:`, issue);
