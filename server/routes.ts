@@ -7477,11 +7477,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark all personnel as safe endpoint
   app.post("/api/muster/mark-all-safe", async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
-      // Get all current on-site personnel
+      const activeEvacuations = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.status, 'active'),
+          eq(evacuations.customerId, context.customerId)
+        ))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+      
+      const activeEvacuation = activeEvacuations[0];
+
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
         databaseService.getCurrentVisitors(context),
         databaseService.getCheckedInStaff(context),
@@ -7489,9 +7499,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
 
       let updatedCount = 0;
-      let errors = [];
+      let errors: string[] = [];
 
-      // Mark all staff as accounted for
+      const updateAccountability = async (personId: string, personName: string, personType: string) => {
+        if (!activeEvacuation) return;
+        try {
+          const existing = await db
+            .select()
+            .from(evacuationAccountability)
+            .where(and(
+              eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+              eq(evacuationAccountability.personId, personId),
+              eq(evacuationAccountability.customerId, context.customerId)
+            ))
+            .limit(1);
+          
+          if (existing.length > 0) {
+            await db
+              .update(evacuationAccountability)
+              .set({
+                isAccountedFor: true,
+                accountedBy: username,
+                accountedAt: new Date(),
+                updatedAt: new Date()
+              })
+              .where(and(
+                eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+                eq(evacuationAccountability.personId, personId),
+                eq(evacuationAccountability.customerId, context.customerId)
+              ));
+          } else {
+            await db.insert(evacuationAccountability).values({
+              evacuationId: activeEvacuation.evacuationId,
+              customerId: context.customerId,
+              personId,
+              personType,
+              personName,
+              isAccountedFor: true,
+              accountedBy: username,
+              accountedAt: new Date()
+            });
+          }
+        } catch (e) {
+          console.error(`Failed to update accountability for ${personName}:`, e);
+        }
+      };
+
       for (const staff of checkedInStaff) {
         try {
           if (!staff.isAccountedFor) {
@@ -7500,12 +7553,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             updatedCount++;
           }
+          await updateAccountability(staff.id, `${staff.firstName} ${staff.lastName}`, 'staff');
         } catch (error) {
           errors.push(`Staff ${staff.firstName} ${staff.lastName}: ${error}`);
         }
       }
 
-      // Mark all visitors as accounted for  
       for (const visitor of currentVisitors) {
         try {
           if (!visitor.isAccountedFor) {
@@ -7514,12 +7567,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             updatedCount++;
           }
+          await updateAccountability(visitor.id, `${visitor.firstName} ${visitor.lastName}`, 'visitor');
         } catch (error) {
           errors.push(`Visitor ${visitor.firstName} ${visitor.lastName}: ${error}`);
         }
       }
 
-      // Mark all contractors as accounted for
       for (const contractor of checkedInContractors) {
         try {
           if (!contractor.isAccountedFor) {
@@ -7528,12 +7581,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             updatedCount++;
           }
+          await updateAccountability(contractor.id, `${contractor.firstName} ${contractor.lastName}`, 'contractor');
         } catch (error) {
           errors.push(`Contractor ${contractor.firstName} ${contractor.lastName}: ${error}`);
         }
       }
 
-      // Mark all members as accounted for (if feature enabled)
       let memberCount = 0;
       try {
         const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -7555,6 +7608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 .set({ isAccountedFor: true, updatedAt: new Date() })
                 .where(eq(isolatedSchema.members.id, member.id));
               updatedCount++;
+              await updateAccountability(member.id, `${member.firstName} ${member.lastName}`, 'member');
             } catch (error) {
               errors.push(`Member ${member.firstName} ${member.lastName}: ${error}`);
             }
@@ -7565,6 +7619,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const totalPersonnel = checkedInStaff.length + currentVisitors.length + checkedInContractors.length + memberCount;
+
+      console.log(`✅ Mark-all-safe: Updated ${updatedCount}/${totalPersonnel} personnel + evacuation_accountability for evacuation ${activeEvacuation?.evacuationId}`);
 
       res.json({
         success: true,
