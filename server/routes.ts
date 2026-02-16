@@ -16824,11 +16824,22 @@ This is an automated notification from your visitor management system.`;
       
       if (staffAttendeeIds.length > 0 || externalAttendeeEmails.length > 0) {
         const attendeeValues: any[] = [];
-        for (const sid of staffAttendeeIds) {
-          attendeeValues.push({ bookingId: booking.id, staffId: sid, email: '' });
+        
+        if (staffAttendeeIds.length > 0) {
+          const staffMembers = await bookingDb.select().from(isolatedSchema.staff)
+            .where(inArray(isolatedSchema.staff.id, staffAttendeeIds));
+          const staffMap = new Map(staffMembers.map(s => [s.id, s]));
+          
+          for (const sid of staffAttendeeIds) {
+            const s = staffMap.get(sid);
+            const name = s ? `${s.firstName} ${s.lastName}` : 'Unknown Staff';
+            const email = s?.email || '';
+            attendeeValues.push({ bookingId: booking.id, staffId: sid, name, email });
+          }
         }
+        
         for (const email of externalAttendeeEmails) {
-          attendeeValues.push({ bookingId: booking.id, email, staffId: null });
+          attendeeValues.push({ bookingId: booking.id, email, name: email, staffId: null });
         }
         if (attendeeValues.length > 0) {
           await bookingDb.insert(isolatedSchema.roomBookingAttendees).values(attendeeValues);
