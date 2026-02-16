@@ -2599,6 +2599,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customerId = req.customerId;
       let accountabilityMap = new Map<string, boolean>();
       
+      console.log(`📋 MUSTER: Building accountability map for customer: ${customerId}`);
+      
       if (customerId) {
         const activeEvacs = await db
           .select()
@@ -2610,7 +2612,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .orderBy(desc(evacuations.createdAt))
           .limit(1);
         
+        console.log(`📋 MUSTER: Found ${activeEvacs.length} active evacuations for customer ${customerId}`);
+        
         if (activeEvacs.length > 0) {
+          console.log(`📋 MUSTER: Active evacuation ID: ${activeEvacs[0].evacuationId}`);
           const accountabilityRecords = await db
             .select()
             .from(evacuationAccountability)
@@ -2619,10 +2624,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eq(evacuationAccountability.customerId, customerId)
             ));
           
+          console.log(`📋 MUSTER: Found ${accountabilityRecords.length} accountability records, ${accountabilityRecords.filter(r => r.isAccountedFor).length} marked safe`);
+          
           accountabilityRecords.forEach(record => {
             accountabilityMap.set(record.personId, record.isAccountedFor);
           });
         }
+      } else {
+        console.log(`⚠️ MUSTER: No customerId available - accountability data will be empty`);
       }
       
       const musterList = [
