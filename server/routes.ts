@@ -4307,8 +4307,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const activeEvacuation = activeEvacuations[0];
       
+      const customerRecord = await db.select().from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId)).limit(1);
+      const companyName = customerRecord[0]?.companyName || 'Unknown Company';
+      
       console.log(`✅ Fire Marshal authenticated: ${marshal.firstName} ${marshal.lastName}`);
-      console.log(`   Customer: ${customerId}`);
+      console.log(`   Customer: ${customerId} (${companyName})`);
       console.log(`   Active Evacuation: ${activeEvacuation ? activeEvacuation.evacuationId : 'None'}`);
       
       res.json({
@@ -4318,7 +4321,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: `${marshal.firstName} ${marshal.lastName}`,
           department: marshal.department,
           email: marshal.email,
-          customerId: customerId
+          customerId: customerId,
+          companyName: companyName
         },
         evacuation: activeEvacuation ? {
           evacuationId: activeEvacuation.evacuationId,

@@ -82,6 +82,7 @@ interface MarshalInfo {
   department: string;
   email: string;
   customerId: string;
+  companyName?: string;
 }
 
 export default function FireMarshalMobile({ urlId, token }: FireMarshalMobileProps) {
@@ -529,6 +530,9 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             {isEmergencyActive ? <Siren className="h-6 w-6 flex-shrink-0" /> : <Shield className="h-6 w-6 flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-bold">{isEmergencyActive ? 'EVACUATION ACTIVE' : 'FIRE MARSHAL PANEL'}</h1>
+              {marshalInfo?.companyName && (
+                <div className="text-xs font-medium opacity-90">{marshalInfo.companyName}</div>
+              )}
               {isEmergencyActive && (activeEvacuation?.startedAt || evacuationDetails?.startedAt) && (
                 <div className="text-xs space-y-0.5 mt-1">
                   <div className="flex items-center gap-1">

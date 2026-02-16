@@ -21,7 +21,9 @@ import {
   Mail,
   Download,
   Siren,
-  HardHat
+  HardHat,
+  ExternalLink,
+  Copy
 } from "lucide-react";
 
 interface MusterListItem {
@@ -59,8 +61,14 @@ export default function EmergencyMuster() {
   // Check for active evacuation
   const { data: activeEvacuation } = useQuery<ActiveEvacuation>({
     queryKey: ["/api/evacuation/status"],
-    refetchInterval: 10000,  // Check every 10 seconds
+    refetchInterval: 10000,
   });
+
+  const { data: staffList = [] } = useQuery<any[]>({
+    queryKey: ["/api/staff"],
+  });
+
+  const fireMarshals = staffList.filter((s: any) => s.isFireMarshal && s.fireMarshalUrlId);
 
   const hasActiveEvacuation = activeEvacuation?.active || false;
 
@@ -620,11 +628,48 @@ export default function EmergencyMuster() {
               <p className="text-red-700 dark:text-red-300 text-2xl font-bold">999</p>
             </div>
             
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-              <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Fire Marshal</h4>
-              <p className="text-blue-700 dark:text-blue-300">Contact Security</p>
-              <p className="text-blue-600 dark:text-blue-400 text-sm">Call Reception</p>
-            </div>
+            {fireMarshals.length > 0 ? (
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Fire Marshal Links</h4>
+                <div className="space-y-2">
+                  {fireMarshals.map((fm: any) => (
+                    <div key={fm.id} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-blue-700 dark:text-blue-300 text-sm font-medium truncate">{fm.firstName} {fm.lastName}</p>
+                        <p className="text-blue-500 dark:text-blue-400 text-xs truncate">{fm.department}</p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`);
+                            toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` });
+                          }}
+                        >
+                          <Copy size={14} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => window.open(`/fire-marshal/${fm.fireMarshalUrlId}`, '_blank')}
+                        >
+                          <ExternalLink size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Fire Marshal</h4>
+                <p className="text-blue-700 dark:text-blue-300">Contact Security</p>
+                <p className="text-blue-600 dark:text-blue-400 text-sm">Call Reception</p>
+              </div>
+            )}
             
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
               <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Security</h4>
