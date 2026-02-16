@@ -423,9 +423,10 @@ export default function ZoneManagement() {
     }
   };
 
-  const getZoneIndex = (zone: Zone) => {
-    const sorted = [...zones].sort((a, b) => a.displayOrder - b.displayOrder);
-    return sorted.findIndex((z) => z.id === zone.id) + 1;
+  const getZoneLabel = (zone: Zone): string => {
+    const match = zone.name.match(/\d+/);
+    if (match) return match[0];
+    return zone.name.slice(0, 3).toUpperCase();
   };
 
   return (
@@ -627,7 +628,7 @@ export default function ZoneManagement() {
                   />
                   {zones.map((zone) => {
                     if (zone.mapX == null || zone.mapY == null) return null;
-                    const idx = getZoneIndex(zone);
+                    const label = getZoneLabel(zone);
                     return (
                       <div
                         key={zone.id}
@@ -646,7 +647,13 @@ export default function ZoneManagement() {
                           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg border-2 border-white ring-2 ring-black/20 group-hover:scale-110 transition-transform"
                           style={{ backgroundColor: zone.color }}
                         >
-                          {idx}
+                          {label}
+                        </div>
+                        <div
+                          className="absolute left-1/2 -translate-x-1/2 top-full mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none"
+                          style={{ backgroundColor: zone.color, color: '#fff' }}
+                        >
+                          {zone.name}
                         </div>
                       </div>
                     );
@@ -660,7 +667,6 @@ export default function ZoneManagement() {
                       {[...zones]
                         .sort((a, b) => a.displayOrder - b.displayOrder)
                         .map((zone) => {
-                          const idx = getZoneIndex(zone);
                           const isPlaced = zone.mapX != null && zone.mapY != null;
                           const isSelected = selectedZoneForPlacement === zone.id;
                           return (
@@ -677,7 +683,7 @@ export default function ZoneManagement() {
                                 className="w-3 h-3 rounded-full border border-white/30"
                                 style={{ backgroundColor: zone.color }}
                               />
-                              {idx}. {zone.name}
+                              {zone.name}
                               {isPlaced && !isSelected && (
                                 <MapPin className="h-3 w-3 text-green-500" />
                               )}

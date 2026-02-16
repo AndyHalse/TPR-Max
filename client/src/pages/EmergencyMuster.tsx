@@ -480,6 +480,8 @@ export default function EmergencyMuster() {
                   if (zone.mapX == null || zone.mapY == null) return null;
                   const isSelected = selectedZones.has(zone.id);
                   const counts = zonePersonnelCounts[zone.id];
+                  const numMatch = zone.name.match(/\d+/);
+                  const markerLabel = numMatch ? numMatch[0] : zone.name.slice(0, 3).toUpperCase();
                   return (
                     <button
                       key={zone.id}
@@ -501,13 +503,12 @@ export default function EmergencyMuster() {
                           }`}
                           style={{
                             backgroundColor: zone.color,
-                            ...(isSelected ? { ringColor: zone.color + '60' } : {}),
                             boxShadow: isSelected
                               ? `0 0 0 4px ${zone.color}40, 0 4px 12px rgba(0,0,0,0.3)`
                               : '0 2px 8px rgba(0,0,0,0.2)',
                           }}
                         >
-                          {counts && counts.total > 0 ? counts.total : ''}
+                          {markerLabel}
                         </div>
                         {isSelected && (
                           <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-sm">
@@ -521,6 +522,9 @@ export default function EmergencyMuster() {
                           style={{ backgroundColor: zone.color, color: '#fff' }}
                         >
                           {zone.name}
+                          {counts && counts.total > 0 && (
+                            <span className="ml-1 opacity-80">({counts.total})</span>
+                          )}
                         </div>
                       </div>
                     </button>
