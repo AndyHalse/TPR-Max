@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +24,8 @@ import {
   HardHat,
   ExternalLink,
   Copy,
-  MapPin
+  MapPin,
+  Map
 } from "lucide-react";
 
 interface MusterListItem {
@@ -87,6 +88,23 @@ export default function EmergencyMuster() {
   const { data: zones = [] } = useQuery<Zone[]>({
     queryKey: ["/api/zones"],
   });
+
+  const { data: companySettings } = useQuery<any>({
+    queryKey: ["/api/settings"],
+  });
+
+  const zoneMapUrl = companySettings?.zoneMapUrl ?? null;
+
+  const activeZones = useMemo(() => zones.filter(z => z.isActive), [zones]);
+
+  const zonePersonnelCounts = useMemo(() => {
+    const counts: Record<string, { total: number; safe: number }> = {};
+    for (const zone of activeZones) {
+      const inZone = musterList.filter(p => p.zoneId === zone.id);
+      counts[zone.id] = { total: inZone.length, safe: inZone.filter(p => p.accounted).length };
+    }
+    return counts;
+  }, [activeZones, musterList]);
 
   const fireMarshals = staffList.filter((s: any) => s.isFireMarshal && s.fireMarshalUrlId);
 
@@ -415,24 +433,101 @@ export default function EmergencyMuster() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {zones.filter(z => z.isActive).map(zone => (
-              <Button
-                key={zone.id}
-                variant={selectedZones.has(zone.id) ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleZone(zone.id)}
-                className={`text-xs ${selectedZones.has(zone.id) ? '' : 'opacity-70'}`}
-                style={selectedZones.has(zone.id) ? { backgroundColor: zone.color, borderColor: zone.color } : {}}
-              >
-                <div className="w-2.5 h-2.5 rounded-full mr-1.5 flex-shrink-0" style={{ backgroundColor: zone.color }} />
-                {zone.name}
-              </Button>
-            ))}
+            {activeZones.map(zone => {
+              const isSelected = selectedZones.has(zone.id);
+              const counts = zonePersonnelCounts[zone.id];
+              return (
+                <Button
+                  key={zone.id}
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleZone(zone.id)}
+                  className={`text-xs gap-1.5 ${isSelected ? 'shadow-md' : 'opacity-70 hover:opacity-100'}`}
+                  style={isSelected ? { backgroundColor: zone.color, borderColor: zone.color, color: '#fff' } : {}}
+                >
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                  {zone.name}
+                  {counts && counts.total > 0 && (
+                    <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isSelected ? 'bg-white/25' : 'bg-muted'}`}>
+                      {counts.total}
+                    </span>
+                  )}
+                </Button>
+              );
+            })}
           </div>
           {selectedZones.size > 0 && (
             <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
               Only personnel in selected zones will receive evacuation alerts
             </p>
+          )}
+
+          {zoneMapUrl && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Map className="text-blue-600" size={16} />
+                <h4 className="text-sm font-medium text-fixed">Zone Map</h4>
+                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Click zones on map to select</span>
+              </div>
+              <div className="relative rounded-lg overflow-hidden border-2 border-border/30 bg-muted/20">
+                <img
+                  src={zoneMapUrl}
+                  alt="Zone map"
+                  className="w-full h-auto block"
+                  draggable={false}
+                />
+                {activeZones.map((zone) => {
+                  if (zone.mapX == null || zone.mapY == null) return null;
+                  const isSelected = selectedZones.has(zone.id);
+                  const counts = zonePersonnelCounts[zone.id];
+                  return (
+                    <button
+                      key={zone.id}
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2 group focus:outline-none"
+                      style={{
+                        left: `${zone.mapX}%`,
+                        top: `${zone.mapY}%`,
+                        zIndex: isSelected ? 20 : 10,
+                      }}
+                      onClick={() => toggleZone(zone.id)}
+                      title={`${zone.name}${counts ? ` - ${counts.total} personnel` : ''} - Click to ${isSelected ? 'deselect' : 'select'}`}
+                    >
+                      <div className={`relative transition-all duration-200 ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`}>
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg border-3 transition-all duration-200 ${
+                            isSelected
+                              ? 'border-white ring-4 ring-offset-1'
+                              : 'border-white/70 opacity-75 group-hover:opacity-100 group-hover:border-white'
+                          }`}
+                          style={{
+                            backgroundColor: zone.color,
+                            ...(isSelected ? { ringColor: zone.color + '60' } : {}),
+                            boxShadow: isSelected
+                              ? `0 0 0 4px ${zone.color}40, 0 4px 12px rgba(0,0,0,0.3)`
+                              : '0 2px 8px rgba(0,0,0,0.2)',
+                          }}
+                        >
+                          {counts && counts.total > 0 ? counts.total : ''}
+                        </div>
+                        {isSelected && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-sm">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                          </div>
+                        )}
+                        <div
+                          className={`absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap shadow-sm transition-opacity ${
+                            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
+                          style={{ backgroundColor: zone.color, color: '#fff' }}
+                        >
+                          {zone.name}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </GlassCard>
       )}
