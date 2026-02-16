@@ -1687,10 +1687,15 @@ export class DatabaseService {
     
     console.log("🔴 Creating customer card issue with data:", data);
     
-    // Ensure required fields are present
     const cardIssueData = {
-      ...data,
       id: randomUUID(),
+      workerId: data.workerId,
+      offenceId: data.offenceId,
+      cardType: data.cardType,
+      issuedBy: data.issuedBy,
+      description: data.description,
+      witness: data.witness || null,
+      location: data.location || null,
       issuedAt: data.issuedAt || new Date(),
       photos: data.photos || [],
       status: data.status || "active"
