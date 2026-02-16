@@ -58,7 +58,7 @@ export default function ZoneManagement() {
   const { data: zones = [] } = useQuery<Zone[]>({ queryKey: ["/api/zones"] });
 
   const { data: companySettings } = useQuery<CompanySettings>({
-    queryKey: ["/api/company-settings"],
+    queryKey: ["/api/settings"],
   });
 
   const zonesEnabled = companySettings?.zonesEnabled ?? false;
@@ -66,11 +66,11 @@ export default function ZoneManagement() {
 
   const toggleZonesMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const res = await apiRequest("PATCH", "/api/company-settings", { zonesEnabled: enabled });
+      const res = await apiRequest("PUT", "/api/settings", { zonesEnabled: enabled });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/company-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({ title: zonesEnabled ? "Zones disabled" : "Zones enabled" });
     },
     onError: () => {
@@ -80,11 +80,11 @@ export default function ZoneManagement() {
 
   const uploadMapMutation = useMutation({
     mutationFn: async (dataUrl: string) => {
-      const res = await apiRequest("PATCH", "/api/company-settings", { zoneMapUrl: dataUrl });
+      const res = await apiRequest("PUT", "/api/settings", { zoneMapUrl: dataUrl });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/company-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({ title: "Zone map uploaded" });
     },
     onError: () => {
@@ -94,11 +94,11 @@ export default function ZoneManagement() {
 
   const removeMapMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("PATCH", "/api/company-settings", { zoneMapUrl: null });
+      const res = await apiRequest("PUT", "/api/settings", { zoneMapUrl: null });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/company-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({ title: "Zone map removed" });
     },
   });
