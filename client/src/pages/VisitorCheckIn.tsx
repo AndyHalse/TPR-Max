@@ -17,6 +17,15 @@ import { useToast } from "@/hooks/use-toast";
 import { generateQRCode } from "@/lib/qr-generator";
 import type { Staff, InsertVisitor, Visitor } from "@shared/schema";
 
+interface Zone {
+  id: string;
+  name: string;
+  color: string;
+  description: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
 interface CompanyComboboxProps {
   value: string;
   onValueChange: (value: string) => void;
@@ -159,6 +168,7 @@ export default function VisitorCheckIn() {
     hostStaffId: "",
     purpose: "",
     carRegistration: "",
+    zoneId: "",
   });
   const [createdVisitor, setCreatedVisitor] = useState<VisitorWithEPass | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
@@ -169,6 +179,10 @@ export default function VisitorCheckIn() {
 
   const { data: companies = [] } = useQuery<string[]>({
     queryKey: ["/api/companies"],
+  });
+
+  const { data: zones = [] } = useQuery<Zone[]>({
+    queryKey: ["/api/zones"],
   });
 
   // Function to automatically print visitor pass
@@ -481,6 +495,7 @@ export default function VisitorCheckIn() {
       hostStaffId: formData.hostStaffId,
       purpose: formData.purpose.trim() || null,
       carRegistration: formData.carRegistration.trim() || null,
+      zoneId: formData.zoneId || null,
       isCheckedIn: true,
     });
   };
@@ -590,6 +605,32 @@ export default function VisitorCheckIn() {
               data-testid="input-visitor-car-registration"
             />
           </div>
+
+          {zones.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="zone" className="text-sm font-medium text-slate-700">
+                Zone / Location
+              </Label>
+              <Select value={formData.zoneId} onValueChange={(value) => handleInputChange("zoneId", value)}>
+                <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-zone">
+                  <SelectValue placeholder="Select zone (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: zone.color }}
+                        />
+                        <span>{zone.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex gap-4">
             <Button

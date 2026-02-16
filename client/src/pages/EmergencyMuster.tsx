@@ -23,7 +23,8 @@ import {
   Siren,
   HardHat,
   ExternalLink,
-  Copy
+  Copy,
+  MapPin
 } from "lucide-react";
 
 interface MusterListItem {
@@ -35,6 +36,19 @@ interface MusterListItem {
   checkedInAt: string;
   location: string;
   accounted: boolean;
+  zoneId?: string;
+  zoneName?: string;
+}
+
+interface Zone {
+  id: string;
+  name: string;
+  color: string;
+  description: string | null;
+  displayOrder: number;
+  mapX: number | null;
+  mapY: number | null;
+  isActive: boolean;
 }
 
 interface ActiveEvacuation {
@@ -48,6 +62,8 @@ export default function EmergencyMuster() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'staff' | 'visitor' | 'contractor' | 'member'>('all');
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
+  const [showZoneSelector, setShowZoneSelector] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -68,9 +84,29 @@ export default function EmergencyMuster() {
     queryKey: ["/api/staff"],
   });
 
+  const { data: zones = [] } = useQuery<Zone[]>({
+    queryKey: ["/api/zones"],
+  });
+
   const fireMarshals = staffList.filter((s: any) => s.isFireMarshal && s.fireMarshalUrlId);
 
   const hasActiveEvacuation = activeEvacuation?.active || false;
+
+  const toggleZone = (zoneId: string) => {
+    setSelectedZones(prev => {
+      const next = new Set(prev);
+      if (next.has(zoneId)) {
+        next.delete(zoneId);
+      } else {
+        next.add(zoneId);
+      }
+      return next;
+    });
+  };
+
+  const clearZoneSelection = () => {
+    setSelectedZones(new Set());
+  };
 
   // WebSocket connection for real-time updates (always connected for personnel changes)
   useEffect(() => {
@@ -218,7 +254,9 @@ export default function EmergencyMuster() {
   // Mutation to activate Fire Marshal emergency system
   const activateFireMarshalMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/emergency/activate", {});
+      const response = await apiRequest("POST", "/api/emergency/activate", {
+        selectedZones: selectedZones.size > 0 ? Array.from(selectedZones) : undefined,
+      });
       return await response.json();
     },
     onSuccess: (data) => {
@@ -287,7 +325,8 @@ export default function EmergencyMuster() {
       (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesType && matchesSearch;
+    const matchesZone = selectedZones.size === 0 || (person.zoneId && selectedZones.has(person.zoneId));
+    return matchesType && matchesSearch && matchesZone;
   });
 
   const totalPeople = musterList.length;
@@ -325,7 +364,30 @@ export default function EmergencyMuster() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {zones.length > 0 && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowZoneSelector(!showZoneSelector)}
+                className="text-xs"
+              >
+                <MapPin size={14} className="mr-1" />
+                Zones {selectedZones.size > 0 && `(${selectedZones.size})`}
+              </Button>
+              {selectedZones.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearZoneSelection}
+                  className="text-xs text-muted-foreground"
+                >
+                  Clear
+                </Button>
+              )}
+            </>
+          )}
           <Button 
             onClick={handleEmergencyToggle}
             className={`${emergencyActive ? 
@@ -340,6 +402,40 @@ export default function EmergencyMuster() {
           </Button>
         </div>
       </div>
+
+      {showZoneSelector && zones.length > 0 && (
+        <GlassCard className="dark:glass-dark">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="text-blue-600" size={18} />
+              <h3 className="text-sm font-semibold text-fixed">Select Zones to Evacuate</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {selectedZones.size === 0 ? "No zones selected - all zones will be alerted" : `${selectedZones.size} zone${selectedZones.size > 1 ? 's' : ''} selected`}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {zones.filter(z => z.isActive).map(zone => (
+              <Button
+                key={zone.id}
+                variant={selectedZones.has(zone.id) ? "default" : "outline"}
+                size="sm"
+                onClick={() => toggleZone(zone.id)}
+                className={`text-xs ${selectedZones.has(zone.id) ? '' : 'opacity-70'}`}
+                style={selectedZones.has(zone.id) ? { backgroundColor: zone.color, borderColor: zone.color } : {}}
+              >
+                <div className="w-2.5 h-2.5 rounded-full mr-1.5 flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                {zone.name}
+              </Button>
+            ))}
+          </div>
+          {selectedZones.size > 0 && (
+            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              Only personnel in selected zones will receive evacuation alerts
+            </p>
+          )}
+        </GlassCard>
+      )}
 
       {emergencyActive && (
         <GlassCard className="border-2 border-red-500 bg-red-50 dark:bg-red-900/20">

@@ -18,11 +18,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
 import { DefaultTemplateManager } from "@/components/DefaultTemplateManager";
+import ZoneManagement from "@/pages/ZoneManagement";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -1092,6 +1093,11 @@ export default function Settings() {
             <Shield size={14} />
             <span className="hidden xl:inline">H&S Rules</span>
             <span className="xl:hidden">H&S</span>
+          </TabsTrigger>
+          <TabsTrigger value="zones" className="flex items-center gap-1 px-2 text-xs">
+            <MapPin size={14} />
+            <span className="hidden xl:inline">Zones</span>
+            <span className="xl:hidden">Zones</span>
           </TabsTrigger>
           <TabsTrigger value="system" className="flex items-center gap-1 px-2 text-xs">
             <SettingsIcon size={14} />
@@ -4632,6 +4638,10 @@ export default function Settings() {
           <div className="mt-8">
             <DefaultTemplateManager className="w-full" />
           </div>
+        </TabsContent>
+
+        <TabsContent value="zones" className="space-y-6 mt-6">
+          <ZoneManagement />
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6 mt-6">

@@ -168,6 +168,7 @@ export const staff = pgTable("staff", {
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
+  zoneId: varchar("zone_id"),
   manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
@@ -327,6 +328,7 @@ export const visitors = pgTable("visitors", {
   checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
+  zoneId: varchar("zone_id"),
   isCheckedIn: boolean("is_checked_in").default(true).notNull(),
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),

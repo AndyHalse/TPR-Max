@@ -28,6 +28,7 @@ export const staff = pgTable("staff", {
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
+  zoneId: varchar("zone_id"),
   manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
@@ -124,6 +125,7 @@ export const visitors = pgTable("visitors", {
   checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
+  zoneId: varchar("zone_id"),
   isCheckedIn: boolean("is_checked_in").default(true).notNull(),
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
@@ -164,6 +166,7 @@ export const members = pgTable("members", {
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"),
+  zoneId: varchar("zone_id"),
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
   qrCode: text("qr_code"),
   isActive: boolean("is_active").default(true).notNull(),
@@ -460,6 +463,24 @@ export const companySettings = pgTable("company_settings", {
   featureContractorPage: boolean("feature_contractor_page").default(false),
   featureMembers: boolean("feature_members").default(false),
   
+  // Zones configuration
+  zonesEnabled: boolean("zones_enabled").default(false),
+  zoneMapUrl: text("zone_map_url"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Evacuation Zones for emergency zone mapping
+export const evacuationZones = pgTable("evacuation_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#3b82f6"),
+  description: text("description"),
+  displayOrder: integer("display_order").notNull().default(0),
+  mapX: doublePrecision("map_x"),
+  mapY: doublePrecision("map_y"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -610,6 +631,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   checkedInAt: timestamp("checked_in_at"),
   checkedOutAt: timestamp("checked_out_at"),
   checkoutType: text("checkout_type"), // user, manual-reset, auto-reset
+  zoneId: varchar("zone_id"),
   lastVisitDate: timestamp("last_visit_date"),
   visitCount: integer("visit_count").default(0),
   // Emergency muster tracking
@@ -1710,6 +1732,12 @@ export const insertRoomBookingSchema = createInsertSchema(roomBookings).omit({
   updatedAt: true,
 });
 
+export const insertEvacuationZoneSchema = createInsertSchema(evacuationZones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types for isolated schema
 export type Staff = typeof staff.$inferSelect;
 export type InsertStaff = z.infer<typeof insertStaffSchema>;
@@ -1737,6 +1765,8 @@ export type MeetingRoom = typeof meetingRooms.$inferSelect;
 export type InsertMeetingRoom = z.infer<typeof insertMeetingRoomSchema>;
 export type RoomBooking = typeof roomBookings.$inferSelect;
 export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
+export type EvacuationZone = typeof evacuationZones.$inferSelect;
+export type InsertEvacuationZone = z.infer<typeof insertEvacuationZoneSchema>;
 
 // Contractor types
 export type ContractorCompany = typeof contractorCompanies.$inferSelect;

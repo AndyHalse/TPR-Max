@@ -2526,6 +2526,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // EVACUATION ZONES CRUD
+  // ==========================================
+
+  app.get("/api/zones", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const zones = await custDb
+        .select()
+        .from(isolatedSchema.evacuationZones)
+        .orderBy(isolatedSchema.evacuationZones.displayOrder);
+      res.json(zones);
+    } catch (error) {
+      console.error("Failed to fetch zones:", error);
+      res.status(500).json({ error: "Failed to fetch zones" });
+    }
+  });
+
+  app.post("/api/zones", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const existingZones = await custDb.select().from(isolatedSchema.evacuationZones);
+      if (existingZones.length >= 16) {
+        return res.status(400).json({ error: "Maximum of 16 zones allowed" });
+      }
+      const { name, color, description, displayOrder, mapX, mapY } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Zone name is required" });
+      }
+      const [zone] = await custDb
+        .insert(isolatedSchema.evacuationZones)
+        .values({
+          name,
+          color: color || '#3b82f6',
+          description: description || null,
+          displayOrder: displayOrder ?? existingZones.length,
+          mapX: mapX ?? null,
+          mapY: mapY ?? null,
+        })
+        .returning();
+      res.status(201).json(zone);
+    } catch (error) {
+      console.error("Failed to create zone:", error);
+      res.status(500).json({ error: "Failed to create zone" });
+    }
+  });
+
+  app.put("/api/zones/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { name, color, description, displayOrder, mapX, mapY, isActive } = req.body;
+      const [zone] = await custDb
+        .update(isolatedSchema.evacuationZones)
+        .set({
+          ...(name !== undefined && { name }),
+          ...(color !== undefined && { color }),
+          ...(description !== undefined && { description }),
+          ...(displayOrder !== undefined && { displayOrder }),
+          ...(mapX !== undefined && { mapX }),
+          ...(mapY !== undefined && { mapY }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        })
+        .where(eq(isolatedSchema.evacuationZones.id, id))
+        .returning();
+      if (!zone) {
+        return res.status(404).json({ error: "Zone not found" });
+      }
+      res.json(zone);
+    } catch (error) {
+      console.error("Failed to update zone:", error);
+      res.status(500).json({ error: "Failed to update zone" });
+    }
+  });
+
+  app.delete("/api/zones/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [deleted] = await custDb
+        .delete(isolatedSchema.evacuationZones)
+        .where(eq(isolatedSchema.evacuationZones.id, id))
+        .returning();
+      if (!deleted) {
+        return res.status(404).json({ error: "Zone not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete zone:", error);
+      res.status(500).json({ error: "Failed to delete zone" });
+    }
+  });
+
+  app.post("/api/zones/reorder", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { zoneIds } = req.body;
+      if (!Array.isArray(zoneIds)) {
+        return res.status(400).json({ error: "zoneIds must be an array" });
+      }
+      for (let i = 0; i < zoneIds.length; i++) {
+        await custDb
+          .update(isolatedSchema.evacuationZones)
+          .set({ displayOrder: i, updatedAt: new Date() })
+          .where(eq(isolatedSchema.evacuationZones.id, zoneIds[i]));
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to reorder zones:", error);
+      res.status(500).json({ error: "Failed to reorder zones" });
+    }
+  });
+
   // Peak hours analytics endpoint
   app.get("/api/analytics/peak-hours", requireAuth, async (req, res) => {
     try {
@@ -2642,7 +2761,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           department: staff.department,
           checkedInAt: staff.checkedInAt || staff.createdAt,
           location: 'Building A',
-          accounted: accountabilityMap.get(staff.id) ?? false
+          accounted: accountabilityMap.get(staff.id) ?? false,
+          zoneId: (staff as any).zoneId || null,
         })),
         ...currentVisitors.map(visitor => ({
           id: visitor.id,
@@ -2651,7 +2771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: visitor.company,
           checkedInAt: visitor.checkedInAt,
           location: 'Building A', 
-          accounted: accountabilityMap.get(visitor.id) ?? false
+          accounted: accountabilityMap.get(visitor.id) ?? false,
+          zoneId: (visitor as any).zoneId || null,
         })),
         ...checkedInContractors.map(contractor => ({
           id: contractor.id,
@@ -2660,7 +2781,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: contractor.companyName || contractor.company,
           checkedInAt: contractor.checkedInAt || contractor.createdAt,
           location: 'Site',
-          accounted: accountabilityMap.get(contractor.id) ?? false
+          accounted: accountabilityMap.get(contractor.id) ?? false,
+          zoneId: (contractor as any).zoneId || null,
         })),
         ...checkedInMembers.map(member => ({
           id: member.id,
@@ -2670,7 +2792,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           department: member.department,
           checkedInAt: member.checkedInAt || member.createdAt,
           location: 'Building A',
-          accounted: accountabilityMap.get(member.id) ?? false
+          accounted: accountabilityMap.get(member.id) ?? false,
+          zoneId: (member as any).zoneId || null,
         }))
       ];
       
@@ -2878,6 +3001,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/emergency/activate", requireAuth, async (req, res) => {
     try {
       const activatedBy = req.user?.username || 'System Administrator';
+      const { selectedZones } = req.body || {};
+      const zoneFilter = Array.isArray(selectedZones) && selectedZones.length > 0 ? new Set(selectedZones) : null;
       
       // Get customer context using authenticated session customerId
       if (!req.session?.customerId) {
@@ -2951,12 +3076,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ All ${allFireMarshals.length} Fire Marshals have emergency URLs`);
       
       console.log(`✅ PRE-FLIGHT CHECKS PASSED - Emergency activation proceeding`);
+      if (zoneFilter) {
+        console.log(`🗺️ Zone-based evacuation: filtering to ${zoneFilter.size} selected zones`);
+      }
       console.log(`============================================\n`);
       
-      if (checkedInStaff.length === 0 && currentVisitors.length === 0 && checkedInContractors.length === 0 && checkedInMembers.length === 0) {
+      // Apply zone filter if zones are selected
+      const filteredStaff = zoneFilter ? checkedInStaff.filter((s: any) => s.zoneId && zoneFilter.has(s.zoneId)) : checkedInStaff;
+      const filteredVisitors = zoneFilter ? currentVisitors.filter((v: any) => v.zoneId && zoneFilter.has(v.zoneId)) : currentVisitors;
+      const filteredContractors = zoneFilter ? checkedInContractors.filter((c: any) => c.zoneId && zoneFilter.has(c.zoneId)) : checkedInContractors;
+      const filteredMembers = zoneFilter ? checkedInMembers.filter((m: any) => m.zoneId && zoneFilter.has(m.zoneId)) : checkedInMembers;
+      
+      if (zoneFilter) {
+        console.log(`🗺️ Zone filter results: ${filteredStaff.length} staff, ${filteredVisitors.length} visitors, ${filteredContractors.length} contractors, ${filteredMembers.length} members`);
+      }
+      
+      if (filteredStaff.length === 0 && filteredVisitors.length === 0 && filteredContractors.length === 0 && filteredMembers.length === 0) {
         return res.status(400).json({
-          error: "No people on site",
-          message: "There are no staff, visitors, contractors, or members currently on site."
+          error: zoneFilter ? "No people in selected zones" : "No people on site",
+          message: zoneFilter 
+            ? "There are no staff, visitors, contractors, or members in the selected evacuation zones."
+            : "There are no staff, visitors, contractors, or members currently on site."
         });
       }
       
@@ -2975,9 +3115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         musterPoints
       });
       
-      // Create evacuationAccountability records for all people on site
+      // Create evacuationAccountability records for filtered people (zone-based if applicable)
       const accountabilityRecords = [
-        ...checkedInStaff.map(s => ({
+        ...filteredStaff.map(s => ({
           customerId: context.customerId,
           evacuationId,
           personId: s.id,
@@ -2988,7 +3128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastKnownLocation: 'On Site',
           isAccountedFor: false
         })),
-        ...currentVisitors.map(v => ({
+        ...filteredVisitors.map(v => ({
           customerId: context.customerId,
           evacuationId,
           personId: v.id,
@@ -2999,7 +3139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastKnownLocation: 'On Site',
           isAccountedFor: false
         })),
-        ...checkedInContractors.map(c => ({
+        ...filteredContractors.map(c => ({
           customerId: context.customerId,
           evacuationId,
           personId: c.id,
@@ -3010,7 +3150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastKnownLocation: 'On Site',
           isAccountedFor: false
         })),
-        ...checkedInMembers.map(m => ({
+        ...filteredMembers.map(m => ({
           customerId: context.customerId,
           evacuationId,
           personId: m.id,
@@ -3032,13 +3172,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const evacuationData = {
         evacuationId,
         timestamp: new Date().toISOString(),
-        totalPeople: checkedInStaff.length + currentVisitors.length + checkedInContractors.length + checkedInMembers.length,
-        staff: checkedInStaff.length,
-        visitors: currentVisitors.length,
-        contractors: checkedInContractors.length,
-        members: checkedInMembers.length,
+        totalPeople: filteredStaff.length + filteredVisitors.length + filteredContractors.length + filteredMembers.length,
+        staff: filteredStaff.length,
+        visitors: filteredVisitors.length,
+        contractors: filteredContractors.length,
+        members: filteredMembers.length,
         musterPoints,
-        message: '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
+        message: zoneFilter 
+          ? '🚨 ZONE EVACUATION IN PROGRESS. Personnel in affected zones must proceed to the nearest muster point immediately.'
+          : '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
         notificationsSent: 0,
         activatedBy
       };
@@ -3046,7 +3188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customEmailService = new EmailService();
       const errors = [];
       
-      // Identify Fire Marshals FIRST (before sending any emails)
+      // Identify Fire Marshals FIRST (before sending any emails) - always notify ALL fire marshals regardless of zone filter
       const fireMarshals = checkedInStaff.filter(s => 
         s.department?.toLowerCase().includes('safety') || 
         s.department?.toLowerCase().includes('security') ||
@@ -3054,8 +3196,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       const fireMarshalIds = new Set(fireMarshals.map(fm => fm.id));
       
-      // Only send regular evacuation emails to non-Fire Marshal staff
-      const regularStaff = checkedInStaff.filter(s => !fireMarshalIds.has(s.id));
+      // Only send regular evacuation emails to non-Fire Marshal staff (filtered by zone if applicable)
+      const regularStaff = filteredStaff.filter(s => !fireMarshalIds.has(s.id));
       
       console.log(`\n📧 SENDING EVACUATION ALERTS TO ALL PERSONNEL`);
       console.log(`============================================`);
@@ -3101,8 +3243,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Send to all visitors
-      for (const visitor of currentVisitors) {
+      // Send to all visitors (filtered by zone if applicable)
+      for (const visitor of filteredVisitors) {
         if (visitor.email) {
           try {
             console.log(`📨 Sending evacuation alert to VISITOR: ${visitor.firstName} ${visitor.lastName} (${visitor.email})`);
@@ -3142,8 +3284,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Send to all contractors
-      for (const contractor of checkedInContractors) {
+      // Send to all contractors (filtered by zone if applicable)
+      for (const contractor of filteredContractors) {
         if (contractor.email) {
           try {
             console.log(`📨 Sending evacuation alert to CONTRACTOR: ${contractor.firstName} ${contractor.lastName} (${contractor.email})`);
