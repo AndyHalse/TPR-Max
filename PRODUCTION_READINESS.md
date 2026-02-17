@@ -1,11 +1,11 @@
 # TPR Max - Production Readiness Checklist
 
 ## System Overview
-TPR Max is a comprehensive visitor, staff, and contractor management system with emergency muster capabilities, designed for enterprise SaaS deployment.
+TPR Max is a comprehensive visitor, staff, and contractor management system with emergency muster capabilities, designed for enterprise deployment.
 
 **Provider:** ACS Safety & Security Ltd  
 **Product:** TPR Max (Total Personnel Register)  
-**Architecture:** Multi-tenant SaaS with isolated customer databases
+**Architecture:** Single-tenant SaaS with isolated customer database schemas
 
 ---
 
@@ -30,13 +30,13 @@ TPR Max is a comprehensive visitor, staff, and contractor management system with
 - [x] 3-field authentication (Company Name, Username, Password)
 - [x] bcrypt password hashing (10 rounds)
 - [x] Customer lookup and validation
-- [x] User lookup within customer-isolated database
+- [x] User lookup within customer-isolated database schema
 - [x] Session context includes userId, customerId, companyName
 - [x] `requireAuth` middleware enforces authentication on protected routes
 
 ### Authorization
 - [x] Role-based access control (admin, manager, user)
-- [x] Tenant isolation enforced via session customerId
+- [x] Customer isolation enforced via session customerId and database schema
 - [x] Emergency access tokens for Fire Marshal functionality
 - [x] Super admin routes disabled in production
 
@@ -44,18 +44,17 @@ TPR Max is a comprehensive visitor, staff, and contractor management system with
 
 ## ✅ Database Architecture
 
-### Multi-Tenant Isolation
-- [x] Database-per-customer architecture
-- [x] Neon API integration for automatic database provisioning
-- [x] Schema-based isolation in development
-- [x] Connection pooling per customer database
+### Customer Data Isolation
+- [x] Schema-per-customer architecture within a single PostgreSQL database
+- [x] Automatic schema creation for new customers
+- [x] Connection pooling with customer-scoped queries
 - [x] Automatic cleanup of inactive connections (10min idle)
 - [x] Migration runner for schema updates across all customers
-- [x] No customerId filters needed (entire DB belongs to customer)
+- [x] No cross-customer data leakage possible
 
 ### Database Schema
-- [x] Management database (`shared/schema.ts`) for customer records
-- [x] Isolated customer databases (`server/isolatedSchema.ts`)
+- [x] Management tables (`shared/schema.ts`) for customer records
+- [x] Isolated customer schemas (`server/isolatedSchema.ts`)
 - [x] Comprehensive tables for all features:
   - Company settings
   - Users & staff
@@ -87,7 +86,7 @@ TPR Max is a comprehensive visitor, staff, and contractor management system with
 
 ### Provisioning Process
 - [x] Automated customer record creation
-- [x] Database provisioning (Neon in production, schema in dev)
+- [x] Database schema provisioning for new customer
 - [x] Admin user account creation
 - [x] Staff record for admin user
 - [x] Company settings initialization
@@ -142,6 +141,7 @@ TPR Max is a comprehensive visitor, staff, and contractor management system with
 - [x] Voice announcements for status updates
 - [x] PDF muster list generation
 - [x] Emergency completion and archival
+- [x] Zone-based evacuation with configurable zones
 
 ### Meeting Room Management
 - [x] Room directory with capacity and equipment
@@ -263,11 +263,11 @@ TPR Max is a comprehensive visitor, staff, and contractor management system with
 ## ✅ Performance & Scalability
 
 ### Database Performance
-- [x] Connection pooling per customer
+- [x] Connection pooling
 - [x] Automatic pool cleanup after idle period
 - [x] Indexed queries for common operations
 - [x] Graceful shutdown with connection draining
-- [x] Independent customer database scaling
+- [x] Schema-based isolation for efficient queries
 
 ### Frontend Performance
 - [x] React Query for efficient data fetching
@@ -312,9 +312,7 @@ TPR Max is a comprehensive visitor, staff, and contractor management system with
 ### Environment Variables (Required)
 ```bash
 # Database
-DATABASE_URL=postgresql://...                    # Management database
-NEON_API_KEY=...                                 # Neon API for customer DB provisioning
-NEON_PROJECT_ID=...                              # Neon project ID
+DATABASE_URL=postgresql://...                    # PostgreSQL database
 
 # Security
 SESSION_SECRET=...                               # Cryptographically secure secret (required)
@@ -405,7 +403,7 @@ USE_PG_SESSIONS=true                             # Force PostgreSQL sessions in 
 ## ✅ Compliance & Legal
 
 ### Data Protection
-- [x] GDPR compliance through database isolation
+- [x] GDPR compliance through schema-based data isolation
 - [x] Data export capability per customer
 - [x] Right to be forgotten (customer deletion)
 - [x] Audit trails for data access
@@ -452,22 +450,21 @@ USE_PG_SESSIONS=true                             # Force PostgreSQL sessions in 
 ### Before Going Live
 1. [ ] Set `NODE_ENV=production` in environment
 2. [ ] Configure `SESSION_SECRET` (strong random string)
-3. [ ] Set up Neon API credentials (`NEON_API_KEY`, `NEON_PROJECT_ID`)
-4. [ ] Configure Stripe keys for production
-5. [ ] Verify HTTPS is enabled (required for secure cookies)
-6. [ ] Test complete customer onboarding flow
-7. [ ] Test emergency muster functionality
-8. [ ] Verify email delivery (SendGrid or SMTP)
-9. [ ] Test ID card printing on target hardware
-10. [ ] Review all customer-facing error messages
-11. [ ] Set up monitoring and alerting
-12. [ ] Configure backup strategy for management database
-13. [ ] Document customer onboarding procedure
-14. [ ] Train support staff on common scenarios
+3. [ ] Configure Stripe keys for production
+4. [ ] Verify HTTPS is enabled (required for secure cookies)
+5. [ ] Test complete customer onboarding flow
+6. [ ] Test emergency muster functionality
+7. [ ] Verify email delivery (SendGrid or SMTP)
+8. [ ] Test ID card printing on target hardware
+9. [ ] Review all customer-facing error messages
+10. [ ] Set up monitoring and alerting
+11. [ ] Configure backup strategy for database
+12. [ ] Document customer onboarding procedure
+13. [ ] Train support staff on common scenarios
 
 ### Post-Launch Monitoring
 - Monitor customer signup success rate
-- Track database provisioning failures
+- Track schema provisioning failures
 - Monitor session store performance
 - Track API error rates
 - Review customer feedback
@@ -478,10 +475,10 @@ USE_PG_SESSIONS=true                             # Force PostgreSQL sessions in 
 
 ## 🎯 Production Ready Summary
 
-TPR Max is **production-ready** for enterprise SaaS deployment with:
+TPR Max is **production-ready** for enterprise deployment with:
 
 ✅ **Security:** Multi-layered authentication, CSRF protection, encrypted sessions  
-✅ **Scalability:** Database-per-customer isolation, connection pooling, independent scaling  
+✅ **Data Isolation:** Schema-per-customer isolation ensuring zero cross-tenant data leakage  
 ✅ **Reliability:** Error handling, logging, graceful degradation, automatic recovery  
 ✅ **Compliance:** GDPR ready, ISO 27001 aligned, audit trails, data sovereignty  
 ✅ **Features:** Complete visitor/contractor/staff management with emergency muster  
@@ -491,16 +488,15 @@ TPR Max is **production-ready** for enterprise SaaS deployment with:
 
 ### Core Differentiators
 1. **Emergency Life Safety:** Instant accountability during evacuations
-2. **Database Isolation:** True multi-tenancy with separate PostgreSQL databases per customer
+2. **Data Isolation:** Separate PostgreSQL schemas per customer for complete data separation
 3. **ACS Safety & Security Ltd:** Professional branding with customization capability
 4. **Network Thermal Printing:** TCP/IP printing for SaaS deployment (Toshiba Tec & Zebra)
 5. **Comprehensive Solution:** Replaces 5+ separate systems with one unified platform
 
 ### Ready to Scale
-The architecture supports scaling from 10 to 10,000+ enterprise customers with:
-- Automatic database provisioning
-- Independent customer performance
-- No shared resource contention
+The architecture supports scaling with:
+- Automatic schema provisioning for new customers
+- Customer-isolated data with no shared resource contention
 - Easy customer onboarding/offboarding
 - Per-customer customization and branding
 
