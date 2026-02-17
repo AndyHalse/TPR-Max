@@ -615,6 +615,100 @@ The Fire Marshal system searches across all customer databases to locate the cor
         viewCount: 0
       },
 
+      // Zone Management for Evacuations
+      {
+        categoryId: emergencyCategory?.id,
+        title: "Zone Management for Evacuations",
+        slug: createSlug("Zone Management for Evacuations"),
+        summary: "How to create, configure, and use evacuation zones for targeted emergency alerts and organised mustering",
+        content: `# Zone Management for Evacuations
+
+Configure evacuation zones so you can target emergency alerts to specific areas and organise mustering by zone.
+
+## What Are Evacuation Zones?
+
+Zones represent physical areas of your site (e.g. "Ground Floor East", "Building B - First Floor"). During an evacuation you can choose to alert only specific zones rather than the entire site, and Fire Marshals can filter the muster list by zone to quickly account for everyone.
+
+## Creating Zones
+
+1. Navigate to **Settings** > **Zone Management**
+2. Click **"Add Zone"**
+3. Enter zone details:
+   - **Zone Name**: A clear, recognisable name (e.g. "Zone 1 - Ground Floor East")
+   - **Colour**: Choose a colour for visual identification on maps and badges
+   - **Description**: Describe the area this zone covers
+4. Click **Save**
+
+## Reordering Zones
+
+- Drag and drop zones to change their order
+- Sort options available: Manual Order, A-Z, Z-A
+- The order you set here is how zones appear on the muster page during evacuations
+
+## Interactive Floor Plan Mapping
+
+You can visually position zones on a floor plan image:
+
+1. Upload a floor plan image in **Settings** > **Company Settings** (the Zone Map URL field)
+2. In **Zone Management**, each zone gets a draggable marker
+3. Drag markers to their correct positions on the floor plan
+4. Markers display the zone number and are colour-coded to match the zone colour
+5. Positions are saved automatically
+
+## Zone Colours
+
+Each zone has its own colour which is used for:
+- The zone marker on the floor plan
+- The zone filter buttons on the muster page
+- Visual identification throughout the system
+
+## Assigning People to Zones
+
+Personnel are assigned to zones when they check in:
+- **Staff**: Zone can be selected during staff check-in
+- **Visitors**: Zone selected during visitor check-in
+- **Contractor Workers**: Zone selected during contractor check-in
+- Zones can also be assigned via profile settings
+
+## How Zones Work During Evacuations
+
+When you activate an evacuation:
+
+1. You can select **specific zones** to target, or activate site-wide
+2. Only personnel assigned to the selected zones receive evacuation email alerts
+3. **Fire Marshals always receive alerts** regardless of which zones are selected
+4. The muster page shows zone-specific personnel counts
+5. Zone filter buttons let you quickly view people in each zone
+6. Clickable zone markers on the floor plan also filter by zone
+
+## Zone Map on the Muster Page
+
+During an active evacuation, the muster page shows:
+- Your floor plan with colour-coded zone markers
+- Each marker displays the zone number and how many people are in that zone
+- Click a marker to filter the personnel list to just that zone
+- Markers synchronise with the zone selector buttons above the map
+
+## Tips for Setting Up Zones
+
+- Use clear, descriptive names that everyone on site will recognise
+- Match zones to your physical fire evacuation plan
+- Keep zone names consistent with signage around your building
+- Test your zone setup by running a practice evacuation
+- Review and update zones whenever the building layout changes`,
+        targetPages: ["emergency-muster", "/emergency-muster", "zone-management", "/zone-management"],
+        searchKeywords: ["zone", "zones", "evacuation zone", "floor plan", "map", "markers", "zone management", "muster zone", "targeted evacuation"],
+        estimatedReadTime: 5,
+        difficulty: "intermediate",
+        isPublished: true,
+        isFeatured: true,
+        isQuickStart: false,
+        sortOrder: 3,
+        helpfulCount: 0,
+        notHelpfulCount: 0,
+        viewCount: 0
+      },
+
       // ===== SAFETY & COMPLIANCE =====
       {
         categoryId: safetyCategory?.id,
