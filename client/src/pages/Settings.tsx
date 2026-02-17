@@ -64,7 +64,7 @@ export default function Settings() {
   const [departmentForm, setDepartmentForm] = useState<Partial<InsertDepartment>>({
     name: "",
     description: "",
-    color: "bg-blue-500"
+    color: "bg-blue-50 dark:bg-blue-950/300"
   });
 
   // Backup/Restore state
@@ -603,7 +603,7 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
       setShowDepartmentDialog(false);
       setDepartmentToEdit(null);
-      setDepartmentForm({ name: "", description: "", color: "bg-blue-500" });
+      setDepartmentForm({ name: "", description: "", color: "bg-blue-50 dark:bg-blue-950/300" });
       toast({
         title: "Success",
         description: departmentToEdit ? "Department updated successfully!" : "Department created successfully!",
@@ -669,7 +669,7 @@ export default function Settings() {
       department: {
         name: departmentForm.name.trim(),
         description: departmentForm.description?.trim() || "",
-        color: departmentForm.color || "bg-blue-500",
+        color: departmentForm.color || "bg-blue-50 dark:bg-blue-950/300",
         customerId: currentUser.customerId
       },
       isEdit: !!departmentToEdit,
@@ -1028,9 +1028,9 @@ export default function Settings() {
       </div>
 
       {/* Auto-save information banner */}
-      <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-        <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-        <p className="text-sm text-green-800 font-medium">
+      <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+        <div className="h-2 w-2 bg-green-50 dark:bg-green-950/300 rounded-full animate-pulse"></div>
+        <p className="text-sm text-green-800 dark:text-green-300 font-medium">
           ✨ Auto-save enabled - All changes are automatically saved after 1.5 seconds
         </p>
       </div>
@@ -1110,7 +1110,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
-                <Building2 className="mr-3 text-blue-600" size={24} />
+                <Building2 className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">Company Information</h3>
               </div>
               
@@ -1124,7 +1124,7 @@ export default function Settings() {
                     type="text"
                     value={currentSettings?.companyName || ""}
                     onChange={(e) => handleInputChange("companyName", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-company-name"
                   />
                 </div>
@@ -1138,7 +1138,7 @@ export default function Settings() {
                     type="text"
                     value={currentSettings?.address || ""}
                     onChange={(e) => handleInputChange("address", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     placeholder="123 Business Street, City, Postcode"
                     data-testid="input-company-address"
                   />
@@ -1154,7 +1154,7 @@ export default function Settings() {
                       type="tel"
                       value={currentSettings?.phone || ""}
                       onChange={(e) => handleInputChange("phone", e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                       placeholder="+44 20 1234 5678"
                       data-testid="input-company-phone"
                     />
@@ -1169,7 +1169,7 @@ export default function Settings() {
                       type="email"
                       value={currentSettings?.email || ""}
                       onChange={(e) => handleInputChange("email", e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                       placeholder="info@yourcompany.com"
                       data-testid="input-company-email"
                     />
@@ -1185,7 +1185,7 @@ export default function Settings() {
                     type="url"
                     value={currentSettings?.website || ""}
                     onChange={(e) => handleInputChange("website", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     placeholder="https://www.yourcompany.com"
                     data-testid="input-company-website"
                   />
@@ -1197,7 +1197,7 @@ export default function Settings() {
                   </Label>
                   <div className="space-y-4">
                     {currentSettings?.logoUrl && !currentSettings.logoUrl.includes('test') && (
-                      <div className="flex items-center justify-center p-4 bg-white/50 rounded-xl border border-white/30">
+                      <div className="flex items-center justify-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                         <img 
                           src={`/objects${currentSettings.logoUrl}`}
                           alt="Company Logo" 
@@ -1230,7 +1230,7 @@ export default function Settings() {
         <TabsContent value="email" className="space-y-6 mt-6">
           <GlassCard>
             <div className="flex items-center mb-6">
-              <Mail className="mr-3 text-blue-600" size={24} />
+              <Mail className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
               <h3 className="text-lg font-semibold text-fixed">SMTP Email Configuration</h3>
             </div>
             
@@ -1245,7 +1245,7 @@ export default function Settings() {
                     placeholder="e.g., smtp.ionos.co.uk"
                     value={currentSettings?.smtpHost || "smtp.ionos.co.uk"}
                     onChange={(e) => handleInputChange("smtpHost", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                     data-testid="input-smtp-host"
                   />
                 </div>
@@ -1296,7 +1296,7 @@ export default function Settings() {
                     placeholder="your-email@company.com"
                     value={currentSettings?.smtpUsername || ""}
                     onChange={(e) => handleInputChange("smtpUsername", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                     data-testid="input-smtp-username"
                   />
                   <p className="text-xs text-variable">Usually your full email address</p>
@@ -1311,7 +1311,7 @@ export default function Settings() {
                     placeholder="Your email password or app-specific password"
                     value={currentSettings?.smtpPassword || ""}
                     onChange={(e) => handleInputChange("smtpPassword", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                     data-testid="input-smtp-password"
                   />
                   <p className="text-xs text-variable">Use app-specific password for Gmail/Outlook</p>
@@ -1326,7 +1326,7 @@ export default function Settings() {
                     placeholder="VisiGate Pro System"
                     value={currentSettings?.smtpFromName || "VisiGate Pro System"}
                     onChange={(e) => handleInputChange("smtpFromName", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                     data-testid="input-smtp-from-name"
                   />
                   <p className="text-xs text-variable">The name that appears as the sender</p>
@@ -1372,7 +1372,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
-                <TestTube className="mr-3 text-blue-600" size={24} />
+                <TestTube className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">Test Email Configuration</h3>
               </div>
               
@@ -1384,7 +1384,7 @@ export default function Settings() {
                   <Input
                     type="email"
                     placeholder="Enter email address to test"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                     data-testid="input-test-email"
                   />
                 </div>
@@ -1417,13 +1417,13 @@ export default function Settings() {
 
             <GlassCard>
               <div className="flex items-center mb-6">
-                <Shield className="mr-3 text-amber-600" size={24} />
+                <Shield className="mr-3 text-amber-600 dark:text-amber-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">Prevent Emails Going to Junk</h3>
               </div>
               
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
                 <h4 className="font-semibold text-amber-900">Important: Email Deliverability Tips</h4>
-                <div className="text-sm text-amber-800 space-y-2">
+                <div className="text-sm text-amber-800 dark:text-amber-300 space-y-2">
                   <p className="font-medium">To prevent e-Pass emails going to junk/spam folders:</p>
                   <ol className="list-decimal list-inside space-y-1 ml-2">
                     <li><strong>SPF Record:</strong> Add VisiGate server IP to your domain's SPF record</li>
@@ -1432,7 +1432,7 @@ export default function Settings() {
                     <li><strong>Whitelist:</strong> Ask recipients to add {currentSettings?.smtpUsername || 'your email'} to contacts</li>
                     <li><strong>Reply-To:</strong> Set a monitored reply-to address below</li>
                   </ol>
-                  <div className="mt-3 p-2 bg-white rounded border border-amber-200">
+                  <div className="mt-3 p-2 bg-white rounded border border-amber-200 dark:border-amber-800">
                     <p className="text-xs font-mono">SPF Example: v=spf1 include:_spf.ionos.com ~all</p>
                   </div>
                 </div>
@@ -1461,7 +1461,7 @@ export default function Settings() {
                 </div>
                 
                 {currentSettings?.emailReportsEnabled && (
-                  <div className="space-y-4 mt-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="space-y-4 mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-fixed">
                         Report Type & Frequency
@@ -1531,13 +1531,13 @@ export default function Settings() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <GlassCard>
                   <div className="flex items-center mb-6">
-                    <Palette className="mr-3 text-blue-600" size={24} />
-                    <h3 className="text-lg font-semibold text-slate-800">Color Theme</h3>
+                    <Palette className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Color Theme</h3>
                   </div>
               
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="backgroundColor" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="backgroundColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         Background Color
                       </Label>
                       <div className="flex gap-3 items-center">
@@ -1546,14 +1546,14 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.backgroundColor || "#f8fafc"}
                           onChange={(e) => handleInputChange("backgroundColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                           data-testid="input-background-color"
                         />
                         <Input
                           type="text"
                           value={currentSettings?.backgroundColor || "#f8fafc"}
                           onChange={(e) => handleInputChange("backgroundColor", e.target.value)}
-                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
                           placeholder="#f8fafc"
                         />
                       </div>
@@ -1561,7 +1561,7 @@ export default function Settings() {
                     
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700">
+                        <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                           Fixed Text Color
                         </Label>
                         <div className="flex gap-1">
@@ -1569,7 +1569,7 @@ export default function Settings() {
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50"
+                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700"
                             onClick={() => handleInputChange("foregroundColor", suggestedTextColors.light)}
                             data-testid="button-suggest-light-text"
                           >
@@ -1593,31 +1593,31 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.foregroundColor || "#1e293b"}
                           onChange={(e) => handleInputChange("foregroundColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                           data-testid="input-foreground-color"
                         />
                         <Input
                           type="text"
                           value={currentSettings?.foregroundColor || "#1e293b"}
                           onChange={(e) => handleInputChange("foregroundColor", e.target.value)}
-                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
                           placeholder="#1e293b"
                         />
                       </div>
                       {currentSettings?.backgroundColor && (
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
                           Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b").toFixed(1)}:1
                           {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b") < 4.5 && (
-                            <span className="text-amber-600 ml-2">⚠ Low contrast - may be hard to read</span>
+                            <span className="text-amber-600 dark:text-amber-400 ml-2">⚠ Low contrast - may be hard to read</span>
                           )}
                         </div>
                       )}
-                      <p className="text-xs text-slate-500">Used for labels, headings, and static text elements</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Used for labels, headings, and static text elements</p>
                     </div>
                     
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="variableTextColor" className="text-sm font-medium text-slate-700">
+                        <Label htmlFor="variableTextColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                           Variable Text Color
                         </Label>
                         <div className="flex gap-1">
@@ -1625,7 +1625,7 @@ export default function Settings() {
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50"
+                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700"
                             onClick={() => handleInputChange("variableTextColor", suggestedTextColors.light)}
                             data-testid="button-suggest-light-variable-text"
                           >
@@ -1649,30 +1649,30 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.variableTextColor || "#374151"}
                           onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                           data-testid="input-variable-text-color"
                         />
                         <Input
                           type="text"
                           value={currentSettings?.variableTextColor || "#374151"}
                           onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
-                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
                           placeholder="#374151"
                         />
                       </div>
                       {currentSettings?.backgroundColor && (
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
                           Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151").toFixed(1)}:1
                           {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151") < 4.5 && (
-                            <span className="text-amber-600 ml-2">⚠ Low contrast - may be hard to read</span>
+                            <span className="text-amber-600 dark:text-amber-400 ml-2">⚠ Low contrast - may be hard to read</span>
                           )}
                         </div>
                       )}
-                      <p className="text-xs text-slate-500">Used for data values, content, and variable information</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Used for data values, content, and variable information</p>
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="accentColor" className="text-sm font-medium text-slate-700">
+                      <Label htmlFor="accentColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         Accent Color
                       </Label>
                       <div className="flex gap-3 items-center">
@@ -1681,14 +1681,14 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.accentColor || "#3b82f6"}
                           onChange={(e) => handleInputChange("accentColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 bg-white/50"
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                           data-testid="input-accent-color"
                         />
                         <Input
                           type="text"
                           value={currentSettings?.accentColor || "#3b82f6"}
                           onChange={(e) => handleInputChange("accentColor", e.target.value)}
-                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono"
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
                           placeholder="#3b82f6"
                         />
                       </div>
@@ -1698,7 +1698,7 @@ export default function Settings() {
                 
                 <GlassCard>
                   <div className="flex items-center mb-6">
-                    <Monitor className="mr-3 text-blue-600" size={24} />
+                    <Monitor className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                     <h3 className="text-lg font-semibold text-fixed">Kiosk Banner</h3>
                   </div>
                   
@@ -1710,7 +1710,7 @@ export default function Settings() {
                       <p className="text-xs text-variable mb-3">Displayed prominently on kiosk mode. Recommended: 1200x300px or similar wide format</p>
                       
                       {currentSettings?.bannerUrl && !currentSettings.bannerUrl.includes('test') && (
-                        <div className="mb-4 p-4 bg-white/50 rounded-xl border border-white/30">
+                        <div className="mb-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                           <img 
                             src={`/objects${currentSettings.bannerUrl}`}
                             alt="Kiosk Banner" 
@@ -1743,7 +1743,7 @@ export default function Settings() {
             <TabsContent value="theme" className="space-y-6">
               <GlassCard>
                 <div className="flex items-center mb-6">
-                  <Monitor className="mr-3 text-blue-600" size={24} />
+                  <Monitor className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                   <h3 className="text-lg font-semibold text-fixed">Application Theme</h3>
                 </div>
                 
@@ -1801,7 +1801,7 @@ export default function Settings() {
 
                   <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                     <div className="flex items-center space-x-4">
-                      <Monitor className="text-blue-600" size={24} />
+                      <Monitor className="text-blue-600 dark:text-blue-400" size={24} />
                       <div>
                         <h4 className="font-medium text-slate-800 dark:text-slate-200">System Default</h4>
                         <p className="text-sm text-slate-600 dark:text-slate-400">Matches your device settings</p>
@@ -1847,7 +1847,7 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
-                      <Printer className="mr-3 text-blue-600" size={24} />
+                      <Printer className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                       <h3 className="text-lg font-semibold text-fixed">Printer Configuration</h3>
                     </div>
                     <Button
@@ -1864,18 +1864,18 @@ export default function Settings() {
                   </div>
 
                   {detectedPrinters && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
-                        <Monitor className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-800">
+                        <Monitor className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
                           Platform: {detectedPrinters.platform} • {detectedPrinters.printers.length} printers found
                         </span>
                       </div>
-                      <p className="text-xs text-blue-600">
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
                         Last detected: {new Date(detectedPrinters.detectedAt).toLocaleString()}
                       </p>
                       {detectedPrinters.message && (
-                        <p className="text-xs text-blue-600 mt-1">{detectedPrinters.message}</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{detectedPrinters.message}</p>
                       )}
                     </div>
                   )}
@@ -1889,7 +1889,7 @@ export default function Settings() {
                         value={currentSettings?.selectedPrinter || "PDF Printer"}
                         onValueChange={(value) => handleInputChange("selectedPrinter", value)}
                       >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-printer">
+                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-printer">
                           <SelectValue placeholder="Select a printer" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1899,7 +1899,7 @@ export default function Settings() {
                                 <span>{printer.name}</span>
                                 <div className="flex items-center gap-2 ml-2">
                                   {printer.isOnline ? (
-                                    <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                                    <Badge variant="default" className="bg-green-100 text-green-800 dark:text-green-300 text-xs">
                                       {printer.status}
                                     </Badge>
                                   ) : (
@@ -1928,7 +1928,7 @@ export default function Settings() {
                         value={currentSettings?.printQuality || "normal"}
                         onValueChange={(value) => handleInputChange("printQuality", value)}
                       >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-print-quality">
+                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-print-quality">
                           <SelectValue placeholder="Select print quality" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1940,7 +1940,7 @@ export default function Settings() {
                       <p className="text-xs text-variable">Higher quality uses more ink but provides clearer text</p>
                     </div>
 
-                    <div className="space-y-4 pt-4 border-t border-white/30">
+                    <div className="space-y-4 pt-4 border-t border-white/30 dark:border-slate-700/30">
                       <div className="flex items-center justify-between">
                         <div>
                           <Label className="text-sm font-medium text-fixed">Auto-Print Passes</Label>
@@ -1958,7 +1958,7 @@ export default function Settings() {
 
                 <GlassCard>
                   <div className="flex items-center mb-6">
-                    <QrCode className="mr-3 text-blue-600" size={24} />
+                    <QrCode className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                     <h3 className="text-lg font-semibold text-fixed">Barcode & QR Settings</h3>
                   </div>
                   
@@ -1971,7 +1971,7 @@ export default function Settings() {
                         value={currentSettings?.barcodeFormat || "QR_CODE"}
                         onValueChange={(value) => handleInputChange("barcodeFormat", value)}
                       >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-barcode-format">
+                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-barcode-format">
                           <SelectValue placeholder="Select barcode format" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1985,7 +1985,7 @@ export default function Settings() {
                       <p className="text-xs text-variable">QR codes work best for mobile scanning</p>
                     </div>
 
-                    <div className="space-y-4 pt-4 border-t border-white/30">
+                    <div className="space-y-4 pt-4 border-t border-white/30 dark:border-slate-700/30">
                       <div className="flex items-center justify-between">
                         <div>
                           <Label className="text-sm font-medium text-fixed">Enable 2D Barcodes</Label>
@@ -2035,13 +2035,13 @@ export default function Settings() {
                         value={currentSettings?.thermalSelectedPrinter || "tec"}
                         onValueChange={(value) => handleInputChange("thermalSelectedPrinter", value)}
                       >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-thermal-printer-type">
+                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-thermal-printer-type">
                           <SelectValue placeholder="Select printer type" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="tec">
                             <div className="flex items-center gap-2">
-                              <Printer className="h-4 w-4 text-blue-600" />
+                              <Printer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                               <span>Toshiba Tec TCPL (B-FV4D, B-EV4D)</span>
                             </div>
                           </SelectItem>
@@ -2055,16 +2055,16 @@ export default function Settings() {
                       </Select>
                     </div>
 
-                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl">
                       <div className="flex items-start gap-3">
-                        <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                         <div className="space-y-2">
                           <h4 className="text-sm font-semibold text-blue-900">Network Printing for SaaS Applications</h4>
                           <p className="text-xs text-blue-700 leading-relaxed">
                             TPR Max can send print commands directly to your thermal printers over the internet using TCP/IP connections.
                             This enables cloud-based printing from anywhere without requiring local software.
                           </p>
-                          <div className="mt-3 space-y-1.5 text-xs text-blue-600">
+                          <div className="mt-3 space-y-1.5 text-xs text-blue-600 dark:text-blue-400">
                             <p className="font-medium">Setup Instructions:</p>
                             <ol className="list-decimal list-inside space-y-1 ml-2">
                               <li>Connect your printer to your network (Ethernet or Wi-Fi)</li>
@@ -2074,7 +2074,7 @@ export default function Settings() {
                               <li>For remote access, configure port forwarding on your router</li>
                             </ol>
                           </div>
-                          <p className="text-xs text-blue-600 mt-2">
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                             <strong>Note:</strong> Both Toshiba Tec TCPL and Zebra ZPL printers support standard TCP/IP connections on port 9100.
                           </p>
                         </div>
@@ -2091,7 +2091,7 @@ export default function Settings() {
                             type="text"
                             value={currentSettings?.tecPrinterName || "TEC B-FV4D Desktop Printer"}
                             onChange={(e) => handleInputChange("tecPrinterName", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                             placeholder="TEC B-FV4D Desktop Printer"
                             data-testid="input-tec-printer-name"
                           />
@@ -2106,7 +2106,7 @@ export default function Settings() {
                             type="text"
                             value={currentSettings?.tecPrinterIp || ""}
                             onChange={(e) => handleInputChange("tecPrinterIp", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                             placeholder="192.168.1.100"
                             data-testid="input-tec-ip"
                           />
@@ -2121,7 +2121,7 @@ export default function Settings() {
                             type="number"
                             value={currentSettings?.tecPrinterPort || "9100"}
                             onChange={(e) => handleInputChange("tecPrinterPort", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                             placeholder="9100"
                             data-testid="input-tec-port"
                           />
@@ -2136,7 +2136,7 @@ export default function Settings() {
                             value={currentSettings?.tecPrinterModel || "B-FV4D"}
                             onValueChange={(value) => handleInputChange("tecPrinterModel", value)}
                           >
-                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-tec-model">
+                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-tec-model">
                               <SelectValue placeholder="Select Toshiba Tec model" />
                             </SelectTrigger>
                             <SelectContent>
@@ -2161,7 +2161,7 @@ export default function Settings() {
                               type="number"
                               value={currentSettings?.tecLabelWidth || "85"}
                               onChange={(e) => handleInputChange("tecLabelWidth", e.target.value)}
-                              className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                              className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                               placeholder="85"
                               data-testid="input-tec-width"
                             />
@@ -2169,7 +2169,7 @@ export default function Settings() {
                               type="number"
                               value={currentSettings?.tecLabelHeight || "65"}
                               onChange={(e) => handleInputChange("tecLabelHeight", e.target.value)}
-                              className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                              className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                               placeholder="65"
                               data-testid="input-tec-height"
                             />
@@ -2210,7 +2210,7 @@ export default function Settings() {
                             type="text"
                             value={currentSettings?.zebraPrinterIp || ""}
                             onChange={(e) => handleInputChange("zebraPrinterIp", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                             placeholder="192.168.1.100"
                             data-testid="input-zebra-ip"
                           />
@@ -2225,7 +2225,7 @@ export default function Settings() {
                             type="number"
                             value={currentSettings?.zebraPrinterPort || "9100"}
                             onChange={(e) => handleInputChange("zebraPrinterPort", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                             placeholder="9100"
                             data-testid="input-zebra-port"
                           />
@@ -2240,7 +2240,7 @@ export default function Settings() {
                             value={currentSettings?.zebraPrinterModel || "GK420d"}
                             onValueChange={(value) => handleInputChange("zebraPrinterModel", value)}
                           >
-                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-zebra-model">
+                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-zebra-model">
                               <SelectValue placeholder="Select Zebra model" />
                             </SelectTrigger>
                             <SelectContent>
@@ -2303,7 +2303,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2">
                     <Badge 
                       variant="outline" 
-                      className={currentSettings?.ePassEnabled ? "bg-green-100 text-green-800 border-green-300" : "bg-gray-100 text-gray-600"}
+                      className={currentSettings?.ePassEnabled ? "bg-green-100 text-green-800 dark:text-green-300 border-green-300" : "bg-gray-100 text-gray-600 dark:text-gray-400"}
                     >
                       {currentSettings?.ePassEnabled ? "E-Pass Active" : "Physical Pass Active"}
                     </Badge>
@@ -2312,7 +2312,7 @@ export default function Settings() {
                 
                 <div className="space-y-6">
                   {/* Main E-Pass Toggle */}
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
@@ -2343,7 +2343,7 @@ export default function Settings() {
                             value={currentSettings?.ePassDeliveryMethod || "both"}
                             onValueChange={(value) => handleInputChange("ePassDeliveryMethod", value)}
                           >
-                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-epass-delivery">
+                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-epass-delivery">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -2366,7 +2366,7 @@ export default function Settings() {
                             max="120"
                             value={currentSettings?.ePassCheckoutReminderMinutes || "30"}
                             onChange={(e) => handleInputChange("ePassCheckoutReminderMinutes", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                             data-testid="input-checkout-reminder"
                           />
                           <p className="text-xs text-variable">Minutes before expected departure to send reminder</p>
@@ -2375,7 +2375,7 @@ export default function Settings() {
 
                       {/* Auto Check-out & Host Notifications */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-4 bg-white/50 rounded-lg border border-white/30">
+                        <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border border-white/30 dark:border-slate-700/30">
                           <div className="flex items-center justify-between mb-3">
                             <div>
                               <Label className="text-sm font-medium text-fixed">
@@ -2393,7 +2393,7 @@ export default function Settings() {
                           </div>
                         </div>
 
-                        <div className="p-4 bg-white/50 rounded-lg border border-white/30">
+                        <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border border-white/30 dark:border-slate-700/30">
                           <div className="flex items-center justify-between mb-3">
                             <div>
                               <Label className="text-sm font-medium text-fixed">
@@ -2418,7 +2418,7 @@ export default function Settings() {
                                 max="180"
                                 value={currentSettings?.ePassHostNotificationDelay || "60"}
                                 onChange={(e) => handleInputChange("ePassHostNotificationDelay", e.target.value)}
-                                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-white/30 bg-white/50"
+                                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                                 data-testid="input-host-delay"
                               />
                             </div>
@@ -2620,7 +2620,7 @@ export default function Settings() {
               {currentSettings?.ePassEnabled && (
                 <GlassCard>
                   <div className="flex items-center mb-6">
-                    <Eye className="mr-3 text-blue-600" size={24} />
+                    <Eye className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                     <h3 className="text-lg font-semibold text-fixed">E-Pass Preview</h3>
                   </div>
                   <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg">
@@ -2978,7 +2978,7 @@ export default function Settings() {
                 <GlassCard>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
-                      <Server className="mr-3 text-blue-600" size={24} />
+                      <Server className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                       <h3 className="text-lg font-semibold text-fixed">X-Station 2 Devices</h3>
                     </div>
                     <Button
@@ -3020,7 +3020,7 @@ export default function Settings() {
                             <p className="text-xs text-variable">Device ID: XS2-001 • IP: 192.168.1.100</p>
                           </div>
                         </div>
-                        <Badge className="bg-green-100 text-green-800">Online</Badge>
+                        <Badge className="bg-green-100 text-green-800 dark:text-green-300">Online</Badge>
                       </div>
                       <div className="text-xs text-variable mt-2">
                         Location: Building A, Main Lobby • Last seen: Just now
@@ -3036,7 +3036,7 @@ export default function Settings() {
                             <p className="text-xs text-variable">Device ID: XS2-002 • IP: 192.168.1.101</p>
                           </div>
                         </div>
-                        <Badge className="bg-green-100 text-green-800">Online</Badge>
+                        <Badge className="bg-green-100 text-green-800 dark:text-green-300">Online</Badge>
                       </div>
                       <div className="text-xs text-variable mt-2">
                         Location: Building A, Side Door • Last seen: 2 minutes ago
@@ -3052,7 +3052,7 @@ export default function Settings() {
                             <p className="text-xs text-variable">Device ID: XS2-003 • IP: 192.168.1.102</p>
                           </div>
                         </div>
-                        <Badge className="bg-gray-100 text-gray-800">Offline</Badge>
+                        <Badge className="bg-gray-100 text-gray-800 dark:text-gray-200">Offline</Badge>
                       </div>
                       <div className="text-xs text-variable mt-2">
                         Location: Reception Desk • Last seen: 1 hour ago
@@ -3069,7 +3069,7 @@ export default function Settings() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <GlassCard>
                   <div className="flex items-center mb-6">
-                    <QrCode className="mr-3 text-blue-600" size={24} />
+                    <QrCode className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                     <h3 className="text-lg font-semibold text-fixed">QR Reader Detection</h3>
                   </div>
                   
@@ -3100,7 +3100,7 @@ export default function Settings() {
 
                 <GlassCard>
                   <div className="flex items-center mb-6">
-                    <Settings2 className="mr-3 text-blue-600" size={24} />
+                    <Settings2 className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                     <h3 className="text-lg font-semibold text-fixed">Reader Configuration</h3>
                   </div>
                   
@@ -3137,7 +3137,7 @@ export default function Settings() {
                         max="30"
                         value={currentSettings?.clueQrValidityMinutes || "60"}
                         onChange={(e) => handleInputChange("clueQrValidityMinutes", e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                         data-testid="input-qr-scan-timeout"
                       />
                     </div>
@@ -3175,7 +3175,7 @@ export default function Settings() {
                       <textarea
                         value={(currentSettings?.xStationDevices || []).join('\n')}
                         onChange={(e) => handleInputChange("xStationDevices", e.target.value.split('\n').filter(d => d.trim()))}
-                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 h-32 font-mono text-sm"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 h-32 font-mono text-sm"
                         placeholder="192.168.1.100&#10;192.168.1.101&#10;192.168.1.102"
                         data-testid="textarea-xstation-ips"
                       />
@@ -3228,12 +3228,12 @@ export default function Settings() {
               <GlassCard>
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center">
-                    <QrCode className="mr-3 text-blue-600" size={24} />
+                    <QrCode className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                     <h3 className="text-lg font-semibold text-fixed">Connected QR Readers</h3>
                   </div>
                   <Button
                     variant="outline"
-                    className="text-blue-600 border-blue-300"
+                    className="text-blue-600 dark:text-blue-400 border-blue-300"
                     data-testid="button-refresh-readers"
                   >
                     <RefreshCw className="mr-2" size={16} />
@@ -3244,13 +3244,13 @@ export default function Settings() {
                 <div className="space-y-4">
                   {/* Mock connected readers - will be populated from API */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/20">
+                    <div className="p-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <div className="w-3 h-3 bg-green-50 dark:bg-green-950/300 rounded-full"></div>
                           <h4 className="font-semibold text-green-800 dark:text-green-200">USB QR Scanner</h4>
                         </div>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">USB</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 dark:text-green-300">USB</Badge>
                       </div>
                       <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
                         <p><strong>Port:</strong> COM3</p>
@@ -3258,7 +3258,7 @@ export default function Settings() {
                         <p><strong>Last Scan:</strong> 2 minutes ago</p>
                       </div>
                       <div className="mt-3 flex gap-2">
-                        <Button size="sm" variant="outline" className="text-blue-600 border-blue-300">
+                        <Button size="sm" variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-300">
                           <Settings2 size={14} className="mr-1" />
                           Configure
                         </Button>
@@ -3269,13 +3269,13 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+                    <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                          <div className="w-3 h-3 bg-blue-50 dark:bg-blue-950/300 rounded-full"></div>
                           <h4 className="font-semibold text-blue-800 dark:text-blue-200">Ethernet Scanner</h4>
                         </div>
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">Ethernet</Badge>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:text-blue-300">Ethernet</Badge>
                       </div>
                       <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                         <p><strong>IP:</strong> 192.168.1.100</p>
@@ -3283,7 +3283,7 @@ export default function Settings() {
                         <p><strong>Last Scan:</strong> 5 minutes ago</p>
                       </div>
                       <div className="mt-3 flex gap-2">
-                        <Button size="sm" variant="outline" className="text-blue-600 border-blue-300">
+                        <Button size="sm" variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-300">
                           <Settings2 size={14} className="mr-1" />
                           Configure
                         </Button>
@@ -3299,7 +3299,7 @@ export default function Settings() {
                     <QrCode className="mx-auto mb-4 text-variable" size={48} />
                     <p className="text-variable mb-4">Add Additional QR Reader</p>
                     <div className="flex gap-3 justify-center">
-                      <Button variant="outline" className="text-blue-600 border-blue-300">
+                      <Button variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-300">
                         <Plus className="mr-2" size={16} />
                         Add USB Reader
                       </Button>
@@ -3314,7 +3314,7 @@ export default function Settings() {
 
               <GlassCard>
                 <div className="flex items-center mb-6">
-                  <TestTube className="mr-3 text-blue-600" size={24} />
+                  <TestTube className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                   <h3 className="text-lg font-semibold text-fixed">QR Reader Testing</h3>
                 </div>
                 
@@ -3337,7 +3337,7 @@ export default function Settings() {
                         <span className="font-mono">VIS-2025-001234</span> - <span className="text-green-600">USB Scanner</span> - <span className="text-xs">2 minutes ago</span>
                       </div>
                       <div className="text-sm text-slate-600 dark:text-slate-400 p-2 bg-white dark:bg-slate-700 rounded">
-                        <span className="font-mono">STAFF-ENG-456</span> - <span className="text-blue-600">Ethernet Scanner</span> - <span className="text-xs">5 minutes ago</span>
+                        <span className="font-mono">STAFF-ENG-456</span> - <span className="text-blue-600 dark:text-blue-400">Ethernet Scanner</span> - <span className="text-xs">5 minutes ago</span>
                       </div>
                     </div>
                   </div>
@@ -3357,7 +3357,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
-                <Shield className="mr-3 text-blue-600" size={24} />
+                <Shield className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">Suprema BioStar 2 Local Server</h3>
               </div>
               
@@ -3387,7 +3387,7 @@ export default function Settings() {
                         type="url"
                         value={currentSettings?.biostarServerUrl || ""}
                         onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                         placeholder="http://localhost:8080 or http://192.168.1.100:8080"
                         data-testid="input-biostar-server-url"
                       />
@@ -3406,7 +3406,7 @@ export default function Settings() {
                           type="text"
                           value={currentSettings?.biostarUsername || ""}
                           onChange={(e) => handleInputChange("biostarUsername", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="admin"
                           data-testid="input-biostar-username"
                         />
@@ -3422,7 +3422,7 @@ export default function Settings() {
                           type="password"
                           value={currentSettings?.biostarPassword || ""}
                           onChange={(e) => handleInputChange("biostarPassword", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="••••••••"
                           data-testid="input-biostar-password"
                         />
@@ -3440,7 +3440,7 @@ export default function Settings() {
                           type="text"
                           value={currentSettings?.biostarDatabaseId || "1"}
                           onChange={(e) => handleInputChange("biostarDatabaseId", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="1"
                           data-testid="input-biostar-database-id"
                         />
@@ -3455,7 +3455,7 @@ export default function Settings() {
                           type="number"
                           value={currentSettings?.biostarSyncInterval || "300"}
                           onChange={(e) => handleInputChange("biostarSyncInterval", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                           placeholder="300"
                           min="60"
                           data-testid="input-biostar-sync-interval"
@@ -3469,7 +3469,7 @@ export default function Settings() {
             
             <GlassCard>
               <div className="flex items-center mb-6">
-                <Shield className="mr-3 text-blue-600" size={24} />
+                <Shield className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">Connection & Sync</h3>
               </div>
               
@@ -3598,7 +3598,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
-                <Phone className="mr-3 text-blue-600" size={24} />
+                <Phone className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">Phone System Configuration</h3>
               </div>
               
@@ -3611,7 +3611,7 @@ export default function Settings() {
                     value={currentSettings?.phoneProvider || "8x8"} 
                     onValueChange={(value) => handleInputChange("phoneProvider", value)}
                   >
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <SelectValue placeholder="Select phone system provider" />
                     </SelectTrigger>
                     <SelectContent>
@@ -3658,7 +3658,7 @@ export default function Settings() {
                     value={currentSettings?.eightByXApiKey || ""}
                     onChange={(e) => handleInputChange("eightByXApiKey", e.target.value)}
                     placeholder="Enter your 8x8 API key"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-api-key"
                   />
                 </div>
@@ -3673,7 +3673,7 @@ export default function Settings() {
                     value={currentSettings?.eightByXApiSecret || ""}
                     onChange={(e) => handleInputChange("eightByXApiSecret", e.target.value)}
                     placeholder="Enter your 8x8 API secret"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-api-secret"
                   />
                 </div>
@@ -3688,7 +3688,7 @@ export default function Settings() {
                     value={currentSettings?.eightByXAccountId || ""}
                     onChange={(e) => handleInputChange("eightByXAccountId", e.target.value)}
                     placeholder="Enter your 8x8 account ID"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-account-id"
                   />
                 </div>
@@ -3703,7 +3703,7 @@ export default function Settings() {
                     value={currentSettings?.eightByXBaseUrl || "https://vcc-eu.8x8.com/api/v1"}
                     onChange={(e) => handleInputChange("eightByXBaseUrl", e.target.value)}
                     placeholder="https://vcc-eu.8x8.com/api/v1"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-base-url"
                   />
                 </div>
@@ -3727,7 +3727,7 @@ export default function Settings() {
                     value={currentSettings?.defaultVoiceLanguage || "en-GB"} 
                     onValueChange={(value) => handleInputChange("defaultVoiceLanguage", value)}
                   >
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <SelectValue placeholder="Select voice language" />
                     </SelectTrigger>
                     <SelectContent>
@@ -3750,7 +3750,7 @@ export default function Settings() {
                     value={currentSettings?.defaultVoiceProfile || "en-GB-Standard-A"} 
                     onValueChange={(value) => handleInputChange("defaultVoiceProfile", value)}
                   >
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <SelectValue placeholder="Select voice profile" />
                     </SelectTrigger>
                     <SelectContent>
@@ -3781,7 +3781,7 @@ export default function Settings() {
                     id="testPhoneNumber"
                     type="tel"
                     placeholder="+44 20 7123 4567"
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-test-phone-number"
                   />
                 </div>
@@ -3805,7 +3805,7 @@ export default function Settings() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-variable">8x8 API Connection</span>
-                      <Badge variant="outline" className="text-green-700 bg-green-50 border-green-200">
+                      <Badge variant="outline" className="text-green-700 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                         <CheckCircle size={12} className="mr-1" />
                         Connected
                       </Badge>
@@ -3814,8 +3814,8 @@ export default function Settings() {
                       <span className="text-sm text-variable">Voice Notifications</span>
                       <Badge variant="outline" className={
                         currentSettings?.voiceNotificationsEnabled 
-                          ? "text-green-700 bg-green-50 border-green-200"
-                          : "text-slate-500 bg-slate-50 border-slate-200"
+                          ? "text-green-700 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+                          : "text-slate-500 dark:text-slate-400 bg-slate-50 border-slate-200"
                       }>
                         {currentSettings?.voiceNotificationsEnabled ? (
                           <><CheckCircle size={12} className="mr-1" />Enabled</>
@@ -3836,7 +3836,7 @@ export default function Settings() {
             <GlassCard>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                  <Users className="mr-3 text-blue-600" size={24} />
+                  <Users className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                   <h3 className="text-lg font-semibold text-fixed">User Management</h3>
                 </div>
                 <div className="flex gap-2">
@@ -3880,9 +3880,9 @@ export default function Settings() {
                         : `${user.username}${isCurrentUser ? ' (You)' : ''}`;
                       
                       return (
-                        <div key={user.id} className="flex items-center justify-between p-3 bg-white/50 rounded-lg" data-testid={`user-item-${user.id}`}>
+                        <div key={user.id} className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg" data-testid={`user-item-${user.id}`}>
                           <div className="flex items-center space-x-3">
-                            <div className={`w-8 h-8 ${isPending ? 'bg-amber-500' : 'bg-blue-500'} rounded-full flex items-center justify-center`}>
+                            <div className={`w-8 h-8 ${isPending ? 'bg-amber-50 dark:bg-amber-950/300' : 'bg-blue-50 dark:bg-blue-950/300'} rounded-full flex items-center justify-center`}>
                               <span className="text-white text-sm font-bold">{initials}</span>
                             </div>
                             <div>
@@ -3892,7 +3892,7 @@ export default function Settings() {
                           </div>
                           <div className="flex items-center gap-2">
                             {isPending ? (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                              <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950/30 text-amber-700 border-amber-300">
                                 Awaiting
                               </Badge>
                             ) : (
@@ -3997,7 +3997,7 @@ export default function Settings() {
             
             <GlassCard>
               <div className="flex items-center mb-6">
-                <UserPlus className="mr-3 text-blue-600" size={24} />
+                <UserPlus className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">Invite New User</h3>
               </div>
               
@@ -4020,7 +4020,7 @@ export default function Settings() {
                     placeholder="user@example.com"
                     value={inviteForm.email}
                     onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-invite-email"
                     required
                   />
@@ -4031,7 +4031,7 @@ export default function Settings() {
                     User Role
                   </Label>
                   <Select value={inviteForm.role} onValueChange={(value) => setInviteForm({ ...inviteForm, role: value })}>
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-user-role">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-user-role">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -4068,7 +4068,7 @@ export default function Settings() {
           <GlassCard>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
-                <Building className="mr-3 text-blue-600" size={24} />
+                <Building className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <div>
                   <h3 className="text-lg font-semibold text-fixed">Department Management</h3>
                   <p className="text-sm text-variable">
@@ -4088,7 +4088,7 @@ export default function Settings() {
                 <Button
                   onClick={() => {
                     setDepartmentToEdit(null);
-                    setDepartmentForm({ name: "", description: "", color: "bg-blue-500" });
+                    setDepartmentForm({ name: "", description: "", color: "bg-blue-50 dark:bg-blue-950/300" });
                     setShowDepartmentDialog(true);
                   }}
                   className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300"
@@ -4106,7 +4106,7 @@ export default function Settings() {
                   {departments.map((department) => (
                     <div
                       key={department.id}
-                      className="p-4 rounded-xl border border-white/30 bg-white/50 backdrop-blur-sm"
+                      className="p-4 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
                       style={{ 
                         backgroundColor: department.color ? 
                           (department.color.startsWith('#') ? `${department.color}20` : 
@@ -4133,13 +4133,13 @@ export default function Settings() {
                               setDepartmentForm({
                                 name: department.name,
                                 description: department.description || "",
-                                color: department.color || "bg-blue-500"
+                                color: department.color || "bg-blue-50 dark:bg-blue-950/300"
                               });
                               setShowDepartmentDialog(true);
                             }}
                             variant="ghost"
                             size="sm"
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:text-blue-300"
                             data-testid={`button-edit-department-${department.id}`}
                           >
                             <Edit size={14} />
@@ -4215,7 +4215,7 @@ export default function Settings() {
         <TabsContent value="reports" className="space-y-6 mt-6">
           <GlassCard>
             <div className="flex items-center mb-6">
-              <FileText className="mr-3 text-blue-600" size={24} />
+              <FileText className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
               <h3 className="text-lg font-semibold text-fixed">Report Generation Settings</h3>
             </div>
             
@@ -4223,17 +4223,17 @@ export default function Settings() {
               <div className="space-y-4">
                 <h4 className="font-medium text-fixed">📊 Report Types</h4>
                 <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-blue-800">Daily Reports</span>
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Daily Reports</span>
                       <Badge variant="secondary" className="bg-blue-100 text-blue-700">Active</Badge>
                     </div>
-                    <p className="text-xs text-blue-600 mt-1">Visitor & staff activity summary</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Visitor & staff activity summary</p>
                   </div>
                   
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-green-800">Weekly Reports</span>
+                      <span className="text-sm font-medium text-green-800 dark:text-green-300">Weekly Reports</span>
                       <Badge variant="secondary" className="bg-green-100 text-green-700">Active</Badge>
                     </div>
                     <p className="text-xs text-green-600 mt-1">Comprehensive weekly analysis</p>
@@ -4300,21 +4300,21 @@ export default function Settings() {
               <div className="space-y-4">
                 <h4 className="font-medium text-fixed">📈 Report Stats</h4>
                 <div className="space-y-3">
-                  <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
-                    <div className="text-2xl font-bold text-blue-600" data-testid="text-total-reports">
+                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-reports">
                       8
                     </div>
                     <div className="text-xs text-variable">Total Report Types</div>
                   </div>
                   
-                  <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
+                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                     <div className="text-2xl font-bold text-green-600" data-testid="text-generated-reports">
                       24
                     </div>
                     <div className="text-xs text-variable">Generated This Month</div>
                   </div>
                   
-                  <div className="text-center p-4 bg-white/50 rounded-xl border border-white/30">
+                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                     <div className="text-2xl font-bold text-purple-600" data-testid="text-emailed-reports">
                       0
                     </div>
@@ -4341,7 +4341,7 @@ export default function Settings() {
 
           <GlassCard>
             <div className="flex items-center mb-6">
-              <Calendar className="mr-3 text-blue-600" size={24} />
+              <Calendar className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
               <h3 className="text-lg font-semibold text-fixed">Generate Reports Now</h3>
             </div>
             
@@ -4392,19 +4392,19 @@ export default function Settings() {
                 </Button>
               </div>
               
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-blue-800">Report Generation Options</h4>
+                  <h4 className="font-medium text-blue-800 dark:text-blue-300">Report Generation Options</h4>
                   <Badge variant="secondary" className="bg-blue-100 text-blue-700">Available Now</Badge>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-50 dark:bg-green-950/300 rounded-full"></div>
                     <span className="text-blue-700">PDF Export Ready</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-50 dark:bg-green-950/300 rounded-full"></div>
                     <span className="text-blue-700">Excel Export Ready</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -4412,7 +4412,7 @@ export default function Settings() {
                     <span className="text-blue-700">Email Delivery Ready</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-50 dark:bg-green-950/300 rounded-full"></div>
                     <span className="text-blue-700">Charts & Visuals</span>
                   </div>
                 </div>
@@ -4428,41 +4428,41 @@ export default function Settings() {
             
             <div className="space-y-4">
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                       <FileText className="text-green-600" size={16} />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-green-800">Daily Report Generated</div>
+                      <div className="text-sm font-medium text-green-800 dark:text-green-300">Daily Report Generated</div>
                       <div className="text-xs text-green-600">Today at 9:00 AM</div>
                     </div>
                   </div>
                   <Badge variant="secondary" className="bg-green-100 text-green-700">Success</Badge>
                 </div>
                 
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <BarChart3 className="text-blue-600" size={16} />
+                      <BarChart3 className="text-blue-600 dark:text-blue-400" size={16} />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-blue-800">Weekly Report Generated</div>
-                      <div className="text-xs text-blue-600">Monday at 9:00 AM</div>
+                      <div className="text-sm font-medium text-blue-800 dark:text-blue-300">Weekly Report Generated</div>
+                      <div className="text-xs text-blue-600 dark:text-blue-400">Monday at 9:00 AM</div>
                     </div>
                   </div>
                   <Badge variant="secondary" className="bg-blue-100 text-blue-700">Success</Badge>
                 </div>
               </div>
               
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-blue-800">📧 Email Integration Status</h4>
+                  <h4 className="font-medium text-blue-800 dark:text-blue-300">📧 Email Integration Status</h4>
                   <Button
                     variant="outline" 
                     size="sm"
                     onClick={() => setActiveTab('email')}
-                    className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                    className="text-blue-600 dark:text-blue-400 border-blue-300 hover:bg-blue-100"
                     data-testid="button-go-to-email-settings"
                   >
                     Configure Email
@@ -4475,7 +4475,7 @@ export default function Settings() {
                   <p className="mb-1">
                     ✅ Email Reports: {currentSettings?.emailReportsEnabled ? 'Enabled' : 'Disabled'}
                   </p>
-                  <p className="text-blue-600">
+                  <p className="text-blue-600 dark:text-blue-400">
                     💡 Configure email settings in the <strong>Email</strong> tab to enable automatic report delivery
                   </p>
                 </div>
@@ -4488,7 +4488,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
-                <Brain className="mr-3 text-blue-600" size={24} />
+                <Brain className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                 <h3 className="text-lg font-semibold text-fixed">OpenAI Configuration</h3>
               </div>
               
@@ -4498,7 +4498,7 @@ export default function Settings() {
                     value={currentSettings?.openaiModel || "gpt-4o"}
                     onValueChange={(value) => handleInputChange("openaiModel", value)}
                   >
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-openai-model">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-openai-model">
                       <SelectValue placeholder="Select OpenAI model" />
                     </SelectTrigger>
                     <SelectContent>
@@ -4520,7 +4520,7 @@ export default function Settings() {
                     value={currentSettings?.openaiMaxTokens || "4000"}
                     onValueChange={(value) => handleInputChange("openaiMaxTokens", value)}
                   >
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-max-tokens">
+                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-max-tokens">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -4577,7 +4577,7 @@ export default function Settings() {
                       <textarea
                         value={currentSettings?.hsRulesContent || ""}
                         onChange={(e) => handleInputChange("hsRulesContent", e.target.value)}
-                        className="w-full h-96 px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed font-mono text-sm"
+                        className="w-full h-96 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed font-mono text-sm"
                         placeholder="Enter your company's health and safety rules here..."
                         data-testid="textarea-hs-rules-content"
                       />
@@ -4596,7 +4596,7 @@ export default function Settings() {
                         type="url"
                         value={currentSettings?.hsRulesUrl || ""}
                         onChange={(e) => handleInputChange("hsRulesUrl", e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                         placeholder="https://www.yourcompany.com/health-safety-rules"
                         data-testid="input-hs-rules-url"
                       />
@@ -4605,12 +4605,12 @@ export default function Settings() {
                       </p>
                     </div>
 
-                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
                       <h4 className="text-sm font-semibold text-blue-900 mb-2">Default UK H&S Rules Available</h4>
                       <p className="text-xs text-blue-700 mb-3">
                         The system includes comprehensive UK Health & Safety rules compliant with:
                       </p>
-                      <ul className="text-xs text-blue-600 space-y-1 list-disc list-inside">
+                      <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1 list-disc list-inside">
                         <li>Health and Safety at Work Act 1974</li>
                         <li>Management of Health and Safety at Work Regulations 1999</li>
                         <li>Workplace (Health, Safety and Welfare) Regulations 1992</li>
@@ -4682,7 +4682,7 @@ export default function Settings() {
                 </div>
 
                 {currentSettings?.enableDailyReset !== false && (
-                  <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+                  <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
                     <div className="space-y-2">
                       <Label htmlFor="dailyResetTime" className="text-sm font-medium text-fixed">
                         Reset Time
@@ -4693,14 +4693,14 @@ export default function Settings() {
                           type="time"
                           value={currentSettings?.dailyResetTime || "00:00"}
                           onChange={(e) => handleInputChange("dailyResetTime", e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                           data-testid="input-reset-time"
                         />
                         <Select
                           value={currentSettings?.dailyResetTimezone || "Europe/London"}
                           onValueChange={(value) => handleInputChange("dailyResetTimezone", value)}
                         >
-                          <SelectTrigger className="w-48 px-4 py-3 rounded-xl border border-white/30 bg-white/50" data-testid="select-timezone">
+                          <SelectTrigger className="w-48 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-timezone">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -4727,7 +4727,7 @@ export default function Settings() {
                         max="60"
                         value={currentSettings?.gracePeriodMinutes || "15"}
                         onChange={(e) => handleInputChange("gracePeriodMinutes", e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                         data-testid="input-grace-period"
                       />
                       <p className="text-xs text-variable">Time to alert personnel before automatic checkout</p>
@@ -4743,7 +4743,7 @@ export default function Settings() {
                 System Status
               </h3>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Database className="w-4 h-4" />
                     <span className="text-sm font-medium">Database</span>
@@ -4751,7 +4751,7 @@ export default function Settings() {
                   <CheckCircle className="w-5 h-5 text-green-500" />
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4" />
                     <span className="text-sm font-medium">Email Service</span>
@@ -4763,7 +4763,7 @@ export default function Settings() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Server className="w-4 h-4" />
                     <span className="text-sm font-medium">Authentication</span>
@@ -4843,7 +4843,7 @@ export default function Settings() {
                       <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
                         📄 {selectedBackupFile.name}
                       </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-300">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 dark:text-blue-300">
                         {(selectedBackupFile.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
@@ -4892,9 +4892,9 @@ export default function Settings() {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Staff Import */}
-                <div className="p-4 bg-white/50 rounded-lg border">
+                <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border">
                   <div className="flex items-center gap-2 mb-3">
-                    <Users className="w-5 h-5 text-blue-600" />
+                    <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     <h4 className="font-medium text-fixed">Staff Import</h4>
                   </div>
                   <p className="text-xs text-variable mb-4">
@@ -4935,7 +4935,7 @@ export default function Settings() {
                 </div>
 
                 {/* Visitors Import */}
-                <div className="p-4 bg-white/50 rounded-lg border">
+                <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border">
                   <div className="flex items-center gap-2 mb-3">
                     <UserPlus className="w-5 h-5 text-green-600" />
                     <h4 className="font-medium text-fixed">Visitors Import</h4>
@@ -4978,7 +4978,7 @@ export default function Settings() {
                 </div>
 
                 {/* Contractors Import */}
-                <div className="p-4 bg-white/50 rounded-lg border">
+                <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border">
                   <div className="flex items-center gap-2 mb-3">
                     <Building className="w-5 h-5 text-orange-600" />
                     <h4 className="font-medium text-fixed">Contractors Import</h4>
@@ -5041,7 +5041,7 @@ export default function Settings() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Meeting Rooms */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-green-100 rounded-lg">
                       <Calendar className="w-5 h-5 text-green-600" />
@@ -5059,10 +5059,10 @@ export default function Settings() {
                 </div>
 
                 {/* Time & Attendance */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
-                      <Clock className="w-5 h-5 text-blue-600" />
+                      <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                       <h4 className="font-medium text-fixed">Time Attendance</h4>
@@ -5077,7 +5077,7 @@ export default function Settings() {
                 </div>
 
                 {/* Induction Settings */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-orange-100 rounded-lg">
                       <Video className="w-5 h-5 text-orange-600" />
@@ -5095,7 +5095,7 @@ export default function Settings() {
                 </div>
 
                 {/* Kiosk Mode */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-cyan-100 rounded-lg">
                       <Dock className="w-5 h-5 text-cyan-600" />
@@ -5113,7 +5113,7 @@ export default function Settings() {
                 </div>
 
                 {/* AI Demo */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-pink-100 rounded-lg">
                       <Brain className="w-5 h-5 text-pink-600" />
@@ -5131,10 +5131,10 @@ export default function Settings() {
                 </div>
 
                 {/* Contractor Page */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-amber-100 rounded-lg">
-                      <CalendarPlus className="w-5 h-5 text-amber-600" />
+                      <CalendarPlus className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
                       <h4 className="font-medium text-fixed">Contractor Page</h4>
@@ -5149,7 +5149,7 @@ export default function Settings() {
                 </div>
 
                 {/* Members */}
-                <div className="flex items-center justify-between p-4 bg-white/50 rounded-lg border hover:border-blue-200 transition-colors">
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-purple-100 rounded-lg">
                       <Users className="w-5 h-5 text-purple-600" />
@@ -5225,15 +5225,15 @@ export default function Settings() {
             <div className="space-y-2">
               <Label htmlFor="departmentColor">Department Color</Label>
               <Select 
-                value={departmentForm.color || "bg-blue-500"} 
+                value={departmentForm.color || "bg-blue-50 dark:bg-blue-950/300"} 
                 onValueChange={(value) => setDepartmentForm(prev => ({ ...prev, color: value }))}
               >
                 <SelectTrigger data-testid="select-department-color">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bg-blue-500">🔵 Blue</SelectItem>
-                  <SelectItem value="bg-green-500">🟢 Green</SelectItem>
+                  <SelectItem value="bg-blue-50 dark:bg-blue-950/300">🔵 Blue</SelectItem>
+                  <SelectItem value="bg-green-50 dark:bg-green-950/300">🟢 Green</SelectItem>
                   <SelectItem value="bg-purple-500">🟣 Purple</SelectItem>
                   <SelectItem value="bg-red-500">🔴 Red</SelectItem>
                   <SelectItem value="bg-yellow-500">🟡 Yellow</SelectItem>
@@ -5286,7 +5286,7 @@ export default function Settings() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mail className="text-blue-600" size={24} />
+              <Mail className="text-blue-600 dark:text-blue-400" size={24} />
               Send User Invitation
             </DialogTitle>
             <DialogDescription>
@@ -5334,7 +5334,7 @@ export default function Settings() {
               </Select>
             </div>
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-sm text-blue-700">
                 <strong>Email Process:</strong> The user will receive an invitation email with setup instructions. 
                 If email delivery fails, use the "Add Manually" option instead.
@@ -5368,7 +5368,7 @@ export default function Settings() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="text-blue-600" size={24} />
+              <UserPlus className="text-blue-600 dark:text-blue-400" size={24} />
               Create User Account Manually
             </DialogTitle>
             <DialogDescription>
@@ -5479,7 +5479,7 @@ export default function Settings() {
               </Select>
             </div>
             
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
               <p className="text-sm text-amber-700">
                 <strong>Note:</strong> This creates the account immediately without email verification. 
                 Use this option when email invitations aren't working.
@@ -5513,7 +5513,7 @@ export default function Settings() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Edit className="text-blue-600" size={24} />
+              <Edit className="text-blue-600 dark:text-blue-400" size={24} />
               Edit User Account
             </DialogTitle>
             <DialogDescription>
@@ -5627,7 +5627,7 @@ export default function Settings() {
             </div>
             
             {currentUser?.role !== 'admin' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                 <p className="text-sm text-amber-700">
                   <strong>Note:</strong> Only administrators can change user roles.
                 </p>
@@ -5680,14 +5680,14 @@ export default function Settings() {
             )}
 
             {testPrinterResult && (
-              <div className={`p-4 rounded-lg border ${testPrinterResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div className={`p-4 rounded-lg border ${testPrinterResult.success ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'bg-red-50 border-red-200'}`}>
                 <div className="flex items-center gap-2">
                   {testPrinterResult.success ? (
                     <CheckCircle className="h-5 w-5 text-green-600" />
                   ) : (
                     <XCircle className="h-5 w-5 text-red-600" />
                   )}
-                  <p className={`text-sm font-medium ${testPrinterResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                  <p className={`text-sm font-medium ${testPrinterResult.success ? 'text-green-800 dark:text-green-300' : 'text-red-800'}`}>
                     {testPrinterResult.message}
                   </p>
                 </div>
@@ -5723,7 +5723,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <h4 className="text-sm font-semibold text-blue-900 mb-2">About {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} Code</h4>
                   <p className="text-xs text-blue-700">
                     {testPrinterType === 'tec' 
