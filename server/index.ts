@@ -401,6 +401,11 @@ app.use((req, res, next) => {
       console.log('🌱 Seeding UK H&S document templates for all customers...');
       const { seedAllCustomerHSTemplates } = await import("./seed-isolated-hs-templates");
       await seedAllCustomerHSTemplates();
+
+      // Seed help system data
+      console.log('🌱 Seeding help system data...');
+      const { seedHelpData } = await import("./seedHelpData");
+      await seedHelpData();
     } catch (error) {
       console.error("Failed to seed induction data:", error);
     }
