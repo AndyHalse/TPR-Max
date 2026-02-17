@@ -287,9 +287,12 @@ export default function EmergencyMuster() {
       });
     },
     onError: (error: any) => {
+      const errorMsg = error.message || "Failed to send emergency notifications";
       toast({
-        title: "Emergency Activation Failed",
-        description: error.message || "Failed to send emergency notifications",
+        title: "Email Alert Failed",
+        description: errorMsg.includes("No people") 
+          ? "No personnel found in the selected zones. Try selecting different zones or skip the email alert."
+          : errorMsg,
         variant: "destructive",
       });
     },
