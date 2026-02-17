@@ -731,14 +731,14 @@ export default function ContractorManagement() {
 
       {/* Tab Content */}
       {activeTab === "previous" && (
-        <GlassCard className="p-6">
+        <div className="space-y-4">
           <div className="space-y-4">
             {/* Section Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <History className="h-5 w-5 text-slate-600" />
-                <h2 className="text-xl font-semibold text-slate-800">Previous Contractors</h2>
-                <span className="text-sm text-slate-500">
+                <History className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                <h2 className="text-xl font-semibold text-fixed">Previous Contractors</h2>
+                <span className="text-sm text-variable">
                   Select a contractor who has been onsite before
                 </span>
               </div>
@@ -1139,7 +1139,7 @@ export default function ContractorManagement() {
               </div>
             )}
           </div>
-        </GlassCard>
+        </div>
       )}
 
       {activeTab === "walkin" && (

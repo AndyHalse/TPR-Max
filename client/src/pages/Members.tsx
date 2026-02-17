@@ -263,7 +263,7 @@ export default function Members() {
         </div>
       </div>
 
-      <GlassCard>
+      <div>
         {filteredMembers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Users className="h-16 w-16 text-variable mb-4 opacity-50" />
@@ -463,7 +463,7 @@ export default function Members() {
             ))}
           </div>
         )}
-      </GlassCard>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">

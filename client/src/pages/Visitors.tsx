@@ -871,8 +871,8 @@ export default function Visitors() {
 
         {/* Existing Visitors Tab */}
         <TabsContent value="existing" className="space-y-6">
-          <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <History className="text-blue-600" size={24} />
@@ -882,7 +882,6 @@ export default function Visitors() {
                   <p className="text-variable">Select a visitor who has been onsite before</p>
                 </div>
               </div>
-              {/* Remove Duplicates button removed - duplication prevented via email validation */}
             </div>
 
             {/* Search */}
@@ -1129,7 +1128,7 @@ export default function Visitors() {
                 </Button>
               </div>
             )}
-          </GlassCard>
+          </div>
         </TabsContent>
 
         {/* Walk-in Registration Tab */}
