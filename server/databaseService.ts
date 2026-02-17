@@ -89,7 +89,8 @@ export class DatabaseService {
     
     return await db
       .select()
-      .from(isolatedSchema.staff);
+      .from(isolatedSchema.staff)
+      .orderBy(asc(isolatedSchema.staff.lastName), asc(isolatedSchema.staff.firstName));
   }
 
   async getStaffById(context: CustomerContext, id: string): Promise<Staff | undefined> {
