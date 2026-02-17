@@ -195,7 +195,9 @@ export class DatabaseService {
     await safeDelete(() => db.delete(isolatedSchema.staffAttendanceHistory).where(eq(isolatedSchema.staffAttendanceHistory.staffId, id)));
     await safeDelete(() => db.delete(isolatedSchema.roomBookingAttendees).where(eq(isolatedSchema.roomBookingAttendees.staffId, id)));
     await safeDelete(() => db.update(isolatedSchema.visitors).set({ hostStaffId: null }).where(eq(isolatedSchema.visitors.hostStaffId, id)));
+    await safeDelete(() => db.update(isolatedSchema.visitorHistory).set({ hostStaffId: null }).where(eq(isolatedSchema.visitorHistory.hostStaffId, id)));
     await safeDelete(() => db.update(isolatedSchema.preBookings).set({ hostStaffId: null }).where(eq(isolatedSchema.preBookings.hostStaffId, id)));
+    await safeDelete(() => db.update(isolatedSchema.contractorVisits).set({ hostStaffId: null }).where(eq(isolatedSchema.contractorVisits.hostStaffId, id)));
     await safeDelete(() => db.update(isolatedSchema.roomBookings).set({ bookedByStaffId: null }).where(eq(isolatedSchema.roomBookings.bookedByStaffId, id)));
 
     const deleted = await db
