@@ -31,11 +31,11 @@
   --radius: 0.75rem;
 
   /* Glassmorphism colors */
-  --glass-bg: rgba(255, 255, 255, 0.25);
+  --glass-bg: rgba(255, 255, 255, 0.85);
   --glass-dark: rgba(59, 130, 246, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.40);
   --glass-dark-border: rgba(59, 130, 246, 0.2);
-  --glass-hover: rgba(255, 255, 255, 0.35);
+  --glass-hover: rgba(255, 255, 255, 0.95);
   
   /* Gradient backgrounds */
   --gradient-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
