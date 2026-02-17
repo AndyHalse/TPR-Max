@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList } from "lucide-react";
+import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList, CloudUpload, Upload, X, Calendar, CreditCard } from "lucide-react";
 
 interface Member {
   id: string;
@@ -17,10 +17,13 @@ interface Member {
   lastName: string;
   email: string | null;
   phoneNumber: string | null;
-  company: string | null;
+  photoUrl: string | null;
   membershipType: string | null;
   membershipId: string | null;
-  department: string | null;
+  membershipNumber: string | null;
+  joinDate: string | null;
+  expiryDate: string | null;
+  membershipStatus: string | null;
   notes: string | null;
   isCheckedIn: boolean;
   checkedInAt: string | null;
@@ -35,10 +38,13 @@ interface MemberFormData {
   lastName: string;
   email: string;
   phoneNumber: string;
-  company: string;
+  photoUrl: string;
   membershipType: string;
   membershipId: string;
-  department: string;
+  membershipNumber: string;
+  joinDate: string;
+  expiryDate: string;
+  membershipStatus: string;
   notes: string;
 }
 
@@ -47,10 +53,13 @@ const emptyForm: MemberFormData = {
   lastName: "",
   email: "",
   phoneNumber: "",
-  company: "",
-  membershipType: "standard",
+  photoUrl: "",
+  membershipType: "full",
   membershipId: "",
-  department: "",
+  membershipNumber: "",
+  joinDate: "",
+  expiryDate: "",
+  membershipStatus: "active",
   notes: "",
 };
 
@@ -61,6 +70,9 @@ export default function Members() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [formData, setFormData] = useState<MemberFormData>(emptyForm);
+  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: members = [], isLoading } = useQuery<Member[]>({
     queryKey: ["/api/members"],
@@ -149,15 +161,52 @@ export default function Members() {
     return (
       `${member.firstName} ${member.lastName}`.toLowerCase().includes(term) ||
       (member.email && member.email.toLowerCase().includes(term)) ||
-      (member.company && member.company.toLowerCase().includes(term)) ||
-      (member.department && member.department.toLowerCase().includes(term)) ||
+      (member.membershipNumber && member.membershipNumber.toLowerCase().includes(term)) ||
       (member.membershipId && member.membershipId.toLowerCase().includes(term))
     );
   });
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const uploadResponse = await apiRequest("POST", "/api/objects/upload");
+      const { uploadURL } = await uploadResponse.json();
+
+      const uploadResult = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      if (!uploadResult.ok) throw new Error("Failed to upload photo");
+
+      const urlParts = uploadURL.split('/.private/')[1] || uploadURL.split('/uploads/')[1];
+      const objectKey = urlParts ? urlParts.split('?')[0] : 'uploaded-photo';
+      const photoPath = `/objects/${objectKey.includes('uploads/') ? objectKey : 'uploads/' + objectKey}`;
+      setUploadedPhoto(photoPath);
+      setFormData(prev => ({ ...prev, photoUrl: photoPath }));
+
+      toast({ title: "Success", description: "Photo uploaded successfully!" });
+    } catch (error) {
+      console.error("Photo upload error:", error);
+      toast({ title: "Error", description: "Failed to upload photo", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePhoto = () => {
+    setUploadedPhoto(null);
+    setFormData(prev => ({ ...prev, photoUrl: "" }));
+  };
+
   function openAddDialog() {
     setEditingMember(null);
     setFormData(emptyForm);
+    setUploadedPhoto(null);
     setDialogOpen(true);
   }
 
@@ -168,12 +217,16 @@ export default function Members() {
       lastName: member.lastName,
       email: member.email || "",
       phoneNumber: member.phoneNumber || "",
-      company: member.company || "",
-      membershipType: member.membershipType || "standard",
+      photoUrl: member.photoUrl || "",
+      membershipType: member.membershipType || "full",
       membershipId: member.membershipId || "",
-      department: member.department || "",
+      membershipNumber: member.membershipNumber || "",
+      joinDate: member.joinDate || "",
+      expiryDate: member.expiryDate || "",
+      membershipStatus: member.membershipStatus || "active",
       notes: member.notes || "",
     });
+    setUploadedPhoto(member.photoUrl || null);
     setDialogOpen(true);
   }
 
@@ -181,6 +234,7 @@ export default function Members() {
     setDialogOpen(false);
     setEditingMember(null);
     setFormData(emptyForm);
+    setUploadedPhoto(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -200,12 +254,34 @@ export default function Members() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
 
-  const membershipColors: Record<string, string> = {
-    standard: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-    premium: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-    vip: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  const membershipTypeColors: Record<string, string> = {
+    full: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    associate: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
+    junior: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    honorary: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    social: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     temporary: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
   };
+
+  const statusColors: Record<string, string> = {
+    active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    expired: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    suspended: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  };
+
+  function formatDate(dateStr: string | null) {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch { return dateStr; }
+  }
+
+  function isExpired(expiryDate: string | null) {
+    if (!expiryDate) return false;
+    try { return new Date(expiryDate) < new Date(); } catch { return false; }
+  }
 
   if (isLoading) {
     return (
@@ -289,38 +365,41 @@ export default function Members() {
                 key={member.id}
                 className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50"
               >
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-lg font-semibold text-fixed">
-                      {member.firstName} {member.lastName}
-                    </span>
-                    <Badge className={membershipColors[member.membershipType || "standard"]}>
-                      {(member.membershipType || "standard").toUpperCase()}
-                    </Badge>
-                    {member.isCheckedIn ? (
-                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                        On Site
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {member.photoUrl ? (
+                    <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold text-sm">{member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="text-lg font-semibold text-fixed">
+                        {member.firstName} {member.lastName}
+                      </span>
+                      <Badge className={membershipTypeColors[member.membershipType || "full"]}>
+                        {(member.membershipType || "full").toUpperCase()}
                       </Badge>
-                    ) : (
-                      <Badge variant="secondary">Off Site</Badge>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                    {member.email && (
-                      <span className="text-variable">{member.email}</span>
-                    )}
-                    {member.phoneNumber && (
-                      <span className="text-variable">{member.phoneNumber}</span>
-                    )}
-                    {member.company && (
-                      <span className="text-variable">{member.company}</span>
-                    )}
-                    {member.membershipId && (
-                      <span className="text-variable">ID: {member.membershipId}</span>
-                    )}
-                    {member.department && (
-                      <span className="text-variable">Dept: {member.department}</span>
-                    )}
+                      <Badge className={statusColors[member.membershipStatus || "active"]}>
+                        {(member.membershipStatus || "active").toUpperCase()}
+                      </Badge>
+                      {member.isCheckedIn ? (
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">On Site</Badge>
+                      ) : (
+                        <Badge variant="secondary">Off Site</Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                      {member.email && <span className="text-variable">{member.email}</span>}
+                      {member.phoneNumber && <span className="text-variable">{member.phoneNumber}</span>}
+                      {member.membershipNumber && <span className="text-variable">No: {member.membershipNumber}</span>}
+                      {member.expiryDate && (
+                        <span className={`text-variable ${isExpired(member.expiryDate) ? 'text-red-500 font-medium' : ''}`}>
+                          Expires: {formatDate(member.expiryDate)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -347,11 +426,7 @@ export default function Members() {
                       Check In
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditDialog(member)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => openEditDialog(member)}>
                     <Edit className="h-4 w-4" />
                   </Button>
                   <Button
@@ -372,18 +447,22 @@ export default function Members() {
             {filteredMembers.map((member, index) => (
               <GlassCard key={member.id} hover>
                 <div className="flex items-start space-x-3 mb-3">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    ['bg-gradient-to-r from-blue-500 to-purple-500',
-                     'bg-gradient-to-r from-green-500 to-teal-500',
-                     'bg-gradient-to-r from-purple-500 to-pink-500',
-                     'bg-gradient-to-r from-orange-500 to-red-500',
-                     'bg-gradient-to-r from-indigo-500 to-purple-500',
-                     'bg-gradient-to-r from-teal-500 to-cyan-500'][index % 6]
-                  }`}>
-                    <span className="text-white font-bold text-sm">
-                      {member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}
-                    </span>
-                  </div>
+                  {member.photoUrl ? (
+                    <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      ['bg-gradient-to-r from-blue-500 to-purple-500',
+                       'bg-gradient-to-r from-green-500 to-teal-500',
+                       'bg-gradient-to-r from-purple-500 to-pink-500',
+                       'bg-gradient-to-r from-orange-500 to-red-500',
+                       'bg-gradient-to-r from-indigo-500 to-purple-500',
+                       'bg-gradient-to-r from-teal-500 to-cyan-500'][index % 6]
+                    }`}>
+                      <span className="text-white font-bold text-sm">
+                        {member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-fixed text-sm truncate">
@@ -399,17 +478,23 @@ export default function Members() {
                       <p className="text-variable text-xs truncate">{member.email}</p>
                     )}
                     <p className="text-variable text-xs">
-                      {member.company || 'No company'} {member.membershipId && <span className="text-variable/60">| {member.membershipId}</span>}
+                      {member.membershipNumber ? `No: ${member.membershipNumber}` : 'No membership number'}
+                      {member.membershipId && <span className="text-variable/60"> | {member.membershipId}</span>}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap mb-2">
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${membershipColors[member.membershipType || "standard"]}`}>
-                    {(member.membershipType || "standard").toUpperCase()}
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${membershipTypeColors[member.membershipType || "full"]}`}>
+                    {(member.membershipType || "full").toUpperCase()}
                   </span>
-                  {member.department && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
-                      {member.department}
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColors[member.membershipStatus || "active"]}`}>
+                    {(member.membershipStatus || "active").toUpperCase()}
+                  </span>
+                  {member.expiryDate && (
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      isExpired(member.expiryDate) ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                    }`}>
+                      {isExpired(member.expiryDate) ? 'EXPIRED' : `Exp: ${formatDate(member.expiryDate)}`}
                     </span>
                   )}
                 </div>
@@ -471,6 +556,54 @@ export default function Members() {
             <DialogTitle>{editingMember ? "Edit Member" : "Add Member"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-fixed">Photo</Label>
+              {uploadedPhoto ? (
+                <div className="relative text-center">
+                  <img
+                    src={uploadedPhoto}
+                    alt="Member photo"
+                    className="w-20 h-20 rounded-full mx-auto mb-2 object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={removePhoto}
+                    className="absolute top-0 right-1/3 p-1 h-auto"
+                  >
+                    <X size={14} />
+                  </Button>
+                  <p className="text-sm text-variable">Photo uploaded</p>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-4 text-center">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    id="member-photo-upload"
+                    ref={photoInputRef}
+                    disabled={uploading}
+                  />
+                  <label htmlFor="member-photo-upload" className="cursor-pointer">
+                    {uploading ? (
+                      <>
+                        <Upload className="mx-auto h-8 w-8 text-blue-500 mb-2 animate-pulse" />
+                        <p className="text-sm text-blue-600">Uploading...</p>
+                      </>
+                    ) : (
+                      <>
+                        <CloudUpload className="mx-auto h-8 w-8 text-variable mb-2" />
+                        <p className="text-sm text-variable">Click to upload photo</p>
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-fixed">First Name *</Label>
@@ -511,15 +644,6 @@ export default function Members() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-fixed">Company</Label>
-              <Input
-                value={formData.company}
-                onChange={(e) => updateField("company", e.target.value)}
-                placeholder="Company name"
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-fixed">Membership Type</Label>
@@ -531,12 +655,42 @@ export default function Members() {
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="vip">VIP</SelectItem>
+                    <SelectItem value="full">Full</SelectItem>
+                    <SelectItem value="associate">Associate</SelectItem>
+                    <SelectItem value="junior">Junior</SelectItem>
+                    <SelectItem value="honorary">Honorary</SelectItem>
+                    <SelectItem value="social">Social</SelectItem>
                     <SelectItem value="temporary">Temporary</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-fixed">Membership Status</Label>
+                <Select
+                  value={formData.membershipStatus}
+                  onValueChange={(value) => updateField("membershipStatus", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-fixed">Membership Number</Label>
+                <Input
+                  value={formData.membershipNumber}
+                  onChange={(e) => updateField("membershipNumber", e.target.value)}
+                  placeholder="e.g. MEM-001"
+                />
               </div>
               <div className="space-y-2">
                 <Label className="text-fixed">Membership ID</Label>
@@ -548,13 +702,23 @@ export default function Members() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-fixed">Department</Label>
-              <Input
-                value={formData.department}
-                onChange={(e) => updateField("department", e.target.value)}
-                placeholder="Department"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-fixed">Join Date</Label>
+                <Input
+                  type="date"
+                  value={formData.joinDate}
+                  onChange={(e) => updateField("joinDate", e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-fixed">Expiry Date</Label>
+                <Input
+                  type="date"
+                  value={formData.expiryDate}
+                  onChange={(e) => updateField("expiryDate", e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -572,9 +736,14 @@ export default function Members() {
               </Button>
               <Button
                 type="submit"
+                className="gradient-blue text-white"
                 disabled={createMutation.isPending || updateMutation.isPending}
               >
-                {editingMember ? "Save Changes" : "Add Member"}
+                {createMutation.isPending || updateMutation.isPending
+                  ? "Saving..."
+                  : editingMember
+                  ? "Update Member"
+                  : "Add Member"}
               </Button>
             </div>
           </form>
