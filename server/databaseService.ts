@@ -189,6 +189,17 @@ export class DatabaseService {
   async deleteStaff(context: CustomerContext, id: string): Promise<boolean> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
+    await db.delete(isolatedSchema.staffSessions).where(eq(isolatedSchema.staffSessions.staffId, id));
+    await db.delete(isolatedSchema.staffAttendanceHistory).where(eq(isolatedSchema.staffAttendanceHistory.staffId, id));
+
+    if (isolatedSchema.roomBookingAttendees) {
+      await db.delete(isolatedSchema.roomBookingAttendees).where(eq(isolatedSchema.roomBookingAttendees.staffId, id));
+    }
+
+    await db.update(isolatedSchema.visitors).set({ hostStaffId: null }).where(eq(isolatedSchema.visitors.hostStaffId, id));
+    await db.update(isolatedSchema.preBookings).set({ hostStaffId: null }).where(eq(isolatedSchema.preBookings.hostStaffId, id));
+    await db.update(isolatedSchema.roomBookings).set({ bookedByStaffId: null }).where(eq(isolatedSchema.roomBookings.bookedByStaffId, id));
+
     const deleted = await db
       .delete(isolatedSchema.staff)
       .where(eq(isolatedSchema.staff.id, id))

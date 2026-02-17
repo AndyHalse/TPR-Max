@@ -5335,7 +5335,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Failed to delete staff member:", error?.message || error);
       res.status(500).json({ error: "Failed to delete staff member" });
     }
   });
