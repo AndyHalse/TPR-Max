@@ -5,7 +5,7 @@ TPR Max is a comprehensive visitor, staff, and contractor management system with
 
 **Provider:** ACS Safety & Security Ltd  
 **Product:** TPR Max (Total Personnel Register)  
-**Architecture:** Single-tenant SaaS with isolated customer database schemas
+**Architecture:** Cloud-based SaaS with isolated customer databases
 
 ---
 
@@ -478,7 +478,7 @@ USE_PG_SESSIONS=true                             # Force PostgreSQL sessions in 
 TPR Max is **production-ready** for enterprise deployment with:
 
 ✅ **Security:** Multi-layered authentication, CSRF protection, encrypted sessions  
-✅ **Data Isolation:** Schema-per-customer isolation ensuring zero cross-tenant data leakage  
+✅ **Data Isolation:** Each customer has their own isolated database ensuring zero cross-customer data leakage  
 ✅ **Reliability:** Error handling, logging, graceful degradation, automatic recovery  
 ✅ **Compliance:** GDPR ready, ISO 27001 aligned, audit trails, data sovereignty  
 ✅ **Features:** Complete visitor/contractor/staff management with emergency muster  
