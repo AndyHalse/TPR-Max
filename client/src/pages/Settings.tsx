@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
@@ -1782,6 +1782,23 @@ export default function Settings() {
                     </Button>
                   </div>
                   
+                  <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+                    <div className="flex items-center space-x-4">
+                      <SunMoon className="text-indigo-600" size={24} />
+                      <div>
+                        <h4 className="font-medium text-slate-800 dark:text-slate-200">High Contrast (Tablet)</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Maximum readability for tablets and bright environments</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant={theme === "high-contrast" ? "default" : "outline"}
+                      onClick={() => setTheme("high-contrast")}
+                      data-testid="button-high-contrast-theme"
+                    >
+                      {theme === "high-contrast" && "✓"} Select
+                    </Button>
+                  </div>
+
                   <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                     <div className="flex items-center space-x-4">
                       <Monitor className="text-blue-600" size={24} />

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "light" | "dark" | "system";
+type Theme = "light" | "dark" | "high-contrast" | "system";
 
 interface ThemeContextType {
   theme: Theme;
@@ -40,9 +40,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Apply theme to document
     const root = document.documentElement;
-    root.classList.remove("light", "dark");
+    root.classList.remove("light", "dark", "high-contrast");
     
-    let appliedTheme = theme;
+    let appliedTheme: string = theme;
     if (theme === "system") {
       appliedTheme = systemTheme;
     }
@@ -54,7 +54,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme, systemTheme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === "light" ? "dark" : "light");
+    setTheme(prev => {
+      if (prev === "light") return "dark";
+      if (prev === "dark") return "high-contrast";
+      return "light";
+    });
   };
 
   return (
