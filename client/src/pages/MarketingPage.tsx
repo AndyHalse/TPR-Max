@@ -1025,14 +1025,27 @@ export default function MarketingPage() {
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
                       When every second counts, TPR Max delivers instant
-                      accountability across your entire site. Automated muster
-                      point tracking, Fire Marshal notifications, and digital
+                      accountability across your entire site. Zone-based
+                      evacuations with interactive floor plan mapping, Fire
+                      Marshal static URLs, targeted email alerts, and digital
                       roll-call ensure complete personnel safety during
                       evacuations and emergency situations.
                     </p>
                   </div>
 
                   <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Zone-Based Evacuations:</strong> Up to 16 configurable evacuation zones with colour-coded markers, interactive floor plan placement, and zone-filtered emergency alerts targeting specific areas
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Interactive Zone Map:</strong> Drag-and-drop zone markers on your floor plan with real-time personnel counts per zone - click any marker to filter the muster list instantly
+                      </span>
+                    </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
@@ -1048,25 +1061,19 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Muster Points Tracking:</strong> Real-time capacity monitoring across all assembly areas with automatic overflow alerts
+                        <strong>Targeted Zone Alerts:</strong> Send evacuation emails only to personnel in affected zones - Fire Marshals always receive alerts regardless of zone selection
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Automated Email Alerts:</strong> Instant evacuation notifications to all staff, visitors, and contractors with self-service mark-safe links
+                        <strong>Digital Roll-Call:</strong> One-tap personnel accountability for staff, visitors, and contractors with zone filtering and missing person identification
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Digital Roll-Call:</strong> One-tap personnel accountability for staff, visitors, and contractors with missing person identification
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Emergency Exports:</strong> Instant CSV exports for emergency services with complete personnel data and timestamps
+                        <strong>Emergency Exports:</strong> Instant CSV exports for emergency services with complete personnel data, zone assignments, and timestamps
                       </span>
                     </div>
                   </div>
