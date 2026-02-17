@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,7 @@ import {
   Timer as TimerIcon,
   Leaf,
   TreeDeciduous,
+  Download,
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -84,6 +85,8 @@ import thermalImg from "@assets/ID Card printer_1756400844599.png";
 export default function MarketingPage() {
   const [email, setEmail] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
 
@@ -162,8 +165,48 @@ export default function MarketingPage() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!pageRef.current || isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    toast({
+      title: "Generating PDF...",
+      description: "Please wait while we create your document. This may take a moment.",
+    });
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      const element = pageRef.current;
+      const opt = {
+        margin: [5, 5, 5, 5] as [number, number, number, number],
+        filename: "TPR-Max-Features-Overview.pdf",
+        image: { type: "jpeg", quality: 0.95 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          scrollY: 0,
+          windowWidth: 1280,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+      await html2pdf().set(opt).from(element).save();
+      toast({
+        title: "PDF Downloaded",
+        description: "Your TPR Max features overview has been saved.",
+      });
+    } catch (err) {
+      toast({
+        title: "PDF generation failed",
+        description: "Please try again or use your browser's print function (Ctrl+P).",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div ref={pageRef} className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -209,6 +252,17 @@ export default function MarketingPage() {
               >
                 Contact
               </button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={isGeneratingPdf}
+                className="border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white"
+                data-testid="button-download-pdf"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                {isGeneratingPdf ? "Generating..." : "Download PDF"}
+              </Button>
               <Button
                 size="sm"
                 onClick={() => scrollToSection("contact")}
