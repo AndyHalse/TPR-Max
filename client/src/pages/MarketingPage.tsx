@@ -67,6 +67,7 @@ import {
   Leaf,
   TreeDeciduous,
   Download,
+  LogIn,
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -481,6 +482,16 @@ export default function MarketingPage() {
                 data-testid="button-demo"
               >
                 Request Demo
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.location.href = "/"}
+                className="border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                data-testid="button-sign-in"
+              >
+                <LogIn className="h-4 w-4 mr-1" />
+                Sign In
               </Button>
             </div>
           </div>
