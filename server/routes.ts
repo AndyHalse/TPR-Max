@@ -3093,22 +3093,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`============================================\n`);
       
-      // Apply zone filter if zones are selected
+      // Apply zone filter ONLY to staff - visitors, contractors, and members always get notified
       const filteredStaff = zoneFilter ? checkedInStaff.filter((s: any) => s.zoneId && zoneFilter.has(s.zoneId)) : checkedInStaff;
-      const filteredVisitors = zoneFilter ? currentVisitors.filter((v: any) => v.zoneId && zoneFilter.has(v.zoneId)) : currentVisitors;
-      const filteredContractors = zoneFilter ? checkedInContractors.filter((c: any) => c.zoneId && zoneFilter.has(c.zoneId)) : checkedInContractors;
-      const filteredMembers = zoneFilter ? checkedInMembers.filter((m: any) => m.zoneId && zoneFilter.has(m.zoneId)) : checkedInMembers;
+      const filteredVisitors = currentVisitors;
+      const filteredContractors = checkedInContractors;
+      const filteredMembers = checkedInMembers;
       
       if (zoneFilter) {
-        console.log(`🗺️ Zone filter results: ${filteredStaff.length} staff, ${filteredVisitors.length} visitors, ${filteredContractors.length} contractors, ${filteredMembers.length} members`);
+        console.log(`🗺️ Zone filter applied to STAFF ONLY: ${filteredStaff.length} staff in zones, ${filteredVisitors.length} visitors (all), ${filteredContractors.length} contractors (all), ${filteredMembers.length} members (all)`);
       }
       
       if (filteredStaff.length === 0 && filteredVisitors.length === 0 && filteredContractors.length === 0 && filteredMembers.length === 0) {
         return res.status(400).json({
-          error: zoneFilter ? "No people in selected zones" : "No people on site",
-          message: zoneFilter 
-            ? "There are no staff, visitors, contractors, or members in the selected evacuation zones."
-            : "There are no staff, visitors, contractors, or members currently on site."
+          error: "No people on site",
+          message: "There are no staff, visitors, contractors, or members currently on site."
         });
       }
       
