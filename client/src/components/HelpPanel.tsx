@@ -82,6 +82,19 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Get articles by category
+  const { data: categoryArticles = [] } = useQuery<HelpArticle[]>({
+    queryKey: ["/api/help/articles/category", selectedCategory?.id],
+    queryFn: async () => {
+      if (!selectedCategory?.id) return [];
+      const res = await fetch(`/api/help/articles/category/${selectedCategory.id}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    enabled: !!selectedCategory?.id && currentView === "category",
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Search articles
   const { data: searchResults = [] } = useQuery<HelpArticle[]>({
     queryKey: [`/api/help/articles/search?searchQuery=${encodeURIComponent(searchQuery)}`],
@@ -263,6 +276,53 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
     </div>
   );
 
+  const renderCategoryView = () => {
+    if (!selectedCategory) return null;
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-semibold text-lg">{selectedCategory.name}</h3>
+          {selectedCategory.description && (
+            <p className="text-sm text-muted-foreground mt-1">{selectedCategory.description}</p>
+          )}
+        </div>
+        {categoryArticles.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            <BookOpen size={48} className="mx-auto mb-4 opacity-50" />
+            <p>No articles in this category yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {categoryArticles.map((article) => (
+              <Card key={article.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleArticleClick(article)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">{article.title}</h4>
+                      <p className="text-sm text-muted-foreground">{article.summary}</p>
+                      <div className="flex items-center mt-2 gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          <Clock size={12} className="mr-1" />
+                          {article.estimatedReadTime}min
+                        </Badge>
+                        {article.difficulty && (
+                          <Badge variant="outline" className="text-xs">
+                            {article.difficulty}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderSearchView = () => (
     <div className="space-y-4">
       <h3 className="font-semibold text-lg">Search Results</h3>
@@ -396,6 +456,7 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         {/* Content */}
         <ScrollArea className="flex-1 p-4">
           {currentView === "home" && renderHomeView()}
+          {currentView === "category" && renderCategoryView()}
           {currentView === "search" && renderSearchView()}
           {currentView === "article" && renderArticleView()}
         </ScrollArea>

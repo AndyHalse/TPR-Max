@@ -2090,14 +2090,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Help System endpoints
   app.get("/api/help/categories", requireAuth, async (req, res) => {
     try {
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Customer context not found in session" });
-      }
-      const context = { customerId: req.session.customerId };
-      
-      const categories = await databaseService.getHelpCategories(context);
-      
+      const categories = await db
+        .select()
+        .from(helpCategories)
+        .where(eq(helpCategories.isActive, true))
+        .orderBy(helpCategories.sortOrder, helpCategories.name);
       res.json(categories);
     } catch (error) {
       console.error('Error fetching help categories:', error);
@@ -2107,14 +2104,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/help/articles/featured", requireAuth, async (req, res) => {
     try {
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Customer context not found in session" });
-      }
-      const context = { customerId: req.session.customerId };
-      
-      const articles = await databaseService.getHelpArticlesFeatured(context);
-      
+      const articles = await db
+        .select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          eq(helpArticles.isFeatured, true)
+        ))
+        .orderBy(desc(helpArticles.viewCount))
+        .limit(10);
       res.json(articles);
     } catch (error) {
       console.error('Error fetching featured help articles:', error);
@@ -2125,16 +2123,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/help/articles/contextual", requireAuth, async (req, res) => {
     try {
       const { location } = req.query;
-      const page = location && typeof location === 'string' ? location.replace('/', '') : '';
-      
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Customer context not found in session" });
-      }
-      const context = { customerId: req.session.customerId };
-      
-      const articles = await databaseService.getHelpArticlesContextual(context, page);
-      
+      const page = location && typeof location === 'string' ? location.replace(/^\//, '') : '';
+      if (!page) return res.json([]);
+      const articles = await db
+        .select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          sql`${page} = ANY(${helpArticles.targetPages})`
+        ))
+        .orderBy(helpArticles.sortOrder)
+        .limit(5);
       res.json(articles);
     } catch (error) {
       console.error('Error fetching contextual help articles:', error);
@@ -2142,14 +2141,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/help/articles/category/:categoryId", requireAuth, async (req, res) => {
+    try {
+      const { categoryId } = req.params;
+      const articles = await db
+        .select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          eq(helpArticles.categoryId, categoryId)
+        ))
+        .orderBy(helpArticles.sortOrder);
+      res.json(articles);
+    } catch (error) {
+      console.error('Error fetching category help articles:', error);
+      res.status(500).json({ error: 'Failed to fetch category articles' });
+    }
+  });
+
   app.get("/api/help/articles/general", requireAuth, async (req, res) => {
     try {
-      // Handle general help articles
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const articles = await databaseService.getHelpArticlesGeneral(context);
-      
+      const articles = await db
+        .select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          eq(helpArticles.isQuickStart, true)
+        ))
+        .orderBy(helpArticles.sortOrder)
+        .limit(5);
       res.json(articles);
     } catch (error) {
       console.error('Error fetching general help articles:', error);
@@ -2161,19 +2181,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { searchQuery } = req.query;
       const query = searchQuery && typeof searchQuery === 'string' ? searchQuery : '';
-      
-      if (!query || query.length < 3) {
-        return res.json([]);
-      }
-      
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Customer context not found in session" });
-      }
-      const context = { customerId: req.session.customerId };
-      
-      const articles = await databaseService.searchHelpArticles(context, query);
-      
+      if (!query || query.length < 3) return res.json([]);
+      const articles = await db
+        .select()
+        .from(helpArticles)
+        .where(and(
+          eq(helpArticles.isPublished, true),
+          sql`(
+            LOWER(${helpArticles.title}) LIKE LOWER(${'%' + query + '%'}) OR
+            LOWER(${helpArticles.content}) LIKE LOWER(${'%' + query + '%'}) OR
+            LOWER(${helpArticles.summary}) LIKE LOWER(${'%' + query + '%'}) OR
+            EXISTS (SELECT 1 FROM unnest(${helpArticles.searchKeywords}) AS keyword WHERE LOWER(keyword) LIKE LOWER(${'%' + query + '%'}))
+          )`
+        ))
+        .orderBy(desc(helpArticles.viewCount))
+        .limit(20);
       res.json(articles);
     } catch (error) {
       console.error('Error searching help articles:', error);
@@ -2183,33 +2205,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/help/interactions", requireAuth, async (req, res) => {
     try {
-      const interactionData = insertHelpUserInteractionSchema.parse(req.body);
-      
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Customer context not found in session" });
+      const { interactionType, articleId } = req.body;
+      if (!interactionType || !articleId) {
+        return res.status(400).json({ error: 'Missing interactionType or articleId' });
       }
-      const context = { customerId: req.session.customerId };
-      
-      // Create interaction in customer-isolated database
-      const interaction = await databaseService.createHelpUserInteraction(context, {
-        ...interactionData,
-        userId: req.session.userId || null,
-      });
-      
-      // Update article view count if this is a view interaction
-      if (interactionData.interactionType === 'view') {
-        await databaseService.updateHelpArticleViewCount(context, interactionData.articleId);
+
+      if (interactionType === 'view') {
+        await db.update(helpArticles)
+          .set({ viewCount: sql`COALESCE(${helpArticles.viewCount}, 0) + 1` })
+          .where(eq(helpArticles.id, articleId));
+      } else if (interactionType === 'helpful') {
+        await db.update(helpArticles)
+          .set({ helpfulCount: sql`COALESCE(${helpArticles.helpfulCount}, 0) + 1` })
+          .where(eq(helpArticles.id, articleId));
+      } else if (interactionType === 'not_helpful') {
+        await db.update(helpArticles)
+          .set({ notHelpfulCount: sql`COALESCE(${helpArticles.notHelpfulCount}, 0) + 1` })
+          .where(eq(helpArticles.id, articleId));
       }
-      
-      // Update helpful/not helpful counts
-      if (interactionData.interactionType === 'helpful') {
-        await databaseService.updateHelpArticleHelpfulCount(context, interactionData.articleId, true);
-      } else if (interactionData.interactionType === 'not_helpful') {
-        await databaseService.updateHelpArticleHelpfulCount(context, interactionData.articleId, false);
-      }
-      
-      res.json({ success: true, interaction });
+
+      res.json({ success: true });
     } catch (error) {
       console.error('Error tracking help interaction:', error);
       res.status(500).json({ error: 'Failed to track interaction' });
