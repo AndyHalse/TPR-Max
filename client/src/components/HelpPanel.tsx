@@ -10,6 +10,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import type { HelpArticle, HelpCategory, CompanySettings } from "@shared/schema";
 
+function renderMarkdown(md: string): string {
+  let content = md.replace(/^# .+\n+/, '');
+  let html = content
+    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-5 mb-2">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-6 mb-3 text-primary">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4 mb-3">$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li class="ml-5 mb-1 list-decimal">$2</li>')
+    .replace(/^   - (.+)$/gm, '<li class="ml-10 mb-1 list-disc text-sm">$1</li>')
+    .replace(/^- (.+)$/gm, '<li class="ml-5 mb-1 list-disc">$1</li>')
+    .replace(/\n\n/g, '</p><p class="mb-3">')
+    .replace(/(<\/li>)\s*<\/p><p class="mb-3">\s*(<li)/g, '$1$2');
+
+  const lines = html.split('\n');
+  const result: string[] = [];
+  let inList = false;
+  for (const line of lines) {
+    if (line.includes('<li')) {
+      if (!inList) {
+        result.push('<ul class="my-2">');
+        inList = true;
+      }
+      result.push(line);
+    } else {
+      if (inList) {
+        result.push('</ul>');
+        inList = false;
+      }
+      result.push(line);
+    }
+  }
+  if (inList) result.push('</ul>');
+  return result.join('\n');
+}
+
 interface HelpPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -283,8 +319,8 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         
         <Separator />
         
-        <div className="prose prose-sm max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+        <div className="text-sm leading-relaxed space-y-1">
+          <div dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedArticle.content) }} />
         </div>
         
         <Separator />
