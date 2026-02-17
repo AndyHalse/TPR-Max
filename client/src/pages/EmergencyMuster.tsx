@@ -62,6 +62,8 @@ export default function EmergencyMuster() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<'all' | 'staff' | 'visitor' | 'contractor' | 'member'>('all');
   const [emergencyActive, setEmergencyActive] = useState(false);
+  const [emergencyPhase, setEmergencyPhase] = useState<'idle' | 'send_alert' | 'active'>('idle');
+  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [showZoneSelector, setShowZoneSelector] = useState(false);
@@ -278,6 +280,7 @@ export default function EmergencyMuster() {
       return await response.json();
     },
     onSuccess: (data) => {
+      setEmergencyPhase('active');
       toast({
         title: "Emergency Notifications Sent",
         description: data.message || `Successfully notified all personnel & Fire Marshals via email.`,
@@ -354,8 +357,26 @@ export default function EmergencyMuster() {
   const contractorCount = musterList.filter(p => p.type === 'contractor').length;
   const memberCount = musterList.filter(p => p.type === 'member').length;
 
-  const handleEmergencyToggle = () => {
-    setEmergencyActive(!emergencyActive);
+  const handleEmergencyButtonClick = () => {
+    if (emergencyPhase === 'idle') {
+      setEmergencyActive(true);
+      setEmergencyPhase('send_alert');
+    } else if (emergencyPhase === 'send_alert') {
+      setShowEmailConfirm(true);
+    } else if (emergencyPhase === 'active') {
+      setEmergencyActive(false);
+      setEmergencyPhase('idle');
+    }
+  };
+
+  const handleConfirmSendAlerts = () => {
+    setShowEmailConfirm(false);
+    activateFireMarshalMutation.mutate();
+  };
+
+  const handleSkipAlerts = () => {
+    setShowEmailConfirm(false);
+    setEmergencyPhase('active');
   };
 
   const toggleAccountedStatus = (id: string, type: string) => {
@@ -407,16 +428,38 @@ export default function EmergencyMuster() {
             </>
           )}
           <Button 
-            onClick={handleEmergencyToggle}
-            className={`${emergencyActive ? 
-              "bg-red-600 hover:bg-red-700 text-white" : 
-              "bg-orange-600 hover:bg-orange-700 text-white"
+            onClick={handleEmergencyButtonClick}
+            disabled={activateFireMarshalMutation.isPending}
+            className={`${
+              emergencyPhase === 'idle' 
+                ? "bg-orange-600 hover:bg-orange-700 text-white" 
+                : emergencyPhase === 'send_alert'
+                ? "bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
+                : "bg-red-600 hover:bg-red-700 text-white"
             } text-sm sm:text-base whitespace-nowrap`}
             data-testid="button-emergency-toggle"
           >
-            <Siren className="mr-1.5 sm:mr-2" size={16} />
-            <span className="hidden sm:inline">{emergencyActive ? "Deactivate Emergency" : "Activate Emergency"}</span>
-            <span className="sm:hidden">{emergencyActive ? "Deactivate" : "Activate"}</span>
+            {emergencyPhase === 'idle' && (
+              <>
+                <Siren className="mr-1.5 sm:mr-2" size={16} />
+                <span className="hidden sm:inline">Activate Emergency</span>
+                <span className="sm:hidden">Activate</span>
+              </>
+            )}
+            {emergencyPhase === 'send_alert' && (
+              <>
+                <Mail className="mr-1.5 sm:mr-2" size={16} />
+                <span className="hidden sm:inline">Send Email Alert</span>
+                <span className="sm:hidden">Send Alert</span>
+              </>
+            )}
+            {emergencyPhase === 'active' && (
+              <>
+                <Siren className="mr-1.5 sm:mr-2" size={16} />
+                <span className="hidden sm:inline">Deactivate Emergency</span>
+                <span className="sm:hidden">Deactivate</span>
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -537,39 +580,47 @@ export default function EmergencyMuster() {
       )}
 
       {emergencyActive && (
-        <GlassCard className="border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
-          <div className="p-6">
-            <div className="flex items-center justify-center mb-6">
-              <AlertTriangle className="text-red-600 mr-3" size={32} />
-              <div className="text-center">
-                <h3 className="text-lg font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
-                <p className="text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
-              </div>
+        <div className="flex items-center justify-center gap-3 p-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
+          <AlertTriangle className="text-red-600 flex-shrink-0" size={24} />
+          <div className="text-center">
+            <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
+            <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
+          </div>
+        </div>
+      )}
+
+      {showEmailConfirm && (
+        <GlassCard className="border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
+          <div className="p-6 text-center space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              <Mail className="text-blue-600" size={28} />
+              <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200">Send Emergency Email Alerts?</h3>
             </div>
-            
-            {/* Notify Personnel & Fire Marshals Button */}
-            <div className="mt-2">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              This will send evacuation emails to <strong>all staff, visitors, contractors & Fire Marshals</strong>
+            </p>
+            <div className="flex justify-center gap-4">
               <Button
-                onClick={() => activateFireMarshalMutation.mutate()}
+                onClick={handleConfirmSendAlerts}
                 disabled={activateFireMarshalMutation.isPending}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base sm:text-lg py-4 sm:py-5 rounded-lg shadow-lg"
-                data-testid="button-activate-fire-marshal"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 text-base"
               >
                 {activateFireMarshalMutation.isPending ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                    Sending Notifications...
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Sending...
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center">
-                    <Mail className="mr-2 flex-shrink-0" size={20} />
-                    NOTIFY PERSONNEL & FIRE MARSHALS
-                  </div>
+                  "Yes, Send Alerts"
                 )}
               </Button>
-              <p className="text-xs text-center text-red-600 dark:text-red-400 mt-2">
-                Sends emergency evacuation emails to all staff, visitors, contractors & Fire Marshals
-              </p>
+              <Button
+                onClick={handleSkipAlerts}
+                variant="outline"
+                className="font-bold px-8 py-3 text-base"
+              >
+                No, Skip
+              </Button>
             </div>
           </div>
         </GlassCard>
