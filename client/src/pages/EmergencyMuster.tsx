@@ -357,11 +357,24 @@ export default function EmergencyMuster() {
   const contractorCount = musterList.filter(p => p.type === 'contractor').length;
   const memberCount = musterList.filter(p => p.type === 'member').length;
 
+  const zonesRequireSelection = showZoneSelector && zones.length > 0 && selectedZones.size === 0;
+
   const handleEmergencyButtonClick = () => {
     if (emergencyPhase === 'idle') {
       setEmergencyActive(true);
       setEmergencyPhase('send_alert');
+      if (zones.length > 0) {
+        setShowZoneSelector(true);
+      }
     } else if (emergencyPhase === 'send_alert') {
+      if (zonesRequireSelection) {
+        toast({
+          title: "Select Zones First",
+          description: "Please select at least one evacuation zone before sending alerts",
+          variant: "destructive",
+        });
+        return;
+      }
       setShowEmailConfirm(true);
     } else if (emergencyPhase === 'active') {
       setEmergencyActive(false);
@@ -434,7 +447,9 @@ export default function EmergencyMuster() {
               emergencyPhase === 'idle' 
                 ? "bg-orange-600 hover:bg-orange-700 text-white" 
                 : emergencyPhase === 'send_alert'
-                ? "bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
+                ? zonesRequireSelection
+                  ? "bg-amber-500 hover:bg-amber-600 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
                 : "bg-red-600 hover:bg-red-700 text-white"
             } text-sm sm:text-base whitespace-nowrap`}
             data-testid="button-emergency-toggle"
@@ -449,8 +464,8 @@ export default function EmergencyMuster() {
             {emergencyPhase === 'send_alert' && (
               <>
                 <Mail className="mr-1.5 sm:mr-2" size={16} />
-                <span className="hidden sm:inline">Send Email Alert</span>
-                <span className="sm:hidden">Send Alert</span>
+                <span className="hidden sm:inline">{zonesRequireSelection ? "Select Zones First" : "Send Email Alert"}</span>
+                <span className="sm:hidden">{zonesRequireSelection ? "Select Zones" : "Send Alert"}</span>
               </>
             )}
             {emergencyPhase === 'active' && (
