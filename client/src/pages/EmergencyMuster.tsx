@@ -15,7 +15,7 @@ import {
   CheckCircle, 
   XCircle, 
   Search,
-  Shield,
+
   Clock,
   Phone,
   Mail,
@@ -279,14 +279,14 @@ export default function EmergencyMuster() {
     },
     onSuccess: (data) => {
       toast({
-        title: "Fire Marshal Emergency Activated",
-        description: data.message || `Successfully notified ${data.sent} Fire Marshals via email.`,
+        title: "Emergency Notifications Sent",
+        description: data.message || `Successfully notified all personnel & Fire Marshals via email.`,
       });
     },
     onError: (error: any) => {
       toast({
         title: "Emergency Activation Failed",
-        description: error.message || "Failed to activate Fire Marshal emergency system",
+        description: error.message || "Failed to send emergency notifications",
         variant: "destructive",
       });
     },
@@ -547,37 +547,29 @@ export default function EmergencyMuster() {
               </div>
             </div>
             
-            {/* Fire Marshal Emergency System */}
-            <div className="bg-[var(--card)] dark:bg-slate-800 rounded-lg p-4 border-l-4 border-blue-500">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-start sm:items-center gap-3">
-                  <Shield className="text-blue-600 flex-shrink-0" size={24} />
-                  <div>
-                    <h4 className="font-semibold text-fixed text-sm sm:text-base">Fire Marshal Emergency System</h4>
-                    <p className="text-xs sm:text-sm text-variable">
-                      Notify Fire Marshals via secure email links for mobile emergency response
-                    </p>
+            {/* Notify Personnel & Fire Marshals Button */}
+            <div className="mt-2">
+              <Button
+                onClick={() => activateFireMarshalMutation.mutate()}
+                disabled={activateFireMarshalMutation.isPending}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base sm:text-lg py-4 sm:py-5 rounded-lg shadow-lg"
+                data-testid="button-activate-fire-marshal"
+              >
+                {activateFireMarshalMutation.isPending ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                    Sending Notifications...
                   </div>
-                </div>
-                <Button
-                  onClick={() => activateFireMarshalMutation.mutate()}
-                  disabled={activateFireMarshalMutation.isPending}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto"
-                  data-testid="button-activate-fire-marshal"
-                >
-                  {activateFireMarshalMutation.isPending ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Notifying...
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <Mail className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
-                      NOTIFY FIRE MARSHALS
-                    </div>
-                  )}
-                </Button>
-              </div>
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <Mail className="mr-2 flex-shrink-0" size={20} />
+                    NOTIFY PERSONNEL & FIRE MARSHALS
+                  </div>
+                )}
+              </Button>
+              <p className="text-xs text-center text-red-600 dark:text-red-400 mt-2">
+                Sends emergency evacuation emails to all staff, visitors, contractors & Fire Marshals
+              </p>
             </div>
           </div>
         </GlassCard>
