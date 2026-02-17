@@ -464,6 +464,53 @@ export default function EmergencyMuster() {
         </div>
       </div>
 
+      {emergencyActive && (
+        <div className="flex items-center justify-center gap-3 p-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
+          <AlertTriangle className="text-red-600 flex-shrink-0" size={24} />
+          <div className="text-center">
+            <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
+            <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
+          </div>
+        </div>
+      )}
+
+      {showEmailConfirm && (
+        <GlassCard className="border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
+          <div className="p-6 text-center space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              <Mail className="text-blue-600" size={28} />
+              <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200">Send Emergency Email Alerts?</h3>
+            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              This will send evacuation emails to <strong>all staff, visitors, contractors & Fire Marshals</strong>
+            </p>
+            <div className="flex justify-center gap-4">
+              <Button
+                onClick={handleConfirmSendAlerts}
+                disabled={activateFireMarshalMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 text-base"
+              >
+                {activateFireMarshalMutation.isPending ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Sending...
+                  </div>
+                ) : (
+                  "Yes, Send Alerts"
+                )}
+              </Button>
+              <Button
+                onClick={handleSkipAlerts}
+                variant="outline"
+                className="font-bold px-8 py-3 text-base"
+              >
+                No, Skip
+              </Button>
+            </div>
+          </div>
+        </GlassCard>
+      )}
+
       {showZoneSelector && zones.length > 0 && (
         <GlassCard className="dark:glass-dark">
           <div className="flex items-center justify-between mb-3">
@@ -576,53 +623,6 @@ export default function EmergencyMuster() {
               </div>
             </div>
           )}
-        </GlassCard>
-      )}
-
-      {emergencyActive && (
-        <div className="flex items-center justify-center gap-3 p-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
-          <AlertTriangle className="text-red-600 flex-shrink-0" size={24} />
-          <div className="text-center">
-            <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
-            <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
-          </div>
-        </div>
-      )}
-
-      {showEmailConfirm && (
-        <GlassCard className="border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
-          <div className="p-6 text-center space-y-4">
-            <div className="flex items-center justify-center gap-2">
-              <Mail className="text-blue-600" size={28} />
-              <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200">Send Emergency Email Alerts?</h3>
-            </div>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              This will send evacuation emails to <strong>all staff, visitors, contractors & Fire Marshals</strong>
-            </p>
-            <div className="flex justify-center gap-4">
-              <Button
-                onClick={handleConfirmSendAlerts}
-                disabled={activateFireMarshalMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 text-base"
-              >
-                {activateFireMarshalMutation.isPending ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Sending...
-                  </div>
-                ) : (
-                  "Yes, Send Alerts"
-                )}
-              </Button>
-              <Button
-                onClick={handleSkipAlerts}
-                variant="outline"
-                className="font-bold px-8 py-3 text-base"
-              >
-                No, Skip
-              </Button>
-            </div>
-          </div>
         </GlassCard>
       )}
 
