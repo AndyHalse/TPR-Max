@@ -795,12 +795,13 @@ export default function ContractorManagement() {
             </div>
 
             {/* Contractors Grid/List */}
-            <div className={previousViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-2"}>
+            <div className={previousViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-2"}>
               {previousContractors.slice(0, showAllWorkers ? previousContractors.length : 6).map((contractor) => (
                 previousViewMode === 'grid' ? (
                 <GlassCard 
                   key={contractor.id} 
-                  className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  hover
+                  className="cursor-pointer"
                   onClick={() => {
                     const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
                     const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
@@ -812,195 +813,183 @@ export default function ContractorManagement() {
                     }
                   }}
                 >
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="font-semibold text-fixed">
-                        {contractor.firstName} {contractor.lastName}
-                      </h3>
-                      <p className="text-sm text-variable flex items-center gap-1">
-                        <Building2 className="h-3 w-3" />
+                  <div className="flex items-start space-x-3 mb-3">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      ['bg-gradient-to-r from-orange-500 to-red-500',
+                       'bg-gradient-to-r from-blue-500 to-purple-500',
+                       'bg-gradient-to-r from-green-500 to-teal-500',
+                       'bg-gradient-to-r from-purple-500 to-pink-500',
+                       'bg-gradient-to-r from-indigo-500 to-purple-500',
+                       'bg-gradient-to-r from-teal-500 to-cyan-500'][previousContractors.indexOf(contractor) % 6]
+                    }`}>
+                      <span className="text-white font-bold text-sm">
+                        {(contractor.firstName?.[0] || '').toUpperCase()}{(contractor.lastName?.[0] || '').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-fixed text-sm truncate">
+                          {contractor.firstName} {contractor.lastName}
+                        </h3>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
+                          contractor.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {contractor.isCheckedIn ? 'Checked In' : 'Available'}
+                        </span>
+                      </div>
+                      <p className="text-variable text-xs truncate flex items-center gap-1">
+                        <Building2 className="h-3 w-3 flex-shrink-0" />
                         {contractor.companyName}
                       </p>
-                      <p className="text-xs text-variable">
-                        Last visit: {contractor.updatedAt ? new Date(contractor.updatedAt).toLocaleDateString() : 'Unknown'}
+                      <p className="text-variable text-xs">
+                        Last visit: {contractor.updatedAt ? new Date(contractor.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Unknown'}
                       </p>
                     </div>
-
-                    <div className="flex flex-wrap gap-1">
-                      <Badge 
-                        className={contractor.isCheckedIn ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                    {contractor.rightToWork === 'valid' ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
+                        <CheckCircle className="h-3 w-3 mr-0.5" />
+                        Work Auth
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">
+                        <AlertTriangle className="h-3 w-3 mr-0.5" />
+                        Work Auth
+                      </span>
+                    )}
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getSafetyRatingColor(contractor.safetyRating)}`}>
+                      {contractor.safetyRating}
+                    </span>
+                    {(contractor as any).hasRedCard && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">Red Card</span>
+                    )}
+                    {(contractor as any).hasYellowCard && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-200 text-yellow-900">Yellow Card</span>
+                    )}
+                    {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-200 text-green-900">Clear</span>
+                    )}
+                    {(contractor as any).zoneId && (() => {
+                      const zone = zones.find((z: any) => z.id === (contractor as any).zoneId);
+                      return zone ? (
+                        <span className="inline-flex items-center gap-1 text-xs">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zone.color }} />
+                          {zone.name}
+                        </span>
+                      ) : null;
+                    })()}
+                    {contractor.isCheckedIn && contractor.checkedInAt && (
+                      <span className="text-[10px] text-variable flex items-center ml-auto">
+                        <Clock className="h-3 w-3 mr-0.5" />
+                        {new Date(contractor.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+                    <div className="flex items-center gap-1.5">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedWorkerForEdit(contractor);
+                          setSelectedWorkerCompanyName(contractor.companyName);
+                          setShowContractorEditModal(true);
+                        }}
+                        data-testid={`button-edit-worker-${contractor.id}`}
+                        title="Edit contractor"
                       >
-                        {contractor.isCheckedIn ? (
-                          <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Checked In
-                          </>
-                        ) : (
-                          "Available"
-                        )}
-                      </Badge>
-                      
-                      {contractor.rightToWork === 'valid' ? (
-                        <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Work Auth
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-red-100 text-red-800">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Work Auth
-                        </Badge>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sendInductionMutation.mutate(contractor.id);
+                        }}
+                        disabled={sendInductionMutation.isPending}
+                        title="Send Site Induction Email"
+                        data-testid={`button-send-induction-${contractor.id}`}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                      {contractor.isCheckedIn && (
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedWorker(contractor);
+                            setSelectedCompanyName(contractor.companyName);
+                            setShowPassPreview(true);
+                          }}
+                          title="Print Pass"
+                          data-testid={`button-print-pass-${contractor.id}`}
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                          </svg>
+                        </Button>
                       )}
-
-                      <Badge className={getSafetyRatingColor(contractor.safetyRating)}>
-                        {contractor.safetyRating}
-                      </Badge>
-
-                      {(contractor as any).zoneId && (() => {
-                        const zone = zones.find((z: any) => z.id === (contractor as any).zoneId);
-                        return zone ? (
-                          <span className="inline-flex items-center gap-1 text-xs">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zone.color }} />
-                            {zone.name}
-                          </span>
+                      {(() => {
+                        const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
+                        const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
+                        return isClear ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreBookingWorker(contractor);
+                              setPreBookCompanyName(contractor.companyName);
+                            }}
+                            title="Pre-Book Worker"
+                            data-testid={`button-prebook-${contractor.id}`}
+                          >
+                            <CalendarPlus className="h-4 w-4" />
+                          </Button>
                         ) : null;
                       })()}
-                      
-                      {(contractor as any).hasRedCard && (
-                        <Badge className="bg-red-200 text-red-900">
-                          Red Card
-                        </Badge>
-                      )}
-                      {(contractor as any).hasYellowCard && (
-                        <Badge className="bg-yellow-200 text-yellow-900">
-                          Yellow Card
-                        </Badge>
-                      )}
-                      {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && (
-                        <Badge className="bg-green-200 text-green-900">
-                          Clear
-                        </Badge>
-                      )}
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {contractor.isCheckedIn && contractor.checkedInAt && (
-                          <span className="text-xs text-variable flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {new Date(contractor.checkedInAt).toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="p-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedWorkerForEdit(contractor);
-                            setSelectedWorkerCompanyName(contractor.companyName);
-                            setShowContractorEditModal(true);
-                          }}
-                          data-testid={`button-edit-worker-${contractor.id}`}
-                          title="Edit contractor"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="p-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            sendInductionMutation.mutate(contractor.id);
-                          }}
-                          disabled={sendInductionMutation.isPending}
-                          title="Send Site Induction Email"
-                          data-testid={`button-send-induction-${contractor.id}`}
-                        >
-                          <Mail className="h-3.5 w-3.5" />
-                        </Button>
-                        
-                        {contractor.isCheckedIn && (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="p-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedWorker(contractor);
-                              setSelectedCompanyName(contractor.companyName);
-                              setShowPassPreview(true);
-                            }}
-                            title="Print Pass"
-                            data-testid={`button-print-pass-${contractor.id}`}
-                          >
-                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                            </svg>
-                          </Button>
-                        )}
-                        {(() => {
-                          const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
-                          const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
-                          return isClear ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPreBookingWorker(contractor);
-                                setPreBookCompanyName(contractor.companyName);
-                              }}
-                              title="Pre-Book Worker"
-                              data-testid={`button-prebook-${contractor.id}`}
-                            >
-                              <CalendarPlus className="h-3.5 w-3.5" />
-                            </Button>
-                          ) : null;
-                        })()}
-                        {!contractor.isCheckedIn ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setWorkerForCheckIn(contractor);
-                              setCompanyForCheckIn(contractor.companyName);
-                              setShowHSModal(true);
-                            }}
-                            disabled={checkInMutation.isPending}
-                            className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                            data-testid={`button-checkin-${contractor.id}`}
-                          >
-                            <LogIn className="mr-1 h-4 w-4" />
-                            Check In
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              checkOutMutation.mutate(contractor.id);
-                            }}
-                            disabled={checkOutMutation.isPending}
-                            className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                            data-testid={`button-checkout-${contractor.id}`}
-                          >
-                            <LogOut className="mr-1 h-4 w-4" />
-                            Check Out
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                    {!contractor.isCheckedIn ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWorkerForCheckIn(contractor);
+                          setCompanyForCheckIn(contractor.companyName);
+                          setShowHSModal(true);
+                        }}
+                        disabled={checkInMutation.isPending}
+                        className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                        data-testid={`button-checkin-${contractor.id}`}
+                      >
+                        <LogIn className="mr-1.5 h-4 w-4" />
+                        Check In
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          checkOutMutation.mutate(contractor.id);
+                        }}
+                        disabled={checkOutMutation.isPending}
+                        className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                        data-testid={`button-checkout-${contractor.id}`}
+                      >
+                        <LogOut className="mr-1.5 h-4 w-4" />
+                        Check Out
+                      </Button>
+                    )}
                   </div>
                 </GlassCard>
                 ) : (

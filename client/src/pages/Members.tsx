@@ -368,72 +368,98 @@ export default function Members() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMembers.map((member) => (
-              <div key={member.id} className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-fixed">{member.firstName} {member.lastName}</h3>
-                    {member.company && <p className="text-sm text-variable">{member.company}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredMembers.map((member, index) => (
+              <GlassCard key={member.id} hover>
+                <div className="flex items-start space-x-3 mb-3">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    ['bg-gradient-to-r from-blue-500 to-purple-500',
+                     'bg-gradient-to-r from-green-500 to-teal-500',
+                     'bg-gradient-to-r from-purple-500 to-pink-500',
+                     'bg-gradient-to-r from-orange-500 to-red-500',
+                     'bg-gradient-to-r from-indigo-500 to-purple-500',
+                     'bg-gradient-to-r from-teal-500 to-cyan-500'][index % 6]
+                  }`}>
+                    <span className="text-white font-bold text-sm">
+                      {member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Badge className={membershipColors[member.membershipType || "standard"]}>
-                      {(member.membershipType || "standard").toUpperCase()}
-                    </Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-fixed text-sm truncate">
+                        {member.firstName} {member.lastName}
+                      </h3>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
+                        member.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {member.isCheckedIn ? 'On Site' : 'Off Site'}
+                      </span>
+                    </div>
+                    {member.email && (
+                      <p className="text-variable text-xs truncate">{member.email}</p>
+                    )}
+                    <p className="text-variable text-xs">
+                      {member.company || 'No company'} {member.membershipId && <span className="text-variable/60">| {member.membershipId}</span>}
+                    </p>
                   </div>
                 </div>
-                <div className="space-y-1 text-sm text-variable mb-3">
-                  {member.email && <p>{member.email}</p>}
-                  {member.department && <p>Dept: {member.department}</p>}
+                <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${membershipColors[member.membershipType || "standard"]}`}>
+                    {(member.membershipType || "standard").toUpperCase()}
+                  </span>
+                  {member.department && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
+                      {member.department}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
-                  <Badge className={member.isCheckedIn ? "bg-green-100 text-green-800" : ""} variant={member.isCheckedIn ? "default" : "secondary"}>
-                    {member.isCheckedIn ? "On Site" : "Off Site"}
-                  </Badge>
-                  <div className="flex items-center gap-1">
-                    {member.isCheckedIn ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                        onClick={() => checkOutMutation.mutate(member.id)}
-                        disabled={checkOutMutation.isPending}
-                      >
-                        <UserX className="h-4 w-4 mr-1" />
-                        Check Out
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                        onClick={() => checkInMutation.mutate(member.id)}
-                        disabled={checkInMutation.isPending}
-                      >
-                        <UserCheck className="h-4 w-4 mr-1" />
-                        Check In
-                      </Button>
-                    )}
+                  <div className="flex items-center gap-1.5">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0"
+                      className="h-8 w-8 p-0"
                       onClick={() => openEditDialog(member)}
+                      title="Edit"
                     >
-                      <Edit className="h-3 w-3" />
+                      <Edit size={15} />
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                       onClick={() => deleteMutation.mutate(member.id)}
                       disabled={deleteMutation.isPending}
+                      title="Delete"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 size={15} />
                     </Button>
                   </div>
+                  {member.isCheckedIn ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                      onClick={() => checkOutMutation.mutate(member.id)}
+                      disabled={checkOutMutation.isPending}
+                    >
+                      <UserX className="h-4 w-4 mr-1.5" />
+                      Check Out
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                      onClick={() => checkInMutation.mutate(member.id)}
+                      disabled={checkInMutation.isPending}
+                    >
+                      <UserCheck className="h-4 w-4 mr-1.5" />
+                      Check In
+                    </Button>
+                  )}
                 </div>
-              </div>
+              </GlassCard>
             ))}
           </div>
         )}

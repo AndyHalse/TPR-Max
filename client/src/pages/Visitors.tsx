@@ -934,96 +934,115 @@ export default function Visitors() {
             )}
 
             {/* Visitors List */}
-            <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-2"}>
+            <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-2"}>
               {filteredVisitors.length > 0 ? (
                 (showAllPreviousVisitors ? filteredVisitors : filteredVisitors.slice(0, 24)).map((visitor) => (
                   viewMode === 'grid' ? (
-                    <div
+                    <GlassCard
                       key={visitor.id}
-                      className="p-4 bg-white/60 rounded-xl border border-white/30 hover:bg-white/80 transition-all cursor-pointer"
+                      hover
                       data-testid={`card-visitor-${visitor.id}`}
                       onClick={() => handlePreBookVisitor(visitor)}
+                      className="cursor-pointer"
                     >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-fixed">{visitor.firstName} {visitor.lastName}</h3>
-                            {visitor.company && (
-                              <p className="text-sm text-variable">{visitor.company}</p>
-                            )}
-                            <p className="text-xs text-variable mt-1">
-                              Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
-                                day: 'numeric', 
-                                month: 'short', 
-                                year: 'numeric' 
-                              })}
-                            </p>
-                          </div>
+                      <div className="flex items-start space-x-3 mb-3">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          ['bg-gradient-to-r from-blue-500 to-purple-500',
+                           'bg-gradient-to-r from-green-500 to-teal-500',
+                           'bg-gradient-to-r from-purple-500 to-pink-500',
+                           'bg-gradient-to-r from-orange-500 to-red-500',
+                           'bg-gradient-to-r from-indigo-500 to-purple-500',
+                           'bg-gradient-to-r from-teal-500 to-cyan-500'][filteredVisitors.indexOf(visitor) % 6]
+                        }`}>
+                          <span className="text-white font-bold text-sm">
+                            {(visitor.firstName?.[0] || '').toUpperCase()}{(visitor.lastName?.[0] || '').toUpperCase()}
+                          </span>
                         </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {visitor.isCheckedIn && visitor.checkedInAt && (
-                              <span className="text-xs text-variable flex items-center">
-                                <Clock size={10} className="mr-1" />
-                                {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                            )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-fixed text-sm truncate">
+                              {visitor.firstName} {visitor.lastName}
+                            </h3>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
+                              visitor.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {visitor.isCheckedIn ? 'On Site' : 'Off Site'}
+                            </span>
                           </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
-                              data-testid={`button-edit-visitor-${visitor.id}`}
-                              className="p-2"
-                              title="Edit visitor details"
-                            >
-                              <Edit size={14} />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
-                              data-testid={`button-prebook-visitor-${visitor.id}`}
-                              className="p-2"
-                              title="Pre-book this visitor"
-                            >
-                              <CalendarPlus size={14} />
-                            </Button>
-                            {visitor.isCheckedIn ? (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
-                                disabled={checkoutVisitorMutation.isPending}
-                                data-testid={`button-checkout-visitor-${visitor.id}`}
-                                title="Check out visitor"
-                                className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                              >
-                                <UserX size={16} className="mr-1" />
-                                Check Out
-                              </Button>
-                            ) : (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
-                                data-testid={`button-select-visitor-${visitor.id}`}
-                                title="Check in visitor"
-                                className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                              >
-                                <UserCheck size={16} className="mr-1" />
-                                Check In
-                              </Button>
-                            )}
-                          </div>
+                          {visitor.company && (
+                            <p className="text-variable text-xs truncate">{visitor.company}</p>
+                          )}
+                          <p className="text-variable text-xs">
+                            Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric' 
+                            })}
+                          </p>
                         </div>
                       </div>
-                    </div>
+                      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                        {visitor.isCheckedIn && visitor.checkedInAt && (
+                          <span className="text-[10px] text-variable flex items-center">
+                            <Clock size={9} className="mr-0.5" />
+                            {new Date(visitor.checkedInAt).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+                        <div className="flex items-center gap-1.5">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
+                            data-testid={`button-edit-visitor-${visitor.id}`}
+                            className="h-8 w-8 p-0"
+                            title="Edit visitor details"
+                          >
+                            <Edit size={15} />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
+                            data-testid={`button-prebook-visitor-${visitor.id}`}
+                            className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                            title="Pre-book this visitor"
+                          >
+                            <CalendarPlus size={15} />
+                          </Button>
+                        </div>
+                        {visitor.isCheckedIn ? (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
+                            disabled={checkoutVisitorMutation.isPending}
+                            data-testid={`button-checkout-visitor-${visitor.id}`}
+                            title="Check out visitor"
+                            className="h-9 px-3 text-sm font-medium text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                          >
+                            <UserX size={16} className="mr-1.5" />
+                            Check Out
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
+                            data-testid={`button-select-visitor-${visitor.id}`}
+                            title="Check in visitor"
+                            className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                          >
+                            <UserCheck size={16} className="mr-1.5" />
+                            Check In
+                          </Button>
+                        )}
+                      </div>
+                    </GlassCard>
                   ) : (
                     <div 
                       key={visitor.id} 
