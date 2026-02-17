@@ -112,19 +112,18 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
     }
   }, [isOpen]);
 
-  // Handle search input changes
+  // Handle search input changes - only switch TO search view, not away from article
   useEffect(() => {
-    if (searchQuery.length > 2) {
+    if (searchQuery.length > 2 && currentView !== "article") {
       setCurrentView("search");
     } else if (searchQuery.length === 0 && currentView === "search") {
       setCurrentView("home");
     }
-  }, [searchQuery, currentView]);
+  }, [searchQuery]);
 
   const handleArticleClick = (article: HelpArticle) => {
     setSelectedArticle(article);
     setCurrentView("article");
-    // Track article view
     trackHelpInteraction("view", article.id);
   };
 
@@ -135,7 +134,13 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
 
   const handleBackClick = () => {
     if (currentView === "article") {
-      setCurrentView(selectedCategory ? "category" : "home");
+      if (searchQuery.length > 2) {
+        setCurrentView("search");
+      } else if (selectedCategory) {
+        setCurrentView("category");
+      } else {
+        setCurrentView("home");
+      }
       setSelectedArticle(null);
     } else if (currentView === "category") {
       setCurrentView("home");
