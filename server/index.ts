@@ -371,44 +371,8 @@ app.use((req, res, next) => {
       eventType: 'server_startup'
     });
     
-    // Initialize developer user
-    logger.info('Initializing developer user');
-    await AuthService.initializeDeveloperUser();
-    
     logger.info('Registering routes');
     const server = await registerRoutes(app);
-
-    // Seed induction questions on startup
-    try {
-      logger.info('Seeding induction questions');
-      const { seedInductionQuestions } = await import("./seedInductionQuestions");
-      await seedInductionQuestions();
-      
-      // Seed induction settings for videos
-      const { seedInductionSettings } = await import("./seedInductionSettings");
-      await seedInductionSettings();
-      
-      // Seed role-specific questions
-      const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
-      await seedRoleSpecificQuestions();
-
-      // Seed UK H&S compliance documents (management DB)
-      console.log('🌱 Seeding UK H&S compliance documents...');
-      const { seedUKHSDocuments } = await import("./seed-uk-hs-documents");
-      await seedUKHSDocuments();
-
-      // Seed UK H&S document templates into ALL customer isolated databases
-      console.log('🌱 Seeding UK H&S document templates for all customers...');
-      const { seedAllCustomerHSTemplates } = await import("./seed-isolated-hs-templates");
-      await seedAllCustomerHSTemplates();
-
-      // Seed help system data
-      console.log('🌱 Seeding help system data...');
-      const { seedHelpData } = await import("./seedHelpData");
-      await seedHelpData();
-    } catch (error) {
-      console.error("Failed to seed induction data:", error);
-    }
 
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     console.error('🔥 Express error handler caught:', {
@@ -424,7 +388,6 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    // Don't expose detailed error messages in production
     const responseMessage = process.env.NODE_ENV === 'production' ? 'Internal Server Error' : message;
     
     if (!res.headersSent) {
@@ -432,19 +395,12 @@ app.use((req, res, next) => {
     }
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
     console.log('🌐 Starting server...');
     server.listen({
@@ -458,6 +414,40 @@ app.use((req, res, next) => {
         eventType: 'server_ready'
       });
       log(`serving on port ${port}`);
+
+      // Run seeding AFTER server is listening (non-blocking for health checks)
+      (async () => {
+        try {
+          logger.info('Initializing developer user');
+          await AuthService.initializeDeveloperUser();
+
+          logger.info('Seeding induction questions');
+          const { seedInductionQuestions } = await import("./seedInductionQuestions");
+          await seedInductionQuestions();
+          
+          const { seedInductionSettings } = await import("./seedInductionSettings");
+          await seedInductionSettings();
+          
+          const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
+          await seedRoleSpecificQuestions();
+
+          console.log('🌱 Seeding UK H&S compliance documents...');
+          const { seedUKHSDocuments } = await import("./seed-uk-hs-documents");
+          await seedUKHSDocuments();
+
+          console.log('🌱 Seeding UK H&S document templates for all customers...');
+          const { seedAllCustomerHSTemplates } = await import("./seed-isolated-hs-templates");
+          await seedAllCustomerHSTemplates();
+
+          console.log('🌱 Seeding help system data...');
+          const { seedHelpData } = await import("./seedHelpData");
+          await seedHelpData();
+
+          console.log('✅ All seeding completed successfully');
+        } catch (error) {
+          console.error("Failed to seed data:", error);
+        }
+      })();
     });
   } catch (error) {
     console.error('🔥 Failed to start server:', error);
