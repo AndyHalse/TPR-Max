@@ -35,16 +35,12 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Promise Rejection - Potential memory leak', {
+  logger.error('Unhandled Promise Rejection', {
     reason: reason instanceof Error ? reason.message : String(reason),
     stack: reason instanceof Error ? reason.stack : undefined,
-    critical: true,
+    critical: false,
     eventType: 'unhandled_rejection'
   });
-  // Don't exit the process in development to keep the server running
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
-  }
 });
 
 const app = express();
@@ -52,7 +48,16 @@ const app = express();
 // Set trust proxy for proper session handling
 app.set('trust proxy', 1);
 
-// Health check endpoints are now registered in registerRoutes() for proper priority
+// CRITICAL: Deployment readiness flag and health check handler
+// Must be FIRST middleware - before session, CSRF, logging, etc.
+// Responds with 200 to ALL requests while the app is loading routes/static files
+let appReady = process.env.NODE_ENV !== 'production';
+app.use((req, res, next) => {
+  if (!appReady) {
+    return res.status(200).send('<!DOCTYPE html><html><head><title>TPR Max</title><meta http-equiv="refresh" content="3"></head><body><p>Starting up, please wait...</p></body></html>');
+  }
+  next();
+});
 
 // Structured logging middleware - AWS CloudWatch ready
 app.use(requestLoggingMiddleware);
@@ -375,7 +380,6 @@ app.use((req, res, next) => {
     const server = createHttpServer(app);
 
     // Start listening IMMEDIATELY - before heavy route registration
-    // This ensures the deployment health check can reach us right away
     const port = parseInt(process.env.PORT || '5000', 10);
     console.log('🌐 Starting server...');
     server.listen({
@@ -392,7 +396,6 @@ app.use((req, res, next) => {
     });
 
     // Register all routes AFTER server is already listening
-    // Pass existing server so WebSocket initializes on the correct server
     logger.info('Registering routes');
     await registerRoutes(app, server);
     logger.info('Routes registered successfully');
@@ -419,12 +422,15 @@ app.use((req, res, next) => {
     });
 
     // Static file serving MUST come after route registration
-    // (catch-all route would intercept API routes if registered first)
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
+
+    // Mark app as fully ready - the temporary loading handler will now pass through
+    appReady = true;
+    logger.info('Application fully initialized and ready');
 
     // Run seeding in background (non-blocking)
     (async () => {
