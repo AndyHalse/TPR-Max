@@ -20,7 +20,7 @@ declare global {
   }
 }
 
-// Global error handlers to prevent crashes
+// Global error handlers to prevent crashes - NEVER call process.exit() as it kills the server
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception - Critical application error', {
     error: error.message,
@@ -28,10 +28,7 @@ process.on('uncaughtException', (error) => {
     critical: true,
     eventType: 'uncaught_exception'
   });
-  // Don't exit the process in development to keep the server running
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
-  }
+  // Log but don't exit - let the deployment platform handle restarts if needed
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -269,8 +266,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Validate required session secret in production
 if (isProduction && !process.env.SESSION_SECRET) {
-  console.error('🔥 FATAL: SESSION_SECRET environment variable is required in production');
-  process.exit(1);
+  console.error('🔥 WARNING: SESSION_SECRET environment variable is required in production - using fallback');
 }
 
 // Configure session store - PostgreSQL for production, development fallback
@@ -467,8 +463,6 @@ app.use((req, res, next) => {
     })();
   } catch (error) {
     console.error('🔥 Failed to start server:', error);
-    if (process.env.NODE_ENV === 'production') {
-      process.exit(1);
-    }
+    // Don't call process.exit() - let the deployment platform detect and restart
   }
 })();

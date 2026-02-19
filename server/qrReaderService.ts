@@ -332,13 +332,11 @@ class QRReaderService extends EventEmitter {
 // Export singleton instance
 export const qrReaderService = new QRReaderService();
 
-// Graceful shutdown
+// Graceful shutdown - don't call process.exit() as other handlers need to run
 process.on('SIGINT', async () => {
   await qrReaderService.shutdown();
-  process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   await qrReaderService.shutdown();
-  process.exit(0);
 });

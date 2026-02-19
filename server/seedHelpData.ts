@@ -1333,8 +1333,11 @@ Most invitation issues can be resolved using the copy link feature or by creatin
   }
 }
 
-// Run seeding if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run seeding if called directly (CLI only - never in bundled production builds)
+const isDirectRun = typeof process.argv[1] === 'string' && 
+  import.meta.url === `file://${process.argv[1]}` &&
+  !process.argv[1].includes('dist/');
+if (isDirectRun) {
   seedHelpData()
     .then(() => {
       console.log('Seeding completed successfully');
