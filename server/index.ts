@@ -5,7 +5,7 @@ import { Pool } from "pg";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import crypto from "crypto";
-import { registerRoutes } from "./routes";
+import { registerRoutes, createHttpServer } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { AuthService, loadUser } from "./auth";
 import { healthCheckService } from "./healthChecks";
@@ -370,38 +370,13 @@ app.use((req, res, next) => {
       environment: process.env.NODE_ENV || 'development',
       eventType: 'server_startup'
     });
-    
-    logger.info('Registering routes');
-    const server = await registerRoutes(app);
 
-  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    console.error('🔥 Express error handler caught:', {
-      error: err.message,
-      stack: err.stack,
-      url: req.url,
-      method: req.method,
-      body: req.body,
-      params: req.params,
-      query: req.query
-    });
-    
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Create HTTP server IMMEDIATELY so we can start listening fast
+    const server = createHttpServer(app);
 
-    const responseMessage = process.env.NODE_ENV === 'production' ? 'Internal Server Error' : message;
-    
-    if (!res.headersSent) {
-      res.status(status).json({ error: responseMessage });
-    }
-  });
-
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  const port = parseInt(process.env.PORT || '5000', 10);
+    // Start listening IMMEDIATELY - before heavy route registration
+    // This ensures the deployment health check can reach us right away
+    const port = parseInt(process.env.PORT || '5000', 10);
     console.log('🌐 Starting server...');
     server.listen({
       port,
@@ -414,41 +389,76 @@ app.use((req, res, next) => {
         eventType: 'server_ready'
       });
       log(`serving on port ${port}`);
-
-      // Run seeding AFTER server is listening (non-blocking for health checks)
-      (async () => {
-        try {
-          logger.info('Initializing developer user');
-          await AuthService.initializeDeveloperUser();
-
-          logger.info('Seeding induction questions');
-          const { seedInductionQuestions } = await import("./seedInductionQuestions");
-          await seedInductionQuestions();
-          
-          const { seedInductionSettings } = await import("./seedInductionSettings");
-          await seedInductionSettings();
-          
-          const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
-          await seedRoleSpecificQuestions();
-
-          console.log('🌱 Seeding UK H&S compliance documents...');
-          const { seedUKHSDocuments } = await import("./seed-uk-hs-documents");
-          await seedUKHSDocuments();
-
-          console.log('🌱 Seeding UK H&S document templates for all customers...');
-          const { seedAllCustomerHSTemplates } = await import("./seed-isolated-hs-templates");
-          await seedAllCustomerHSTemplates();
-
-          console.log('🌱 Seeding help system data...');
-          const { seedHelpData } = await import("./seedHelpData");
-          await seedHelpData();
-
-          console.log('✅ All seeding completed successfully');
-        } catch (error) {
-          console.error("Failed to seed data:", error);
-        }
-      })();
     });
+
+    // Register all routes AFTER server is already listening
+    // Pass existing server so WebSocket initializes on the correct server
+    logger.info('Registering routes');
+    await registerRoutes(app, server);
+    logger.info('Routes registered successfully');
+
+    app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+      console.error('🔥 Express error handler caught:', {
+        error: err.message,
+        stack: err.stack,
+        url: req.url,
+        method: req.method,
+        body: req.body,
+        params: req.params,
+        query: req.query
+      });
+      
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+
+      const responseMessage = process.env.NODE_ENV === 'production' ? 'Internal Server Error' : message;
+      
+      if (!res.headersSent) {
+        res.status(status).json({ error: responseMessage });
+      }
+    });
+
+    // Static file serving MUST come after route registration
+    // (catch-all route would intercept API routes if registered first)
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    // Run seeding in background (non-blocking)
+    (async () => {
+      try {
+        logger.info('Initializing developer user');
+        await AuthService.initializeDeveloperUser();
+
+        logger.info('Seeding induction questions');
+        const { seedInductionQuestions } = await import("./seedInductionQuestions");
+        await seedInductionQuestions();
+        
+        const { seedInductionSettings } = await import("./seedInductionSettings");
+        await seedInductionSettings();
+        
+        const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
+        await seedRoleSpecificQuestions();
+
+        console.log('🌱 Seeding UK H&S compliance documents...');
+        const { seedUKHSDocuments } = await import("./seed-uk-hs-documents");
+        await seedUKHSDocuments();
+
+        console.log('🌱 Seeding UK H&S document templates for all customers...');
+        const { seedAllCustomerHSTemplates } = await import("./seed-isolated-hs-templates");
+        await seedAllCustomerHSTemplates();
+
+        console.log('🌱 Seeding help system data...');
+        const { seedHelpData } = await import("./seedHelpData");
+        await seedHelpData();
+
+        console.log('✅ All seeding completed successfully');
+      } catch (error) {
+        console.error("Failed to seed data:", error);
+      }
+    })();
   } catch (error) {
     console.error('🔥 Failed to start server:', error);
     if (process.env.NODE_ENV === 'production') {

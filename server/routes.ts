@@ -83,7 +83,7 @@ import { registerBillingRoutes } from "./billingRoutes";
 import { stripeService } from "./stripeService";
 import cron from "node-cron";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
   // AWS Health Check endpoints (HIGHEST PRIORITY - before any other routes)
   // These endpoints are critical for load balancer health checks and monitoring
   const { healthCheckService } = await import("./healthChecks");
@@ -20192,10 +20192,14 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  const httpServer = createServer(app);
+  const httpServer = existingServer || createServer(app);
   
   // Initialize WebSocket server for real-time muster updates
   websocketService.initialize(httpServer);
   
   return httpServer;
+}
+
+export function createHttpServer(app: Express): Server {
+  return createServer(app);
 }
