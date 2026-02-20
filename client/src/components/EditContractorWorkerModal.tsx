@@ -379,7 +379,7 @@ export default function EditContractorWorkerModal({
                       <FormControl>
                         <Input 
                           {...field} 
-                          placeholder="e.g., SW1A 1AA, M1 1AA, B33 8TH" 
+                          placeholder="" 
                           data-testid="input-postcode"
                           onChange={(e) => {
                             // Auto-format as user types
@@ -1039,7 +1039,7 @@ export default function EditContractorWorkerModal({
               <Input
                 value={newQualificationForm.name}
                 onChange={(e) => setNewQualificationForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g. Electrical Installation"
+                placeholder=""
                 data-testid="input-new-qualification-name"
               />
             </div>
@@ -1068,7 +1068,7 @@ export default function EditContractorWorkerModal({
               <Input
                 value={newQualificationForm.industry}
                 onChange={(e) => setNewQualificationForm(prev => ({ ...prev, industry: e.target.value }))}
-                placeholder="e.g. Construction, Engineering"
+                placeholder=""
                 data-testid="input-new-qualification-industry"
               />
             </div>
@@ -1078,7 +1078,7 @@ export default function EditContractorWorkerModal({
               <Textarea
                 value={newQualificationForm.description}
                 onChange={(e) => setNewQualificationForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Brief description of the qualification"
+                placeholder=""
                 data-testid="textarea-new-qualification-description"
               />
             </div>

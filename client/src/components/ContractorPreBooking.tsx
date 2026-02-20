@@ -281,7 +281,7 @@ export default function ContractorPreBooking() {
                     <FormItem>
                       <FormLabel>Company Name *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="ABC Construction Ltd" />
+                        <Input {...field} placeholder="" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -295,7 +295,7 @@ export default function ContractorPreBooking() {
                     <FormItem>
                       <FormLabel>First Name *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="John" />
+                        <Input {...field} placeholder="" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -309,7 +309,7 @@ export default function ContractorPreBooking() {
                     <FormItem>
                       <FormLabel>Last Name *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Smith" />
+                        <Input {...field} placeholder="" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -323,7 +323,7 @@ export default function ContractorPreBooking() {
                     <FormItem>
                       <FormLabel>Contact Email *</FormLabel>
                       <FormControl>
-                        <Input {...field} type="email" placeholder="contact@company.com" />
+                        <Input {...field} type="email" placeholder="" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -337,7 +337,7 @@ export default function ContractorPreBooking() {
                     <FormItem>
                       <FormLabel>Contact Phone</FormLabel>
                       <FormControl>
-                        <Input {...field} type="tel" placeholder="+44 1234 567890" />
+                        <Input {...field} type="tel" placeholder="" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

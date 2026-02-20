@@ -381,7 +381,7 @@ export function RoomBookingForm({
                           <FormLabel>Meeting Title</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="e.g., Team Planning Session"
+                              placeholder=""
                               {...field}
                               data-testid="input-title"
                             />
@@ -523,7 +523,7 @@ export function RoomBookingForm({
                           </FormDescription>
                           <FormControl>
                             <Textarea
-                              placeholder="john@example.com&#10;jane@company.com"
+                              placeholder=""
                               rows={3}
                               value={field.value?.join('\n') || ''}
                               onChange={(e) => {

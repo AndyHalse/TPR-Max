@@ -1138,7 +1138,7 @@ export default function Settings() {
                     value={currentSettings?.address || ""}
                     onChange={(e) => handleInputChange("address", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                    placeholder="123 Business Street, City, Postcode"
+                    placeholder=""
                     data-testid="input-company-address"
                   />
                 </div>
@@ -1154,7 +1154,7 @@ export default function Settings() {
                       value={currentSettings?.phone || ""}
                       onChange={(e) => handleInputChange("phone", e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                      placeholder="+44 20 1234 5678"
+                      placeholder=""
                       data-testid="input-company-phone"
                     />
                   </div>
@@ -1169,7 +1169,7 @@ export default function Settings() {
                       value={currentSettings?.email || ""}
                       onChange={(e) => handleInputChange("email", e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                      placeholder="info@yourcompany.com"
+                      placeholder=""
                       data-testid="input-company-email"
                     />
                   </div>
@@ -1185,7 +1185,7 @@ export default function Settings() {
                     value={currentSettings?.website || ""}
                     onChange={(e) => handleInputChange("website", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                    placeholder="https://www.yourcompany.com"
+                    placeholder=""
                     data-testid="input-company-website"
                   />
                 </div>
@@ -1241,7 +1241,7 @@ export default function Settings() {
                   </Label>
                   <Input
                     type="text"
-                    placeholder="e.g., smtp.ionos.co.uk"
+                    placeholder=""
                     value={currentSettings?.smtpHost || "smtp.ionos.co.uk"}
                     onChange={(e) => handleInputChange("smtpHost", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
@@ -1292,7 +1292,7 @@ export default function Settings() {
                   </Label>
                   <Input
                     type="email"
-                    placeholder="your-email@company.com"
+                    placeholder=""
                     value={currentSettings?.smtpUsername || ""}
                     onChange={(e) => handleInputChange("smtpUsername", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
@@ -1322,7 +1322,7 @@ export default function Settings() {
                   </Label>
                   <Input
                     type="text"
-                    placeholder="VisiGate Pro System"
+                    placeholder=""
                     value={currentSettings?.smtpFromName || "VisiGate Pro System"}
                     onChange={(e) => handleInputChange("smtpFromName", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
@@ -1489,7 +1489,7 @@ export default function Settings() {
                       </Label>
                       <Input
                         type="email"
-                        placeholder="admin@company.com, manager@company.com"
+                        placeholder=""
                         value={Array.isArray(currentSettings?.reportRecipients) 
                           ? currentSettings.reportRecipients.join(", ") 
                           : currentSettings?.reportRecipients || ""
@@ -1553,7 +1553,7 @@ export default function Settings() {
                           value={currentSettings?.backgroundColor || "#f8fafc"}
                           onChange={(e) => handleInputChange("backgroundColor", e.target.value)}
                           className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
-                          placeholder="#f8fafc"
+                          placeholder=""
                         />
                       </div>
                     </div>
@@ -1600,7 +1600,7 @@ export default function Settings() {
                           value={currentSettings?.foregroundColor || "#1e293b"}
                           onChange={(e) => handleInputChange("foregroundColor", e.target.value)}
                           className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
-                          placeholder="#1e293b"
+                          placeholder=""
                         />
                       </div>
                       {currentSettings?.backgroundColor && (
@@ -1656,7 +1656,7 @@ export default function Settings() {
                           value={currentSettings?.variableTextColor || "#374151"}
                           onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
                           className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
-                          placeholder="#374151"
+                          placeholder=""
                         />
                       </div>
                       {currentSettings?.backgroundColor && (
@@ -1688,7 +1688,7 @@ export default function Settings() {
                           value={currentSettings?.accentColor || "#3b82f6"}
                           onChange={(e) => handleInputChange("accentColor", e.target.value)}
                           className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
-                          placeholder="#3b82f6"
+                          placeholder=""
                         />
                       </div>
                     </div>
@@ -2091,7 +2091,7 @@ export default function Settings() {
                             value={currentSettings?.tecPrinterName || "TEC B-FV4D Desktop Printer"}
                             onChange={(e) => handleInputChange("tecPrinterName", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder="TEC B-FV4D Desktop Printer"
+                            placeholder=""
                             data-testid="input-tec-printer-name"
                           />
                           <p className="text-xs text-variable">Windows printer name (for local printing) or leave blank for network printing</p>
@@ -2106,7 +2106,7 @@ export default function Settings() {
                             value={currentSettings?.tecPrinterIp || ""}
                             onChange={(e) => handleInputChange("tecPrinterIp", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder="192.168.1.100"
+                            placeholder=""
                             data-testid="input-tec-ip"
                           />
                           <p className="text-xs text-variable">Network IP address of your Toshiba Tec printer for remote printing over the internet</p>
@@ -2121,7 +2121,7 @@ export default function Settings() {
                             value={currentSettings?.tecPrinterPort || "9100"}
                             onChange={(e) => handleInputChange("tecPrinterPort", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder="9100"
+                            placeholder=""
                             data-testid="input-tec-port"
                           />
                           <p className="text-xs text-variable">Default: 9100 (standard thermal printer network port for TCP/IP connections)</p>
@@ -2161,7 +2161,7 @@ export default function Settings() {
                               value={currentSettings?.tecLabelWidth || "85"}
                               onChange={(e) => handleInputChange("tecLabelWidth", e.target.value)}
                               className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                              placeholder="85"
+                              placeholder=""
                               data-testid="input-tec-width"
                             />
                             <Input
@@ -2169,7 +2169,7 @@ export default function Settings() {
                               value={currentSettings?.tecLabelHeight || "65"}
                               onChange={(e) => handleInputChange("tecLabelHeight", e.target.value)}
                               className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                              placeholder="65"
+                              placeholder=""
                               data-testid="input-tec-height"
                             />
                           </div>
@@ -2210,7 +2210,7 @@ export default function Settings() {
                             value={currentSettings?.zebraPrinterIp || ""}
                             onChange={(e) => handleInputChange("zebraPrinterIp", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder="192.168.1.100"
+                            placeholder=""
                             data-testid="input-zebra-ip"
                           />
                           <p className="text-xs text-variable">Network IP address of your Zebra printer for remote printing over the internet</p>
@@ -2225,7 +2225,7 @@ export default function Settings() {
                             value={currentSettings?.zebraPrinterPort || "9100"}
                             onChange={(e) => handleInputChange("zebraPrinterPort", e.target.value)}
                             className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder="9100"
+                            placeholder=""
                             data-testid="input-zebra-port"
                           />
                           <p className="text-xs text-variable">Default: 9100 (standard Zebra network port for TCP/IP connections)</p>
@@ -2449,7 +2449,7 @@ export default function Settings() {
                                   value={currentSettings?.twilioAccountSid || ""}
                                   onChange={(e) => handleInputChange("twilioAccountSid", e.target.value)}
                                   className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
-                                  placeholder="ACxxxxxxxxxxxxxxxxxx"
+                                  placeholder=""
                                   data-testid="input-twilio-sid"
                                 />
                               </div>
@@ -2460,7 +2460,7 @@ export default function Settings() {
                                   value={currentSettings?.twilioAuthToken || ""}
                                   onChange={(e) => handleInputChange("twilioAuthToken", e.target.value)}
                                   className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
-                                  placeholder="Your Twilio Auth Token"
+                                  placeholder=""
                                   data-testid="input-twilio-token"
                                 />
                               </div>
@@ -2471,7 +2471,7 @@ export default function Settings() {
                                   value={currentSettings?.twilioPhoneNumber || ""}
                                   onChange={(e) => handleInputChange("twilioPhoneNumber", e.target.value)}
                                   className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
-                                  placeholder="+1234567890"
+                                  placeholder=""
                                   data-testid="input-twilio-phone"
                                 />
                               </div>
@@ -2482,7 +2482,7 @@ export default function Settings() {
                                   value={currentSettings?.twilioMessagingServiceSid || ""}
                                   onChange={(e) => handleInputChange("twilioMessagingServiceSid", e.target.value)}
                                   className="w-full px-3 py-2 text-sm rounded-lg border border-purple-200 bg-white"
-                                  placeholder="MGxxxxxxxxxxxxxxxxxx"
+                                  placeholder=""
                                   data-testid="input-twilio-messaging-sid"
                                 />
                               </div>
@@ -2526,7 +2526,7 @@ export default function Settings() {
                                 value={currentSettings?.geofenceLat || ""}
                                 onChange={(e) => handleInputChange("geofenceLat", e.target.value)}
                                 className="w-full px-3 py-2 text-sm rounded-lg border border-orange-200 bg-white"
-                                placeholder="51.5074"
+                                placeholder=""
                                 data-testid="input-geofence-lat"
                               />
                             </div>
@@ -2537,7 +2537,7 @@ export default function Settings() {
                                 value={currentSettings?.geofenceLng || ""}
                                 onChange={(e) => handleInputChange("geofenceLng", e.target.value)}
                                 className="w-full px-3 py-2 text-sm rounded-lg border border-orange-200 bg-white"
-                                placeholder="-0.1278"
+                                placeholder=""
                                 data-testid="input-geofence-lng"
                               />
                             </div>
@@ -2569,7 +2569,7 @@ export default function Settings() {
                                   value={currentSettings?.xStationApiEndpoint || ""}
                                   onChange={(e) => handleInputChange("xStationApiEndpoint", e.target.value)}
                                   className="w-full px-3 py-2 text-sm rounded-lg border border-indigo-200 bg-white"
-                                  placeholder="https://biostar.local:8443/api"
+                                  placeholder=""
                                   data-testid="input-xstation-api"
                                 />
                               </div>
@@ -2598,7 +2598,7 @@ export default function Settings() {
                                 value={(currentSettings?.xStationDevices || []).join('\n')}
                                 onChange={(e) => handleInputChange("xStationDevices", e.target.value.split('\n').filter(d => d.trim()))}
                                 className="w-full px-3 py-2 text-sm rounded-lg border border-indigo-200 bg-white h-20 font-mono"
-                                placeholder="192.168.1.100&#10;192.168.1.101&#10;DEVICE-001"
+                                placeholder=""
                                 data-testid="textarea-xstation-devices"
                               />
                             </div>
@@ -2764,7 +2764,7 @@ export default function Settings() {
                           type="password"
                           value={currentSettings?.clueApiKey || ""}
                           onChange={(e) => handleInputChange("clueApiKey", e.target.value)}
-                          placeholder="Enter CLUe API Key"
+                          placeholder=""
                           className="font-mono"
                           data-testid="input-clue-api-key"
                         />
@@ -2776,7 +2776,7 @@ export default function Settings() {
                           type="password"
                           value={currentSettings?.clueApiSecret || ""}
                           onChange={(e) => handleInputChange("clueApiSecret", e.target.value)}
-                          placeholder="Enter CLUe API Secret"
+                          placeholder=""
                           className="font-mono"
                           data-testid="input-clue-api-secret"
                         />
@@ -2789,7 +2789,7 @@ export default function Settings() {
                         <Input
                           value={currentSettings?.clueOrganizationId || ""}
                           onChange={(e) => handleInputChange("clueOrganizationId", e.target.value)}
-                          placeholder="Your CLUe Organization ID"
+                          placeholder=""
                           data-testid="input-clue-org-id"
                         />
                       </div>
@@ -2800,7 +2800,7 @@ export default function Settings() {
                           type="password"
                           value={currentSettings?.clueWebhookSecret || ""}
                           onChange={(e) => handleInputChange("clueWebhookSecret", e.target.value)}
-                          placeholder="Webhook verification secret"
+                          placeholder=""
                           className="font-mono"
                           data-testid="input-clue-webhook-secret"
                         />
@@ -3175,7 +3175,7 @@ export default function Settings() {
                         value={(currentSettings?.xStationDevices || []).join('\n')}
                         onChange={(e) => handleInputChange("xStationDevices", e.target.value.split('\n').filter(d => d.trim()))}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 h-32 font-mono text-sm"
-                        placeholder="192.168.1.100&#10;192.168.1.101&#10;192.168.1.102"
+                        placeholder=""
                         data-testid="textarea-xstation-ips"
                       />
                       <p className="text-xs text-variable">Enter one IP address per line</p>
@@ -3387,7 +3387,7 @@ export default function Settings() {
                         value={currentSettings?.biostarServerUrl || ""}
                         onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                        placeholder="http://localhost:8080 or http://192.168.1.100:8080"
+                        placeholder=""
                         data-testid="input-biostar-server-url"
                       />
                       <p className="text-xs text-variable">
@@ -3406,7 +3406,7 @@ export default function Settings() {
                           value={currentSettings?.biostarUsername || ""}
                           onChange={(e) => handleInputChange("biostarUsername", e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                          placeholder="admin"
+                          placeholder=""
                           data-testid="input-biostar-username"
                         />
                         <p className="text-xs text-variable">Biostar 2 administrator login ID</p>
@@ -3440,7 +3440,7 @@ export default function Settings() {
                           value={currentSettings?.biostarDatabaseId || "1"}
                           onChange={(e) => handleInputChange("biostarDatabaseId", e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                          placeholder="1"
+                          placeholder=""
                           data-testid="input-biostar-database-id"
                         />
                       </div>
@@ -3455,7 +3455,7 @@ export default function Settings() {
                           value={currentSettings?.biostarSyncInterval || "300"}
                           onChange={(e) => handleInputChange("biostarSyncInterval", e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                          placeholder="300"
+                          placeholder=""
                           min="60"
                           data-testid="input-biostar-sync-interval"
                         />
@@ -3656,7 +3656,7 @@ export default function Settings() {
                     type="password"
                     value={currentSettings?.eightByXApiKey || ""}
                     onChange={(e) => handleInputChange("eightByXApiKey", e.target.value)}
-                    placeholder="Enter your 8x8 API key"
+                    placeholder=""
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-api-key"
                   />
@@ -3671,7 +3671,7 @@ export default function Settings() {
                     type="password"
                     value={currentSettings?.eightByXApiSecret || ""}
                     onChange={(e) => handleInputChange("eightByXApiSecret", e.target.value)}
-                    placeholder="Enter your 8x8 API secret"
+                    placeholder=""
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-api-secret"
                   />
@@ -3686,7 +3686,7 @@ export default function Settings() {
                     type="text"
                     value={currentSettings?.eightByXAccountId || ""}
                     onChange={(e) => handleInputChange("eightByXAccountId", e.target.value)}
-                    placeholder="Enter your 8x8 account ID"
+                    placeholder=""
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-account-id"
                   />
@@ -3701,7 +3701,7 @@ export default function Settings() {
                     type="text"
                     value={currentSettings?.eightByXBaseUrl || "https://vcc-eu.8x8.com/api/v1"}
                     onChange={(e) => handleInputChange("eightByXBaseUrl", e.target.value)}
-                    placeholder="https://vcc-eu.8x8.com/api/v1"
+                    placeholder=""
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-8x8-base-url"
                   />
@@ -3779,7 +3779,7 @@ export default function Settings() {
                   <Input
                     id="testPhoneNumber"
                     type="tel"
-                    placeholder="+44 20 7123 4567"
+                    placeholder=""
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                     data-testid="input-test-phone-number"
                   />
@@ -4016,7 +4016,7 @@ export default function Settings() {
                   <Input
                     id="inviteEmail"
                     type="email"
-                    placeholder="user@example.com"
+                    placeholder=""
                     value={inviteForm.email}
                     onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
@@ -4596,7 +4596,7 @@ export default function Settings() {
                         value={currentSettings?.hsRulesUrl || ""}
                         onChange={(e) => handleInputChange("hsRulesUrl", e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                        placeholder="https://www.yourcompany.com/health-safety-rules"
+                        placeholder=""
                         data-testid="input-hs-rules-url"
                       />
                       <p className="text-xs text-variable">
@@ -5204,7 +5204,7 @@ export default function Settings() {
                 id="departmentName"
                 value={departmentForm.name || ""}
                 onChange={(e) => setDepartmentForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Engineering, Sales, Marketing"
+                placeholder=""
                 required
                 data-testid="input-department-name"
               />
@@ -5309,7 +5309,7 @@ export default function Settings() {
               <Input
                 id="inviteEmail"
                 type="email"
-                placeholder="user@example.com"
+                placeholder=""
                 value={inviteForm.email}
                 onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                 className="w-full"
@@ -5392,7 +5392,7 @@ export default function Settings() {
                 <Input
                   id="manualFirstName"
                   type="text"
-                  placeholder="John"
+                  placeholder=""
                   value={manualUserForm.firstName}
                   onChange={(e) => setManualUserForm({ ...manualUserForm, firstName: e.target.value })}
                   className="w-full"
@@ -5406,7 +5406,7 @@ export default function Settings() {
                 <Input
                   id="manualLastName"
                   type="text"
-                  placeholder="Doe"
+                  placeholder=""
                   value={manualUserForm.lastName}
                   onChange={(e) => setManualUserForm({ ...manualUserForm, lastName: e.target.value })}
                   className="w-full"
@@ -5422,7 +5422,7 @@ export default function Settings() {
               <Input
                 id="manualUsername"
                 type="text"
-                placeholder="johndoe"
+                placeholder=""
                 value={manualUserForm.username}
                 onChange={(e) => setManualUserForm({ ...manualUserForm, username: e.target.value })}
                 className="w-full"
@@ -5438,7 +5438,7 @@ export default function Settings() {
               <Input
                 id="manualEmail"
                 type="email"
-                placeholder="john@example.com"
+                placeholder=""
                 value={manualUserForm.email}
                 onChange={(e) => setManualUserForm({ ...manualUserForm, email: e.target.value })}
                 className="w-full"
@@ -5454,7 +5454,7 @@ export default function Settings() {
               <Input
                 id="manualPassword"
                 type="password"
-                placeholder="Secure password"
+                placeholder=""
                 value={manualUserForm.password}
                 onChange={(e) => setManualUserForm({ ...manualUserForm, password: e.target.value })}
                 className="w-full"
@@ -5540,7 +5540,7 @@ export default function Settings() {
                 <Input
                   id="editFirstName"
                   type="text"
-                  placeholder="John"
+                  placeholder=""
                   value={editUserForm.firstName}
                   onChange={(e) => setEditUserForm({ ...editUserForm, firstName: e.target.value })}
                   className="w-full"
@@ -5554,7 +5554,7 @@ export default function Settings() {
                 <Input
                   id="editLastName"
                   type="text"
-                  placeholder="Doe"
+                  placeholder=""
                   value={editUserForm.lastName}
                   onChange={(e) => setEditUserForm({ ...editUserForm, lastName: e.target.value })}
                   className="w-full"
@@ -5570,7 +5570,7 @@ export default function Settings() {
               <Input
                 id="editUsername"
                 type="text"
-                placeholder="johndoe"
+                placeholder=""
                 value={editUserForm.username}
                 onChange={(e) => setEditUserForm({ ...editUserForm, username: e.target.value })}
                 className="w-full"
@@ -5586,7 +5586,7 @@ export default function Settings() {
               <Input
                 id="editEmail"
                 type="email"
-                placeholder="john@example.com"
+                placeholder=""
                 value={editUserForm.email}
                 onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
                 className="w-full"

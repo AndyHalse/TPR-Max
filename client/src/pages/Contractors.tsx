@@ -1142,7 +1142,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.contactFirstName}
                 onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })}
-                placeholder="John"
+                placeholder=""
                 data-testid="input-contact-first-name"
               />
             </div>
@@ -1151,7 +1151,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.contactLastName}
                 onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })}
-                placeholder="Smith"
+                placeholder=""
                 data-testid="input-contact-last-name"
               />
             </div>
@@ -1161,7 +1161,7 @@ export default function Contractors() {
                 type="email"
                 value={contractorForm.email}
                 onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
-                placeholder="admin@company.co.uk"
+                placeholder=""
                 data-testid="input-email"
               />
             </div>
@@ -1171,7 +1171,7 @@ export default function Contractors() {
                 type="tel"
                 value={contractorForm.phone}
                 onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
-                placeholder="+44 1234 567890"
+                placeholder=""
                 data-testid="input-phone"
               />
             </div>
@@ -1180,7 +1180,7 @@ export default function Contractors() {
               <Textarea
                 value={contractorForm.address}
                 onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })}
-                placeholder="123 Main Street, London, UK"
+                placeholder=""
                 data-testid="input-address"
                 rows={2}
               />
@@ -1190,7 +1190,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.postcode}
                 onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })}
-                placeholder="SW1A 1AA"
+                placeholder=""
                 data-testid="input-postcode"
               />
             </div>
@@ -1199,7 +1199,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.website}
                 onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })}
-                placeholder="https://www.company.co.uk"
+                placeholder=""
                 data-testid="input-website"
               />
             </div>
@@ -1247,7 +1247,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.cisRegistration}
                 onChange={(e) => setContractorForm({ ...contractorForm, cisRegistration: e.target.value })}
-                placeholder="CIS123456"
+                placeholder=""
                 data-testid="input-cis"
               />
             </div>
@@ -1349,7 +1349,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.contactFirstName}
                 onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })}
-                placeholder="John"
+                placeholder=""
                 data-testid="input-edit-contact-first-name"
               />
             </div>
@@ -1358,7 +1358,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.contactLastName}
                 onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })}
-                placeholder="Smith"
+                placeholder=""
                 data-testid="input-edit-contact-last-name"
               />
             </div>
@@ -1368,7 +1368,7 @@ export default function Contractors() {
                 type="email"
                 value={contractorForm.email}
                 onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
-                placeholder="admin@company.co.uk"
+                placeholder=""
                 data-testid="input-edit-email"
               />
             </div>
@@ -1378,7 +1378,7 @@ export default function Contractors() {
                 type="tel"
                 value={contractorForm.phone}
                 onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
-                placeholder="+44 1234 567890"
+                placeholder=""
                 data-testid="input-edit-phone"
               />
             </div>
@@ -1387,7 +1387,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.postcode}
                 onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })}
-                placeholder="SW1A 1AA"
+                placeholder=""
                 data-testid="input-edit-postcode"
               />
             </div>
@@ -1396,7 +1396,7 @@ export default function Contractors() {
               <Textarea
                 value={contractorForm.address}
                 onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })}
-                placeholder="123 Main Street, London, UK"
+                placeholder=""
                 data-testid="input-edit-address"
                 rows={2}
               />
@@ -1406,7 +1406,7 @@ export default function Contractors() {
               <Input
                 value={contractorForm.website}
                 onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })}
-                placeholder="https://www.company.co.uk"
+                placeholder=""
                 data-testid="input-edit-website"
               />
             </div>
@@ -2525,7 +2525,7 @@ export default function Contractors() {
               <Input
                 value={workerForm.firstName}
                 onChange={(e) => setWorkerForm({ ...workerForm, firstName: e.target.value })}
-                placeholder="John"
+                placeholder=""
                 data-testid="input-worker-firstname"
               />
             </div>
@@ -2534,7 +2534,7 @@ export default function Contractors() {
               <Input
                 value={workerForm.lastName}
                 onChange={(e) => setWorkerForm({ ...workerForm, lastName: e.target.value })}
-                placeholder="Smith"
+                placeholder=""
                 data-testid="input-worker-lastname"
               />
             </div>
@@ -2544,7 +2544,7 @@ export default function Contractors() {
                 type="email"
                 value={workerForm.email}
                 onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })}
-                placeholder="john.smith@example.com"
+                placeholder=""
                 data-testid="input-worker-email"
               />
             </div>
@@ -2554,7 +2554,7 @@ export default function Contractors() {
                 type="tel"
                 value={workerForm.phone}
                 onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })}
-                placeholder="+44 1234 567890"
+                placeholder=""
                 data-testid="input-worker-phone"
               />
             </div>
@@ -2563,7 +2563,7 @@ export default function Contractors() {
               <Input
                 value={workerForm.postcode}
                 onChange={(e) => setWorkerForm({ ...workerForm, postcode: e.target.value.replace(/\s/g, '').toUpperCase() })}
-                placeholder="SW1A 1AA"
+                placeholder=""
                 maxLength={8}
                 data-testid="input-worker-postcode"
                 style={{ textTransform: 'uppercase' }}
@@ -2612,7 +2612,7 @@ export default function Contractors() {
               <Input
                 value={workerForm.cscsCard}
                 onChange={(e) => setWorkerForm({ ...workerForm, cscsCard: e.target.value })}
-                placeholder="12345678"
+                placeholder=""
                 data-testid="input-cscs-card"
               />
             </div>

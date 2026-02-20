@@ -702,21 +702,21 @@ export default function PlatformAdminDashboard() {
                   <Label htmlFor="primaryColor">Primary Color</Label>
                   <div className="flex items-center space-x-2">
                     <Input id="primaryColor" type="color" value={brandingForm.primaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })} className="w-20 h-10" data-testid="input-primary-color" />
-                    <Input type="text" value={brandingForm.primaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })} placeholder="#2460A9" className="flex-1" />
+                    <Input type="text" value={brandingForm.primaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, primaryColor: e.target.value })} placeholder="" className="flex-1" />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="secondaryColor">Secondary Color</Label>
                   <div className="flex items-center space-x-2">
                     <Input id="secondaryColor" type="color" value={brandingForm.secondaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })} className="w-20 h-10" data-testid="input-secondary-color" />
-                    <Input type="text" value={brandingForm.secondaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })} placeholder="#1E3A8A" className="flex-1" />
+                    <Input type="text" value={brandingForm.secondaryColor} onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })} placeholder="" className="flex-1" />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="accentColor">Accent Color</Label>
                   <div className="flex items-center space-x-2">
                     <Input id="accentColor" type="color" value={brandingForm.accentColor} onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })} className="w-20 h-10" data-testid="input-accent-color" />
-                    <Input type="text" value={brandingForm.accentColor} onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })} placeholder="#3B82F6" className="flex-1" />
+                    <Input type="text" value={brandingForm.accentColor} onChange={(e) => setBrandingForm({ ...brandingForm, accentColor: e.target.value })} placeholder="" className="flex-1" />
                   </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
@@ -731,11 +731,11 @@ export default function PlatformAdminDashboard() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="platformName">Platform Name</Label>
-                  <Input id="platformName" type="text" value={brandingForm.platformName} onChange={(e) => setBrandingForm({ ...brandingForm, platformName: e.target.value })} placeholder="TPR Max" data-testid="input-platform-name" />
+                  <Input id="platformName" type="text" value={brandingForm.platformName} onChange={(e) => setBrandingForm({ ...brandingForm, platformName: e.target.value })} placeholder="" data-testid="input-platform-name" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="companyName">Company Name</Label>
-                  <Input id="companyName" type="text" value={brandingForm.companyName} onChange={(e) => setBrandingForm({ ...brandingForm, companyName: e.target.value })} placeholder="Your Company" data-testid="input-company-name" />
+                  <Input id="companyName" type="text" value={brandingForm.companyName} onChange={(e) => setBrandingForm({ ...brandingForm, companyName: e.target.value })} placeholder="" data-testid="input-company-name" />
                 </div>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
@@ -763,19 +763,19 @@ export default function PlatformAdminDashboard() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">First Name</Label>
-                        <Input value={newAdminForm.firstName} onChange={(e) => setNewAdminForm({ ...newAdminForm, firstName: e.target.value })} placeholder="First name" />
+                        <Input value={newAdminForm.firstName} onChange={(e) => setNewAdminForm({ ...newAdminForm, firstName: e.target.value })} placeholder="" />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Last Name</Label>
-                        <Input value={newAdminForm.lastName} onChange={(e) => setNewAdminForm({ ...newAdminForm, lastName: e.target.value })} placeholder="Last name" />
+                        <Input value={newAdminForm.lastName} onChange={(e) => setNewAdminForm({ ...newAdminForm, lastName: e.target.value })} placeholder="" />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Username</Label>
-                        <Input value={newAdminForm.username} onChange={(e) => setNewAdminForm({ ...newAdminForm, username: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })} placeholder="username" />
+                        <Input value={newAdminForm.username} onChange={(e) => setNewAdminForm({ ...newAdminForm, username: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })} placeholder="" />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Email</Label>
-                        <Input type="email" value={newAdminForm.email} onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })} placeholder="email@example.com" />
+                        <Input type="email" value={newAdminForm.email} onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })} placeholder="" />
                       </div>
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Password</Label>

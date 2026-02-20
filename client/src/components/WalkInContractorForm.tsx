@@ -229,7 +229,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                   id="postcode"
                   value={formData.postcode}
                   onChange={(e) => handleInputChange("postcode", e.target.value.replace(/\s/g, '').toUpperCase())}
-                  placeholder="SW1A1AA"
+                  placeholder=""
                   maxLength={8}
                   data-testid="input-company-postcode"
                   style={{ textTransform: 'uppercase' }}
@@ -311,7 +311,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                   id="workerPostcode"
                   value={formData.workerPostcode}
                   onChange={(e) => handleInputChange("workerPostcode", e.target.value.replace(/\s/g, '').toUpperCase())}
-                  placeholder="SW1A1AA"
+                  placeholder=""
                   maxLength={8}
                   data-testid="input-worker-postcode"
                   style={{ textTransform: 'uppercase' }}

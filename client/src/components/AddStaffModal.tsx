@@ -340,7 +340,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 value={formData.firstName}
                 onChange={(e) => handleInputChange("firstName", e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                placeholder="First name"
+                placeholder=""
                 data-testid="input-first-name"
               />
             </div>
@@ -356,7 +356,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 value={formData.lastName}
                 onChange={(e) => handleInputChange("lastName", e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                placeholder="Last name"
+                placeholder=""
                 data-testid="input-last-name"
               />
             </div>
@@ -373,7 +373,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-              placeholder="email@company.com"
+              placeholder=""
               data-testid="input-email"
             />
           </div>
@@ -567,7 +567,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 value={formData.phoneNumber}
                 onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                placeholder="+44 20 1234 5678"
+                placeholder=""
                 data-testid="input-phone-number"
               />
               <p className="text-xs text-variable">

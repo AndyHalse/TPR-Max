@@ -181,7 +181,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
               data-testid="input-admin-username"
               value={formData.adminUsername}
               onChange={(e) => handleChange("adminUsername", e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
-              placeholder="e.g. john_smith"
+              placeholder=""
               required
             />
             <p className="text-xs text-muted-foreground">Letters, numbers, underscores, and hyphens only. Min 3 characters.</p>

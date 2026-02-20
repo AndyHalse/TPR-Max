@@ -79,7 +79,7 @@ export default function AIROICalculator() {
               type="number"
               value={monthlyVisitors}
               onChange={(e) => setMonthlyVisitors(e.target.value)}
-              placeholder="100"
+              placeholder=""
               className="mt-1"
               data-testid="input-monthly-visitors"
             />
@@ -94,7 +94,7 @@ export default function AIROICalculator() {
               type="number"
               value={staffCount}
               onChange={(e) => setStaffCount(e.target.value)}
-              placeholder="25"
+              placeholder=""
               className="mt-1"
               data-testid="input-staff-count"
             />
@@ -109,7 +109,7 @@ export default function AIROICalculator() {
               type="number"
               value={manualProcessTime}
               onChange={(e) => setManualProcessTime(e.target.value)}
-              placeholder="15"
+              placeholder=""
               className="mt-1"
               data-testid="input-manual-time"
             />

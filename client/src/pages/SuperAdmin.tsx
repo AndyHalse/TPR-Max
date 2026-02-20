@@ -208,7 +208,7 @@ export default function SuperAdmin() {
                     id="companyName" 
                     name="companyName" 
                     required 
-                    placeholder="e.g., Acme Inc."
+                    placeholder=""
                     data-testid="input-company-name"
                   />
                 </div>
@@ -218,7 +218,7 @@ export default function SuperAdmin() {
                     id="slug" 
                     name="slug" 
                     required 
-                    placeholder="e.g., acme"
+                    placeholder=""
                     data-testid="input-slug"
                   />
                 </div>
@@ -232,7 +232,7 @@ export default function SuperAdmin() {
                     name="contactEmail" 
                     type="email" 
                     required 
-                    placeholder="contact@company.com"
+                    placeholder=""
                     data-testid="input-contact-email"
                   />
                 </div>
@@ -241,7 +241,7 @@ export default function SuperAdmin() {
                   <Input 
                     id="phone" 
                     name="phone" 
-                    placeholder="+44 20 1234 5678"
+                    placeholder=""
                     data-testid="input-phone"
                   />
                 </div>
@@ -256,7 +256,7 @@ export default function SuperAdmin() {
                   <Input 
                     id="adminFirstName" 
                     name="adminFirstName" 
-                    placeholder="John"
+                    placeholder=""
                     data-testid="input-admin-first-name"
                   />
                 </div>
@@ -265,7 +265,7 @@ export default function SuperAdmin() {
                   <Input 
                     id="adminLastName" 
                     name="adminLastName" 
-                    placeholder="Smith"
+                    placeholder=""
                     data-testid="input-admin-last-name"
                   />
                 </div>
@@ -277,7 +277,7 @@ export default function SuperAdmin() {
                   id="adminEmail" 
                   name="adminEmail" 
                   type="email" 
-                  placeholder="admin@company.com"
+                  placeholder=""
                   data-testid="input-admin-email"
                 />
               </div>
