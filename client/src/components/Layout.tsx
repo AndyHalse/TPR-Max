@@ -7,6 +7,7 @@ import HelpButton from "@/components/HelpButton";
 import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect } from "react";
+import acsLogoFallback from "@assets/acs-logo-2460A9-200px.jpg";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -184,12 +185,27 @@ export default function Layout({ children }: LayoutProps) {
                     alt="Company Logo" 
                     className="w-15 h-15 object-contain rounded"
                     onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: block');
+                      e.currentTarget.src = acsLogoFallback;
+                      e.currentTarget.onerror = () => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                      };
                     }}
                   />
-                ) : null}
-                <IdCard className="text-white" size={20} style={settings?.logoUrl ? {display: 'none'} : {}} />
+                ) : (
+                  <img 
+                    src={acsLogoFallback}
+                    alt="Company Logo" 
+                    className="w-15 h-15 object-contain rounded"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                    }}
+                  />
+                )}
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 items-center justify-center text-lg font-bold" style={{display: 'none', color: settings?.accentColor || '#2460a9'}}>
+                  {settings?.companyName?.charAt(0) || 'T'}
+                </div>
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-fixed truncate">{settings?.companyName || "VisiGate Pro"}</h1>
