@@ -164,6 +164,13 @@ export class CustomerDatabaseService {
       console.error(`⚠️ Schema migration failed for customer ${customerId}:`, error);
     }
     
+    // Ensure admin user exists in this customer schema (critical for production)
+    try {
+      await this.ensureAdminUserExists(customerId, db);
+    } catch (error) {
+      console.error(`⚠️ Admin user seeding failed for customer ${customerId}:`, error);
+    }
+    
     // For newly created schemas, migrate data from public schema if it exists
     if (isNewSchema) {
       try {
@@ -239,6 +246,41 @@ export class CustomerDatabaseService {
     }
     
     return db;
+  }
+
+  private async ensureAdminUserExists(customerId: string, db: ReturnType<typeof drizzle>): Promise<void> {
+    try {
+      const existingUsers = await db.execute(`SELECT id, username, role FROM users LIMIT 5`);
+      
+      if (existingUsers.rows && existingUsers.rows.length > 0) {
+        const hasAdmin = existingUsers.rows.some((u: any) => u.role === 'admin');
+        if (hasAdmin) {
+          return;
+        }
+        console.log(`⚠️ Customer ${customerId} has ${existingUsers.rows.length} users but no admin - creating one`);
+      } else {
+        console.log(`🌱 No users found for customer ${customerId} - seeding default admin user`);
+      }
+
+      const bcrypt = await import('bcrypt');
+      const defaultPassword = await bcrypt.hash('password123', 10);
+      
+      await db.execute(`
+        INSERT INTO users (username, email, first_name, last_name, role, password, is_active)
+        VALUES ('ACS', 'admin@tprmax.com', 'Admin', 'User', 'admin', '${defaultPassword}', true)
+        ON CONFLICT (username) DO NOTHING
+      `);
+      
+      await db.execute(`
+        INSERT INTO users (username, email, first_name, last_name, role, password, is_active)
+        VALUES ('system', 'system@tprmax.com', '', '', 'user', '${defaultPassword}', true)
+        ON CONFLICT (username) DO NOTHING
+      `);
+      
+      console.log(`✅ Admin user seeded for customer ${customerId} (username: ACS, password: password123)`);
+    } catch (error) {
+      console.error(`❌ Failed to seed admin user for ${customerId}:`, error);
+    }
   }
 
   /**
