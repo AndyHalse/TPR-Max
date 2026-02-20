@@ -396,6 +396,8 @@ export class AuthService {
    */
   static async authenticateUser(companyName: string, username: string, password: string): Promise<{ user: User; customer: Customer } | null> {
     try {
+      companyName = companyName.trim();
+      username = username.trim();
       console.log(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
       
       // DEV BYPASS CHECK FIRST!

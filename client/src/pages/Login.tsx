@@ -167,6 +167,7 @@ export default function Login() {
                   data-testid="input-company-name"
                   disabled={isLoading}
                   autoFocus
+                  autoComplete="organization"
                 />
               </div>
             </div>
