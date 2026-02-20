@@ -17,6 +17,8 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
   
   // Get current user info
   const { data: user } = useQuery<{ id: string; username: string }>({
@@ -140,6 +142,27 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [settings?.backgroundColor, settings?.foregroundColor, settings?.variableTextColor, settings?.accentColor]);
 
+  useEffect(() => {
+    setLogoSrc(null);
+    setLogoFailed(false);
+    if (settings?.logoUrl) {
+      const img = new Image();
+      img.onload = () => setLogoSrc(`/objects${settings.logoUrl}`);
+      img.onerror = () => {
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => setLogoSrc(acsLogoFallback);
+        fallbackImg.onerror = () => setLogoFailed(true);
+        fallbackImg.src = acsLogoFallback;
+      };
+      img.src = `/objects${settings.logoUrl}`;
+    } else if (settings) {
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => setLogoSrc(acsLogoFallback);
+      fallbackImg.onerror = () => setLogoFailed(true);
+      fallbackImg.src = acsLogoFallback;
+    }
+  }, [settings?.logoUrl]);
+
   const allNavItems = [
     { path: "/", icon: ChartLine, label: "Dashboard", alwaysVisible: true },
     { path: "/visitors", icon: User, label: "Visitors", alwaysVisible: true },
@@ -179,33 +202,27 @@ export default function Layout({ children }: LayoutProps) {
           <Link href="/marketing">
             <div className="flex items-center space-x-3 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
               <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center flex-shrink-0">
-                {settings?.logoUrl ? (
+                {logoSrc && !logoFailed ? (
                   <img 
-                    src={`/objects${settings.logoUrl}`}
+                    src={logoSrc}
                     alt="Company Logo" 
                     className="w-15 h-15 object-contain rounded"
-                    onError={(e) => {
-                      e.currentTarget.src = acsLogoFallback;
-                      e.currentTarget.onerror = () => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                      };
+                    onError={() => {
+                      setLogoSrc(null);
+                      setLogoFailed(true);
                     }}
                   />
+                ) : logoFailed ? (
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={{color: settings?.accentColor || '#2460a9'}}>
+                    {settings?.companyName?.charAt(0) || 'T'}
+                  </div>
                 ) : (
                   <img 
                     src={acsLogoFallback}
                     alt="Company Logo" 
                     className="w-15 h-15 object-contain rounded"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                    }}
                   />
                 )}
-                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 items-center justify-center text-lg font-bold" style={{display: 'none', color: settings?.accentColor || '#2460a9'}}>
-                  {settings?.companyName?.charAt(0) || 'T'}
-                </div>
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-fixed truncate">{settings?.companyName || "VisiGate Pro"}</h1>

@@ -84,6 +84,13 @@ import { stripeService } from "./stripeService";
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+
   // AWS Health Check endpoints (HIGHEST PRIORITY - before any other routes)
   // These endpoints are critical for load balancer health checks and monitoring
   const { healthCheckService } = await import("./healthChecks");
