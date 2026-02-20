@@ -719,7 +719,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             });
           }
 
-          signupSessionId = checkoutSession.metadata?.signupSessionId;
+          signupSessionId = checkoutSession.metadata?.signupSessionId ?? '';
           if (!signupSessionId) {
             console.error(`❌ No signup session ID in checkout session metadata: ${session_id}`);
             return res.status(400).json({
@@ -816,7 +816,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Redirect to error page
       const errorUrl = process.env.NODE_ENV === 'production'
         ? '/signup/error'
-        : `/signup/error?error=${encodeURIComponent(error?.message || 'Unknown error')}`;
+        : `/signup/error?error=${encodeURIComponent((error as any)?.message || 'Unknown error')}`;
         
       res.redirect(errorUrl);
     }
@@ -837,7 +837,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           success: false,
           error: 'Rate limit exceeded. Please try again later.',
           code: 'RATE_LIMIT_EXCEEDED'
-        } as CustomerOnboardingError);
+        } as any);
       }
 
       // Security: Basic authentication check
@@ -850,7 +850,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           success: false,
           error: 'Authentication required',
           code: 'AUTHENTICATION_REQUIRED'
-        } as CustomerOnboardingError);
+        } as any);
       }
 
       const token = authHeader.split(' ')[1];
@@ -860,7 +860,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           success: false,
           error: 'Invalid authentication token',
           code: 'INVALID_TOKEN'
-        } as CustomerOnboardingError);
+        } as any);
       }
 
       // Increment rate limit counter
@@ -2312,7 +2312,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const { page = 1, limit = 50, staffId, status } = req.query;
-      const logs = await databaseService.getVoiceNotificationLogs(context, {
+      const logs = await (databaseService as any).getVoiceNotificationLogs(context, {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         staffId: staffId as string,
@@ -2345,14 +2345,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       
       // Check if voice notifications are enabled for this staff member
-      if (!staff.voiceNotificationsEnabled || !staff.phoneNumber) {
+      if (!(staff as any).voiceNotificationsEnabled || !(staff as any).phoneNumber) {
         return res.status(400).json({ 
           error: "Voice notifications not enabled or no phone number configured" 
         });
       }
       
       // Send test voice notification
-      const voiceService = new VoiceNotificationService(databaseService);
+      const voiceService = new VoiceNotificationService(databaseService as any);
       const testMessage = customMessage || `Hello ${staff.firstName}, this is a test call from VisiGate Pro voice notification system. Your notifications are working correctly.`;
       
       const notification = await voiceService.sendTestNotification(
@@ -3492,13 +3492,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       const emergencyContext = simpleDatabaseService.createDevelopmentContext();
       const validatedStaff = await databaseService.validateEmergencyToken(emergencyContext, emergencyToken);
-      console.log(`🔍 EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName + ' (Customer: ' + validatedStaff.customerId + ')' : 'FAILED - No matching staff found'}`);
+      console.log(`🔍 EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName + ' (Customer: ' + (validatedStaff as any).customerId + ')' : 'FAILED - No matching staff found'}`);
       
       if (!validatedStaff) {
         return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
       }
       
-      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed emergency/active for customer: ${validatedStaff.customerId}`);
+      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed emergency/active for customer: ${(validatedStaff as any).customerId}`);
       
       // Check for active evacuations for the Fire Marshal's customer only
       const activeEvacuations = await db
@@ -3506,7 +3506,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         .from(evacuations)
         .where(and(
           eq(evacuations.status, 'active'),
-          eq(evacuations.customerId, validatedStaff.customerId)
+          eq(evacuations.customerId, (validatedStaff as any).customerId)
         ))
         .orderBy(desc(evacuations.startedAt))
         .limit(1);
@@ -3686,7 +3686,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         .select()
         .from(evacuations)
         .where(and(
-          eq(evacuations.customerId, customerId),
+          eq(evacuations.customerId, customerId as any),
           eq(evacuations.status, 'active')
         ))
         .orderBy(desc(evacuations.startedAt))
@@ -3710,7 +3710,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         
         evacuation = [{
           evacuationId: newEvacuationId,
-          customerId: customerDbConnection,
+          customerId: customerDbConnection || '',
           activatedBy: marshalName,
           startedAt: new Date(),
           status: 'active',
@@ -3720,7 +3720,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         }];
         
         // Insert the emergency evacuation record
-        await db.insert(evacuations).values(evacuation[0]);
+        await db.insert(evacuations).values(evacuation[0] as any);
         
         // Create accountability records for all on-site personnel
         const customerDb = await customerDbService.getCustomerDatabase(customerDbConnection);
@@ -3747,9 +3747,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         const accountabilityRecords = [
           ...checkedInStaff.map(s => ({
             evacuationId: newEvacuationId,
-            customerId: customerDbConnection,
+            customerId: customerDbConnection || '',
             personId: s.id,
-            personType: 'staff',
+            personType: 'staff' as any,
             personName: `${s.firstName} ${s.lastName}`,
             department: s.department,
             lastKnownLocation: 'Building A',
@@ -3757,9 +3757,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           })),
           ...currentVisitors.map(v => ({
             evacuationId: newEvacuationId,
-            customerId: customerDbConnection,
+            customerId: customerDbConnection || '',
             personId: v.id,
-            personType: 'visitor',
+            personType: 'visitor' as any,
             personName: `${v.firstName} ${v.lastName}`,
             company: v.company,
             lastKnownLocation: 'Reception',
@@ -3767,9 +3767,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           })),
           ...checkedInContractors.map(c => ({
             evacuationId: newEvacuationId,
-            customerId: customerDbConnection,
+            customerId: customerDbConnection || '',
             personId: c.id,
-            personType: 'contractor',
+            personType: 'contractor' as any,
             personName: `${c.firstName} ${c.lastName}`,
             department: c.department,
             lastKnownLocation: 'Site',
@@ -3778,7 +3778,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         ];
         
         if (accountabilityRecords.length > 0) {
-          await db.insert(evacuationAccountability).values(accountabilityRecords);
+          await db.insert(evacuationAccountability).values(accountabilityRecords as any);
         }
         
         // Update total people count
@@ -3810,7 +3810,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           and(
             eq(evacuationAccountability.evacuationId, evacuationId),
             eq(evacuationAccountability.personId, personId),
-            eq(evacuationAccountability.customerId, customerIdFinal)
+            eq(evacuationAccountability.customerId, customerIdFinal as any)
           )
         )
         .returning();
@@ -3850,7 +3850,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
                 if (memberMatch) {
                   personName = `${memberMatch.firstName} ${memberMatch.lastName}`;
                   personType = 'member';
-                  company = memberMatch.company;
+                  company = (memberMatch as any).company;
                 }
               } catch (e) {}
             }
@@ -3859,9 +3859,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         
         const insertResult = await db.insert(evacuationAccountability).values({
           evacuationId,
-          customerId: customerIdFinal,
+          customerId: customerIdFinal || '',
           personId,
-          personType,
+          personType: personType as any,
           personName,
           department,
           company,
@@ -3907,7 +3907,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         websocketService.broadcastMusterUpdate(customerId, evacuationId, {
           personId: result[0].personId,
           personName: result[0].personName,
-          personType: result[0].personType,
+          personType: result[0].personType as any,
           isAccountedFor: result[0].isAccountedFor,
           musterPoint: result[0].musterPoint
         });
@@ -4205,7 +4205,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const activeEvacuation = activeEvacuations[0];
 
       // If there's an active evacuation, calculate stats for each muster point
-      let stats = {};
+      let stats: Record<string, any> = {};
       if (activeEvacuation) {
         for (const point of points) {
           const accountedAt = await db
@@ -6568,8 +6568,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         if (visitor.email && (settings.ePassDeliveryMethod === 'email' || settings.ePassDeliveryMethod === 'both' || settings.ePassDeliveryMethod === 'choice')) {
           try {
             const emailSent = await emailService.sendDigitalEPass(
-              visitor,
-              host || null,
+              visitor as any,
+              (host || null) as any,
               settings!,
               ePassUrl
             );
@@ -6591,10 +6591,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           let notificationSent = false;
           
           // Try voice notification first if enabled and configured
-          if (host.voiceNotificationsEnabled && host.phoneNumber && 
-              (host.preferredNotificationMethod === 'voice' || host.preferredNotificationMethod === 'both')) {
+          if ((host as any).voiceNotificationsEnabled && (host as any).phoneNumber && 
+              ((host as any).preferredNotificationMethod === 'voice' || (host as any).preferredNotificationMethod === 'both')) {
             try {
-              const voiceService = new VoiceNotificationService(databaseService);
+              const voiceService = new VoiceNotificationService(databaseService as any);
               const voiceNotification = await voiceService.sendVisitorArrivalNotification(host, visitor);
               
               if (voiceNotification) {

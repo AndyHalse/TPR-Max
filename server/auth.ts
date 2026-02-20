@@ -408,14 +408,34 @@ export class AuthService {
           user: {
             id: devUser.id,
             username: devUser.username,
-            password: '', // Never return actual password
-            customerId: devUser.customerId
-          },
+            password: '',
+            customerId: devUser.customerId,
+            role: 'admin',
+            email: null,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            firstName: null,
+            lastName: null,
+            lastLoginAt: null,
+          } as User,
           customer: {
             id: devUser.customerId,
             companyName: devUser.companyName,
-            createdAt: new Date()
-          }
+            createdAt: new Date(),
+            slug: '',
+            contactEmail: '',
+            databaseUrl: '',
+            isActive: true,
+            maxVisitorsPerMonth: null,
+            onboardingCompleted: null,
+            supportContactEmail: null,
+            supportContactPhone: null,
+            billingEmail: null,
+            subscriptionPlan: null,
+            subscriptionStatus: null,
+            updatedAt: new Date(),
+          } as Customer,
         };
       }
       
@@ -499,12 +519,23 @@ export class AuthService {
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock customer for company lookup');
-        // Return a mock customer for any company name in dev mode
         return {
           id: 'dev-customer-001',
           companyName: companyName,
-          createdAt: new Date('2024-01-01')
-        };
+          createdAt: new Date('2024-01-01'),
+          slug: '',
+          contactEmail: '',
+          databaseUrl: '',
+          isActive: true,
+          maxVisitorsPerMonth: null,
+          onboardingCompleted: null,
+          supportContactEmail: null,
+          supportContactPhone: null,
+          billingEmail: null,
+          subscriptionPlan: null,
+          subscriptionStatus: null,
+          updatedAt: new Date(),
+        } as Customer;
       }
       
       return null;
@@ -550,14 +581,16 @@ export class AuthService {
         return {
           id: 'dev-user-001',
           username: username,
-          password: '', // Never return actual password
+          password: '',
           customerId: 'dev-customer-001',
+          role: 'admin',
           email: 'dev@example.com',
           firstName: 'Dev',
           lastName: 'User',
-          accessLevel: 'admin',
           isActive: true,
-          createdAt: new Date('2024-01-01')
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date(),
+          lastLoginAt: null,
         } as User;
       }
       
