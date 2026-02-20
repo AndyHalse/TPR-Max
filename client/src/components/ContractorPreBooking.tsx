@@ -36,7 +36,8 @@ const contractorPreBookingSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   contactEmail: z.string().email("Valid email is required"),
   contactPhone: z.string().optional(),
-  workerName: z.string().min(1, "Worker name is required"),
+  workerFirstName: z.string().min(1, "First name is required"),
+  workerLastName: z.string().min(1, "Last name is required"),
   workerEmail: z.string().email().optional().or(z.literal("")),
   purpose: z.string().min(1, "Purpose is required"),
   scheduledDate: z.date(),
@@ -59,7 +60,8 @@ export default function ContractorPreBooking() {
       companyName: "",
       contactEmail: "",
       contactPhone: "",
-      workerName: "",
+      workerFirstName: "",
+      workerLastName: "",
       workerEmail: "",
       purpose: "Work",
       scheduledDate: new Date(),
@@ -198,10 +200,15 @@ export default function ContractorPreBooking() {
   });
 
   const handleSubmit = (data: FormData) => {
+    const { workerFirstName, workerLastName, ...rest } = data;
+    const submitData = {
+      ...rest,
+      workerName: `${workerFirstName} ${workerLastName}`.trim(),
+    };
     if (editingBooking) {
-      updatePreBookingMutation.mutate({ id: editingBooking.id, data });
+      updatePreBookingMutation.mutate({ id: editingBooking.id, data: submitData as any });
     } else {
-      createPreBookingMutation.mutate(data);
+      createPreBookingMutation.mutate(submitData as any);
     }
   };
 
@@ -211,7 +218,8 @@ export default function ContractorPreBooking() {
       companyName: booking.companyName,
       contactEmail: booking.contactEmail,
       contactPhone: booking.contactPhone || "",
-      workerName: booking.workerName,
+      workerFirstName: booking.workerName?.split(' ')[0] || "",
+      workerLastName: booking.workerName?.split(' ').slice(1).join(' ') || "",
       workerEmail: booking.workerEmail || "",
       purpose: booking.purpose,
       scheduledDate: new Date(booking.scheduledDate),
@@ -282,12 +290,26 @@ export default function ContractorPreBooking() {
 
                 <FormField
                   control={form.control}
-                  name="workerName"
+                  name="workerFirstName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Worker Name *</FormLabel>
+                      <FormLabel>First Name *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="John Smith" />
+                        <Input {...field} placeholder="John" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="workerLastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name *</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Smith" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
