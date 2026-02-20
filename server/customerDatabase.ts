@@ -34,7 +34,7 @@ export class CustomerDatabaseService {
 
   private schemaNameCache: Map<string, string> = new Map();
 
-  private generateSchemaName(customerId: string): string {
+  public generateSchemaName(customerId: string): string {
     if (this.schemaNameCache.has(customerId)) {
       return this.schemaNameCache.get(customerId)!;
     }
@@ -147,13 +147,10 @@ export class CustomerDatabaseService {
         pool = new Pool({
           connectionString,
           max: 5,
-          min: 1,
+          min: 0,
           idleTimeoutMillis: 60000,
           connectionTimeoutMillis: 10000,
-        });
-        
-        pool.on('connect', (client) => {
-          client.query(`SET search_path TO ${schemaName}, public`);
+          options: `-c search_path=${schemaName},public`,
         });
         
         const schemaExists = await pool.query(

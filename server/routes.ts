@@ -8008,10 +8008,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Get company settings for customer
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
-      console.log(`🎨 Loading company settings FOR CUSTOMER: ${context.customerId}`);
+      console.log(`🎨 Loading company settings FOR CUSTOMER: ${context.customerId}, companyName: ${settings?.companyName || 'NOT_SET'}`);
       
-      // ⚠️ SECURITY: Remove sensitive credentials from response
-      // These should never be sent to the client - they're write-only
       if (settings) {
         const {
           biostarPassword,

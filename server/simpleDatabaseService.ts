@@ -64,7 +64,6 @@ export class SimpleDatabaseService {
     console.log(`🔍 Getting company settings for customer: ${context.customerId}`);
     
     try {
-      // Use customer isolated database - no customerId filter needed
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       const settings = await customerDb
         .select()
@@ -75,6 +74,8 @@ export class SimpleDatabaseService {
       if (!result) {
         return undefined;
       }
+      
+      console.log(`📋 Company settings loaded: "${result.companyName}" for customer ${context.customerId}`);
       
       // SECURITY: Exclude sensitive fields from API responses
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -88,17 +89,17 @@ export class SimpleDatabaseService {
         console.warn(`⚠️ Attempting fallback query with essential fields only...`);
         
         try {
-          // Fallback: Query with raw SQL to get only existing columns
           const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+          const schemaName = customerDbService.generateSchemaName(context.customerId);
           const rawResult = await customerDb.execute(sql`
-            SELECT * FROM company_settings LIMIT 1
+            SELECT * FROM ${sql.raw(schemaName)}.company_settings LIMIT 1
           `);
           
           if (rawResult.rows && rawResult.rows.length > 0) {
             const result = rawResult.rows[0];
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { smtp_password, ...sanitized } = result as any;
-            console.log(`✅ Fallback query successful for ${context.customerId}`);
+            console.log(`✅ Fallback query successful for ${context.customerId} from schema ${schemaName}`);
             return sanitized as CompanySettings;
           }
         } catch (fallbackError) {
