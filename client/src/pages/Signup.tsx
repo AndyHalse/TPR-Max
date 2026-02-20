@@ -252,7 +252,7 @@ export default function Signup() {
                   <Input
                     {...field}
                     type="email"
-                    placeholder="contact@company.com"
+                    placeholder=""
                     className="pl-10"
                     data-testid="input-contact-email"
                   />
@@ -349,7 +349,7 @@ export default function Signup() {
                     <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
                     <Input
                       {...field}
-                      placeholder="+44 20 1234 5678"
+                      placeholder=""
                       className="pl-10"
                       data-testid="input-phone"
                     />
@@ -371,7 +371,7 @@ export default function Signup() {
                     <Globe className="absolute left-3 top-3 text-slate-400" size={18} />
                     <Input
                       {...field}
-                      placeholder="https://www.company.com"
+                      placeholder=""
                       className="pl-10"
                       data-testid="input-website"
                     />
@@ -420,7 +420,7 @@ export default function Signup() {
                     <User className="absolute left-3 top-3 text-slate-400" size={18} />
                     <Input
                       {...field}
-                      placeholder="John"
+                      placeholder=""
                       className="pl-10"
                       data-testid="input-admin-first-name"
                     />
@@ -442,7 +442,7 @@ export default function Signup() {
                     <User className="absolute left-3 top-3 text-slate-400" size={18} />
                     <Input
                       {...field}
-                      placeholder="Smith"
+                      placeholder=""
                       className="pl-10"
                       data-testid="input-admin-last-name"
                     />
@@ -466,7 +466,7 @@ export default function Signup() {
                   <Input
                     {...field}
                     type="email"
-                    placeholder="admin@company.com"
+                    placeholder=""
                     className="pl-10"
                     data-testid="input-admin-email"
                   />

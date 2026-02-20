@@ -1208,7 +1208,7 @@ export default function Contractors() {
               <Textarea
                 value={contractorForm.description}
                 onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })}
-                placeholder="Brief description of company services and expertise..."
+                placeholder=""
                 data-testid="input-description"
                 rows={2}
               />
@@ -1437,7 +1437,7 @@ export default function Contractors() {
               <Textarea
                 value={contractorForm.description}
                 onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })}
-                placeholder="Brief description of company services and expertise..."
+                placeholder=""
                 data-testid="input-edit-description"
                 rows={2}
               />

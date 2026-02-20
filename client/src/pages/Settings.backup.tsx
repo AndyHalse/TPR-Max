@@ -828,7 +828,7 @@ export default function Settings() {
                       value={currentSettings?.phone || ""}
                       onChange={(e) => handleInputChange("phone", e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                      placeholder="+44 20 1234 5678"
+                      placeholder=""
                       data-testid="input-company-phone"
                     />
                   </div>
@@ -1104,7 +1104,7 @@ export default function Settings() {
                       id="smtpFromName"
                       value={currentSettings?.smtpFromName || ""}
                       onChange={(e) => handleInputChange("smtpFromName", e.target.value)}
-                      placeholder="VisiGate Pro System"
+                      placeholder=""
                       className="px-4 py-3 rounded-xl border border-white/30 bg-white/50"
                       data-testid="input-smtp-from-name"
                     />

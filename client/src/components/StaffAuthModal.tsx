@@ -112,7 +112,7 @@ export default function StaffAuthModal({
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-              placeholder="admin@company.com"
+              placeholder=""
               data-testid="input-auth-email"
             />
           </div>

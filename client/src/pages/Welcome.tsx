@@ -363,7 +363,7 @@ export default function Welcome() {
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
-                        <Input {...field} placeholder="+44 20 1234 5678" className="pl-10" data-testid="input-phone" />
+                        <Input {...field} placeholder="" className="pl-10" data-testid="input-phone" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -380,7 +380,7 @@ export default function Welcome() {
                     <FormControl>
                       <div className="relative">
                         <Globe className="absolute left-3 top-3 text-slate-400" size={18} />
-                        <Input {...field} placeholder="https://www.company.com" className="pl-10" data-testid="input-website" />
+                        <Input {...field} placeholder="" className="pl-10" data-testid="input-website" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -398,7 +398,7 @@ export default function Welcome() {
                   <FormControl>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
-                      <Input {...field} placeholder="support@company.com" className="pl-10" data-testid="input-support-email" />
+                      <Input {...field} placeholder="" className="pl-10" data-testid="input-support-email" />
                     </div>
                   </FormControl>
                   <FormMessage />
