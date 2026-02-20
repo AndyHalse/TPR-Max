@@ -524,13 +524,17 @@ export class AuthService {
         .where(eq(isolatedSchema.users.username, username))
         .limit(1);
 
+      console.log(`🔍 Auth DB query: found ${users.length} users for "${username}"`);
       const user = users[0];
       if (!user) {
+        console.log(`❌ No user found in customer DB for: "${username}"`);
         return null;
       }
 
+      console.log(`🔍 Verifying password for user: ${user.username}, hash starts with: ${user.password?.substring(0, 10)}`);
       const isValid = await this.verifyPassword(password, user.password);
       if (!isValid) {
+        console.log(`❌ Password mismatch for user: "${username}"`);
         return null;
       }
 
