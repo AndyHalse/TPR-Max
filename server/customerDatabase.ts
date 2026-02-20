@@ -262,8 +262,8 @@ export class CustomerDatabaseService {
         console.log(`🌱 No users found for customer ${customerId} - seeding default admin user`);
       }
 
-      const bcrypt = await import('bcrypt');
-      const defaultPassword = await bcrypt.hash('password123', 10);
+      const bcrypt = await import('bcryptjs');
+      const defaultPassword = await bcrypt.default.hash('password123', 10);
       
       await db.execute(`
         INSERT INTO users (username, email, first_name, last_name, role, password, is_active)

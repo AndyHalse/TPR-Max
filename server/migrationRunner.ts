@@ -147,6 +147,13 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addMissingCompanySettingsColumnsMigration,
     ...staffSessionsMigrations,
     ...missingTablesMigrations,
+    evacuationZonesMigration,
+    reportsMigration,
+    evacuationsTableMigration,
+    printSystemMigration,
+    helpSystemMigration,
+    featureTogglesMigration,
+    staffAttendanceHistoryMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -498,6 +505,312 @@ const addMissingCompanySettingsColumnsMigration: Migration = {
     }
 
     console.log(`✅ Added ${addedCount} missing columns to company_settings table`);
+  }
+};
+
+// Migration to add evacuation zones system
+const evacuationZonesMigration: Migration = {
+  version: '20260220_001_add_evacuation_zones',
+  description: 'Add evacuation zones table and zone_id columns to staff, visitors, members, contractor_workers',
+  async up(db: any) {
+    // Create evacuation_zones table
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS evacuation_zones (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          description TEXT DEFAULT '',
+          color TEXT DEFAULT '#3B82F6',
+          sort_order INTEGER DEFAULT 0,
+          is_active BOOLEAN DEFAULT true,
+          map_x REAL DEFAULT 50,
+          map_y REAL DEFAULT 50,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created evacuation_zones table');
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        console.log(`⚠️ evacuation_zones table: ${error.message?.substring(0, 80)}`);
+      }
+    }
+
+    // Add zone_id to staff, visitors, members, contractor_workers
+    const tables = ['staff', 'visitors', 'members', 'contractor_workers'];
+    for (const table of tables) {
+      try {
+        const colExists = await db.execute(`
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = '${table}' AND column_name = 'zone_id'
+        `);
+        if (!colExists.rows || colExists.rows.length === 0) {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN zone_id VARCHAR(255) DEFAULT NULL`);
+          console.log(`✅ Added zone_id to ${table}`);
+        }
+      } catch (error: any) {
+        console.log(`⚠️ zone_id on ${table}: ${error.message?.substring(0, 80)}`);
+      }
+    }
+
+    // Add zone columns to company_settings
+    const settingsCols = [
+      { name: 'zones_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'daily_reset_timezone', def: "TEXT DEFAULT 'Europe/London'" },
+      { name: 'zone_map_url', def: 'TEXT DEFAULT NULL' },
+    ];
+    for (const col of settingsCols) {
+      try {
+        const colExists = await db.execute(`
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'company_settings' AND column_name = '${col.name}'
+        `);
+        if (!colExists.rows || colExists.rows.length === 0) {
+          await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col.name} ${col.def}`);
+          console.log(`✅ Added ${col.name} to company_settings`);
+        }
+      } catch (error: any) {
+        console.log(`⚠️ ${col.name} on company_settings: ${error.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Migration to add reports table
+const reportsMigration: Migration = {
+  version: '20260220_002_add_reports_table',
+  description: 'Add reports table for report generation and storage',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS reports (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'general',
+          description TEXT DEFAULT '',
+          parameters JSONB DEFAULT '{}',
+          data JSONB DEFAULT '{}',
+          status TEXT DEFAULT 'completed',
+          generated_by TEXT DEFAULT 'system',
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created reports table');
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        console.log(`⚠️ reports table: ${error.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Migration to add evacuations table
+const evacuationsTableMigration: Migration = {
+  version: '20260220_003_add_evacuations_table',
+  description: 'Add evacuations table for tracking evacuation events',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS evacuations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          status TEXT DEFAULT 'active',
+          started_at TIMESTAMP DEFAULT NOW(),
+          ended_at TIMESTAMP,
+          started_by TEXT DEFAULT 'system',
+          ended_by TEXT,
+          zone_ids JSONB DEFAULT '[]',
+          total_personnel INTEGER DEFAULT 0,
+          accounted_for INTEGER DEFAULT 0,
+          notes TEXT DEFAULT '',
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created evacuations table');
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        console.log(`⚠️ evacuations table: ${error.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Migration to add print system tables
+const printSystemMigration: Migration = {
+  version: '20260220_004_add_print_system_tables',
+  description: 'Add print system tables: print_queue, print_job_history, printer_configurations, print_service_instances',
+  async up(db: any) {
+    const tables = [
+      {
+        name: 'print_queue',
+        sql: `CREATE TABLE IF NOT EXISTS print_queue (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          document_type TEXT NOT NULL DEFAULT 'visitor_pass',
+          document_id TEXT,
+          printer_id TEXT,
+          status TEXT DEFAULT 'pending',
+          priority INTEGER DEFAULT 0,
+          data JSONB DEFAULT '{}',
+          error_message TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )`
+      },
+      {
+        name: 'print_job_history',
+        sql: `CREATE TABLE IF NOT EXISTS print_job_history (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          document_type TEXT NOT NULL DEFAULT 'visitor_pass',
+          document_id TEXT,
+          printer_id TEXT,
+          status TEXT DEFAULT 'completed',
+          data JSONB DEFAULT '{}',
+          error_message TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )`
+      },
+      {
+        name: 'printer_configurations',
+        sql: `CREATE TABLE IF NOT EXISTS printer_configurations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          type TEXT DEFAULT 'thermal',
+          connection_type TEXT DEFAULT 'usb',
+          address TEXT DEFAULT '',
+          port INTEGER DEFAULT 9100,
+          is_default BOOLEAN DEFAULT false,
+          is_active BOOLEAN DEFAULT true,
+          settings JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )`
+      },
+      {
+        name: 'print_service_instances',
+        sql: `CREATE TABLE IF NOT EXISTS print_service_instances (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          status TEXT DEFAULT 'offline',
+          last_heartbeat TIMESTAMP,
+          capabilities JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT NOW()
+        )`
+      }
+    ];
+
+    for (const table of tables) {
+      try {
+        await db.execute(table.sql);
+        console.log(`✅ Created ${table.name} table`);
+      } catch (error: any) {
+        if (!error.message?.includes('already exists')) {
+          console.log(`⚠️ ${table.name}: ${error.message?.substring(0, 80)}`);
+        }
+      }
+    }
+  }
+};
+
+// Migration to add help system tables
+const helpSystemMigration: Migration = {
+  version: '20260220_005_add_help_system_tables',
+  description: 'Add help system tables: help_categories, help_articles',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS help_categories (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          description TEXT DEFAULT '',
+          icon TEXT DEFAULT 'help-circle',
+          sort_order INTEGER DEFAULT 0,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created help_categories table');
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        console.log(`⚠️ help_categories: ${error.message?.substring(0, 80)}`);
+      }
+    }
+
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS help_articles (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          category_id UUID,
+          title TEXT NOT NULL,
+          content TEXT DEFAULT '',
+          tags TEXT[] DEFAULT '{}',
+          is_featured BOOLEAN DEFAULT false,
+          is_active BOOLEAN DEFAULT true,
+          view_count INTEGER DEFAULT 0,
+          contextual_routes TEXT[] DEFAULT '{}',
+          sort_order INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created help_articles table');
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        console.log(`⚠️ help_articles: ${error.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Migration to add feature_toggles table
+const featureTogglesMigration: Migration = {
+  version: '20260220_006_add_feature_toggles_table',
+  description: 'Add feature_toggles table for per-customer feature management',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS feature_toggles (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          feature_key TEXT NOT NULL UNIQUE,
+          is_enabled BOOLEAN DEFAULT false,
+          description TEXT DEFAULT '',
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created feature_toggles table');
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        console.log(`⚠️ feature_toggles: ${error.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Migration to add staff_attendance_history table
+const staffAttendanceHistoryMigration: Migration = {
+  version: '20260220_007_add_staff_attendance_history',
+  description: 'Add staff_attendance_history table for time and attendance tracking',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS staff_attendance_history (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id UUID,
+          date DATE NOT NULL DEFAULT CURRENT_DATE,
+          check_in_time TIMESTAMP,
+          check_out_time TIMESTAMP,
+          total_hours REAL DEFAULT 0,
+          status TEXT DEFAULT 'present',
+          notes TEXT DEFAULT '',
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created staff_attendance_history table');
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        console.log(`⚠️ staff_attendance_history: ${error.message?.substring(0, 80)}`);
+      }
+    }
   }
 };
 
