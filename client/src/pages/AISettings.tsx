@@ -230,14 +230,14 @@ export default function AISettings() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 p-3 sm:p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Brain className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">AI Settings</h1>
+            <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-200">AI Settings</h1>
           </div>
           <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
             Securely manage your OpenAI and Gemini API keys. All keys are encrypted and stored in your isolated customer database.

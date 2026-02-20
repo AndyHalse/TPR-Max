@@ -173,11 +173,11 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen">
       {/* Navigation */}
-      <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 py-3">
+      <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 sm:py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link href="/marketing">
             <div className="flex items-center space-x-3 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center flex-shrink-0">
                 {settings?.logoUrl ? (
                   <img 
                     src={`/objects${settings.logoUrl}`}
@@ -260,7 +260,7 @@ export default function Layout({ children }: LayoutProps) {
           />
           
           {/* Menu Panel */}
-          <div className="lg:hidden fixed top-[88px] left-0 right-0 z-50 shadow-xl max-h-[calc(100vh-88px)] overflow-y-auto" style={{ background: 'var(--background)' }}>
+          <div className="lg:hidden fixed top-[72px] sm:top-[88px] left-0 right-0 z-50 shadow-xl max-h-[calc(100vh-72px)] sm:max-h-[calc(100vh-88px)] overflow-y-auto" style={{ background: 'var(--background)' }}>
             <div className="px-3 py-2 space-y-1">
               {navItems.map((item) => (
                 <Link key={item.path} href={item.path}>
@@ -285,7 +285,7 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Main Content */}
-      <div className="pt-24 pb-8 px-6">
+      <div className="pt-20 sm:pt-24 pb-6 sm:pb-8 px-3 sm:px-6">
         <div className="max-w-7xl mx-auto">
           {children}
         </div>

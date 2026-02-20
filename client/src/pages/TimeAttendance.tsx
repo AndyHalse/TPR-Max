@@ -129,7 +129,7 @@ export default function TimeAttendance() {
   }
 
   return (
-    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-fixed">Time & Attendance Report</h2>

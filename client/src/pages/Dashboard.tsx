@@ -727,7 +727,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       {/* People On-Site Section */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
@@ -735,12 +735,12 @@ export default function Dashboard() {
           People On-Site
         </h2>
         <div className="flex flex-col lg:flex-row gap-6">
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${stats?.featureMembers ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 flex-1`}>
+          <div className={`grid grid-cols-2 md:grid-cols-2 ${stats?.featureMembers ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-6 flex-1`}>
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Visitors</p>
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-current-visitors">
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-current-visitors">
                     {stats?.currentVisitors || 0}
                   </p>
                 </div>
@@ -754,7 +754,7 @@ export default function Dashboard() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Staff</p>
-                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-onsite">
+                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-onsite">
                     {stats?.staffOnSite || 0}
                   </p>
                 </div>
@@ -768,7 +768,7 @@ export default function Dashboard() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Contractors</p>
-                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractors-onsite">
+                  <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractors-onsite">
                     {stats?.contractorsOnSite || 0}
                   </p>
                 </div>
@@ -783,7 +783,7 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-variable text-sm font-medium">Members</p>
-                    <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
+                    <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
                       {stats?.membersOnSite || 0}
                     </p>
                   </div>
@@ -1119,7 +1119,7 @@ export default function Dashboard() {
 
                 return (
                   <div className="border rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[60px_1fr_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+                    <div className="hidden sm:grid grid-cols-[60px_1fr_1fr_1fr_70px_80px_90px] sm:grid-cols-[70px_1fr_1fr_1fr_80px_90px_100px] gap-1 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
                       <span>Time</span>
                       <span>Name</span>
                       <span>Company</span>
@@ -1559,7 +1559,7 @@ export default function Dashboard() {
       </GlassCard>
 
       {/* Department Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <GlassCard className="lg:col-span-2 dark:glass-dark">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-fixed">Department Activity</h3>
@@ -1663,7 +1663,7 @@ export default function Dashboard() {
       </div>
 
       {/* Current Visitors and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
         {/* Current Visitors */}
         <GlassCard>
           <div className="flex items-center justify-between mb-6">

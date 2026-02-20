@@ -438,9 +438,9 @@ export default function PreBooking() {
   }
 
   return (
-    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-fixed">Pre-book Visitors</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-fixed">Pre-book Visitors</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

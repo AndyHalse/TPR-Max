@@ -404,7 +404,7 @@ export default function InductionSettings() {
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">Health & Safety Induction</h1>
+        <h1 className="text-xl sm:text-3xl font-bold">Health & Safety Induction</h1>
         <p className="text-muted-foreground">
           Create professional UK HSE-compliant induction videos for your team
         </p>

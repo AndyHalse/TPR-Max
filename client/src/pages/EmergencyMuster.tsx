@@ -404,7 +404,7 @@ export default function EmergencyMuster() {
   }
 
   return (
-    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-fixed">Emergency Muster</h2>
@@ -665,7 +665,7 @@ export default function EmergencyMuster() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-variable text-sm font-medium">Accounted For</p>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1" data-testid="stat-accounted">
+              <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400 mt-1" data-testid="stat-accounted">
                 {accountedFor}
               </p>
               <p className="text-xs text-green-600 dark:text-green-400 mt-1">
@@ -678,12 +678,12 @@ export default function EmergencyMuster() {
           </div>
         </GlassCard>
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 flex-1`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-6 flex-1`}>
           <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-variable text-sm font-medium">Staff</p>
-                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-count">
+                <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-count">
                   {staffCount}
                 </p>
               </div>
@@ -697,7 +697,7 @@ export default function EmergencyMuster() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-variable text-sm font-medium">Visitors</p>
-                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-visitor-count">
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-visitor-count">
                   {visitorCount}
                 </p>
               </div>
@@ -711,7 +711,7 @@ export default function EmergencyMuster() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-variable text-sm font-medium">Contractors</p>
-                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractor-count">
+                <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractor-count">
                   {contractorCount}
                 </p>
               </div>
@@ -726,7 +726,7 @@ export default function EmergencyMuster() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-variable text-sm font-medium">Members</p>
-                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-member-count">
+                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-member-count">
                     {memberCount}
                   </p>
                 </div>

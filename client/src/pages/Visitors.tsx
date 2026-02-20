@@ -839,30 +839,30 @@ export default function Visitors() {
   }
 
   return (
-    <div className="space-y-6 p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-fixed">TPR Max</h1>
+        <h1 className="text-xl sm:text-3xl font-bold text-fixed">TPR Max</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex flex-col sm:grid w-full sm:grid-cols-3 bg-white/50 backdrop-blur-sm rounded-xl p-2 gap-2 sm:gap-0">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 bg-white/50 backdrop-blur-sm rounded-xl p-1.5 sm:p-2 gap-1.5 sm:gap-0">
           <TabsTrigger 
             value="existing" 
-            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap py-2 sm:py-2.5"
           >
             <History size={16} className="flex-shrink-0" />
             <span className="truncate">Previous Visitors</span>
           </TabsTrigger>
           <TabsTrigger 
             value="walkin" 
-            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap py-2 sm:py-2.5"
           >
             <UserPlus size={16} className="flex-shrink-0" />
             <span className="truncate">Walk-in Registration</span>
           </TabsTrigger>
           <TabsTrigger 
             value="prebook" 
-            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap py-2 sm:py-2.5"
           >
             <CalendarPlus size={16} className="flex-shrink-0" />
             <span className="truncate">Pre-booking</span>
@@ -873,25 +873,25 @@ export default function Visitors() {
         <TabsContent value="existing" className="space-y-6">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <History className="text-blue-600" size={24} />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+                  <History className="text-blue-600" size={20} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-fixed">Previous Visitors</h2>
-                  <p className="text-variable">Select a visitor who has been onsite before</p>
+                  <h2 className="text-lg sm:text-xl font-semibold text-fixed">Previous Visitors</h2>
+                  <p className="text-variable text-xs sm:text-sm">Select a visitor who has been onsite before</p>
                 </div>
               </div>
             </div>
 
             {/* Search */}
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-3 text-variable" size={20} />
+            <div className="relative mb-4 sm:mb-6">
+              <Search className="absolute left-3 top-3 text-variable" size={18} />
               <Input
                 placeholder="Search by visitor name or company..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 py-3 text-lg"
+                className="pl-10 py-2.5 sm:py-3 text-sm sm:text-lg"
                 data-testid="input-search-visitors"
               />
             </div>

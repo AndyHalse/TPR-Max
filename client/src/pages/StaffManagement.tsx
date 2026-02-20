@@ -411,7 +411,7 @@ export default function StaffManagement() {
   });
 
   return (
-    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
           <h2 className="text-xl sm:text-2xl font-bold text-fixed">Staff Management</h2>
@@ -437,7 +437,7 @@ export default function StaffManagement() {
       </div>
 
       {/* Staff Grid */}
-      <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-2"}>
+      <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6" : "space-y-2"}>
         {filteredStaff.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <p className="text-variable text-lg">No staff members found</p>

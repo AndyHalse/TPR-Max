@@ -99,9 +99,9 @@ export default function AIDemo() {
   };
 
   return (
-    <div className="space-y-8 p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-fixed">
+        <h1 className="text-xl sm:text-3xl font-bold text-fixed">
           AI-Powered Features Demo
         </h1>
         <p className="text-variable max-w-2xl mx-auto">

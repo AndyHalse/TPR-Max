@@ -149,11 +149,11 @@ export default function SuperAdmin() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
+          <h1 className="text-xl sm:text-3xl font-bold flex items-center gap-2">
             <Building2 className="w-8 h-8 text-blue-600" />
             Multi-Tenant Dashboard
           </h1>
