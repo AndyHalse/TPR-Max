@@ -285,9 +285,33 @@ export class DatabaseProvisioningService {
    * Format: c_<first8chars-of-customerId> for brevity and PostgreSQL compatibility
    */
   private generateSchemaName(customerId: string): string {
-    // Use first 8 characters + sanitize for PostgreSQL identifier rules
-    const schemaPrefix = customerId.replace(/-/g, '_').toLowerCase().substring(0, 8);
-    return `c_${schemaPrefix}`;
+    const sanitized = customerId.replace(/-/g, '_').toLowerCase();
+
+    const knownLegacyMappings: Record<string, string> = {
+      'dev-customer-001': 'c_dev_cust',
+      'test-customer-trial': 'c_test_cus',
+    };
+
+    if (knownLegacyMappings[customerId]) {
+      return knownLegacyMappings[customerId];
+    }
+
+    if (sanitized.length <= 8) {
+      return `c_${sanitized}`;
+    }
+
+    const isUUID = /^[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}$/.test(sanitized);
+    if (isUUID) {
+      return `c_${sanitized.substring(0, 8)}`;
+    }
+
+    const pgMaxIdentLen = 63;
+    const fullName = `c_${sanitized}`;
+    if (fullName.length <= pgMaxIdentLen) return fullName;
+
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(customerId).digest('hex').substring(0, 8);
+    return `c_${sanitized.substring(0, 50)}_${hash}`;
   }
 
   /**

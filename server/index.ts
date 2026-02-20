@@ -20,6 +20,14 @@ declare global {
   }
 }
 
+// SAFETY: Fail-fast if dev bypass env vars are set in production
+if (process.env.NODE_ENV === 'production') {
+  if (process.env.DEV_AUTH_BYPASS === 'true' || process.env.DEV_DATA_BYPASS === 'true') {
+    console.error('🔥 FATAL: DEV_AUTH_BYPASS or DEV_DATA_BYPASS must NOT be set in production. Refusing to start.');
+    process.exit(1);
+  }
+}
+
 // Global error handlers to prevent crashes - NEVER call process.exit() as it kills the server
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception - Critical application error', {
@@ -267,7 +275,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Validate required session secret in production
 if (isProduction && !process.env.SESSION_SECRET) {
-  console.error('🔥 WARNING: SESSION_SECRET environment variable is required in production - using fallback');
+  console.error('🔥 CRITICAL: SESSION_SECRET environment variable is required in production! Using a random ephemeral secret (sessions will not survive restarts).');
+}
+
+// Validate CORS origins are set in production
+if (isProduction && !process.env.ALLOWED_ORIGINS) {
+  console.warn('⚠️ WARNING: ALLOWED_ORIGINS not set in production. CORS will block all cross-origin requests. Set ALLOWED_ORIGINS to your domain(s).');
 }
 
 // Configure session store - PostgreSQL for production, development fallback
@@ -300,7 +313,7 @@ if (isProduction || process.env.USE_PG_SESSIONS === 'true') {
 }
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'visigate-pro-dev-secret-key-2024',
+  secret: process.env.SESSION_SECRET || (isProduction ? crypto.randomBytes(32).toString('hex') : 'visigate-pro-dev-secret-key-2024'),
   name: 'visigate.session',
   resave: false,
   saveUninitialized: false,

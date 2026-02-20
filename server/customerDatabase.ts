@@ -32,9 +32,51 @@ export class CustomerDatabaseService {
 
   private constructor() {}
 
+  private schemaNameCache: Map<string, string> = new Map();
+
   private generateSchemaName(customerId: string): string {
-    const schemaPrefix = customerId.replace(/-/g, '_').toLowerCase().substring(0, 8);
-    return `c_${schemaPrefix}`;
+    if (this.schemaNameCache.has(customerId)) {
+      return this.schemaNameCache.get(customerId)!;
+    }
+
+    const sanitized = customerId.replace(/-/g, '_').toLowerCase();
+
+    const legacyName = `c_${sanitized.substring(0, 8)}`;
+    const fullName = `c_${sanitized}`;
+
+    const knownLegacyMappings: Record<string, string> = {
+      'dev-customer-001': 'c_dev_cust',
+      'test-customer-trial': 'c_test_cus',
+    };
+
+    if (knownLegacyMappings[customerId]) {
+      this.schemaNameCache.set(customerId, knownLegacyMappings[customerId]);
+      return knownLegacyMappings[customerId];
+    }
+
+    if (sanitized.length <= 8) {
+      this.schemaNameCache.set(customerId, legacyName);
+      return legacyName;
+    }
+
+    const isUUID = /^[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}$/.test(sanitized);
+    if (isUUID) {
+      const result = `c_${sanitized.substring(0, 8)}`;
+      this.schemaNameCache.set(customerId, result);
+      return result;
+    }
+
+    const pgMaxIdentLen = 63;
+    if (fullName.length <= pgMaxIdentLen) {
+      this.schemaNameCache.set(customerId, fullName);
+      return fullName;
+    }
+
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(customerId).digest('hex').substring(0, 8);
+    const name = `c_${sanitized.substring(0, 50)}_${hash}`;
+    this.schemaNameCache.set(customerId, name);
+    return name;
   }
 
   static getInstance(): CustomerDatabaseService {
@@ -263,21 +305,31 @@ export class CustomerDatabaseService {
       }
 
       const bcrypt = await import('bcryptjs');
-      const defaultPassword = await bcrypt.default.hash('password123', 10);
-      
+      const crypto = await import('crypto');
+
+      const isProduction = process.env.NODE_ENV === 'production';
+      const tempPassword = isProduction
+        ? crypto.randomBytes(16).toString('hex')
+        : 'ChangeMe123!';
+      const hashedPassword = await bcrypt.default.hash(tempPassword, 10);
+
       await db.execute(`
         INSERT INTO users (username, email, first_name, last_name, role, password, is_active)
-        VALUES ('ACS', 'admin@tprmax.com', 'Admin', 'User', 'admin', '${defaultPassword}', true)
+        VALUES ('Admin', 'admin@tprmax.com', 'Admin', 'User', 'admin', '${hashedPassword}', true)
         ON CONFLICT (username) DO NOTHING
       `);
       
       await db.execute(`
         INSERT INTO users (username, email, first_name, last_name, role, password, is_active)
-        VALUES ('system', 'system@tprmax.com', '', '', 'user', '${defaultPassword}', true)
+        VALUES ('system', 'system@tprmax.com', '', '', 'user', '${hashedPassword}', true)
         ON CONFLICT (username) DO NOTHING
       `);
       
-      console.log(`✅ Admin user seeded for customer ${customerId} (username: ACS, password: password123)`);
+      if (isProduction) {
+        console.log(`✅ Admin user seeded for customer ${customerId} (username: Admin) - password must be changed on first login`);
+      } else {
+        console.log(`✅ Admin user seeded for customer ${customerId} (username: Admin, temp password: ${tempPassword})`);
+      }
     } catch (error) {
       console.error(`❌ Failed to seed admin user for ${customerId}:`, error);
     }

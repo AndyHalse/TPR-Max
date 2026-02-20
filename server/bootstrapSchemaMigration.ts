@@ -192,6 +192,21 @@ export const bootstrapSchemaMigration: Migration = {
     `);
 
     await db.execute(`
+      CREATE TABLE IF NOT EXISTS evacuation_zones (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#3b82f6',
+        description TEXT,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        map_x DOUBLE PRECISION,
+        map_y DOUBLE PRECISION,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await db.execute(`
       CREATE TABLE IF NOT EXISTS meeting_rooms (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         name TEXT NOT NULL,
