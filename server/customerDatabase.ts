@@ -95,7 +95,8 @@ export class CustomerDatabaseService {
     let db!: ReturnType<typeof drizzle>;
     let isNewSchema = false;
     
-    const connectionString = customer.databaseUrl || process.env.DATABASE_URL!;
+    const isProduction = process.env.NODE_ENV === 'production';
+    const connectionString = isProduction ? process.env.DATABASE_URL! : (customer.databaseUrl || process.env.DATABASE_URL!);
     const schemaName = this.generateSchemaName(customerId);
     const maxRetries = 3;
     
@@ -499,7 +500,8 @@ export class CustomerDatabaseService {
       }
 
       // Ensure database is provisioned and accessible
-      const connectionWorks = await databaseProvisioningService.testCustomerDatabase(customer.databaseUrl);
+      const dbUrlToTest = process.env.NODE_ENV === 'production' ? process.env.DATABASE_URL! : customer.databaseUrl;
+      const connectionWorks = await databaseProvisioningService.testCustomerDatabase(dbUrlToTest);
       
       if (!connectionWorks) {
         console.log(`🏗️ Provisioning database for customer: ${customerId}`);
