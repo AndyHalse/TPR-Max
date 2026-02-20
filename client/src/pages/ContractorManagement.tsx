@@ -1907,7 +1907,7 @@ export default function ContractorManagement() {
               <Input
                 value={workerForm.cscsCard}
                 onChange={(e) => setWorkerForm({ ...workerForm, cscsCard: e.target.value })}
-                placeholder="12345678"
+                placeholder=""
                 data-testid="input-cscs-card"
               />
             </div>
