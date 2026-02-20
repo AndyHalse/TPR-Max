@@ -96,9 +96,14 @@ export class CustomerDatabaseService {
     let isNewSchema = false;
     
     try {
-      pool = new Pool({ connectionString: customer.databaseUrl });
-      
+      const connectionString = customer.databaseUrl || process.env.DATABASE_URL!;
       const schemaName = this.generateSchemaName(customerId);
+      
+      pool = new Pool({ connectionString });
+      
+      pool.on('connect', (client) => {
+        client.query(`SET search_path TO ${schemaName}, public`);
+      });
       
       const schemaExists = await pool.query(
         `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
@@ -112,10 +117,6 @@ export class CustomerDatabaseService {
         isNewSchema = true;
       }
       
-      pool.on('connect', (client) => {
-        client.query(`SET search_path TO ${schemaName}, public`);
-      });
-      await pool.query(`SET search_path TO ${schemaName}, public`);
       console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
       
       db = drizzle({ client: pool, schema: isolatedSchema });

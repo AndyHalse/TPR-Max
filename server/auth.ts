@@ -518,7 +518,6 @@ export class AuthService {
     password: string
   ): Promise<User | null> {
     try {
-      // Query the customer's isolated database for the user
       const users = await customerDb
         .select()
         .from(isolatedSchema.users)
