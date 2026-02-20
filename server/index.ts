@@ -288,14 +288,19 @@ let sessionStore;
 if (isProduction || process.env.USE_PG_SESSIONS === 'true') {
   const PostgreSqlStore = ConnectPgSimple(session);
   const sessionPool = new Pool({
-    connectionString: process.env.DATABASE_URL
+    connectionString: process.env.DATABASE_URL,
+    max: 3,
+    min: 1,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
   });
   
   sessionStore = new PostgreSqlStore({
     pool: sessionPool,
     tableName: 'session',
     createTableIfMissing: true,
-    schemaName: 'public'
+    schemaName: 'public',
+    pruneSessionInterval: 300,
   });
   
   console.log('🔒 Using PostgreSQL session store for production security');

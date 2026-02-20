@@ -1442,6 +1442,56 @@ export const bootstrapSchemaMigration: Migration = {
     }
 
     console.log(`✅ Foreign keys: ${addedCount} added, ${skippedCount} skipped (already exist or deferred)`);
+
+    console.log('📊 Creating performance indexes for high-volume queries...');
+    const performanceIndexes = [
+      'CREATE INDEX IF NOT EXISTS idx_staff_checked_in ON staff (is_checked_in)',
+      'CREATE INDEX IF NOT EXISTS idx_staff_checked_in_at ON staff (checked_in_at)',
+      'CREATE INDEX IF NOT EXISTS idx_staff_department ON staff (department)',
+      'CREATE INDEX IF NOT EXISTS idx_staff_is_active ON staff (is_active)',
+      'CREATE INDEX IF NOT EXISTS idx_staff_fire_marshal ON staff (is_fire_marshal)',
+      'CREATE INDEX IF NOT EXISTS idx_staff_zone_id ON staff (zone_id)',
+      'CREATE INDEX IF NOT EXISTS idx_staff_customer_id ON staff (customer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_visitors_checked_in ON visitors (is_checked_in)',
+      'CREATE INDEX IF NOT EXISTS idx_visitors_checked_in_at ON visitors (checked_in_at)',
+      'CREATE INDEX IF NOT EXISTS idx_visitors_customer_id ON visitors (customer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_visitors_host ON visitors (host_staff_id)',
+      'CREATE INDEX IF NOT EXISTS idx_cw_checked_in ON contractor_workers (is_checked_in)',
+      'CREATE INDEX IF NOT EXISTS idx_cw_company_id ON contractor_workers (company_id)',
+      'CREATE INDEX IF NOT EXISTS idx_cv_qr_code ON contractor_visits (qr_code)',
+      'CREATE INDEX IF NOT EXISTS idx_cv_check_in_time ON contractor_visits (check_in_time)',
+      'CREATE INDEX IF NOT EXISTS idx_cv_worker_id ON contractor_visits (worker_id)',
+      'CREATE INDEX IF NOT EXISTS idx_members_checked_in ON members (is_checked_in)',
+      'CREATE INDEX IF NOT EXISTS idx_safety_tokens_expires ON safety_tokens (expires_at)',
+      'CREATE INDEX IF NOT EXISTS idx_evac_acct_evac_id ON evacuation_accountability (evacuation_id)',
+      'CREATE INDEX IF NOT EXISTS idx_evac_acct_person_id ON evacuation_accountability (person_id)',
+      'CREATE INDEX IF NOT EXISTS idx_prebookings_date ON pre_bookings (visit_date)',
+      'CREATE INDEX IF NOT EXISTS idx_prebookings_status ON pre_bookings (status)',
+      'CREATE INDEX IF NOT EXISTS idx_room_bookings_date ON room_bookings (booking_date)',
+      'CREATE INDEX IF NOT EXISTS idx_room_bookings_room ON room_bookings (room_id)',
+      'CREATE INDEX IF NOT EXISTS idx_vh_check_in_time ON visitor_history (check_in_time)',
+      'CREATE INDEX IF NOT EXISTS idx_ss_staff_id ON staff_sessions (staff_id)',
+      'CREATE INDEX IF NOT EXISTS idx_ss_check_in ON staff_sessions (check_in_time)',
+      'CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)',
+      'CREATE INDEX IF NOT EXISTS idx_reports_created ON reports (created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_print_queue_status ON print_queue (status)',
+    ];
+
+    let idxCreated = 0;
+    for (const idxSql of performanceIndexes) {
+      try {
+        await db.execute(idxSql);
+        idxCreated++;
+      } catch (error: any) {
+        if (error?.message?.includes('does not exist')) {
+          // Column doesn't exist in this schema version - expected
+        } else {
+          console.warn(`⚠️ Index creation warning: ${idxSql} - ${error?.message || error}`);
+        }
+      }
+    }
+    console.log(`✅ Performance indexes: ${idxCreated}/${performanceIndexes.length} created`);
+
     console.log('✅ Bootstrap schema migration completed successfully');
   }
 };

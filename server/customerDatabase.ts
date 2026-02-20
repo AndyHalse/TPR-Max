@@ -144,7 +144,13 @@ export class CustomerDatabaseService {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        pool = new Pool({ connectionString, connectionTimeoutMillis: 10000 });
+        pool = new Pool({
+          connectionString,
+          max: 5,
+          min: 1,
+          idleTimeoutMillis: 60000,
+          connectionTimeoutMillis: 10000,
+        });
         
         pool.on('connect', (client) => {
           client.query(`SET search_path TO ${schemaName}, public`);
