@@ -91,52 +91,67 @@ export class CustomerDatabaseService {
       }
     }
 
-    let pool: Pool;
-    let db: ReturnType<typeof drizzle>;
+    let pool!: Pool;
+    let db!: ReturnType<typeof drizzle>;
     let isNewSchema = false;
     
-    try {
-      const connectionString = customer.databaseUrl || process.env.DATABASE_URL!;
-      const schemaName = this.generateSchemaName(customerId);
-      
-      pool = new Pool({ connectionString });
-      
-      pool.on('connect', (client) => {
-        client.query(`SET search_path TO ${schemaName}, public`);
-      });
-      
-      const schemaExists = await pool.query(
-        `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
-        [schemaName]
-      );
-      
-      if (!schemaExists.rows.length) {
-        console.log(`✨ Creating schema ${schemaName} for customer ${customerId}...`);
-        await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
-        console.log(`✅ Schema ${schemaName} created successfully`);
-        isNewSchema = true;
-      }
-      
-      console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
-      
-      db = drizzle({ client: pool, schema: isolatedSchema });
+    const connectionString = customer.databaseUrl || process.env.DATABASE_URL!;
+    const schemaName = this.generateSchemaName(customerId);
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        pool = new Pool({ connectionString, connectionTimeoutMillis: 10000 });
+        
+        pool.on('connect', (client) => {
+          client.query(`SET search_path TO ${schemaName}, public`);
+        });
+        
+        const schemaExists = await pool.query(
+          `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
+          [schemaName]
+        );
+        
+        if (!schemaExists.rows.length) {
+          console.log(`✨ Creating schema ${schemaName} for customer ${customerId}...`);
+          await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
+          console.log(`✅ Schema ${schemaName} created successfully`);
+          isNewSchema = true;
+        }
+        
+        console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
+        
+        db = drizzle({ client: pool, schema: isolatedSchema });
 
-      this.customerPools.set(customerId, pool);
-      this.customerConnections.set(customerId, db);
-    } catch (error) {
-      console.error(`❌ Failed to create database connection: ${error}`);
-      
-      // DEV DATA BYPASS: Return a mock database connection if Neon is disabled
-      const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
-      if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log('🚀 DEV_DATA_BYPASS: Creating mock database connection due to Neon database disabled');
-        // Return a mock database object that will be intercepted by endpoint bypass logic
-        const mockDb = {} as ReturnType<typeof drizzle>;
-        this.customerConnections.set(customerId, mockDb);
-        return mockDb;
+        this.customerPools.set(customerId, pool);
+        this.customerConnections.set(customerId, db);
+        break;
+      } catch (error: any) {
+        const isEndpointDisabled = error?.message?.includes('endpoint has been disabled') || 
+                                    error?.message?.includes('endpoint is disabled') ||
+                                    error?.code === 'XX000';
+        
+        if (isEndpointDisabled && attempt < maxRetries) {
+          console.log(`🔄 Database endpoint waking up, retry ${attempt}/${maxRetries} in ${attempt * 2}s...`);
+          try { pool!?.end(); } catch {}
+          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+          this.customerConnections.delete(customerId);
+          this.customerPools.delete(customerId);
+          continue;
+        }
+        
+        console.error(`❌ Failed to create database connection: ${error}`);
+        
+        const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
+        if (isDevDataBypass() && isDatabaseConnectionError(error)) {
+          console.log('🚀 DEV_DATA_BYPASS: Creating mock database connection due to Neon database disabled');
+          const mockDb = {} as ReturnType<typeof drizzle>;
+          this.customerConnections.set(customerId, mockDb);
+          return mockDb;
+        }
+        
+        throw error;
       }
-      
-      throw error;
     }
 
     console.log(`✅ Connected to isolated database for customer: ${customer.companyName} (${customerId})`);
