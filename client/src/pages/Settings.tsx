@@ -1036,73 +1036,72 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex w-full overflow-x-auto">
-          <TabsTrigger value="company" className="flex items-center gap-1 px-2 text-xs">
+        <TabsList className="flex flex-wrap h-auto gap-1 p-2 w-full justify-start">
+          <TabsTrigger value="company" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Building2 size={14} />
-            <span className="hidden xl:inline">Company</span>
-            <span className="xl:hidden">Co.</span>
+            <span className="hidden lg:inline">Company</span>
+            <span className="lg:hidden">Co.</span>
           </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="branding" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Palette size={14} />
-            <span className="hidden xl:inline">Branding</span>
-            <span className="xl:hidden">Brand</span>
+            <span className="hidden lg:inline">Branding</span>
+            <span className="lg:hidden">Brand</span>
           </TabsTrigger>
-          <TabsTrigger value="email" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="email" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Mail size={14} />
             Email
           </TabsTrigger>
-          <TabsTrigger value="phone-systems" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="phone-systems" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Phone size={14} />
-            <span className="hidden xl:inline">Phone Systems</span>
-            <span className="xl:hidden">Phone</span>
+            <span className="hidden lg:inline">Phone Systems</span>
+            <span className="lg:hidden">Phone</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="users" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Users size={14} />
             Users
           </TabsTrigger>
-          <TabsTrigger value="departments" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="departments" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Building size={14} />
-            <span className="hidden xl:inline">Departments</span>
-            <span className="xl:hidden">Depts</span>
+            <span className="hidden lg:inline">Departments</span>
+            <span className="lg:hidden">Depts</span>
           </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="reports" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <FileText size={14} />
-            <span className="hidden xl:inline">Reports</span>
-            <span className="xl:hidden">Rpts</span>
+            <span className="hidden lg:inline">Reports</span>
+            <span className="lg:hidden">Rpts</span>
           </TabsTrigger>
-          <TabsTrigger value="printing" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="printing" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Printer size={14} />
-            <span className="hidden xl:inline">Printing & ID</span>
-            <span className="xl:hidden">Print</span>
+            <span className="hidden lg:inline">Printing & ID</span>
+            <span className="lg:hidden">Print</span>
           </TabsTrigger>
-          <TabsTrigger value="biostar" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="biostar" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Shield size={14} />
-            <span className="hidden xl:inline">BioStar</span>
-            <span className="xl:hidden">Bio</span>
+            <span className="hidden lg:inline">BioStar</span>
+            <span className="lg:hidden">Bio</span>
           </TabsTrigger>
-          <TabsTrigger value="hs-documents" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="hs-documents" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <FileText size={14} />
-            <span className="hidden xl:inline">H&S Documents</span>
-            <span className="xl:hidden">H&S</span>
+            <span className="hidden lg:inline">H&S Docs</span>
+            <span className="lg:hidden">H&S</span>
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="ai" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Brain size={14} />
             AI
           </TabsTrigger>
-          <TabsTrigger value="hsrules" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="hsrules" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <Shield size={14} />
-            <span className="hidden xl:inline">H&S Rules</span>
-            <span className="xl:hidden">H&S</span>
+            <span className="hidden lg:inline">H&S Rules</span>
+            <span className="lg:hidden">Rules</span>
           </TabsTrigger>
-          <TabsTrigger value="zones" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="zones" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <MapPin size={14} />
-            <span className="hidden xl:inline">Zones</span>
-            <span className="xl:hidden">Zones</span>
+            Zones
           </TabsTrigger>
-          <TabsTrigger value="system" className="flex items-center gap-1 px-2 text-xs">
+          <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <SettingsIcon size={14} />
-            <span className="hidden xl:inline">System</span>
-            <span className="xl:hidden">Sys</span>
+            <span className="hidden lg:inline">System</span>
+            <span className="lg:hidden">Sys</span>
           </TabsTrigger>
         </TabsList>
 
