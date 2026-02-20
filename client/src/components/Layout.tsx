@@ -214,7 +214,7 @@ export default function Layout({ children }: LayoutProps) {
                   />
                 ) : logoFailed ? (
                   <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={{color: settings?.accentColor || '#2460a9'}}>
-                    {settings?.companyName?.charAt(0) || 'T'}
+                    {settings?.companyName?.charAt(0) || 'A'}
                   </div>
                 ) : (
                   <img 

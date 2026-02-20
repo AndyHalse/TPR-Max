@@ -155,6 +155,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     featureTogglesMigration,
     staffAttendanceHistoryMigration,
     repairZoneIdColumnsMigration,
+    comprehensiveColumnRepairMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -837,6 +838,167 @@ const repairZoneIdColumnsMigration: Migration = {
         console.log(`⚠️ [REPAIR] zone_id on ${table}: ${error.message?.substring(0, 80)}`);
       }
     }
+  }
+};
+
+const comprehensiveColumnRepairMigration: Migration = {
+  version: '20260220_009_comprehensive_column_repair',
+  description: 'Ensure ALL tables have ALL expected columns from isolatedSchema.ts',
+  async up(db: any) {
+    console.log('🔧 [COLUMN REPAIR] Checking all tables for missing columns...');
+
+    const tableColumns: Record<string, { name: string; def: string }[]> = {
+      members: [
+        { name: 'company_id', def: "VARCHAR NOT NULL DEFAULT ''" },
+        { name: 'first_name', def: 'TEXT NOT NULL' },
+        { name: 'last_name', def: 'TEXT NOT NULL' },
+        { name: 'email', def: 'TEXT' },
+        { name: 'phone_number', def: 'TEXT' },
+        { name: 'mobile_number', def: 'TEXT' },
+        { name: 'home_address', def: 'TEXT' },
+        { name: 'postcode', def: 'TEXT' },
+        { name: 'date_of_birth', def: 'TIMESTAMP' },
+        { name: 'national_insurance_number', def: 'TEXT' },
+        { name: 'photo_url', def: 'TEXT' },
+        { name: 'job_title', def: 'TEXT' },
+        { name: 'department', def: 'TEXT' },
+        { name: 'membership_type', def: "TEXT DEFAULT 'full'" },
+        { name: 'membership_id', def: 'TEXT' },
+        { name: 'membership_number', def: 'TEXT' },
+        { name: 'join_date', def: 'TEXT' },
+        { name: 'expiry_date', def: 'TEXT' },
+        { name: 'membership_status', def: "TEXT DEFAULT 'active'" },
+        { name: 'notes', def: 'TEXT' },
+        { name: 'is_checked_in', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'checked_in_at', def: 'TIMESTAMP' },
+        { name: 'checked_out_at', def: 'TIMESTAMP' },
+        { name: 'checkout_type', def: 'TEXT' },
+        { name: 'zone_id', def: 'VARCHAR(255)' },
+        { name: 'is_accounted_for', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'qr_code', def: 'TEXT' },
+        { name: 'is_active', def: 'BOOLEAN NOT NULL DEFAULT true' },
+        { name: 'skills_and_certifications', def: "TEXT[] DEFAULT ARRAY[]::TEXT[]" },
+        { name: 'emergency_contact_name', def: 'TEXT' },
+        { name: 'emergency_contact_phone', def: 'TEXT' },
+        { name: 'emergency_contact_relationship', def: 'TEXT' },
+        { name: 'last_visit_date', def: 'TIMESTAMP' },
+        { name: 'visit_count', def: 'INTEGER DEFAULT 0' },
+        { name: 'right_to_work_status', def: "TEXT DEFAULT 'pending'" },
+        { name: 'right_to_work_document_type', def: 'TEXT' },
+        { name: 'right_to_work_document_number', def: 'TEXT' },
+        { name: 'right_to_work_expiry_date', def: 'TIMESTAMP' },
+        { name: 'right_to_work_verified_by', def: 'VARCHAR' },
+        { name: 'right_to_work_verified_at', def: 'TIMESTAMP' },
+        { name: 'right_to_work_document_url', def: 'TEXT' },
+        { name: 'working_pattern', def: "TEXT DEFAULT 'full_time'" },
+        { name: 'hourly_rate', def: 'TEXT' },
+        { name: 'start_date', def: 'TIMESTAMP' },
+        { name: 'expected_end_date', def: 'TIMESTAMP' },
+        { name: 'has_occupational_health_clearance', def: 'BOOLEAN DEFAULT false' },
+        { name: 'occupational_health_expiry_date', def: 'TIMESTAMP' },
+        { name: 'medical_restrictions', def: 'TEXT' },
+        { name: 'site_induction_required', def: 'BOOLEAN DEFAULT true' },
+        { name: 'site_induction_completed', def: 'BOOLEAN DEFAULT false' },
+        { name: 'site_induction_date', def: 'TIMESTAMP' },
+        { name: 'created_at', def: 'TIMESTAMP DEFAULT NOW()' },
+        { name: 'updated_at', def: 'TIMESTAMP DEFAULT NOW()' },
+      ],
+      staff: [
+        { name: 'photo_url', def: 'TEXT' },
+        { name: 'access_level', def: "TEXT NOT NULL DEFAULT 'staff'" },
+        { name: 'password', def: 'TEXT' },
+        { name: 'last_login_at', def: 'TIMESTAMP' },
+        { name: 'is_checked_in', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'checked_in_at', def: 'TIMESTAMP' },
+        { name: 'checked_out_at', def: 'TIMESTAMP' },
+        { name: 'checkout_type', def: 'TEXT' },
+        { name: 'zone_id', def: 'VARCHAR(255)' },
+        { name: 'manual_check_in', def: 'BOOLEAN DEFAULT false' },
+        { name: 'is_accounted_for', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'is_fire_marshal', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'fire_marshal_url_id', def: 'TEXT' },
+        { name: 'emergency_token', def: 'TEXT' },
+        { name: 'emergency_token_expires', def: 'TIMESTAMP' },
+        { name: 'user_id', def: 'VARCHAR' },
+        { name: 'qr_code', def: 'TEXT' },
+        { name: 'induction_completed', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'induction_completed_at', def: 'TIMESTAMP' },
+        { name: 'is_active', def: 'BOOLEAN NOT NULL DEFAULT true' },
+        { name: 'created_at', def: 'TIMESTAMP DEFAULT NOW()' },
+        { name: 'updated_at', def: 'TIMESTAMP DEFAULT NOW()' },
+      ],
+      visitors: [
+        { name: 'mobile_number', def: 'TEXT' },
+        { name: 'job_title', def: 'TEXT' },
+        { name: 'address', def: 'TEXT' },
+        { name: 'car_registration', def: 'TEXT' },
+        { name: 'is_pre_booked', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'expected_date_time', def: 'TIMESTAMP' },
+        { name: 'visit_purpose', def: 'TEXT' },
+        { name: 'checkout_type', def: 'TEXT' },
+        { name: 'zone_id', def: 'VARCHAR(255)' },
+        { name: 'is_accounted_for', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'induction_completed', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'induction_completed_at', def: 'TIMESTAMP' },
+        { name: 'e_pass_sent', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'e_pass_delivery_type', def: 'TEXT' },
+        { name: 'e_pass_sent_at', def: 'TIMESTAMP' },
+        { name: 'e_pass_url', def: 'TEXT' },
+        { name: 'expected_departure_time', def: 'TIMESTAMP' },
+        { name: 'reminder_sent', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'host_notification_sent', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'hs_rules_accepted', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'hs_rules_accepted_at', def: 'TIMESTAMP' },
+        { name: 'hs_rules_acceptance_token', def: 'TEXT' },
+        { name: 'notes', def: 'TEXT' },
+      ],
+      contractor_workers: [
+        { name: 'photo_url', def: 'TEXT' },
+        { name: 'zone_id', def: 'VARCHAR(255)' },
+        { name: 'is_accounted_for', def: 'BOOLEAN NOT NULL DEFAULT false' },
+        { name: 'postcode', def: 'TEXT' },
+        { name: 'vehicle_type', def: 'TEXT' },
+      ],
+    };
+
+    let totalAdded = 0;
+
+    for (const [table, columns] of Object.entries(tableColumns)) {
+      try {
+        const tableExists = await db.execute(`
+          SELECT 1 FROM information_schema.tables 
+          WHERE table_name = '${table}' AND table_schema = current_schema()
+        `);
+        if (!tableExists.rows || tableExists.rows.length === 0) {
+          console.log(`⚠️ [COLUMN REPAIR] Table ${table} does not exist, skipping`);
+          continue;
+        }
+
+        const existingCols = await db.execute(`
+          SELECT column_name FROM information_schema.columns 
+          WHERE table_name = '${table}' AND table_schema = current_schema()
+        `);
+        const existingSet = new Set(existingCols.rows.map((r: any) => r.column_name));
+
+        for (const col of columns) {
+          if (!existingSet.has(col.name)) {
+            try {
+              await db.execute(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.def}`);
+              console.log(`✅ [COLUMN REPAIR] Added ${col.name} to ${table}`);
+              totalAdded++;
+            } catch (err: any) {
+              if (!err.message?.includes('already exists')) {
+                console.log(`⚠️ [COLUMN REPAIR] Failed to add ${col.name} to ${table}: ${err.message?.substring(0, 80)}`);
+              }
+            }
+          }
+        }
+      } catch (error: any) {
+        console.log(`⚠️ [COLUMN REPAIR] Error processing table ${table}: ${error.message?.substring(0, 80)}`);
+      }
+    }
+
+    console.log(`✅ [COLUMN REPAIR] Complete - added ${totalAdded} missing columns`);
   }
 };
 
