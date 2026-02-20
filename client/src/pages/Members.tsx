@@ -631,7 +631,7 @@ export default function Members() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => updateField("email", e.target.value)}
-                placeholder="email@example.com"
+                placeholder=""
               />
             </div>
 
@@ -640,7 +640,7 @@ export default function Members() {
               <Input
                 value={formData.phoneNumber}
                 onChange={(e) => updateField("phoneNumber", e.target.value)}
-                placeholder="Phone number"
+                placeholder=""
               />
             </div>
 
@@ -697,7 +697,7 @@ export default function Members() {
                 <Input
                   value={formData.membershipId}
                   onChange={(e) => updateField("membershipId", e.target.value)}
-                  placeholder="Membership ID"
+                  placeholder=""
                 />
               </div>
             </div>
@@ -726,7 +726,7 @@ export default function Members() {
               <Input
                 value={formData.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
-                placeholder="Additional notes"
+                placeholder=""
               />
             </div>
 
