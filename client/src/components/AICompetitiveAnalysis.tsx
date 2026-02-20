@@ -83,7 +83,7 @@ export default function AICompetitiveAnalysis() {
               type="number"
               value={companySize}
               onChange={(e) => setCompanySize(e.target.value)}
-              placeholder="e.g., 50"
+              placeholder=""
               className="mt-1"
               data-testid="input-company-size"
             />
@@ -115,7 +115,7 @@ export default function AICompetitiveAnalysis() {
               type="number"
               value={monthlyVisitors}
               onChange={(e) => setMonthlyVisitors(e.target.value)}
-              placeholder="e.g., 200"
+              placeholder=""
               className="mt-1"
               data-testid="input-monthly-visitors"
             />

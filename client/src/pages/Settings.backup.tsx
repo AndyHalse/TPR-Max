@@ -859,7 +859,7 @@ export default function Settings() {
                     value={currentSettings?.website || ""}
                     onChange={(e) => handleInputChange("website", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                    placeholder="https://www.yourcompany.com"
+                    placeholder=""
                     data-testid="input-company-website"
                   />
                 </div>

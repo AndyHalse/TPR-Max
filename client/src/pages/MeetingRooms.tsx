@@ -293,7 +293,7 @@ export default function MeetingRooms() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="e.g., Conference Room A"
+                            placeholder=""
                             data-testid="input-room-name"
                           />
                         </FormControl>
@@ -311,7 +311,7 @@ export default function MeetingRooms() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            placeholder="e.g., 2nd Floor, East Wing"
+                            placeholder=""
                             data-testid="input-room-location"
                           />
                         </FormControl>

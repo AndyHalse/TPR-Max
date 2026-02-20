@@ -712,7 +712,7 @@ export default function ZoneManagement() {
                 id="zone-name"
                 value={zoneForm.name}
                 onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })}
-                placeholder="e.g. Zone A - Main Building"
+                placeholder=""
               />
             </div>
             <div>
@@ -763,7 +763,7 @@ export default function ZoneManagement() {
                 id="edit-zone-name"
                 value={zoneForm.name}
                 onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })}
-                placeholder="e.g. Zone A - Main Building"
+                placeholder=""
               />
             </div>
             <div>

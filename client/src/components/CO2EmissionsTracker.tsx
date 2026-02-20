@@ -302,7 +302,7 @@ export function CO2EmissionsTracker({
                     id="postcode"
                     value={postcode}
                     onChange={(e) => setPostcode(e.target.value.toUpperCase())}
-                    placeholder="e.g., SW1A 1AA"
+                    placeholder=""
                     className="mt-1"
                     data-testid="input-postcode"
                   />

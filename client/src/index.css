@@ -20,8 +20,8 @@
   --accent-foreground: hsl(222.2, 84%, 4.9%);
   --destructive: hsl(0, 84.2%, 60.2%);
   --destructive-foreground: hsl(210, 40%, 98%);
-  --border: hsl(214.3, 31.8%, 91.4%);
-  --input: hsl(214.3, 31.8%, 91.4%);
+  --border: hsl(214.3, 31.8%, 81.4%);
+  --input: hsl(214.3, 31.8%, 75%);
   --ring: hsl(221.2, 83.2%, 53.3%);
   --chart-1: hsl(12, 76%, 61%);
   --chart-2: hsl(173, 58%, 39%);
@@ -163,6 +163,27 @@
   body {
     background: var(--background);
     @apply font-[Inter] text-foreground min-h-screen transition-colors duration-300;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select,
+  [role="combobox"] {
+    border: 1px solid hsl(214.3, 31.8%, 75%) !important;
+    background-color: hsl(0, 0%, 100%) !important;
+  }
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]),
+  .dark textarea,
+  .dark select,
+  .dark [role="combobox"] {
+    border: 1px solid hsl(217.2, 32.6%, 30%) !important;
+    background-color: hsl(222.2, 84%, 8%) !important;
+  }
+  .high-contrast input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]),
+  .high-contrast textarea,
+  .high-contrast select,
+  .high-contrast [role="combobox"] {
+    border: 2px solid hsl(0, 0%, 40%) !important;
+    background-color: hsl(0, 0%, 100%) !important;
   }
 }
 

@@ -332,7 +332,7 @@ export function TemplateEditor({
                   id="documentName"
                   value={formData.documentName}
                   onChange={(e) => setFormData(prev => ({ ...prev, documentName: e.target.value }))}
-                  placeholder="e.g., Custom Safety Agreement"
+                  placeholder=""
                   data-testid="input-document-name"
                 />
               </div>
@@ -343,7 +343,7 @@ export function TemplateEditor({
                   id="documentCode"
                   value={formData.documentCode}
                   onChange={(e) => setFormData(prev => ({ ...prev, documentCode: e.target.value }))}
-                  placeholder="e.g., custom_safety_agreement"
+                  placeholder=""
                   disabled={!!template}
                   data-testid="input-document-code"
                 />
@@ -377,7 +377,7 @@ export function TemplateEditor({
                   id="legalReference"
                   value={formData.legalReference}
                   onChange={(e) => setFormData(prev => ({ ...prev, legalReference: e.target.value }))}
-                  placeholder="e.g., Health and Safety at Work Act 1974"
+                  placeholder=""
                   data-testid="input-legal-reference"
                 />
               </div>

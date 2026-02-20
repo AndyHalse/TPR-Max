@@ -90,7 +90,7 @@ export default function AIFlowOptimization() {
               type="number"
               value={peakHourVisitors}
               onChange={(e) => setPeakHourVisitors(e.target.value)}
-              placeholder="e.g., 25"
+              placeholder=""
               className="mt-1"
               data-testid="input-peak-visitors"
             />
@@ -105,7 +105,7 @@ export default function AIFlowOptimization() {
               type="number"
               value={currentWaitTime}
               onChange={(e) => setCurrentWaitTime(e.target.value)}
-              placeholder="e.g., 8"
+              placeholder=""
               className="mt-1"
               data-testid="input-wait-time"
             />

@@ -161,7 +161,7 @@ export default function AIDemo() {
               <Textarea
                 value={securityPattern}
                 onChange={(e) => setSecurityPattern(e.target.value)}
-                placeholder="e.g., 'Multiple visitors from unknown companies arriving at the same time' or 'Visitor attempting to access restricted areas'"
+                placeholder=""
                 className="min-h-[100px]"
                 data-testid="security-pattern-input"
               />

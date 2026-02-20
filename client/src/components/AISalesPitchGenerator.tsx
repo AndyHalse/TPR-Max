@@ -91,7 +91,7 @@ export default function AISalesPitchGenerator() {
               id="company-name"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="e.g., Acme Corporation"
+              placeholder=""
               className="mt-1"
               data-testid="input-company-name"
             />
@@ -127,7 +127,7 @@ export default function AISalesPitchGenerator() {
               type="number"
               value={companySize}
               onChange={(e) => setCompanySize(e.target.value)}
-              placeholder="e.g., 150"
+              placeholder=""
               className="mt-1"
               data-testid="input-company-size-pitch"
             />

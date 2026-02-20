@@ -558,7 +558,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         id="postcode"
                         value={formData.postcode}
                         onChange={(e) => handleInputChange('postcode', e.target.value)}
-                        placeholder="e.g. OX28 4BH"
+                        placeholder=""
                         data-testid="input-contractor-postcode"
                       />
                       <p className="text-xs text-variable mt-1">For CO2 emissions calculation</p>
@@ -939,7 +939,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       <Input
                         id="issued-by"
                         type="text"
-                        placeholder="e.g., Insurance company, certification body"
+                        placeholder=""
                         value={documentFormData.issuedBy}
                         onChange={(e) => setDocumentFormData(prev => ({ ...prev, issuedBy: e.target.value }))}
                         disabled={isUploading}
@@ -953,7 +953,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       <Input
                         id="policy-number"
                         type="text"
-                        placeholder="e.g., POL123456"
+                        placeholder=""
                         value={documentFormData.policyNumber}
                         onChange={(e) => setDocumentFormData(prev => ({ ...prev, policyNumber: e.target.value }))}
                         disabled={isUploading}

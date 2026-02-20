@@ -610,7 +610,7 @@ export default function Members() {
                 <Input
                   value={formData.firstName}
                   onChange={(e) => updateField("firstName", e.target.value)}
-                  placeholder="First name"
+                  placeholder=""
                   required
                 />
               </div>
@@ -619,7 +619,7 @@ export default function Members() {
                 <Input
                   value={formData.lastName}
                   onChange={(e) => updateField("lastName", e.target.value)}
-                  placeholder="Last name"
+                  placeholder=""
                   required
                 />
               </div>
@@ -689,7 +689,7 @@ export default function Members() {
                 <Input
                   value={formData.membershipNumber}
                   onChange={(e) => updateField("membershipNumber", e.target.value)}
-                  placeholder="e.g. MEM-001"
+                  placeholder=""
                 />
               </div>
               <div className="space-y-2">
