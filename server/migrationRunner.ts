@@ -187,7 +187,7 @@ const rebuildCompanySettingsMigration: Migration = {
     const tableExists = await db.execute(`
       SELECT EXISTS (
         SELECT 1 FROM information_schema.tables 
-        WHERE table_name = 'company_settings'
+        WHERE table_name = 'company_settings' AND table_schema = current_schema()
       )
     `);
     
@@ -198,7 +198,7 @@ const rebuildCompanySettingsMigration: Migration = {
       // Check if table has all required columns
       const columns = await db.execute(`
         SELECT column_name FROM information_schema.columns 
-        WHERE table_name = 'company_settings'
+        WHERE table_name = 'company_settings' AND table_schema = current_schema()
       `);
       
       const existingColumns = new Set(columns.rows.map((row: any) => row.column_name));
@@ -216,10 +216,12 @@ const rebuildCompanySettingsMigration: Migration = {
         console.log('✅ Company settings table already has correct schema');
         needsRebuild = false;
       } else {
-        // Get existing company name before rebuilding
+        // Get existing company name before rebuilding (uses current_schema via search_path)
         try {
+          const schemaForQuery = await db.execute(`SELECT current_schema()`);
+          const currentMigrationSchema = schemaForQuery.rows[0]?.current_schema || 'public';
           const existingData = await db.execute(`
-            SELECT company_name FROM company_settings LIMIT 1
+            SELECT company_name FROM "${currentMigrationSchema}".company_settings LIMIT 1
           `);
           if (existingData.rows[0]?.company_name) {
             existingCompanyName = existingData.rows[0].company_name;
@@ -241,7 +243,7 @@ const rebuildCompanySettingsMigration: Migration = {
         const newTableExists = await db.execute(`
           SELECT EXISTS (
             SELECT 1 FROM information_schema.tables 
-            WHERE table_name = 'company_settings_new'
+            WHERE table_name = 'company_settings_new' AND table_schema = current_schema()
           )
         `);
         
@@ -389,7 +391,7 @@ const rebuildCompanySettingsMigration: Migration = {
         const oldTableExists = await db.execute(`
           SELECT EXISTS (
             SELECT 1 FROM information_schema.tables 
-            WHERE table_name = 'company_settings'
+            WHERE table_name = 'company_settings' AND table_schema = current_schema()
           )
         `);
         
@@ -434,7 +436,7 @@ const addMissingCompanySettingsColumnsMigration: Migration = {
     // Check current columns
     const currentColumns = await db.execute(`
       SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'company_settings'
+      WHERE table_name = 'company_settings' AND table_schema = current_schema()
     `);
     
     const existingColumns = new Set(currentColumns.rows.map((row: any) => row.column_name));
@@ -542,7 +544,7 @@ const evacuationZonesMigration: Migration = {
       try {
         const colExists = await db.execute(`
           SELECT 1 FROM information_schema.columns 
-          WHERE table_name = '${table}' AND column_name = 'zone_id'
+          WHERE table_name = '${table}' AND column_name = 'zone_id' AND table_schema = current_schema()
         `);
         if (!colExists.rows || colExists.rows.length === 0) {
           await db.execute(`ALTER TABLE ${table} ADD COLUMN zone_id VARCHAR(255) DEFAULT NULL`);
@@ -563,7 +565,7 @@ const evacuationZonesMigration: Migration = {
       try {
         const colExists = await db.execute(`
           SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'company_settings' AND column_name = '${col.name}'
+          WHERE table_name = 'company_settings' AND column_name = '${col.name}' AND table_schema = current_schema()
         `);
         if (!colExists.rows || colExists.rows.length === 0) {
           await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col.name} ${col.def}`);

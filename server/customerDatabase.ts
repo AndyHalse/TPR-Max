@@ -268,24 +268,33 @@ export class CustomerDatabaseService {
       }
     }
     
-    // Seed or fix company_settings with correct company name
+    // Seed company_settings if empty, or correct company_name if it doesn't match the customer record
     try {
-      const settingsCheck = await db.execute(`SELECT id, company_name FROM company_settings LIMIT 1`);
+      const settingsCheck = await db.execute(`SELECT id, company_name FROM "${schemaName}".company_settings LIMIT 1`);
       if (!settingsCheck.rows || settingsCheck.rows.length === 0) {
         console.log(`🌱 Seeding company_settings for new customer: ${customer.companyName}`);
-        await db.execute(`
-          INSERT INTO company_settings (id, company_name)
-          VALUES (gen_random_uuid(), '${customer.companyName.replace(/'/g, "''")}')
-        `);
+        const seedPool = this.customerPools.get(customerId);
+        if (seedPool) {
+          await seedPool.query(
+            `INSERT INTO "${schemaName}".company_settings (id, company_name) VALUES (gen_random_uuid(), $1)`,
+            [customer.companyName]
+          );
+        }
         console.log(`✅ Company settings seeded for: ${customer.companyName}`);
-      } else if (isNewSchema) {
+      } else {
         const currentName = settingsCheck.rows[0]?.company_name;
         if (currentName !== customer.companyName) {
-          console.log(`🔧 Fixing company name: "${currentName}" → "${customer.companyName}"`);
-          await db.execute(`
-            UPDATE company_settings SET company_name = '${customer.companyName.replace(/'/g, "''")}'
-          `);
+          console.log(`🔧 Company name mismatch in ${schemaName}: "${currentName}" vs registered "${customer.companyName}" - correcting...`);
+          const fixPool = this.customerPools.get(customerId);
+          if (fixPool) {
+            await fixPool.query(
+              `UPDATE "${schemaName}".company_settings SET company_name = $1 WHERE id = $2`,
+              [customer.companyName, settingsCheck.rows[0].id]
+            );
+          }
           console.log(`✅ Company name corrected to: ${customer.companyName}`);
+        } else {
+          console.log(`✅ Company settings correct in ${schemaName}: "${currentName}"`);
         }
       }
     } catch (seedError) {
