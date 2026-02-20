@@ -154,6 +154,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     helpSystemMigration,
     featureTogglesMigration,
     staffAttendanceHistoryMigration,
+    repairZoneIdColumnsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -811,6 +812,29 @@ const staffAttendanceHistoryMigration: Migration = {
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
         console.log(`⚠️ staff_attendance_history: ${error.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Repair migration: ensure zone_id columns exist on all tables (fixes cross-schema detection bug)
+const repairZoneIdColumnsMigration: Migration = {
+  version: '20260220_008_repair_zone_id_columns',
+  description: 'Repair missing zone_id columns that were skipped due to cross-schema detection bug',
+  async up(db: any) {
+    const tables = ['staff', 'visitors', 'members', 'contractor_workers'];
+    for (const table of tables) {
+      try {
+        const colExists = await db.execute(`
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = '${table}' AND column_name = 'zone_id' AND table_schema = current_schema()
+        `);
+        if (!colExists.rows || colExists.rows.length === 0) {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN zone_id VARCHAR(255) DEFAULT NULL`);
+          console.log(`✅ [REPAIR] Added zone_id to ${table}`);
+        }
+      } catch (error: any) {
+        console.log(`⚠️ [REPAIR] zone_id on ${table}: ${error.message?.substring(0, 80)}`);
       }
     }
   }
