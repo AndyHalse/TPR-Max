@@ -153,6 +153,8 @@ export class CustomerDatabaseService {
           options: `-c search_path=${schemaName},public`,
         });
         
+        await pool.query(`SET search_path TO ${schemaName}, public`);
+        
         const schemaExists = await pool.query(
           `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
           [schemaName]

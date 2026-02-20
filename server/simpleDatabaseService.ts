@@ -63,52 +63,62 @@ export class SimpleDatabaseService {
   async getCompanySettings(context: CustomerContext): Promise<CompanySettings | undefined> {
     console.log(`🔍 Getting company settings for customer: ${context.customerId}`);
     
+    const schemaName = customerDbService.generateSchemaName(context.customerId);
+    
     try {
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const settings = await customerDb
-        .select()
-        .from(isolatedSchema.companySettings)
-        .limit(1);
       
-      const result = settings[0];
-      if (!result) {
+      const rawResult = await customerDb.execute(sql`
+        SELECT * FROM ${sql.raw(`"${schemaName}".company_settings`)} LIMIT 1
+      `);
+      
+      if (!rawResult.rows || rawResult.rows.length === 0) {
+        console.log(`⚠️ No company settings found in schema ${schemaName} for ${context.customerId}`);
         return undefined;
       }
       
-      console.log(`📋 Company settings loaded: "${result.companyName}" for customer ${context.customerId}`);
+      const row = rawResult.rows[0] as any;
+      console.log(`📋 Company settings loaded: "${row.company_name}" for customer ${context.customerId} from schema ${schemaName}`);
       
-      // SECURITY: Exclude sensitive fields from API responses
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { smtpPassword, ...sanitizedSettings } = result;
+      const mapped: any = {};
+      for (const [key, value] of Object.entries(row)) {
+        const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+        mapped[camelKey] = value;
+      }
+      
+      const { smtpPassword, ...sanitizedSettings } = mapped;
       
       return sanitizedSettings as CompanySettings;
     } catch (error: any) {
-      // Handle schema mismatches gracefully (e.g., missing columns like thermal_zebra_settings)
+      console.error(`❌ Company settings query failed for ${context.customerId} in schema ${schemaName}:`, error.message);
+      
       if (error.code === '42703') {
-        console.warn(`⚠️ Schema mismatch in company settings for ${context.customerId}: ${error.message}`);
-        console.warn(`⚠️ Attempting fallback query with essential fields only...`);
-        
+        console.warn(`⚠️ Schema mismatch - column missing in ${schemaName}.company_settings: ${error.message}`);
         try {
           const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
-          const schemaName = customerDbService.generateSchemaName(context.customerId);
-          const rawResult = await customerDb.execute(sql`
-            SELECT * FROM ${sql.raw(schemaName)}.company_settings LIMIT 1
+          const basicResult = await customerDb.execute(sql`
+            SELECT id, company_name, logo_url, background_color, foreground_color, variable_text_color, accent_color,
+                   email, phone, website, address, site_name, banner_url, theme
+            FROM ${sql.raw(`"${schemaName}".company_settings`)} LIMIT 1
           `);
           
-          if (rawResult.rows && rawResult.rows.length > 0) {
-            const result = rawResult.rows[0];
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { smtp_password, ...sanitized } = result as any;
-            console.log(`✅ Fallback query successful for ${context.customerId} from schema ${schemaName}`);
-            return sanitized as CompanySettings;
+          if (basicResult.rows && basicResult.rows.length > 0) {
+            const row = basicResult.rows[0] as any;
+            const mapped: any = {};
+            for (const [key, value] of Object.entries(row)) {
+              const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+              mapped[camelKey] = value;
+            }
+            console.log(`✅ Basic fallback query successful for ${context.customerId} from schema ${schemaName}`);
+            return mapped as CompanySettings;
           }
-        } catch (fallbackError) {
-          console.error(`❌ Fallback query also failed for ${context.customerId}:`, fallbackError);
+        } catch (fallbackError: any) {
+          console.error(`❌ Fallback query also failed for ${context.customerId}:`, fallbackError.message);
         }
         
-        return undefined; // Return undefined if both attempts fail
+        return undefined;
       }
-      throw error; // Re-throw non-schema errors
+      throw error;
     }
   }
 
