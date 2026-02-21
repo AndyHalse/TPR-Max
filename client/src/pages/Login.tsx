@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, User, LogIn, Building, ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
-import acsLogoPath from "@assets/acs-logo-2460A9-200px.jpg";
+import { Lock, User, LogIn, Building, ArrowRight, Sparkles, Shield, Zap, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -141,15 +140,15 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4">
       <Card className="w-full max-w-md bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto">
-            <img src={acsLogoPath} alt="ACS Logo" className="h-16 object-contain" />
+          <div className="mx-auto w-16 h-16 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg">
+            <ShieldCheck className="w-9 h-9 text-white" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold text-slate-800 dark:text-slate-200">
               TPR Max
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
-              SaaS Customer Portal
+              Visitor Management System
             </CardDescription>
           </div>
         </CardHeader>

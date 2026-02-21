@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlatformAdminCustomerForm from "./PlatformAdminCustomerForm";
-import acsLogoPath from "@assets/acs-logo-2460A9-200px.jpg";
+import { ShieldCheck } from "lucide-react";
 
 interface PlatformAdmin {
   id: string;
@@ -408,17 +408,21 @@ export default function PlatformAdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <img 
-                src={brandingData?.branding?.logoUrl 
-                  ? (brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
+              {brandingData?.branding?.logoUrl ? (
+                <img 
+                  src={brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
                     ? brandingData.branding.logoUrl 
-                    : `/public-objects/${brandingData.branding.logoUrl}`)
-                  : acsLogoPath
-                } 
-                alt={brandingData?.branding?.platformName || "ACS Platform Admin"} 
-                className="h-10 object-contain bg-white/90 rounded p-1"
-                data-testid="img-dashboard-logo"
-              />
+                    : `/public-objects/${brandingData.branding.logoUrl}`
+                  } 
+                  alt={brandingData?.branding?.platformName || "Platform Admin"} 
+                  className="h-10 object-contain bg-white/90 rounded p-1"
+                  data-testid="img-dashboard-logo"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6 text-white" />
+                </div>
+              )}
               <div>
                 <h1 className="text-2xl font-bold text-white">
                   {brandingData?.branding?.platformName || "Platform Admin"}

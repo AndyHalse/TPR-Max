@@ -170,7 +170,7 @@ export default function ContractorPassPreviewModal({
             <div class="pass-container">
               <div class="header">
                 <div class="company-info">
-                  <div class="company-name">VisiGate Pro</div>
+                  <div class="company-name">\${companyName || 'Contractor Management'}</div>
                   <div class="contractor-pass">CONTRACTOR PASS</div>
                 </div>
               </div>
@@ -207,7 +207,7 @@ export default function ContractorPassPreviewModal({
               </div>
               
               <div class="footer">
-                <div>VisiGate Pro - Contractor Management System</div>
+                <div>\${companyName || 'Contractor Management System'}</div>
                 <div>Pass valid for authorized areas only</div>
               </div>
             </div>
@@ -252,7 +252,7 @@ export default function ContractorPassPreviewModal({
               {/* Header */}
               <div className="flex justify-between items-start p-3 border-b border-orange-300 bg-white/50">
                 <div>
-                  <h3 className="text-lg font-bold text-orange-700">VisiGate Pro</h3>
+                  <h3 className="text-lg font-bold text-orange-700">{companyName || 'Contractor Management'}</h3>
                   <p className="text-sm font-semibold text-orange-600">CONTRACTOR PASS</p>
                 </div>
                 <HardHat className="text-orange-600" size={24} />
@@ -330,7 +330,7 @@ export default function ContractorPassPreviewModal({
               
               {/* Footer - Fixed at bottom */}
               <div className="absolute bottom-0 left-0 right-0 h-10 bg-white/90 text-center text-xs text-gray-600 border-t border-orange-200 flex flex-col justify-center">
-                <p className="font-semibold leading-tight">VisiGate Pro - Contractor Management</p>
+                <p className="font-semibold leading-tight">{companyName || 'Contractor Management'}</p>
                 <p className="leading-tight">Pass valid for authorized areas only</p>
               </div>
             </div>

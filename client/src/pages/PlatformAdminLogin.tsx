@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield } from "lucide-react";
-import acsLogoPath from "@assets/acs-logo-2460A9-200px.jpg";
+import { Shield, ShieldCheck } from "lucide-react";
 
 interface BrandingSettings {
   id: string;
@@ -86,17 +85,21 @@ export default function PlatformAdminLogin() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <img 
-              src={brandingData?.branding?.logoUrl 
-                ? (brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
+            {brandingData?.branding?.logoUrl ? (
+              <img 
+                src={brandingData.branding.logoUrl.startsWith('http') || brandingData.branding.logoUrl.startsWith('/') 
                   ? brandingData.branding.logoUrl 
-                  : `/public-objects/${brandingData.branding.logoUrl}`)
-                : acsLogoPath
-              } 
-              alt={brandingData?.branding?.platformName || "ACS Platform Admin"} 
-              className="h-16 object-contain"
-              data-testid="img-platform-logo"
-            />
+                  : `/public-objects/${brandingData.branding.logoUrl}`
+                } 
+                alt={brandingData?.branding?.platformName || "Platform Admin"} 
+                className="h-16 object-contain"
+                data-testid="img-platform-logo"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg">
+                <ShieldCheck className="w-9 h-9 text-white" />
+              </div>
+            )}
           </div>
           <CardTitle className="text-2xl font-bold">
             {brandingData?.branding?.platformName || "Platform Admin"}

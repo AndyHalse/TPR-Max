@@ -7,7 +7,6 @@ import HelpButton from "@/components/HelpButton";
 import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect, useCallback } from "react";
-import acsLogoFallback from "@assets/acs-logo-2460A9-200px.jpg";
 import { getQueryFn } from "@/lib/queryClient";
 
 interface LayoutProps {
@@ -18,7 +17,7 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
-  const [logoError, setLogoError] = useState(0);
+  const [logoError, setLogoError] = useState(false);
   
   const { data: user } = useQuery<{ id: string; username: string }>({
     queryKey: ["/api/auth/me"],
@@ -34,20 +33,15 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   const getLogoSrc = useCallback(() => {
-    if (logoError === 0 && settings?.logoUrl) {
+    if (!logoError && settings?.logoUrl) {
       return `/objects${settings.logoUrl}`;
-    }
-    if (logoError <= 1) {
-      return acsLogoFallback;
     }
     return null;
   }, [settings?.logoUrl, logoError]);
 
   const handleLogoError = useCallback(() => {
-    setLogoError(prev => {
-      console.log(`[BRANDING] Logo load failed (attempt ${prev + 1}), trying next fallback`);
-      return prev + 1;
-    });
+    console.log(`[BRANDING] Customer logo failed to load, showing letter placeholder`);
+    setLogoError(true);
   }, []);
 
   useEffect(() => {
@@ -163,7 +157,7 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (settings) {
       console.log(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}`);
-      setLogoError(0);
+      setLogoError(false);
     }
   }, [settings?.logoUrl, settings?.companyName]);
 

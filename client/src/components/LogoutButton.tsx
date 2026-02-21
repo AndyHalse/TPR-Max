@@ -14,8 +14,8 @@ export default function LogoutButton() {
       return response.json();
     },
     onSuccess: () => {
-      // Clear localStorage fallback for browser restrictions
       localStorage.removeItem('visigate_user');
+      localStorage.removeItem('tprmax-last-login');
       
       toast({
         title: "Logged Out",

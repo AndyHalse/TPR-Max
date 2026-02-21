@@ -364,10 +364,10 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               <div className="mt-auto pt-1">
                 <div className="flex justify-between items-center text-xs">
                   <div className="text-left">
-                    <div className="text-variable mb-0.5">📞 +44 1344 771550</div>
-                    <div className="text-blue-600">🌐 acsltd.eu</div>
+                    {settings?.phone && <div className="text-variable mb-0.5">📞 {settings.phone}</div>}
+                    {settings?.website && <div className="text-blue-600">🌐 {settings.website}</div>}
                   </div>
-                  <span className="text-variable">VisiGate Pro</span>
+                  <span className="text-variable">{settings?.companyName || 'TPR Max'}</span>
                 </div>
               </div>
             </div>

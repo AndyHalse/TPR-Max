@@ -9,9 +9,11 @@ interface PrintVisitorPassOptions {
 
 export async function printVisitorPass({ visitor, staff, toast }: PrintVisitorPassOptions) {
   try {
-    const companyName = "VisiGate Pro";
-    const companyAddress = "Address not provided";
-    const companyLogo = null;
+    const settingsRes = await fetch("/api/settings", { credentials: "include" });
+    const settingsData = settingsRes.ok ? await settingsRes.json() : null;
+    const companyName = settingsData?.companyName || "TPR Max";
+    const companyAddress = settingsData?.address || "Address not provided";
+    const companyLogo = settingsData?.logoUrl ? `/objects${settingsData.logoUrl}` : null;
     
     // Find host staff member
     const hostStaff = staff?.find(s => s.id === visitor.hostStaffId);
