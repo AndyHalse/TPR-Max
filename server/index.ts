@@ -405,8 +405,10 @@ app.use((req, res, next) => {
       logger.info('VisiGate Pro server started successfully', {
         port: port,
         environment: process.env.NODE_ENV || 'development',
-        eventType: 'server_ready'
+        eventType: 'server_ready',
+        buildVersion: 'v2026.02.21.1'
       });
+      console.log('🔖 BUILD VERSION: v2026.02.21.1 - includes branding fixes');
       log(`serving on port ${port}`);
     });
 
