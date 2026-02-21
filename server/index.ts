@@ -406,9 +406,9 @@ app.use((req, res, next) => {
         port: port,
         environment: process.env.NODE_ENV || 'development',
         eventType: 'server_ready',
-        buildVersion: 'v2026.02.21.3'
+        buildVersion: 'v2026.02.21.4'
       });
-      console.log('[BUILD] VERSION: v2026.02.21.3 - robust logo loading with fallback chain');
+      console.log('[BUILD] VERSION: v2026.02.21.4 - production display parity fix');
       log(`serving on port ${port}`);
     });
 
