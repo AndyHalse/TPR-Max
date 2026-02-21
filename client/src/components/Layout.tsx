@@ -26,10 +26,11 @@ export default function Layout({ children }: LayoutProps) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Get company settings for branding
+  // Get company settings for branding - depends on user being authenticated
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 1000, // 30 seconds - refresh frequently to ensure branding is current
+    enabled: !!user,
   });
 
   // Apply branding colors dynamically

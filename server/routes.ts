@@ -1208,13 +1208,35 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           req.session.customerId = authResult.customer.id;
           req.session.companyName = authResult.customer.companyName;
           
-          req.session.save((saveErr) => {
+          req.session.save(async (saveErr) => {
             if (saveErr) {
               console.error("❌ Session save error:", saveErr);
               return res.status(500).json({ error: "Failed to establish session" });
             }
             
             console.log(`✅ DEV BYPASS: Login successful for ${username} at ${companyName}`);
+            
+            // Fetch company settings for immediate branding
+            let companySettings = null;
+            try {
+              const { simpleDatabaseService } = await import("./simpleDatabaseService");
+              const context = simpleDatabaseService.createCustomerContext(authResult.user.username, authResult.customer.id);
+              const settings = await simpleDatabaseService.getCompanySettings(context);
+              if (settings) {
+                const {
+                  biostarPassword,
+                  smtpPassword,
+                  twilioAuthToken,
+                  eightByXApiSecret,
+                  clueApiSecret,
+                  ...sanitizedSettings
+                } = settings;
+                companySettings = sanitizedSettings;
+              }
+            } catch (settingsError) {
+              console.error("⚠️ Failed to fetch settings during dev login:", settingsError);
+            }
+            
             return res.json({ 
               success: true,
               message: "Login successful", 
@@ -1222,7 +1244,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
                 id: authResult.user.id,
                 username: authResult.user.username,
                 companyName: authResult.customer.companyName 
-              } 
+              },
+              customer: {
+                id: authResult.customer.id,
+                companyName: authResult.customer.companyName
+              },
+              settings: companySettings
             });
           });
         });
@@ -1262,7 +1289,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         });
         
         // Explicitly save the session with verification
-        req.session.save((saveErr) => {
+        req.session.save(async (saveErr) => {
           if (saveErr) {
             console.error("❌ Session save error:", saveErr);
             return res.status(500).json({ error: "Failed to establish session" });
@@ -1288,7 +1315,28 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             return res.status(500).json({ error: "Session persistence failed" });
           }
           
-          // Return successful login with complete user and customer context
+          // Fetch company settings to include in login response for immediate branding
+          let companySettings = null;
+          try {
+            const { simpleDatabaseService } = await import("./simpleDatabaseService");
+            const context = simpleDatabaseService.createCustomerContext(username, customer.id);
+            const settings = await simpleDatabaseService.getCompanySettings(context);
+            if (settings) {
+              const {
+                biostarPassword,
+                smtpPassword,
+                twilioAuthToken,
+                eightByXApiSecret,
+                clueApiSecret,
+                ...sanitizedSettings
+              } = settings;
+              companySettings = sanitizedSettings;
+            }
+          } catch (settingsError) {
+            console.error("⚠️ Failed to fetch settings during login:", settingsError);
+          }
+          
+          // Return successful login with complete user, customer context, and settings
           res.json({ 
             success: true, 
             user: { 
@@ -1300,7 +1348,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               id: customer.id,
               companyName: customer.companyName,
               slug: customer.slug
-            }
+            },
+            settings: companySettings
           });
         });
       });
@@ -8005,6 +8054,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION AND SECURITY SANITIZATION!
   app.get("/api/settings", requireAuth, async (req, res) => {
     try {
+      // Prevent any HTTP caching of settings - must always be fresh
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
       

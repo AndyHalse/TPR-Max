@@ -96,11 +96,22 @@ export default function Login() {
           description: `Welcome back, ${data.user.username} at ${data.customer?.companyName || credentials.companyName}!`,
         });
         
+        // Pre-seed the settings cache from login response for immediate branding
+        if (data.settings) {
+          queryClient.setQueryData(["/api/settings"], data.settings);
+        }
+        
         // Set the auth data in cache AND invalidate to ensure fresh fetch
         queryClient.setQueryData(["/api/auth/me"], data.user);
         
-        // Force invalidation to ensure Router sees the updated auth state
-        await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+        // Invalidate ALL queries to ensure fresh data after login (prevents stale cache)
+        await queryClient.invalidateQueries();
+        
+        // Re-seed settings and auth after invalidation to ensure immediate availability
+        if (data.settings) {
+          queryClient.setQueryData(["/api/settings"], data.settings);
+        }
+        queryClient.setQueryData(["/api/auth/me"], data.user);
         
         // Redirecting to dashboard...
         setLocation("/");
