@@ -8,6 +8,7 @@ import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect } from "react";
 import acsLogoFallback from "@assets/acs-logo-2460A9-200px.jpg";
+import { getQueryFn } from "@/lib/queryClient";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,11 +27,12 @@ export default function Layout({ children }: LayoutProps) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Get company settings for branding - depends on user being authenticated
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
-    staleTime: 30 * 1000, // 30 seconds - refresh frequently to ensure branding is current
-    enabled: !!user,
+    queryFn: getQueryFn<CompanySettings>({ on401: "returnNull" }),
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
+    refetchOnMount: "always",
   });
 
   // Apply branding colors dynamically

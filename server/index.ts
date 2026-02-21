@@ -406,9 +406,9 @@ app.use((req, res, next) => {
         port: port,
         environment: process.env.NODE_ENV || 'development',
         eventType: 'server_ready',
-        buildVersion: 'v2026.02.21.1'
+        buildVersion: 'v2026.02.21.2'
       });
-      console.log('🔖 BUILD VERSION: v2026.02.21.1 - includes branding fixes');
+      console.log('🔖 BUILD VERSION: v2026.02.21.2 - settings query always fetches from server');
       log(`serving on port ${port}`);
     });
 
