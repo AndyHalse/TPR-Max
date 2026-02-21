@@ -32,16 +32,35 @@ export default function Layout({ children }: LayoutProps) {
     refetchOnMount: "always",
   });
 
+  const [logoFallbackStage, setLogoFallbackStage] = useState(0);
+  
   const getLogoSrc = useCallback(() => {
-    if (!logoError && settings?.logoUrl) {
+    if (logoError || !settings?.logoUrl) return null;
+    
+    if (logoFallbackStage === 0) {
+      return `/api/company-logo`;
+    }
+    if (logoFallbackStage === 1) {
       return `/objects${settings.logoUrl}`;
     }
+    if (logoFallbackStage === 2) {
+      const fileName = settings.logoUrl.replace(/^\/?(uploads\/)?/, '');
+      return `/public-objects/${fileName}`;
+    }
     return null;
-  }, [settings?.logoUrl, logoError]);
+  }, [settings?.logoUrl, logoError, logoFallbackStage]);
 
   const handleLogoError = useCallback(() => {
-    console.log(`[BRANDING] Customer logo failed to load, showing letter placeholder`);
-    setLogoError(true);
+    setLogoFallbackStage(prev => {
+      const next = prev + 1;
+      if (next > 2) {
+        console.log(`[BRANDING] All logo sources failed, showing letter placeholder`);
+        setLogoError(true);
+        return prev;
+      }
+      console.log(`[BRANDING] Logo source ${prev} failed, trying fallback ${next}`);
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -158,6 +177,7 @@ export default function Layout({ children }: LayoutProps) {
     if (settings) {
       console.log(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}`);
       setLogoError(false);
+      setLogoFallbackStage(0);
     }
   }, [settings?.logoUrl, settings?.companyName]);
 

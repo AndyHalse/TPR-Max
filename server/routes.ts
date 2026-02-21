@@ -8051,6 +8051,70 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Dedicated company logo endpoint - serves logo image directly from object storage
+  // More reliable than generic /objects/ path, works consistently in both dev and production
+  app.get("/api/company-logo", requireAuth, async (req, res) => {
+    try {
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      
+      if (!settings?.logoUrl) {
+        console.log(`[LOGO] No logo URL in settings for customer ${req.customerId}`);
+        return res.status(404).json({ error: "No logo configured" });
+      }
+      
+      const rawLogoUrl = settings.logoUrl;
+      const normalizedUrl = rawLogoUrl.replace(/^\/objects/, '').replace(/^\/+/, '/');
+      console.log(`[LOGO] Serving logo for customer ${req.customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      // Try private object path first (logo uploaded via settings)
+      try {
+        const objectPath = `/objects${normalizedUrl}`;
+        console.log(`[LOGO] Trying private path: ${objectPath}`);
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        console.log(`[LOGO] Found logo in private storage`);
+        return objectStorageService.downloadObject(objectFile, res, 86400);
+      } catch (privateErr: any) {
+        console.log(`[LOGO] Private storage failed: ${privateErr?.message || 'unknown error'}`);
+      }
+      
+      // Try public object path (logo uploaded via platform admin)
+      try {
+        const fileName = normalizedUrl.replace(/^\/?(uploads\/)?/, '');
+        console.log(`[LOGO] Trying public path: ${fileName}`);
+        const publicFile = await objectStorageService.searchPublicObject(fileName);
+        if (publicFile) {
+          console.log(`[LOGO] Found logo in public storage`);
+          return objectStorageService.downloadObject(publicFile, res, 86400);
+        }
+      } catch (publicErr: any) {
+        console.log(`[LOGO] Public storage failed: ${publicErr?.message || 'unknown error'}`);
+      }
+      
+      // Try with full original path as public object
+      try {
+        const fullFileName = normalizedUrl.replace(/^\//, '');
+        console.log(`[LOGO] Trying full public path: ${fullFileName}`);
+        const publicFile2 = await objectStorageService.searchPublicObject(fullFileName);
+        if (publicFile2) {
+          console.log(`[LOGO] Found logo in public storage (full path)`);
+          return objectStorageService.downloadObject(publicFile2, res, 86400);
+        }
+      } catch (fullErr: any) {
+        console.log(`[LOGO] Full public path failed: ${fullErr?.message || 'unknown error'}`);
+      }
+      
+      console.log(`[LOGO] Logo not found in any storage path for customer ${req.customerId}`);
+      return res.status(404).json({ error: "Logo file not found in storage" });
+    } catch (error) {
+      console.error(`[LOGO] Error serving logo:`, error);
+      return res.status(500).json({ error: "Failed to serve logo" });
+    }
+  });
+
   // Company Settings endpoints - NOW WITH CUSTOMER ISOLATION AND SECURITY SANITIZATION!
   app.get("/api/settings", requireAuth, async (req, res) => {
     try {

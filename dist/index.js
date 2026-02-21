@@ -38063,6 +38063,57 @@ ${magicardResult}`);
       res.status(500).json({ error: "Failed to load ID card design" });
     }
   });
+  app2.get("/api/company-logo", requireAuth, async (req, res) => {
+    try {
+      const { simpleDatabaseService: simpleDatabaseService2 } = await Promise.resolve().then(() => (init_simpleDatabaseService(), simpleDatabaseService_exports));
+      const context = simpleDatabaseService2.createCustomerContext(req.user.username, req.customerId);
+      const settings = await simpleDatabaseService2.getCompanySettings(context);
+      if (!settings?.logoUrl) {
+        console.log(`[LOGO] No logo URL in settings for customer ${req.customerId}`);
+        return res.status(404).json({ error: "No logo configured" });
+      }
+      const rawLogoUrl = settings.logoUrl;
+      const normalizedUrl = rawLogoUrl.replace(/^\/objects/, "").replace(/^\/+/, "/");
+      console.log(`[LOGO] Serving logo for customer ${req.customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
+      const objectStorageService = new ObjectStorageService();
+      try {
+        const objectPath = `/objects${normalizedUrl}`;
+        console.log(`[LOGO] Trying private path: ${objectPath}`);
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        console.log(`[LOGO] Found logo in private storage`);
+        return objectStorageService.downloadObject(objectFile, res, 86400);
+      } catch (privateErr) {
+        console.log(`[LOGO] Private storage failed: ${privateErr?.message || "unknown error"}`);
+      }
+      try {
+        const fileName = normalizedUrl.replace(/^\/?(uploads\/)?/, "");
+        console.log(`[LOGO] Trying public path: ${fileName}`);
+        const publicFile = await objectStorageService.searchPublicObject(fileName);
+        if (publicFile) {
+          console.log(`[LOGO] Found logo in public storage`);
+          return objectStorageService.downloadObject(publicFile, res, 86400);
+        }
+      } catch (publicErr) {
+        console.log(`[LOGO] Public storage failed: ${publicErr?.message || "unknown error"}`);
+      }
+      try {
+        const fullFileName = normalizedUrl.replace(/^\//, "");
+        console.log(`[LOGO] Trying full public path: ${fullFileName}`);
+        const publicFile2 = await objectStorageService.searchPublicObject(fullFileName);
+        if (publicFile2) {
+          console.log(`[LOGO] Found logo in public storage (full path)`);
+          return objectStorageService.downloadObject(publicFile2, res, 86400);
+        }
+      } catch (fullErr) {
+        console.log(`[LOGO] Full public path failed: ${fullErr?.message || "unknown error"}`);
+      }
+      console.log(`[LOGO] Logo not found in any storage path for customer ${req.customerId}`);
+      return res.status(404).json({ error: "Logo file not found in storage" });
+    } catch (error) {
+      console.error(`[LOGO] Error serving logo:`, error);
+      return res.status(500).json({ error: "Failed to serve logo" });
+    }
+  });
   app2.get("/api/settings", requireAuth, async (req, res) => {
     try {
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -38072,7 +38123,7 @@ ${magicardResult}`);
       const username2 = req.user.username;
       const context = simpleDatabaseService2.createCustomerContext(username2, req.customerId);
       const settings = await simpleDatabaseService2.getCompanySettings(context);
-      console.log(`\u{1F3A8} Settings for ${context.customerId}: logo=${settings?.logoUrl || "NONE"}, bg=${settings?.backgroundColor || "NONE"}, accent=${settings?.accentColor || "NONE"}, company=${settings?.companyName || "NONE"}`);
+      console.log(`[SETTINGS-API] customer=${context.customerId} logo=${settings?.logoUrl || "NONE"} bg=${settings?.backgroundColor || "NONE"} accent=${settings?.accentColor || "NONE"} company=${settings?.companyName || "NONE"}`);
       if (settings) {
         const {
           biostarPassword,
@@ -38082,8 +38133,10 @@ ${magicardResult}`);
           clueApiSecret,
           ...sanitizedSettings
         } = settings;
+        console.log(`[SETTINGS-API] Sending ${Object.keys(sanitizedSettings).length} fields to client, logoUrl=${sanitizedSettings.logoUrl || "EMPTY"}`);
         res.json(sanitizedSettings || {});
       } else {
+        console.log(`[SETTINGS-API] No settings found - sending empty object`);
         res.json({});
       }
     } catch (error) {
@@ -38976,11 +39029,12 @@ ${magicardResult}`);
   });
   app2.get("/objects/:objectPath(*)", async (req, res) => {
     try {
+      console.log(`[OBJECTS] Serving object: ${req.path}`);
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
-      console.error("Error accessing object:", error);
+      console.error(`[OBJECTS] Error accessing object ${req.path}:`, error);
       if (error instanceof ObjectNotFoundError) {
         return res.sendStatus(404);
       }
@@ -47952,9 +48006,9 @@ app.use((req, res, next) => {
         port,
         environment: process.env.NODE_ENV || "development",
         eventType: "server_ready",
-        buildVersion: "v2026.02.21.1"
+        buildVersion: "v2026.02.21.3"
       });
-      console.log("\u{1F516} BUILD VERSION: v2026.02.21.1 - includes branding fixes");
+      console.log("[BUILD] VERSION: v2026.02.21.3 - robust logo loading with fallback chain");
       log(`serving on port ${port}`);
     });
     logger.info("Registering routes");
