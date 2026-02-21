@@ -8069,7 +8069,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Get company settings for customer
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
-      console.log(`🎨 Loading company settings FOR CUSTOMER: ${context.customerId}, companyName: ${settings?.companyName || 'NOT_SET'}`);
+      console.log(`🎨 Settings for ${context.customerId}: logo=${settings?.logoUrl || 'NONE'}, bg=${settings?.backgroundColor || 'NONE'}, accent=${settings?.accentColor || 'NONE'}, company=${settings?.companyName || 'NONE'}`);
       
       if (settings) {
         const {
