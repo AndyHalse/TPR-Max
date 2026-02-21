@@ -8069,7 +8069,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Get company settings for customer
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
-      console.log(`🎨 Settings for ${context.customerId}: logo=${settings?.logoUrl || 'NONE'}, bg=${settings?.backgroundColor || 'NONE'}, accent=${settings?.accentColor || 'NONE'}, company=${settings?.companyName || 'NONE'}`);
+      console.log(`[SETTINGS-API] customer=${context.customerId} logo=${settings?.logoUrl || 'NONE'} bg=${settings?.backgroundColor || 'NONE'} accent=${settings?.accentColor || 'NONE'} company=${settings?.companyName || 'NONE'}`);
       
       if (settings) {
         const {
@@ -8081,8 +8081,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           ...sanitizedSettings
         } = settings;
         
+        console.log(`[SETTINGS-API] Sending ${Object.keys(sanitizedSettings).length} fields to client, logoUrl=${sanitizedSettings.logoUrl || 'EMPTY'}`);
         res.json(sanitizedSettings || {});
       } else {
+        console.log(`[SETTINGS-API] No settings found - sending empty object`);
         res.json({});
       }
     } catch (error) {
@@ -9118,11 +9120,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
+      console.log(`[OBJECTS] Serving object: ${req.path}`);
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
-      console.error("Error accessing object:", error);
+      console.error(`[OBJECTS] Error accessing object ${req.path}:`, error);
       if (error instanceof ObjectNotFoundError) {
         return res.sendStatus(404);
       }

@@ -6,7 +6,7 @@ import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
 import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import acsLogoFallback from "@assets/acs-logo-2460A9-200px.jpg";
 import { getQueryFn } from "@/lib/queryClient";
 
@@ -18,13 +18,11 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const [logoFailed, setLogoFailed] = useState(false);
+  const [logoError, setLogoError] = useState(0);
   
-  // Get current user info
   const { data: user } = useQuery<{ id: string; username: string }>({
     queryKey: ["/api/auth/me"],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: settings } = useQuery<CompanySettings>({
@@ -35,9 +33,26 @@ export default function Layout({ children }: LayoutProps) {
     refetchOnMount: "always",
   });
 
-  // Apply branding colors dynamically
+  const getLogoSrc = useCallback(() => {
+    if (logoError === 0 && settings?.logoUrl) {
+      return `/objects${settings.logoUrl}`;
+    }
+    if (logoError <= 1) {
+      return acsLogoFallback;
+    }
+    return null;
+  }, [settings?.logoUrl, logoError]);
+
+  const handleLogoError = useCallback(() => {
+    setLogoError(prev => {
+      console.log(`[BRANDING] Logo load failed (attempt ${prev + 1}), trying next fallback`);
+      return prev + 1;
+    });
+  }, []);
+
   useEffect(() => {
     if (settings?.backgroundColor || settings?.foregroundColor || settings?.accentColor) {
+      console.log(`[BRANDING] Applying colors - bg=${settings.backgroundColor}, fg=${settings.foregroundColor}, accent=${settings.accentColor}`);
       const root = document.documentElement;
       
       // Convert hex to HSL for CSS variables
@@ -146,25 +161,11 @@ export default function Layout({ children }: LayoutProps) {
   }, [settings?.backgroundColor, settings?.foregroundColor, settings?.variableTextColor, settings?.accentColor]);
 
   useEffect(() => {
-    setLogoSrc(null);
-    setLogoFailed(false);
-    if (settings?.logoUrl) {
-      const img = new Image();
-      img.onload = () => setLogoSrc(`/objects${settings.logoUrl}`);
-      img.onerror = () => {
-        const fallbackImg = new Image();
-        fallbackImg.onload = () => setLogoSrc(acsLogoFallback);
-        fallbackImg.onerror = () => setLogoFailed(true);
-        fallbackImg.src = acsLogoFallback;
-      };
-      img.src = `/objects${settings.logoUrl}`;
-    } else if (settings) {
-      const fallbackImg = new Image();
-      fallbackImg.onload = () => setLogoSrc(acsLogoFallback);
-      fallbackImg.onerror = () => setLogoFailed(true);
-      fallbackImg.src = acsLogoFallback;
+    if (settings) {
+      console.log(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}`);
+      setLogoError(0);
     }
-  }, [settings?.logoUrl]);
+  }, [settings?.logoUrl, settings?.companyName]);
 
   const allNavItems = [
     { path: "/", icon: ChartLine, label: "Dashboard", alwaysVisible: true },
@@ -197,6 +198,8 @@ export default function Layout({ children }: LayoutProps) {
     return !settings || true;
   });
 
+  const currentLogoSrc = getLogoSrc();
+
   return (
     <div className="min-h-screen">
       {/* Navigation */}
@@ -205,26 +208,17 @@ export default function Layout({ children }: LayoutProps) {
           <Link href="/marketing">
             <div className="flex items-center space-x-3 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
               <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center flex-shrink-0">
-                {logoSrc && !logoFailed ? (
+                {currentLogoSrc ? (
                   <img 
-                    src={logoSrc}
+                    src={currentLogoSrc}
                     alt="Company Logo" 
                     className="w-15 h-15 object-contain rounded"
-                    onError={() => {
-                      setLogoSrc(null);
-                      setLogoFailed(true);
-                    }}
+                    onError={handleLogoError}
                   />
-                ) : logoFailed ? (
+                ) : (
                   <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={{color: settings?.accentColor || '#2460a9'}}>
                     {settings?.companyName?.charAt(0) || 'A'}
                   </div>
-                ) : (
-                  <img 
-                    src={acsLogoFallback}
-                    alt="Company Logo" 
-                    className="w-15 h-15 object-contain rounded"
-                  />
                 )}
               </div>
               <div className="min-w-0">
