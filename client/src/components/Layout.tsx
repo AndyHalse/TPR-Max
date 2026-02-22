@@ -27,45 +27,40 @@ export default function Layout({ children }: LayoutProps) {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
     queryFn: getQueryFn<CompanySettings>({ on401: "returnNull" }),
-    staleTime: 0,
+    staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
-    refetchOnMount: "always",
+    refetchOnMount: false,
+    placeholderData: (previousData: CompanySettings | undefined) => previousData,
   });
 
   const [logoFallbackStage, setLogoFallbackStage] = useState(0);
-  const [logoRetryCount, setLogoRetryCount] = useState(0);
-  const maxRetries = 3;
   
   const getLogoSrc = useCallback(() => {
     if (logoError || !settings?.logoUrl) return null;
     
-    if (logoFallbackStage === 0) {
-      return `/api/company-logo${logoRetryCount > 0 ? `?_retry=${logoRetryCount}` : ''}`;
+    const logoToken = localStorage.getItem('tprmax-logo-token');
+    
+    if (logoFallbackStage === 0 && logoToken) {
+      return `/api/public-logo/${logoToken}`;
     }
     if (logoFallbackStage === 1) {
+      return `/api/company-logo`;
+    }
+    if (logoFallbackStage === 2) {
       const normalizedUrl = settings.logoUrl.replace(/^\/objects/, '');
       return `/objects${normalizedUrl}`;
     }
-    if (logoFallbackStage === 2) {
+    if (logoFallbackStage === 3) {
       const fileName = settings.logoUrl.replace(/^\/?(uploads\/)?/, '');
       return `/public-objects/${fileName}`;
     }
     return null;
-  }, [settings?.logoUrl, logoError, logoFallbackStage, logoRetryCount]);
+  }, [settings?.logoUrl, logoError, logoFallbackStage]);
 
   const handleLogoError = useCallback(() => {
-    if (logoFallbackStage === 0 && logoRetryCount < maxRetries) {
-      console.log(`[BRANDING] Logo API retry ${logoRetryCount + 1}/${maxRetries} (session may not be ready)`);
-      setTimeout(() => {
-        setLogoRetryCount(prev => prev + 1);
-      }, 1000 * (logoRetryCount + 1));
-      return;
-    }
-    
-    setLogoRetryCount(0);
     setLogoFallbackStage(prev => {
       const next = prev + 1;
-      if (next > 2) {
+      if (next > 3) {
         console.log(`[BRANDING] All logo sources failed, showing letter placeholder`);
         setLogoError(true);
         return prev;
@@ -73,7 +68,7 @@ export default function Layout({ children }: LayoutProps) {
       console.log(`[BRANDING] Logo source ${prev} failed, trying fallback ${next}`);
       return next;
     });
-  }, [logoFallbackStage, logoRetryCount]);
+  }, []);
 
   useEffect(() => {
     if (settings?.backgroundColor || settings?.foregroundColor || settings?.accentColor) {
@@ -190,7 +185,6 @@ export default function Layout({ children }: LayoutProps) {
       console.log(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}, varText=${settings.variableTextColor || 'NONE'}`);
       setLogoError(false);
       setLogoFallbackStage(0);
-      setLogoRetryCount(0);
     }
   }, [settings?.logoUrl, settings?.companyName]);
 

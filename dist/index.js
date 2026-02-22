@@ -32984,6 +32984,7 @@ async function registerRoutes(app2, existingServer) {
             } catch (settingsError) {
               console.error("\u26A0\uFE0F Failed to fetch settings during dev login:", settingsError);
             }
+            const devLogoToken = generateLogoToken(authResult2.customer.id);
             return res.json({
               success: true,
               message: "Login successful",
@@ -32996,7 +32997,8 @@ async function registerRoutes(app2, existingServer) {
                 id: authResult2.customer.id,
                 companyName: authResult2.customer.companyName
               },
-              settings: companySettings3
+              settings: companySettings3,
+              logoToken: devLogoToken
             });
           });
         });
@@ -33064,6 +33066,7 @@ async function registerRoutes(app2, existingServer) {
           } catch (settingsError) {
             console.error("\u26A0\uFE0F Failed to fetch settings during login:", settingsError);
           }
+          const logoToken = generateLogoToken(customer.id);
           res.json({
             success: true,
             user: {
@@ -33076,7 +33079,8 @@ async function registerRoutes(app2, existingServer) {
               companyName: customer.companyName,
               slug: customer.slug
             },
-            settings: companySettings3
+            settings: companySettings3,
+            logoToken
           });
         });
       });
@@ -38061,6 +38065,76 @@ ${magicardResult}`);
     } catch (error) {
       console.error("Error loading ID card design:", error);
       res.status(500).json({ error: "Failed to load ID card design" });
+    }
+  });
+  const crypto7 = await import("crypto");
+  const LOGO_TOKEN_SECRET = process.env.SESSION_SECRET || process.env.DATABASE_URL || "tpr-max-logo-token-secret";
+  function generateLogoToken(customerId) {
+    const expiry = Date.now() + 24 * 60 * 60 * 1e3;
+    const payload = `${customerId}:${expiry}`;
+    const hmac = crypto7.createHmac("sha256", LOGO_TOKEN_SECRET).update(payload).digest("hex").substring(0, 16);
+    return Buffer.from(`${payload}:${hmac}`).toString("base64url");
+  }
+  function validateLogoToken(token) {
+    try {
+      const decoded = Buffer.from(token, "base64url").toString();
+      const parts = decoded.split(":");
+      if (parts.length !== 3) return null;
+      const [customerId, expiryStr, providedHmac] = parts;
+      const expiry = parseInt(expiryStr, 10);
+      if (Date.now() > expiry) return null;
+      const expectedHmac = crypto7.createHmac("sha256", LOGO_TOKEN_SECRET).update(`${customerId}:${expiryStr}`).digest("hex").substring(0, 16);
+      if (providedHmac !== expectedHmac) return null;
+      return customerId;
+    } catch {
+      return null;
+    }
+  }
+  app2.get("/api/public-logo/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const customerId = validateLogoToken(token);
+      if (!customerId) {
+        return res.status(403).json({ error: "Invalid or expired logo token" });
+      }
+      const { simpleDatabaseService: simpleDatabaseService2 } = await Promise.resolve().then(() => (init_simpleDatabaseService(), simpleDatabaseService_exports));
+      const context = simpleDatabaseService2.createCustomerContext("system", customerId);
+      const settings = await simpleDatabaseService2.getCompanySettings(context);
+      if (!settings?.logoUrl) {
+        console.log(`[LOGO] No logo URL in settings for customer ${customerId}`);
+        return res.status(404).json({ error: "No logo configured" });
+      }
+      const rawLogoUrl = settings.logoUrl;
+      const normalizedUrl = rawLogoUrl.replace(/^\/objects/, "").replace(/^\/+/, "/");
+      console.log(`[LOGO] Public logo request for customer ${customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
+      const objectStorageService = new ObjectStorageService();
+      try {
+        const objectPath = `/objects${normalizedUrl}`;
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        return objectStorageService.downloadObject(objectFile, res, 86400);
+      } catch (privateErr) {
+      }
+      try {
+        const fileName = normalizedUrl.replace(/^\/?(uploads\/)?/, "");
+        const publicFile = await objectStorageService.searchPublicObject(fileName);
+        if (publicFile) {
+          return objectStorageService.downloadObject(publicFile, res, 86400);
+        }
+      } catch (publicErr) {
+      }
+      try {
+        const fullFileName = normalizedUrl.replace(/^\//, "");
+        const publicFile2 = await objectStorageService.searchPublicObject(fullFileName);
+        if (publicFile2) {
+          return objectStorageService.downloadObject(publicFile2, res, 86400);
+        }
+      } catch (fullErr) {
+      }
+      console.log(`[LOGO] Public logo not found for customer ${customerId}`);
+      return res.status(404).json({ error: "Logo file not found" });
+    } catch (error) {
+      console.error(`[LOGO] Error serving public logo:`, error);
+      return res.status(500).json({ error: "Failed to serve logo" });
     }
   });
   app2.get("/api/company-logo", requireAuth, async (req, res) => {
@@ -46267,8 +46341,8 @@ This is an automated notification from your visitor management system.`;
           error: "Missing required fields: customerId, serviceName, machineId"
         });
       }
-      const crypto7 = await import("crypto");
-      const apiToken = crypto7.randomBytes(32).toString("hex");
+      const crypto8 = await import("crypto");
+      const apiToken = crypto8.randomBytes(32).toString("hex");
       const existingService = await db.select().from(printServiceInstances).where(and7(
         eq13(printServiceInstances.customerId, customerId),
         eq13(printServiceInstances.machineId, machineId)
@@ -47861,7 +47935,7 @@ function createCSRFMiddleware() {
       }
       return next();
     }
-    if (req.originalUrl.startsWith("/api/objects/") || req.originalUrl.startsWith("/api/staff") || req.originalUrl.startsWith("/api/visitors") || req.originalUrl.startsWith("/api/prebookings") || req.originalUrl.startsWith("/api/room-bookings") || req.originalUrl.startsWith("/api/meeting-rooms") || req.originalUrl.startsWith("/api/card-issues") || req.originalUrl.startsWith("/api/contractors") || req.originalUrl.startsWith("/api/settings") || req.originalUrl.startsWith("/api/zones") || req.originalUrl.startsWith("/api/departments") || req.originalUrl.startsWith("/api/users") || req.originalUrl.startsWith("/api/muster") || req.originalUrl.startsWith("/api/evacuation") || req.originalUrl.startsWith("/api/emergency") || req.originalUrl.startsWith("/api/members") || req.originalUrl.startsWith("/api/reports") || req.originalUrl.startsWith("/api/activity") || req.originalUrl.startsWith("/api/analytics") || req.originalUrl.startsWith("/api/help") || req.originalUrl.startsWith("/api/printers") || req.originalUrl.startsWith("/api/induction") || req.originalUrl.startsWith("/api/feature-toggles") || req.originalUrl.startsWith("/api/co2") || req.originalUrl.startsWith("/api/reception") || req.originalUrl.startsWith("/api/company-logo")) {
+    if (req.originalUrl.startsWith("/api/objects/") || req.originalUrl.startsWith("/api/staff") || req.originalUrl.startsWith("/api/visitors") || req.originalUrl.startsWith("/api/prebookings") || req.originalUrl.startsWith("/api/room-bookings") || req.originalUrl.startsWith("/api/meeting-rooms") || req.originalUrl.startsWith("/api/card-issues") || req.originalUrl.startsWith("/api/contractors") || req.originalUrl.startsWith("/api/settings") || req.originalUrl.startsWith("/api/zones") || req.originalUrl.startsWith("/api/departments") || req.originalUrl.startsWith("/api/users") || req.originalUrl.startsWith("/api/muster") || req.originalUrl.startsWith("/api/evacuation") || req.originalUrl.startsWith("/api/emergency") || req.originalUrl.startsWith("/api/members") || req.originalUrl.startsWith("/api/reports") || req.originalUrl.startsWith("/api/activity") || req.originalUrl.startsWith("/api/analytics") || req.originalUrl.startsWith("/api/help") || req.originalUrl.startsWith("/api/printers") || req.originalUrl.startsWith("/api/induction") || req.originalUrl.startsWith("/api/feature-toggles") || req.originalUrl.startsWith("/api/co2") || req.originalUrl.startsWith("/api/reception") || req.originalUrl.startsWith("/api/company-logo") || req.originalUrl.startsWith("/api/public-logo")) {
       console.log(`\u2705 CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }
@@ -48006,9 +48080,9 @@ app.use((req, res, next) => {
         port,
         environment: process.env.NODE_ENV || "development",
         eventType: "server_ready",
-        buildVersion: "v2026.02.22.1"
+        buildVersion: "v2026.02.22.2"
       });
-      console.log("[BUILD] VERSION: v2026.02.22.1 - session race condition + branding parity fix");
+      console.log("[BUILD] VERSION: v2026.02.22.2 - public logo endpoint + locked settings cache + direct branding");
       log(`serving on port ${port}`);
     });
     logger.info("Registering routes");

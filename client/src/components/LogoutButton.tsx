@@ -16,6 +16,7 @@ export default function LogoutButton() {
     onSuccess: () => {
       localStorage.removeItem('visigate_user');
       localStorage.removeItem('tprmax-last-login');
+      localStorage.removeItem('tprmax-logo-token');
       
       toast({
         title: "Logged Out",

@@ -12,6 +12,78 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 
+function hexToHsl(hex: string): string | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return null;
+  const r = parseInt(result[1], 16) / 255;
+  const g = parseInt(result[2], 16) / 255;
+  const b = parseInt(result[3], 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return `${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%`;
+}
+
+function applyBrandingFromSettings(settings: any) {
+  const root = document.documentElement;
+  
+  if (settings.backgroundColor) {
+    const hsl = hexToHsl(settings.backgroundColor);
+    if (hsl) {
+      root.style.setProperty('--background', `hsl(${hsl})`);
+      root.style.setProperty('--popover', `hsl(${hsl})`);
+      const hex = settings.backgroundColor;
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      if (luminance >= 0.5) {
+        root.style.setProperty('--card', `hsl(${hsl})`);
+        root.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.25)');
+        root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.18)');
+        root.style.setProperty('--glass-hover', 'rgba(255, 255, 255, 0.35)');
+      }
+    }
+  }
+  
+  if (settings.foregroundColor) {
+    const hsl = hexToHsl(settings.foregroundColor);
+    if (hsl) {
+      root.style.setProperty('--foreground', `hsl(${hsl})`);
+      root.style.setProperty('--card-foreground', `hsl(${hsl})`);
+      root.style.setProperty('--fixed-text', `hsl(${hsl})`);
+    }
+  }
+  
+  if (settings.variableTextColor) {
+    const hsl = hexToHsl(settings.variableTextColor);
+    if (hsl) {
+      root.style.setProperty('--variable-text', `hsl(${hsl})`);
+    }
+  }
+  
+  if (settings.accentColor) {
+    const hsl = hexToHsl(settings.accentColor);
+    if (hsl) {
+      root.style.setProperty('--primary', `hsl(${hsl})`);
+      root.style.setProperty('--accent', `hsl(${hsl})`);
+      root.style.setProperty('--ring', `hsl(${hsl})`);
+    }
+  }
+  console.log(`[BRANDING] Applied branding directly from login response - bg=${settings.backgroundColor}, accent=${settings.accentColor}, varText=${settings.variableTextColor}`);
+}
+
 export default function Login() {
   const [, setLocation] = useLocation();
   
@@ -95,12 +167,25 @@ export default function Login() {
           description: `Welcome back, ${data.user.username} at ${data.customer?.companyName || credentials.companyName}!`,
         });
         
+        // Store logo token for public logo endpoint (scoped, signed, no auth needed)
+        if (data.logoToken) {
+          localStorage.setItem('tprmax-logo-token', data.logoToken);
+        }
+        
         // Set the auth data in cache first
         queryClient.setQueryData(["/api/auth/me"], data.user);
         
         // Pre-seed the settings cache from login response for immediate branding
+        // Mark this data as fresh so refetchOnMount won't override it
         if (data.settings) {
           queryClient.setQueryData(["/api/settings"], data.settings);
+        }
+        
+        // Apply branding CSS custom properties IMMEDIATELY from login response
+        // This ensures branding is visible the instant the dashboard renders,
+        // regardless of any subsequent query refetch behavior
+        if (data.settings) {
+          applyBrandingFromSettings(data.settings);
         }
         
         // Invalidate data queries to ensure fresh data, but NOT settings or auth

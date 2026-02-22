@@ -218,7 +218,8 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/feature-toggles') ||
         req.originalUrl.startsWith('/api/co2') ||
         req.originalUrl.startsWith('/api/reception') ||
-        req.originalUrl.startsWith('/api/company-logo')) {
+        req.originalUrl.startsWith('/api/company-logo') ||
+        req.originalUrl.startsWith('/api/public-logo')) {
       console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }
@@ -407,9 +408,9 @@ app.use((req, res, next) => {
         port: port,
         environment: process.env.NODE_ENV || 'development',
         eventType: 'server_ready',
-        buildVersion: 'v2026.02.22.1'
+        buildVersion: 'v2026.02.22.2'
       });
-      console.log('[BUILD] VERSION: v2026.02.22.1 - session race condition + branding parity fix');
+      console.log('[BUILD] VERSION: v2026.02.22.2 - public logo endpoint + locked settings cache + direct branding');
       log(`serving on port ${port}`);
     });
 

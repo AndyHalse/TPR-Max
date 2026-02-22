@@ -1237,6 +1237,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               console.error("⚠️ Failed to fetch settings during dev login:", settingsError);
             }
             
+            const devLogoToken = generateLogoToken(authResult.customer.id);
             return res.json({ 
               success: true,
               message: "Login successful", 
@@ -1249,7 +1250,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
                 id: authResult.customer.id,
                 companyName: authResult.customer.companyName
               },
-              settings: companySettings
+              settings: companySettings,
+              logoToken: devLogoToken
             });
           });
         });
@@ -1336,7 +1338,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             console.error("⚠️ Failed to fetch settings during login:", settingsError);
           }
           
-          // Return successful login with complete user, customer context, and settings
+          // Generate a scoped logo token for the public logo endpoint (no auth needed)
+          const logoToken = generateLogoToken(customer.id);
+          
+          // Return successful login with complete user, customer context, settings, and logo token
           res.json({ 
             success: true, 
             user: { 
@@ -1349,7 +1354,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               companyName: customer.companyName,
               slug: customer.slug
             },
-            settings: companySettings
+            settings: companySettings,
+            logoToken
           });
         });
       });
@@ -8051,8 +8057,96 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  // Dedicated company logo endpoint - serves logo image directly from object storage
-  // More reliable than generic /objects/ path, works consistently in both dev and production
+  // Public company logo endpoint - serves logo using a scoped token from login response
+  // Token is a HMAC signature of customerId + expiry, valid for 24 hours
+  // This eliminates the session race condition while maintaining tenant isolation
+  const crypto = await import("crypto");
+  const LOGO_TOKEN_SECRET = process.env.SESSION_SECRET || process.env.DATABASE_URL || 'tpr-max-logo-token-secret';
+  
+  function generateLogoToken(customerId: string): string {
+    const expiry = Date.now() + 24 * 60 * 60 * 1000;
+    const payload = `${customerId}:${expiry}`;
+    const hmac = crypto.createHmac('sha256', LOGO_TOKEN_SECRET).update(payload).digest('hex').substring(0, 16);
+    return Buffer.from(`${payload}:${hmac}`).toString('base64url');
+  }
+  
+  function validateLogoToken(token: string): string | null {
+    try {
+      const decoded = Buffer.from(token, 'base64url').toString();
+      const parts = decoded.split(':');
+      if (parts.length !== 3) return null;
+      const [customerId, expiryStr, providedHmac] = parts;
+      const expiry = parseInt(expiryStr, 10);
+      if (Date.now() > expiry) return null;
+      const expectedHmac = crypto.createHmac('sha256', LOGO_TOKEN_SECRET).update(`${customerId}:${expiryStr}`).digest('hex').substring(0, 16);
+      if (providedHmac !== expectedHmac) return null;
+      return customerId;
+    } catch {
+      return null;
+    }
+  }
+  
+  app.get("/api/public-logo/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const customerId = validateLogoToken(token);
+      if (!customerId) {
+        return res.status(403).json({ error: "Invalid or expired logo token" });
+      }
+      
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const context = simpleDatabaseService.createCustomerContext('system', customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      
+      if (!settings?.logoUrl) {
+        console.log(`[LOGO] No logo URL in settings for customer ${customerId}`);
+        return res.status(404).json({ error: "No logo configured" });
+      }
+      
+      const rawLogoUrl = settings.logoUrl;
+      const normalizedUrl = rawLogoUrl.replace(/^\/objects/, '').replace(/^\/+/, '/');
+      console.log(`[LOGO] Public logo request for customer ${customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      try {
+        const objectPath = `/objects${normalizedUrl}`;
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        return objectStorageService.downloadObject(objectFile, res, 86400);
+      } catch (privateErr: any) {
+        // Try public path
+      }
+      
+      try {
+        const fileName = normalizedUrl.replace(/^\/?(uploads\/)?/, '');
+        const publicFile = await objectStorageService.searchPublicObject(fileName);
+        if (publicFile) {
+          return objectStorageService.downloadObject(publicFile, res, 86400);
+        }
+      } catch (publicErr: any) {
+        // Try full path
+      }
+      
+      try {
+        const fullFileName = normalizedUrl.replace(/^\//, '');
+        const publicFile2 = await objectStorageService.searchPublicObject(fullFileName);
+        if (publicFile2) {
+          return objectStorageService.downloadObject(publicFile2, res, 86400);
+        }
+      } catch (fullErr: any) {
+        // All paths exhausted
+      }
+      
+      console.log(`[LOGO] Public logo not found for customer ${customerId}`);
+      return res.status(404).json({ error: "Logo file not found" });
+    } catch (error) {
+      console.error(`[LOGO] Error serving public logo:`, error);
+      return res.status(500).json({ error: "Failed to serve logo" });
+    }
+  });
+
+  // Dedicated company logo endpoint - serves logo image directly from object storage (auth version)
+  // Kept as fallback, but frontend now primarily uses /api/public-logo/:customerId
   app.get("/api/company-logo", requireAuth, async (req, res) => {
     try {
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
