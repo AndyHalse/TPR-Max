@@ -2302,6 +2302,15 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       const stats = await databaseService.getStats(context);
       
+      // DIAGNOSTIC: Log exact search_path being used
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const spResult = await (custDb as any).execute(sql`SHOW search_path`);
+        console.log(`📊 STATS DIAGNOSTIC: customerId=${context.customerId}, search_path=${JSON.stringify(spResult?.rows?.[0] || spResult)}, stats=${JSON.stringify(stats)}`);
+      } catch (diagErr) {
+        console.log(`📊 STATS DIAGNOSTIC: customerId=${context.customerId}, diagErr=${diagErr}`);
+      }
+      
       // Use the contractor count from the updated getStats method
       const contractorsOnSite = stats.contractorsOnSite || 0;
       

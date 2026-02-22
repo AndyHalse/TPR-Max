@@ -33736,6 +33736,13 @@ async function registerRoutes(app2, existingServer) {
       const username2 = req.user.username;
       const context = simpleDatabaseService.createCustomerContext(username2, req.customerId);
       const stats = await databaseService.getStats(context);
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const spResult = await custDb.execute(sql11`SHOW search_path`);
+        console.log(`\u{1F4CA} STATS DIAGNOSTIC: customerId=${context.customerId}, search_path=${JSON.stringify(spResult?.rows?.[0] || spResult)}, stats=${JSON.stringify(stats)}`);
+      } catch (diagErr) {
+        console.log(`\u{1F4CA} STATS DIAGNOSTIC: customerId=${context.customerId}, diagErr=${diagErr}`);
+      }
       const contractorsOnSite = stats.contractorsOnSite || 0;
       let membersOnSite = 0;
       let featureMembers = false;
