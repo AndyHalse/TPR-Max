@@ -33,24 +33,36 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   const [logoFallbackStage, setLogoFallbackStage] = useState(0);
+  const [logoRetryCount, setLogoRetryCount] = useState(0);
+  const maxRetries = 3;
   
   const getLogoSrc = useCallback(() => {
     if (logoError || !settings?.logoUrl) return null;
     
     if (logoFallbackStage === 0) {
-      return `/api/company-logo`;
+      return `/api/company-logo${logoRetryCount > 0 ? `?_retry=${logoRetryCount}` : ''}`;
     }
     if (logoFallbackStage === 1) {
-      return `/objects${settings.logoUrl}`;
+      const normalizedUrl = settings.logoUrl.replace(/^\/objects/, '');
+      return `/objects${normalizedUrl}`;
     }
     if (logoFallbackStage === 2) {
       const fileName = settings.logoUrl.replace(/^\/?(uploads\/)?/, '');
       return `/public-objects/${fileName}`;
     }
     return null;
-  }, [settings?.logoUrl, logoError, logoFallbackStage]);
+  }, [settings?.logoUrl, logoError, logoFallbackStage, logoRetryCount]);
 
   const handleLogoError = useCallback(() => {
+    if (logoFallbackStage === 0 && logoRetryCount < maxRetries) {
+      console.log(`[BRANDING] Logo API retry ${logoRetryCount + 1}/${maxRetries} (session may not be ready)`);
+      setTimeout(() => {
+        setLogoRetryCount(prev => prev + 1);
+      }, 1000 * (logoRetryCount + 1));
+      return;
+    }
+    
+    setLogoRetryCount(0);
     setLogoFallbackStage(prev => {
       const next = prev + 1;
       if (next > 2) {
@@ -61,7 +73,7 @@ export default function Layout({ children }: LayoutProps) {
       console.log(`[BRANDING] Logo source ${prev} failed, trying fallback ${next}`);
       return next;
     });
-  }, []);
+  }, [logoFallbackStage, logoRetryCount]);
 
   useEffect(() => {
     if (settings?.backgroundColor || settings?.foregroundColor || settings?.accentColor) {
@@ -175,9 +187,10 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     if (settings) {
-      console.log(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}`);
+      console.log(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}, varText=${settings.variableTextColor || 'NONE'}`);
       setLogoError(false);
       setLogoFallbackStage(0);
+      setLogoRetryCount(0);
     }
   }, [settings?.logoUrl, settings?.companyName]);
 

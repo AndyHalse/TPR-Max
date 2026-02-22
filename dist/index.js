@@ -47861,7 +47861,7 @@ function createCSRFMiddleware() {
       }
       return next();
     }
-    if (req.originalUrl.startsWith("/api/objects/") || req.originalUrl.startsWith("/api/staff") || req.originalUrl.startsWith("/api/visitors") || req.originalUrl.startsWith("/api/prebookings") || req.originalUrl.startsWith("/api/room-bookings") || req.originalUrl.startsWith("/api/meeting-rooms") || req.originalUrl.startsWith("/api/card-issues") || req.originalUrl.startsWith("/api/contractors") || req.originalUrl.startsWith("/api/settings") || req.originalUrl.startsWith("/api/zones") || req.originalUrl.startsWith("/api/departments") || req.originalUrl.startsWith("/api/users") || req.originalUrl.startsWith("/api/muster") || req.originalUrl.startsWith("/api/evacuation") || req.originalUrl.startsWith("/api/emergency") || req.originalUrl.startsWith("/api/members") || req.originalUrl.startsWith("/api/reports") || req.originalUrl.startsWith("/api/activity") || req.originalUrl.startsWith("/api/analytics") || req.originalUrl.startsWith("/api/help") || req.originalUrl.startsWith("/api/printers") || req.originalUrl.startsWith("/api/induction") || req.originalUrl.startsWith("/api/feature-toggles") || req.originalUrl.startsWith("/api/co2") || req.originalUrl.startsWith("/api/reception")) {
+    if (req.originalUrl.startsWith("/api/objects/") || req.originalUrl.startsWith("/api/staff") || req.originalUrl.startsWith("/api/visitors") || req.originalUrl.startsWith("/api/prebookings") || req.originalUrl.startsWith("/api/room-bookings") || req.originalUrl.startsWith("/api/meeting-rooms") || req.originalUrl.startsWith("/api/card-issues") || req.originalUrl.startsWith("/api/contractors") || req.originalUrl.startsWith("/api/settings") || req.originalUrl.startsWith("/api/zones") || req.originalUrl.startsWith("/api/departments") || req.originalUrl.startsWith("/api/users") || req.originalUrl.startsWith("/api/muster") || req.originalUrl.startsWith("/api/evacuation") || req.originalUrl.startsWith("/api/emergency") || req.originalUrl.startsWith("/api/members") || req.originalUrl.startsWith("/api/reports") || req.originalUrl.startsWith("/api/activity") || req.originalUrl.startsWith("/api/analytics") || req.originalUrl.startsWith("/api/help") || req.originalUrl.startsWith("/api/printers") || req.originalUrl.startsWith("/api/induction") || req.originalUrl.startsWith("/api/feature-toggles") || req.originalUrl.startsWith("/api/co2") || req.originalUrl.startsWith("/api/reception") || req.originalUrl.startsWith("/api/company-logo")) {
       console.log(`\u2705 CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }
@@ -48006,9 +48006,9 @@ app.use((req, res, next) => {
         port,
         environment: process.env.NODE_ENV || "development",
         eventType: "server_ready",
-        buildVersion: "v2026.02.21.4"
+        buildVersion: "v2026.02.22.1"
       });
-      console.log("[BUILD] VERSION: v2026.02.21.4 - production display parity fix");
+      console.log("[BUILD] VERSION: v2026.02.22.1 - session race condition + branding parity fix");
       log(`serving on port ${port}`);
     });
     logger.info("Registering routes");

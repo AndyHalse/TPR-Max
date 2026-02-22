@@ -95,22 +95,23 @@ export default function Login() {
           description: `Welcome back, ${data.user.username} at ${data.customer?.companyName || credentials.companyName}!`,
         });
         
+        // Set the auth data in cache first
+        queryClient.setQueryData(["/api/auth/me"], data.user);
+        
         // Pre-seed the settings cache from login response for immediate branding
         if (data.settings) {
           queryClient.setQueryData(["/api/settings"], data.settings);
         }
         
-        // Set the auth data in cache AND invalidate to ensure fresh fetch
-        queryClient.setQueryData(["/api/auth/me"], data.user);
-        
-        // Invalidate ALL queries to ensure fresh data after login (prevents stale cache)
-        await queryClient.invalidateQueries();
-        
-        // Re-seed settings and auth after invalidation to ensure immediate availability
-        if (data.settings) {
-          queryClient.setQueryData(["/api/settings"], data.settings);
-        }
-        queryClient.setQueryData(["/api/auth/me"], data.user);
+        // Invalidate data queries to ensure fresh data, but NOT settings or auth
+        // Settings are already seeded from the login response and shouldn't be refetched
+        // immediately (avoids race condition where session isn't persisted yet)
+        await queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey[0] as string;
+            return key !== "/api/settings" && key !== "/api/auth/me";
+          }
+        });
         
         // Redirecting to dashboard...
         setLocation("/");
