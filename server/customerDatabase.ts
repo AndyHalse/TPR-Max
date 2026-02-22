@@ -28,6 +28,7 @@ export class CustomerDatabaseService {
   private static instance: CustomerDatabaseService;
   private customerConnections: Map<string, ReturnType<typeof drizzle>> = new Map();
   private customerPools: Map<string, Pool> = new Map();
+  private customerSchemas: Map<string, string> = new Map();
   private migrationRunner = createMigrationRunner(this);
 
   private constructor() {}
@@ -91,8 +92,12 @@ export class CustomerDatabaseService {
    * Creates connection and provisions database if it doesn't exist
    */
   async getCustomerDatabase(customerId: string): Promise<ReturnType<typeof drizzle>> {
-    // Return existing connection if available
     if (this.customerConnections.has(customerId)) {
+      const pool = this.customerPools.get(customerId);
+      const schemaName = this.customerSchemas.get(customerId);
+      if (pool && schemaName) {
+        await pool.query(`SET search_path TO ${schemaName}, public`);
+      }
       return this.customerConnections.get(customerId)!;
     }
 
@@ -146,14 +151,25 @@ export class CustomerDatabaseService {
       try {
         pool = new Pool({
           connectionString,
-          max: 5,
+          max: 3,
           min: 0,
-          idleTimeoutMillis: 60000,
+          idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 10000,
           options: `-c search_path=${schemaName},public`,
         });
         
+        pool.on('connect', (client: any) => {
+          client.query(`SET search_path TO ${schemaName}, public`);
+        });
+        
         await pool.query(`SET search_path TO ${schemaName}, public`);
+        
+        const verifyResult = await pool.query(`SHOW search_path`);
+        const actualPath = verifyResult.rows[0]?.search_path || '';
+        if (!actualPath.includes(schemaName)) {
+          console.error(`❌ search_path verification FAILED: expected ${schemaName}, got ${actualPath}`);
+          throw new Error(`search_path not set correctly for ${customerId}`);
+        }
         
         const schemaExists = await pool.query(
           `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
@@ -173,6 +189,7 @@ export class CustomerDatabaseService {
 
         this.customerPools.set(customerId, pool);
         this.customerConnections.set(customerId, db);
+        this.customerSchemas.set(customerId, schemaName);
         break;
       } catch (error: any) {
         const isEndpointDisabled = error?.message?.includes('endpoint has been disabled') || 

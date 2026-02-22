@@ -12396,6 +12396,7 @@ var init_customerDatabase = __esm({
       constructor() {
         this.customerConnections = /* @__PURE__ */ new Map();
         this.customerPools = /* @__PURE__ */ new Map();
+        this.customerSchemas = /* @__PURE__ */ new Map();
         this.migrationRunner = createMigrationRunner(this);
         this.schemaNameCache = /* @__PURE__ */ new Map();
       }
@@ -12447,6 +12448,11 @@ var init_customerDatabase = __esm({
        */
       async getCustomerDatabase(customerId) {
         if (this.customerConnections.has(customerId)) {
+          const pool3 = this.customerPools.get(customerId);
+          const schemaName2 = this.customerSchemas.get(customerId);
+          if (pool3 && schemaName2) {
+            await pool3.query(`SET search_path TO ${schemaName2}, public`);
+          }
           return this.customerConnections.get(customerId);
         }
         let customer = await this.getCustomerInfo(customerId);
@@ -12483,13 +12489,22 @@ var init_customerDatabase = __esm({
           try {
             pool2 = new Pool3({
               connectionString,
-              max: 5,
+              max: 3,
               min: 0,
-              idleTimeoutMillis: 6e4,
+              idleTimeoutMillis: 3e4,
               connectionTimeoutMillis: 1e4,
               options: `-c search_path=${schemaName},public`
             });
+            pool2.on("connect", (client) => {
+              client.query(`SET search_path TO ${schemaName}, public`);
+            });
             await pool2.query(`SET search_path TO ${schemaName}, public`);
+            const verifyResult = await pool2.query(`SHOW search_path`);
+            const actualPath = verifyResult.rows[0]?.search_path || "";
+            if (!actualPath.includes(schemaName)) {
+              console.error(`\u274C search_path verification FAILED: expected ${schemaName}, got ${actualPath}`);
+              throw new Error(`search_path not set correctly for ${customerId}`);
+            }
             const schemaExists = await pool2.query(
               `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
               [schemaName]
@@ -12504,6 +12519,7 @@ var init_customerDatabase = __esm({
             db2 = drizzle3({ client: pool2, schema: isolatedSchema_exports });
             this.customerPools.set(customerId, pool2);
             this.customerConnections.set(customerId, db2);
+            this.customerSchemas.set(customerId, schemaName);
             break;
           } catch (error) {
             const isEndpointDisabled = error?.message?.includes("endpoint has been disabled") || error?.message?.includes("endpoint is disabled") || error?.code === "XX000";
@@ -33735,19 +33751,14 @@ async function registerRoutes(app2, existingServer) {
     try {
       const username2 = req.user.username;
       const context = simpleDatabaseService.createCustomerContext(username2, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const spCheck = await custDb.execute(sql11`SHOW search_path`);
+      const activeSchema = spCheck?.rows?.[0]?.search_path || "unknown";
       const stats = await databaseService.getStats(context);
-      try {
-        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-        const spResult = await custDb.execute(sql11`SHOW search_path`);
-        console.log(`\u{1F4CA} STATS DIAGNOSTIC: customerId=${context.customerId}, search_path=${JSON.stringify(spResult?.rows?.[0] || spResult)}, stats=${JSON.stringify(stats)}`);
-      } catch (diagErr) {
-        console.log(`\u{1F4CA} STATS DIAGNOSTIC: customerId=${context.customerId}, diagErr=${diagErr}`);
-      }
       const contractorsOnSite = stats.contractorsOnSite || 0;
       let membersOnSite = 0;
       let featureMembers = false;
       try {
-        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
         const [custSettings] = await custDb.select().from(companySettings2).limit(1);
         if (custSettings?.featureMembers === true) {
           featureMembers = true;
@@ -33759,6 +33770,7 @@ async function registerRoutes(app2, existingServer) {
       const totalPeopleOnSite = stats.currentVisitors + stats.staffOnSite + contractorsOnSite + membersOnSite;
       const visitors4 = await databaseService.getAllVisitors(context);
       const totalCompanies = [...new Set(visitors4.map((v) => v.company).filter(Boolean))].length;
+      res.setHeader("X-Schema", activeSchema);
       res.json({
         currentVisitors: stats.currentVisitors,
         todayCheckins: stats.todayCheckins,

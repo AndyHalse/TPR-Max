@@ -2300,16 +2300,17 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const spCheck = await (custDb as any).execute(sql`SHOW search_path`);
+      const activeSchema = spCheck?.rows?.[0]?.search_path || 'unknown';
+      
       const stats = await databaseService.getStats(context);
       
-      // Use the contractor count from the updated getStats method
       const contractorsOnSite = stats.contractorsOnSite || 0;
       
-      // Check members feature and count
       let membersOnSite = 0;
       let featureMembers = false;
       try {
-        const custDb = await customerDbService.getCustomerDatabase(context.customerId);
         const [custSettings] = await custDb
           .select()
           .from(isolatedSchema.companySettings)
@@ -2323,16 +2324,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           membersOnSite = checkedInMembers.length;
         }
       } catch (e) {
-        // Members table may not exist yet
       }
       
-      // Calculate total people on-site using actual stats
       const totalPeopleOnSite = stats.currentVisitors + stats.staffOnSite + contractorsOnSite + membersOnSite;
       
-      // Get total companies count with customer isolation
       const visitors = await databaseService.getAllVisitors(context);
       const totalCompanies = [...new Set(visitors.map((v: any) => v.company).filter(Boolean))].length;
       
+      res.setHeader('X-Schema', activeSchema);
       res.json({
         currentVisitors: stats.currentVisitors,
         todayCheckins: stats.todayCheckins,
