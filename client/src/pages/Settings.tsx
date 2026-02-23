@@ -517,6 +517,8 @@ export default function Settings() {
         accentColor: "#2460a9",
         variableTextColor: "#53b0ea",
         theme: "light",
+        logoUrl: "/uploads/d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6",
+        bannerUrl: "/uploads/b8067efb-c677-4203-a5c9-7c34bdd5ffa0",
       };
       const response = await apiRequest("PUT", "/api/settings", defaultBranding);
       return response.json();
@@ -526,7 +528,7 @@ export default function Settings() {
       setFormData({});
       toast({
         title: "Branding Reset",
-        description: "All colors have been reset to the default development values.",
+        description: "All colors, logo, and banner have been reset to the default development values.",
       });
     },
     onError: () => {
@@ -1577,7 +1579,7 @@ export default function Settings() {
                   <DialogHeader>
                     <DialogTitle>Reset Branding to Defaults?</DialogTitle>
                     <DialogDescription>
-                      This will reset all color settings back to the default development values (light blue background, black text, blue accent). Your logo and banner images will not be changed.
+                      This will reset all color settings, logo, and banner back to the default development values (light blue background, black text, blue accent, plus the original logo and banner images).
                     </DialogDescription>
                   </DialogHeader>
                   <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800 space-y-2 text-sm">
