@@ -531,10 +531,10 @@ export default function Settings() {
         description: "All colors, logo, and banner have been reset to the default development values.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Reset Failed",
-        description: "Failed to reset branding. Please try again.",
+        description: error.message || "Failed to reset branding. Please try again.",
         variant: "destructive",
       });
     },

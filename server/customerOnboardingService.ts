@@ -341,14 +341,19 @@ export class CustomerOnboardingService {
   private async initializeCompanyDefaults(customerId: string, request: CustomerOnboardingRequest): Promise<void> {
     const customerDb = await this.customerDbService.getCustomerDatabase(customerId);
     
-    // Initialize company settings with ACS Safety & Security Ltd defaults
-    // Customers can rebrand through Settings after onboarding
     const companySettingsData = {
-      companyName: 'ACS Safety & Security Ltd',  // Default ACS branding - customizable by customer
+      companyName: request.companyName,
       address: request.address || '',
       phone: request.phone || '',
       website: request.website || '',
       email: request.contactEmail,
+      backgroundColor: '#d5f3fe',
+      foregroundColor: '#000000',
+      accentColor: '#2460a9',
+      variableTextColor: '#53b0ea',
+      theme: 'light',
+      logoUrl: '/uploads/d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6',
+      bannerUrl: '/uploads/b8067efb-c677-4203-a5c9-7c34bdd5ffa0',
     };
     
     const existingSettings = await customerDb
@@ -360,6 +365,19 @@ export class CustomerOnboardingService {
       await customerDb
         .insert(isolatedSchema.companySettings)
         .values(companySettingsData);
+    } else {
+      await customerDb
+        .update(isolatedSchema.companySettings)
+        .set({
+          backgroundColor: '#d5f3fe',
+          foregroundColor: '#000000',
+          accentColor: '#2460a9',
+          variableTextColor: '#53b0ea',
+          theme: 'light',
+          logoUrl: '/uploads/d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6',
+          bannerUrl: '/uploads/b8067efb-c677-4203-a5c9-7c34bdd5ffa0',
+        })
+        .where(eq(isolatedSchema.companySettings.id, existingSettings[0].id));
     }
     
     // Create default departments (skip if they already exist)

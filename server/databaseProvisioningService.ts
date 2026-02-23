@@ -322,19 +322,14 @@ export class DatabaseProvisioningService {
     
     const pool = new Pool({ connectionString: databaseUrl });
     
-    if (process.env.NODE_ENV !== 'production') {
-      const schemaName = this.generateSchemaName(customerId);
-      await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
-      pool.on('connect', (client) => {
-        client.query(`SET search_path TO ${schemaName}, public`);
-      });
-      await pool.query(`SET search_path TO ${schemaName}, public`);
-      const db = drizzle({ client: pool, schema: isolatedSchema });
-      return { pool, db, schemaName };
-    }
-    
+    const schemaName = this.generateSchemaName(customerId);
+    await pool.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+    await pool.query(`SET search_path TO "${schemaName}", public`);
+    pool.on('connect', (client) => {
+      client.query(`SET search_path TO "${schemaName}", public`);
+    });
     const db = drizzle({ client: pool, schema: isolatedSchema });
-    return { pool, db, schemaName: null };
+    return { pool, db, schemaName };
   }
 
   /**
@@ -360,10 +355,8 @@ export class DatabaseProvisioningService {
       const db = connection.db;
       const schemaName = connection.schemaName;
 
-      // Development: Create customer schema if needed
-      if (process.env.NODE_ENV !== 'production' && schemaName) {
-        await this.createCustomerSchema(db, schemaName);
-        console.log(`✅ Created isolated schema: ${schemaName} for customer: ${customerId}`);
+      if (schemaName) {
+        console.log(`✅ Schema ready: ${schemaName} for customer: ${customerId}`);
       }
 
       // Create all tables for this customer's database/schema
@@ -481,15 +474,20 @@ export class DatabaseProvisioningService {
     console.log(`🌱 Seeding default data for customer: ${customerId}`);
 
     try {
-      // Create default company settings with ACS Safety & Security Ltd branding
       await db.execute(sql`
-        INSERT INTO company_settings (company_name, theme, accent_color)
-        VALUES ('ACS Safety & Security Ltd', 'light', '#3b82f6')
+        INSERT INTO company_settings (
+          company_name, theme, accent_color, background_color, 
+          foreground_color, variable_text_color,
+          logo_url, banner_url
+        )
+        VALUES (
+          'ACS Safety & Security Ltd', 'light', '#2460a9', '#d5f3fe',
+          '#000000', '#53b0ea',
+          '/uploads/d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6',
+          '/uploads/b8067efb-c677-4203-a5c9-7c34bdd5ffa0'
+        )
         ON CONFLICT DO NOTHING
       `);
-
-      // Note: Default departments are created by CustomerOnboardingService.initializeCompanyDefaults()
-      // to avoid duplicate constraint violations
 
       console.log(`✅ Default data seeded for customer: ${customerId}`);
     } catch (error) {

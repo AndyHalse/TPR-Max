@@ -7154,18 +7154,14 @@ var init_databaseProvisioningService = __esm({
       async createCustomerConnection(customerId) {
         const { databaseUrl } = await this.generateDatabaseUrl(customerId);
         const pool2 = new Pool2({ connectionString: databaseUrl });
-        if (process.env.NODE_ENV !== "production") {
-          const schemaName = this.generateSchemaName(customerId);
-          await pool2.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
-          pool2.on("connect", (client) => {
-            client.query(`SET search_path TO ${schemaName}, public`);
-          });
-          await pool2.query(`SET search_path TO ${schemaName}, public`);
-          const db3 = drizzle2({ client: pool2, schema: isolatedSchema_exports });
-          return { pool: pool2, db: db3, schemaName };
-        }
+        const schemaName = this.generateSchemaName(customerId);
+        await pool2.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+        await pool2.query(`SET search_path TO "${schemaName}", public`);
+        pool2.on("connect", (client) => {
+          client.query(`SET search_path TO "${schemaName}", public`);
+        });
         const db2 = drizzle2({ client: pool2, schema: isolatedSchema_exports });
-        return { pool: pool2, db: db2, schemaName: null };
+        return { pool: pool2, db: db2, schemaName };
       }
       /**
        * Create a new database for a customer
@@ -7183,9 +7179,8 @@ var init_databaseProvisioningService = __esm({
           pool2 = connection.pool;
           const db2 = connection.db;
           const schemaName = connection.schemaName;
-          if (process.env.NODE_ENV !== "production" && schemaName) {
-            await this.createCustomerSchema(db2, schemaName);
-            console.log(`\u2705 Created isolated schema: ${schemaName} for customer: ${customerId}`);
+          if (schemaName) {
+            console.log(`\u2705 Schema ready: ${schemaName} for customer: ${customerId}`);
           }
           await this.createAllTables(db2);
           await this.seedDefaultData(db2, customerId);
@@ -7289,8 +7284,17 @@ var init_databaseProvisioningService = __esm({
         console.log(`\u{1F331} Seeding default data for customer: ${customerId}`);
         try {
           await db2.execute(sql4`
-        INSERT INTO company_settings (company_name, theme, accent_color)
-        VALUES ('ACS Safety & Security Ltd', 'light', '#3b82f6')
+        INSERT INTO company_settings (
+          company_name, theme, accent_color, background_color, 
+          foreground_color, variable_text_color,
+          logo_url, banner_url
+        )
+        VALUES (
+          'ACS Safety & Security Ltd', 'light', '#2460a9', '#d5f3fe',
+          '#000000', '#53b0ea',
+          '/uploads/d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6',
+          '/uploads/b8067efb-c677-4203-a5c9-7c34bdd5ffa0'
+        )
         ON CONFLICT DO NOTHING
       `);
           console.log(`\u2705 Default data seeded for customer: ${customerId}`);
@@ -12543,6 +12547,58 @@ var init_customerDatabase = __esm({
           }
         }
         console.log(`\u2705 Connected to isolated database for customer: ${customer.companyName} (${customerId})`);
+        try {
+          const pool3 = this.customerPools.get(customerId);
+          if (pool3) {
+            const schemaName2 = this.generateSchemaName(customerId);
+            const tableCheck = await pool3.query(
+              `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'company_settings' LIMIT 1`,
+              [schemaName2]
+            );
+            if (!tableCheck.rows.length) {
+              console.log(`\u{1F527} Bootstrapping missing tables for customer ${customerId} in schema ${schemaName2}...`);
+              const tablesResult = await pool3.query(
+                `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`
+              );
+              const managementTables = /* @__PURE__ */ new Set([
+                "customers",
+                "session",
+                "platform_admins",
+                "platform_admin_sessions",
+                "platform_branding_settings",
+                "schema_version",
+                "subscription_plans",
+                "subscriptions",
+                "invoices",
+                "payment_methods",
+                "stripe_webhook_events",
+                "trial_tracking",
+                "usage_tracking",
+                "customer_api_keys",
+                "customer_api_key_access_logs",
+                "onboarding_progress",
+                "support_sessions",
+                "help_articles",
+                "help_categories",
+                "help_onboarding_progress",
+                "help_user_interactions"
+              ]);
+              const customerTables = tablesResult.rows.map((r) => r.table_name).filter((t) => !managementTables.has(t));
+              for (const tableName of customerTables) {
+                try {
+                  await pool3.query(
+                    `CREATE TABLE IF NOT EXISTS "${schemaName2}"."${tableName}" (LIKE public."${tableName}" INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)`
+                  );
+                } catch (e) {
+                  console.warn(`\u26A0\uFE0F Table ${tableName} bootstrap: ${e.message?.substring(0, 80)}`);
+                }
+              }
+              console.log(`\u2705 Bootstrapped ${customerTables.length} tables for ${schemaName2}`);
+            }
+          }
+        } catch (bootstrapError) {
+          console.error(`\u26A0\uFE0F Table bootstrap check failed for ${customerId}:`, bootstrapError);
+        }
         try {
           await this.migrationRunner.ensureSchema(customerId);
         } catch (error) {
@@ -31114,16 +31170,32 @@ var CustomerOnboardingService = class _CustomerOnboardingService {
   async initializeCompanyDefaults(customerId, request) {
     const customerDb = await this.customerDbService.getCustomerDatabase(customerId);
     const companySettingsData = {
-      companyName: "ACS Safety & Security Ltd",
-      // Default ACS branding - customizable by customer
+      companyName: request.companyName,
       address: request.address || "",
       phone: request.phone || "",
       website: request.website || "",
-      email: request.contactEmail
+      email: request.contactEmail,
+      backgroundColor: "#d5f3fe",
+      foregroundColor: "#000000",
+      accentColor: "#2460a9",
+      variableTextColor: "#53b0ea",
+      theme: "light",
+      logoUrl: "/uploads/d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6",
+      bannerUrl: "/uploads/b8067efb-c677-4203-a5c9-7c34bdd5ffa0"
     };
     const existingSettings = await customerDb.select().from(companySettings2).limit(1);
     if (existingSettings.length === 0) {
       await customerDb.insert(companySettings2).values(companySettingsData);
+    } else {
+      await customerDb.update(companySettings2).set({
+        backgroundColor: "#d5f3fe",
+        foregroundColor: "#000000",
+        accentColor: "#2460a9",
+        variableTextColor: "#53b0ea",
+        theme: "light",
+        logoUrl: "/uploads/d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6",
+        bannerUrl: "/uploads/b8067efb-c677-4203-a5c9-7c34bdd5ffa0"
+      }).where(eq8(companySettings2.id, existingSettings[0].id));
     }
     const defaultDepartments = [
       { name: "Administration", isActive: true },

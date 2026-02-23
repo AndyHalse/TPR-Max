@@ -217,6 +217,48 @@ export class CustomerDatabaseService {
 
     console.log(`✅ Connected to isolated database for customer: ${customer.companyName} (${customerId})`);
     
+    // Ensure essential tables exist in the customer schema (fixes provisioning gaps)
+    try {
+      const pool = this.customerPools.get(customerId);
+      if (pool) {
+        const schemaName = this.generateSchemaName(customerId);
+        const tableCheck = await pool.query(
+          `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'company_settings' LIMIT 1`,
+          [schemaName]
+        );
+        if (!tableCheck.rows.length) {
+          console.log(`🔧 Bootstrapping missing tables for customer ${customerId} in schema ${schemaName}...`);
+          const tablesResult = await pool.query(
+            `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`
+          );
+          const managementTables = new Set([
+            'customers', 'session', 'platform_admins', 'platform_admin_sessions',
+            'platform_branding_settings', 'schema_version',
+            'subscription_plans', 'subscriptions', 'invoices', 'payment_methods',
+            'stripe_webhook_events', 'trial_tracking', 'usage_tracking',
+            'customer_api_keys', 'customer_api_key_access_logs',
+            'onboarding_progress', 'support_sessions',
+            'help_articles', 'help_categories', 'help_onboarding_progress', 'help_user_interactions',
+          ]);
+          const customerTables = (tablesResult.rows as Array<{ table_name: string }>)
+            .map(r => r.table_name)
+            .filter(t => !managementTables.has(t));
+          for (const tableName of customerTables) {
+            try {
+              await pool.query(
+                `CREATE TABLE IF NOT EXISTS "${schemaName}"."${tableName}" (LIKE public."${tableName}" INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)`
+              );
+            } catch (e: any) {
+              console.warn(`⚠️ Table ${tableName} bootstrap: ${e.message?.substring(0, 80)}`);
+            }
+          }
+          console.log(`✅ Bootstrapped ${customerTables.length} tables for ${schemaName}`);
+        }
+      }
+    } catch (bootstrapError) {
+      console.error(`⚠️ Table bootstrap check failed for ${customerId}:`, bootstrapError);
+    }
+    
     // Run schema migrations to ensure database is up to date
     try {
       await this.migrationRunner.ensureSchema(customerId);
