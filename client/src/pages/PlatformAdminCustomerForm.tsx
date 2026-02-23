@@ -45,11 +45,10 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
       });
     },
     onError: (error: any) => {
-      let description = "Failed to create customer";
-      if (error.message) {
-        description = error.message;
-      }
-      if (description.includes("adminUsername") || description.includes("Username")) {
+      let description = error.message || "Failed to create customer";
+      if (description.includes("already registered") || description.includes("COMPANY_EXISTS")) {
+        description = "A company with this name already exists. Please choose a different name.";
+      } else if (description.includes("adminUsername") || description.includes("Username")) {
         description = "Username can only contain letters, numbers, underscores, and hyphens (min 3 characters)";
       }
       toast({

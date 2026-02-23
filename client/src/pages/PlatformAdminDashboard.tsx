@@ -124,10 +124,10 @@ export default function PlatformAdminDashboard() {
         description: "Customer status updated",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to update customer status",
+        description: error.message || "Failed to update customer status",
         variant: "destructive",
       });
     },
@@ -290,10 +290,10 @@ export default function PlatformAdminDashboard() {
         description: "Branding settings updated",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to update branding settings",
+        description: error.message || "Failed to update branding settings",
         variant: "destructive",
       });
     },
@@ -326,12 +326,19 @@ export default function PlatformAdminDashboard() {
     mutationFn: async () => {
       if (!editingCustomer) throw new Error("No customer selected");
       
-      // Update customer details
       const response = await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}`, editForm);
       
-      // Reset credentials if provided
       if (credentialReset.username || credentialReset.password) {
-        await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}/credentials`, credentialReset);
+        const credPayload: Record<string, string> = {};
+        if (credentialReset.username) credPayload.username = credentialReset.username;
+        if (credentialReset.password) credPayload.password = credentialReset.password;
+        try {
+          await apiRequest("PATCH", `/platform-admin/customers/${editingCustomer.id}/credentials`, credPayload);
+        } catch (credError: any) {
+          const detailsUpdated = await response.json();
+          queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
+          throw new Error(`Customer details saved, but credential reset failed: ${credError.message || 'Unknown error'}`);
+        }
       }
       
       return response.json();
@@ -345,10 +352,10 @@ export default function PlatformAdminDashboard() {
         description: "Customer updated successfully",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to update customer",
+        description: error.message || "Failed to update customer",
         variant: "destructive",
       });
     },
@@ -368,10 +375,10 @@ export default function PlatformAdminDashboard() {
         description: data.message || "Customer account has been permanently deleted",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to delete customer account",
+        description: error.message || "Failed to delete customer account",
         variant: "destructive",
       });
     },
