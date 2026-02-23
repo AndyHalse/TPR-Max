@@ -12451,7 +12451,7 @@ var init_customerDatabase = __esm({
           const pool3 = this.customerPools.get(customerId);
           const schemaName2 = this.customerSchemas.get(customerId);
           if (pool3 && schemaName2) {
-            await pool3.query(`SET search_path TO ${schemaName2}, public`);
+            await pool3.query(`SET search_path TO "${schemaName2}", public`);
           }
           return this.customerConnections.get(customerId);
         }
@@ -12489,22 +12489,19 @@ var init_customerDatabase = __esm({
           try {
             pool2 = new Pool3({
               connectionString,
-              max: 3,
-              min: 0,
-              idleTimeoutMillis: 3e4,
-              connectionTimeoutMillis: 1e4,
-              options: `-c search_path=${schemaName},public`
+              max: 1,
+              min: 1,
+              idleTimeoutMillis: 0,
+              connectionTimeoutMillis: 1e4
             });
-            pool2.on("connect", (client) => {
-              client.query(`SET search_path TO ${schemaName}, public`);
-            });
-            await pool2.query(`SET search_path TO ${schemaName}, public`);
+            await pool2.query(`SET search_path TO "${schemaName}", public`);
             const verifyResult = await pool2.query(`SHOW search_path`);
             const actualPath = verifyResult.rows[0]?.search_path || "";
             if (!actualPath.includes(schemaName)) {
               console.error(`\u274C search_path verification FAILED: expected ${schemaName}, got ${actualPath}`);
               throw new Error(`search_path not set correctly for ${customerId}`);
             }
+            console.log(`\u2705 search_path verified: ${actualPath}`);
             const schemaExists = await pool2.query(
               `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
               [schemaName]

@@ -96,7 +96,7 @@ export class CustomerDatabaseService {
       const pool = this.customerPools.get(customerId);
       const schemaName = this.customerSchemas.get(customerId);
       if (pool && schemaName) {
-        await pool.query(`SET search_path TO ${schemaName}, public`);
+        await pool.query(`SET search_path TO "${schemaName}", public`);
       }
       return this.customerConnections.get(customerId)!;
     }
@@ -151,18 +151,13 @@ export class CustomerDatabaseService {
       try {
         pool = new Pool({
           connectionString,
-          max: 3,
-          min: 0,
-          idleTimeoutMillis: 30000,
+          max: 1,
+          min: 1,
+          idleTimeoutMillis: 0,
           connectionTimeoutMillis: 10000,
-          options: `-c search_path=${schemaName},public`,
         });
         
-        pool.on('connect', (client: any) => {
-          client.query(`SET search_path TO ${schemaName}, public`);
-        });
-        
-        await pool.query(`SET search_path TO ${schemaName}, public`);
+        await pool.query(`SET search_path TO "${schemaName}", public`);
         
         const verifyResult = await pool.query(`SHOW search_path`);
         const actualPath = verifyResult.rows[0]?.search_path || '';
@@ -170,6 +165,7 @@ export class CustomerDatabaseService {
           console.error(`❌ search_path verification FAILED: expected ${schemaName}, got ${actualPath}`);
           throw new Error(`search_path not set correctly for ${customerId}`);
         }
+        console.log(`✅ search_path verified: ${actualPath}`);
         
         const schemaExists = await pool.query(
           `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
