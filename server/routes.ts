@@ -10312,22 +10312,57 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
       
-      // Get customer-isolated visitor data for the report
-      const allVisitors = await databaseService.getAllVisitors(context);
-      const visitorsInRange = allVisitors.filter(v => 
-        v.checkedInAt >= fromDate && v.checkedInAt <= toDate
-      );
-      
-      const checkedOutVisitors = visitorsInRange.filter(v => v.checkedOutAt);
-      const totalDuration = checkedOutVisitors.reduce((sum, visitor) => {
-        if (visitor.checkedOutAt) {
-          return sum + (visitor.checkedOutAt.getTime() - visitor.checkedInAt.getTime());
-        }
-        return sum;
-      }, 0);
-      
-      const avgDurationMs = checkedOutVisitors.length > 0 ? totalDuration / checkedOutVisitors.length : 0;
-      const avgDurationHours = (avgDurationMs / (1000 * 60 * 60)).toFixed(1);
+      let totalVisitors = "0";
+      let avgDuration = "N/A";
+
+      if (['daily', 'weekly', 'monthly'].includes(reportType)) {
+        const allVisitors = await databaseService.getAllVisitors(context);
+        const visitorsInRange = allVisitors.filter(v => 
+          v.checkedInAt >= fromDate && v.checkedInAt <= toDate
+        );
+        const checkedOutVisitors = visitorsInRange.filter(v => v.checkedOutAt);
+        const totalDur = checkedOutVisitors.reduce((sum, visitor) => {
+          if (visitor.checkedOutAt) {
+            return sum + (visitor.checkedOutAt.getTime() - visitor.checkedInAt.getTime());
+          }
+          return sum;
+        }, 0);
+        const avgMs = checkedOutVisitors.length > 0 ? totalDur / checkedOutVisitors.length : 0;
+        totalVisitors = visitorsInRange.length.toString();
+        avgDuration = `${(avgMs / (1000 * 60 * 60)).toFixed(1)}h`;
+      } else if (reportType === 'staff_attendance') {
+        const allStaff = await databaseService.getAllStaff(context);
+        totalVisitors = allStaff.length.toString();
+        const checkedIn = allStaff.filter(s => s.isCheckedIn).length;
+        avgDuration = `${checkedIn} on-site`;
+      } else if (reportType === 'contractor_activity') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        const workers = await databaseService.getAllContractorWorkers(context);
+        totalVisitors = `${companies.length} companies, ${workers.length} workers`;
+        const checkedIn = workers.filter(w => w.isCheckedIn).length;
+        avgDuration = `${checkedIn} on-site`;
+      } else if (reportType === 'contractor_compliance') {
+        const workers = await databaseService.getAllContractorWorkers(context);
+        const compliant = workers.filter(w => w.inductionCompleted && w.rightToWork === 'valid').length;
+        totalVisitors = `${workers.length} workers`;
+        avgDuration = `${Math.round((compliant / Math.max(workers.length, 1)) * 100)}% compliant`;
+      } else if (reportType === 'site_headcount') {
+        const checkedInStaff = await databaseService.getCheckedInStaff(context);
+        const currentVisitors = await databaseService.getCurrentVisitors(context);
+        const checkedInContractors = await databaseService.getCheckedInContractors(context);
+        const total = checkedInStaff.length + currentVisitors.length + checkedInContractors.length;
+        totalVisitors = `${total} on-site`;
+        avgDuration = `${checkedInStaff.length}S / ${currentVisitors.length}V / ${checkedInContractors.length}C`;
+      } else if (reportType === 'evacuation_readiness') {
+        const allStaff = await databaseService.getAllStaff(context);
+        const fireMarshals = allStaff.filter(s => s.isFireMarshal);
+        const checkedInStaff = await databaseService.getCheckedInStaff(context);
+        const currentVisitors = await databaseService.getCurrentVisitors(context);
+        const checkedInContractors = await databaseService.getCheckedInContractors(context);
+        const total = checkedInStaff.length + currentVisitors.length + checkedInContractors.length;
+        totalVisitors = `${total} on-site`;
+        avgDuration = `${fireMarshals.length} fire marshals`;
+      }
       
       const [report] = await db.insert(sharedSchema.reports)
         .values({
@@ -10335,8 +10370,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           reportType,
           dateFrom: fromDate,
           dateTo: toDate,
-          totalVisitors: visitorsInRange.length.toString(),
-          avgDuration: `${avgDurationHours}h`,
+          totalVisitors,
+          avgDuration,
           emailSent: false,
           emailSentAt: null,
         })
@@ -10379,30 +10414,46 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(500).json({ error: "Company settings not found" });
       }
       
-      // Get customer-isolated report data
+      const allStaff = await databaseService.getAllStaff(context);
       const allVisitors = await databaseService.getAllVisitors(context);
-      const staff = await databaseService.getAllStaff(context);
-      const visitorsInRange = allVisitors.filter(v => 
-        v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
-      );
       
-      // Enrich visitor data with host names and properly formatted visitor names
-      const enrichedVisitors = visitorsInRange.map(visitor => {
-        const hostStaff = staff.find(s => s.id === visitor.hostStaffId);
-        return {
-          ...visitor,
-          name: `${visitor.firstName} ${visitor.lastName}`.trim(),
-          hostName: hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'N/A'
-        };
-      });
+      let reportData: any = {};
+
+      if (['daily', 'weekly', 'monthly'].includes(report.reportType)) {
+        const visitorsInRange = allVisitors.filter(v => 
+          v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
+        );
+        const enrichedVisitors = visitorsInRange.map(visitor => {
+          const hostStaff = allStaff.find(s => s.id === visitor.hostStaffId);
+          return { ...visitor, name: `${visitor.firstName} ${visitor.lastName}`.trim(), hostName: hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'N/A' };
+        });
+        reportData = { type: 'visitor_log', visitors: enrichedVisitors, checkedOutVisitors: enrichedVisitors.filter(v => v.checkedOutAt), staff: allStaff };
+      } else if (report.reportType === 'staff_attendance') {
+        reportData = { type: 'staff_attendance', staff: allStaff, checkedInStaff: allStaff.filter(s => s.isCheckedIn), departments: [...new Set(allStaff.map(s => s.department).filter(Boolean))] };
+      } else if (report.reportType === 'contractor_activity') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        const workers = await databaseService.getAllContractorWorkers(context);
+        reportData = { type: 'contractor_activity', companies, workers, checkedInWorkers: workers.filter(w => w.isCheckedIn) };
+      } else if (report.reportType === 'contractor_compliance') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        const workers = await databaseService.getAllContractorWorkers(context);
+        reportData = { type: 'contractor_compliance', companies, workers };
+      } else if (report.reportType === 'site_headcount') {
+        const checkedInStaff = await databaseService.getCheckedInStaff(context);
+        const currentVisitors = await databaseService.getCurrentVisitors(context);
+        const checkedInContractors = await databaseService.getCheckedInContractors(context);
+        const enrichedVis = currentVisitors.map(v => { const host = allStaff.find(s => s.id === v.hostStaffId); return { ...v, hostName: host ? `${host.firstName} ${host.lastName}` : '-' }; });
+        reportData = { type: 'site_headcount', staff: checkedInStaff, visitors: enrichedVis, contractors: checkedInContractors };
+      } else if (report.reportType === 'evacuation_readiness') {
+        const checkedInStaff = await databaseService.getCheckedInStaff(context);
+        const currentVisitors = await databaseService.getCurrentVisitors(context);
+        const checkedInContractors = await databaseService.getCheckedInContractors(context);
+        const fireMarshals = allStaff.filter(s => s.isFireMarshal);
+        reportData = { type: 'evacuation_readiness', allStaff, fireMarshals, checkedInStaff, visitors: currentVisitors, contractors: checkedInContractors };
+      } else {
+        reportData = { type: 'visitor_log', visitors: allVisitors, checkedOutVisitors: allVisitors.filter(v => v.checkedOutAt), staff: allStaff };
+      }
       
-      const reportData = {
-        visitors: enrichedVisitors,
-        staff,
-        checkedOutVisitors: enrichedVisitors.filter(v => v.checkedOutAt)
-      };
-      
-      // Send email using EmailService
       const emailService = new EmailService();
       const emailSent = await emailService.sendReport(report, settings, recipients, reportData);
       
@@ -10445,32 +10496,94 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(404).send("<h1>Report Not Found</h1><p>The requested report could not be found.</p>");
       }
       
-      // Get customer-isolated report data
+      const allStaff = await databaseService.getAllStaff(context);
       const allVisitors = await databaseService.getAllVisitors(context);
-      const staff = await databaseService.getAllStaff(context);
-      const visitorsInRange = allVisitors.filter(v => 
-        v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
-      );
       
-      // Enrich visitor data with host names and properly formatted visitor names
-      const enrichedVisitors = visitorsInRange.map(visitor => {
-        const hostStaff = staff.find(s => s.id === visitor.hostStaffId);
-        return {
-          ...visitor,
-          name: `${visitor.firstName} ${visitor.lastName}`.trim(),
-          hostName: hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'N/A'
+      let reportData: any = {};
+
+      if (['daily', 'weekly', 'monthly'].includes(report.reportType)) {
+        const visitorsInRange = allVisitors.filter(v => 
+          v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
+        );
+        const enrichedVisitors = visitorsInRange.map(visitor => {
+          const hostStaff = allStaff.find(s => s.id === visitor.hostStaffId);
+          return {
+            ...visitor,
+            name: `${visitor.firstName} ${visitor.lastName}`.trim(),
+            hostName: hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'N/A'
+          };
+        });
+        reportData = {
+          type: 'visitor_log',
+          visitors: enrichedVisitors,
+          checkedOutVisitors: enrichedVisitors.filter(v => v.checkedOutAt),
+          staff: allStaff,
         };
-      });
+      } else if (report.reportType === 'staff_attendance') {
+        reportData = {
+          type: 'staff_attendance',
+          staff: allStaff,
+          checkedInStaff: allStaff.filter(s => s.isCheckedIn),
+          departments: [...new Set(allStaff.map(s => s.department).filter(Boolean))],
+        };
+      } else if (report.reportType === 'contractor_activity') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        const workers = await databaseService.getAllContractorWorkers(context);
+        reportData = {
+          type: 'contractor_activity',
+          companies,
+          workers,
+          checkedInWorkers: workers.filter(w => w.isCheckedIn),
+        };
+      } else if (report.reportType === 'contractor_compliance') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        const workers = await databaseService.getAllContractorWorkers(context);
+        reportData = {
+          type: 'contractor_compliance',
+          companies,
+          workers,
+        };
+      } else if (report.reportType === 'site_headcount') {
+        const checkedInStaff = await databaseService.getCheckedInStaff(context);
+        const currentVisitors = await databaseService.getCurrentVisitors(context);
+        const checkedInContractors = await databaseService.getCheckedInContractors(context);
+        const enrichedVisitors = currentVisitors.map(v => {
+          const host = allStaff.find(s => s.id === v.hostStaffId);
+          return { ...v, hostName: host ? `${host.firstName} ${host.lastName}` : '-' };
+        });
+        reportData = {
+          type: 'site_headcount',
+          staff: checkedInStaff,
+          visitors: enrichedVisitors,
+          contractors: checkedInContractors,
+        };
+      } else if (report.reportType === 'evacuation_readiness') {
+        const checkedInStaff = await databaseService.getCheckedInStaff(context);
+        const currentVisitors = await databaseService.getCurrentVisitors(context);
+        const checkedInContractors = await databaseService.getCheckedInContractors(context);
+        const fireMarshals = allStaff.filter(s => s.isFireMarshal);
+        reportData = {
+          type: 'evacuation_readiness',
+          allStaff,
+          fireMarshals,
+          checkedInStaff,
+          visitors: currentVisitors,
+          contractors: checkedInContractors,
+        };
+      } else {
+        const visitorsInRange = allVisitors.filter(v => 
+          v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
+        );
+        reportData = {
+          type: 'visitor_log',
+          visitors: visitorsInRange,
+          checkedOutVisitors: visitorsInRange.filter(v => v.checkedOutAt),
+          staff: allStaff,
+        };
+      }
       
-      const reportData = {
-        visitors: enrichedVisitors,
-        staff,
-        checkedOutVisitors: enrichedVisitors.filter(v => v.checkedOutAt)
-      };
-      
-      // Generate HTML using the same method as email
       const emailService = new EmailService();
-      const html = (emailService as any).generateReportHTML(report, reportData, settings?.companyName || 'VisiGate Pro');
+      const html = (emailService as any).generateReportHTML(report, reportData, settings?.companyName || 'TPR Max');
       
       res.send(html);
     } catch (error) {

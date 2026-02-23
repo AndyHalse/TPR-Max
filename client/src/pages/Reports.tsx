@@ -15,10 +15,7 @@ import {
   FileText, 
   Calendar as CalendarIcon, 
   Mail, 
-  Download, 
   Plus,
-  Clock,
-  Users,
   Send,
   BarChart3,
   UserCheck,
@@ -160,79 +157,15 @@ export default function Reports() {
     });
   };
 
-  const downloadPDFMutation = useMutation({
-    mutationFn: async (reportId: string) => {
-      const response = await apiRequest("GET", `/api/reports/${reportId}/pdf`);
-      return response.blob();
-    },
-    onSuccess: (blob, reportId) => {
-      const report = reports?.find(r => r.id === reportId);
-      if (report) {
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        const fileName = `${formatReportType(report.reportType)}_${format(new Date(report.dateFrom), "yyyy-MM-dd")}_to_${format(new Date(report.dateTo), "yyyy-MM-dd")}.pdf`;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      }
-      toast({
-        title: "Success",
-        description: "Report PDF downloaded successfully!",
+  const handlePrintReport = (reportId: string) => {
+    const reportUrl = `/api/reports/${reportId}/view?print=true`;
+    const printWindow = window.open(reportUrl, '_blank', 'width=1024,height=768,scrollbars=yes,resizable=yes');
+    if (printWindow) {
+      printWindow.addEventListener('load', () => {
+        setTimeout(() => printWindow.print(), 500);
       });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to download PDF",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const exportAllMutation = useMutation({
-    mutationFn: async () => {
-      if (!reports || reports.length === 0) {
-        throw new Error("No reports available to export");
-      }
-
-      // Download all PDFs one by one
-      for (const report of reports) {
-        const response = await apiRequest("GET", `/api/reports/${report.id}/pdf`);
-        const blob = await response.blob();
-        
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        const fileName = `${formatReportType(report.reportType)}_${format(new Date(report.dateFrom), "yyyy-MM-dd")}_to_${format(new Date(report.dateTo), "yyyy-MM-dd")}.pdf`;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        
-        // Small delay between downloads
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      return reports.length;
-    },
-    onSuccess: (count) => {
-      toast({
-        title: "Export Complete",
-        description: `Successfully exported ${count} report PDFs!`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Export Failed",
-        description: error.message || "Failed to export all reports",
-        variant: "destructive",
-      });
-    },
-  });
+    }
+  };
 
   const handleStaffSelection = (staffId: string, checked: boolean) => {
     if (checked) {
@@ -248,25 +181,14 @@ export default function Reports() {
     }
     
     const typeMap: Record<string, string> = {
-      daily: "Daily Report",
-      weekly: "Weekly Report", 
-      monthly: "Monthly Report",
-      quarterly: "Quarterly Report",
-      yearly: "Yearly Report",
-      custom: "Custom Range Report",
-      visitor_analysis: "Visitor Analysis",
+      daily: "Daily Visitor Log",
+      weekly: "Weekly Visitor Log", 
+      monthly: "Monthly Visitor Log",
       staff_attendance: "Staff Attendance",
-      staff_by_department: "Staff by Department",
-      contractor_summary: "Contractor Summary",
-      contractor_safety: "Contractor Safety",
-      contractor_attendance: "Contractor Attendance",
+      contractor_activity: "Contractor Activity",
       contractor_compliance: "Contractor Compliance",
-      security_audit: "Security Audit",
-      emergency_readiness: "Emergency Readiness",
-      compliance_check: "Compliance Check",
-      department_analytics: "Department Analytics",
-      peak_hours_analysis: "Peak Hours Analysis",
-      visitor_satisfaction: "Visitor Satisfaction"
+      site_headcount: "Site Headcount / Roll Call",
+      evacuation_readiness: "Evacuation Readiness",
     };
     
     return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
@@ -279,22 +201,11 @@ export default function Reports() {
       daily: "bg-blue-100 text-blue-800",
       weekly: "bg-blue-100 text-blue-800",
       monthly: "bg-indigo-100 text-indigo-800",
-      quarterly: "bg-purple-100 text-purple-800",
-      yearly: "bg-violet-100 text-violet-800",
-      custom: "bg-gray-100 text-gray-800",
-      visitor_analysis: "bg-emerald-100 text-emerald-800",
-      staff_attendance: "bg-blue-100 text-blue-800",
-      staff_by_department: "bg-indigo-100 text-indigo-800",
-      contractor_summary: "bg-orange-100 text-orange-800",
-      contractor_safety: "bg-red-100 text-red-800",
-      contractor_attendance: "bg-amber-100 text-amber-800",
+      staff_attendance: "bg-emerald-100 text-emerald-800",
+      contractor_activity: "bg-orange-100 text-orange-800",
       contractor_compliance: "bg-yellow-100 text-yellow-800",
-      security_audit: "bg-red-100 text-red-800",
-      emergency_readiness: "bg-yellow-100 text-yellow-800",
-      compliance_check: "bg-teal-100 text-teal-800",
-      department_analytics: "bg-cyan-100 text-cyan-800",
-      peak_hours_analysis: "bg-rose-100 text-rose-800",
-      visitor_satisfaction: "bg-pink-100 text-pink-800"
+      site_headcount: "bg-purple-100 text-purple-800",
+      evacuation_readiness: "bg-red-100 text-red-800",
     };
     
     return colorMap[type] || "bg-blue-100 text-blue-800";
@@ -329,25 +240,14 @@ export default function Reports() {
                   <SelectValue placeholder="Select report type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily Report</SelectItem>
-                  <SelectItem value="weekly">Weekly Report</SelectItem>
-                  <SelectItem value="monthly">Monthly Report</SelectItem>
-                  <SelectItem value="quarterly">Quarterly Report</SelectItem>
-                  <SelectItem value="yearly">Yearly Report</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
-                  <SelectItem value="visitor_analysis">Visitor Analysis Report</SelectItem>
+                  <SelectItem value="daily">Daily Visitor Log</SelectItem>
+                  <SelectItem value="weekly">Weekly Visitor Log</SelectItem>
+                  <SelectItem value="monthly">Monthly Visitor Log</SelectItem>
                   <SelectItem value="staff_attendance">Staff Attendance Report</SelectItem>
-                  <SelectItem value="staff_by_department">Staff by Department Report</SelectItem>
-                  <SelectItem value="contractor_summary">Contractor Summary Report</SelectItem>
-                  <SelectItem value="contractor_safety">Contractor Safety Report</SelectItem>
-                  <SelectItem value="contractor_attendance">Contractor Attendance Report</SelectItem>
+                  <SelectItem value="contractor_activity">Contractor Activity Report</SelectItem>
                   <SelectItem value="contractor_compliance">Contractor Compliance Report</SelectItem>
-                  <SelectItem value="security_audit">Security Audit Report</SelectItem>
-                  <SelectItem value="emergency_readiness">Emergency Readiness Report</SelectItem>
-                  <SelectItem value="compliance_check">Compliance Check Report</SelectItem>
-                  <SelectItem value="department_analytics">Department Analytics</SelectItem>
-                  <SelectItem value="peak_hours_analysis">Peak Hours Analysis</SelectItem>
-                  <SelectItem value="visitor_satisfaction">Visitor Satisfaction Report</SelectItem>
+                  <SelectItem value="site_headcount">Site Headcount / Roll Call</SelectItem>
+                  <SelectItem value="evacuation_readiness">Evacuation Readiness Report</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -515,20 +415,6 @@ export default function Reports() {
       <GlassCard>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-fixed">Generated Reports</h3>
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (reports && reports.length > 0) {
-                exportAllMutation.mutate();
-              }
-            }}
-            disabled={exportAllMutation.isPending || !reports || reports.length === 0}
-            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-            data-testid="button-export-all"
-          >
-            <Download className="mr-2" size={16} />
-            {exportAllMutation.isPending ? 'Exporting...' : 'Export All'}
-          </Button>
         </div>
         
         {!reports || reports.length === 0 ? (
@@ -580,8 +466,8 @@ export default function Reports() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-variable">
-                        <div>{report.totalVisitors} visitors</div>
-                        <div className="text-xs text-variable">Avg: {report.avgDuration}</div>
+                        <div>{report.totalVisitors}</div>
+                        <div className="text-xs text-variable">{report.avgDuration}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -621,22 +507,11 @@ export default function Reports() {
                           <FileText size={12} className="mr-1" />
                           View
                         </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => downloadPDFMutation.mutate(report.id)}
-                          disabled={downloadPDFMutation.isPending}
-                          data-testid={`button-download-report-${report.id}`}
-                        >
-                          <Download size={12} className="mr-1" />
-                          PDF
-                        </Button>
                         
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => console.log('Print report:', report.id)}
+                          onClick={() => handlePrintReport(report.id)}
                           className="hover:bg-[var(--background)]"
                           data-testid={`button-print-report-${report.id}`}
                         >

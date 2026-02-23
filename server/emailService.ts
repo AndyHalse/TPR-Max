@@ -427,98 +427,212 @@ For system support, visit: https://visigate.pro/support`;
   }
 
   public generateReportHTML(report: any, reportData: any, companyName: string): string {
-    const { visitors, staff, checkedOutVisitors } = reportData;
-    const fromDate = new Date(report.dateFrom).toLocaleDateString();
-    const toDate = new Date(report.dateTo).toLocaleDateString();
+    const fromDate = new Date(report.dateFrom).toLocaleDateString('en-GB');
+    const toDate = new Date(report.dateTo).toLocaleDateString('en-GB');
+    const generatedAt = new Date(report.generatedAt);
+    
+    const reportTypeNames: Record<string, string> = {
+      daily: 'Daily Visitor Log', weekly: 'Weekly Visitor Log', monthly: 'Monthly Visitor Log',
+      staff_attendance: 'Staff Attendance Report', contractor_activity: 'Contractor Activity Report',
+      contractor_compliance: 'Contractor Compliance Report', site_headcount: 'Site Headcount / Roll Call',
+      evacuation_readiness: 'Evacuation Readiness Report',
+    };
+    const reportTitle = reportTypeNames[report.reportType] || report.reportType;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${report.reportType} Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-            .header { border-bottom: 2px solid #007bff; padding-bottom: 20px; margin-bottom: 20px; }
-            .company-name { color: #007bff; font-size: 24px; font-weight: bold; }
-            .report-title { color: #333; font-size: 20px; margin: 10px 0; }
-            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
-            .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff; }
-            .stat-number { font-size: 24px; font-weight: bold; color: #007bff; }
-            .stat-label { color: #666; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background-color: #f8f9fa; font-weight: bold; }
-            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="company-name">${companyName}</div>
-            <div class="report-title">${report.reportType} Report</div>
-            <p>Period: ${fromDate} to ${toDate}</p>
-            <p>Generated on: ${new Date(report.generatedAt).toLocaleDateString()} at ${new Date(report.generatedAt).toLocaleTimeString()}</p>
-          </div>
-
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-number">${visitors.length}</div>
-              <div class="stat-label">Total Visitors</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">${checkedOutVisitors.length}</div>
-              <div class="stat-label">Completed Visits</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">${report.avgDuration}</div>
-              <div class="stat-label">Average Duration</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">${staff.length}</div>
-              <div class="stat-label">Total Staff</div>
-            </div>
-          </div>
-
-          ${visitors.length > 0 ? `
-          <h3>Visitor Details</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Company</th>
-                <th>Host</th>
-                <th>Check-in Time</th>
-                <th>Check-out Time</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${visitors.map((visitor: any) => {
-                const duration = (visitor as any).checkedOutAt 
-                  ? Math.round((new Date((visitor as any).checkedOutAt).getTime() - new Date((visitor as any).checkedInAt).getTime()) / (1000 * 60)) 
-                  : null;
-                return `
-                  <tr>
-                    <td>${(visitor as any).firstName} ${(visitor as any).lastName}</td>
-                    <td>${(visitor as any).company || 'N/A'}</td>
-                    <td>${(visitor as any).hostName || 'N/A'}</td>
-                    <td>${new Date((visitor as any).checkedInAt).toLocaleString()}</td>
-                    <td>${(visitor as any).checkedOutAt ? new Date((visitor as any).checkedOutAt).toLocaleString() : 'Still on-site'}</td>
-                    <td>${duration ? `${duration} min` : 'N/A'}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-          ` : '<p>No visitors during this period.</p>'}
-
-          <div class="footer">
-            <p>This report was automatically generated by ${companyName} VisiGate Pro system.</p>
-            <p>For questions about this report, please contact the administrator.</p>
-          </div>
-        </body>
-      </html>
+    const baseStyles = `
+      body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 30px; background: #fff; color: #1a1a2e; }
+      .header { border-bottom: 3px solid #2460a9; padding-bottom: 15px; margin-bottom: 25px; }
+      .company-name { color: #2460a9; font-size: 22px; font-weight: bold; }
+      .report-title { color: #1a1a2e; font-size: 18px; margin: 8px 0 4px; }
+      .report-meta { color: #666; font-size: 13px; }
+      .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0; }
+      .stat-card { background: #f0f7ff; padding: 15px; border-radius: 8px; border-left: 4px solid #2460a9; }
+      .stat-card.green { border-left-color: #16a34a; background: #f0fdf4; }
+      .stat-card.amber { border-left-color: #d97706; background: #fffbeb; }
+      .stat-card.red { border-left-color: #dc2626; background: #fef2f2; }
+      .stat-number { font-size: 28px; font-weight: bold; color: #2460a9; }
+      .stat-card.green .stat-number { color: #16a34a; }
+      .stat-card.amber .stat-number { color: #d97706; }
+      .stat-card.red .stat-number { color: #dc2626; }
+      .stat-label { color: #555; font-size: 13px; margin-top: 2px; }
+      table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }
+      th { background: #2460a9; color: #fff; padding: 10px 12px; text-align: left; font-weight: 600; }
+      td { padding: 9px 12px; border-bottom: 1px solid #e5e7eb; }
+      tr:nth-child(even) { background: #f9fafb; }
+      .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+      .badge-green { background: #dcfce7; color: #166534; }
+      .badge-red { background: #fee2e2; color: #991b1b; }
+      .badge-amber { background: #fef3c7; color: #92400e; }
+      .badge-blue { background: #dbeafe; color: #1e40af; }
+      .badge-gray { background: #f3f4f6; color: #374151; }
+      h3 { color: #1a1a2e; font-size: 16px; margin: 25px 0 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }
+      .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; color: #888; font-size: 11px; }
+      @media print { body { padding: 15px; } .stat-card { break-inside: avoid; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
     `;
+
+    let bodyContent = '';
+
+    if (reportData.type === 'visitor_log') {
+      const visitors = reportData.visitors || [];
+      const checkedOut = reportData.checkedOutVisitors || [];
+      const totalDur = checkedOut.reduce((sum: number, v: any) => {
+        if (v.checkedOutAt) return sum + (new Date(v.checkedOutAt).getTime() - new Date(v.checkedInAt).getTime());
+        return sum;
+      }, 0);
+      const avgMin = checkedOut.length > 0 ? Math.round(totalDur / checkedOut.length / 60000) : 0;
+      const stillOnSite = visitors.filter((v: any) => !v.checkedOutAt).length;
+
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${visitors.length}</div><div class="stat-label">Total Visitors</div></div>
+          <div class="stat-card green"><div class="stat-number">${checkedOut.length}</div><div class="stat-label">Checked Out</div></div>
+          <div class="stat-card amber"><div class="stat-number">${stillOnSite}</div><div class="stat-label">Still On-Site</div></div>
+          <div class="stat-card"><div class="stat-number">${avgMin > 0 ? avgMin + ' min' : 'N/A'}</div><div class="stat-label">Avg Visit Duration</div></div>
+        </div>
+        ${visitors.length > 0 ? `<h3>Visitor Log</h3><table><thead><tr><th>Name</th><th>Company</th><th>Host</th><th>Purpose</th><th>Check-in</th><th>Check-out</th><th>Duration</th></tr></thead><tbody>
+        ${visitors.map((v: any) => {
+          const dur = v.checkedOutAt ? Math.round((new Date(v.checkedOutAt).getTime() - new Date(v.checkedInAt).getTime()) / 60000) : null;
+          return `<tr><td>${v.firstName} ${v.lastName}</td><td>${v.company || '-'}</td><td>${v.hostName || '-'}</td><td>${v.purpose || '-'}</td><td>${new Date(v.checkedInAt).toLocaleString('en-GB')}</td><td>${v.checkedOutAt ? new Date(v.checkedOutAt).toLocaleString('en-GB') : '<span class="badge badge-amber">On-site</span>'}</td><td>${dur ? dur + ' min' : '-'}</td></tr>`;
+        }).join('')}
+        </tbody></table>` : '<p>No visitors recorded during this period.</p>'}`;
+
+    } else if (reportData.type === 'staff_attendance') {
+      const staff = reportData.staff || [];
+      const checkedIn = reportData.checkedInStaff || [];
+      const departments = reportData.departments || [];
+      const deptCounts = departments.map((d: string) => ({
+        name: d,
+        total: staff.filter((s: any) => s.department === d).length,
+        onSite: staff.filter((s: any) => s.department === d && s.isCheckedIn).length,
+      }));
+
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${staff.length}</div><div class="stat-label">Total Staff</div></div>
+          <div class="stat-card green"><div class="stat-number">${checkedIn.length}</div><div class="stat-label">Currently On-Site</div></div>
+          <div class="stat-card amber"><div class="stat-number">${staff.length - checkedIn.length}</div><div class="stat-label">Off-Site</div></div>
+          <div class="stat-card"><div class="stat-number">${departments.length}</div><div class="stat-label">Departments</div></div>
+        </div>
+        ${deptCounts.length > 0 ? `<h3>Attendance by Department</h3><table><thead><tr><th>Department</th><th>Total Staff</th><th>On-Site</th><th>Off-Site</th><th>Attendance %</th></tr></thead><tbody>
+        ${deptCounts.map((d: any) => `<tr><td>${d.name}</td><td>${d.total}</td><td>${d.onSite}</td><td>${d.total - d.onSite}</td><td>${d.total > 0 ? Math.round((d.onSite / d.total) * 100) : 0}%</td></tr>`).join('')}
+        </tbody></table>` : ''}
+        <h3>Staff Details</h3><table><thead><tr><th>Name</th><th>Employee ID</th><th>Department</th><th>Status</th><th>Last Check-in</th><th>Fire Marshal</th></tr></thead><tbody>
+        ${staff.map((s: any) => `<tr><td>${s.firstName} ${s.lastName}</td><td>${s.employeeId || '-'}</td><td>${s.department || '-'}</td><td>${s.isCheckedIn ? '<span class="badge badge-green">On-Site</span>' : '<span class="badge badge-gray">Off-Site</span>'}</td><td>${s.checkedInAt ? new Date(s.checkedInAt).toLocaleString('en-GB') : '-'}</td><td>${s.isFireMarshal ? '<span class="badge badge-red">Yes</span>' : '-'}</td></tr>`).join('')}
+        </tbody></table>`;
+
+    } else if (reportData.type === 'contractor_activity') {
+      const companies = reportData.companies || [];
+      const workers = reportData.workers || [];
+      const checkedIn = reportData.checkedInWorkers || [];
+      const approved = companies.filter((c: any) => c.status === 'approved').length;
+
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${companies.length}</div><div class="stat-label">Contractor Companies</div></div>
+          <div class="stat-card green"><div class="stat-number">${approved}</div><div class="stat-label">Approved</div></div>
+          <div class="stat-card"><div class="stat-number">${workers.length}</div><div class="stat-label">Total Workers</div></div>
+          <div class="stat-card amber"><div class="stat-number">${checkedIn.length}</div><div class="stat-label">Workers On-Site</div></div>
+        </div>
+        <h3>Contractor Companies</h3><table><thead><tr><th>Company</th><th>Contact</th><th>Status</th><th>Workers</th><th>On-Site</th></tr></thead><tbody>
+        ${companies.map((c: any) => {
+          const companyWorkers = workers.filter((w: any) => w.companyId === c.id);
+          const onSite = companyWorkers.filter((w: any) => w.isCheckedIn).length;
+          return `<tr><td>${c.companyName || c.name}</td><td>${c.contactFirstName || ''} ${c.contactLastName || ''}</td><td>${c.status === 'approved' ? '<span class="badge badge-green">Approved</span>' : '<span class="badge badge-amber">' + (c.status || 'Pending') + '</span>'}</td><td>${companyWorkers.length}</td><td>${onSite}</td></tr>`;
+        }).join('')}
+        </tbody></table>
+        <h3>Worker Details</h3><table><thead><tr><th>Name</th><th>Company</th><th>Job Title</th><th>Status</th><th>On-Site</th></tr></thead><tbody>
+        ${workers.map((w: any) => {
+          const company = companies.find((c: any) => c.id === w.companyId);
+          return `<tr><td>${w.firstName} ${w.lastName}</td><td>${company?.companyName || company?.name || '-'}</td><td>${w.jobTitle || '-'}</td><td>${w.workerStatus === 'approved' ? '<span class="badge badge-green">Approved</span>' : '<span class="badge badge-amber">' + (w.workerStatus || 'Pending') + '</span>'}</td><td>${w.isCheckedIn ? '<span class="badge badge-green">Yes</span>' : '-'}</td></tr>`;
+        }).join('')}
+        </tbody></table>`;
+
+    } else if (reportData.type === 'contractor_compliance') {
+      const workers = reportData.workers || [];
+      const companies = reportData.companies || [];
+      const inducted = workers.filter((w: any) => w.inductionCompleted).length;
+      const rtw = workers.filter((w: any) => w.rightToWork === 'valid').length;
+      const fullyCompliant = workers.filter((w: any) => w.inductionCompleted && w.rightToWork === 'valid').length;
+      const redCards = workers.filter((w: any) => w.currentCardStatus === 'red').length;
+
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${workers.length}</div><div class="stat-label">Total Workers</div></div>
+          <div class="stat-card green"><div class="stat-number">${fullyCompliant}</div><div class="stat-label">Fully Compliant</div></div>
+          <div class="stat-card amber"><div class="stat-number">${workers.length - fullyCompliant}</div><div class="stat-label">Non-Compliant</div></div>
+          <div class="stat-card red"><div class="stat-number">${redCards}</div><div class="stat-label">Red Cards (Banned)</div></div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${Math.round((inducted / Math.max(workers.length, 1)) * 100)}%</div><div class="stat-label">Induction Complete</div></div>
+          <div class="stat-card"><div class="stat-number">${Math.round((rtw / Math.max(workers.length, 1)) * 100)}%</div><div class="stat-label">Right to Work Valid</div></div>
+        </div>
+        <h3>Compliance Details by Worker</h3><table><thead><tr><th>Name</th><th>Company</th><th>Induction</th><th>Right to Work</th><th>Card Status</th><th>Overall</th></tr></thead><tbody>
+        ${workers.map((w: any) => {
+          const company = companies.find((c: any) => c.id === w.companyId);
+          const compliant = w.inductionCompleted && w.rightToWork === 'valid';
+          return `<tr><td>${w.firstName} ${w.lastName}</td><td>${company?.companyName || company?.name || '-'}</td><td>${w.inductionCompleted ? '<span class="badge badge-green">Complete</span>' : '<span class="badge badge-red">Incomplete</span>'}</td><td>${w.rightToWork === 'valid' ? '<span class="badge badge-green">Valid</span>' : '<span class="badge badge-red">' + (w.rightToWork || 'Pending') + '</span>'}</td><td>${w.currentCardStatus === 'red' ? '<span class="badge badge-red">Red</span>' : w.currentCardStatus === 'yellow' ? '<span class="badge badge-amber">Yellow</span>' : '<span class="badge badge-green">Clear</span>'}</td><td>${compliant ? '<span class="badge badge-green">Compliant</span>' : '<span class="badge badge-red">Non-Compliant</span>'}</td></tr>`;
+        }).join('')}
+        </tbody></table>`;
+
+    } else if (reportData.type === 'site_headcount') {
+      const staff = reportData.staff || [];
+      const visitors = reportData.visitors || [];
+      const contractors = reportData.contractors || [];
+      const total = staff.length + visitors.length + contractors.length;
+
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card red"><div class="stat-number">${total}</div><div class="stat-label">Total On-Site</div></div>
+          <div class="stat-card"><div class="stat-number">${staff.length}</div><div class="stat-label">Staff</div></div>
+          <div class="stat-card"><div class="stat-number">${visitors.length}</div><div class="stat-label">Visitors</div></div>
+          <div class="stat-card"><div class="stat-number">${contractors.length}</div><div class="stat-label">Contractors</div></div>
+        </div>
+        ${staff.length > 0 ? `<h3>Staff On-Site (${staff.length})</h3><table><thead><tr><th>Name</th><th>Department</th><th>Check-in Time</th></tr></thead><tbody>
+        ${staff.map((s: any) => `<tr><td>${s.firstName} ${s.lastName}</td><td>${s.department || '-'}</td><td>${s.checkedInAt ? new Date(s.checkedInAt).toLocaleString('en-GB') : '-'}</td></tr>`).join('')}
+        </tbody></table>` : '<p>No staff currently on-site.</p>'}
+        ${visitors.length > 0 ? `<h3>Visitors On-Site (${visitors.length})</h3><table><thead><tr><th>Name</th><th>Company</th><th>Host</th><th>Check-in Time</th></tr></thead><tbody>
+        ${visitors.map((v: any) => `<tr><td>${v.firstName} ${v.lastName}</td><td>${v.company || '-'}</td><td>${v.hostName || '-'}</td><td>${v.checkedInAt ? new Date(v.checkedInAt).toLocaleString('en-GB') : '-'}</td></tr>`).join('')}
+        </tbody></table>` : '<p>No visitors currently on-site.</p>'}
+        ${contractors.length > 0 ? `<h3>Contractors On-Site (${contractors.length})</h3><table><thead><tr><th>Name</th><th>Company</th><th>Check-in Time</th></tr></thead><tbody>
+        ${contractors.map((c: any) => `<tr><td>${c.firstName} ${c.lastName}</td><td>${c.companyName || '-'}</td><td>${c.checkedInAt ? new Date(c.checkedInAt).toLocaleString('en-GB') : '-'}</td></tr>`).join('')}
+        </tbody></table>` : '<p>No contractors currently on-site.</p>'}`;
+
+    } else if (reportData.type === 'evacuation_readiness') {
+      const allStaff = reportData.allStaff || [];
+      const fireMarshals = reportData.fireMarshals || [];
+      const checkedInStaff = reportData.checkedInStaff || [];
+      const visitors = reportData.visitors || [];
+      const contractors = reportData.contractors || [];
+      const totalOnSite = checkedInStaff.length + visitors.length + contractors.length;
+      const fmOnSite = fireMarshals.filter((fm: any) => fm.isCheckedIn).length;
+
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card red"><div class="stat-number">${totalOnSite}</div><div class="stat-label">Total Personnel On-Site</div></div>
+          <div class="stat-card"><div class="stat-number">${fireMarshals.length}</div><div class="stat-label">Designated Fire Marshals</div></div>
+          <div class="stat-card ${fmOnSite > 0 ? 'green' : 'red'}"><div class="stat-number">${fmOnSite}</div><div class="stat-label">Fire Marshals On-Site</div></div>
+          <div class="stat-card ${fmOnSite === 0 ? 'red' : 'green'}"><div class="stat-number">${fmOnSite > 0 ? 'READY' : 'AT RISK'}</div><div class="stat-label">Evacuation Status</div></div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${checkedInStaff.length}</div><div class="stat-label">Staff On-Site</div></div>
+          <div class="stat-card"><div class="stat-number">${visitors.length}</div><div class="stat-label">Visitors On-Site</div></div>
+          <div class="stat-card"><div class="stat-number">${contractors.length}</div><div class="stat-label">Contractors On-Site</div></div>
+        </div>
+        <h3>Fire Marshal Coverage</h3><table><thead><tr><th>Name</th><th>Department</th><th>Currently On-Site</th><th>Contact</th></tr></thead><tbody>
+        ${fireMarshals.map((fm: any) => `<tr><td>${fm.firstName} ${fm.lastName}</td><td>${fm.department || '-'}</td><td>${fm.isCheckedIn ? '<span class="badge badge-green">On-Site</span>' : '<span class="badge badge-red">Off-Site</span>'}</td><td>${fm.email || '-'}</td></tr>`).join('')}
+        ${fireMarshals.length === 0 ? '<tr><td colspan="4" style="text-align:center; color: #dc2626; font-weight: bold;">No Fire Marshals designated - URGENT ACTION REQUIRED</td></tr>' : ''}
+        </tbody></table>`;
+    }
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${reportTitle} - ${companyName}</title><style>${baseStyles}</style></head><body>
+      <div class="header">
+        <div class="company-name">${companyName}</div>
+        <div class="report-title">${reportTitle}</div>
+        <div class="report-meta">Period: ${fromDate} to ${toDate} &nbsp;|&nbsp; Generated: ${generatedAt.toLocaleDateString('en-GB')} at ${generatedAt.toLocaleTimeString('en-GB')}</div>
+      </div>
+      ${bodyContent}
+      <div class="footer"><p>Report generated by ${companyName} TPR Max Visitor Management System.</p></div>
+    </body></html>`;
   }
 
   private generateReportText(report: any, reportData: any, companyName: string): string {
