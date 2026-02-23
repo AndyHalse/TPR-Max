@@ -47226,13 +47226,12 @@ This is an automated notification from your visitor management system.`;
           error: "Customer not found"
         });
       }
-      const { neon } = await import("@neondatabase/serverless");
-      const { drizzle: drizzle10 } = await import("drizzle-orm/neon-http");
-      const customerDb = drizzle10(neon(customer.databaseUrl));
+      const customerDbService2 = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService2.getCustomerDatabase(customerId);
       const updateData = {};
       if (username2) updateData.username = username2;
       if (password) updateData.password = await bcrypt6.hash(password, 10);
-      await customerDb.update(users).set(updateData).where(sql11`id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)`);
+      await customerDb.update(users2).set(updateData).where(sql11`id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)`);
       console.log(`\u2705 Customer admin credentials updated for ${customer.companyName}`);
       res.json({
         success: true,

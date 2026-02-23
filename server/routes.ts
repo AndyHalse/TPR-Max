@@ -19801,12 +19801,9 @@ This is an automated notification from your visitor management system.`;
         });
       }
 
-      // Import necessary dependencies
-      const { neon } = await import('@neondatabase/serverless');
-      const { drizzle } = await import('drizzle-orm/neon-http');
-
-      // Connect to customer's database
-      const customerDb = drizzle(neon(customer.databaseUrl));
+      // Use CustomerDatabaseService for proper schema isolation and retry logic
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
 
       // Build update object
       const updateData: any = {};
@@ -19815,7 +19812,7 @@ This is an automated notification from your visitor management system.`;
 
       // Update the customer admin user (first user is always the admin)
       await customerDb
-        .update(sharedSchema.users)
+        .update(isolatedSchema.users)
         .set(updateData)
         .where(sql`id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)`);
 
