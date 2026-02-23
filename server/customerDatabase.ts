@@ -273,55 +273,8 @@ export class CustomerDatabaseService {
       console.error(`⚠️ Admin user seeding failed for customer ${customerId}:`, error);
     }
     
-    // For newly created schemas, migrate data from public schema if it exists
-    if (isNewSchema) {
-      try {
-        const schemaName = this.generateSchemaName(customerId);
-        const pool = this.customerPools.get(customerId);
-        if (pool) {
-          console.log(`📦 Migrating data from public schema to ${schemaName}...`);
-          const tablesToMigrate = [
-            'users', 'staff', 'visitors', 'members', 'pre_bookings', 'departments',
-            'company_settings', 'meeting_rooms', 'room_bookings', 'room_booking_attendees',
-            'visitor_history', 'staff_sessions', 'staff_attendance_history',
-            'muster_points', 'evacuation_accountability', 'safety_tokens',
-            'user_invitations', 'contractor_companies', 'contractor_workers',
-            'contractor_documents', 'contractor_visits', 'contractor_prebookings',
-            'worker_notes', 'compliance_documents', 'document_types', 'card_offences',
-            'card_issues', 'worker_certifications', 'help_categories', 'help_articles',
-            'induction_settings', 'induction_questions', 'feature_toggles'
-          ];
-          
-          for (const table of tablesToMigrate) {
-            try {
-              const publicTableExists = await pool.query(
-                `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 LIMIT 1`,
-                [table]
-              );
-              const customerTableExists = await pool.query(
-                `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2 LIMIT 1`,
-                [schemaName, table]
-              );
-              if (publicTableExists.rows.length > 0 && customerTableExists.rows.length > 0) {
-                const countResult = await pool.query(`SELECT COUNT(*) as cnt FROM ${schemaName}.${table}`);
-                if (parseInt(countResult.rows[0]?.cnt || '0') === 0) {
-                  const publicCount = await pool.query(`SELECT COUNT(*) as cnt FROM public.${table}`);
-                  if (parseInt(publicCount.rows[0]?.cnt || '0') > 0) {
-                    await pool.query(`INSERT INTO ${schemaName}.${table} SELECT * FROM public.${table}`);
-                    console.log(`  ✅ Migrated ${publicCount.rows[0].cnt} rows: public.${table} → ${schemaName}.${table}`);
-                  }
-                }
-              }
-            } catch (tableError: any) {
-              console.log(`  ⚠️ Skipping ${table}: ${tableError.message?.substring(0, 80)}`);
-            }
-          }
-          console.log(`📦 Data migration complete for ${schemaName}`);
-        }
-      } catch (migrationError) {
-        console.error(`⚠️ Data migration from public schema failed:`, migrationError);
-      }
-    }
+    // New customer schemas start completely blank - NO data migration from public schema
+    // This ensures 100% customer isolation with zero cross-contamination
     
     // Seed company_settings if empty, or correct company_name if it doesn't match the customer record
     try {
