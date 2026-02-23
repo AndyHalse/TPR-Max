@@ -12499,6 +12499,9 @@ var init_customerDatabase = __esm({
               connectionTimeoutMillis: 1e4
             });
             await pool2.query(`SET search_path TO "${schemaName}", public`);
+            pool2.on("connect", (client) => {
+              client.query(`SET search_path TO "${schemaName}", public`);
+            });
             const verifyResult = await pool2.query(`SHOW search_path`);
             const actualPath = verifyResult.rows[0]?.search_path || "";
             if (!actualPath.includes(schemaName)) {
@@ -31117,6 +31120,11 @@ var CustomerOnboardingService = class _CustomerOnboardingService {
       await customerDb.insert(companySettings2).values(companySettingsData);
     } else {
       await customerDb.update(companySettings2).set({
+        companyName: request.companyName,
+        email: request.contactEmail,
+        address: request.address || "",
+        phone: request.phone || "",
+        website: request.website || "",
         backgroundColor: "#d5f3fe",
         foregroundColor: "#000000",
         accentColor: "#2460a9",

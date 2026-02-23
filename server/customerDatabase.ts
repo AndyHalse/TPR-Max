@@ -159,6 +159,10 @@ export class CustomerDatabaseService {
         
         await pool.query(`SET search_path TO "${schemaName}", public`);
         
+        pool.on('connect', (client) => {
+          client.query(`SET search_path TO "${schemaName}", public`);
+        });
+        
         const verifyResult = await pool.query(`SHOW search_path`);
         const actualPath = verifyResult.rows[0]?.search_path || '';
         if (!actualPath.includes(schemaName)) {
