@@ -509,6 +509,37 @@ export default function Settings() {
     },
   });
 
+  const resetBrandingMutation = useMutation({
+    mutationFn: async () => {
+      const defaultBranding = {
+        backgroundColor: "#d5f3fe",
+        foregroundColor: "#000000",
+        accentColor: "#2460a9",
+        variableTextColor: "#53b0ea",
+        theme: "light",
+      };
+      const response = await apiRequest("PUT", "/api/settings", defaultBranding);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      setFormData({});
+      toast({
+        title: "Branding Reset",
+        description: "All colors have been reset to the default development values.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Reset Failed",
+        description: "Failed to reset branding. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const [showResetBrandingDialog, setShowResetBrandingDialog] = useState(false);
+
   const testEmailMutation = useMutation({
     mutationFn: async (email: string) => {
       const response = await apiRequest("POST", "/api/test-email", { email });
@@ -1527,6 +1558,49 @@ export default function Settings() {
             </TabsList>
 
             <TabsContent value="visual" className="space-y-6">
+              <div className="flex justify-end mb-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950"
+                  onClick={() => setShowResetBrandingDialog(true)}
+                  disabled={resetBrandingMutation.isPending}
+                  data-testid="button-reset-branding"
+                >
+                  <RotateCcw size={14} />
+                  Reset Branding to Defaults
+                </Button>
+              </div>
+
+              <Dialog open={showResetBrandingDialog} onOpenChange={setShowResetBrandingDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Reset Branding to Defaults?</DialogTitle>
+                    <DialogDescription>
+                      This will reset all color settings back to the default development values (light blue background, black text, blue accent). Your logo and banner images will not be changed.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800 space-y-2 text-sm">
+                    <p><span className="font-medium">Background:</span> <span className="font-mono">#d5f3fe</span> <span className="inline-block w-4 h-4 rounded align-middle ml-1" style={{backgroundColor: '#d5f3fe', border: '1px solid #ccc'}}></span></p>
+                    <p><span className="font-medium">Text Color:</span> <span className="font-mono">#000000</span> <span className="inline-block w-4 h-4 rounded align-middle ml-1" style={{backgroundColor: '#000000'}}></span></p>
+                    <p><span className="font-medium">Accent:</span> <span className="font-mono">#2460a9</span> <span className="inline-block w-4 h-4 rounded align-middle ml-1" style={{backgroundColor: '#2460a9'}}></span></p>
+                    <p><span className="font-medium">Variable Text:</span> <span className="font-mono">#53b0ea</span> <span className="inline-block w-4 h-4 rounded align-middle ml-1" style={{backgroundColor: '#53b0ea'}}></span></p>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowResetBrandingDialog(false)}>Cancel</Button>
+                    <Button
+                      onClick={() => {
+                        resetBrandingMutation.mutate();
+                        setShowResetBrandingDialog(false);
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      Reset Colors
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <GlassCard>
                   <div className="flex items-center mb-6">
