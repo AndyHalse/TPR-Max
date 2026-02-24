@@ -713,7 +713,7 @@ For questions about this report, please contact the administrator.
   }
 
   // Meeting Room Booking Email Methods
-  async sendBookingConfirmation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = []): Promise<boolean> {
+  async sendBookingConfirmation(booking: RoomBooking, room: MeetingRoom, organizer: Staff, staffAttendees: Staff[] = [], externalAttendeeEmails: string[] = [], companySettings?: { companyName?: string; logoUrl?: string | null; address?: string | null; phone?: string | null; website?: string | null; email?: string | null }): Promise<boolean> {
     const formatDateTime = (date: Date) => {
       return new Intl.DateTimeFormat('en-GB', {
         weekday: 'long',
@@ -735,6 +735,13 @@ For questions about this report, please contact the administrator.
       minute: '2-digit',
       timeZone: 'Europe/London'
     }).format(new Date(bookingEndTime));
+
+    const companyName = companySettings?.companyName || 'TPR Max';
+    const companyLogo = companySettings?.logoUrl || null;
+    const companyAddress = companySettings?.address || null;
+    const companyPhone = companySettings?.phone || null;
+    const companyWebsite = companySettings?.website || null;
+    const companyEmail = companySettings?.email || null;
 
     const subject = `Meeting Room Confirmed: ${booking.title}`;
 
@@ -818,6 +825,18 @@ For questions about this report, please contact the administrator.
               </tr>
             </table>` : '';
 
+      const logoHtml = companyLogo ? `
+                    <img src="${companyLogo}" alt="${companyName}" style="max-height: 50px; max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;" />` : '';
+
+      const footerContactParts: string[] = [];
+      if (companyAddress) footerContactParts.push(companyAddress);
+      if (companyPhone) footerContactParts.push(`Tel: ${companyPhone}`);
+      if (companyEmail) footerContactParts.push(companyEmail);
+      if (companyWebsite) footerContactParts.push(companyWebsite);
+      const footerContactHtml = footerContactParts.length > 0 
+        ? `<p style="margin: 6px 0 0 0; font-size: 11px; color: #9ca3af;">${footerContactParts.join(' | ')}</p>` 
+        : '';
+
       return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -827,11 +846,19 @@ For questions about this report, please contact the administrator.
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
           
-          <!-- Header -->
+          <!-- Company Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%); padding: 32px 30px; text-align: center;">
-              <p style="margin: 0 0 6px 0; font-size: 14px; color: rgba(255,255,255,0.85); letter-spacing: 1px; text-transform: uppercase;">Meeting Room Confirmation</p>
-              <h1 style="margin: 0; font-size: 22px; color: #ffffff; font-weight: 700;">${booking.title}</h1>
+            <td style="background: #1a1a2e; padding: 28px 30px; text-align: center;">
+              ${logoHtml}
+              <p style="margin: 0; font-size: 16px; color: #ffffff; font-weight: 600; letter-spacing: 0.5px;">${companyName}</p>
+            </td>
+          </tr>
+
+          <!-- Meeting Title Bar -->
+          <tr>
+            <td style="background: #0d47a1; padding: 18px 30px; text-align: center;">
+              <p style="margin: 0 0 4px 0; font-size: 11px; color: rgba(255,255,255,0.8); letter-spacing: 1.5px; text-transform: uppercase;">Meeting Room Confirmation</p>
+              <h1 style="margin: 0; font-size: 20px; color: #ffffff; font-weight: 700;">${booking.title}</h1>
             </td>
           </tr>
 
@@ -948,13 +975,14 @@ For questions about this report, please contact the administrator.
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 20px 30px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
-              <p style="margin: 0 0 4px 0; font-size: 12px; color: #9ca3af;">
-                This confirmation was sent automatically by TPR Max Visitor Management System.
+            <td style="padding: 20px 30px; background: #1a1a2e; text-align: center;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: rgba(255,255,255,0.7);">
+                Sent by ${companyName} via TPR Max Visitor Management
               </p>
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+              <p style="margin: 4px 0 0 0; font-size: 12px; color: rgba(255,255,255,0.5);">
                 Need to make changes? Contact your building administrator or meeting organizer.
               </p>
+              ${footerContactHtml ? footerContactHtml.replace(/color: #9ca3af/g, 'color: rgba(255,255,255,0.5)') : ''}
             </td>
           </tr>
 
@@ -1006,7 +1034,7 @@ For questions about this report, please contact the administrator.
         `A calendar invitation (.ics) is attached to this email.`,
         ``,
         `---`,
-        `Sent by TPR Max Visitor Management System`,
+        `Sent by ${companyName} via TPR Max Visitor Management`,
         `Need changes? Contact your building administrator.`,
       ].filter(Boolean).join('\n');
     };
@@ -1020,6 +1048,7 @@ For questions about this report, please contact the administrator.
     if (organizer.email) {
       const emailSuccess = await this.sendEmail({ 
         to: organizer.email, subject, html: organizerHtml, text: organizerText, 
+        companyName,
         attachments: [calendarAttachment] 
       });
       if (!emailSuccess) success = false;
@@ -1030,7 +1059,7 @@ For questions about this report, please contact the administrator.
       const qrData = generateQrData(attendee.id, 'staff');
       const html = generateBookingHtml(`${attendee.firstName} ${attendee.lastName}`, qrData, false);
       const text = generatePlainText(`${attendee.firstName} ${attendee.lastName}`, qrData, false);
-      const emailSuccess = await this.sendEmail({ to: attendee.email, subject, html, text, attachments: [calendarAttachment] });
+      const emailSuccess = await this.sendEmail({ to: attendee.email, subject, html, text, companyName, attachments: [calendarAttachment] });
       if (!emailSuccess) success = false;
     }
 
@@ -1040,7 +1069,7 @@ For questions about this report, please contact the administrator.
       const qrData = generateQrData(externalId, 'external');
       const html = generateBookingHtml(email, qrData, false);
       const text = generatePlainText(email, qrData, false);
-      const emailSuccess = await this.sendEmail({ to: email, subject, html, text, attachments: [calendarAttachment] });
+      const emailSuccess = await this.sendEmail({ to: email, subject, html, text, companyName, attachments: [calendarAttachment] });
       if (!emailSuccess) success = false;
     }
 

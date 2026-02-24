@@ -17559,12 +17559,14 @@ This is an automated notification from your visitor management system.`;
             .where(eq(isolatedSchema.meetingRooms.id, fullBooking.meetingRoomId));
           const [organizer] = await bookingDb.select().from(isolatedSchema.staff)
             .where(eq(isolatedSchema.staff.id, fullBooking.bookedByStaffId));
+          const [settings] = await bookingDb.select().from(isolatedSchema.companySettings).limit(1);
           await emailService.sendBookingConfirmation(
             fullBooking, 
             bookingRoom, 
             organizer, 
             staffAttendees,
-            externalAttendeeEmails
+            externalAttendeeEmails,
+            settings ? { companyName: settings.companyName, logoUrl: settings.logoUrl, address: settings.address, phone: settings.phone, website: settings.website, email: settings.email } : undefined
           );
         } catch (emailError) {
           console.error("Failed to send booking confirmation email:", emailError);
@@ -17650,12 +17652,14 @@ This is an automated notification from your visitor management system.`;
               .where(eq(isolatedSchema.meetingRooms.id, patchFullBooking.meetingRoomId));
             const [patchOrganizer] = await patchDb.select().from(isolatedSchema.staff)
               .where(eq(isolatedSchema.staff.id, patchFullBooking.bookedByStaffId));
+            const [patchSettings] = await patchDb.select().from(isolatedSchema.companySettings).limit(1);
             await emailService.sendBookingConfirmation(
               patchFullBooking, 
               patchRoom, 
               patchOrganizer, 
               patchStaffAttendees,
-              externalAttendeeEmails || []
+              externalAttendeeEmails || [],
+              patchSettings ? { companyName: patchSettings.companyName, logoUrl: patchSettings.logoUrl, address: patchSettings.address, phone: patchSettings.phone, website: patchSettings.website, email: patchSettings.email } : undefined
             );
           } catch (emailError) {
             console.error("Failed to send booking update email:", emailError);
