@@ -11200,6 +11200,69 @@ This is an automated notification from your visitor management system.`;
       const context = simpleDatabaseService.createCustomerContext('xstation-device', resolvedCustomerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
+      if (qrCode.startsWith('MTG:')) {
+        const parts = qrCode.split(':');
+        if (parts.length >= 4) {
+          const [, bookingId, attendeeType, attendeeId] = parts;
+          console.log(`📅 Meeting room QR scan: booking=${bookingId}, type=${attendeeType}, id=${attendeeId}`);
+          
+          const [roomBooking] = await customerDb.select().from(isolatedSchema.roomBookings)
+            .where(eq(isolatedSchema.roomBookings.id, bookingId)).limit(1);
+          
+          if (!roomBooking) {
+            return res.status(404).json({ error: "Meeting booking not found" });
+          }
+          
+          const bookingStart = new Date(roomBooking.startTime || roomBooking.startDateTime);
+          const bookingEnd = new Date(roomBooking.endTime || roomBooking.endDateTime);
+          const now = new Date();
+          const earlyWindow = new Date(bookingStart.getTime() - 30 * 60 * 1000);
+          const lateWindow = new Date(bookingEnd.getTime() + 30 * 60 * 1000);
+          
+          if (now < earlyWindow || now > lateWindow) {
+            return res.status(400).json({ 
+              error: "QR code is not valid at this time",
+              bookingTime: `${bookingStart.toLocaleString('en-GB')} - ${bookingEnd.toLocaleString('en-GB')}`
+            });
+          }
+          
+          const [room] = await customerDb.select().from(isolatedSchema.meetingRooms)
+            .where(eq(isolatedSchema.meetingRooms.id, roomBooking.meetingRoomId)).limit(1);
+          
+          if (attendeeType === 'staff') {
+            const [staffMember] = await customerDb.select().from(isolatedSchema.staff)
+              .where(eq(isolatedSchema.staff.id, attendeeId)).limit(1);
+            
+            if (staffMember && !staffMember.isCheckedIn) {
+              await customerDb.update(isolatedSchema.staff)
+                .set({ isCheckedIn: true, checkedInAt: new Date() })
+                .where(eq(isolatedSchema.staff.id, attendeeId));
+            }
+            
+            return res.json({
+              success: true,
+              type: 'meeting-attendee',
+              action: 'access-granted',
+              attendeeName: staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : attendeeId,
+              meeting: roomBooking.title,
+              room: room?.name || 'Unknown',
+              deviceIp
+            });
+          } else {
+            return res.json({
+              success: true,
+              type: 'meeting-external',
+              action: 'access-granted',
+              attendeeId,
+              meeting: roomBooking.title,
+              room: room?.name || 'Unknown',
+              deviceIp
+            });
+          }
+        }
+        return res.status(400).json({ error: "Invalid meeting QR code format" });
+      }
+      
       const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
         .where(eq(isolatedSchema.preBookings.qrCode, qrCode)).limit(1);
       if (preBooking) {

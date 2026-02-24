@@ -740,8 +740,22 @@ For questions about this report, please contact the administrator.
     }).format(new Date(bookingEndTime));
 
     const subject = `Meeting Room Confirmed: ${booking.title}`;
-    
-    const html = `
+
+    const icalContent = this.generateICalFile(booking, room, organizer);
+    const calendarAttachment = {
+      filename: `meeting-${booking.id}.ics`,
+      content: icalContent,
+      contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+    };
+
+    const generateQrData = (identifier: string, type: 'staff' | 'external') => {
+      return `MTG:${booking.id}:${type}:${identifier}`;
+    };
+
+    const generateBookingHtml = (recipientName: string, qrCodeData: string) => {
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}&format=png&margin=10`;
+      
+      return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center;">
           <h1 style="margin: 0; font-size: 24px;">📅 Meeting Room Confirmed</h1>
@@ -786,43 +800,61 @@ For questions about this report, please contact the administrator.
             ` : ''}
           </div>
 
+          <div style="background: white; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #667eea;">
+            <h3 style="color: #667eea; margin-top: 0;">🔒 Your Access QR Code</h3>
+            <p style="color: #555; font-size: 13px; margin-bottom: 15px;">
+              Present this QR code at the Suprema reader for building access on the day of your meeting.
+            </p>
+            <div style="display: inline-block; padding: 15px; background: white; border: 1px solid #e0e0e0; border-radius: 8px;">
+              <img src="${qrCodeUrl}" alt="Meeting Access QR Code" width="250" height="250" style="display: block;" />
+            </div>
+            <p style="color: #888; font-size: 11px; margin-top: 10px;">
+              Attendee: <strong>${recipientName}</strong><br>
+              Valid for: ${startTime}
+            </p>
+          </div>
+
           <div style="text-align: center; margin-top: 30px;">
             <p style="color: #666; font-size: 14px;">
-              📧 This confirmation was sent automatically by VisiGate Pro<br>
+              📧 This confirmation was sent automatically by TPR Max<br>
               Need to make changes? Contact your building administrator
             </p>
           </div>
         </div>
       </div>
     `;
-
-    const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\nOrganizer: ${organizer.firstName} ${organizer.lastName}\nExpected Attendees: ${booking.expectedAttendees} people\n\n${booking.description ? `Description: ${booking.description}\n\n` : ''}📅 A calendar invitation is attached to this email. You can add this meeting to your Outlook, Mac Calendar, or any other calendar app.\n\nThis confirmation was sent automatically by VisiGate Pro.`;
-
-    // Generate calendar file
-    const icalContent = this.generateICalFile(booking, room, organizer);
-    const calendarAttachment = {
-      filename: `meeting-${booking.id}.ics`,
-      content: icalContent,
-      contentType: 'text/calendar; charset=utf-8; method=REQUEST'
     };
 
-    // Gather all email addresses
-    const allEmails = [
-      organizer.email,
-      ...staffAttendees.map(staff => staff.email),
-      ...externalAttendeeEmails
-    ].filter(Boolean);
-
-    // Send to all attendees with calendar attachment
     let success = true;
-    for (const email of allEmails) {
+
+    const organizerQr = generateQrData(organizer.id, 'staff');
+    const organizerHtml = generateBookingHtml(`${organizer.firstName} ${organizer.lastName}`, organizerQr);
+    const organizerText = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\nOrganizer: ${organizer.firstName} ${organizer.lastName}\nExpected Attendees: ${booking.expectedAttendees} people\n\n${booking.description ? `Description: ${booking.description}\n\n` : ''}Your QR Code Data: ${organizerQr}\nPresent this QR code at the Suprema reader for building access.\n\n📅 A calendar invitation is attached.\n\nSent automatically by TPR Max.`;
+    
+    if (organizer.email) {
       const emailSuccess = await this.sendEmail({ 
-        to: email, 
-        subject, 
-        html, 
-        text, 
+        to: organizer.email, subject, html: organizerHtml, text: organizerText, 
         attachments: [calendarAttachment] 
       });
+      if (!emailSuccess) success = false;
+    }
+
+    for (const attendee of staffAttendees) {
+      if (!attendee.email || attendee.id === organizer.id) continue;
+      const qrData = generateQrData(attendee.id, 'staff');
+      const html = generateBookingHtml(`${attendee.firstName} ${attendee.lastName}`, qrData);
+      const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\n\nYour QR Code Data: ${qrData}\nPresent this QR code at the Suprema reader for building access.\n\n📅 A calendar invitation is attached.\n\nSent automatically by TPR Max.`;
+      const emailSuccess = await this.sendEmail({ to: attendee.email, subject, html, text, attachments: [calendarAttachment] });
+      if (!emailSuccess) success = false;
+    }
+
+    for (const email of externalAttendeeEmails) {
+      if (!email) continue;
+      const externalId = email.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+      const qrData = generateQrData(externalId, 'external');
+      const html = generateBookingHtml(email, qrData);
+      const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\n\nYour QR Code Data: ${qrData}\nPresent this QR code at the Suprema reader for building access.\n\n📅 A calendar invitation is attached.\n\nSent automatically by TPR Max.`;
+      const emailSuccess = await this.sendEmail({ to: email, subject, html, text, attachments: [calendarAttachment] });
       if (!emailSuccess) success = false;
     }
 
