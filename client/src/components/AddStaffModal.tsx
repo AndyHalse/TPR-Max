@@ -27,6 +27,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     department: "",
     employeeId: "",
     biostarUserId: "",
+    paxtonUserId: "",
     photoUrl: "",
     accessLevel: "staff",
     password: "",
@@ -63,6 +64,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         department: staffToEdit.department || "",
         employeeId: staffToEdit.employeeId || "",
         biostarUserId: staffToEdit.biostarUserId || "",
+        paxtonUserId: staffToEdit.paxtonUserId || "",
         photoUrl: staffToEdit.photoUrl || "",
         accessLevel: staffToEdit.accessLevel || "staff",
         password: "", // Never pre-fill password
@@ -83,6 +85,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         department: "",
         employeeId: "",
         biostarUserId: "",
+        paxtonUserId: "",
         photoUrl: "",
         accessLevel: "staff",
         password: "",
@@ -168,6 +171,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       department: "", 
       employeeId: "", 
       biostarUserId: "",
+      paxtonUserId: "",
       photoUrl: "", 
       accessLevel: "staff", 
       password: "", 
@@ -295,6 +299,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       department: formData.department,
       employeeId,
       biostarUserId: formData.biostarUserId.trim() || null,
+      paxtonUserId: formData.paxtonUserId.trim() || null,
       photoUrl: uploadedPhoto || undefined,
       accessLevel: formData.accessLevel,
       isFireMarshal: formData.isFireMarshal,
@@ -435,6 +440,24 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             />
             <p className="text-xs text-variable">
               Links this staff member to a user in Biostar 2 access control system
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="paxtonUserId" className="text-sm font-medium text-fixed">
+              Paxton Net2 User ID
+            </Label>
+            <Input
+              id="paxtonUserId"
+              type="text"
+              value={formData.paxtonUserId}
+              onChange={(e) => handleInputChange("paxtonUserId", e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              placeholder="Optional - For Paxton access control sync"
+              data-testid="input-paxton-user-id"
+            />
+            <p className="text-xs text-variable">
+              Links this staff member to a user in Paxton Net2 access control system
             </p>
           </div>
           
