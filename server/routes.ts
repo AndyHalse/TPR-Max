@@ -78,6 +78,7 @@ import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as sharedSchema from '@shared/schema';
 import { biostarService } from "./biostarService";
+import { paxtonService } from "./paxtonService";
 import { customerOnboardingService } from "./customerOnboardingService";
 import { registerBillingRoutes } from "./billingRoutes";
 import { stripeService } from "./stripeService";
@@ -11345,6 +11346,290 @@ This is an automated notification from your visitor management system.`;
     } catch (error) {
       console.error("X-Station QR scan error:", error);
       res.status(500).json({ error: "Failed to process X-Station QR scan" });
+    }
+  });
+
+  // ============================================================
+  // PAXTON NET2 ACCESS CONTROL INTEGRATION
+  // ============================================================
+
+  app.post("/api/paxton/test-connection", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings?.paxtonEnabled || !settings?.paxtonServerUrl) {
+        return res.status(400).json({ error: "Paxton Net2 integration is not configured" });
+      }
+
+      const result = await paxtonService.testConnection({
+        serverUrl: settings.paxtonServerUrl,
+        port: settings.paxtonPort || '8080',
+        clientId: settings.paxtonClientId || '',
+        username: settings.paxtonUsername || '',
+        password: settings.paxtonPassword || '',
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to test Paxton connection" });
+    }
+  });
+
+  app.get("/api/paxton/doors", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings?.paxtonEnabled || !settings?.paxtonServerUrl) {
+        return res.status(400).json({ error: "Paxton Net2 integration is not configured" });
+      }
+
+      const config = {
+        serverUrl: settings.paxtonServerUrl,
+        port: settings.paxtonPort || '8080',
+        clientId: settings.paxtonClientId || '',
+        username: settings.paxtonUsername || '',
+        password: settings.paxtonPassword || '',
+      };
+
+      const doors = await paxtonService.getDoors(config);
+      res.json(doors);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch Paxton doors" });
+    }
+  });
+
+  app.get("/api/paxton/access-levels", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings?.paxtonEnabled || !settings?.paxtonServerUrl) {
+        return res.status(400).json({ error: "Paxton Net2 integration is not configured" });
+      }
+
+      const config = {
+        serverUrl: settings.paxtonServerUrl,
+        port: settings.paxtonPort || '8080',
+        clientId: settings.paxtonClientId || '',
+        username: settings.paxtonUsername || '',
+        password: settings.paxtonPassword || '',
+      };
+
+      const levels = await paxtonService.getAccessLevels(config);
+      res.json(levels);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch Paxton access levels" });
+    }
+  });
+
+  app.post("/api/paxton/open-door", requireAuth, async (req, res) => {
+    try {
+      const { doorId, duration = 5 } = req.body;
+      if (!doorId) return res.status(400).json({ error: "Door ID is required" });
+
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings?.paxtonEnabled || !settings?.paxtonServerUrl) {
+        return res.status(400).json({ error: "Paxton Net2 integration is not configured" });
+      }
+
+      const config = {
+        serverUrl: settings.paxtonServerUrl,
+        port: settings.paxtonPort || '8080',
+        clientId: settings.paxtonClientId || '',
+        username: settings.paxtonUsername || '',
+        password: settings.paxtonPassword || '',
+      };
+
+      const success = await paxtonService.openDoor(config, doorId, duration);
+      res.json({ success, doorId, duration });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to open door" });
+    }
+  });
+
+  app.post("/api/paxton/sync-staff", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings?.paxtonEnabled || !settings?.paxtonServerUrl) {
+        return res.status(400).json({ error: "Paxton Net2 integration is not configured" });
+      }
+
+      const config = {
+        serverUrl: settings.paxtonServerUrl,
+        port: settings.paxtonPort || '8080',
+        clientId: settings.paxtonClientId || '',
+        username: settings.paxtonUsername || '',
+        password: settings.paxtonPassword || '',
+      };
+
+      const allStaff = await customerDb.select().from(isolatedSchema.staff);
+      const staffList = allStaff.map((s: any) => ({
+        id: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        department: s.department,
+        isCheckedIn: s.isCheckedIn,
+      }));
+
+      const result = await paxtonService.syncStaffToNet2(config, staffList, settings.paxtonDefaultAccessLevel || undefined);
+
+      await customerDb.update(isolatedSchema.companySettings)
+        .set({ paxtonLastSync: new Date() })
+        .where(eq(isolatedSchema.companySettings.id, settings.id));
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to sync staff to Paxton" });
+    }
+  });
+
+  app.get("/api/paxton/events", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings?.paxtonEnabled || !settings?.paxtonServerUrl) {
+        return res.status(400).json({ error: "Paxton Net2 integration is not configured" });
+      }
+
+      const config = {
+        serverUrl: settings.paxtonServerUrl,
+        port: settings.paxtonPort || '8080',
+        clientId: settings.paxtonClientId || '',
+        username: settings.paxtonUsername || '',
+        password: settings.paxtonPassword || '',
+      };
+
+      const { from, to, doorId } = req.query;
+      const events = await paxtonService.getEvents(config, {
+        from: from as string,
+        to: to as string,
+        doorId: doorId ? parseInt(doorId as string) : undefined,
+      });
+
+      res.json(events);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch Paxton events" });
+    }
+  });
+
+  app.post("/api/paxton/webhook", async (req, res) => {
+    try {
+      const { customerId } = req.query;
+      const resolvedCustomerId = (customerId as string) || 'dev-customer-001';
+      const customerDb = await customerDbService.getCustomerDatabase(resolvedCustomerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      const result = paxtonService.handleWebhookEvent(req.body, settings?.paxtonWebhookSecret || undefined);
+
+      if (!result.valid) {
+        return res.status(401).json({ error: "Invalid webhook signature" });
+      }
+
+      console.log(`Paxton webhook event: ${result.eventType}`, result.data);
+      res.json({ received: true, eventType: result.eventType });
+    } catch (error: any) {
+      console.error("Paxton webhook error:", error);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // ============================================================
+  // API KEY & WEBHOOK MANAGEMENT
+  // ============================================================
+
+  app.post("/api/integrations/generate-api-key", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings) return res.status(404).json({ error: "Company settings not found" });
+
+      const crypto = await import('crypto');
+      const apiKey = `tpr_${crypto.randomBytes(32).toString('hex')}`;
+      const webhookSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
+
+      await customerDb.update(isolatedSchema.companySettings)
+        .set({ apiKey, apiWebhookSecret: webhookSecret, apiWebhooksEnabled: true })
+        .where(eq(isolatedSchema.companySettings.id, settings.id));
+
+      res.json({ apiKey, webhookSecret });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to generate API key" });
+    }
+  });
+
+  app.post("/api/integrations/revoke-api-key", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings) return res.status(404).json({ error: "Company settings not found" });
+
+      await customerDb.update(isolatedSchema.companySettings)
+        .set({ apiKey: '', apiWebhookSecret: '', apiWebhooksEnabled: false })
+        .where(eq(isolatedSchema.companySettings.id, settings.id));
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to revoke API key" });
+    }
+  });
+
+  app.post("/api/integrations/test-webhook", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
+      if (!settings?.apiWebhookUrl) {
+        return res.status(400).json({ error: "No webhook URL configured" });
+      }
+
+      const testPayload = {
+        event: 'test.webhook',
+        timestamp: new Date().toISOString(),
+        data: { message: 'This is a test webhook from TPR Max' },
+      };
+
+      try {
+        const response = await fetch(settings.apiWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-TPR-Webhook-Secret': settings.apiWebhookSecret || '',
+            'X-TPR-Event': 'test.webhook',
+          },
+          body: JSON.stringify(testPayload),
+        });
+
+        res.json({
+          success: response.ok,
+          statusCode: response.status,
+          message: response.ok ? 'Webhook delivered successfully' : `Webhook returned ${response.status}`,
+        });
+      } catch (fetchError: any) {
+        res.json({
+          success: false,
+          message: `Failed to reach webhook URL: ${fetchError.message}`,
+        });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to test webhook" });
     }
   });
 

@@ -469,7 +469,34 @@ export const companySettings = pgTable("company_settings", {
   // Zones configuration
   zonesEnabled: boolean("zones_enabled").default(false),
   zoneMapUrl: text("zone_map_url"),
-  
+
+  // Paxton Net2 Access Control Integration
+  paxtonEnabled: boolean("paxton_enabled").default(false),
+  paxtonServerUrl: text("paxton_server_url").default(""),
+  paxtonPort: text("paxton_port").default("8080"),
+  paxtonClientId: text("paxton_client_id").default(""),
+  paxtonUsername: text("paxton_username").default(""),
+  paxtonPassword: text("paxton_password").default(""),
+  paxtonSyncUsers: boolean("paxton_sync_users").default(true),
+  paxtonSyncEvents: boolean("paxton_sync_events").default(true),
+  paxtonSyncInterval: text("paxton_sync_interval").default("300"),
+  paxtonDefaultAccessLevel: text("paxton_default_access_level").default(""),
+  paxtonVisitorAccessLevel: text("paxton_visitor_access_level").default(""),
+  paxtonContractorAccessLevel: text("paxton_contractor_access_level").default(""),
+  paxtonAutoGrantAccess: boolean("paxton_auto_grant_access").default(false),
+  paxtonAutoRevokeOnCheckout: boolean("paxton_auto_revoke_on_checkout").default(true),
+  paxtonLastSync: timestamp("paxton_last_sync"),
+  paxtonWebhookSecret: text("paxton_webhook_secret").default(""),
+
+  // API & Webhooks Configuration (Third-party integrations)
+  apiWebhooksEnabled: boolean("api_webhooks_enabled").default(false),
+  apiKey: text("api_key").default(""),
+  apiWebhookUrl: text("api_webhook_url").default(""),
+  apiWebhookSecret: text("api_webhook_secret").default(""),
+  apiWebhookEvents: text("api_webhook_events").array().default([]),
+  apiRateLimit: text("api_rate_limit").default("100"),
+  apiLastActivity: timestamp("api_last_activity"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

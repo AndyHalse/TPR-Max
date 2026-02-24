@@ -57,6 +57,14 @@ export default function Settings() {
   });
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
+  const [paxtonTestResult, setPaxtonTestResult] = useState<string>("");
+  const [paxtonTestLoading, setPaxtonTestLoading] = useState(false);
+  const [paxtonSyncResult, setPaxtonSyncResult] = useState<string>("");
+  const [paxtonSyncLoading, setPaxtonSyncLoading] = useState(false);
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [webhookTestResult, setWebhookTestResult] = useState<string>("");
+  const [webhookTestLoading, setWebhookTestLoading] = useState(false);
+  const [apiKeyGenerating, setApiKeyGenerating] = useState(false);
   const [showManualResetDialog, setShowManualResetDialog] = useState(false);
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [departmentToEdit, setDepartmentToEdit] = useState<Department | null>(null);
@@ -1040,6 +1048,75 @@ export default function Settings() {
     );
   }
 
+  const handlePaxtonTest = async () => {
+    setPaxtonTestLoading(true);
+    try {
+      const res = await fetch("/api/paxton/test-connection", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const data = await res.json();
+      setPaxtonTestResult(data.success ? `✓ ${data.message}` : `✗ ${data.message || data.error}`);
+    } catch (err: any) {
+      setPaxtonTestResult(`✗ ${err.message}`);
+    }
+    setPaxtonTestLoading(false);
+  };
+
+  const handlePaxtonSync = async () => {
+    setPaxtonSyncLoading(true);
+    try {
+      const res = await fetch("/api/paxton/sync-staff", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const data = await res.json();
+      setPaxtonSyncResult(data.success ? `✓ ${data.message}` : `✗ ${data.message || data.error}`);
+    } catch (err: any) {
+      setPaxtonSyncResult(`✗ ${err.message}`);
+    }
+    setPaxtonSyncLoading(false);
+  };
+
+  const handleGenerateApiKey = async () => {
+    setApiKeyGenerating(true);
+    try {
+      const res = await fetch("/api/integrations/generate-api-key", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const data = await res.json();
+      if (data.apiKey) {
+        handleInputChange("apiKey", data.apiKey);
+        toast({ title: "API Key Generated", description: "A new API key has been generated successfully." });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to generate API key", variant: "destructive" });
+    }
+    setApiKeyGenerating(false);
+  };
+
+  const handleRevokeApiKey = async () => {
+    try {
+      await fetch("/api/integrations/revoke-api-key", { method: "POST", headers: { "Content-Type": "application/json" } });
+      handleInputChange("apiKey", "");
+      toast({ title: "API Key Revoked", description: "Your API key has been revoked." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to revoke API key", variant: "destructive" });
+    }
+  };
+
+  const handleTestWebhook = async () => {
+    setWebhookTestLoading(true);
+    try {
+      const res = await fetch("/api/integrations/test-webhook", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const data = await res.json();
+      setWebhookTestResult(data.success ? `✓ ${data.message}` : `✗ ${data.message || data.error}`);
+    } catch (err: any) {
+      setWebhookTestResult(`✗ ${err.message}`);
+    }
+    setWebhookTestLoading(false);
+  };
+
+  const handleCopyToClipboard = (value: string, label: string) => {
+    navigator.clipboard.writeText(value).then(() => {
+      toast({ title: "Copied!", description: `${label} copied to clipboard.` });
+    }).catch(() => {
+      toast({ title: "Copy Failed", description: "Failed to copy to clipboard.", variant: "destructive" });
+    });
+  };
+
   const currentSettings = { ...settings, ...formData };
 
   return (
@@ -1130,6 +1207,11 @@ export default function Settings() {
           <TabsTrigger value="zones" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <MapPin size={14} />
             Zones
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="flex items-center gap-1.5 px-3 py-2 text-xs">
+            <Zap size={14} />
+            <span className="hidden lg:inline">Integrations</span>
+            <span className="lg:hidden">API</span>
           </TabsTrigger>
           <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2 text-xs">
             <SettingsIcon size={14} />
@@ -4734,6 +4816,415 @@ export default function Settings() {
 
         <TabsContent value="zones" className="space-y-6 mt-6">
           <ZoneManagement />
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Globe className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
+                <h3 className="text-lg font-semibold text-fixed">API & Webhooks</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-fixed">Enable API & Webhooks</Label>
+                    <p className="text-xs text-variable">Enable API key access and outbound webhook notifications</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.apiWebhooksEnabled || false}
+                    onCheckedChange={(checked) => handleInputChange("apiWebhooksEnabled", checked)}
+                  />
+                </div>
+
+                {currentSettings?.apiWebhooksEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-fixed">API Key</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type={apiKeyVisible ? "text" : "password"}
+                          value={currentSettings?.apiKey || ""}
+                          readOnly
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          placeholder="No API key generated"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setApiKeyVisible(!apiKeyVisible)}
+                          className="shrink-0"
+                        >
+                          <Eye size={14} />
+                        </Button>
+                        {currentSettings?.apiKey && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyToClipboard(currentSettings?.apiKey || "", "API Key")}
+                            className="shrink-0"
+                          >
+                            <Copy size={14} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateApiKey}
+                        disabled={apiKeyGenerating}
+                      >
+                        <Shield size={14} className="mr-1" />
+                        {apiKeyGenerating ? "Generating..." : "Generate New Key"}
+                      </Button>
+                      {currentSettings?.apiKey && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleRevokeApiKey}
+                        >
+                          <XCircle size={14} className="mr-1" />
+                          Revoke Key
+                        </Button>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <Label htmlFor="webhookUrl" className="text-sm font-medium text-fixed">Webhook URL</Label>
+                      <Input
+                        id="webhookUrl"
+                        type="url"
+                        value={currentSettings?.apiWebhookUrl || ""}
+                        onChange={(e) => handleInputChange("apiWebhookUrl", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        placeholder="https://your-app.com/webhook"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-fixed">Webhook Secret</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="password"
+                          value={currentSettings?.apiWebhookSecret || ""}
+                          readOnly
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          placeholder="Auto-generated on save"
+                        />
+                        {currentSettings?.apiWebhookSecret && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyToClipboard(currentSettings?.apiWebhookSecret || "", "Webhook Secret")}
+                            className="shrink-0"
+                          >
+                            <Copy size={14} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleTestWebhook}
+                        disabled={webhookTestLoading}
+                      >
+                        <Send size={14} className="mr-1" />
+                        {webhookTestLoading ? "Testing..." : "Test Webhook"}
+                      </Button>
+                    </div>
+
+                    {webhookTestResult && (
+                      <p className={`text-sm ${webhookTestResult.startsWith("✓") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {webhookTestResult}
+                      </p>
+                    )}
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <Label htmlFor="apiRateLimit" className="text-sm font-medium text-fixed">Rate Limit (requests/min)</Label>
+                      <Input
+                        id="apiRateLimit"
+                        type="number"
+                        value={currentSettings?.apiRateLimit || "60"}
+                        onChange={(e) => handleInputChange("apiRateLimit", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-fixed">Webhook Events</Label>
+                      <p className="text-xs text-variable mb-2">Select which events trigger webhook notifications</p>
+                      <div className="space-y-2">
+                        {[
+                          "visitor.checkin",
+                          "visitor.checkout",
+                          "staff.checkin",
+                          "staff.checkout",
+                          "contractor.checkin",
+                          "emergency.activated",
+                          "booking.created",
+                        ].map((eventName) => {
+                          const events = currentSettings?.apiWebhookEvents || [];
+                          const isChecked = events.includes(eventName);
+                          return (
+                            <div key={eventName} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`webhook-${eventName}`}
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const updated = e.target.checked
+                                    ? [...events, eventName]
+                                    : events.filter((ev: string) => ev !== eventName);
+                                  handleInputChange("apiWebhookEvents", updated);
+                                }}
+                                className="rounded border-gray-300 dark:border-gray-600"
+                              />
+                              <Label htmlFor={`webhook-${eventName}`} className="text-sm text-variable cursor-pointer">
+                                {eventName}
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <div className="flex items-center mb-6">
+                <Shield className="mr-3 text-purple-600 dark:text-purple-400" size={24} />
+                <h3 className="text-lg font-semibold text-fixed">Paxton Net2 Access Control</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-fixed">Enable Paxton Integration</Label>
+                    <p className="text-xs text-variable">Connect to Paxton Net2 for access control management</p>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.paxtonEnabled || false}
+                    onCheckedChange={(checked) => handleInputChange("paxtonEnabled", checked)}
+                  />
+                </div>
+
+                {currentSettings?.paxtonEnabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="paxtonServerUrl" className="text-sm font-medium text-fixed">Server URL</Label>
+                      <Input
+                        id="paxtonServerUrl"
+                        type="url"
+                        value={currentSettings?.paxtonServerUrl || ""}
+                        onChange={(e) => handleInputChange("paxtonServerUrl", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        placeholder="https://192.168.1.100"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="paxtonPort" className="text-sm font-medium text-fixed">Port</Label>
+                        <Input
+                          id="paxtonPort"
+                          type="text"
+                          value={currentSettings?.paxtonPort || "8080"}
+                          onChange={(e) => handleInputChange("paxtonPort", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="paxtonClientId" className="text-sm font-medium text-fixed">Client ID</Label>
+                        <Input
+                          id="paxtonClientId"
+                          type="text"
+                          value={currentSettings?.paxtonClientId || ""}
+                          onChange={(e) => handleInputChange("paxtonClientId", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          placeholder="Issued by Paxton"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="paxtonUsername" className="text-sm font-medium text-fixed">Username</Label>
+                        <Input
+                          id="paxtonUsername"
+                          type="text"
+                          value={currentSettings?.paxtonUsername || ""}
+                          onChange={(e) => handleInputChange("paxtonUsername", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="paxtonPassword" className="text-sm font-medium text-fixed">Password</Label>
+                        <Input
+                          id="paxtonPassword"
+                          type="password"
+                          value={currentSettings?.paxtonPassword || ""}
+                          onChange={(e) => handleInputChange("paxtonPassword", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePaxtonTest}
+                        disabled={paxtonTestLoading}
+                      >
+                        <TestTube size={14} className="mr-1" />
+                        {paxtonTestLoading ? "Testing..." : "Test Connection"}
+                      </Button>
+                    </div>
+
+                    {paxtonTestResult && (
+                      <p className={`text-sm ${paxtonTestResult.startsWith("✓") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {paxtonTestResult}
+                      </p>
+                    )}
+
+                    <Separator />
+
+                    <h4 className="text-sm font-semibold text-fixed">Sync Settings</h4>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-fixed">Auto-sync Staff to Net2</Label>
+                        <p className="text-xs text-variable">Automatically push staff records to Net2</p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.paxtonSyncUsers || false}
+                        onCheckedChange={(checked) => handleInputChange("paxtonSyncUsers", checked)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-fixed">Auto-sync Events from Net2</Label>
+                        <p className="text-xs text-variable">Pull access events from Net2 automatically</p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.paxtonSyncEvents || false}
+                        onCheckedChange={(checked) => handleInputChange("paxtonSyncEvents", checked)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="paxtonSyncInterval" className="text-sm font-medium text-fixed">Sync Interval (seconds)</Label>
+                      <Input
+                        id="paxtonSyncInterval"
+                        type="number"
+                        value={currentSettings?.paxtonSyncInterval || "300"}
+                        onChange={(e) => handleInputChange("paxtonSyncInterval", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="paxtonDefaultAccessLevel" className="text-sm font-medium text-fixed">Default Staff Access Level</Label>
+                        <Input
+                          id="paxtonDefaultAccessLevel"
+                          type="text"
+                          value={currentSettings?.paxtonDefaultAccessLevel || ""}
+                          onChange={(e) => handleInputChange("paxtonDefaultAccessLevel", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="paxtonVisitorAccessLevel" className="text-sm font-medium text-fixed">Visitor Access Level</Label>
+                        <Input
+                          id="paxtonVisitorAccessLevel"
+                          type="text"
+                          value={currentSettings?.paxtonVisitorAccessLevel || ""}
+                          onChange={(e) => handleInputChange("paxtonVisitorAccessLevel", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="paxtonContractorAccessLevel" className="text-sm font-medium text-fixed">Contractor Access Level</Label>
+                        <Input
+                          id="paxtonContractorAccessLevel"
+                          type="text"
+                          value={currentSettings?.paxtonContractorAccessLevel || ""}
+                          onChange={(e) => handleInputChange("paxtonContractorAccessLevel", e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-fixed">Auto-grant Access on Check-in</Label>
+                        <p className="text-xs text-variable">Automatically grant Net2 access when someone checks in</p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.paxtonAutoGrantAccess || false}
+                        onCheckedChange={(checked) => handleInputChange("paxtonAutoGrantAccess", checked)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium text-fixed">Auto-revoke Access on Checkout</Label>
+                        <p className="text-xs text-variable">Automatically revoke Net2 access when someone checks out</p>
+                      </div>
+                      <Switch
+                        checked={currentSettings?.paxtonAutoRevokeOnCheckout || false}
+                        onCheckedChange={(checked) => handleInputChange("paxtonAutoRevokeOnCheckout", checked)}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex gap-2 items-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePaxtonSync}
+                        disabled={paxtonSyncLoading}
+                      >
+                        <RefreshCw size={14} className={`mr-1 ${paxtonSyncLoading ? "animate-spin" : ""}`} />
+                        {paxtonSyncLoading ? "Syncing..." : "Manual Sync"}
+                      </Button>
+                      {currentSettings?.paxtonLastSync && (
+                        <span className="text-xs text-variable flex items-center gap-1">
+                          <Clock size={12} />
+                          Last sync: {new Date(currentSettings.paxtonLastSync).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    {paxtonSyncResult && (
+                      <p className={`text-sm ${paxtonSyncResult.startsWith("✓") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {paxtonSyncResult}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </GlassCard>
+          </div>
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6 mt-6">
