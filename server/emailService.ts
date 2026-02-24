@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 import type { RoomBooking, MeetingRoom, Staff, Visitor, CompanySettings } from '@shared/schema';
 
 interface EmailOptions {
@@ -749,7 +750,10 @@ For questions about this report, please contact the administrator.
     };
 
     const generateQrData = (identifier: string, type: 'staff' | 'external') => {
-      return `MTG:${booking.id}:${type}:${identifier}`;
+      const payload = `MTG:${booking.id}:${type}:${identifier}`;
+      const secret = process.env.SESSION_SECRET || process.env.QR_SIGNING_SECRET || 'tpr-max-qr-signing-key';
+      const hmac = crypto.createHmac('sha256', secret).update(payload).digest('hex').substring(0, 12);
+      return `${payload}:${hmac}`;
     };
 
     const generateBookingHtml = (recipientName: string, qrCodeData: string) => {

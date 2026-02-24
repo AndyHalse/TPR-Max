@@ -11202,9 +11202,20 @@ This is an automated notification from your visitor management system.`;
       
       if (qrCode.startsWith('MTG:')) {
         const parts = qrCode.split(':');
-        if (parts.length >= 4) {
-          const [, bookingId, attendeeType, attendeeId] = parts;
-          console.log(`📅 Meeting room QR scan: booking=${bookingId}, type=${attendeeType}, id=${attendeeId}`);
+        if (parts.length >= 5) {
+          const [, bookingId, attendeeType, attendeeId, providedHmac] = parts;
+          
+          const payload = `MTG:${bookingId}:${attendeeType}:${attendeeId}`;
+          const secret = process.env.SESSION_SECRET || process.env.QR_SIGNING_SECRET || 'tpr-max-qr-signing-key';
+          const crypto = await import('crypto');
+          const expectedHmac = crypto.createHmac('sha256', secret).update(payload).digest('hex').substring(0, 12);
+          
+          if (providedHmac !== expectedHmac) {
+            console.warn(`⚠️ Invalid QR signature for meeting scan: ${qrCode}`);
+            return res.status(403).json({ error: "Invalid QR code signature" });
+          }
+          
+          console.log(`📅 Meeting room QR scan (verified): booking=${bookingId}, type=${attendeeType}, id=${attendeeId}`);
           
           const [roomBooking] = await customerDb.select().from(isolatedSchema.roomBookings)
             .where(eq(isolatedSchema.roomBookings.id, bookingId)).limit(1);
@@ -11226,10 +11237,20 @@ This is an automated notification from your visitor management system.`;
             });
           }
           
+          const bookingAttendees = await customerDb.select().from(isolatedSchema.roomBookingAttendees)
+            .where(eq(isolatedSchema.roomBookingAttendees.bookingId, bookingId));
+          
           const [room] = await customerDb.select().from(isolatedSchema.meetingRooms)
             .where(eq(isolatedSchema.meetingRooms.id, roomBooking.meetingRoomId)).limit(1);
           
           if (attendeeType === 'staff') {
+            const isRegisteredAttendee = bookingAttendees.some(
+              (a: any) => a.staffId === attendeeId || roomBooking.bookedByStaffId === attendeeId
+            );
+            if (!isRegisteredAttendee) {
+              return res.status(403).json({ error: "You are not a registered attendee of this meeting" });
+            }
+            
             const [staffMember] = await customerDb.select().from(isolatedSchema.staff)
               .where(eq(isolatedSchema.staff.id, attendeeId)).limit(1);
             
@@ -11249,6 +11270,13 @@ This is an automated notification from your visitor management system.`;
               deviceIp
             });
           } else {
+            const isRegisteredExternal = bookingAttendees.some(
+              (a: any) => !a.staffId && a.email && a.email.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20) === attendeeId
+            );
+            if (!isRegisteredExternal) {
+              return res.status(403).json({ error: "You are not a registered attendee of this meeting" });
+            }
+            
             return res.json({
               success: true,
               type: 'meeting-external',
