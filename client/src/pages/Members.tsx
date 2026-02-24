@@ -156,15 +156,21 @@ export default function Members() {
     },
   });
 
-  const filteredMembers = members.filter((member) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      `${member.firstName} ${member.lastName}`.toLowerCase().includes(term) ||
-      (member.email && member.email.toLowerCase().includes(term)) ||
-      (member.membershipNumber && member.membershipNumber.toLowerCase().includes(term)) ||
-      (member.membershipId && member.membershipId.toLowerCase().includes(term))
-    );
-  });
+  const filteredMembers = members
+    .filter((member) => {
+      const term = searchTerm.toLowerCase();
+      return (
+        `${member.firstName} ${member.lastName}`.toLowerCase().includes(term) ||
+        (member.email && member.email.toLowerCase().includes(term)) ||
+        (member.membershipNumber && member.membershipNumber.toLowerCase().includes(term)) ||
+        (member.membershipId && member.membershipId.toLowerCase().includes(term))
+      );
+    })
+    .sort((a, b) => {
+      const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
+      const nameB = `${b.lastName} ${b.firstName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
