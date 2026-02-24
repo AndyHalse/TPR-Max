@@ -64,7 +64,6 @@ class EmailService {
         text: options.text || this.generatePlainTextFromHtml(options.html), // Always provide text version
         attachments: options.attachments || [],
         headers: {
-          // Essential headers for deliverability
           'X-Mailer': 'TPR Max Visitor Management System',
           'Message-ID': `<${Date.now()}.${Math.random().toString(36).substring(2)}@${domain}>`,
           'Date': new Date().toUTCString(),
@@ -72,11 +71,8 @@ class EmailService {
           'Importance': 'normal',
           'List-Unsubscribe': `<mailto:${fromAddress}?subject=Unsubscribe>`,
           'X-Entity-Ref-ID': Math.random().toString(36).substring(2),
-          'MIME-Version': '1.0',
-          'Content-Type': 'multipart/alternative',
           'X-Auto-Response-Suppress': 'OOF, AutoReply',
           'Precedence': 'bulk',
-          'X-SES-CONFIGURATION-SET': 'visigate-transactional'
         },
         replyTo: process.env.SMTP_REPLY_TO || process.env.SMTP_USER
       };
@@ -742,12 +738,27 @@ For questions about this report, please contact the administrator.
 
     const subject = `Meeting Room Confirmed: ${booking.title}`;
 
+    const meetingDate = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Europe/London'
+    }).format(new Date(bookingStartTime));
+
     const icalContent = this.generateICalFile(booking, room, organizer);
     const calendarAttachment = {
       filename: `meeting-${booking.id}.ics`,
-      content: icalContent,
-      contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+      content: Buffer.from(icalContent, 'utf-8'),
+      contentType: 'application/ics',
+      contentDisposition: 'attachment' as const,
     };
+
+    const allStaffNames = [
+      `${organizer.firstName} ${organizer.lastName} (Organizer)`,
+      ...staffAttendees.filter(a => a.id !== organizer.id).map(a => `${a.firstName} ${a.lastName}`)
+    ];
+    const allExternalNames = externalAttendeeEmails.filter(Boolean);
 
     const generateQrData = (identifier: string, type: 'staff' | 'external') => {
       const payload = `MTG:${booking.id}:${type}:${identifier}`;
@@ -756,84 +767,255 @@ For questions about this report, please contact the administrator.
       return `${payload}:${hmac}`;
     };
 
-    const generateBookingHtml = (recipientName: string, qrCodeData: string) => {
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCodeData)}&format=png&margin=10`;
+    const facilitiesList: string[] = [];
+    if (room.hasProjector) facilitiesList.push('Projector');
+    if (room.hasVideoConference) facilitiesList.push('Video Conference');
+    if (room.hasWhiteboard) facilitiesList.push('Whiteboard');
+    if (room.hasTV) facilitiesList.push('TV/Display');
+    if (room.hasAirCon) facilitiesList.push('Air Conditioning');
+
+    const generateBookingHtml = (recipientName: string, qrCodeData: string, isOrganizer: boolean) => {
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData)}&format=png&margin=8`;
       
-      return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center;">
-          <h1 style="margin: 0; font-size: 24px;">📅 Meeting Room Confirmed</h1>
-        </div>
-        
-        <div style="padding: 30px; background: #f8f9fa; border-left: 4px solid #667eea;">
-          <h2 style="color: #333; margin-top: 0;">${booking.title}</h2>
+      const attendeeListHtml = allStaffNames.length > 0 || allExternalNames.length > 0 ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px;">
+              <tr>
+                <td style="background: #f0f4ff; padding: 16px; border-radius: 6px;">
+                  <p style="margin: 0 0 8px 0; font-weight: 600; color: #4338ca; font-size: 13px;">ATTENDEES</p>
+                  ${allStaffNames.map(n => `<p style="margin: 2px 0; color: #333; font-size: 13px;">${n}</p>`).join('')}
+                  ${allExternalNames.map(e => `<p style="margin: 2px 0; color: #555; font-size: 13px;">${e} (External)</p>`).join('')}
+                </td>
+              </tr>
+            </table>` : '';
+
+      const facilitiesHtml = facilitiesList.length > 0 ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px;">
+              <tr>
+                <td style="background: #f0fdf4; padding: 16px; border-radius: 6px;">
+                  <p style="margin: 0 0 8px 0; font-weight: 600; color: #166534; font-size: 13px;">ROOM FACILITIES</p>
+                  <p style="margin: 0; color: #333; font-size: 13px;">${facilitiesList.join(' &bull; ')} &bull; Capacity: ${room.capacity}</p>
+                </td>
+              </tr>
+            </table>` : '';
+
+      const cateringHtml = booking.requiresCatering ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px;">
+              <tr>
+                <td style="background: #fff7ed; padding: 16px; border-radius: 6px; border-left: 4px solid #f97316;">
+                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #c2410c; font-size: 13px;">CATERING REQUESTED</p>
+                  <p style="margin: 0; color: #333; font-size: 13px;">${booking.cateringNotes || 'Standard refreshments'}</p>
+                </td>
+              </tr>
+            </table>` : '';
+
+      const specialReqHtml = booking.specialRequirements ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 16px;">
+              <tr>
+                <td style="background: #fdf4ff; padding: 16px; border-radius: 6px; border-left: 4px solid #a855f7;">
+                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #7e22ce; font-size: 13px;">SPECIAL REQUIREMENTS</p>
+                  <p style="margin: 0; color: #333; font-size: 13px;">${booking.specialRequirements}</p>
+                </td>
+              </tr>
+            </table>` : '';
+
+      return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
           
-          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #667eea; margin-top: 0;">📍 Meeting Details</h3>
-            <p><strong>Room:</strong> ${room.name} (${room.location})</p>
-            <p><strong>Date & Time:</strong> ${startTime} - ${endTime}</p>
-            <p><strong>Expected Attendees:</strong> ${booking.expectedAttendees} people</p>
-            <p><strong>Organizer:</strong> ${organizer.firstName} ${organizer.lastName}</p>
-            
-            ${booking.description ? `<p><strong>Description:</strong> ${booking.description}</p>` : ''}
-            
-            <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-top: 15px;">
-              <h4 style="color: #1976d2; margin: 0 0 10px 0;">🏢 Room Facilities</h4>
-              <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                ${room.hasProjector ? '<span style="background: #4caf50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">📽️ Projector</span>' : ''}
-                ${room.hasVideoConference ? '<span style="background: #2196f3; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">📹 Video Conference</span>' : ''}
-                ${room.hasWhiteboard ? '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">📝 Whiteboard</span>' : ''}
-                ${room.hasTV ? '<span style="background: #9c27b0; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">📺 TV</span>' : ''}
-                ${room.hasAirCon ? '<span style="background: #00bcd4; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">❄️ Air Con</span>' : ''}
-                <span style="background: #607d8b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">👥 ${room.capacity} capacity</span>
-              </div>
-            </div>
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%); padding: 32px 30px; text-align: center;">
+              <p style="margin: 0 0 6px 0; font-size: 14px; color: rgba(255,255,255,0.85); letter-spacing: 1px; text-transform: uppercase;">Meeting Room Confirmation</p>
+              <h1 style="margin: 0; font-size: 22px; color: #ffffff; font-weight: 700;">${booking.title}</h1>
+            </td>
+          </tr>
 
-            ${booking.requiresCatering ? `
-              <div style="background: #fff3e0; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid #ff9800;">
-                <h4 style="color: #f57c00; margin: 0 0 10px 0;">🍽️ Catering Required</h4>
-                <p style="margin: 0;">${booking.cateringNotes || 'Standard refreshments requested'}</p>
-              </div>
-            ` : ''}
+          <!-- Greeting -->
+          <tr>
+            <td style="padding: 28px 30px 0 30px;">
+              <p style="margin: 0; font-size: 15px; color: #333;">Dear <strong>${recipientName}</strong>,</p>
+              <p style="margin: 8px 0 0 0; font-size: 14px; color: #555; line-height: 1.5;">
+                ${isOrganizer 
+                  ? 'Your meeting room booking has been confirmed. Below are the full details for your reference.'
+                  : 'You have been invited to the following meeting. Below are the full details for your reference.'}
+              </p>
+            </td>
+          </tr>
 
-            ${booking.specialRequirements ? `
-              <div style="background: #f3e5f5; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid #9c27b0;">
-                <h4 style="color: #7b1fa2; margin: 0 0 10px 0;">📋 Special Requirements</h4>
-                <p style="margin: 0;">${booking.specialRequirements}</p>
-              </div>
-            ` : ''}
-          </div>
+          <!-- Meeting Details Card -->
+          <tr>
+            <td style="padding: 20px 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background: #4338ca; padding: 12px 20px;">
+                    <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.5px;">MEETING DETAILS</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="120" style="padding: 6px 0; font-size: 13px; color: #6b7280; font-weight: 600; vertical-align: top;">Date</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #111827; font-weight: 500;">${meetingDate}</td>
+                      </tr>
+                      <tr>
+                        <td width="120" style="padding: 6px 0; font-size: 13px; color: #6b7280; font-weight: 600; vertical-align: top;">Time</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #111827; font-weight: 500;">${startTime.split(', ').pop() || startTime} &ndash; ${endTime}</td>
+                      </tr>
+                      <tr>
+                        <td width="120" style="padding: 6px 0; font-size: 13px; color: #6b7280; font-weight: 600; vertical-align: top;">Room</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #111827; font-weight: 500;">${room.name}</td>
+                      </tr>
+                      <tr>
+                        <td width="120" style="padding: 6px 0; font-size: 13px; color: #6b7280; font-weight: 600; vertical-align: top;">Location</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #111827;">${room.location}</td>
+                      </tr>
+                      <tr>
+                        <td width="120" style="padding: 6px 0; font-size: 13px; color: #6b7280; font-weight: 600; vertical-align: top;">Organizer</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #111827;">${organizer.firstName} ${organizer.lastName}</td>
+                      </tr>
+                      <tr>
+                        <td width="120" style="padding: 6px 0; font-size: 13px; color: #6b7280; font-weight: 600; vertical-align: top;">Attendees</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #111827;">${booking.expectedAttendees} people</td>
+                      </tr>
+                      ${booking.description ? `
+                      <tr>
+                        <td width="120" style="padding: 6px 0; font-size: 13px; color: #6b7280; font-weight: 600; vertical-align: top;">Description</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #111827; line-height: 1.4;">${booking.description}</td>
+                      </tr>` : ''}
+                    </table>
 
-          <div style="background: white; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #667eea;">
-            <h3 style="color: #667eea; margin-top: 0;">🔒 Your Access QR Code</h3>
-            <p style="color: #555; font-size: 13px; margin-bottom: 15px;">
-              Present this QR code at the Suprema reader for building access on the day of your meeting.
-            </p>
-            <div style="display: inline-block; padding: 15px; background: white; border: 1px solid #e0e0e0; border-radius: 8px;">
-              <img src="${qrCodeUrl}" alt="Meeting Access QR Code" width="250" height="250" style="display: block;" />
-            </div>
-            <p style="color: #888; font-size: 11px; margin-top: 10px;">
-              Attendee: <strong>${recipientName}</strong><br>
-              Valid for: ${startTime}
-            </p>
-          </div>
+                    ${attendeeListHtml}
+                    ${facilitiesHtml}
+                    ${cateringHtml}
+                    ${specialReqHtml}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-          <div style="text-align: center; margin-top: 30px;">
-            <p style="color: #666; font-size: 14px;">
-              📧 This confirmation was sent automatically by TPR Max<br>
-              Need to make changes? Contact your building administrator
-            </p>
-          </div>
-        </div>
-      </div>
-    `;
+          <!-- QR Code Section -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border: 2px solid #4338ca; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background: #4338ca; padding: 12px 20px;">
+                    <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.5px;">YOUR ACCESS QR CODE</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 24px; text-align: center; background: #fafbff;">
+                    <p style="margin: 0 0 16px 0; font-size: 13px; color: #555; line-height: 1.4;">
+                      Present this QR code at the Suprema X-Station 2 reader<br>to gain building access for your meeting.
+                    </p>
+                    <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                      <tr>
+                        <td style="padding: 12px; background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;">
+                          <img src="${qrCodeUrl}" alt="Meeting Access QR Code" width="200" height="200" style="display: block;" />
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 14px 0 0 0; font-size: 12px; color: #888;">
+                      <strong>${recipientName}</strong><br>
+                      Valid: ${meetingDate}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Calendar Note -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background: #eff6ff; padding: 14px 16px; border-radius: 6px; border-left: 4px solid #3b82f6;">
+                    <p style="margin: 0; font-size: 13px; color: #1e40af; line-height: 1.4;">
+                      A calendar invitation (.ics) is attached to this email. Open it to add this meeting to your Outlook, Apple Calendar, or Google Calendar.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 30px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #9ca3af;">
+                This confirmation was sent automatically by TPR Max Visitor Management System.
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                Need to make changes? Contact your building administrator or meeting organizer.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+    };
+
+    const generatePlainText = (recipientName: string, qrData: string, isOrganizer: boolean) => {
+      return [
+        `MEETING ROOM CONFIRMATION`,
+        `========================`,
+        ``,
+        `Dear ${recipientName},`,
+        ``,
+        isOrganizer 
+          ? `Your meeting room booking has been confirmed.`
+          : `You have been invited to the following meeting.`,
+        ``,
+        `MEETING DETAILS`,
+        `---------------`,
+        `Title: ${booking.title}`,
+        `Date: ${meetingDate}`,
+        `Time: ${startTime.split(', ').pop() || startTime} - ${endTime}`,
+        `Room: ${room.name}`,
+        `Location: ${room.location}`,
+        `Organizer: ${organizer.firstName} ${organizer.lastName}`,
+        `Attendees: ${booking.expectedAttendees} people`,
+        booking.description ? `Description: ${booking.description}` : '',
+        ``,
+        allStaffNames.length > 0 ? `ATTENDEE LIST` : '',
+        allStaffNames.length > 0 ? `-------------` : '',
+        ...allStaffNames,
+        ...allExternalNames.map(e => `${e} (External)`),
+        ``,
+        facilitiesList.length > 0 ? `ROOM FACILITIES: ${facilitiesList.join(', ')} | Capacity: ${room.capacity}` : '',
+        booking.requiresCatering ? `CATERING: ${booking.cateringNotes || 'Standard refreshments'}` : '',
+        booking.specialRequirements ? `SPECIAL REQUIREMENTS: ${booking.specialRequirements}` : '',
+        ``,
+        `ACCESS QR CODE`,
+        `--------------`,
+        `QR Code Data: ${qrData}`,
+        `Present this QR code at the Suprema X-Station 2 reader for building access.`,
+        `Valid for: ${meetingDate}`,
+        ``,
+        `A calendar invitation (.ics) is attached to this email.`,
+        ``,
+        `---`,
+        `Sent by TPR Max Visitor Management System`,
+        `Need changes? Contact your building administrator.`,
+      ].filter(Boolean).join('\n');
     };
 
     let success = true;
 
     const organizerQr = generateQrData(organizer.id, 'staff');
-    const organizerHtml = generateBookingHtml(`${organizer.firstName} ${organizer.lastName}`, organizerQr);
-    const organizerText = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\nOrganizer: ${organizer.firstName} ${organizer.lastName}\nExpected Attendees: ${booking.expectedAttendees} people\n\n${booking.description ? `Description: ${booking.description}\n\n` : ''}Your QR Code Data: ${organizerQr}\nPresent this QR code at the Suprema reader for building access.\n\n📅 A calendar invitation is attached.\n\nSent automatically by TPR Max.`;
+    const organizerHtml = generateBookingHtml(`${organizer.firstName} ${organizer.lastName}`, organizerQr, true);
+    const organizerText = generatePlainText(`${organizer.firstName} ${organizer.lastName}`, organizerQr, true);
     
     if (organizer.email) {
       const emailSuccess = await this.sendEmail({ 
@@ -846,8 +1028,8 @@ For questions about this report, please contact the administrator.
     for (const attendee of staffAttendees) {
       if (!attendee.email || attendee.id === organizer.id) continue;
       const qrData = generateQrData(attendee.id, 'staff');
-      const html = generateBookingHtml(`${attendee.firstName} ${attendee.lastName}`, qrData);
-      const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\n\nYour QR Code Data: ${qrData}\nPresent this QR code at the Suprema reader for building access.\n\n📅 A calendar invitation is attached.\n\nSent automatically by TPR Max.`;
+      const html = generateBookingHtml(`${attendee.firstName} ${attendee.lastName}`, qrData, false);
+      const text = generatePlainText(`${attendee.firstName} ${attendee.lastName}`, qrData, false);
       const emailSuccess = await this.sendEmail({ to: attendee.email, subject, html, text, attachments: [calendarAttachment] });
       if (!emailSuccess) success = false;
     }
@@ -856,8 +1038,8 @@ For questions about this report, please contact the administrator.
       if (!email) continue;
       const externalId = email.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
       const qrData = generateQrData(externalId, 'external');
-      const html = generateBookingHtml(email, qrData);
-      const text = `Meeting Room Confirmed: ${booking.title}\n\nRoom: ${room.name} (${room.location})\nDate & Time: ${startTime} - ${endTime}\n\nYour QR Code Data: ${qrData}\nPresent this QR code at the Suprema reader for building access.\n\n📅 A calendar invitation is attached.\n\nSent automatically by TPR Max.`;
+      const html = generateBookingHtml(email, qrData, false);
+      const text = generatePlainText(email, qrData, false);
       const emailSuccess = await this.sendEmail({ to: email, subject, html, text, attachments: [calendarAttachment] });
       if (!emailSuccess) success = false;
     }
