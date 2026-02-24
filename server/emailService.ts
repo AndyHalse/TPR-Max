@@ -825,8 +825,13 @@ For questions about this report, please contact the administrator.
               </tr>
             </table>` : '';
 
-      const logoHtml = companyLogo ? `
-                    <img src="${companyLogo}" alt="${companyName}" style="max-height: 50px; max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;" />` : '';
+      let logoSrc = companyLogo;
+      if (logoSrc && logoSrc.startsWith('/')) {
+        const appDomain = process.env.REPLIT_DOMAINS?.split(',')[0] || process.env.REPL_SLUG + '.repl.co';
+        logoSrc = `https://${appDomain}${logoSrc}`;
+      }
+      const logoHtml = logoSrc ? `
+                    <img src="${logoSrc}" alt="${companyName}" style="max-height: 50px; max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;" />` : '';
 
       const footerContactParts: string[] = [];
       if (companyAddress) footerContactParts.push(companyAddress);
@@ -856,7 +861,7 @@ For questions about this report, please contact the administrator.
 
           <!-- Meeting Title Bar -->
           <tr>
-            <td style="background: #0d47a1; padding: 18px 30px; text-align: center;">
+            <td style="background: #2d2d4e; padding: 18px 30px; text-align: center;">
               <p style="margin: 0 0 4px 0; font-size: 11px; color: rgba(255,255,255,0.8); letter-spacing: 1.5px; text-transform: uppercase;">Meeting Room Confirmation</p>
               <h1 style="margin: 0; font-size: 20px; color: #ffffff; font-weight: 700;">${booking.title}</h1>
             </td>
@@ -879,7 +884,7 @@ For questions about this report, please contact the administrator.
             <td style="padding: 20px 30px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
                 <tr>
-                  <td style="background: #4338ca; padding: 12px 20px;">
+                  <td style="background: #1a1a2e; padding: 12px 20px;">
                     <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.5px;">MEETING DETAILS</p>
                   </td>
                 </tr>
@@ -930,9 +935,9 @@ For questions about this report, please contact the administrator.
           <!-- QR Code Section -->
           <tr>
             <td style="padding: 0 30px 20px 30px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="border: 2px solid #4338ca; border-radius: 8px; overflow: hidden;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border: 2px solid #1a1a2e; border-radius: 8px; overflow: hidden;">
                 <tr>
-                  <td style="background: #4338ca; padding: 12px 20px;">
+                  <td style="background: #1a1a2e; padding: 12px 20px;">
                     <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.5px;">YOUR ACCESS QR CODE</p>
                   </td>
                 </tr>
