@@ -158,6 +158,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     comprehensiveColumnRepairMigration,
     paxtonAndZoneColumnsMigration,
     companySettingsPaxtonApiMigration,
+    missingAnalyticsHelpTablesMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1201,4 +1202,130 @@ const companySettingsPaxtonApiMigration: Migration = {
   }
 };
 
-// Export the existing migration runner creation function (no duplicate needed)
+// Migration 012: Add missing tables that exist in bootstrap but not in migrations for existing schemas
+export const missingAnalyticsHelpTablesMigration: Migration = {
+  version: '20260225_012_missing_analytics_help_tables',
+  description: 'Add customer_api_keys, feature_usage_analytics, help_user_interactions, help_onboarding_progress tables',
+  async run(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS customer_api_keys (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          key_name TEXT NOT NULL,
+          service TEXT NOT NULL,
+          key_type TEXT NOT NULL,
+          encrypted_api_key TEXT NOT NULL,
+          encryption_iv TEXT NOT NULL,
+          key_fingerprint TEXT NOT NULL,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          is_test_key BOOLEAN NOT NULL DEFAULT false,
+          expires_at TIMESTAMP,
+          last_used TIMESTAMP,
+          usage_count INTEGER NOT NULL DEFAULT 0,
+          last_request_ip TEXT,
+          created_by VARCHAR,
+          rotated_from VARCHAR,
+          rotation_reason TEXT,
+          permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+          allowed_ips TEXT[] DEFAULT ARRAY[]::TEXT[],
+          rate_limit INTEGER DEFAULT 1000,
+          description TEXT,
+          tags TEXT[] DEFAULT ARRAY[]::TEXT[],
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log('✅ [012] customer_api_keys table ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [012] customer_api_keys: ${err.message?.substring(0, 80)}`);
+    }
+
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS feature_usage_analytics (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          date TIMESTAMP NOT NULL,
+          period TEXT NOT NULL DEFAULT 'daily',
+          feature TEXT NOT NULL,
+          feature_category TEXT NOT NULL,
+          sub_feature TEXT,
+          usage_count INTEGER NOT NULL DEFAULT 0,
+          unique_users INTEGER NOT NULL DEFAULT 0,
+          session_count INTEGER NOT NULL DEFAULT 0,
+          total_duration_minutes INTEGER DEFAULT 0,
+          primary_user_id VARCHAR,
+          user_roles TEXT[] DEFAULT ARRAY[]::TEXT[],
+          tenant_ids TEXT[] DEFAULT ARRAY[]::TEXT[],
+          successful_operations INTEGER DEFAULT 0,
+          failed_operations INTEGER DEFAULT 0,
+          error_rate TEXT DEFAULT '0.00',
+          average_response_time_ms INTEGER DEFAULT 0,
+          slowest_response_time_ms INTEGER DEFAULT 0,
+          fastest_response_time_ms INTEGER DEFAULT 0,
+          business_value TEXT,
+          conversion_impact TEXT,
+          retention_impact TEXT,
+          previous_period_usage INTEGER DEFAULT 0,
+          usage_growth TEXT DEFAULT '0.00',
+          industry_benchmark TEXT,
+          feature_flags TEXT[] DEFAULT ARRAY[]::TEXT[],
+          configuration TEXT,
+          first_used TIMESTAMP,
+          last_used TIMESTAMP,
+          peak_usage_hour INTEGER,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log('✅ [012] feature_usage_analytics table ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [012] feature_usage_analytics: ${err.message?.substring(0, 80)}`);
+    }
+
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS help_user_interactions (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id VARCHAR,
+          article_id VARCHAR NOT NULL,
+          interaction_type TEXT NOT NULL,
+          session_id TEXT,
+          time_spent INTEGER,
+          page_context TEXT,
+          search_query TEXT,
+          feedback_rating INTEGER,
+          feedback_comments TEXT,
+          is_completed BOOLEAN DEFAULT false,
+          completed_steps TEXT[] DEFAULT ARRAY[]::TEXT[],
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log('✅ [012] help_user_interactions table ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [012] help_user_interactions: ${err.message?.substring(0, 80)}`);
+    }
+
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS help_onboarding_progress (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id VARCHAR NOT NULL,
+          current_step INTEGER DEFAULT 1,
+          completed_steps TEXT[] DEFAULT ARRAY[]::TEXT[],
+          skipped_steps TEXT[] DEFAULT ARRAY[]::TEXT[],
+          total_steps INTEGER DEFAULT 10,
+          is_completed BOOLEAN DEFAULT false,
+          completed_at TIMESTAMP,
+          time_spent INTEGER DEFAULT 0,
+          last_active_at TIMESTAMP DEFAULT NOW(),
+          feature_onboarding_completed TEXT[] DEFAULT ARRAY[]::TEXT[],
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log('✅ [012] help_onboarding_progress table ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [012] help_onboarding_progress: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};

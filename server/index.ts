@@ -141,8 +141,8 @@ app.use('/api/onboarding', authRateLimit);
 app.use('/api', generalRateLimit);
 
 app.use(cookieParser());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: false, limit: '200mb' }));
 
 // SECURITY: Modern CSRF Protection using double-submit cookie pattern
 function generateCSRFToken(): string {

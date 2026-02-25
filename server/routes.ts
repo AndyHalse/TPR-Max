@@ -12343,19 +12343,37 @@ This is an automated notification from your visitor management system.`;
 
       // All schema-isolated tables in dependency order (parents before children)
       const tablesToBackup = [
+        // Core system tables
         'users', 'departments', 'company_settings', 'evacuation_zones', 'meeting_rooms',
+        'feature_toggles',
+        // Personnel
         'staff', 'visitors', 'members', 'staff_sessions', 'muster_points',
-        'evacuation_accountability', 'safety_tokens', 'user_invitations', 'pre_bookings',
-        'staff_attendance_history', 'visitor_history', 'room_bookings', 'room_booking_attendees',
+        // Evacuation & safety
+        'evacuations', 'evacuation_accountability', 'safety_tokens',
+        // Bookings & invitations
+        'user_invitations', 'pre_bookings', 'room_bookings', 'room_booking_attendees',
+        // History
+        'staff_attendance_history', 'visitor_history',
+        // Contractors
         'contractor_companies', 'contractor_workers', 'worker_notes', 'contractor_documents',
         'compliance_documents', 'document_approvals', 'document_types', 'worker_competencies',
         'nvq_qualifications', 'card_offences', 'card_issues', 'worker_certifications',
-        'rams_documents', 'co2_records', 'induction_tokens', 'induction_questions',
-        'induction_settings', 'induction_answers', 'local_labour_records', 'co2_emissions_data',
-        'co2_monthly_summaries', 'co2_sustainability_reports', 'enhanced_company_details',
-        'contractor_visits', 'contractor_prebookings', 'uk_hs_document_templates',
-        'worker_document_assignments', 'worker_document_acceptances', 'document_auto_fill_mapping',
+        'rams_documents', 'contractor_visits', 'contractor_prebookings',
+        // Documents
+        'uk_hs_document_templates', 'worker_document_assignments', 'worker_document_acceptances',
+        'document_auto_fill_mapping',
+        // Inductions
+        'induction_tokens', 'induction_questions', 'induction_settings', 'induction_answers',
+        // CO2 & sustainability
+        'co2_records', 'local_labour_records', 'co2_emissions_data',
+        'co2_monthly_summaries', 'co2_sustainability_reports',
+        // Company & reporting
+        'enhanced_company_details', 'reports',
+        // Print system
+        'print_queue', 'print_job_history', 'printer_configurations', 'print_service_instances',
+        // AI & analytics
         'ai_generated_images', 'customer_api_keys', 'feature_usage_analytics',
+        // Help system
         'help_categories', 'help_articles', 'help_user_interactions', 'help_onboarding_progress'
       ];
 
@@ -12417,17 +12435,22 @@ This is an automated notification from your visitor management system.`;
       // Only restore tables that actually exist in our schema (whitelist for safety)
       const allowedTables = new Set([
         'users', 'departments', 'company_settings', 'evacuation_zones', 'meeting_rooms',
+        'feature_toggles',
         'staff', 'visitors', 'members', 'staff_sessions', 'muster_points',
-        'evacuation_accountability', 'safety_tokens', 'user_invitations', 'pre_bookings',
-        'staff_attendance_history', 'visitor_history', 'room_bookings', 'room_booking_attendees',
+        'evacuations', 'evacuation_accountability', 'safety_tokens',
+        'user_invitations', 'pre_bookings', 'room_bookings', 'room_booking_attendees',
+        'staff_attendance_history', 'visitor_history',
         'contractor_companies', 'contractor_workers', 'worker_notes', 'contractor_documents',
         'compliance_documents', 'document_approvals', 'document_types', 'worker_competencies',
         'nvq_qualifications', 'card_offences', 'card_issues', 'worker_certifications',
-        'rams_documents', 'co2_records', 'induction_tokens', 'induction_questions',
-        'induction_settings', 'induction_answers', 'local_labour_records', 'co2_emissions_data',
-        'co2_monthly_summaries', 'co2_sustainability_reports', 'enhanced_company_details',
-        'contractor_visits', 'contractor_prebookings', 'uk_hs_document_templates',
-        'worker_document_assignments', 'worker_document_acceptances', 'document_auto_fill_mapping',
+        'rams_documents', 'contractor_visits', 'contractor_prebookings',
+        'uk_hs_document_templates', 'worker_document_assignments', 'worker_document_acceptances',
+        'document_auto_fill_mapping',
+        'induction_tokens', 'induction_questions', 'induction_settings', 'induction_answers',
+        'co2_records', 'local_labour_records', 'co2_emissions_data',
+        'co2_monthly_summaries', 'co2_sustainability_reports',
+        'enhanced_company_details', 'reports',
+        'print_queue', 'print_job_history', 'printer_configurations', 'print_service_instances',
         'ai_generated_images', 'customer_api_keys', 'feature_usage_analytics',
         'help_categories', 'help_articles', 'help_user_interactions', 'help_onboarding_progress'
       ]);
