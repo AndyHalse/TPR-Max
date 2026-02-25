@@ -1136,6 +1136,32 @@ const companySettingsPaxtonApiMigration: Migration = {
       { name: 'api_webhook_events', def: "TEXT[] DEFAULT ARRAY[]::TEXT[]" },
       { name: 'api_rate_limit', def: "TEXT DEFAULT '100'" },
       { name: 'api_last_activity', def: 'TIMESTAMP' },
+      // TEC Thermal Printer
+      { name: 'thermal_zebra_settings', def: "TEXT DEFAULT '{}'" },
+      { name: 'tec_printer_name', def: "TEXT DEFAULT 'TEC B-FV4D Desktop Printer'" },
+      { name: 'tec_printer_model', def: "TEXT DEFAULT 'B-FV4D'" },
+      { name: 'tec_printer_ip', def: "TEXT DEFAULT ''" },
+      { name: 'tec_printer_port', def: "TEXT DEFAULT '9100'" },
+      { name: 'tec_label_width', def: "TEXT DEFAULT '85'" },
+      { name: 'tec_label_height', def: "TEXT DEFAULT '65'" },
+      // Zebra Printer
+      { name: 'zebra_printer_ip', def: "TEXT DEFAULT ''" },
+      { name: 'zebra_printer_port', def: "TEXT DEFAULT '9100'" },
+      { name: 'zebra_printer_model', def: "TEXT DEFAULT 'GK420d'" },
+      // BioStar last sync (missing from earlier migration)
+      { name: 'biostar_last_sync', def: 'TIMESTAMP' },
+      // Phone & Voice Notifications
+      { name: 'phone_provider', def: "TEXT DEFAULT '8x8'" },
+      { name: 'voice_notifications_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'eight_by_x_api_key', def: "TEXT DEFAULT ''" },
+      { name: 'eight_by_x_api_secret', def: "TEXT DEFAULT ''" },
+      { name: 'eight_by_x_account_id', def: "TEXT DEFAULT ''" },
+      { name: 'eight_by_x_base_url', def: "TEXT DEFAULT 'https://vcc-eu.8x8.com/api/v1'" },
+      { name: 'default_voice_language', def: "TEXT DEFAULT 'en-GB'" },
+      { name: 'default_voice_profile', def: "TEXT DEFAULT 'en-GB-Standard-A'" },
+      // Feature flags (missing from earlier migrations)
+      { name: 'feature_contractor_page', def: 'BOOLEAN DEFAULT false' },
+      { name: 'feature_members', def: 'BOOLEAN DEFAULT false' },
     ];
 
     try {
