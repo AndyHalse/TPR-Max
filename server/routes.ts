@@ -10286,9 +10286,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
-      // Get reports filtered by customerId
-      const customerReports = await db.select().from(sharedSchema.reports)
-        .where(eq(sharedSchema.reports.customerId, context.customerId));
+      // Get reports from customer-isolated schema (no customerId filter needed - schema provides isolation)
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const customerReports = await custDb.select().from(isolatedSchema.reports);
       res.json(customerReports);
     } catch (error) {
       console.error("Error fetching reports:", error);
@@ -10365,9 +10365,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         avgDuration = `${fireMarshals.length} fire marshals`;
       }
       
-      const [report] = await db.insert(sharedSchema.reports)
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [report] = await custDb.insert(isolatedSchema.reports)
         .values({
-          customerId: context.customerId,
           reportType,
           dateFrom: fromDate,
           dateTo: toDate,
@@ -10400,9 +10400,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
-      // Get report filtered by customer
-      const customerReports = await db.select().from(sharedSchema.reports)
-        .where(eq(sharedSchema.reports.customerId, context.customerId));
+      // Get report from customer-isolated schema
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const customerReports = await custDb.select().from(isolatedSchema.reports);
       const report = customerReports.find(r => r.id === id);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -10459,13 +10459,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const emailSent = await emailService.sendReport(report, settings, recipients, reportData);
       
       if (emailSent) {
-        // Belt-and-braces: verify customerId before update
-        if (report.customerId !== context.customerId) {
-          return res.status(403).json({ error: "Unauthorized access to report" });
-        }
-        await db.update(sharedSchema.reports)
+        // Schema-level isolation ensures report belongs to this customer
+        await custDb.update(isolatedSchema.reports)
           .set({ emailSent: true, emailSentAt: new Date() })
-          .where(eq(sharedSchema.reports.id, id));
+          .where(eq(isolatedSchema.reports.id, id));
       }
       
       res.json({ success: emailSent });
@@ -10486,9 +10483,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
       
-      // Get report filtered by customer
-      const customerReports = await db.select().from(sharedSchema.reports)
-        .where(eq(sharedSchema.reports.customerId, context.customerId));
+      // Get report from customer-isolated schema
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const customerReports = await custDb.select().from(isolatedSchema.reports);
       const report = customerReports.find(r => r.id === id);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
@@ -10692,9 +10689,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         const avgDurationMs = checkedOutVisitors.length > 0 ? totalDuration / checkedOutVisitors.length : 0;
         const avgDurationHours = (avgDurationMs / (1000 * 60 * 60)).toFixed(1);
         
-        const [report] = await db.insert(sharedSchema.reports)
+        const autoCustDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const [report] = await autoCustDb.insert(isolatedSchema.reports)
           .values({
-            customerId: context.customerId,
             reportType: `auto_${settings.reportFrequency}`,
             dateFrom: fromDate,
             dateTo: now,
@@ -10721,9 +10718,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         );
         
         if (emailSent) {
-          await db.update(sharedSchema.reports)
+          await autoCustDb.update(isolatedSchema.reports)
             .set({ emailSent: true, emailSentAt: new Date() })
-            .where(eq(sharedSchema.reports.id, report.id));
+            .where(eq(isolatedSchema.reports.id, report.id));
           
           await simpleDatabaseService.updateCompanySettings(context, {
             lastReportSent: new Date(),

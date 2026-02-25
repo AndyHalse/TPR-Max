@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **QR Code Generation**: Integrated for visitor tracking.
 - **Real-time Updates**: Optimistic updates via React Query.
 - **Feature Toggle System**: Database-driven toggles for enabling/disabling features per customer.
-- **Reports System**: Customer-isolated report generation, viewing, and emailing.
+- **Reports System**: Customer-isolated report generation, viewing, and emailing. Reports are stored in each customer's isolated PostgreSQL schema (`isolatedSchema.reports`) — NOT the global shared database. All report API routes use `custDb` (customer-specific connection) ensuring database-level isolation. Migration 013 (`20260225_013_rebuild_isolated_reports`) rebuilt the reports table in each customer schema with the correct column structure.
 - **Pre-booking System**: Supports visitor pre-bookings, invitations, and management.
 - **User Management**: Comprehensive user, role, and invitation management with customer isolation and CSRF protection.
 - **Voice Notification System**: Visitor arrival announcements via 8x8 API.

@@ -159,6 +159,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     paxtonAndZoneColumnsMigration,
     companySettingsPaxtonApiMigration,
     missingAnalyticsHelpTablesMigration,
+    rebuildIsolatedReportsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1326,6 +1327,40 @@ export const missingAnalyticsHelpTablesMigration: Migration = {
       console.log('✅ [012] help_onboarding_progress table ensured');
     } catch (err: any) {
       console.log(`⚠️ [012] help_onboarding_progress: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+// Migration 013: Rebuild reports table in isolated schemas with correct structure for proper customer isolation
+export const rebuildIsolatedReportsMigration: Migration = {
+  version: '20260225_013_rebuild_isolated_reports',
+  description: 'Rebuild reports table in customer schemas with correct columns to replace global shared table',
+  async up(db: any) {
+    try {
+      // Drop the old mismatched reports table (had name, type, description, parameters, data, status, generated_by)
+      await db.execute(`DROP TABLE IF EXISTS reports CASCADE`);
+      console.log('✅ [013] Dropped old reports table');
+    } catch (err: any) {
+      console.log(`⚠️ [013] Drop reports: ${err.message?.substring(0, 80)}`);
+    }
+
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS reports (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          report_type TEXT NOT NULL,
+          generated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          date_from TIMESTAMP NOT NULL,
+          date_to TIMESTAMP NOT NULL,
+          total_visitors TEXT NOT NULL DEFAULT '0',
+          avg_duration TEXT NOT NULL DEFAULT 'N/A',
+          email_sent BOOLEAN DEFAULT false,
+          email_sent_at TIMESTAMP
+        )
+      `);
+      console.log('✅ [013] Recreated reports table with correct schema');
+    } catch (err: any) {
+      console.log(`⚠️ [013] Create reports: ${err.message?.substring(0, 80)}`);
     }
   }
 };

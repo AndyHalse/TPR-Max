@@ -1456,6 +1456,19 @@ export const helpOnboardingProgress = pgTable("help_onboarding_progress", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Reports table - customer isolated (no customerId needed, schema provides isolation)
+export const reports = pgTable("reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportType: text("report_type").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  dateFrom: timestamp("date_from").notNull(),
+  dateTo: timestamp("date_to").notNull(),
+  totalVisitors: text("total_visitors").notNull().default("0"),
+  avgDuration: text("avg_duration").notNull().default("N/A"),
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+});
+
 // Create insert schemas without customerId
 export const insertStaffSchema = createInsertSchema(staff).omit({
   id: true,
