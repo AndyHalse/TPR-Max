@@ -12316,201 +12316,170 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // Database backup endpoint - SQL SERVER .BAK FORMAT!
+  // Database backup endpoint
   app.get("/api/system/backup", requireAuth, async (req, res) => {
     try {
-      console.log(`🔥🔥🔥 BACKUP ENDPOINT HIT! User:`, req.user?.username);
-      
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      console.log(`🗄️ Creating SQL Server .bak backup FOR CUSTOMER: ${context.customerId}`);
-      
+      console.log(`🔥 BACKUP ENDPOINT HIT! User:`, req.user?.username);
+
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      console.log(`🗄️ Creating backup for customer: ${context.customerId}`);
+
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      
-      // Create a comprehensive backup object that includes all customer data
-      const backupData = {
+
+      const backupData: { metadata: any; data: Record<string, any[]> } = {
         metadata: {
-          version: "3.0",
-          format: "SQL_SERVER_BAK",
+          version: "4.0",
+          format: "TPRMAX_BAK",
           created: new Date().toISOString(),
-          system: "VisiGate Pro",
+          system: "TPR Max",
           customerId: context.customerId,
           customerName: context.customerName,
-          databaseVersion: "PostgreSQL to SQL Server Compatible",
           backupType: "FULL"
-        },
-        schema: {
-          tables: [],
-          constraints: [],
-          indexes: []
         },
         data: {}
       };
 
-      // Tables with customer_id column - export with customer filtering
-      const tablesWithCustomerId = ['staff', 'visitors', 'pre_bookings', 'staff_sessions'];
-      
-      for (const table of tablesWithCustomerId) {
+      // All schema-isolated tables in dependency order (parents before children)
+      const tablesToBackup = [
+        'users', 'departments', 'company_settings', 'evacuation_zones', 'meeting_rooms',
+        'staff', 'visitors', 'members', 'staff_sessions', 'muster_points',
+        'evacuation_accountability', 'safety_tokens', 'user_invitations', 'pre_bookings',
+        'staff_attendance_history', 'visitor_history', 'room_bookings', 'room_booking_attendees',
+        'contractor_companies', 'contractor_workers', 'worker_notes', 'contractor_documents',
+        'compliance_documents', 'document_approvals', 'document_types', 'worker_competencies',
+        'nvq_qualifications', 'card_offences', 'card_issues', 'worker_certifications',
+        'rams_documents', 'co2_records', 'induction_tokens', 'induction_questions',
+        'induction_settings', 'induction_answers', 'local_labour_records', 'co2_emissions_data',
+        'co2_monthly_summaries', 'co2_sustainability_reports', 'enhanced_company_details',
+        'contractor_visits', 'contractor_prebookings', 'uk_hs_document_templates',
+        'worker_document_assignments', 'worker_document_acceptances', 'document_auto_fill_mapping',
+        'ai_generated_images', 'customer_api_keys', 'feature_usage_analytics',
+        'help_categories', 'help_articles', 'help_user_interactions', 'help_onboarding_progress'
+      ];
+
+      let totalRecords = 0;
+      for (const table of tablesToBackup) {
         try {
-          const result = await db.execute(sql.raw(`SELECT * FROM ${table} WHERE customer_id = ?`, [context.customerId]));
-          backupData.data[table] = result.rows;
-          console.log(`📋 Exported ${result.rows.length} records from ${table} for customer ${context.customerId}`);
-        } catch (error) {
-          console.warn(`⚠️ Warning: Could not export table ${table}:`, error.message);
-          backupData.data[table] = [];
-        }
-      }
-      
-      // Company-specific tables - export all data (already customer-isolated)
-      const companySpecificTables = ['company_settings', 'departments', 'meeting_rooms', 'printer_configurations', 'reports'];
-      
-      for (const table of companySpecificTables) {
-        try {
-          const result = await db.execute(sql.raw(`SELECT * FROM ${table}`));
-          backupData.data[table] = result.rows;
-          console.log(`📋 Exported ${result.rows.length} records from ${table} for customer ${context.customerId}`);
-        } catch (error) {
-          console.warn(`⚠️ Warning: Could not export table ${table}:`, error.message);
+          const result = await custDb.execute(sql.raw(`SELECT * FROM "${table}"`));
+          backupData.data[table] = result.rows as any[];
+          totalRecords += result.rows.length;
+          console.log(`📋 Exported ${result.rows.length} records from ${table}`);
+        } catch (err: any) {
+          console.warn(`⚠️ Could not export table ${table}: ${err.message}`);
           backupData.data[table] = [];
         }
       }
 
-      // Create SQL Server compatible backup content
-      const fs = await import("fs");
-      const path = await import("path");
-      
-      // Create a proper binary backup file format (simplified .bak structure)
+      backupData.metadata.total_records = totalRecords;
+      backupData.metadata.tables_exported = tablesToBackup.length;
+
       const backupContent = Buffer.from(JSON.stringify(backupData, null, 2));
-      
-      console.log(`✅ SQL Server .bak backup created for customer ${context.customerId} - ${backupContent.length} bytes`);
-      
-      // Set headers for .bak file download
+      console.log(`✅ Backup created for ${context.customerId} — ${totalRecords} records, ${backupContent.length} bytes`);
+
       res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="visigate-backup-${context.customerId}-${timestamp}.bak"`);
+      res.setHeader('Content-Disposition', `attachment; filename="tprmax-backup-${context.customerId}-${timestamp}.bak"`);
       res.setHeader('Content-Length', backupContent.length.toString());
-      
       res.send(backupContent);
-      
-    } catch (error) {
+
+    } catch (error: any) {
       console.error("❌ Database backup error:", error);
       res.status(500).json({ error: "Failed to create database backup" });
     }
   });
 
-  // Database restore endpoint - NOW WITH CUSTOMER ISOLATION!
+  // Database restore endpoint
   app.post("/api/system/restore", requireAuth, async (req, res) => {
     try {
       const { backupData, clearExisting = true } = req.body;
-      
+
       if (!backupData || !backupData.data || !backupData.metadata) {
-        return res.status(400).json({ error: "Invalid backup data format" });
+        return res.status(400).json({ error: "Invalid backup data format. Please select a valid .bak file exported from TPR Max." });
       }
 
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
 
-      // Verify backup is for this customer (security check)
+      // Security: prevent restoring a backup from a different customer
       if (backupData.metadata.customerId && backupData.metadata.customerId !== context.customerId) {
-        return res.status(403).json({ error: "Cannot restore backup from different customer" });
+        return res.status(403).json({ error: "Cannot restore a backup from a different customer account" });
       }
 
-      console.log(`🔄 Starting customer-specific database restore FOR CUSTOMER: ${context.customerId}`);
-      console.log(`📊 Backup contains: ${backupData.metadata.total_records} records across ${backupData.metadata.tables_exported} tables`);
+      console.log(`🔄 Starting restore for customer: ${context.customerId}`);
+      console.log(`📊 Backup contains ${backupData.metadata.total_records || '?'} records across ${Object.keys(backupData.data).length} tables`);
 
+      const tablesToRestore = Object.keys(backupData.data);
+      const errors: { table: string; error: string }[] = [];
       let restoredTables = 0;
       let restoredRecords = 0;
-      const errors = [];
 
-      // Clear existing customer data if requested
+      // Clear tables in reverse order to respect foreign key constraints
       if (clearExisting) {
-        console.log(`🗑️ Clearing existing data for customer ${context.customerId}...`);
-        const tablesToClear = Object.keys(backupData.data);
-        
-        // Tables with customer_id column
-        const tablesWithCustomerId = ['staff', 'visitors', 'pre_bookings', 'staff_sessions'];
-        
-        for (const table of tablesToClear) {
+        console.log(`🗑️ Clearing existing data...`);
+        const reversedTables = [...tablesToRestore].reverse();
+        for (const table of reversedTables) {
           try {
-            if (tablesWithCustomerId.includes(table)) {
-              // Clear by customer_id
-              await db.execute(sql.raw(`DELETE FROM ${table} WHERE customer_id = ?`, [context.customerId]));
-            } else {
-              // Clear all records (these tables are customer-isolated by database connection)
-              await db.execute(sql.raw(`DELETE FROM ${table}`));
-            }
-            console.log(`🧹 Cleared customer data from table: ${table}`);
-          } catch (error) {
-            console.warn(`⚠️ Warning: Could not clear customer data from table ${table}:`, error.message);
+            await custDb.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE`));
+            console.log(`🧹 Cleared: ${table}`);
+          } catch (err: any) {
+            console.warn(`⚠️ Could not clear ${table}: ${err.message}`);
           }
         }
       }
 
-      // Restore data to each table with customer isolation
-      for (const [table, records] of Object.entries(backupData.data)) {
+      // Restore tables in forward order (parents before children)
+      for (const table of tablesToRestore) {
+        const records = backupData.data[table] as any[];
         if (!records || records.length === 0) continue;
 
         try {
-          console.log(`📥 Restoring ${records.length} records to ${table} for customer ${context.customerId}...`);
-          
-          // Get table schema to build proper insert
-          const sampleRecord = records[0];
-          const columns = Object.keys(sampleRecord);
-          
-          // Tables with customer_id column
-          const tablesWithCustomerId = ['staff', 'visitors', 'pre_bookings', 'staff_sessions'];
-          
-          // Insert records in batches to avoid memory issues
-          const batchSize = 100;
-          for (let i = 0; i < records.length; i += batchSize) {
-            const batch = records.slice(i, i + batchSize);
-            
-            for (const record of batch) {
-              // Ensure customer_id is set correctly for tables that have it
-              if (tablesWithCustomerId.includes(table)) {
-                record.customer_id = context.customerId;
-              }
-              const values = columns.map(col => record[col]);
-              await db.execute(sql.raw(
-                `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
-                values
-              ));
+          console.log(`📥 Restoring ${records.length} records into ${table}...`);
+
+          for (const record of records) {
+            const columns = Object.keys(record);
+            if (columns.length === 0) continue;
+
+            try {
+              // Build a properly parameterized INSERT using Drizzle's sql template
+              // sql.identifier() safely quotes column/table names
+              // sql`${value}` properly parameterizes values
+              const tableIdent = sql.identifier(table);
+              const colIdents = sql.join(columns.map(c => sql.identifier(c)), sql.raw(', '));
+              const vals = sql.join(columns.map(c => sql`${record[c]}`), sql.raw(', '));
+              await custDb.execute(
+                sql`INSERT INTO ${tableIdent} (${colIdents}) VALUES (${vals}) ON CONFLICT DO NOTHING`
+              );
+            } catch (rowErr: any) {
+              // Skip individual row errors (constraint violations etc.) and continue
+              console.warn(`⚠️ Skipped row in ${table}: ${rowErr.message}`);
             }
           }
-          
+
           restoredTables++;
           restoredRecords += records.length;
-          console.log(`✅ Restored ${records.length} records to ${table} for customer ${context.customerId}`);
-          
-        } catch (error) {
-          console.error(`❌ Error restoring table ${table} for customer ${context.customerId}:`, error);
+          console.log(`✅ Restored ${records.length} records into ${table}`);
+
+        } catch (error: any) {
+          console.error(`❌ Error restoring table ${table}:`, error);
           errors.push({ table, error: error.message });
         }
       }
 
-      console.log(`🎉 Customer restore completed FOR ${context.customerId}: ${restoredRecords} records across ${restoredTables} tables`);
+      console.log(`🎉 Restore completed for ${context.customerId}: ${restoredRecords} records across ${restoredTables} tables`);
 
       res.json({
         success: true,
-        message: `Customer database restore completed for ${context.customerName}`,
+        message: `Database restore completed for ${context.customerName}`,
         restored: {
           tables: restoredTables,
           records: restoredRecords,
           errors: errors.length
         },
-        customerId: context.customerId,
-        errors: errors
+        errors
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Database restore error:", error);
       res.status(500).json({ error: "Failed to restore database" });
     }

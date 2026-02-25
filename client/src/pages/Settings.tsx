@@ -401,25 +401,24 @@ export default function Settings() {
   const restoreMutation = useMutation({
     mutationFn: async (backupData: any) => {
       const response = await apiRequest("POST", "/api/system/restore", {
-        backup: backupData
+        backupData
       });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to restore database");
+      }
       return response.json();
     },
     onSuccess: (data) => {
-      // Invalidate all queries to refresh the entire app (TanStack Query v5 format)
       queryClient.invalidateQueries({ predicate: () => true });
-      
       toast({
         title: "Restore Complete",
-        description: `Successfully restored ${data.recordsRestored || 0} records`,
+        description: `Successfully restored ${data.restored?.records ?? 0} records across ${data.restored?.tables ?? 0} tables`,
       });
-      
       setSelectedBackupFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      
-      // Query invalidation is sufficient to refresh all data - no need for page reload
     },
     onError: (error: any) => {
       toast({
@@ -458,12 +457,13 @@ export default function Settings() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const backupContent = e.target?.result as string;
-        restoreMutation.mutate(backupContent);
+        const text = e.target?.result as string;
+        const parsed = JSON.parse(text);
+        restoreMutation.mutate(parsed);
       } catch (error) {
         toast({
           title: "Invalid File",
-          description: "Failed to read backup file",
+          description: "The selected file is not a valid TPR Max backup file",
           variant: "destructive",
         });
       }
