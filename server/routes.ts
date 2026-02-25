@@ -10590,6 +10590,44 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Delete a single report
+  app.delete("/api/reports/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [deleted] = await custDb.delete(isolatedSchema.reports)
+        .where(eq(isolatedSchema.reports.id, id))
+        .returning();
+      if (!deleted) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      res.status(500).json({ error: "Failed to delete report" });
+    }
+  });
+
+  // Clear all reports for the current customer
+  app.delete("/api/reports", requireAuth, async (req, res) => {
+    try {
+      if (!req.user?.username) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await custDb.delete(isolatedSchema.reports);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing reports:", error);
+      res.status(500).json({ error: "Failed to clear reports" });
+    }
+  });
+
   app.post("/api/test-email", requireAuth, async (req, res) => {
     try {
       const { email } = req.body;

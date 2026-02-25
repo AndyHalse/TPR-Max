@@ -19,8 +19,21 @@ import {
   Send,
   BarChart3,
   UserCheck,
-  Printer
+  Printer,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import type { Report, Staff } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -93,6 +106,34 @@ export default function Reports() {
         description: "Failed to send report email",
         variant: "destructive",
       });
+    },
+  });
+
+  const deleteReportMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/reports/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      toast({ title: "Report deleted" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete report", variant: "destructive" });
+    },
+  });
+
+  const clearAllReportsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", "/api/reports");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      toast({ title: "All reports cleared" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to clear reports", variant: "destructive" });
     },
   });
 
@@ -415,6 +456,41 @@ export default function Reports() {
       <GlassCard>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-fixed">Generated Reports</h3>
+          {reports && reports.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                  disabled={clearAllReportsMutation.isPending}
+                >
+                  <Trash2 size={14} className="mr-1.5" />
+                  Clear All Reports
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="text-red-500" size={20} />
+                    Clear All Reports?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all {reports.length} generated report{reports.length !== 1 ? 's' : ''} for your company. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() => clearAllReportsMutation.mutate()}
+                  >
+                    Yes, clear all
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
         
         {!reports || reports.length === 0 ? (
@@ -507,7 +583,6 @@ export default function Reports() {
                           <FileText size={12} className="mr-1" />
                           View
                         </Button>
-                        
                         <Button
                           size="sm"
                           variant="outline"
@@ -517,6 +592,16 @@ export default function Reports() {
                         >
                           <Printer size={12} className="mr-1" />
                           Print
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => deleteReportMutation.mutate(report.id)}
+                          disabled={deleteReportMutation.isPending}
+                          className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                          data-testid={`button-delete-report-${report.id}`}
+                        >
+                          <Trash2 size={12} />
                         </Button>
                       </div>
                     </td>
