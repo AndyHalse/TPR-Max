@@ -28,15 +28,24 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-// Global error handlers to prevent crashes - NEVER call process.exit() as it kills the server
-process.on('uncaughtException', (error) => {
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (error: any) => {
   logger.error('Uncaught Exception - Critical application error', {
     error: error.message,
     stack: error.stack,
     critical: true,
     eventType: 'uncaught_exception'
   });
-  // Log but don't exit - let the deployment platform handle restarts if needed
+  // For Neon/PostgreSQL connection termination errors (57P01 = admin shutdown),
+  // exit so the deployment platform restarts with fresh DB connections.
+  // Without this, the server stays alive but all session reads fail (sessions appear empty),
+  // causing every authenticated request to return 401.
+  const isDbConnectionKilled = error.code === '57P01' || error.code === '57014' ||
+    (typeof error.message === 'string' && error.message.includes('terminating connection'));
+  if (isDbConnectionKilled) {
+    logger.error('Database connection terminated by server — exiting for clean restart', { code: error.code });
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {

@@ -1489,15 +1489,23 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Set session
+      // Set session — MUST include customerId for requireAuth middleware
       req.session.userId = user.id;
-      
-      res.json({ 
-        success: true, 
-        user: { 
-          id: user.id, 
-          username: user.username
+      req.session.customerId = context.customerId;
+
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("Session save error:", saveErr);
+          return res.status(500).json({ error: "Failed to establish session" });
         }
+        res.json({ 
+          success: true, 
+          user: { 
+            id: user.id, 
+            username: user.username,
+            customerId: context.customerId
+          }
+        });
       });
     } catch (error) {
       console.error("Login error:", error);
