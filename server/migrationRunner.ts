@@ -1206,7 +1206,7 @@ const companySettingsPaxtonApiMigration: Migration = {
 export const missingAnalyticsHelpTablesMigration: Migration = {
   version: '20260225_012_missing_analytics_help_tables',
   description: 'Add customer_api_keys, feature_usage_analytics, help_user_interactions, help_onboarding_progress tables',
-  async run(db: any) {
+  async up(db: any) {
     try {
       await db.execute(`
         CREATE TABLE IF NOT EXISTS customer_api_keys (
