@@ -156,6 +156,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     staffAttendanceHistoryMigration,
     repairZoneIdColumnsMigration,
     comprehensiveColumnRepairMigration,
+    paxtonAndZoneColumnsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -999,6 +1000,71 @@ const comprehensiveColumnRepairMigration: Migration = {
     }
 
     console.log(`✅ [COLUMN REPAIR] Complete - added ${totalAdded} missing columns`);
+  }
+};
+
+const paxtonAndZoneColumnsMigration: Migration = {
+  version: '20260225_010_paxton_zones_columns',
+  description: 'Add paxton_user_id and biostar_user_id to staff; add missing columns to evacuation_zones',
+  async up(db: any) {
+    console.log('🔧 [PAXTON/ZONES] Adding missing Paxton and zone columns...');
+
+    const staffColumns = [
+      { name: 'biostar_user_id', def: 'TEXT' },
+      { name: 'paxton_user_id', def: 'TEXT' },
+    ];
+
+    const zoneColumns = [
+      { name: 'color', def: "TEXT NOT NULL DEFAULT '#3b82f6'" },
+      { name: 'description', def: 'TEXT' },
+      { name: 'display_order', def: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'map_x', def: 'DOUBLE PRECISION' },
+      { name: 'map_y', def: 'DOUBLE PRECISION' },
+    ];
+
+    const tables: Record<string, { name: string; def: string }[]> = {
+      staff: staffColumns,
+      evacuation_zones: zoneColumns,
+    };
+
+    let totalAdded = 0;
+
+    for (const [table, columns] of Object.entries(tables)) {
+      try {
+        const tableExists = await db.execute(`
+          SELECT 1 FROM information_schema.tables
+          WHERE table_name = '${table}' AND table_schema = current_schema()
+        `);
+        if (!tableExists.rows || tableExists.rows.length === 0) {
+          console.log(`⚠️ [PAXTON/ZONES] Table ${table} does not exist, skipping`);
+          continue;
+        }
+
+        const existingCols = await db.execute(`
+          SELECT column_name FROM information_schema.columns
+          WHERE table_name = '${table}' AND table_schema = current_schema()
+        `);
+        const existingSet = new Set(existingCols.rows.map((r: any) => r.column_name));
+
+        for (const col of columns) {
+          if (!existingSet.has(col.name)) {
+            try {
+              await db.execute(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+              console.log(`✅ [PAXTON/ZONES] Added ${col.name} to ${table}`);
+              totalAdded++;
+            } catch (err: any) {
+              if (!err.message?.includes('already exists')) {
+                console.log(`⚠️ [PAXTON/ZONES] Failed to add ${col.name} to ${table}: ${err.message?.substring(0, 80)}`);
+              }
+            }
+          }
+        }
+      } catch (error: any) {
+        console.log(`⚠️ [PAXTON/ZONES] Error processing table ${table}: ${error.message?.substring(0, 80)}`);
+      }
+    }
+
+    console.log(`✅ [PAXTON/ZONES] Complete - added ${totalAdded} missing columns`);
   }
 };
 
