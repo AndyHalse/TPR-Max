@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon } from "lucide-react";
 import { Link } from "wouter";
-import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment } from "@shared/schema";
+import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
 import { DefaultTemplateManager } from "@/components/DefaultTemplateManager";
 import ZoneManagement from "@/pages/ZoneManagement";
@@ -128,6 +128,38 @@ export default function Settings() {
     invitationToken?: string; // Token for generating invitation link
   }>>({
     queryKey: ["/api/users"],
+  });
+
+  // Reports data — uses same isolated /api/reports endpoint as main Reports page
+  const { data: reportsData } = useQuery<Report[]>({
+    queryKey: ["/api/reports"],
+  });
+
+  const generateSettingsReportMutation = useMutation({
+    mutationFn: async (reportType: string) => {
+      const now = new Date();
+      let dateFrom: Date;
+      if (reportType === "daily") {
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (reportType === "monthly") {
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else {
+        dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+      const response = await apiRequest("POST", "/api/reports/generate", {
+        reportType,
+        dateFrom,
+        dateTo: now,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      toast({ title: "Report generated", description: "Report saved and ready to view." });
+    },
+    onError: () => {
+      toast({ title: "Failed to generate report", variant: "destructive" });
+    },
   });
 
   // Function to copy invitation link
@@ -4457,21 +4489,25 @@ export default function Settings() {
                 <div className="space-y-3">
                   <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-reports">
-                      8
+                      {reportsData?.length ?? 0}
                     </div>
-                    <div className="text-xs text-variable">Total Report Types</div>
+                    <div className="text-xs text-variable">Total Reports</div>
                   </div>
                   
                   <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                     <div className="text-2xl font-bold text-green-600" data-testid="text-generated-reports">
-                      24
+                      {reportsData?.filter(r => {
+                        const now = new Date();
+                        const d = new Date(r.generatedAt);
+                        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                      }).length ?? 0}
                     </div>
                     <div className="text-xs text-variable">Generated This Month</div>
                   </div>
                   
                   <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
                     <div className="text-2xl font-bold text-purple-600" data-testid="text-emailed-reports">
-                      0
+                      {reportsData?.filter(r => r.emailSent).length ?? 0}
                     </div>
                     <div className="text-xs text-variable">Emailed Reports</div>
                   </div>
@@ -4504,6 +4540,8 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Button
                   className="gradient-blue text-white p-6 h-auto flex flex-col items-center gap-3"
+                  onClick={() => generateSettingsReportMutation.mutate("daily")}
+                  disabled={generateSettingsReportMutation.isPending}
                   data-testid="button-generate-daily-report"
                 >
                   <Calendar size={24} />
@@ -4515,6 +4553,8 @@ export default function Settings() {
                 
                 <Button
                   className="gradient-green text-white p-6 h-auto flex flex-col items-center gap-3"
+                  onClick={() => generateSettingsReportMutation.mutate("weekly")}
+                  disabled={generateSettingsReportMutation.isPending}
                   data-testid="button-generate-weekly-report"
                 >
                   <BarChart3 size={24} />
@@ -4526,6 +4566,8 @@ export default function Settings() {
                 
                 <Button
                   className="gradient-purple text-white p-6 h-auto flex flex-col items-center gap-3"
+                  onClick={() => generateSettingsReportMutation.mutate("monthly")}
+                  disabled={generateSettingsReportMutation.isPending}
                   data-testid="button-generate-monthly-report"
                 >
                   <TrendingUp size={24} />
@@ -4534,15 +4576,16 @@ export default function Settings() {
                     <div className="text-xs opacity-90">Current month summary</div>
                   </div>
                 </Button>
-                
+
                 <Button
                   className="gradient-orange text-white p-6 h-auto flex flex-col items-center gap-3"
+                  onClick={() => window.location.href = '/reports'}
                   data-testid="button-generate-custom-report"
                 >
                   <Calendar size={24} />
                   <div>
                     <div className="font-medium">Custom Range</div>
-                    <div className="text-xs opacity-90">Select date range</div>
+                    <div className="text-xs opacity-90">Open Reports page</div>
                   </div>
                 </Button>
               </div>
@@ -4583,31 +4626,52 @@ export default function Settings() {
             
             <div className="space-y-4">
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <FileText className="text-green-600" size={16} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-green-800 dark:text-green-300">Daily Report Generated</div>
-                      <div className="text-xs text-green-600">Today at 9:00 AM</div>
-                    </div>
+                {(!reportsData || reportsData.length === 0) ? (
+                  <div className="text-center py-8 text-variable text-sm">
+                    No reports generated yet. Use the buttons above to create your first report.
                   </div>
-                  <Badge variant="secondary" className="bg-green-100 text-green-700">Success</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <BarChart3 className="text-blue-600 dark:text-blue-400" size={16} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-blue-800 dark:text-blue-300">Weekly Report Generated</div>
-                      <div className="text-xs text-blue-600 dark:text-blue-400">Monday at 9:00 AM</div>
-                    </div>
+                ) : (
+                  [...reportsData]
+                    .sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime())
+                    .slice(0, 5)
+                    .map((report) => (
+                      <div key={report.id} className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg border border-white/30 dark:border-slate-700/30">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                            <FileText className="text-blue-600 dark:text-blue-400" size={16} />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-fixed capitalize">
+                              {report.reportType.replace(/_/g, " ")} Report
+                            </div>
+                            <div className="text-xs text-variable">
+                              {new Date(report.generatedAt).toLocaleString()} · {report.totalVisitors} visitors
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {report.emailSent && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Emailed</Badge>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(`/api/reports/${report.id}/view`, '_blank', 'width=1024,height=768,scrollbars=yes')}
+                            className="text-xs h-7"
+                          >
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                )}
+                {reportsData && reportsData.length > 5 && (
+                  <div className="text-center pt-2">
+                    <Button variant="outline" size="sm" onClick={() => window.location.href = '/reports'} className="text-xs">
+                      View all {reportsData.length} reports
+                    </Button>
                   </div>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">Success</Badge>
-                </div>
+                )}
               </div>
               
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
