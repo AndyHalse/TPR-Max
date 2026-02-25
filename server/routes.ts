@@ -12395,7 +12395,12 @@ This is an automated notification from your visitor management system.`;
       const { backupData, clearExisting = true } = req.body;
 
       if (!backupData || !backupData.data || !backupData.metadata) {
-        return res.status(400).json({ error: "Invalid backup data format. Please select a valid .bak file exported from TPR Max." });
+        return res.status(400).json({ error: "Invalid backup file. Please select a .bak file exported from TPR Max." });
+      }
+
+      // Validate that this is a genuine TPR Max backup
+      if (backupData.metadata.system !== 'TPR Max' && backupData.metadata.format !== 'TPRMAX_BAK') {
+        return res.status(400).json({ error: "Unrecognised backup format. Only TPR Max backup files (.bak) are supported." });
       }
 
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
@@ -12403,68 +12408,89 @@ This is an automated notification from your visitor management system.`;
 
       // Security: prevent restoring a backup from a different customer
       if (backupData.metadata.customerId && backupData.metadata.customerId !== context.customerId) {
-        return res.status(403).json({ error: "Cannot restore a backup from a different customer account" });
+        return res.status(403).json({ error: "Cannot restore a backup that belongs to a different account." });
       }
 
       console.log(`🔄 Starting restore for customer: ${context.customerId}`);
-      console.log(`📊 Backup contains ${backupData.metadata.total_records || '?'} records across ${Object.keys(backupData.data).length} tables`);
+      console.log(`📊 Backup has ${backupData.metadata.total_records || '?'} records across ${Object.keys(backupData.data).length} tables`);
 
-      const tablesToRestore = Object.keys(backupData.data);
+      // Only restore tables that actually exist in our schema (whitelist for safety)
+      const allowedTables = new Set([
+        'users', 'departments', 'company_settings', 'evacuation_zones', 'meeting_rooms',
+        'staff', 'visitors', 'members', 'staff_sessions', 'muster_points',
+        'evacuation_accountability', 'safety_tokens', 'user_invitations', 'pre_bookings',
+        'staff_attendance_history', 'visitor_history', 'room_bookings', 'room_booking_attendees',
+        'contractor_companies', 'contractor_workers', 'worker_notes', 'contractor_documents',
+        'compliance_documents', 'document_approvals', 'document_types', 'worker_competencies',
+        'nvq_qualifications', 'card_offences', 'card_issues', 'worker_certifications',
+        'rams_documents', 'co2_records', 'induction_tokens', 'induction_questions',
+        'induction_settings', 'induction_answers', 'local_labour_records', 'co2_emissions_data',
+        'co2_monthly_summaries', 'co2_sustainability_reports', 'enhanced_company_details',
+        'contractor_visits', 'contractor_prebookings', 'uk_hs_document_templates',
+        'worker_document_assignments', 'worker_document_acceptances', 'document_auto_fill_mapping',
+        'ai_generated_images', 'customer_api_keys', 'feature_usage_analytics',
+        'help_categories', 'help_articles', 'help_user_interactions', 'help_onboarding_progress'
+      ]);
+
+      // Filter to only whitelisted tables, preserve dependency order
+      const tablesToRestore = Object.keys(backupData.data).filter(t => allowedTables.has(t));
+
       const errors: { table: string; error: string }[] = [];
       let restoredTables = 0;
       let restoredRecords = 0;
 
-      // Clear tables in reverse order to respect foreign key constraints
-      if (clearExisting) {
-        console.log(`🗑️ Clearing existing data...`);
-        const reversedTables = [...tablesToRestore].reverse();
-        for (const table of reversedTables) {
-          try {
-            await custDb.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE`));
-            console.log(`🧹 Cleared: ${table}`);
-          } catch (err: any) {
-            console.warn(`⚠️ Could not clear ${table}: ${err.message}`);
-          }
-        }
-      }
-
-      // Restore tables in forward order (parents before children)
-      for (const table of tablesToRestore) {
-        const records = backupData.data[table] as any[];
-        if (!records || records.length === 0) continue;
-
-        try {
-          console.log(`📥 Restoring ${records.length} records into ${table}...`);
-
-          for (const record of records) {
-            const columns = Object.keys(record);
-            if (columns.length === 0) continue;
-
+      // Run the entire restore inside a transaction — if anything fails we roll back cleanly
+      await custDb.transaction(async (tx) => {
+        // Clear tables in reverse order to respect foreign key constraints
+        if (clearExisting) {
+          console.log(`🗑️ Clearing existing data...`);
+          const reversedTables = [...tablesToRestore].reverse();
+          for (const table of reversedTables) {
             try {
-              // Build a properly parameterized INSERT using Drizzle's sql template
-              // sql.identifier() safely quotes column/table names
-              // sql`${value}` properly parameterizes values
-              const tableIdent = sql.identifier(table);
-              const colIdents = sql.join(columns.map(c => sql.identifier(c)), sql.raw(', '));
-              const vals = sql.join(columns.map(c => sql`${record[c]}`), sql.raw(', '));
-              await custDb.execute(
-                sql`INSERT INTO ${tableIdent} (${colIdents}) VALUES (${vals}) ON CONFLICT DO NOTHING`
-              );
-            } catch (rowErr: any) {
-              // Skip individual row errors (constraint violations etc.) and continue
-              console.warn(`⚠️ Skipped row in ${table}: ${rowErr.message}`);
+              await tx.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE`));
+              console.log(`🧹 Cleared: ${table}`);
+            } catch (err: any) {
+              console.warn(`⚠️ Could not clear ${table}: ${err.message}`);
             }
           }
-
-          restoredTables++;
-          restoredRecords += records.length;
-          console.log(`✅ Restored ${records.length} records into ${table}`);
-
-        } catch (error: any) {
-          console.error(`❌ Error restoring table ${table}:`, error);
-          errors.push({ table, error: error.message });
         }
-      }
+
+        // Restore tables in forward order (parents before children)
+        for (const table of tablesToRestore) {
+          const records = backupData.data[table] as any[];
+          if (!records || records.length === 0) continue;
+
+          try {
+            console.log(`📥 Restoring ${records.length} records into ${table}...`);
+
+            for (const record of records) {
+              const columns = Object.keys(record);
+              if (columns.length === 0) continue;
+
+              try {
+                // Build properly parameterized INSERT using Drizzle sql template
+                const tableIdent = sql.identifier(table);
+                const colIdents = sql.join(columns.map(c => sql.identifier(c)), sql.raw(', '));
+                const vals = sql.join(columns.map(c => sql`${record[c]}`), sql.raw(', '));
+                await tx.execute(
+                  sql`INSERT INTO ${tableIdent} (${colIdents}) VALUES (${vals}) ON CONFLICT DO NOTHING`
+                );
+              } catch (rowErr: any) {
+                // Log but continue — individual constraint violations are non-fatal
+                console.warn(`⚠️ Skipped row in ${table}: ${rowErr.message}`);
+              }
+            }
+
+            restoredTables++;
+            restoredRecords += records.length;
+            console.log(`✅ Restored ${records.length} records into ${table}`);
+
+          } catch (error: any) {
+            console.error(`❌ Error restoring table ${table}:`, error);
+            errors.push({ table, error: error.message });
+          }
+        }
+      });
 
       console.log(`🎉 Restore completed for ${context.customerId}: ${restoredRecords} records across ${restoredTables} tables`);
 

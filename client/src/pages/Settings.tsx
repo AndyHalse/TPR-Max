@@ -367,20 +367,18 @@ export default function Settings() {
       return response.blob();
     },
     onSuccess: (blob) => {
-      // Create download link
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       a.href = url;
-      a.download = `visigate-backup-${timestamp}.bak`;
+      a.download = `tprmax-backup-${timestamp}.bak`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
       toast({
         title: "Backup Complete",
-        description: "SQL Server .bak file has been downloaded successfully!",
+        description: "Your backup file has been downloaded. Keep it safe — it contains all your data.",
       });
     },
     onError: (error: any) => {
