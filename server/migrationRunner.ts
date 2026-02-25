@@ -157,6 +157,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     repairZoneIdColumnsMigration,
     comprehensiveColumnRepairMigration,
     paxtonAndZoneColumnsMigration,
+    companySettingsPaxtonApiMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1005,9 +1006,9 @@ const comprehensiveColumnRepairMigration: Migration = {
 
 const paxtonAndZoneColumnsMigration: Migration = {
   version: '20260225_010_paxton_zones_columns',
-  description: 'Add paxton_user_id and biostar_user_id to staff; add missing columns to evacuation_zones',
+  description: 'Add Paxton/API columns to company_settings; paxton_user_id to staff; missing columns to evacuation_zones',
   async up(db: any) {
-    console.log('🔧 [PAXTON/ZONES] Adding missing Paxton and zone columns...');
+    console.log('🔧 [PAXTON/ZONES] Adding missing Paxton, API, and zone columns...');
 
     const staffColumns = [
       { name: 'biostar_user_id', def: 'TEXT' },
@@ -1022,9 +1023,41 @@ const paxtonAndZoneColumnsMigration: Migration = {
       { name: 'map_y', def: 'DOUBLE PRECISION' },
     ];
 
+    const companySettingsColumns = [
+      // Zones
+      { name: 'zones_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'zone_map_url', def: 'TEXT' },
+      // Paxton Net2
+      { name: 'paxton_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'paxton_server_url', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_port', def: "TEXT DEFAULT '8080'" },
+      { name: 'paxton_client_id', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_username', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_password', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_sync_users', def: 'BOOLEAN DEFAULT true' },
+      { name: 'paxton_sync_events', def: 'BOOLEAN DEFAULT true' },
+      { name: 'paxton_sync_interval', def: "TEXT DEFAULT '300'" },
+      { name: 'paxton_default_access_level', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_visitor_access_level', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_contractor_access_level', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_auto_grant_access', def: 'BOOLEAN DEFAULT false' },
+      { name: 'paxton_auto_revoke_on_checkout', def: 'BOOLEAN DEFAULT true' },
+      { name: 'paxton_last_sync', def: 'TIMESTAMP' },
+      { name: 'paxton_webhook_secret', def: "TEXT DEFAULT ''" },
+      // API & Webhooks
+      { name: 'api_webhooks_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'api_key', def: "TEXT DEFAULT ''" },
+      { name: 'api_webhook_url', def: "TEXT DEFAULT ''" },
+      { name: 'api_webhook_secret', def: "TEXT DEFAULT ''" },
+      { name: 'api_webhook_events', def: "TEXT[] DEFAULT ARRAY[]::TEXT[]" },
+      { name: 'api_rate_limit', def: "TEXT DEFAULT '100'" },
+      { name: 'api_last_activity', def: 'TIMESTAMP' },
+    ];
+
     const tables: Record<string, { name: string; def: string }[]> = {
       staff: staffColumns,
       evacuation_zones: zoneColumns,
+      company_settings: companySettingsColumns,
     };
 
     let totalAdded = 0;
@@ -1065,6 +1098,80 @@ const paxtonAndZoneColumnsMigration: Migration = {
     }
 
     console.log(`✅ [PAXTON/ZONES] Complete - added ${totalAdded} missing columns`);
+  }
+};
+
+const companySettingsPaxtonApiMigration: Migration = {
+  version: '20260225_011_company_settings_paxton_api',
+  description: 'Add Paxton Net2 and API/Webhook columns to company_settings table',
+  async up(db: any) {
+    console.log('🔧 [PAXTON/API] Adding Paxton and API columns to company_settings...');
+
+    const columns = [
+      // Zones
+      { name: 'zones_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'zone_map_url', def: 'TEXT' },
+      // Paxton Net2
+      { name: 'paxton_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'paxton_server_url', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_port', def: "TEXT DEFAULT '8080'" },
+      { name: 'paxton_client_id', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_username', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_password', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_sync_users', def: 'BOOLEAN DEFAULT true' },
+      { name: 'paxton_sync_events', def: 'BOOLEAN DEFAULT true' },
+      { name: 'paxton_sync_interval', def: "TEXT DEFAULT '300'" },
+      { name: 'paxton_default_access_level', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_visitor_access_level', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_contractor_access_level', def: "TEXT DEFAULT ''" },
+      { name: 'paxton_auto_grant_access', def: 'BOOLEAN DEFAULT false' },
+      { name: 'paxton_auto_revoke_on_checkout', def: 'BOOLEAN DEFAULT true' },
+      { name: 'paxton_last_sync', def: 'TIMESTAMP' },
+      { name: 'paxton_webhook_secret', def: "TEXT DEFAULT ''" },
+      // API & Webhooks
+      { name: 'api_webhooks_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'api_key', def: "TEXT DEFAULT ''" },
+      { name: 'api_webhook_url', def: "TEXT DEFAULT ''" },
+      { name: 'api_webhook_secret', def: "TEXT DEFAULT ''" },
+      { name: 'api_webhook_events', def: "TEXT[] DEFAULT ARRAY[]::TEXT[]" },
+      { name: 'api_rate_limit', def: "TEXT DEFAULT '100'" },
+      { name: 'api_last_activity', def: 'TIMESTAMP' },
+    ];
+
+    try {
+      const tableExists = await db.execute(`
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'company_settings' AND table_schema = current_schema()
+      `);
+      if (!tableExists.rows || tableExists.rows.length === 0) {
+        console.log('⚠️ [PAXTON/API] company_settings table does not exist, skipping');
+        return;
+      }
+
+      const existingCols = await db.execute(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'company_settings' AND table_schema = current_schema()
+      `);
+      const existingSet = new Set(existingCols.rows.map((r: any) => r.column_name));
+
+      let added = 0;
+      for (const col of columns) {
+        if (!existingSet.has(col.name)) {
+          try {
+            await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+            console.log(`✅ [PAXTON/API] Added ${col.name} to company_settings`);
+            added++;
+          } catch (err: any) {
+            if (!err.message?.includes('already exists')) {
+              console.log(`⚠️ [PAXTON/API] Failed to add ${col.name}: ${err.message?.substring(0, 80)}`);
+            }
+          }
+        }
+      }
+      console.log(`✅ [PAXTON/API] Complete - added ${added} columns to company_settings`);
+    } catch (error: any) {
+      console.log(`⚠️ [PAXTON/API] Error: ${error.message?.substring(0, 80)}`);
+    }
   }
 };
 
