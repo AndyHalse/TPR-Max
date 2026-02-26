@@ -9532,10 +9532,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  app.get('/api/induction/questions', async (req, res) => {
+  app.get('/api/induction/questions', requireAuth, async (req, res) => {
     try {
       const roleType = (req.query.roleType as string) || 'contractor';
-      const customerId = (req as any).customerId || 'default';
+      const customerId = req.customerId || 'default';
       const customerVideoId = `${customerId}-${roleType}`;
 
       // Customer-specific questions only (customerId-roleType format)
@@ -17086,7 +17086,15 @@ This is an automated notification from your visitor management system.`;
       const customerId = req.customerId || 'default';
       const settingsDb = await customerDbService.getCustomerDatabase(customerId);
       const rows = await settingsDb.select().from(isolatedSchema.inductionSettings);
-      res.json({ settings: rows });
+
+      // If isolated DB has rows, serve them
+      if (rows.length > 0) {
+        return res.json({ settings: rows });
+      }
+
+      // Isolated DB empty — fall back to global inductionSettings to show legacy/global videos
+      const globalRows = await db.select().from(inductionSettings);
+      res.json({ settings: globalRows });
     } catch (error) {
       console.error('Error fetching induction settings:', error);
       res.status(500).json({ error: 'Failed to fetch induction settings' });
@@ -17169,7 +17177,7 @@ This is an automated notification from your visitor management system.`;
   app.get('/api/induction/kiosk-status/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
-      const customerId = (req as any).customerId || 'default';
+      const customerId = req.session?.customerId || (req as any).customerId || 'default';
       let kioskEnabled = false;
       let hasVideo = false;
       try {
@@ -17216,23 +17224,6 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // Get role-specific questions
-  app.get('/api/induction/questions/:roleType', requireAuth, async (req, res) => {
-    try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // For now return empty until we implement customer-isolated induction questions
-      res.json({ questions: [] });
-      return;
-      
-      res.json({ questions });
-    } catch (error) {
-      console.error('Error fetching role-specific questions:', error);
-      res.status(500).json({ error: 'Failed to fetch questions' });
-    }
-  });
 
   // Generate AI questions from existing video content
   app.post('/api/induction/generate-questions/:roleType', requireAuth, async (req, res) => {
@@ -17476,42 +17467,50 @@ This is an automated notification from your visitor management system.`;
           console.log(`💾 Step 4: Saving video to customer database...`);
           let savedToDatabase = false;
           try {
-            await custDb
-              .update(isolatedSchema.inductionSettings)
-              .set({
-                videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
-                videoUrl: 'generated',
-                videoDescription: `AI-generated UK HSE-compliant safety induction for ${roleType}s. Duration: ${Math.round(totalDuration / 60)} minutes.`,
-                videoDurationMinutes: Math.round(totalDuration / 60),
-                generatedHtml: htmlContent,
-                scenesData: JSON.stringify(scenes),
-                generatedAt: new Date(),
-                questionsGenerated: questionsStored > 0,
-                updatedAt: new Date()
-              } as any)
-              .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+            const videoData = {
+              videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
+              videoUrl: 'generated',
+              videoDescription: `AI-generated UK HSE-compliant safety induction for ${roleType}s. Duration: ${Math.round(totalDuration / 60)} minutes.`,
+              videoDurationMinutes: Math.round(totalDuration / 60),
+              generatedHtml: htmlContent,
+              scenesData: JSON.stringify(scenes),
+              generatedAt: new Date(),
+              questionsGenerated: questionsStored > 0,
+              updatedAt: new Date()
+            };
+
+            // Check if a row exists for this roleType (isolated DB may not be seeded yet)
+            const existingRows = await custDb
+              .select({ id: isolatedSchema.inductionSettings.id })
+              .from(isolatedSchema.inductionSettings)
+              .where(eq(isolatedSchema.inductionSettings.roleType, roleType))
+              .limit(1);
+
+            if (existingRows.length > 0) {
+              await custDb
+                .update(isolatedSchema.inductionSettings)
+                .set(videoData as any)
+                .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+              console.log(`✅ Updated existing row in customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
+            } else {
+              // No row yet — insert a fresh one (isolated DB was never seeded for this customer)
+              await custDb
+                .insert(isolatedSchema.inductionSettings)
+                .values({
+                  id: randomUUID(),
+                  roleType,
+                  passPercentage: 80,
+                  isActive: true,
+                  kioskEnabled: false,
+                  sendLinkEnabled: true,
+                  ...videoData
+                } as any);
+              console.log(`✅ Inserted new row in customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
+            }
             savedToDatabase = true;
             console.log(`✅ Saved to customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
           } catch (saveError) {
             console.error('⚠️ Customer DB save failed:', saveError);
-            // Fallback: try global DB save
-            try {
-              await db
-                .update(inductionSettings)
-                .set({
-                  videoUrl: 'generated',
-                  videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
-                  generatedHtml: htmlContent,
-                  scenesData: JSON.stringify(scenes),
-                  generatedAt: new Date(),
-                  updatedAt: new Date()
-                })
-                .where(eq(inductionSettings.roleType, roleType));
-              savedToDatabase = true;
-              console.log('✅ Saved to global DB fallback');
-            } catch (fallbackError) {
-              console.error('⚠️ Global DB fallback also failed:', fallbackError);
-            }
           }
 
           // ── Step 5: Done ───────────────────────────────────────────────────
@@ -17590,9 +17589,10 @@ This is an automated notification from your visitor management system.`;
       const { roleType } = req.params;
 
       // Try customer-isolated database first (if authenticated)
-      if (req.session?.userId && req.customerId) {
+      const sessionCustomerId = req.session?.customerId || (req as any).customerId;
+      if (req.session?.userId && sessionCustomerId) {
         try {
-          const custVideoDb = await customerDbService.getCustomerDatabase(req.customerId);
+          const custVideoDb = await customerDbService.getCustomerDatabase(sessionCustomerId);
           const custRows = await custVideoDb
             .select()
             .from(isolatedSchema.inductionSettings)
