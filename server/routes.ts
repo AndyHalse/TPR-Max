@@ -17085,15 +17085,51 @@ This is an automated notification from your visitor management system.`;
     try {
       const customerId = req.customerId || 'default';
       const settingsDb = await customerDbService.getCustomerDatabase(customerId);
-      const rows = await settingsDb.select().from(isolatedSchema.inductionSettings);
+
+      // Select only metadata columns — exclude generatedHtml and scenesData (can be 17MB+)
+      const rows = await settingsDb.select({
+        id: isolatedSchema.inductionSettings.id,
+        roleType: isolatedSchema.inductionSettings.roleType,
+        videoTitle: isolatedSchema.inductionSettings.videoTitle,
+        videoUrl: isolatedSchema.inductionSettings.videoUrl,
+        videoDescription: isolatedSchema.inductionSettings.videoDescription,
+        videoDurationMinutes: isolatedSchema.inductionSettings.videoDurationMinutes,
+        videoFormat: isolatedSchema.inductionSettings.videoFormat,
+        modelType: isolatedSchema.inductionSettings.modelType,
+        passPercentage: isolatedSchema.inductionSettings.passPercentage,
+        isActive: isolatedSchema.inductionSettings.isActive,
+        kioskEnabled: isolatedSchema.inductionSettings.kioskEnabled,
+        sendLinkEnabled: isolatedSchema.inductionSettings.sendLinkEnabled,
+        generatedAt: isolatedSchema.inductionSettings.generatedAt,
+        questionsGenerated: isolatedSchema.inductionSettings.questionsGenerated,
+        createdAt: isolatedSchema.inductionSettings.createdAt,
+        updatedAt: isolatedSchema.inductionSettings.updatedAt,
+      }).from(isolatedSchema.inductionSettings);
 
       // If isolated DB has rows, serve them
       if (rows.length > 0) {
         return res.json({ settings: rows });
       }
 
-      // Isolated DB empty — fall back to global inductionSettings to show legacy/global videos
-      const globalRows = await db.select().from(inductionSettings);
+      // Isolated DB empty — fall back to global inductionSettings (also excluding large columns)
+      const globalRows = await db.select({
+        id: inductionSettings.id,
+        roleType: inductionSettings.roleType,
+        videoTitle: inductionSettings.videoTitle,
+        videoUrl: inductionSettings.videoUrl,
+        videoDescription: inductionSettings.videoDescription,
+        videoDurationMinutes: inductionSettings.videoDurationMinutes,
+        videoFormat: inductionSettings.videoFormat,
+        modelType: inductionSettings.modelType,
+        passPercentage: inductionSettings.passPercentage,
+        isActive: inductionSettings.isActive,
+        kioskEnabled: inductionSettings.kioskEnabled,
+        sendLinkEnabled: inductionSettings.sendLinkEnabled,
+        generatedAt: inductionSettings.generatedAt,
+        questionsGenerated: inductionSettings.questionsGenerated,
+        createdAt: inductionSettings.createdAt,
+        updatedAt: inductionSettings.updatedAt,
+      }).from(inductionSettings);
       res.json({ settings: globalRows });
     } catch (error) {
       console.error('Error fetching induction settings:', error);
