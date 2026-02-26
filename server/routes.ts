@@ -477,6 +477,31 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     error?: string;
   }>();
 
+  // One-time startup: purge all legacy-format induction questions (videoId = roleType)
+  // These are the source of the "2112 questions" accumulation bug.
+  // New questions are stored with videoId = customerId-roleType, so legacy rows are safe to delete.
+  (async () => {
+    try {
+      const legacyVideoIds = ['visitor', 'staff', 'contractor'];
+      let totalDeleted = 0;
+      for (const vid of legacyVideoIds) {
+        const result = await db
+          .delete(inductionQuestions)
+          .where(eq(inductionQuestions.videoId, vid));
+        const count = (result as any).rowCount ?? (result as any).count ?? 0;
+        if (count > 0) {
+          totalDeleted += Number(count);
+          console.log(`🧹 Startup cleanup: removed ${count} legacy induction questions (videoId='${vid}')`);
+        }
+      }
+      if (totalDeleted > 0) {
+        console.log(`✅ Legacy induction question cleanup complete — removed ${totalDeleted} stale rows`);
+      }
+    } catch (cleanupErr) {
+      console.warn('⚠️ Legacy induction question cleanup failed (non-fatal):', cleanupErr);
+    }
+  })();
+
   // Clean up expired signup sessions periodically
   setInterval(() => {
     const now = Date.now();
@@ -9513,8 +9538,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const customerId = (req as any).customerId || 'default';
       const customerVideoId = `${customerId}-${roleType}`;
 
-      // First try to get customer-specific questions (new format)
-      let allQuestions = await db
+      // Customer-specific questions only (customerId-roleType format)
+      // Legacy fallback removed — it caused "2112 questions" stale data accumulation.
+      // All questions are now stored under customerId-roleType videoId via DELETE-then-INSERT.
+      const allQuestions = await db
         .select()
         .from(inductionQuestions)
         .where(
@@ -9524,22 +9551,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           )
         )
         .orderBy(inductionQuestions.orderIndex);
-
-      // Fallback: legacy questions by roleType only (old format without customerId)
-      if (allQuestions.length === 0) {
-        allQuestions = await db
-          .select()
-          .from(inductionQuestions)
-          .where(
-            and(
-              eq(inductionQuestions.isActive, true),
-              eq(inductionQuestions.roleType, roleType),
-              eq(inductionQuestions.videoId, roleType)
-            )
-          )
-          .orderBy(inductionQuestions.orderIndex)
-          .limit(15);
-      }
       
       res.json({ questions: allQuestions });
     } catch (error) {
@@ -17127,6 +17138,81 @@ This is an automated notification from your visitor management system.`;
       }
       console.error('Error updating induction settings:', error);
       res.status(500).json({ error: 'Failed to update induction settings' });
+    }
+  });
+
+  // Toggle kiosk enabled / send link enabled per roleType (customer-isolated)
+  app.patch('/api/induction/settings/:roleType/toggle', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const { kioskEnabled, sendLinkEnabled } = req.body;
+      const customerId = req.customerId || 'default';
+      const settingsDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const updateFields: any = { updatedAt: new Date() };
+      if (typeof kioskEnabled === 'boolean') updateFields.kioskEnabled = kioskEnabled;
+      if (typeof sendLinkEnabled === 'boolean') updateFields.sendLinkEnabled = sendLinkEnabled;
+
+      await settingsDb
+        .update(isolatedSchema.inductionSettings)
+        .set(updateFields)
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+
+      res.json({ success: true, roleType, ...updateFields });
+    } catch (error) {
+      console.error('Error toggling induction setting:', error);
+      res.status(500).json({ error: 'Failed to update induction settings' });
+    }
+  });
+
+  // Get kiosk induction status for a roleType — used by kiosk check-in flow
+  app.get('/api/induction/kiosk-status/:roleType', async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const customerId = (req as any).customerId || 'default';
+      let kioskEnabled = false;
+      let hasVideo = false;
+      try {
+        const settingsDb = await customerDbService.getCustomerDatabase(customerId);
+        const rows = await settingsDb
+          .select()
+          .from(isolatedSchema.inductionSettings)
+          .where(eq(isolatedSchema.inductionSettings.roleType, roleType))
+          .limit(1);
+        if (rows.length > 0) {
+          const s = rows[0] as any;
+          kioskEnabled = Boolean(s.kioskEnabled);
+          hasVideo = Boolean(s.generatedAt);
+        }
+      } catch (_e) {}
+      res.json({ roleType, kioskEnabled, hasVideo });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get kiosk status' });
+    }
+  });
+
+  // Create induction token for kiosk (no email — returns token URL for in-person display)
+  app.post('/api/induction/kiosk-token', async (req, res) => {
+    try {
+      const { personType, personName, personEmail, visitorId, workerId, staffId } = req.body;
+      if (!personType || !personName) {
+        return res.status(400).json({ error: 'personType and personName are required' });
+      }
+      const token = await inductionService.createUniversalInductionToken({
+        personType,
+        personName,
+        personEmail: personEmail || '',
+        visitorId,
+        workerId,
+        staffId
+      });
+      const baseUrl = process.env.REPLIT_DOMAINS?.split(',')[0]?.trim()
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0].trim()}`
+        : `http://localhost:5000`;
+      res.json({ success: true, token, inductionUrl: `${baseUrl}/induction/${token}` });
+    } catch (error) {
+      console.error('Error creating kiosk induction token:', error);
+      res.status(500).json({ error: 'Failed to create induction token' });
     }
   });
 

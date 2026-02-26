@@ -1007,6 +1007,8 @@ export const inductionSettings = pgTable("induction_settings", {
   modelType: text("model_type").default("gpt-5").notNull(), // 'gpt-4o', 'gpt-5', 'gpt-6', 'gpt-7'
   passPercentage: integer("pass_percentage").default(80), // Minimum percentage to pass
   isActive: boolean("is_active").default(true).notNull(),
+  kioskEnabled: boolean("kiosk_enabled").default(false).notNull(), // Show induction during kiosk check-in
+  sendLinkEnabled: boolean("send_link_enabled").default(true).notNull(), // Allow sending induction links by email
   generatedHtml: text("generated_html"), // Saved HTML presentation content (customer-isolated)
   scenesData: text("scenes_data"), // JSON string of scenes array
   generatedAt: timestamp("generated_at"), // When video was last generated

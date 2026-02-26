@@ -868,6 +868,20 @@ export const addInductionVideoStorageMigration: Migration = {
   }
 };
 
+// Migration 12: Add kiosk_enabled and send_link_enabled to induction_settings
+export const addInductionKioskEnabledMigration: Migration = {
+  version: '20260226_012_add_induction_kiosk_enabled',
+  description: 'Add kiosk_enabled and send_link_enabled columns to induction_settings for kiosk and email link control',
+  async up(db: any) {
+    await db.execute(`
+      ALTER TABLE induction_settings 
+      ADD COLUMN IF NOT EXISTS kiosk_enabled BOOLEAN NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS send_link_enabled BOOLEAN NOT NULL DEFAULT true
+    `);
+    console.log('✅ Added kiosk_enabled and send_link_enabled to induction_settings');
+  }
+};
+
 // Export all migrations
 export const contractorMigrations: Migration[] = [
   createCoreContractorTablesMigration,
@@ -880,4 +894,5 @@ export const contractorMigrations: Migration[] = [
   createUKHSDocumentSystemMigration,
   createAIImagesMigration,
   addInductionVideoStorageMigration,
+  addInductionKioskEnabledMigration,
 ];

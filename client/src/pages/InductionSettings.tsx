@@ -7,12 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Users, Video, FileQuestion, Eye, Sparkles, CheckCircle, XCircle,
   Maximize2, List, RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
-  BookOpen, Shield, Flame, HardHat, ClipboardList
+  BookOpen, Shield, Flame, HardHat, ClipboardList, Send, Monitor,
+  ChevronDown, Settings, Mail, Loader2
 } from "lucide-react";
 import type { InductionQuestion } from "@shared/schema";
 
@@ -24,6 +29,9 @@ interface InductionSettingRow {
   videoFormat: string;
   modelType: string;
   passPercentage: number;
+  isActive?: boolean;
+  kioskEnabled?: boolean;
+  sendLinkEnabled?: boolean;
   generatedHtml?: string | null;
   scenesData?: string | null;
   generatedAt?: string | null;
@@ -73,12 +81,23 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>({ status: 'idle', step: 0, totalSteps: 5, message: '' });
   const [showPreview, setShowPreview] = useState(false);
   const [showQuestions, setShowQuestions] = useState(false);
+  const [showSendLink, setShowSendLink] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [isRegeneratingQuestions, setIsRegeneratingQuestions] = useState(false);
+  const [isTogglingKiosk, setIsTogglingKiosk] = useState(false);
+  const [kioskEnabled, setKioskEnabled] = useState<boolean>(settings?.kioskEnabled ?? false);
+  const [isSendingLink, setIsSendingLink] = useState(false);
+  const [sendName, setSendName] = useState('');
+  const [sendEmail, setSendEmail] = useState('');
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const isGenerating = ['pending', 'generating_script', 'building_slides', 'creating_questions', 'saving'].includes(generationStatus.status);
+
+  useEffect(() => {
+    setKioskEnabled(settings?.kioskEnabled ?? false);
+  }, [settings?.kioskEnabled]);
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
@@ -117,7 +136,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/induction/status/${roleType}`, { credentials: 'include' });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (res.status === 401) stopPolling();
+          return;
+        }
         const statusData: GenerationStatus = await res.json();
         setGenerationStatus(statusData);
 
@@ -127,7 +149,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
           queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
           queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
           onQuestionsRefetch();
-          // Load preview HTML
           try {
             const videoRes = await fetch(`/api/induction/video/${roleType}`, { credentials: 'include' });
             if (videoRes.ok) {
@@ -143,7 +164,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
     }, 3000);
   };
 
-  // Auto-load existing video when settings shows it was generated
   useEffect(() => {
     if (settings?.generatedAt && !previewHtml && generationStatus.status === 'idle') {
       fetch(`/api/induction/video/${roleType}`, { credentials: 'include' })
@@ -210,7 +230,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
       });
       const data = await response.json();
       if (data.success) {
-        toast({ title: "Questions Cleared", description: `All questions removed for ${getRoleDisplayName(roleType)} — regenerate to get fresh ones` });
+        toast({ title: "Questions Cleared", description: `All questions removed — regenerate to get fresh ones` });
         queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
         onQuestionsRefetch();
       }
@@ -218,6 +238,56 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
       toast({ title: "Failed", description: 'Could not clear questions', variant: 'destructive' });
     } finally {
       setIsCleaningUp(false);
+    }
+  };
+
+  const handleKioskToggle = async (enabled: boolean) => {
+    setIsTogglingKiosk(true);
+    const prev = kioskEnabled;
+    setKioskEnabled(enabled);
+    try {
+      await apiRequest('PATCH', `/api/induction/settings/${roleType}/toggle`, { kioskEnabled: enabled });
+      queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
+      toast({
+        title: enabled ? "Kiosk induction enabled" : "Kiosk induction disabled",
+        description: enabled
+          ? `${getRoleDisplayName(roleType)} will complete induction during walk-in check-in`
+          : `Induction will not be shown during ${getRoleDisplayName(roleType).toLowerCase()} check-in`
+      });
+    } catch (error: any) {
+      setKioskEnabled(prev);
+      toast({ title: "Failed", description: 'Could not update kiosk setting', variant: 'destructive' });
+    } finally {
+      setIsTogglingKiosk(false);
+    }
+  };
+
+  const handleSendLink = async () => {
+    if (!sendName.trim() || !sendEmail.trim()) {
+      toast({ title: "Missing details", description: "Please enter a name and email address", variant: 'destructive' });
+      return;
+    }
+    setIsSendingLink(true);
+    try {
+      const personType = roleType === 'visitor' ? 'visitor' : roleType === 'staff' ? 'staff' : 'contractor';
+      const response = await apiRequest('POST', '/api/induction/send', {
+        personType,
+        personName: sendName.trim(),
+        personEmail: sendEmail.trim(),
+      });
+      const data = await response.json();
+      if (data.message) {
+        toast({ title: "Induction link sent", description: `Email sent to ${sendEmail}` });
+        setSendName('');
+        setSendEmail('');
+        setShowSendLink(false);
+      } else {
+        toast({ title: "Failed", description: data.error || 'Could not send link', variant: 'destructive' });
+      }
+    } catch (error: any) {
+      toast({ title: "Failed", description: error?.message || 'Could not send link', variant: 'destructive' });
+    } finally {
+      setIsSendingLink(false);
     }
   };
 
@@ -346,7 +416,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
                   {settings?.questionsGenerated && (
                     <p className="text-xs text-green-600">
                       <CheckCircle className="inline h-3 w-3 mr-1" />
-                      Quiz questions generated
+                      {questions.length > 0 ? `${questions.length} quiz questions ready` : 'Quiz questions generated'}
                     </p>
                   )}
                 </div>
@@ -426,7 +496,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
                     className="gap-1 text-xs"
                   >
                     {isRegeneratingQuestions ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                      <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
                       <RefreshCw className="h-3 w-3" />
                     )}
@@ -441,7 +511,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
                     title="Delete ALL questions and start fresh"
                   >
                     {isCleaningUp ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600" />
+                      <Loader2 className="h-3 w-3 animate-spin text-red-600" />
                     ) : (
                       <Trash2 className="h-3 w-3" />
                     )}
@@ -511,6 +581,95 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
               </DialogContent>
             </Dialog>
           )}
+
+          {/* Send Link button */}
+          {hasVideo && (
+            <Dialog open={showSendLink} onOpenChange={setShowSendLink}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2" data-testid={`button-send-link-${roleType}`}>
+                  <Send className="h-4 w-4" />
+                  Send Link
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-blue-600" />
+                    Send {getRoleDisplayName(roleType)} Induction Link
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Send a secure induction link by email. The recipient completes the video and quiz remotely, and the system automatically records their completion.
+                  </p>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`send-name-${roleType}`}>Full Name</Label>
+                      <Input
+                        id={`send-name-${roleType}`}
+                        placeholder="e.g. Jane Smith"
+                        value={sendName}
+                        onChange={e => setSendName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`send-email-${roleType}`}>Email Address</Label>
+                      <Input
+                        id={`send-email-${roleType}`}
+                        type="email"
+                        placeholder="e.g. jane@example.com"
+                        value={sendEmail}
+                        onChange={e => setSendEmail(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSendLink(); }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={() => setShowSendLink(false)}>Cancel</Button>
+                    <Button onClick={handleSendLink} disabled={isSendingLink || !sendName.trim() || !sendEmail.trim()}>
+                      {isSendingLink ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
+                      ) : (
+                        <><Send className="h-4 w-4 mr-2" /> Send Induction Link</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        {/* Kiosk Check-in Toggle */}
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+          <div className="flex items-center gap-2">
+            <Monitor className="h-4 w-4 text-slate-600" />
+            <h3 className="font-medium text-sm text-slate-800">Kiosk Check-in Integration</h3>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor={`kiosk-toggle-${roleType}`} className="text-sm font-normal cursor-pointer">
+                Show induction during walk-in check-in
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {kioskEnabled
+                  ? `${getRoleDisplayName(roleType)} must complete induction before checking in at the kiosk`
+                  : `Induction is optional — ${getRoleDisplayName(roleType).toLowerCase()} can check in without completing it`}
+              </p>
+            </div>
+            <Switch
+              id={`kiosk-toggle-${roleType}`}
+              checked={kioskEnabled}
+              onCheckedChange={handleKioskToggle}
+              disabled={isTogglingKiosk || !hasVideo}
+            />
+          </div>
+          {!hasVideo && (
+            <p className="text-xs text-amber-600 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Generate a video first to enable kiosk integration
+            </p>
+          )}
         </div>
 
         {/* What's included */}
@@ -524,6 +683,50 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
             <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600" /> Role-specific content (Visitors / Staff / Contractors)</li>
           </ul>
         </div>
+
+        {/* Advanced Options */}
+        <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+          <CollapsibleTrigger asChild>
+            <button className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
+              <span className="flex items-center gap-1.5">
+                <Settings className="h-3.5 w-3.5" />
+                Advanced options
+              </span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 pt-3">
+            <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg text-xs space-y-2">
+              <div className="flex items-center gap-2 font-medium text-purple-800">
+                <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                AI Generation Model
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-purple-700">Model in use</span>
+                <Badge variant="outline" className="text-purple-700 border-purple-300 text-xs">
+                  {settings?.modelType || 'GPT-5'}
+                </Badge>
+              </div>
+              <p className="text-purple-600 leading-relaxed">
+                GPT-5 via Replit AI Integrations — billed to Replit credits, no personal API key required. GPT-Image-1 generates photorealistic workplace safety images.
+              </p>
+            </div>
+            <div className="p-3 bg-green-50 border border-green-100 rounded-lg text-xs space-y-1.5">
+              <div className="flex items-center gap-2 font-medium text-green-800">
+                <Shield className="h-3.5 w-3.5 text-green-600" />
+                UK HSE Compliance References
+              </div>
+              <ul className="text-green-700 space-y-0.5 ml-1">
+                <li>• Health and Safety at Work Act 1974 (HASAWA)</li>
+                <li>• Management of Health and Safety Regulations 1999</li>
+                <li>• PPE at Work Regulations 1992 (amended 2022)</li>
+                <li>• RIDDOR 2013 — Incident reporting</li>
+                <li>• COSHH 2002 — Hazardous substances</li>
+                <li>• CDM Regulations 2015 — Construction (contractors)</li>
+              </ul>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* AI Model badge */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
