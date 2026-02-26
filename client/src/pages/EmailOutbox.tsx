@@ -313,8 +313,8 @@ export default function EmailOutbox() {
               <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-white">
                 {previewData.htmlBody ? (
                   <iframe
-                    srcDoc={previewData.htmlBody}
-                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                    srcDoc={previewData.htmlBody.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ')}
+                    sandbox="allow-same-origin"
                     style={{ width: "100%", height: "100%", minHeight: "520px", border: "none", display: "block" }}
                     title="Email preview"
                   />
