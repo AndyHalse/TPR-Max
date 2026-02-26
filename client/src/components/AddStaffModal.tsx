@@ -268,11 +268,11 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       return;
     }
 
-    // Check if password is required for admin/supervisor levels (only for new users or when changing access level)
-    if ((formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && !formData.password.trim() && !isEditMode) {
+    // Check if password is required for admin level (only for new users or when changing access level)
+    if (formData.accessLevel === "admin" && !formData.password.trim() && !isEditMode) {
       toast({
         title: "Error",
-        description: "Password is required for admin and supervisor access levels",
+        description: "Password is required for Administrator access level",
         variant: "destructive",
       });
       return;
@@ -311,8 +311,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       zoneId: formData.zoneId || null,
     };
 
-    // Only include password if it's provided and user has admin/supervisor access
-    if (formData.password.trim() && (formData.accessLevel === "admin" || formData.accessLevel === "supervisor")) {
+    // Only include password if it's provided and user has admin access
+    if (formData.password.trim() && formData.accessLevel === "admin") {
       staffData.password = formData.password.trim();
     }
 
@@ -470,12 +470,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 <SelectValue placeholder="Select access level" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">👑 Admin - Full system access</SelectItem>
-                <SelectItem value="supervisor">🔧 Supervisor - Manage staff & visitors</SelectItem>
-                <SelectItem value="manager">👔 Manager - Department oversight</SelectItem>
-                <SelectItem value="staff">👤 Staff - Standard access</SelectItem>
-                <SelectItem value="security">🛡️ Security - Safety & monitoring</SelectItem>
-                <SelectItem value="visitor">👥 Visitor - Guest access</SelectItem>
+                <SelectItem value="staff">Standard User</SelectItem>
+                <SelectItem value="admin">Administrator</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -673,7 +669,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             )}
           </div>
           
-          {(formData.accessLevel === "admin" || formData.accessLevel === "supervisor") && (
+          {formData.accessLevel === "admin" && (
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium text-fixed">
                 Password * {isEditMode ? "(leave blank to keep current)" : ""}

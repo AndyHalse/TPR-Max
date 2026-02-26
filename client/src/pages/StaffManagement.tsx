@@ -352,14 +352,6 @@ export default function StaffManagement() {
     switch (accessLevel) {
       case 'admin':
         return 'bg-red-100 text-red-800';
-      case 'supervisor':
-        return 'bg-orange-100 text-orange-800';
-      case 'manager':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'security':
-        return 'bg-blue-100 text-blue-800';
-      case 'visitor':
-        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-green-100 text-green-800';
     }
@@ -369,14 +361,6 @@ export default function StaffManagement() {
     switch (accessLevel) {
       case 'admin':
         return '👑';
-      case 'supervisor':
-        return '🔧';
-      case 'manager':
-        return '👔';
-      case 'security':
-        return '🛡️';
-      case 'visitor':
-        return '👥';
       default:
         return '👤';
     }
@@ -385,17 +369,9 @@ export default function StaffManagement() {
   const getAccessLevelLabel = (accessLevel: string) => {
     switch (accessLevel) {
       case 'admin':
-        return 'Admin';
-      case 'supervisor':
-        return 'Supervisor';
-      case 'manager':
-        return 'Manager';
-      case 'security':
-        return 'Security';
-      case 'visitor':
-        return 'Visitor';
+        return 'Administrator';
       default:
-        return 'Staff';
+        return 'Standard User';
     }
   };
 
