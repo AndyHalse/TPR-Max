@@ -107,6 +107,8 @@ export default function Settings() {
     };
     uptime?: number;
     timestamp: string;
+    version?: string;
+    appName?: string;
   }>({
     queryKey: ["/api/system/status"],
     refetchInterval: 300000, // Refresh every 5 minutes
@@ -5393,17 +5395,44 @@ export default function Settings() {
             </GlassCard>
 
             <GlassCard className="p-6">
-              <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                System Status
-              </h3>
-              <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
+                  <Database className="w-5 h-5" />
+                  System Status
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/system/status"] })}
+                  className="flex items-center gap-1.5 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Version badge */}
+              <div className="flex items-center justify-between p-3 mb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200/50 dark:border-blue-700/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium">Application Version</span>
+                </div>
+                <Badge variant="secondary" className="font-mono text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                  {systemStatus?.version ?? "—"}
+                </Badge>
+              </div>
+
+              <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Database className="w-4 h-4" />
                     <span className="text-sm font-medium">Database</span>
                   </div>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  {systemStatus?.services?.database ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
@@ -5425,6 +5454,18 @@ export default function Settings() {
                   </div>
                   <CheckCircle className="w-5 h-5 text-green-500" />
                 </div>
+
+                {systemStatus?.uptime !== undefined && (
+                  <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      <span className="text-sm font-medium">Server Uptime</span>
+                    </div>
+                    <span className="text-xs text-variable font-mono">
+                      {Math.floor(systemStatus.uptime / 3600)}h {Math.floor((systemStatus.uptime % 3600) / 60)}m
+                    </span>
+                  </div>
+                )}
               </div>
             </GlassCard>
           </div>

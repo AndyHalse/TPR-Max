@@ -8333,6 +8333,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         services: status,
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
+        version: "v2026.02.26",
+        appName: "TPR Max",
       });
     } catch (error) {
       console.error("System status check failed:", error);
