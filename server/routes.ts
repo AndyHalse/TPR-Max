@@ -21493,10 +21493,11 @@ This is an automated notification from your visitor management system.`;
       const departments = ['Engineering', 'Administration', 'Sales', 'Operations', 'Finance', 'HR', 'IT', 'Marketing', 'Logistics', 'Security'];
       const companies = ['Acme Corp', 'BuildRight Ltd', 'TechFix Solutions', 'Prime Facilities', 'SafeWork UK', 'Delta Contractors', 'Apex Services', 'Horizon Group', 'Nexus Build', 'Swift Maintenance'];
       const memberTypes = ['full', 'associate', 'honorary', 'student', 'corporate', 'full', 'associate', 'full', 'honorary', 'full'];
+      const batchId = Date.now(); // unique per call so repeated loads always add fresh records
 
       let staffAdded = 0, visitorsAdded = 0, contractorsAdded = 0, membersAdded = 0;
 
-      // Insert 10 sample staff
+      // Insert 10 sample staff — use timestamp-based employeeId so repeated loads add fresh records
       for (let i = 0; i < 10; i++) {
         try {
           await customerDb.insert(isolatedSchema.staff).values({
@@ -21504,7 +21505,7 @@ This is an automated notification from your visitor management system.`;
             lastName: lastNames[i],
             email: demoEmail,
             department: departments[i],
-            employeeId: `DEMO-S${String(i + 1).padStart(3, '0')}`,
+            employeeId: `DEMO-S-${batchId}-${i}`,
             accessLevel: 'staff',
             isActive: true
           });
@@ -21596,8 +21597,8 @@ This is an automated notification from your visitor management system.`;
             lastName: lastNames[(i + 7) % 10],
             email: demoEmail,
             membershipType: memberTypes[i],
-            membershipId: `MEM-DEMO-${String(i + 1).padStart(3, '0')}`,
-            membershipNumber: `MBR-${now.getFullYear()}-D${String(i + 1).padStart(3, '0')}`,
+            membershipId: `MEM-${batchId}-${i}`,
+            membershipNumber: `MBR-${batchId}-${i}`,
             joinDate: `${now.getFullYear()}-01-01`,
             expiryDate: `${now.getFullYear()}-12-31`,
             membershipStatus: 'active',

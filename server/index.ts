@@ -338,7 +338,7 @@ app.use(session({
     secure: isProduction, // SECURITY: Always secure in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: isProduction ? 'strict' : 'lax', // Stricter in production
+    sameSite: 'lax', // lax allows same-site navigation; strict breaks sessions on external-link navigation
     path: '/',
     domain: undefined
   },
