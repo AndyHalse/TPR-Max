@@ -8656,6 +8656,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const settings = await simpleDatabaseService.updateCompanySettings(context, updates);
       
       console.log(`💾 Updated company settings FOR CUSTOMER: ${context.customerId}`);
+
+      // If daily reset settings changed, reschedule the cron for this customer
+      const dailyResetFields = ['enableDailyReset', 'dailyResetTime', 'dailyResetTimezone', 'gracePeriodMinutes', 'enableWeekendReset', 'enable24x7Operations', 'enableHolidayReset'];
+      if (dailyResetFields.some(f => f in updates)) {
+        console.log(`📅 Daily reset settings changed for customer ${context.customerId} — rescheduling`);
+        setupAutomaticDailyReset(context.customerId).catch(err => 
+          console.error('Failed to reschedule daily reset after settings change:', err)
+        );
+      }
+
       res.json(settings);
     } catch (error) {
       console.error('Settings update error:', error);
@@ -16324,11 +16334,11 @@ This is an automated notification from your visitor management system.`;
   }
 
   // Daily Reset helper function
-  async function performDailyReset(isManual: boolean = false) {
+  async function performDailyReset(isManual: boolean = false, providedContext?: { customerId: string }) {
     const resetTime = new Date();
     
-    // Use development context for background/scheduled resets
-    const resetContext = simpleDatabaseService.createDevelopmentContext();
+    // Use provided context or fall back to development context
+    const resetContext = providedContext || simpleDatabaseService.createDevelopmentContext();
     const resetCustomerDb = await customerDbService.getCustomerDatabase(resetContext.customerId);
     
     // Get all currently checked-in personnel using customer-isolated queries
@@ -16470,90 +16480,100 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // Setup automatic daily reset
-  async function setupAutomaticDailyReset() {
+  // Track active daily reset tasks per customer so they can be stopped/rescheduled
+  const dailyResetTasks = new Map<string, ReturnType<typeof cron.schedule>>();
+
+  // Setup automatic daily reset — safe to call multiple times (stops old tasks first)
+  async function setupAutomaticDailyReset(specificCustomerId?: string) {
     try {
-      // Import the simplified database service
-      const { simpleDatabaseService } = await import("./simpleDatabaseService");
-      
-      // Use default context for startup (no req available)
-      const context = simpleDatabaseService.createDevelopmentContext();
-      
-      const settings = await simpleDatabaseService.getCompanySettings(context);
-      
-      if (settings?.enableDailyReset !== false) {
+      // Get customers to schedule for
+      let customers: Array<{ id: string }>;
+      if (specificCustomerId) {
+        customers = [{ id: specificCustomerId }];
+      } else {
+        customers = await customerDbService.getAllCustomers();
+      }
+
+      for (const customer of customers) {
+        // Stop and remove any existing task for this customer
+        const existing = dailyResetTasks.get(customer.id);
+        if (existing) {
+          existing.stop();
+          dailyResetTasks.delete(customer.id);
+        }
+
+        const context = { customerId: customer.id };
+        const settings = await simpleDatabaseService.getCompanySettings(context);
+
+        if (settings?.enableDailyReset === false) {
+          console.log(`📅 Daily reset disabled for customer ${customer.id}`);
+          continue;
+        }
+
+        if (settings?.enable24x7Operations === true) {
+          console.log(`📅 Daily reset skipped for customer ${customer.id} - 24/7 operations mode`);
+          continue;
+        }
+
         const resetTime = settings?.dailyResetTime || "00:00";
         const timezone = settings?.dailyResetTimezone || "Europe/London";
         const enableWeekendReset = settings?.enableWeekendReset === true;
-        const enableHolidayReset = settings?.enableHolidayReset === true;
-        const enable24x7Operations = settings?.enable24x7Operations === true;
-        
-        // Skip setup if 24/7 operations mode is enabled
-        if (enable24x7Operations) {
-          console.log("📅 Daily reset disabled - 24/7 operations mode active");
-          return;
-        }
-        
-        // Parse time (format: "HH:MM")
+
         const [hours, minutes] = resetTime.split(':').map(Number);
-        
-        // Create cron expression
-        let cronExpression = `${minutes} ${hours} * * *`; // Every day
-        
-        if (!enableWeekendReset) {
-          cronExpression = `${minutes} ${hours} * * 1-5`; // Monday to Friday only
-        }
-        
-        console.log(`📅 Setting up automatic daily reset at ${resetTime} (${timezone})`);
-        console.log(`📅 Cron expression: ${cronExpression}`);
-        console.log(`📅 Weekend reset: ${enableWeekendReset ? 'enabled' : 'disabled'}`);
-        console.log(`📅 Holiday reset: ${enableHolidayReset ? 'enabled' : 'disabled'}`);
-        
-        // Schedule the daily reset
-        cron.schedule(cronExpression, async () => {
+        const cronExpression = enableWeekendReset
+          ? `${minutes} ${hours} * * *`
+          : `${minutes} ${hours} * * 1-5`;
+
+        console.log(`📅 Scheduling daily reset for customer ${customer.id} at ${resetTime} (${timezone}) — ${cronExpression}`);
+
+        const task = cron.schedule(cronExpression, async () => {
           try {
-            console.log(`🔄 Executing scheduled daily reset at ${new Date().toLocaleString()}`);
-            
-            // Check if it's a holiday and holiday reset is disabled
+            console.log(`🔄 Daily reset firing for customer ${customer.id} at ${new Date().toLocaleString()}`);
+
+            // Re-read settings fresh so any changes since startup take effect
+            const currentSettings = await simpleDatabaseService.getCompanySettings(context);
+
+            if (currentSettings?.enableDailyReset === false || currentSettings?.enable24x7Operations === true) {
+              console.log(`📅 Daily reset skipped for customer ${customer.id} — disabled in current settings`);
+              return;
+            }
+
+            const enableHolidayReset = currentSettings?.enableHolidayReset === true;
             if (!enableHolidayReset) {
-              const today = new Date();
-              const isHoliday = await checkIfHoliday(today);
+              const isHoliday = await checkIfHoliday(new Date());
               if (isHoliday) {
-                console.log("📅 Skipping daily reset - holiday detected and holiday reset disabled");
+                console.log(`📅 Daily reset skipped for customer ${customer.id} — public holiday`);
                 return;
               }
             }
-            
-            // Send grace period notification first
-            const gracePeriodMinutes = settings?.gracePeriodMinutes ? parseInt(settings.gracePeriodMinutes.toString()) : 15;
+
+            const gracePeriodMinutes = currentSettings?.gracePeriodMinutes
+              ? parseInt(currentSettings.gracePeriodMinutes.toString())
+              : 15;
+
             if (gracePeriodMinutes > 0) {
-              await sendGracePeriodNotification(gracePeriodMinutes);
-              
-              // Wait for grace period before actual reset
+              await sendGracePeriodNotification(gracePeriodMinutes, context);
               setTimeout(async () => {
                 try {
-                  const result = await performDailyReset(false); // automatic = false
-                  console.log("🔄 Automatic daily reset completed:", result);
-                } catch (error) {
-                  console.error("❌ Automatic daily reset failed:", error);
+                  const result = await performDailyReset(false, context);
+                  console.log(`🔄 Automatic daily reset completed for customer ${customer.id}:`, result);
+                } catch (err) {
+                  console.error(`❌ Delayed daily reset failed for customer ${customer.id}:`, err);
                 }
-              }, gracePeriodMinutes * 60 * 1000); // Convert minutes to milliseconds
+              }, gracePeriodMinutes * 60 * 1000);
             } else {
-              // No grace period, reset immediately
-              const result = await performDailyReset(false);
-              console.log("🔄 Automatic daily reset completed:", result);
+              const result = await performDailyReset(false, context);
+              console.log(`🔄 Automatic daily reset completed for customer ${customer.id}:`, result);
             }
           } catch (error) {
-            console.error("❌ Error in scheduled daily reset:", error);
+            console.error(`❌ Error in daily reset cron for customer ${customer.id}:`, error);
           }
-        }, {
-          timezone: timezone
-        });
-        
-        console.log(`✅ Automatic daily reset scheduled successfully`);
-      } else {
-        console.log("📅 Daily reset disabled in settings");
+        }, { timezone });
+
+        dailyResetTasks.set(customer.id, task);
       }
+
+      console.log(`✅ Daily reset scheduled for ${dailyResetTasks.size} customer(s)`);
     } catch (error) {
       console.error("❌ Error setting up automatic daily reset:", error);
     }
@@ -16720,10 +16740,10 @@ This is an automated notification from your visitor management system.`;
   }
 
   // Helper function to send grace period notification
-  async function sendGracePeriodNotification(gracePeriodMinutes: number) {
+  async function sendGracePeriodNotification(gracePeriodMinutes: number, graceContext?: { customerId: string }) {
     try {
-      // Use development context for background/scheduled tasks
-      const graceContext = simpleDatabaseService.createDevelopmentContext();
+      // Use provided context or fall back to development context
+      if (!graceContext) graceContext = simpleDatabaseService.createDevelopmentContext();
       
       const settings = await simpleDatabaseService.getCompanySettings(graceContext);
       if (!settings?.notifyForgottenCheckouts || !settings?.emailReportsEnabled) {
