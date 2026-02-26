@@ -3187,11 +3187,18 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const fireMarshalsMissingUrls = allFireMarshals.filter(fm => !fm.fireMarshalUrlId);
       if (fireMarshalsMissingUrls.length > 0) {
         const names = fireMarshalsMissingUrls.map(fm => `${fm.firstName} ${fm.lastName}`).join(', ');
-        console.error(`❌ CRITICAL ERROR: ${fireMarshalsMissingUrls.length} Fire Marshal(s) missing emergency URLs: ${names}`);
-        return res.status(500).json({
-          error: "Emergency system not ready",
-          message: `Cannot activate emergency: ${fireMarshalsMissingUrls.length} Fire Marshal(s) are missing emergency access URLs (${names}). Please contact support.`
-        });
+        console.log(`⚠️ Auto-generating emergency URLs for ${fireMarshalsMissingUrls.length} Fire Marshal(s): ${names}`);
+        // Auto-fix: generate missing URLs rather than blocking the emergency
+        const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+        for (const fm of fireMarshalsMissingUrls) {
+          const newUrlId = Math.random().toString(36).substring(2, 14);
+          await customerDb
+            .update(isolatedSchema.staff)
+            .set({ fireMarshalUrlId: newUrlId })
+            .where(eq(isolatedSchema.staff.id, fm.id));
+          fm.fireMarshalUrlId = newUrlId;
+          console.log(`🔥 AUTO-GENERATED Fire Marshal URL for ${fm.firstName} ${fm.lastName}: ${newUrlId}`);
+        }
       }
       console.log(`✅ All ${allFireMarshals.length} Fire Marshals have emergency URLs`);
       
