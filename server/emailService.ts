@@ -3285,6 +3285,10 @@ TPR Max Visitor Management System
       return false;
     }
   }
+
+  forCustomer(customerId: string): EmailService {
+    return new EmailService(customerId);
+  }
 }
 
 export { EmailService };

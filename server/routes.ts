@@ -4070,7 +4070,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       for (const marshal of fireMarshals) {
         if (marshal.email) {
           try {
-            await emailService.sendFireMarshalAlert(
+            await customEmailService.sendFireMarshalAlert(
               marshal.email,
               `${marshal.firstName} ${marshal.lastName}`,
               evacuationData,
@@ -5695,7 +5695,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           return res.status(400).json({ error: "Staff member has no email address" });
         }
         
-        const emailSent = await emailService.sendStaffQrPass(
+        const emailSent = await emailService.forCustomer(req.customerId).sendStaffQrPass(
           staffMember.email,
           `${staffMember.firstName} ${staffMember.lastName}`,
           staffMember.department,
@@ -6689,7 +6689,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         // Send e-Pass via email
         if (visitor.email && (settings.ePassDeliveryMethod === 'email' || settings.ePassDeliveryMethod === 'both' || settings.ePassDeliveryMethod === 'choice')) {
           try {
-            const emailSent = await emailService.sendDigitalEPass(
+            const emailSent = await emailService.forCustomer(req.customerId).sendDigitalEPass(
               visitor as any,
               (host || null) as any,
               settings!,
@@ -6737,7 +6737,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               host.preferredNotificationMethod === 'both' ||
               !host.voiceNotificationsEnabled)) {
             try {
-              await emailService.sendArrivalNotification({
+              await emailService.forCustomer(req.customerId).sendArrivalNotification({
                 hostEmail: host.email,
                 hostFirstName: host.firstName,
                 visitorName: `${visitor.firstName} ${visitor.lastName}`,
@@ -6919,7 +6919,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Send e-Pass via email
       if (visitor.email) {
         try {
-          const emailSent = await emailService.sendDigitalEPass(
+          const emailSent = await emailService.forCustomer(req.customerId).sendDigitalEPass(
             visitor,
             host || null,
             settings!,
@@ -8019,11 +8019,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // Send emergency alert emails
       const { emailService } = await import("./emailService");
+      const localEmailService = emailService.forCustomer(req.customerId);
       let sentCount = 0;
       
       for (const email of emailList) {
         try {
-          await emailService.sendEmergencyAlert(email, subject, message);
+          await localEmailService.sendEmergencyAlert(email, subject, message);
           sentCount++;
         } catch (error) {
           console.error(`Failed to send emergency alert to ${email}:`, error);
@@ -10965,7 +10966,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           checkedOutVisitors
         };
         
-        const emailSent = await emailService.sendReport(
+        const emailSent = await emailService.forCustomer(req.customerId).sendReport(
           report, 
           settings, 
           settings.reportRecipients || [], 
@@ -11424,7 +11425,7 @@ ${preBooking.purpose ? `- Purpose: ${preBooking.purpose}` : ''}
 
 This is an automated notification from your visitor management system.`;
           
-          await emailService.sendEmail({
+          await emailService.forCustomer(req.customerId).sendEmail({
             to: hostStaffInCustomerDb.email,
             subject,
             html,
@@ -12437,7 +12438,7 @@ This is an automated notification from your visitor management system.`;
       console.log('Sending email with report data:', { totalVisitors: report.totalVisitors, currentVisitors: currentVisitors.length });
 
       // Send email report
-      const emailSent = await emailService.sendReport(
+      const emailSent = await emailService.forCustomer(req.customerId).sendReport(
         report,
         companySettings!,
         [email],
@@ -13080,7 +13081,7 @@ This is an automated notification from your visitor management system.`;
       
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       if (companySettings) {
-        const emailSent = await emailService.sendUserInvitation(
+        const emailSent = await emailService.forCustomer(invContext.customerId).sendUserInvitation(
           invitation.email,
           invitation.role,
           invitation.token,
@@ -13602,7 +13603,7 @@ This is an automated notification from your visitor management system.`;
             return;
           }
           
-          const result = await emailService.sendCardIssueNotification({
+          const result = await emailService.forCustomer(req.customerId).sendCardIssueNotification({
             workerEmail,
             workerName: `${worker.firstName} ${worker.lastName}`,
             cardType: cardType as 'yellow' | 'red',
@@ -15403,7 +15404,7 @@ This is an automated notification from your visitor management system.`;
             }
             
             // Send professional H&S document assignment email
-            const emailSent = await emailService.sendHSDocumentAssignment({
+            const emailSent = await emailService.forCustomer(req.customerId).sendHSDocumentAssignment({
               workerEmail: worker.email,
               workerName: `${worker.firstName} ${worker.lastName}`,
               documentName: template.documentName,
@@ -15966,7 +15967,7 @@ This is an automated notification from your visitor management system.`;
           const acceptanceUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/uk-hs-documents/accept/${assignment.acceptanceToken}`;
           
           // Send reminder email using EmailService
-          await emailService.sendEmail({
+          await emailService.forCustomer(req.customerId).sendEmail({
             to: worker.email,
             subject: `H&S Document Required: ${template.documentName}`,
             html: `
@@ -16651,7 +16652,7 @@ This is an automated notification from your visitor management system.`;
           
           for (const email of recipients) {
             try {
-              await emailService.sendPlainEmail(email, subject, message);
+              await emailService.forCustomer(req.customerId).sendPlainEmail(email, subject, message);
             } catch (error) {
               console.error(`Failed to send reset notification to ${email}:`, error);
             }
@@ -18384,7 +18385,7 @@ This is an automated notification from your visitor management system.`;
           const [organizer] = await bookingDb.select().from(isolatedSchema.staff)
             .where(eq(isolatedSchema.staff.id, fullBooking.bookedByStaffId));
           const [settings] = await bookingDb.select().from(isolatedSchema.companySettings).limit(1);
-          await emailService.sendBookingConfirmation(
+          await emailService.forCustomer(req.customerId).sendBookingConfirmation(
             fullBooking, 
             bookingRoom, 
             organizer, 
@@ -18477,7 +18478,7 @@ This is an automated notification from your visitor management system.`;
             const [patchOrganizer] = await patchDb.select().from(isolatedSchema.staff)
               .where(eq(isolatedSchema.staff.id, patchFullBooking.bookedByStaffId));
             const [patchSettings] = await patchDb.select().from(isolatedSchema.companySettings).limit(1);
-            await emailService.sendBookingConfirmation(
+            await emailService.forCustomer(req.customerId).sendBookingConfirmation(
               patchFullBooking, 
               patchRoom, 
               patchOrganizer, 
@@ -18538,7 +18539,7 @@ This is an automated notification from your visitor management system.`;
             .where(eq(isolatedSchema.meetingRooms.id, fullBooking.meetingRoomId));
           const [cancelOrganizer] = await cancelDb.select().from(isolatedSchema.staff)
             .where(eq(isolatedSchema.staff.id, fullBooking.bookedByStaffId));
-          await emailService.sendBookingCancellation(
+          await emailService.forCustomer(req.customerId).sendBookingCancellation(
             fullBooking, 
             cancelRoom, 
             cancelOrganizer, 
