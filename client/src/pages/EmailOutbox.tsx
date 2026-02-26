@@ -314,7 +314,7 @@ export default function EmailOutbox() {
                 {previewData.htmlBody ? (
                   <iframe
                     srcDoc={previewData.htmlBody}
-                    sandbox="allow-same-origin"
+                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                     style={{ width: "100%", height: "100%", minHeight: "520px", border: "none", display: "block" }}
                     title="Email preview"
                   />
