@@ -162,6 +162,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     rebuildIsolatedReportsMigration,
     addEmailLogMigration,
     addNavBannerColorMigration,
+    fixCardOffencesCustomerIdMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1388,6 +1389,23 @@ const addNavBannerColorMigration: Migration = {
     } catch (err: any) {
       if (!err.message?.includes('already exists')) {
         console.log(`⚠️ [015] nav_banner_invert: ${err.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Migration 016: Fix card_offences customer_id NOT NULL constraint (legacy schemas had this column added as NOT NULL)
+const fixCardOffencesCustomerIdMigration: Migration = {
+  version: '20260226_016_fix_card_offences_customer_id',
+  description: 'Remove NOT NULL constraint from customer_id in card_offences to allow standard seeding to work',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE card_offences ALTER COLUMN customer_id DROP NOT NULL`);
+      console.log('✅ [016] Dropped NOT NULL from card_offences.customer_id');
+    } catch (err: any) {
+      // Column may not exist or constraint already gone — both are fine
+      if (!err.message?.includes('does not exist') && !err.message?.includes('already')) {
+        console.log(`⚠️ [016] card_offences customer_id: ${err.message?.substring(0, 100)}`);
       }
     }
   }
