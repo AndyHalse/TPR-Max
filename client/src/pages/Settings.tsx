@@ -116,6 +116,10 @@ export default function Settings() {
     queryKey: ["/api/departments"],
   });
 
+  const { data: departmentAnalytics } = useQuery<Array<{ department: string; staffCount: number; visitorCount: number }>>({
+    queryKey: ["/api/analytics/departments"],
+  });
+
   // Fetch all users and pending invitations
   const { data: users, isLoading: usersLoading } = useQuery<Array<{
     id: string;
@@ -647,6 +651,7 @@ export default function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/departments/names"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/departments"] });
       setShowDepartmentDialog(false);
       setDepartmentToEdit(null);
       setDepartmentForm({ name: "", description: "", color: "bg-blue-50 dark:bg-blue-950/300" });
@@ -672,6 +677,7 @@ export default function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/departments/names"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/departments"] });
       toast({
         title: "Success",
         description: "Department deleted successfully!",
@@ -4398,8 +4404,7 @@ export default function Settings() {
                         </div>
                         <div className="text-xs text-variable">
                           <Users size={12} className="inline mr-1" />
-                          {/* Staff count would be populated from database */}
-                          0 staff
+                          {departmentAnalytics?.find(a => a.department === department.name)?.staffCount ?? 0} staff
                         </div>
                       </div>
                     </div>
