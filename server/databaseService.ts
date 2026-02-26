@@ -1764,31 +1764,37 @@ export class DatabaseService {
         return; // Already seeded for this customer
       }
 
-      // Red Card Offences from UK/Siemens Energy requirements
+      // Red Card Offences — standard UK contractor safety violations
       const redCardOffences = [
-        { offenceName: "Unsafe work at height", offenceDescription: "Working at height without proper safety measures" },
-        { offenceName: "Abuse of and putting the public at risk", offenceDescription: "Behavior that endangers public safety" },
+        { offenceName: "Unsafe work at height", offenceDescription: "Working at height without proper safety measures, harness, or edge protection" },
+        { offenceName: "Drugs and alcohol abuse", offenceDescription: "Being under the influence of substances on site — immediate ban" },
         { offenceName: "Flagrant disregard for the safety method statement", offenceDescription: "Intentional violation of established safety procedures" },
-        { offenceName: "Urinating and defecating in unauthorised locations", offenceDescription: "Using inappropriate areas for bodily functions" },
-        { offenceName: "Drugs and alcohol abuse", offenceDescription: "Being under the influence of substances on site" },
-        { offenceName: "Working within unsafe excavations and confined spaces", offenceDescription: "Entering hazardous work areas without authorization" },
-        { offenceName: "Misuse of scaffolding or access equipment", offenceDescription: "Improper use of safety equipment" },
-        { offenceName: "Unauthorised use of plant", offenceDescription: "Operating machinery without permission or qualification" },
-        { offenceName: "Illegal discharges into drainage or water courses", offenceDescription: "Environmental contamination violations" },
-        { offenceName: "Misuse of fire prevention equipment", offenceDescription: "Tampering with or misusing fire safety systems" },
-        { offenceName: "Unauthorised work on asbestos-containing materials", offenceDescription: "Working with hazardous materials without proper training" },
-        { offenceName: "Smoking in restricted areas", offenceDescription: "Smoking in prohibited zones" },
-        { offenceName: "Operating plant while using a mobile phone", offenceDescription: "Distracted operation of machinery" }
+        { offenceName: "Working within unsafe excavations or confined spaces", offenceDescription: "Entering hazardous excavations or confined spaces without authorisation" },
+        { offenceName: "Misuse of scaffolding or access equipment", offenceDescription: "Improper use of scaffolding, ladders, or access equipment in a dangerous manner" },
+        { offenceName: "Unauthorised use of plant or machinery", offenceDescription: "Operating plant or machinery without permission or required qualification" },
+        { offenceName: "Misuse of fire prevention equipment", offenceDescription: "Tampering with or misusing fire extinguishers, alarms or suppression systems" },
+        { offenceName: "Unauthorised work on asbestos-containing materials", offenceDescription: "Working with asbestos without proper training, licence, or PPE" },
+        { offenceName: "Operating plant while using a mobile phone", offenceDescription: "Using a mobile phone while operating plant, forklift, or moving machinery" },
+        { offenceName: "Abuse of or putting the public at risk", offenceDescription: "Behaviour that endangers public safety or members of the public near the site" },
+        { offenceName: "Illegal discharges into drainage or water courses", offenceDescription: "Environmental contamination — discharge of chemicals, fuel or waste into drains" },
+        { offenceName: "Violence or threatening behaviour", offenceDescription: "Physical or verbal violence towards colleagues, visitors or the public" },
+        { offenceName: "Theft on site", offenceDescription: "Theft of materials, tools, equipment or personal property on site" },
       ];
 
       // Yellow Card Offences
       const yellowCardOffences = [
-        { offenceName: "Not wearing hard hats", offenceDescription: "Failure to wear required head protection" },
-        { offenceName: "Not wearing safety footwear", offenceDescription: "Improper or missing safety footwear" },
-        { offenceName: "Incorrect use of PPE", offenceDescription: "Misuse of personal protective equipment" },
-        { offenceName: "Misuse of lifting appliances and equipment", offenceDescription: "Improper use of lifting equipment" },
-        { offenceName: "Misuse of tools and equipment", offenceDescription: "Incorrect handling of work tools" },
-        { offenceName: "Use of mobile phones in unsafe areas", offenceDescription: "Mobile phone use in restricted zones" }
+        { offenceName: "Not wearing a hard hat", offenceDescription: "Failure to wear required head protection in a mandatory hat zone" },
+        { offenceName: "Not wearing safety footwear", offenceDescription: "Improper or missing safety boots / steel toe-capped footwear" },
+        { offenceName: "Incorrect use of PPE", offenceDescription: "Misuse, modification, or failure to wear required personal protective equipment" },
+        { offenceName: "Not wearing high-visibility clothing", offenceDescription: "Failure to wear hi-vis vest or jacket in a mandatory zone" },
+        { offenceName: "Misuse of lifting appliances or equipment", offenceDescription: "Improper use of lifting slings, chains, straps or hoists" },
+        { offenceName: "Misuse of tools or equipment", offenceDescription: "Incorrect, unsafe, or unauthorised handling of work tools and equipment" },
+        { offenceName: "Use of mobile phone in unsafe areas", offenceDescription: "Mobile phone use in restricted or hazardous areas where it is prohibited" },
+        { offenceName: "Smoking in restricted areas", offenceDescription: "Smoking in prohibited zones — breaching site no-smoking policy" },
+        { offenceName: "Poor housekeeping", offenceDescription: "Failure to maintain a tidy, safe working area — creating trip or fire hazards" },
+        { offenceName: "Failure to report an accident or near-miss", offenceDescription: "Not reporting a workplace accident, injury, or near-miss incident" },
+        { offenceName: "Unsafe manual handling", offenceDescription: "Incorrect manual handling technique causing risk of injury" },
+        { offenceName: "Obstructing emergency exits or routes", offenceDescription: "Blocking fire exits, emergency escape routes or access for emergency services" },
       ];
 
       // Insert Red Card offences
