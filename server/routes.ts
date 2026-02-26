@@ -13003,6 +13003,7 @@ This is an automated notification from your visitor management system.`;
       const users = await databaseService.getAllUsers(context);
       
       // Don't send password hashes to the client
+      const sessionUserId = req.session?.userId;
       const safeUsers = users.map(user => ({
         id: user.id,
         username: user.username,
@@ -13011,6 +13012,7 @@ This is an automated notification from your visitor management system.`;
         firstName: user.firstName,
         lastName: user.lastName,
         status: 'active' as const,
+        isCurrentUser: user.id === sessionUserId,
       }));
 
       // Get pending invitations

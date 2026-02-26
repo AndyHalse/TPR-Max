@@ -132,9 +132,15 @@ export default function Settings() {
     invitedAt?: Date;
     invitationToken?: string;
     customerId?: string;
+    isCurrentUser?: boolean;
   }>>({
     queryKey: ["/api/users"],
   });
+
+  // Derive admin status reliably — users list marks the session user via isCurrentUser flag,
+  // avoiding the gcTime:0 race on /api/auth/me during initial page load
+  const sessionUserFromList = users?.find(u => u.isCurrentUser);
+  const isAdminUser = sessionUserFromList?.role === 'admin' || currentUser?.role === 'admin';
 
   // Reports data — uses same isolated /api/reports endpoint as main Reports page
   const { data: reportsData } = useQuery<Report[]>({
@@ -4155,7 +4161,7 @@ export default function Settings() {
                 ) : users && users.length > 0 ? (
                   <>
                     {users.map((user) => {
-                      const isCurrentUser = user.id === currentUser?.id;
+                      const isCurrentUser = user.isCurrentUser || user.id === currentUser?.id;
                       const isPending = user.status === 'pending';
                       const initials = user.firstName && user.lastName 
                         ? `${user.firstName[0]}${user.lastName[0]}`
@@ -4185,7 +4191,7 @@ export default function Settings() {
                                 {user.role === 'admin' ? 'Admin' : 'User'}
                               </Badge>
                             )}
-                            {currentUser?.role === 'admin' && (
+                            {isAdminUser && (
                               <>
                                 {isPending ? (
                                   <>
@@ -6243,7 +6249,7 @@ export default function Settings() {
               </Select>
             </div>
             
-            {currentUser?.role !== 'admin' && (
+            {!isAdminUser && (
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                 <p className="text-sm text-amber-700">
                   <strong>Note:</strong> Only administrators can change user roles.
