@@ -38,31 +38,53 @@ export function ObjectUploader({
       return;
     }
 
-    setSelectedFile(file);
-    // Auto-upload the file immediately after selection
-    await handleUpload(file);
-  };
-
-  const handleUpload = async (fileToUpload?: File) => {
-    const file = fileToUpload || selectedFile;
-    if (!file) return;
-
-    let arrayBuffer: ArrayBuffer;
+    // Read file BEFORE any state changes to prevent browser invalidating the file reference
+    let base64: string;
     try {
-      arrayBuffer = await file.arrayBuffer();
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
     } catch (readError: any) {
       toast({ title: "Error", description: "Could not read the file. Please try selecting it again.", variant: "destructive" });
       return;
     }
 
+    setSelectedFile(file);
+    await handleUpload(file, base64);
+  };
+
+  const handleUpload = async (fileToUpload?: File, preloadedBase64?: string) => {
+    const file = fileToUpload || selectedFile;
+    if (!file) return;
+
+    let base64: string;
+    if (preloadedBase64) {
+      base64 = preloadedBase64;
+    } else {
+      try {
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const result = e.target?.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
+      } catch (readError: any) {
+        toast({ title: "Error", description: "Could not read the file. Please try selecting it again.", variant: "destructive" });
+        return;
+      }
+    }
+
     setIsUploading(true);
     try {
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i += 8192) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 8192)));
-      }
-      const base64 = btoa(binary);
       const response = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
       const { objectPath } = await response.json();
       onUploadComplete?.(objectPath);

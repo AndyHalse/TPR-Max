@@ -176,9 +176,17 @@ export default function Members() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    let arrayBuffer: ArrayBuffer;
+    let base64: string;
     try {
-      arrayBuffer = await file.arrayBuffer();
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
     } catch (readError: any) {
       toast({ title: "Error", description: "Could not read the file. Please try selecting it again.", variant: "destructive" });
       return;
@@ -186,12 +194,6 @@ export default function Members() {
 
     setUploading(true);
     try {
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i += 8192) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 8192)));
-      }
-      const base64 = btoa(binary);
       const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
       const { objectPath } = await res.json();
       setUploadedPhoto(objectPath);
