@@ -130,7 +130,8 @@ export default function Settings() {
     lastName?: string;
     status: 'active' | 'pending';
     invitedAt?: Date;
-    invitationToken?: string; // Token for generating invitation link
+    invitationToken?: string;
+    customerId?: string;
   }>>({
     queryKey: ["/api/users"],
   });
@@ -141,9 +142,11 @@ export default function Settings() {
   });
 
   // Function to copy invitation link
-  const copyInvitationLink = (token: string) => {
+  const copyInvitationLink = (token: string, customerId?: string) => {
     const baseUrl = window.location.origin;
-    const invitationUrl = `${baseUrl}/invite/accept?token=${token}`;
+    const invitationUrl = customerId
+      ? `${baseUrl}/invite/accept?token=${token}&customer=${customerId}`
+      : `${baseUrl}/invite/accept?token=${token}`;
     
     navigator.clipboard.writeText(invitationUrl).then(() => {
       toast({
@@ -4058,26 +4061,42 @@ export default function Settings() {
                   <Users className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                   <h3 className="text-lg font-semibold text-fixed">User Management</h3>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowManualUserDialog(true)}
-                    data-testid="button-manual-user"
-                  >
-                    <UserPlus className="mr-2" size={16} />
-                    Add Manually
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="gradient-blue text-white"
-                    onClick={() => setShowAddEmailDialog(true)}
-                    data-testid="button-invite-user"
-                  >
-                    <Mail className="mr-2" size={16} />
-                    Send Invitation
-                  </Button>
-                </div>
+                <TooltipProvider delayDuration={200}>
+                  <div className="flex gap-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowManualUserDialog(true)}
+                          data-testid="button-manual-user"
+                        >
+                          <UserPlus className="mr-2" size={16} />
+                          Add Manually
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        Create a user account directly without sending an email. Useful when the invited person has trouble receiving emails or for setting up offline.
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          className="gradient-blue text-white"
+                          onClick={() => setShowAddEmailDialog(true)}
+                          data-testid="button-invite-user"
+                        >
+                          <Mail className="mr-2" size={16} />
+                          Send Invitation
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        Send a secure email invitation. The recipient clicks the link and creates their own password. Invitations expire after 7 days.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
               </div>
               
               <div className="space-y-4">
@@ -4128,7 +4147,7 @@ export default function Settings() {
                                       variant="ghost"
                                       onClick={() => {
                                         if (user.invitationToken) {
-                                          copyInvitationLink(user.invitationToken);
+                                          copyInvitationLink(user.invitationToken, user.customerId);
                                         }
                                       }}
                                       disabled={!user.invitationToken}
@@ -4220,6 +4239,7 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold text-fixed">Invite New User</h3>
               </div>
               
+              <TooltipProvider delayDuration={200}>
               <form 
                 className="space-y-4"
                 onSubmit={(e) => {
@@ -4230,13 +4250,21 @@ export default function Settings() {
                 }}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="inviteEmail" className="text-sm font-medium text-fixed">
-                    Email Address
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="inviteEmail" className="text-sm font-medium text-fixed">Email Address</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info size={14} className="text-variable cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        The invitation email will be sent to this address. The link in the email is specific to this account — do not share it with others.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="inviteEmail"
                     type="email"
-                    placeholder=""
+                    placeholder="colleague@yourcompany.com"
                     value={inviteForm.email}
                     onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
@@ -4246,9 +4274,18 @@ export default function Settings() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="userRole" className="text-sm font-medium text-fixed">
-                    User Role
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="userRole" className="text-sm font-medium text-fixed">User Role</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info size={14} className="text-variable cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <strong>Standard User</strong> — can view and manage visitors, staff, and reports but cannot change system settings or manage other users.<br /><br />
+                        <strong>Administrator</strong> — full access including settings, user management, and all system configuration.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Select value={inviteForm.role} onValueChange={(value) => setInviteForm({ ...inviteForm, role: value })}>
                     <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-user-role">
                       <SelectValue placeholder="Select role" />
@@ -4269,6 +4306,7 @@ export default function Settings() {
                   {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
                 </Button>
               </form>
+              </TooltipProvider>
               
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Invitation Process:</h4>

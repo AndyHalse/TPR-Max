@@ -37,9 +37,10 @@ export default function AcceptInvitation() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Extract token from URL query params
+  // Extract token and customerId from URL query params
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get("token");
+  const customerId = urlParams.get("customer");
 
   // Fetch CSRF token on component mount
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function AcceptInvitation() {
           token,
           username: data.username,
           password: data.password,
+          customerId,
         }),
         credentials: "include",
       });

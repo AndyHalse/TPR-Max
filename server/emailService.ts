@@ -2399,7 +2399,8 @@ This email was sent automatically by VisiGate Pro`;
     role: string, 
     token: string, 
     invitedBy: any, 
-    companySettings: any
+    companySettings: any,
+    customerId?: string
   ): Promise<boolean> {
     try {
       const companyName = companySettings?.companyName || 'VisiGate Pro';
@@ -2424,7 +2425,9 @@ This email was sent automatically by VisiGate Pro`;
         baseUrl = replitDomain ? `https://${replitDomain}` : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
       }
       
-      const invitationUrl = `${baseUrl}/invite/accept?token=${token}`;
+      const invitationUrl = customerId
+        ? `${baseUrl}/invite/accept?token=${token}&customer=${customerId}`
+        : `${baseUrl}/invite/accept?token=${token}`;
       
       // Log the invitation URL for verification
       console.log(`📧 Invitation URL generated: ${invitationUrl}`);

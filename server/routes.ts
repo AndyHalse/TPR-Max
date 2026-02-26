@@ -12865,7 +12865,8 @@ This is an automated notification from your visitor management system.`;
           invitation.role,
           invitation.token,
           currentUser,
-          companySettings
+          companySettings,
+          invContext.customerId
         );
 
         if (!emailSent) {
@@ -12912,13 +12913,17 @@ This is an automated notification from your visitor management system.`;
 
   app.post("/api/invitations/accept", async (req, res) => {
     try {
-      const { token, username, password } = req.body;
+      const { token, username, password, customerId } = req.body;
       
       if (!token || !username || !password) {
         return res.status(400).json({ error: "Token, username, and password are required" });
       }
 
-      const acceptContext = simpleDatabaseService.createDevelopmentContext();
+      if (!customerId) {
+        return res.status(400).json({ error: "Invalid invitation link — missing customer context. Please use the original invitation email link." });
+      }
+
+      const acceptContext = { customerId };
       const acceptDb = await customerDbService.getCustomerDatabase(acceptContext.customerId);
       
       const [invitation] = await acceptDb.select().from(isolatedSchema.userInvitations)
@@ -12940,10 +12945,15 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Username already exists" });
       }
 
+      const bcrypt = await import('bcryptjs');
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       const newUser = await databaseService.createUser(acceptContext, {
         username,
-        password,
-        email: invitation.email
+        password: hashedPassword,
+        email: invitation.email,
+        role: invitation.role || 'user',
+        customerId: acceptContext.customerId,
       });
 
       await acceptDb.update(isolatedSchema.userInvitations)
@@ -13015,6 +13025,7 @@ This is an automated notification from your visitor management system.`;
         status: 'pending' as const,
         invitedAt: inv.createdAt,
         invitationToken: inv.token, // Include token for generating invitation link
+        customerId: context.customerId, // Required for proper customer-isolated accept flow
       }));
 
       // Combine and return
