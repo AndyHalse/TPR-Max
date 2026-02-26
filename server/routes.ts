@@ -12680,7 +12680,7 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to test connection" });
       }
       
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (!settings?.biostarEnabled) {
@@ -12727,7 +12727,7 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to sync data" });
       }
       
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (!settings?.biostarEnabled) {
@@ -12776,7 +12776,7 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Please log in to view staff status" });
       }
       
-      const context = simpleDatabaseService.createCustomerContext(req.user.username);
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (!settings?.biostarEnabled) {

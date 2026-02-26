@@ -1243,11 +1243,16 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold text-fixed">Company Information</h3>
               </div>
               
+              <TooltipProvider delayDuration={200}>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName" className="text-sm font-medium text-variable">
-                    Company Name
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="companyName" className="text-sm font-medium text-variable">Company Name</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Displayed on all visitor ID passes and printed badges. Keep it short enough to fit on a pass card.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="companyName"
                     type="text"
@@ -1290,9 +1295,13 @@ export default function Settings() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-fixed">
-                      Company Email
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label htmlFor="email" className="text-sm font-medium text-fixed">Company Email</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs">Your company's main contact email address. This is shown on visitor passes and used as the reply-to address on outbound emails. Configure dedicated sender details in the Email tab.</TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Input
                       id="email"
                       type="email"
@@ -1321,9 +1330,13 @@ export default function Settings() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">
-                    Company Logo
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-sm font-medium text-fixed">Company Logo</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Your logo appears on visitor ID passes, emails, and the kiosk check-in screen. PNG or SVG with a transparent background works best. Max 2 MB.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <div className="space-y-4">
                     {currentSettings?.logoUrl && !currentSettings.logoUrl.includes('test') && (
                       <div className="flex items-center justify-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
@@ -1351,6 +1364,7 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
+              </TooltipProvider>
             </GlassCard>
 
           </div>
@@ -3576,6 +3590,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="biostar" className="space-y-6 mt-6">
+          <TooltipProvider delayDuration={200}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
@@ -3601,21 +3616,22 @@ export default function Settings() {
                 {currentSettings?.biostarEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-fixed">
-                        Local Server Address
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-fixed">Local Server Address</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                          <TooltipContent className="max-w-xs">The local network URL of your BioStar 2 server, e.g. https://192.168.1.50. This must be accessible from the server running TPR Max — not from outside your network.</TooltipContent>
+                        </Tooltip>
+                      </div>
                       <Input
                         id="biostarServerUrl"
                         type="url"
                         value={currentSettings?.biostarServerUrl || ""}
                         onChange={(e) => handleInputChange("biostarServerUrl", e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                        placeholder=""
+                        placeholder="https://192.168.1.50"
                         data-testid="input-biostar-server-url"
                       />
-                      <p className="text-xs text-variable">
-                        Enter the local network address of your BioStar 2 server
-                      </p>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3654,31 +3670,39 @@ export default function Settings() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="biostarDatabaseId" className="text-sm font-medium text-fixed">
-                          Database ID
-                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="biostarDatabaseId" className="text-sm font-medium text-fixed">Database ID</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                            <TooltipContent className="max-w-xs">The BioStar 2 database instance ID. This is almost always "1" for single-server installations. Only change if your IT team confirms you have multiple BioStar databases.</TooltipContent>
+                          </Tooltip>
+                        </div>
                         <Input
                           id="biostarDatabaseId"
                           type="text"
                           value={currentSettings?.biostarDatabaseId || "1"}
                           onChange={(e) => handleInputChange("biostarDatabaseId", e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                          placeholder=""
+                          placeholder="1"
                           data-testid="input-biostar-database-id"
                         />
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="biostarSyncInterval" className="text-sm font-medium text-fixed">
-                          Sync Interval (seconds)
-                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="biostarSyncInterval" className="text-sm font-medium text-fixed">Sync Interval (seconds)</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                            <TooltipContent className="max-w-xs">How often attendance data is pulled from BioStar. 300 (5 minutes) is recommended. Lower values give more real-time data but increase server load. Minimum is 60 seconds.</TooltipContent>
+                          </Tooltip>
+                        </div>
                         <Input
                           id="biostarSyncInterval"
                           type="number"
                           value={currentSettings?.biostarSyncInterval || "300"}
                           onChange={(e) => handleInputChange("biostarSyncInterval", e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                          placeholder=""
+                          placeholder="300"
                           min="60"
                           data-testid="input-biostar-sync-interval"
                         />
@@ -3814,9 +3838,11 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+          </TooltipProvider>
         </TabsContent>
 
         <TabsContent value="phone-systems" className="space-y-6 mt-6">
+          <TooltipProvider delayDuration={200}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
@@ -3826,9 +3852,13 @@ export default function Settings() {
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phoneProvider" className="text-sm font-medium text-fixed">
-                    Phone System Provider
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="phoneProvider" className="text-sm font-medium text-fixed">Phone System Provider</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Select the voice API provider used to call staff when a visitor arrives. Currently only 8x8 is fully supported.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Select 
                     value={currentSettings?.phoneProvider || "8x8"} 
                     onValueChange={(value) => handleInputChange("phoneProvider", value)}
@@ -3871,9 +3901,13 @@ export default function Settings() {
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXApiKey" className="text-sm font-medium text-fixed">
-                    API Key
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="eightByXApiKey" className="text-sm font-medium text-fixed">API Key</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Your 8x8 Voice API key. Found in your 8x8 developer portal under API credentials. Keep this secret — it authorises all outbound calls.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="eightByXApiKey"
                     type="password"
@@ -3886,9 +3920,13 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXApiSecret" className="text-sm font-medium text-fixed">
-                    API Secret
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="eightByXApiSecret" className="text-sm font-medium text-fixed">API Secret</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Your 8x8 API secret. Paired with the API key to authenticate requests. Treat this like a password.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="eightByXApiSecret"
                     type="password"
@@ -3901,9 +3939,13 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXAccountId" className="text-sm font-medium text-fixed">
-                    Account ID
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="eightByXAccountId" className="text-sm font-medium text-fixed">Account ID</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Your 8x8 account or sub-account ID. Available in your 8x8 portal. Used to identify which account the calls are billed to.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="eightByXAccountId"
                     type="text"
@@ -3916,9 +3958,13 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="eightByXBaseUrl" className="text-sm font-medium text-fixed">
-                    API Base URL
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="eightByXBaseUrl" className="text-sm font-medium text-fixed">API Base URL</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">The 8x8 regional API endpoint. Use the EU endpoint (vcc-eu) for UK/Europe accounts and the US endpoint for US accounts. Check your 8x8 portal if unsure.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="eightByXBaseUrl"
                     type="text"
@@ -4051,6 +4097,7 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+          </TooltipProvider>
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6 mt-6">
@@ -4509,39 +4556,25 @@ export default function Settings() {
                 <h4 className="font-medium text-fixed">⚙️ Report Settings</h4>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-fixed">Include Charts</Label>
+                    <div>
+                      <Label className="text-sm font-medium text-fixed">Email Reports Enabled</Label>
+                      <p className="text-xs text-variable">Automatically email reports when generated</p>
+                    </div>
                     <Switch 
                       checked={currentSettings?.emailReportsEnabled !== false} 
                       onCheckedChange={(checked) => handleInputChange("emailReportsEnabled", checked)}
-                      data-testid="switch-include-charts" 
+                      data-testid="switch-email-reports-enabled" 
                     />
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-fixed">Include Photos</Label>
-                    <Switch 
-                      checked={currentSettings?.enableQrCodes === true} 
-                      onCheckedChange={(checked) => handleInputChange("enableQrCodes", checked)}
-                      data-testid="switch-include-photos" 
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-fixed">PDF Export</Label>
-                    <Switch 
-                      checked={currentSettings?.enable2dBarcodes !== false} 
-                      onCheckedChange={(checked) => handleInputChange("enable2dBarcodes", checked)}
-                      data-testid="switch-pdf-export" 
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-fixed">Excel Export</Label>
-                    <Switch 
-                      checked={currentSettings?.biostarEnabled === true} 
-                      onCheckedChange={(checked) => handleInputChange("biostarEnabled", checked)}
-                      data-testid="switch-excel-export" 
-                    />
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-medium text-variable">Always available in all reports:</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">Charts & Graphs</Badge>
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300">PDF Export</Badge>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300">Visitor Photos</Badge>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">Excel / CSV Export</Badge>
                   </div>
                 </div>
                 
@@ -4602,6 +4635,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="ai" className="space-y-6 mt-6">
+          <TooltipProvider delayDuration={200}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
@@ -4611,6 +4645,13 @@ export default function Settings() {
               
               <div className="space-y-4">
                 <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-sm font-medium text-fixed">AI Model</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Controls which OpenAI model generates induction scripts and safety content. GPT-4o is the best balance of quality and speed. GPT-5 is the most capable but slower. All models are billed to Replit credits — no personal API key required.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Select
                     value={currentSettings?.openaiModel || "gpt-4o"}
                     onValueChange={(value) => handleInputChange("openaiModel", value)}
@@ -4624,15 +4665,16 @@ export default function Settings() {
                       <SelectItem value="gpt-5">GPT-5 (Latest) 🚀</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-variable">
-                    GPT-4o is recommended for better AI-generated content quality
-                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="openaiMaxTokens" className="text-sm font-medium text-fixed">
-                    Max Response Length (Tokens)
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="openaiMaxTokens" className="text-sm font-medium text-fixed">Max Response Length (Tokens)</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Sets the maximum length of AI-generated text. 4,000 tokens is about 3,000 words — suitable for induction scripts. Longer settings cost more in credits. Only increase if your induction videos are being cut short.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Select
                     value={currentSettings?.openaiMaxTokens || "4000"}
                     onValueChange={(value) => handleInputChange("openaiMaxTokens", value)}
@@ -4654,9 +4696,11 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+          </TooltipProvider>
         </TabsContent>
 
         <TabsContent value="hsrules" className="space-y-6 mt-6">
+          <TooltipProvider delayDuration={200}>
           <div className="grid grid-cols-1 gap-6">
             <GlassCard className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -4679,7 +4723,13 @@ export default function Settings() {
                       onCheckedChange={(checked) => handleInputChange("hsRulesRequireAcceptance", checked)}
                       data-testid="switch-hs-rules-require-acceptance"
                     />
-                    <Label className="text-sm font-medium text-fixed">Require Acceptance</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">Require Acceptance</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs">When enabled, visitors must explicitly tick a checkbox to confirm they have read and accept the H&S rules before their e-Pass is issued. Recommended for legal compliance.</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4705,16 +4755,20 @@ export default function Settings() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="hsRulesUrl" className="text-sm font-medium text-fixed">
-                        External H&S Rules URL (Optional)
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="hsRulesUrl" className="text-sm font-medium text-fixed">External H&S Rules URL (Optional)</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                          <TooltipContent className="max-w-xs">If your H&S policy is hosted on an external website (e.g. your company intranet or a PDF link), enter the URL here. Visitors will see a clickable link in their e-Pass instead of the full rules text.</TooltipContent>
+                        </Tooltip>
+                      </div>
                       <Input
                         id="hsRulesUrl"
                         type="url"
                         value={currentSettings?.hsRulesUrl || ""}
                         onChange={(e) => handleInputChange("hsRulesUrl", e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                        placeholder=""
+                        placeholder="https://yourcompany.com/health-safety-policy"
                         data-testid="input-hs-rules-url"
                       />
                       <p className="text-xs text-variable">
@@ -4763,6 +4817,7 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+          </TooltipProvider>
         </TabsContent>
 
         <TabsContent value="hs-documents" className="space-y-6 mt-6">
@@ -4779,6 +4834,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-6">
+          <TooltipProvider delayDuration={200}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <GlassCard>
               <div className="flex items-center mb-6">
@@ -4789,7 +4845,13 @@ export default function Settings() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-medium text-fixed">Enable API & Webhooks</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">Enable API & Webhooks</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs">Allows third-party systems to connect to TPR Max via REST API and receive real-time event notifications (check-ins, check-outs, emergencies). Required for custom integrations, mobile apps, or connecting to your own systems.</TooltipContent>
+                      </Tooltip>
+                    </div>
                     <p className="text-xs text-variable">Enable API key access and outbound webhook notifications</p>
                   </div>
                   <Switch
@@ -4801,7 +4863,13 @@ export default function Settings() {
                 {currentSettings?.apiWebhooksEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-fixed">API Key</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm font-medium text-fixed">API Key</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                          <TooltipContent className="max-w-xs">Your unique API key for authenticating requests from external systems. Treat this like a password — never share it publicly or commit it to source code. Use "Generate New Key" to create one, then copy it to your integration. Revoking immediately blocks all API access.</TooltipContent>
+                        </Tooltip>
+                      </div>
                       <div className="flex gap-2">
                         <Input
                           type={apiKeyVisible ? "text" : "password"}
@@ -4856,7 +4924,13 @@ export default function Settings() {
                     <Separator />
 
                     <div className="space-y-2">
-                      <Label htmlFor="webhookUrl" className="text-sm font-medium text-fixed">Webhook URL</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="webhookUrl" className="text-sm font-medium text-fixed">Webhook URL</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                          <TooltipContent className="max-w-xs">The HTTPS endpoint on your server where TPR Max will POST event data (visitor check-in, emergency activation, etc.). Must be publicly accessible and use HTTPS. Test with the "Test Webhook" button before going live.</TooltipContent>
+                        </Tooltip>
+                      </div>
                       <Input
                         id="webhookUrl"
                         type="url"
@@ -5185,9 +5259,11 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+          </TooltipProvider>
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6 mt-6">
+          <TooltipProvider delayDuration={200}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <GlassCard className="p-6">
               <h3 className="text-lg font-semibold text-fixed mb-4 flex items-center gap-2">
@@ -5197,7 +5273,13 @@ export default function Settings() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-medium text-fixed">Enable Daily Reset</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">Enable Daily Reset</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs">Automatically checks out all visitors, contractors, and staff who are still shown as on-site at a set time each day. Prevents the register from accumulating stale "on-site" records overnight. Recommended for all sites.</TooltipContent>
+                      </Tooltip>
+                    </div>
                     <p className="text-xs text-variable">Automatically check out all personnel at end of day</p>
                   </div>
                   <Switch
@@ -5210,9 +5292,13 @@ export default function Settings() {
                 {currentSettings?.enableDailyReset !== false && (
                   <div className="space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
                     <div className="space-y-2">
-                      <Label htmlFor="dailyResetTime" className="text-sm font-medium text-fixed">
-                        Reset Time
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="dailyResetTime" className="text-sm font-medium text-fixed">Reset Time</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                          <TooltipContent className="max-w-xs">The time at which the daily checkout occurs. Midnight (00:00) is the default and suits most sites. If your shift ends at a different time (e.g. 18:00), set accordingly. Uses the timezone selected below.</TooltipContent>
+                        </Tooltip>
+                      </div>
                       <div className="flex gap-2">
                         <Input
                           id="dailyResetTime"
@@ -5243,9 +5329,13 @@ export default function Settings() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="gracePeriod" className="text-sm font-medium text-fixed">
-                        Grace Period (minutes)
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label htmlFor="gracePeriod" className="text-sm font-medium text-fixed">Grace Period (minutes)</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                          <TooltipContent className="max-w-xs">How many minutes before the reset time a warning is sent to personnel still on-site. 15 minutes gives people enough notice to self-checkout or update their records. Set to 0 to disable pre-warnings.</TooltipContent>
+                        </Tooltip>
+                      </div>
                       <Input
                         id="gracePeriod"
                         type="number"
@@ -5709,6 +5799,7 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+          </TooltipProvider>
         </TabsContent>
       </Tabs>
 
