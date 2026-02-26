@@ -13,7 +13,7 @@ import {
   type InsertInductionToken,
   type InsertInductionAnswer
 } from "@shared/schema";
-import { sendInductionEmail } from "./emailService";
+import { EmailService } from "./emailService";
 
 export class InductionService {
   // Generate secure token for induction link
@@ -86,7 +86,7 @@ export class InductionService {
   }
 
   // Send induction email to worker
-  async sendInductionEmail(workerId: string): Promise<boolean> {
+  async sendInductionEmail(workerId: string, customerId?: string): Promise<boolean> {
     try {
       // Get worker details
       const [worker] = await db
@@ -207,7 +207,8 @@ This is a legal requirement under UK Health & Safety regulations.
 VisiGate Pro - Contractor Management System
       `;
 
-      await sendInductionEmail({
+      const emailSvc = new EmailService(customerId);
+      await emailSvc.sendEmail({
         to: worker.email,
         subject: emailSubject,
         html: emailHtml,
@@ -230,6 +231,7 @@ VisiGate Pro - Contractor Management System
     visitorId?: string;
     staffId?: string;
     companyName?: string;
+    customerId?: string;
   }): Promise<boolean> {
     try {
       if (!params.personEmail) {
@@ -361,7 +363,8 @@ This is a legal requirement under UK Health & Safety regulations.
 VisiGate Pro - Visitor Management System
       `;
 
-      await sendInductionEmail({
+      const emailSvc = new EmailService(params.customerId);
+      await emailSvc.sendEmail({
         to: params.personEmail,
         subject: emailSubject,
         html: emailHtml,

@@ -127,8 +127,8 @@ class EmailService {
             emailType,
             status,
           });
-        } catch (_) {
-          // Silent — logging must never break email delivery
+        } catch (logErr) {
+          console.error('[EmailLog] Failed to log email to outbox:', logErr);
         }
       });
     }

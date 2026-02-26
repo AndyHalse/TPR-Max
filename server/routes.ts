@@ -9675,7 +9675,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(404).json({ error: 'Contractor not found' });
       }
 
-      const success = await inductionService.sendInductionEmail(contractorId);
+      const success = await inductionService.sendInductionEmail(contractorId, req.customerId);
       
       if (success) {
         res.json({ message: 'Induction email sent successfully' });
@@ -9708,7 +9708,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         workerId,
         visitorId,
         staffId,
-        companyName
+        companyName,
+        customerId: req.customerId
       });
       
       if (success) {
@@ -13683,7 +13684,7 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/contractors/workers/:workerId/send-induction", async (req, res) => {
     try {
       const { workerId } = req.params;
-      const success = await inductionService.sendInductionEmail(workerId);
+      const success = await inductionService.sendInductionEmail(workerId, req.customerId);
       
       if (success) {
         res.json({ success: true, message: "Induction email sent successfully" });
@@ -13706,7 +13707,7 @@ This is an automated notification from your visitor management system.`;
       const results = await Promise.all(
         workers.map(async (worker) => {
           if (worker.email && !worker.inductionCompleted) {
-            return await inductionService.sendInductionEmail(worker.id);
+            return await inductionService.sendInductionEmail(worker.id, req.customerId);
           }
           return false;
         })
