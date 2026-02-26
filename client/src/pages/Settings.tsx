@@ -646,6 +646,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/departments/names"] });
       setShowDepartmentDialog(false);
       setDepartmentToEdit(null);
       setDepartmentForm({ name: "", description: "", color: "bg-blue-50 dark:bg-blue-950/300" });
@@ -670,6 +671,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/departments/names"] });
       toast({
         title: "Success",
         description: "Department deleted successfully!",
