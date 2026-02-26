@@ -1,6 +1,8 @@
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import type { RoomBooking, MeetingRoom, Staff, Visitor, CompanySettings } from '@shared/schema';
+import { CustomerDatabaseService } from './customerDatabase.js';
+import { emailLog } from './isolatedSchema.js';
 
 interface EmailOptions {
   to: string;
@@ -116,8 +118,6 @@ class EmailService {
       const status = success ? 'sent' : 'failed';
       setImmediate(async () => {
         try {
-          const { CustomerDatabaseService } = await import('./customerDatabaseService.js');
-          const { emailLog } = await import('./isolatedSchema.js');
           const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
           await customerDb.insert(emailLog).values({
             recipientEmail,
