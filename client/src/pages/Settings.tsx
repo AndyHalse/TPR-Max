@@ -21,6 +21,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
 import { DefaultTemplateManager } from "@/components/DefaultTemplateManager";
 import ZoneManagement from "@/pages/ZoneManagement";
@@ -1350,106 +1351,156 @@ export default function Settings() {
               <Mail className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
               <h3 className="text-lg font-semibold text-fixed">SMTP Email Configuration</h3>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">
-                    SMTP Server Host
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder=""
-                    value={currentSettings?.smtpHost || "smtp.ionos.co.uk"}
-                    onChange={(e) => handleInputChange("smtpHost", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                    data-testid="input-smtp-host"
-                  />
-                </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">
-                    SMTP Port
-                  </Label>
-                  <Select 
-                    value={currentSettings?.smtpPort || "587"} 
-                    onValueChange={(value) => handleInputChange("smtpPort", value)}
-                  >
-                    <SelectTrigger data-testid="select-smtp-port">
-                      <SelectValue placeholder="Select SMTP port" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="25">25 (Standard, Non-encrypted)</SelectItem>
-                      <SelectItem value="587">587 (STARTTLS - Recommended)</SelectItem>
-                      <SelectItem value="465">465 (SSL/TLS)</SelectItem>
-                      <SelectItem value="2525">2525 (Alternative)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-variable">Port 587 with STARTTLS is recommended for most providers</p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium text-fixed">
-                      Use SSL/TLS Encryption
-                    </Label>
-                    <p className="text-xs text-variable">Secure connection (recommended)</p>
+            <TooltipProvider delayDuration={200}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">SMTP Server Host</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={14} className="text-variable cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          The outgoing mail server address provided by your email host. Check your email provider's documentation for the correct hostname.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input
+                      type="text"
+                      placeholder="e.g. smtp.ionos.co.uk or smtp.gmail.com"
+                      value={currentSettings?.smtpHost || ""}
+                      onChange={(e) => handleInputChange("smtpHost", e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                      data-testid="input-smtp-host"
+                    />
                   </div>
-                  <Switch
-                    checked={currentSettings?.smtpSecurity === "SSL/TLS"}
-                    onCheckedChange={(checked) => handleInputChange("smtpSecurity", checked ? "SSL/TLS" : "STARTTLS")}
-                    data-testid="switch-smtp-secure"
-                  />
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">SMTP Port</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={14} className="text-variable cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          Port 587 (STARTTLS) is recommended for most providers. Use 465 only if your provider requires SSL/TLS on connection. Avoid port 25 as it is often blocked.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={currentSettings?.smtpPort || "587"}
+                      onValueChange={(value) => handleInputChange("smtpPort", value)}
+                    >
+                      <SelectTrigger data-testid="select-smtp-port">
+                        <SelectValue placeholder="Select SMTP port" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25 (Standard, Non-encrypted)</SelectItem>
+                        <SelectItem value="587">587 (STARTTLS - Recommended)</SelectItem>
+                        <SelectItem value="465">465 (SSL/TLS)</SelectItem>
+                        <SelectItem value="2525">2525 (Alternative)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-variable">Port 587 with STARTTLS is recommended for most providers</p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm font-medium text-fixed">Use SSL/TLS Encryption</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info size={14} className="text-variable cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            Enable this if your provider uses port 465 (SSL/TLS). Leave off for port 587 (STARTTLS), which upgrades the connection automatically after connecting.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <p className="text-xs text-variable">Secure connection (recommended)</p>
+                    </div>
+                    <Switch
+                      checked={currentSettings?.smtpSecurity === "SSL/TLS"}
+                      onCheckedChange={(checked) => handleInputChange("smtpSecurity", checked ? "SSL/TLS" : "STARTTLS")}
+                      data-testid="switch-smtp-secure"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">Email Username</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={14} className="text-variable cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          Usually your full email address (e.g. noreply@yourcompany.com). This is the account that will send all system emails including visitor passes and alerts.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input
+                      type="email"
+                      placeholder="e.g. noreply@yourcompany.com"
+                      value={currentSettings?.smtpUsername || ""}
+                      onChange={(e) => handleInputChange("smtpUsername", e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                      data-testid="input-smtp-username"
+                    />
+                    <p className="text-xs text-variable">Usually your full email address</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">Email Password</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={14} className="text-variable cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          For Gmail and Outlook, you must use an App Password — not your normal account password. Generate one in your account's security settings with 2FA enabled.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input
+                      type="password"
+                      placeholder="Your email password or app-specific password"
+                      value={currentSettings?.smtpPassword || ""}
+                      onChange={(e) => handleInputChange("smtpPassword", e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                      data-testid="input-smtp-password"
+                    />
+                    <p className="text-xs text-variable">Use app-specific password for Gmail/Outlook</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-fixed">From Name (Display Name)</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={14} className="text-variable cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          The sender name recipients will see in their inbox. Use something recognisable for your company, e.g. "Acme Ltd Visitor System" or "TPR Max Notifications".
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input
+                      type="text"
+                      placeholder="e.g. Acme Ltd Visitor System"
+                      value={currentSettings?.smtpFromName || ""}
+                      onChange={(e) => handleInputChange("smtpFromName", e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                      data-testid="input-smtp-from-name"
+                    />
+                    <p className="text-xs text-variable">The name that appears as the sender</p>
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">
-                    Email Username
-                  </Label>
-                  <Input
-                    type="email"
-                    placeholder=""
-                    value={currentSettings?.smtpUsername || ""}
-                    onChange={(e) => handleInputChange("smtpUsername", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                    data-testid="input-smtp-username"
-                  />
-                  <p className="text-xs text-variable">Usually your full email address</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">
-                    Email Password
-                  </Label>
-                  <Input
-                    type="password"
-                    placeholder="Your email password or app-specific password"
-                    value={currentSettings?.smtpPassword || ""}
-                    onChange={(e) => handleInputChange("smtpPassword", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                    data-testid="input-smtp-password"
-                  />
-                  <p className="text-xs text-variable">Use app-specific password for Gmail/Outlook</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-fixed">
-                    From Name (Display Name)
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder=""
-                    value={currentSettings?.smtpFromName || "VisiGate Pro System"}
-                    onChange={(e) => handleInputChange("smtpFromName", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                    data-testid="input-smtp-from-name"
-                  />
-                  <p className="text-xs text-variable">The name that appears as the sender</p>
-                </div>
-              </div>
-            </div>
+            </TooltipProvider>
 
             <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">📧 Common SMTP Providers:</h4>
