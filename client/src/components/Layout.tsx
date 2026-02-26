@@ -6,7 +6,7 @@ import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
 import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { getQueryFn } from "@/lib/queryClient";
 
 interface LayoutProps {
@@ -223,10 +223,17 @@ export default function Layout({ children }: LayoutProps) {
 
   const currentLogoSrc = getLogoSrc();
 
+  const navBannerStyle: CSSProperties = settings?.navBannerColor
+    ? { backgroundColor: settings.navBannerColor, boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }
+    : {};
+  const navInvert = !!settings?.navBannerInvert;
+  const bannerTextStyle: CSSProperties = navInvert ? { color: '#ffffff' } : {};
+  const bannerActiveIconStyle: CSSProperties = navInvert ? { color: '#ffffff' } : { color: 'var(--primary)' };
+
   return (
     <div className="min-h-screen">
       {/* Navigation */}
-      <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 sm:py-3">
+      <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 sm:py-3" style={navBannerStyle}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link href="/marketing">
             <div className="flex items-center space-x-3 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
@@ -239,14 +246,14 @@ export default function Layout({ children }: LayoutProps) {
                     onError={handleLogoError}
                   />
                 ) : (
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={{color: settings?.accentColor || '#2460a9'}}>
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={navInvert ? { color: '#ffffff' } : {color: settings?.accentColor || '#2460a9'}}>
                     {settings?.companyName?.charAt(0) || 'A'}
                   </div>
                 )}
               </div>
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-fixed truncate">{settings?.companyName || "VisiGate Pro"}</h1>
-                <p className="text-xs text-variable hidden sm:block">TPR Max</p>
+                <h1 className="text-lg sm:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || "VisiGate Pro"}</h1>
+                <p className="text-xs hidden sm:block" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR Max</p>
               </div>
             </div>
           </Link>
@@ -261,9 +268,9 @@ export default function Layout({ children }: LayoutProps) {
                         className={`nav-btn p-3 rounded-lg transition-colors ${
                           location === item.path 
                             ? 'bg-white/20 shadow-sm' 
-                            : 'text-fixed hover:bg-white/10'
+                            : 'hover:bg-white/10'
                         }`}
-                        style={location === item.path ? { color: 'var(--primary)' } : {}}
+                        style={location === item.path ? bannerActiveIconStyle : bannerTextStyle}
                         data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                       >
                         <item.icon size={21} />
@@ -281,7 +288,8 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
             {/* Mobile menu button */}
             <button
-              className="lg:hidden p-2 rounded-lg text-fixed hover:bg-white/10 transition-colors"
+              className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
+              style={bannerTextStyle}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="mobile-menu-button"
             >
@@ -291,10 +299,10 @@ export default function Layout({ children }: LayoutProps) {
             {user && (
               <div className="flex items-center space-x-2">
                 <div className="glass-effect px-2 sm:px-3 py-1 rounded-full flex items-center space-x-1 sm:space-x-2">
-                  <User className="text-variable" size={14} />
-                  <span className="text-xs sm:text-sm text-fixed font-medium">{user.username}</span>
+                  <User size={14} style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}} />
+                  <span className="text-xs sm:text-sm font-medium" style={bannerTextStyle}>{user.username}</span>
                 </div>
-                <LogoutButton />
+                <LogoutButton bannerInvert={navInvert} />
               </div>
             )}
           </div>

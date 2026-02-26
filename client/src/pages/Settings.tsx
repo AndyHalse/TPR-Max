@@ -1972,6 +1972,66 @@ export default function Settings() {
                         />
                       </div>
                     </div>
+
+                    <div className="space-y-2 pt-4 border-t border-white/20 dark:border-slate-700/30">
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Nav Bar Colour
+                      </Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Set a custom background colour for the top navigation bar. Leave blank to use the default glass effect.</p>
+                      <div className="flex gap-3 items-center">
+                        <Input
+                          type="color"
+                          value={currentSettings?.navBannerColor || "#ffffff"}
+                          onChange={(e) => handleInputChange("navBannerColor", e.target.value)}
+                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                        />
+                        <Input
+                          type="text"
+                          value={currentSettings?.navBannerColor || ""}
+                          onChange={(e) => handleInputChange("navBannerColor", e.target.value)}
+                          className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
+                          placeholder="e.g. #1e3a5f  (leave blank for default)"
+                        />
+                        {currentSettings?.navBannerColor && (
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange("navBannerColor", "")}
+                            className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 border border-slate-300 rounded-lg"
+                            title="Clear custom colour"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 pt-2">
+                        <Switch
+                          id="navBannerInvert"
+                          checked={!!currentSettings?.navBannerInvert}
+                          onCheckedChange={(checked) => handleInputChange("navBannerInvert", checked)}
+                        />
+                        <div>
+                          <Label htmlFor="navBannerInvert" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                            Invert Icons &amp; Text
+                          </Label>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Turn on to make nav icons and text white — ideal for dark banner colours.</p>
+                        </div>
+                      </div>
+                      {currentSettings?.navBannerColor && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-white/30 dark:border-slate-700/30">
+                          <div
+                            className="px-4 py-3 flex items-center gap-3 text-sm font-medium"
+                            style={{
+                              backgroundColor: currentSettings.navBannerColor,
+                              color: currentSettings.navBannerInvert ? '#ffffff' : undefined,
+                            }}
+                          >
+                            <span className="opacity-60 text-xs">Preview:</span>
+                            <span>Your Company</span>
+                            <span className="opacity-60 ml-auto text-xs">Nav icons will appear here</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </GlassCard>
                 

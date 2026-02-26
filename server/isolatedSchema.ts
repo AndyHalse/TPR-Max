@@ -336,6 +336,8 @@ export const companySettings = pgTable("company_settings", {
   foregroundColor: text("foreground_color").default("#1e293b"), // Fixed text: labels, headings
   variableTextColor: text("variable_text_color").default("#374151"), // Variable text: data values, content
   accentColor: text("accent_color").default("#3b82f6"),
+  navBannerColor: text("nav_banner_color"),
+  navBannerInvert: boolean("nav_banner_invert").default(false),
   bannerUrl: text("banner_url"),
   theme: text("theme").default("light"), // light or dark
   // Printer settings

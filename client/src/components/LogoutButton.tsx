@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function LogoutButton() {
+interface LogoutButtonProps {
+  bannerInvert?: boolean;
+}
+
+export default function LogoutButton({ bannerInvert }: LogoutButtonProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -14,13 +18,10 @@ export default function LogoutButton() {
       return response.json();
     },
     onSuccess: () => {
-      // Navigate away first to avoid React re-renders with stale auth state
       localStorage.removeItem('visigate_user');
       localStorage.removeItem('tprmax-last-login');
       localStorage.removeItem('tprmax-logo-token');
-      // Clear all cached data to prevent cross-tenant data bleeding
       queryClient.clear();
-      // Hard redirect — clears all React state cleanly
       window.location.href = '/login';
     },
     onError: (error: Error) => {
@@ -38,7 +39,8 @@ export default function LogoutButton() {
       size="sm"
       onClick={() => logoutMutation.mutate()}
       disabled={logoutMutation.isPending}
-      className="text-variable hover:text-fixed dark:text-slate-400 dark:hover:text-slate-200"
+      className="hover:bg-white/10 transition-colors"
+      style={bannerInvert ? { color: '#ffffff' } : {}}
       data-testid="button-logout"
     >
       <LogOut size={16} className="mr-2" />

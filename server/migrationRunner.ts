@@ -161,6 +161,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     missingAnalyticsHelpTablesMigration,
     rebuildIsolatedReportsMigration,
     addEmailLogMigration,
+    addNavBannerColorMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1363,6 +1364,30 @@ const addEmailLogMigration: Migration = {
     } catch (err: any) {
       if (!err.message?.includes('already exists')) {
         console.log(`⚠️ [014] feature_email_outbox column: ${err.message?.substring(0, 80)}`);
+      }
+    }
+  }
+};
+
+// Migration 015: Add nav_banner_color and nav_banner_invert columns to company_settings
+const addNavBannerColorMigration: Migration = {
+  version: '20260226_015_add_nav_banner_color',
+  description: 'Add nav_banner_color and nav_banner_invert columns to company_settings for banner colour customisation',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS nav_banner_color TEXT`);
+      console.log('✅ [015] Added nav_banner_color to company_settings');
+    } catch (err: any) {
+      if (!err.message?.includes('already exists')) {
+        console.log(`⚠️ [015] nav_banner_color: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS nav_banner_invert BOOLEAN DEFAULT false`);
+      console.log('✅ [015] Added nav_banner_invert to company_settings');
+    } catch (err: any) {
+      if (!err.message?.includes('already exists')) {
+        console.log(`⚠️ [015] nav_banner_invert: ${err.message?.substring(0, 80)}`);
       }
     }
   }
