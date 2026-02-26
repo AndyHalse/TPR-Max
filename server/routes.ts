@@ -21531,11 +21531,23 @@ This is an automated notification from your visitor management system.`;
         } catch (_) {}
       }
 
-      // Insert 10 sample contractors (each with their own company)
-      for (let i = 0; i < 10; i++) {
+      // Insert 5 contractor companies, each with a random number of workers (1-12)
+      const contractorCompanyNames = [
+        'BuildRight Contractors Ltd',
+        'SafeWork Facilities UK',
+        'Delta Technical Services',
+        'Apex Maintenance Group',
+        'Horizon Build & Civil',
+      ];
+      const contractorJobTitles = [
+        'Site Engineer', 'Electrician', 'Plumber', 'HVAC Technician', 'Health & Safety Officer',
+        'Project Manager', 'Scaffolder', 'Welder', 'Carpenter', 'Painter & Decorator',
+        'Structural Engineer', 'Forklift Operator', 'Mechanical Fitter', 'Site Supervisor', 'Labourer',
+      ];
+      let workersAdded = 0;
+      for (let c = 0; c < contractorCompanyNames.length; c++) {
         try {
-          // Find or create company
-          const companyName = `Demo ${companies[i]}`;
+          const companyName = contractorCompanyNames[c];
           let companyId: string;
           const existing = await customerDb
             .select({ id: isolatedSchema.contractorCompanies.id })
@@ -21551,15 +21563,27 @@ This is an automated notification from your visitor management system.`;
               .returning({ id: isolatedSchema.contractorCompanies.id });
             companyId = newCo[0].id;
           }
-          await customerDb.insert(isolatedSchema.contractorWorkers).values({
-            companyId,
-            firstName: firstNames[(i + 1) % 10],
-            lastName: lastNames[(i + 2) % 10],
-            email: demoEmail,
-            jobTitle: 'Contractor',
-            department: departments[(i + 4) % 10]
-          });
           contractorsAdded++;
+
+          // Add a random number of workers (1–12) for this company
+          const workerCount = Math.floor(Math.random() * 12) + 1;
+          for (let w = 0; w < workerCount; w++) {
+            try {
+              const fnIdx = (c * 3 + w) % firstNames.length;
+              const lnIdx = (c * 5 + w + 2) % lastNames.length;
+              const jobIdx = (c * 4 + w) % contractorJobTitles.length;
+              const deptIdx = (c * 2 + w + 1) % departments.length;
+              await customerDb.insert(isolatedSchema.contractorWorkers).values({
+                companyId,
+                firstName: firstNames[fnIdx],
+                lastName: lastNames[lnIdx],
+                email: demoEmail,
+                jobTitle: contractorJobTitles[jobIdx],
+                department: departments[deptIdx]
+              });
+              workersAdded++;
+            } catch (_) {}
+          }
         } catch (_) {}
       }
 
@@ -21587,8 +21611,8 @@ This is an automated notification from your visitor management system.`;
 
       res.json({
         success: true,
-        message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractors, ${membersAdded} members`,
-        results: { staffAdded, visitorsAdded, contractorsAdded, membersAdded }
+        message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members`,
+        results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded }
       });
     } catch (error) {
       console.error('Error loading sample data:', error);
