@@ -326,8 +326,11 @@ export default function EmailOutbox() {
               <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-white">
                 {previewData.htmlBody ? (
                   <iframe
-                    srcDoc={previewData.htmlBody.replace(/<a(\s)/gi, '<a target="_blank" rel="noopener noreferrer"$1')}
-                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                    srcDoc={
+                      previewData.htmlBody.includes("<head")
+                        ? previewData.htmlBody.replace(/<head([^>]*)>/i, '<head$1><base target="_blank">')
+                        : `<html><head><base target="_blank"></head><body>${previewData.htmlBody}</body></html>`
+                    }
                     style={{ width: "100%", height: "100%", minHeight: "520px", border: "none", display: "block" }}
                     title="Email preview"
                   />
