@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useId } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -24,6 +23,8 @@ export function ObjectUploader({
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
+  const uid = useId(); // unique per instance — fixes duplicate-id bug when multiple uploaders are on the same page
+  const inputId = `file-upload-${uid}`;
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -110,9 +111,9 @@ export function ObjectUploader({
           accept={accept}
           onChange={handleFileSelect}
           className="hidden"
-          id="file-upload"
+          id={inputId}
         />
-        <label htmlFor="file-upload">
+        <label htmlFor={inputId}>
           <Button
             type="button"
             variant="outline"
