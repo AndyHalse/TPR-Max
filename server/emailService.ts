@@ -12,6 +12,24 @@ interface EmailOptions {
 
 class EmailService {
   private transporter;
+  private customerId?: string;
+
+  // Infer a human-readable email type from the subject line
+  private static inferEmailType(subject: string): string {
+    const s = subject.toLowerCase();
+    if (s.includes('fire marshal')) return 'Fire Marshal Alert';
+    if (s.includes('evacuat')) return 'Evacuation Alert';
+    if (s.includes('induction')) return 'Induction Link';
+    if (s.includes('booking') || s.includes('room')) return 'Room Booking';
+    if (s.includes('invitation') || s.includes('invited')) return 'Visitor Invitation';
+    if (s.includes('e-pass') || s.includes('epass') || s.includes('digital pass')) return 'E-Pass';
+    if (s.includes('checkout') || s.includes('check-out')) return 'Checkout Reminder';
+    if (s.includes('reminder')) return 'Meeting Reminder';
+    if (s.includes('report')) return 'Report';
+    if (s.includes('welcome')) return 'Welcome / Onboarding';
+    if (s.includes('card')) return 'Card Notification';
+    return 'System Email';
+  }
 
   // Helper function to convert HTML to plain text
   private generatePlainTextFromHtml(html: string | undefined | null): string {
@@ -34,7 +52,8 @@ class EmailService {
       .trim();
   }
 
-  constructor() {
+  constructor(customerId?: string) {
+    this.customerId = customerId;
     // Use SMTP configuration from environment variables
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -48,6 +67,7 @@ class EmailService {
   }
 
   async sendEmail(options: EmailOptions & { attachments?: any[] }): Promise<boolean> {
+    let success = false;
     try {
       // Get company name from options if available
       const companyName = options.companyName || 'TPR Max';
@@ -79,11 +99,41 @@ class EmailService {
 
       await this.transporter.sendMail(mailOptions);
       console.log(`Email sent successfully to ${options.to}`);
-      return true;
+      success = true;
     } catch (error) {
       console.error('Failed to send email:', error);
-      return false;
+      success = false;
     }
+
+    // Fire-and-forget: log email to outbox (never blocks or throws)
+    if (this.customerId) {
+      const customerId = this.customerId;
+      const subject = options.subject || '';
+      const htmlBody = options.html || '';
+      const textBody = options.text || '';
+      const recipientEmail = options.to || '';
+      const emailType = EmailService.inferEmailType(subject);
+      const status = success ? 'sent' : 'failed';
+      setImmediate(async () => {
+        try {
+          const { CustomerDatabaseService } = await import('./customerDatabaseService.js');
+          const { emailLog } = await import('./isolatedSchema.js');
+          const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+          await customerDb.insert(emailLog).values({
+            recipientEmail,
+            subject,
+            htmlBody,
+            textBody,
+            emailType,
+            status,
+          });
+        } catch (_) {
+          // Silent — logging must never break email delivery
+        }
+      });
+    }
+
+    return success;
   }
 
   async sendReport(report: any, settings: any, recipients: string[], reportData: any): Promise<boolean> {

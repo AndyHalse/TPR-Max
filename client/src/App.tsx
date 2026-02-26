@@ -27,6 +27,7 @@ import FireMarshalMuster from "@/pages/FireMarshalMuster";
 import FireMarshalPanel from "@/pages/FireMarshalPanel";
 import FireMarshalMobile from "@/pages/FireMarshalMobile";
 import InductionSettings from "@/pages/InductionSettings";
+import EmailOutbox from "@/pages/EmailOutbox";
 import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
 import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
@@ -299,6 +300,7 @@ function Router() {
             <Route path="/settings" component={Settings} />
             <Route path="/settings/ai" component={AISettings} />
             <Route path="/induction-settings" component={InductionSettings} />
+            <Route path="/email-outbox" component={EmailOutbox} />
             <Route path="/meeting-rooms" component={MeetingRooms} />
             <Route path="/ai-demo" component={AIDemo} />
             <Route path="/billing" component={Billing} />

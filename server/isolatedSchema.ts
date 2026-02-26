@@ -467,6 +467,7 @@ export const companySettings = pgTable("company_settings", {
   featureAiDemo: boolean("feature_ai_demo").default(false),
   featureContractorPage: boolean("feature_contractor_page").default(false),
   featureMembers: boolean("feature_members").default(false),
+  featureEmailOutbox: boolean("feature_email_outbox").default(false),
   
   // Zones configuration
   zonesEnabled: boolean("zones_enabled").default(false),
@@ -1467,6 +1468,18 @@ export const helpOnboardingProgress = pgTable("help_onboarding_progress", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Email Log table - customer isolated, records every outgoing system email
+export const emailLog = pgTable("email_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  recipientEmail: text("recipient_email").notNull(),
+  subject: text("subject").notNull(),
+  htmlBody: text("html_body").notNull().default(""),
+  textBody: text("text_body").notNull().default(""),
+  emailType: text("email_type").notNull().default("System Email"),
+  status: text("status").notNull().default("sent"),
+});
+
 // Reports table - customer isolated (no customerId needed, schema provides isolation)
 export const reports = pgTable("reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1905,3 +1918,11 @@ export type InsertCustomerApiKey = z.infer<typeof insertCustomerApiKeySchema>;
 // Feature Usage Analytics Types
 export type FeatureUsageAnalytics = typeof featureUsageAnalytics.$inferSelect;
 export type InsertFeatureUsageAnalytics = z.infer<typeof insertFeatureUsageAnalyticsSchema>;
+
+// Email Log Types
+export const insertEmailLogSchema = createInsertSchema(emailLog).omit({
+  id: true,
+  sentAt: true,
+});
+export type EmailLog = typeof emailLog.$inferSelect;
+export type InsertEmailLog = z.infer<typeof insertEmailLogSchema>;

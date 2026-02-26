@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -203,6 +203,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings" },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk" },
     { path: "/ai-demo", icon: Brain, label: "AI Demo", featureKey: "featureAiDemo" },
+    { path: "/email-outbox", icon: Mail, label: "Email Outbox", featureKey: "featureEmailOutbox" },
     { path: "/settings", icon: Settings, label: "Settings", alwaysVisible: true },
   ];
 

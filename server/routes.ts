@@ -2955,7 +2955,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // Send email notifications if requested
       if (sendEmail) {
-        const emailService = new EmailService();
+        const emailService = new EmailService(req.customerId);
         
         // Send to all staff
         for (const staff of checkedInStaff) {
@@ -3051,7 +3051,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       
       // Send the emergency notification
-      const emailService = new EmailService();
+      const emailService = new EmailService(req.customerId);
       // Note: sendVisitorEmergencyNotification method needs to be implemented
       const emailSent = false; // await emailService.sendVisitorEmergencyNotification(
         // visitor,
@@ -3303,7 +3303,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         activatedBy
       };
       
-      const customEmailService = new EmailService();
+      const customEmailService = new EmailService(req.customerId);
       const errors = [];
       
       // Identify Fire Marshals FIRST (before sending any emails) - always notify ALL fire marshals regardless of zone filter
@@ -3502,7 +3502,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               accountedFor: 0,
               siteLocation: companySettings?.siteName || 'Site',
               musterPoints: evacuationData.musterPoints
-            });
+            }, req.customerId);
             
             fireMarshalEmailsSent++;
             console.log(`✅ EMAIL SENT to ${marshal.email} with static URL: ${marshalUrl}`);
@@ -4055,7 +4055,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Get updated accountability data
       const currentVisitors = await databaseService.getCurrentVisitors(context);
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
-      const customEmailService = new EmailService();
+      const customEmailService = new EmailService(req.customerId);
 
       const evacuationData = {
         timestamp: new Date().toISOString(),
@@ -10672,7 +10672,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         reportData = { type: 'visitor_log', visitors: allVisitors, checkedOutVisitors: allVisitors.filter(v => v.checkedOutAt), staff: allStaff };
       }
       
-      const emailService = new EmailService();
+      const emailService = new EmailService(req.customerId);
       const emailSent = await emailService.sendReport(report, settings, recipients, reportData);
       
       if (emailSent) {
@@ -10797,7 +10797,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         };
       }
       
-      const emailService = new EmailService();
+      const emailService = new EmailService(req.customerId);
       const html = (emailService as any).generateReportHTML(report, reportData, settings?.companyName || 'TPR Max');
       
       res.send(html);
@@ -10862,7 +10862,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // Get current SMTP settings and create dynamic email service
       const settings = await simpleDatabaseService.getCompanySettings(context);
-      const dynamicEmailService = new EmailService(settings);
+      const dynamicEmailService = new EmailService(req.customerId);
       
       const success = await dynamicEmailService.sendTestEmail(email);
       
@@ -11100,7 +11100,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           const companySettings = await databaseService.getCompanySettings(context);
           
           const { EmailService } = await import("./emailService");
-          const emailService = new EmailService();
+          const emailService = new EmailService(req.customerId);
           const emailSent = await emailService.sendVisitorInvitation(
             preBooking,
             hostStaff,
@@ -11163,7 +11163,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       
       const { EmailService } = await import("./emailService");
-      const emailService = new EmailService();
+      const emailService = new EmailService(req.customerId);
       const emailSent = await emailService.sendVisitorInvitation(
         preBooking,
         hostStaff,
@@ -11350,7 +11350,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       // Send email notification to host if host exists
       if (hostStaffInCustomerDb && hostStaffInCustomerDb.email) {
         try {
-          const emailService = new EmailService();
+          const emailService = new EmailService(req.customerId);
           const subject = `✅ Visitor Arrived: ${firstName} ${lastName}`;
           
           const html = `
@@ -12128,7 +12128,7 @@ This is an automated notification from your visitor management system.`;
           const prebookingContext = simpleDatabaseService.createCustomerContext(prebookingUsername, req.customerId);
           const companySettings = await simpleDatabaseService.getCompanySettings(prebookingContext);
           
-          const emailService = new EmailService();
+          const emailService = new EmailService(req.customerId);
           const emailSent = await emailService.sendContractorPreBookingPass(
             emailTarget,
             newPreBooking.workerName,
@@ -15358,7 +15358,7 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: 'Company settings not found' });
       }
       
-      const customEmailService = new EmailService();
+      const customEmailService = new EmailService(req.customerId);
       let emailsSent = 0;
       const errors = [];
       
@@ -16305,7 +16305,7 @@ This is an automated notification from your visitor management system.`;
           if (companySettings?.ePassEnabled) {
             console.log(`📧 Sending contractor e-pass to ${worker.email} for H&S acceptance and check-in completion`);
             
-            const emailService = new EmailService();
+            const emailService = new EmailService(req.customerId);
             
             emailSentSuccessfully = await emailService.sendContractorEPass(
               worker.email,
@@ -16340,7 +16340,7 @@ This is an automated notification from your visitor management system.`;
           const hostStaff = await databaseService.getStaffById(context, hostStaffId);
           if (hostStaff && hostStaff.email) {
             const companySettings = await simpleDatabaseService.getCompanySettings(context);
-            const arrivalEmailService = new EmailService();
+            const arrivalEmailService = new EmailService(req.customerId);
             await arrivalEmailService.sendArrivalNotification({
               hostEmail: hostStaff.email,
               hostFirstName: hostStaff.firstName,
@@ -16631,7 +16631,7 @@ This is an automated notification from your visitor management system.`;
         const totalCheckedOut = resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut;
         if (totalCheckedOut > 0) {
           const { EmailService } = await import("./emailService");
-          const emailService = new EmailService();
+          const emailService = new EmailService(req.customerId);
           
           const recipients = settings.reportRecipients || [];
           const subject = `Daily Reset ${isManual ? '(Manual)' : '(Automatic)'} - ${totalCheckedOut} Personnel Checked Out`;
@@ -16895,7 +16895,7 @@ This is an automated notification from your visitor management system.`;
       }
       
       const { EmailService } = await import("./emailService");
-      const emailService = new EmailService();
+      const emailService = new EmailService(req.customerId);
       
       const subject = `Overnight Check-Out Alert - ${totalOvernight} Personnel Still On-Site`;
       
@@ -16986,7 +16986,7 @@ This is an automated notification from your visitor management system.`;
       }
       
       const { EmailService } = await import("./emailService");
-      const emailService = new EmailService();
+      const emailService = new EmailService(req.customerId);
       
       // Collect all emails from on-site personnel
       const emailAddresses = new Set<string>();
@@ -21477,6 +21477,74 @@ This is an automated notification from your visitor management system.`;
     } catch (error) {
       console.error('Error importing members:', error);
       res.status(500).json({ error: 'Failed to import members', details: error.message });
+    }
+  });
+
+  // =====================================================
+  // EMAIL OUTBOX ROUTES
+  // =====================================================
+
+  app.get("/api/email-log", requireAuth, async (req, res) => {
+    try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const settings = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+      if (!settings[0]?.featureEmailOutbox) {
+        return res.status(403).json({ error: 'Email Outbox feature is not enabled' });
+      }
+      const emails = await customerDb
+        .select({
+          id: isolatedSchema.emailLog.id,
+          sentAt: isolatedSchema.emailLog.sentAt,
+          recipientEmail: isolatedSchema.emailLog.recipientEmail,
+          subject: isolatedSchema.emailLog.subject,
+          emailType: isolatedSchema.emailLog.emailType,
+          status: isolatedSchema.emailLog.status,
+        })
+        .from(isolatedSchema.emailLog)
+        .orderBy(desc(isolatedSchema.emailLog.sentAt))
+        .limit(200);
+      res.json({ emails, total: emails.length });
+    } catch (error: any) {
+      console.error('Error fetching email log:', error);
+      res.status(500).json({ error: 'Failed to fetch email log', details: error.message });
+    }
+  });
+
+  app.get("/api/email-log/:id", requireAuth, async (req, res) => {
+    try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const settings = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+      if (!settings[0]?.featureEmailOutbox) {
+        return res.status(403).json({ error: 'Email Outbox feature is not enabled' });
+      }
+      const rows = await customerDb
+        .select()
+        .from(isolatedSchema.emailLog)
+        .where(eq(isolatedSchema.emailLog.id, req.params.id))
+        .limit(1);
+      if (!rows[0]) return res.status(404).json({ error: 'Email log entry not found' });
+      res.json(rows[0]);
+    } catch (error: any) {
+      console.error('Error fetching email log entry:', error);
+      res.status(500).json({ error: 'Failed to fetch email log entry', details: error.message });
+    }
+  });
+
+  app.delete("/api/email-log/clear", requireAuth, async (req, res) => {
+    try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const settings = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+      if (!settings[0]?.featureEmailOutbox) {
+        return res.status(403).json({ error: 'Email Outbox feature is not enabled' });
+      }
+      const result = await customerDb.delete(isolatedSchema.emailLog);
+      res.json({ deleted: true });
+    } catch (error: any) {
+      console.error('Error clearing email log:', error);
+      res.status(500).json({ error: 'Failed to clear email log', details: error.message });
     }
   });
 

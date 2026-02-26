@@ -37,7 +37,7 @@ export class EmergencyEmailService {
     throw new Error('generateEmergencyToken is deprecated - use fire_marshal_url_id for permanent access');
   }
 
-  static async sendFireMarshalAlert(emailData: EmergencyEmailData): Promise<boolean> {
+  static async sendFireMarshalAlert(emailData: EmergencyEmailData, customerId?: string): Promise<boolean> {
     // NEW: Use static Fire Marshal URL (permanent, no expiration)
     const baseUrl = process.env.REPLIT_DOMAINS 
       ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
@@ -309,7 +309,7 @@ VisiGate Pro Emergency System - Automated Notification
 
     // Use the working EmailService from /settings
     try {
-      const emailService = new EmailService();
+      const emailService = new EmailService(customerId);
       
       const success = await emailService.sendEmail({
         to: emailData.marshalEmail,

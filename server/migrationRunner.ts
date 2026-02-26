@@ -160,6 +160,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     companySettingsPaxtonApiMigration,
     missingAnalyticsHelpTablesMigration,
     rebuildIsolatedReportsMigration,
+    addEmailLogMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1327,6 +1328,42 @@ export const missingAnalyticsHelpTablesMigration: Migration = {
       console.log('✅ [012] help_onboarding_progress table ensured');
     } catch (err: any) {
       console.log(`⚠️ [012] help_onboarding_progress: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+// Migration 014: Add email_log table and feature_email_outbox toggle to company_settings
+const addEmailLogMigration: Migration = {
+  version: '20260226_014_add_email_log_table',
+  description: 'Add email_log table for outbox feature and feature_email_outbox toggle to company_settings',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS email_log (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          recipient_email TEXT NOT NULL,
+          subject TEXT NOT NULL,
+          html_body TEXT NOT NULL DEFAULT '',
+          text_body TEXT NOT NULL DEFAULT '',
+          email_type TEXT NOT NULL DEFAULT 'System Email',
+          status TEXT NOT NULL DEFAULT 'sent'
+        )
+      `);
+      console.log('✅ [014] Created email_log table');
+    } catch (err: any) {
+      if (!err.message?.includes('already exists')) {
+        console.log(`⚠️ [014] email_log: ${err.message?.substring(0, 80)}`);
+      }
+    }
+
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_email_outbox BOOLEAN DEFAULT false`);
+      console.log('✅ [014] Added feature_email_outbox to company_settings');
+    } catch (err: any) {
+      if (!err.message?.includes('already exists')) {
+        console.log(`⚠️ [014] feature_email_outbox column: ${err.message?.substring(0, 80)}`);
+      }
     }
   }
 };
