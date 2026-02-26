@@ -894,7 +894,12 @@ export const bootstrapSchemaMigration: Migration = {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS induction_tokens (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        worker_id VARCHAR NOT NULL,
+        worker_id VARCHAR,
+        visitor_id VARCHAR,
+        staff_id VARCHAR,
+        person_type TEXT NOT NULL DEFAULT 'contractor',
+        person_name TEXT NOT NULL DEFAULT '',
+        person_email TEXT NOT NULL DEFAULT '',
         token TEXT NOT NULL UNIQUE,
         status TEXT NOT NULL DEFAULT 'pending',
         email_sent BOOLEAN DEFAULT false,

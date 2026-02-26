@@ -569,7 +569,12 @@ export const createInductionSystemMigration: Migration = {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS induction_tokens (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        worker_id VARCHAR NOT NULL REFERENCES contractor_workers(id),
+        worker_id VARCHAR REFERENCES contractor_workers(id),
+        visitor_id VARCHAR,
+        staff_id VARCHAR,
+        person_type TEXT NOT NULL DEFAULT 'contractor',
+        person_name TEXT NOT NULL DEFAULT '',
+        person_email TEXT NOT NULL DEFAULT '',
         token TEXT NOT NULL UNIQUE,
         status TEXT NOT NULL DEFAULT 'pending',
         email_sent BOOLEAN DEFAULT false,
@@ -882,6 +887,28 @@ export const addInductionKioskEnabledMigration: Migration = {
   }
 };
 
+// Migration 014: Fix induction_tokens - make worker_id nullable + add universal person columns
+export const fixInductionTokensUniversalMigration: Migration = {
+  version: '20260226_014_fix_induction_tokens_universal',
+  description: 'Make worker_id nullable on induction_tokens and add person_type, person_name, person_email, visitor_id, staff_id for universal send-link support',
+  async up(db: any) {
+    // Drop NOT NULL constraint on worker_id (allows standalone send-link without a worker record)
+    await db.execute(`
+      ALTER TABLE induction_tokens ALTER COLUMN worker_id DROP NOT NULL
+    `);
+    // Add universal person columns if they don't exist
+    await db.execute(`
+      ALTER TABLE induction_tokens
+        ADD COLUMN IF NOT EXISTS person_type TEXT NOT NULL DEFAULT 'contractor',
+        ADD COLUMN IF NOT EXISTS person_name TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS person_email TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS visitor_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS staff_id VARCHAR
+    `);
+    console.log('✅ Fixed induction_tokens: worker_id now nullable, added universal person columns');
+  }
+};
+
 // Export all migrations
 export const contractorMigrations: Migration[] = [
   createCoreContractorTablesMigration,
@@ -895,4 +922,5 @@ export const contractorMigrations: Migration[] = [
   createAIImagesMigration,
   addInductionVideoStorageMigration,
   addInductionKioskEnabledMigration,
+  fixInductionTokensUniversalMigration,
 ];

@@ -957,7 +957,12 @@ export const co2Records = pgTable("co2_records", {
 // Site Induction Video System
 export const inductionTokens = pgTable("induction_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  workerId: varchar("worker_id").references(() => contractorWorkers.id), // nullable - not all recipients are contractor workers
+  visitorId: varchar("visitor_id"), // For visitor induction links
+  staffId: varchar("staff_id"), // For staff induction links
+  personType: text("person_type").notNull().default("contractor"), // visitor, staff, contractor
+  personName: text("person_name").notNull().default(""), // Name for email personalization
+  personEmail: text("person_email").notNull().default(""), // Email address
   token: text("token").notNull().unique(),
   status: text("status").notNull().default("pending"), // pending, in_progress, completed, expired
   emailSent: boolean("email_sent").default(false),
