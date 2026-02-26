@@ -48,60 +48,21 @@ export function ObjectUploader({
 
     setIsUploading(true);
     try {
-      // Get upload URL from backend
-      const response = await fetch('/api/objects/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const fd = new FormData();
+      fd.append("file", file);
+      const response = await fetch("/api/objects/upload", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get upload URL');
-      }
-
-      const { uploadURL } = await response.json();
-
-      // Upload file directly to object storage
-      const uploadResponse = await fetch(uploadURL, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
-      }
-
-      // Extract object ID from upload URL for serving
-      // uploadURL format: https://storage.googleapis.com/bucket/path/to/uploads/objectId?params
-      const url = new URL(uploadURL);
-      const pathParts = url.pathname.split('/');
-      const objectId = pathParts[pathParts.length - 1]; // Get the last part (object ID)
-      const normalizedPath = `/objects/uploads/${objectId}`;
-      
-      console.log('Upload URL:', uploadURL);
-      console.log('Extracted object ID:', objectId);
-      console.log('Normalized path:', normalizedPath);
-      
-      // Notify parent component with the object path
-      onUploadComplete?.(normalizedPath);
-      
-      toast({
-        title: "Success",
-        description: "File uploaded successfully!",
-      });
-
+      if (!response.ok) throw new Error("Failed to upload file");
+      const { objectPath } = await response.json();
+      onUploadComplete?.(objectPath);
+      toast({ title: "Success", description: "File uploaded successfully!" });
       setSelectedFile(null);
     } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to upload file",
-        variant: "destructive",
-      });
+      console.error("Upload error:", error);
+      toast({ title: "Error", description: "Failed to upload file", variant: "destructive" });
     } finally {
       setIsUploading(false);
     }

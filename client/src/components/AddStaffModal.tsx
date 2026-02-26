@@ -193,41 +193,21 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
 
     setUploading(true);
     try {
-      // Get upload URL
-      const uploadResponse = await apiRequest("POST", "/api/objects/upload");
-      const { uploadURL } = await uploadResponse.json();
-
-      // Upload file directly to object storage
-      const uploadResult = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadResponse = await fetch("/api/objects/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
       });
-
-      if (!uploadResult.ok) {
-        throw new Error("Failed to upload photo");
-      }
-
-      // Extract object key from upload URL and create photo path
-      const urlParts = uploadURL.split('/.private/')[1] || uploadURL.split('/uploads/')[1];
-      const objectKey = urlParts ? urlParts.split('?')[0] : 'uploaded-photo';
-      const photoPath = `/objects/${objectKey.includes('uploads/') ? objectKey : 'uploads/' + objectKey}`;
-      setUploadedPhoto(photoPath);
-      setFormData(prev => ({ ...prev, photoUrl: photoPath }));
-      
-      toast({
-        title: "Success",
-        description: "Photo uploaded successfully!",
-      });
+      if (!uploadResponse.ok) throw new Error("Failed to upload photo");
+      const { objectPath } = await uploadResponse.json();
+      setUploadedPhoto(objectPath);
+      setFormData(prev => ({ ...prev, photoUrl: objectPath }));
+      toast({ title: "Success", description: "Photo uploaded successfully!" });
     } catch (error) {
       console.error("Photo upload error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to upload photo",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to upload photo", variant: "destructive" });
     } finally {
       setUploading(false);
     }

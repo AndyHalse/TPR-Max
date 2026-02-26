@@ -178,23 +178,17 @@ export default function Members() {
 
     setUploading(true);
     try {
-      const uploadResponse = await apiRequest("POST", "/api/objects/upload");
-      const { uploadURL } = await uploadResponse.json();
-
-      const uploadResult = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+      const fd = new FormData();
+      fd.append("file", file);
+      const uploadResponse = await fetch("/api/objects/upload", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
       });
-
-      if (!uploadResult.ok) throw new Error("Failed to upload photo");
-
-      const urlParts = uploadURL.split('/.private/')[1] || uploadURL.split('/uploads/')[1];
-      const objectKey = urlParts ? urlParts.split('?')[0] : 'uploaded-photo';
-      const photoPath = `/objects/${objectKey.includes('uploads/') ? objectKey : 'uploads/' + objectKey}`;
-      setUploadedPhoto(photoPath);
-      setFormData(prev => ({ ...prev, photoUrl: photoPath }));
-
+      if (!uploadResponse.ok) throw new Error("Failed to upload photo");
+      const { objectPath } = await uploadResponse.json();
+      setUploadedPhoto(objectPath);
+      setFormData(prev => ({ ...prev, photoUrl: objectPath }));
       toast({ title: "Success", description: "Photo uploaded successfully!" });
     } catch (error) {
       console.error("Photo upload error:", error);

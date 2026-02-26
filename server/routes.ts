@@ -57,12 +57,14 @@ import express from "express";
 import { randomUUID, randomBytes } from "crypto";
 import { CO2CalculationService } from "./co2CalculationService";
 
+import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
+import multer from "multer";
+
 // Staff authentication schema
 const staffAuthSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { EmailService, emailService } from "./emailService";
 import { VoiceNotificationService } from "./voiceNotificationService";
 import { EmergencyEmailService } from "./emergencyEmailService";
@@ -9282,15 +9284,37 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  // Object Storage endpoints for logo upload
-  app.post("/api/objects/upload", async (req, res) => {
+  // Object Storage endpoints for file upload (server-proxied to avoid CORS issues with direct GCS PUT)
+  const uploadMiddleware = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+  app.post("/api/objects/upload", uploadMiddleware.single("file"), async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const objectId = randomUUID();
+      const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+      // fullPath format: /bucketName/objectName...
+      const parts = fullPath.slice(1).split("/");
+      const bucketName = parts[0];
+      const objectName = parts.slice(1).join("/");
+
+      if (req.file) {
+        // File upload via multipart - save directly to GCS
+        const bucket = objectStorageClient.bucket(bucketName);
+        const file = bucket.file(objectName);
+        await file.save(req.file.buffer, {
+          contentType: req.file.mimetype,
+          resumable: false,
+        });
+        const objectPath = `/objects/uploads/${objectId}`;
+        return res.json({ objectPath });
+      } else {
+        // Legacy: return a signed URL for direct upload (kept for backward compatibility)
+        const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+        return res.json({ uploadURL });
+      }
     } catch (error) {
-      console.error("Error getting upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
+      console.error("Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 
@@ -20277,12 +20301,12 @@ This is an automated notification from your visitor management system.`;
   // ============================================================================
   
   // Import multer for file uploads
-  const multer = await import('multer');
+  const multerModule = await import('multer');
   const { stringify } = await import('csv-stringify/sync');
   const { parse } = await import('csv-parse/sync');
   
   // Configure multer for file uploads (in-memory storage)
-  const upload = multer.default({ storage: multer.default.memoryStorage() });
+  const upload = multerModule.default({ storage: multerModule.default.memoryStorage() });
 
   // ============================================================================
   // PLATFORM ADMIN - LOGO UPLOAD & CREDENTIAL RESET
