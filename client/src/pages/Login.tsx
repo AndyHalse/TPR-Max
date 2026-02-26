@@ -6,10 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, User, LogIn, Building, ArrowRight, Sparkles, Shield, Zap, ShieldCheck } from "lucide-react";
+import { Lock, User, LogIn, Building, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "wouter";
 
 function hexToHsl(hex: string): string | null {
@@ -86,38 +85,39 @@ function applyBrandingFromSettings(settings: any) {
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  
-  const loadStoredCredentials = () => {
+
+  // Initialise rememberMe from localStorage — true if the user previously saved credentials
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
     try {
-      const storedCredentials = localStorage.getItem('tprmax-last-login');
-      if (storedCredentials) {
-        const parsed = JSON.parse(storedCredentials);
-        return {
-          companyName: parsed.companyName || "",
-          username: parsed.username || ""
-        };
-      }
-    } catch (error) {
-      console.warn('Failed to load stored credentials:', error);
+      return localStorage.getItem('tprmax-remember-me') === 'true';
+    } catch {
+      return false;
     }
-    return {
-      companyName: "",
-      username: ""
-    };
-  };
-  
-  const [credentials, setCredentials] = useState(() => {
-    const stored = loadStoredCredentials();
-    return {
-      companyName: stored.companyName,
-      username: stored.username,
-      password: "" // Always start with empty password for security
-    };
   });
+
+  const [credentials, setCredentials] = useState(() => {
+    try {
+      // Only pre-fill if rememberMe was previously enabled
+      if (localStorage.getItem('tprmax-remember-me') === 'true') {
+        const stored = localStorage.getItem('tprmax-last-login');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return {
+            companyName: parsed.companyName || "",
+            username: parsed.username || "",
+            password: ""
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return { companyName: "", username: "", password: "" };
+  });
+
   const [error, setError] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
   const [isLoading, setIsLoading] = useState(false);
 
 
@@ -152,14 +152,19 @@ export default function Login() {
       
       if (response.ok && data.success) {
         // Authentication successful
-        
         try {
-          localStorage.setItem('tprmax-last-login', JSON.stringify({
-            companyName: credentials.companyName,
-            username: credentials.username
-          }));
-        } catch (error) {
-          console.warn('Failed to save login to localStorage:', error);
+          if (rememberMe) {
+            localStorage.setItem('tprmax-remember-me', 'true');
+            localStorage.setItem('tprmax-last-login', JSON.stringify({
+              companyName: credentials.companyName,
+              username: credentials.username
+            }));
+          } else {
+            localStorage.removeItem('tprmax-remember-me');
+            localStorage.removeItem('tprmax-last-login');
+          }
+        } catch (err) {
+          console.warn('Failed to save login preferences:', err);
         }
         
         toast({
@@ -306,6 +311,22 @@ export default function Login() {
               </div>
             </div>
             
+            <div className="flex items-center space-x-2 pt-1">
+              <Checkbox
+                id="remember-me"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked === true)}
+                disabled={isLoading}
+                data-testid="checkbox-remember-me"
+              />
+              <Label
+                htmlFor="remember-me"
+                className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none font-normal"
+              >
+                Remember login details
+              </Label>
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
