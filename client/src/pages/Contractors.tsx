@@ -223,6 +223,7 @@ export default function Contractors() {
   const [showEditWorkerModal, setShowEditWorkerModal] = useState(false);
   const [showIssueCardModal, setShowIssueCardModal] = useState(false);
   const [workerForCard, setWorkerForCard] = useState<any>(null);
+  const [issueCardForm, setIssueCardForm] = useState({ cardType: 'yellow', offenceId: '', description: '' });
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -337,6 +338,11 @@ export default function Contractors() {
   });
 
   // Fetch H&S document assignments for all workers with customer isolation
+  const { data: cardOffences = [] } = useQuery<any[]>({
+    queryKey: ["/api/card-offences"],
+    enabled: !!currentUser,
+  });
+
   const { data: allWorkerHSAssignments = {} } = useQuery<Record<string, any[]>>({
     queryKey: ["/api/uk-hs-documents/assignments", "all-workers", customerId],
     enabled: !!currentUser,
@@ -568,6 +574,7 @@ export default function Contractors() {
   const handleIssueCard = (workerId: string) => {
     const worker = workers?.find((w: any) => w.id === workerId);
     setWorkerForCard(worker);
+    setIssueCardForm({ cardType: 'yellow', offenceId: '', description: '' });
     setShowIssueCardModal(true);
   };
 
@@ -651,6 +658,22 @@ export default function Contractors() {
         description: error.message,
         variant: "destructive" 
       });
+    }
+  });
+
+  const issueCardMutation = useMutation({
+    mutationFn: async (data: { workerId: string; offenceId: string; cardType: string; description: string; contractorId?: string }) => {
+      const response = await apiRequest('POST', '/api/card-issues', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Card issued successfully", description: "The safety card has been issued to the worker." });
+      setShowIssueCardModal(false);
+      setIssueCardForm({ cardType: 'yellow', offenceId: '', description: '' });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to issue card", description: error.message, variant: "destructive" });
     }
   });
 
@@ -1876,42 +1899,66 @@ export default function Contractors() {
           <DialogHeader>
             <DialogTitle>Issue Red or Yellow Card</DialogTitle>
             <DialogDescription>
-              Issue a safety card to a worker for violations or incidents.
+              Issue a safety violation card to a contractor worker for non-compliance or safety infractions.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Worker</label>
-              <div className="p-2 bg-[var(--background)] rounded">
+              <Label className="text-sm font-medium">Worker</Label>
+              <div className="p-2 bg-muted rounded-lg text-sm font-medium">
                 {workerForCard?.firstName} {workerForCard?.lastName}
               </div>
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Card Type</label>
-              <select className="w-full p-2 border rounded" data-testid="select-card-type">
-                <option value="yellow">Yellow Card</option>
-                <option value="red">Red Card</option>
-              </select>
+              <Label className="text-sm font-medium">Card Type</Label>
+              <Select
+                value={issueCardForm.cardType}
+                onValueChange={(v) => setIssueCardForm(f => ({ ...f, cardType: v, offenceId: '' }))}
+              >
+                <SelectTrigger data-testid="select-card-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yellow">Yellow Card</SelectItem>
+                  <SelectItem value="red">Red Card</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Offence</label>
-              <select className="w-full p-2 border rounded" data-testid="select-offence">
-                <option value="">Select offence</option>
-                <option value="safety_violation">Safety Violation</option>
-                <option value="late_arrival">Late Arrival</option>
-                <option value="improper_ppe">Improper PPE</option>
-                <option value="other">Other</option>
-              </select>
+              <Label className="text-sm font-medium">Offence</Label>
+              {cardOffences.filter((o: any) => o.cardType === issueCardForm.cardType && o.isActive).length === 0 ? (
+                <p className="text-xs text-muted-foreground p-2 border rounded-lg bg-muted">
+                  No offences configured. Add offences in Settings → Card Offences.
+                </p>
+              ) : (
+                <Select
+                  value={issueCardForm.offenceId}
+                  onValueChange={(v) => setIssueCardForm(f => ({ ...f, offenceId: v }))}
+                >
+                  <SelectTrigger data-testid="select-offence">
+                    <SelectValue placeholder="Select offence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cardOffences
+                      .filter((o: any) => o.cardType === issueCardForm.cardType && o.isActive)
+                      .map((o: any) => (
+                        <SelectItem key={o.id} value={o.id}>{o.offenceName}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <textarea 
-                placeholder="Describe the incident..." 
-                className="w-full p-2 border rounded h-20"
+              <Label className="text-sm font-medium">Description</Label>
+              <Textarea
+                placeholder="Describe the incident..."
+                className="h-20"
+                value={issueCardForm.description}
+                onChange={(e) => setIssueCardForm(f => ({ ...f, description: e.target.value }))}
                 data-testid="textarea-description"
               />
             </div>
@@ -1926,14 +1973,21 @@ export default function Contractors() {
               Cancel
             </Button>
             <Button 
+              disabled={!issueCardForm.offenceId || !issueCardForm.description || issueCardMutation.isPending}
               onClick={() => {
-                // Handle card issuing logic here
-                setShowIssueCardModal(false);
-                // You can add actual card issuing API call here
+                if (!workerForCard) return;
+                issueCardMutation.mutate({
+                  workerId: workerForCard.id,
+                  offenceId: issueCardForm.offenceId,
+                  cardType: issueCardForm.cardType,
+                  description: issueCardForm.description,
+                  contractorId: workerForCard.companyId,
+                });
               }}
               data-testid="button-issue-card"
+              className={issueCardForm.cardType === 'red' ? 'bg-red-600 hover:bg-red-700' : 'bg-yellow-600 hover:bg-yellow-700'}
             >
-              Issue Card
+              {issueCardMutation.isPending ? "Issuing..." : "Issue Card"}
             </Button>
           </div>
         </DialogContent>

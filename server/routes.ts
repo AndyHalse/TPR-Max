@@ -13530,6 +13530,37 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  app.put("/api/card-offences/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      const [updated] = await db
+        .update(isolatedSchema.cardOffences)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(isolatedSchema.cardOffences.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Offence not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating card offence:", error);
+      res.status(500).json({ error: "Failed to update offence" });
+    }
+  });
+
+  app.delete("/api/card-offences/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      await db.delete(isolatedSchema.cardOffences).where(eq(isolatedSchema.cardOffences.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting card offence:", error);
+      res.status(500).json({ error: "Failed to delete offence" });
+    }
+  });
+
   app.post("/api/card-issues", requireAuth, async (req, res) => {
     try {
       // Use customer database service with proper isolation
