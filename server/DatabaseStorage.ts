@@ -33,10 +33,9 @@ export class DatabaseStorage implements IStorage {
   constructor() {
     // Initialize default system user for card issuing
     this.initializeSystemUser();
-    // Initialize default offences data
-    this.initializeDefaultOffences();
     // Initialize default NVQ qualifications
     this.initializeDefaultNvqQualifications();
+    // Note: Card offences are per-customer and seeded via isolated schema migrations
   }
 
   private async initializeSystemUser() {
