@@ -239,7 +239,7 @@ export default function Login() {
               TPR Max
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
-              Visitor Management System
+              Total Personnel Register
             </CardDescription>
           </div>
         </CardHeader>
