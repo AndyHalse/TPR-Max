@@ -15,4 +15,18 @@ export const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });
+
+// Handle pool-level errors to prevent them from crashing the server.
+// Neon auto-suspends idle compute and terminates connections with code 57P01.
+// pg.Pool will automatically create new connections on next query.
+pool.on('error', (err: any) => {
+  const isNeonSuspend = err.code === '57P01' || err.code === '57014' ||
+    (typeof err.message === 'string' && err.message.includes('terminating connection'));
+  if (isNeonSuspend) {
+    console.warn('[DB] Pool connection terminated by server (Neon suspend). Will reconnect on next query.');
+  } else {
+    console.error('[DB] Unexpected pool error:', err.message);
+  }
+});
+
 export const db = drizzle({ client: pool, schema });

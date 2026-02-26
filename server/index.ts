@@ -37,14 +37,13 @@ process.on('uncaughtException', (error: any) => {
     eventType: 'uncaught_exception'
   });
   // For Neon/PostgreSQL connection termination errors (57P01 = admin shutdown),
-  // exit so the deployment platform restarts with fresh DB connections.
-  // Without this, the server stays alive but all session reads fail (sessions appear empty),
-  // causing every authenticated request to return 401.
+  // log a warning but do NOT exit. Pool-level error handlers catch these first.
+  // pg.Pool automatically reconnects on the next query.
   const isDbConnectionKilled = error.code === '57P01' || error.code === '57014' ||
     (typeof error.message === 'string' && error.message.includes('terminating connection'));
   if (isDbConnectionKilled) {
-    logger.error('Database connection terminated by server — exiting for clean restart', { code: error.code });
-    process.exit(1);
+    logger.error('Database connection terminated by server — continuing, pool will reconnect', { code: error.code });
+    return;
   }
 });
 

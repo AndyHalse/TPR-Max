@@ -162,6 +162,16 @@ export class CustomerDatabaseService {
         pool.on('connect', (client) => {
           client.query(`SET search_path TO "${schemaName}", public`);
         });
+
+        pool.on('error', (err: any) => {
+          const isNeonSuspend = err.code === '57P01' || err.code === '57014' ||
+            (typeof err.message === 'string' && err.message.includes('terminating connection'));
+          if (isNeonSuspend) {
+            console.warn(`[DB:${customerId}] Pool connection terminated (Neon suspend). Will reconnect on next query.`);
+          } else {
+            console.error(`[DB:${customerId}] Unexpected pool error:`, err.message);
+          }
+        });
         
         const verifyResult = await pool.query(`SHOW search_path`);
         const actualPath = verifyResult.rows[0]?.search_path || '';
