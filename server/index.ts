@@ -228,7 +228,8 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/co2') ||
         req.originalUrl.startsWith('/api/reception') ||
         req.originalUrl.startsWith('/api/company-logo') ||
-        req.originalUrl.startsWith('/api/public-logo')) {
+        req.originalUrl.startsWith('/api/public-logo') ||
+        req.originalUrl.startsWith('/api/import')) {
       console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }

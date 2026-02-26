@@ -20948,6 +20948,209 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // Members import template
+  app.get("/api/import/template/members", requireAuth, async (req, res) => {
+    try {
+      const columns = [
+        'firstName',
+        'lastName',
+        'email',
+        'phoneNumber',
+        'membershipType',
+        'membershipId',
+        'membershipNumber',
+        'joinDate',
+        'expiryDate',
+        'membershipStatus',
+        'notes'
+      ];
+      const sampleData = [[
+        'Sarah',
+        'Connor',
+        'sarah.connor@example.com',
+        '07123456789',
+        'full',
+        'MEM001',
+        'MBR-2025-001',
+        '2025-01-01',
+        '2025-12-31',
+        'active',
+        'VIP member'
+      ]];
+      const csv = stringify([columns, ...sampleData]);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=members_import_template.csv');
+      res.send(csv);
+    } catch (error) {
+      console.error('Error generating members template:', error);
+      res.status(500).json({ error: 'Failed to generate template' });
+    }
+  });
+
+  // Members import - upload and process CSV
+  app.post("/api/import/members", requireAuth, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+
+      const fileContent = req.file.buffer.toString('utf-8');
+      const records = parse(fileContent, { columns: true, skip_empty_lines: true, trim: true });
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const results = { total: records.length, successful: 0, failed: 0, errors: [] as Array<{ row: number; error: string; data: any }> };
+
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        try {
+          if (!record.firstName?.trim() || !record.lastName?.trim()) {
+            throw new Error('Missing required fields: firstName or lastName');
+          }
+          const qrCode = `MEMBER-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+          await customerDb.insert(isolatedSchema.members).values({
+            firstName: record.firstName.trim(),
+            lastName: record.lastName.trim(),
+            email: record.email?.trim()?.toLowerCase() || null,
+            phoneNumber: record.phoneNumber?.trim() || null,
+            membershipType: record.membershipType?.trim() || 'full',
+            membershipId: record.membershipId?.trim() || null,
+            membershipNumber: record.membershipNumber?.trim() || null,
+            joinDate: record.joinDate?.trim() || null,
+            expiryDate: record.expiryDate?.trim() || null,
+            membershipStatus: record.membershipStatus?.trim() || 'active',
+            notes: record.notes?.trim() || null,
+            qrCode,
+            isCheckedIn: false,
+            isActive: true
+          });
+          results.successful++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({ row: i + 2, error: error.message, data: record });
+        }
+      }
+
+      res.json({ success: true, message: `Import complete: ${results.successful} successful, ${results.failed} failed`, results });
+    } catch (error) {
+      console.error('Error importing members:', error);
+      res.status(500).json({ error: 'Failed to import members', details: error.message });
+    }
+  });
+
+  // Load sample data for demos
+  app.post("/api/import/sample-data", requireAuth, async (req, res) => {
+    try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const demoEmail = 'info@acsltd.eu';
+      const now = new Date();
+
+      const firstNames = ['James', 'Emma', 'Oliver', 'Sophia', 'Harry', 'Amelia', 'Jack', 'Isabella', 'George', 'Mia'];
+      const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson', 'Taylor'];
+      const departments = ['Engineering', 'Administration', 'Sales', 'Operations', 'Finance', 'HR', 'IT', 'Marketing', 'Logistics', 'Security'];
+      const companies = ['Acme Corp', 'BuildRight Ltd', 'TechFix Solutions', 'Prime Facilities', 'SafeWork UK', 'Delta Contractors', 'Apex Services', 'Horizon Group', 'Nexus Build', 'Swift Maintenance'];
+      const memberTypes = ['full', 'associate', 'honorary', 'student', 'corporate', 'full', 'associate', 'full', 'honorary', 'full'];
+
+      let staffAdded = 0, visitorsAdded = 0, contractorsAdded = 0, membersAdded = 0;
+
+      // Insert 10 sample staff
+      for (let i = 0; i < 10; i++) {
+        try {
+          await customerDb.insert(isolatedSchema.staff).values({
+            firstName: firstNames[i],
+            lastName: lastNames[i],
+            email: demoEmail,
+            department: departments[i],
+            employeeId: `DEMO-S${String(i + 1).padStart(3, '0')}`,
+            accessLevel: 'staff',
+            isActive: true
+          });
+          staffAdded++;
+        } catch (_) {}
+      }
+
+      // Insert 10 sample visitors
+      for (let i = 0; i < 10; i++) {
+        try {
+          const qrCode = `VISITOR-DEMO-${Date.now()}-${i}`;
+          await customerDb.insert(isolatedSchema.visitors).values({
+            firstName: firstNames[(i + 3) % 10],
+            lastName: lastNames[(i + 5) % 10],
+            email: demoEmail,
+            company: companies[i],
+            jobTitle: 'Representative',
+            purpose: 'Demo Visit',
+            qrCode,
+            isPreBooked: false,
+            isCheckedIn: false
+          });
+          visitorsAdded++;
+        } catch (_) {}
+      }
+
+      // Insert 10 sample contractors (each with their own company)
+      for (let i = 0; i < 10; i++) {
+        try {
+          // Find or create company
+          const companyName = `Demo ${companies[i]}`;
+          let companyId: string;
+          const existing = await customerDb
+            .select({ id: isolatedSchema.contractorCompanies.id })
+            .from(isolatedSchema.contractorCompanies)
+            .where(eq(isolatedSchema.contractorCompanies.name, companyName))
+            .limit(1);
+          if (existing.length > 0) {
+            companyId = existing[0].id;
+          } else {
+            const newCo = await customerDb
+              .insert(isolatedSchema.contractorCompanies)
+              .values({ name: companyName, email: demoEmail })
+              .returning({ id: isolatedSchema.contractorCompanies.id });
+            companyId = newCo[0].id;
+          }
+          await customerDb.insert(isolatedSchema.contractorWorkers).values({
+            companyId,
+            firstName: firstNames[(i + 1) % 10],
+            lastName: lastNames[(i + 2) % 10],
+            email: demoEmail,
+            jobTitle: 'Contractor',
+            department: departments[(i + 4) % 10]
+          });
+          contractorsAdded++;
+        } catch (_) {}
+      }
+
+      // Insert 10 sample members
+      for (let i = 0; i < 10; i++) {
+        try {
+          const qrCode = `MEMBER-DEMO-${Date.now()}-${i}`;
+          await customerDb.insert(isolatedSchema.members).values({
+            firstName: firstNames[(i + 2) % 10],
+            lastName: lastNames[(i + 7) % 10],
+            email: demoEmail,
+            membershipType: memberTypes[i],
+            membershipId: `MEM-DEMO-${String(i + 1).padStart(3, '0')}`,
+            membershipNumber: `MBR-${now.getFullYear()}-D${String(i + 1).padStart(3, '0')}`,
+            joinDate: `${now.getFullYear()}-01-01`,
+            expiryDate: `${now.getFullYear()}-12-31`,
+            membershipStatus: 'active',
+            qrCode,
+            isCheckedIn: false,
+            isActive: true
+          });
+          membersAdded++;
+        } catch (_) {}
+      }
+
+      res.json({
+        success: true,
+        message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractors, ${membersAdded} members`,
+        results: { staffAdded, visitorsAdded, contractorsAdded, membersAdded }
+      });
+    } catch (error) {
+      console.error('Error loading sample data:', error);
+      res.status(500).json({ error: 'Failed to load sample data', details: error.message });
+    }
+  });
+
   // Diagnostic endpoint for debugging production environment issues
   app.get("/api/diagnostics/environment", async (req, res) => {
     try {

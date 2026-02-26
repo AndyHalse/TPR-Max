@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -741,7 +741,7 @@ export default function Settings() {
 
   // Import mutation
   const importMutation = useMutation({
-    mutationFn: async (data: { file: File; type: 'staff' | 'visitors' | 'contractors' }) => {
+    mutationFn: async (data: { file: File; type: 'staff' | 'visitors' | 'contractors' | 'members' }) => {
       const formData = new FormData();
       formData.append('file', data.file);
       
@@ -770,6 +770,8 @@ export default function Settings() {
         queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       } else if (type === 'contractors') {
         queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      } else if (type === 'members') {
+        queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       }
       
       // Show success toast with details
@@ -800,7 +802,7 @@ export default function Settings() {
     },
   });
 
-  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>, type: 'staff' | 'visitors' | 'contractors') => {
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>, type: 'staff' | 'visitors' | 'contractors' | 'members') => {
     const file = event.target.files?.[0];
     if (!file) return;
     
@@ -819,6 +821,37 @@ export default function Settings() {
     // Reset file input
     event.target.value = '';
   };
+
+  // Sample data mutation
+  const sampleDataMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/import/sample-data', {});
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to load sample data');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({
+        title: "Sample Data Loaded!",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Load Sample Data",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
 
   const pendingUpdatesRef = useRef<Record<string, any>>({});
 
@@ -5509,10 +5542,10 @@ export default function Settings() {
                 Bulk Import
               </h3>
               <p className="text-sm text-variable mb-6">
-                Import staff, visitors, and contractors in bulk using CSV files. Download the template, fill it out, and upload it back.
+                Import staff, visitors, contractors, and members in bulk using CSV files. Download the template, fill it out, and upload it back.
               </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Staff Import */}
                 <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border">
                   <div className="flex items-center gap-2 mb-3">
@@ -5641,12 +5674,77 @@ export default function Settings() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Members Import */}
+                <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BadgeCheck className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-medium text-fixed">Members Import</h4>
+                  </div>
+                  <p className="text-xs text-variable mb-4">
+                    Import members with membership details and status
+                  </p>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        window.open('/api/import/template/members', '_blank');
+                      }}
+                      data-testid="button-download-members-template"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <input
+                      id="members-import-file"
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={(e) => handleImportFile(e, 'members')}
+                      data-testid="input-members-import"
+                    />
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => document.getElementById('members-import-file')?.click()}
+                      data-testid="button-import-members"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload & Import
+                    </Button>
+                  </div>
+                </div>
               </div>
-              
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <strong>ℹ️ How it works:</strong> Download the CSV template, fill in your data following the sample row, then upload the completed file to import.
-                </p>
+
+              <div className="mt-4 flex flex-col sm:flex-row gap-3 items-start">
+                <div className="flex-1 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    <strong>ℹ️ How it works:</strong> Download the CSV template, fill in your data following the sample row, then upload the completed file to import.
+                  </p>
+                </div>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="whitespace-nowrap border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 dark:hover:bg-purple-900/30"
+                        onClick={() => sampleDataMutation.mutate()}
+                        disabled={sampleDataMutation.isPending}
+                        data-testid="button-load-sample-data"
+                      >
+                        <FlaskConical className="w-4 h-4 mr-2" />
+                        {sampleDataMutation.isPending ? "Loading..." : "Load Sample Data"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Loads demo data for presentations and testing — adds 10 sample staff, 10 visitors, 10 contractors, and 10 members, all using info@acsltd.eu as the email address.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </GlassCard>
           </div>
