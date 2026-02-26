@@ -264,7 +264,7 @@ export default function EmailOutbox() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewId} onOpenChange={(open) => !open && setPreviewId(null)}>
-        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-3xl w-full max-h-[92vh] flex flex-col p-4">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2 text-base">
               <Mail className="w-4 h-4 text-sky-600" />
@@ -315,7 +315,7 @@ export default function EmailOutbox() {
                   <iframe
                     srcDoc={previewData.htmlBody}
                     sandbox="allow-same-origin"
-                    style={{ width: "100%", height: "100%", minHeight: "420px", border: "none" }}
+                    style={{ width: "100%", height: "100%", minHeight: "520px", border: "none", display: "block" }}
                     title="Email preview"
                   />
                 ) : (
