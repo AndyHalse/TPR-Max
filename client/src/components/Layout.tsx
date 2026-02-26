@@ -19,8 +19,9 @@ export default function Layout({ children }: LayoutProps) {
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   
-  const { data: user } = useQuery<{ id: string; username: string }>({
+  const { data: user } = useQuery<{ id: string; username: string } | null>({
     queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
   });
 

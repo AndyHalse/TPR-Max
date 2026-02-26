@@ -35,6 +35,7 @@ Preferred communication style: Simple, everyday language.
 - **Session Security**: `secure: true` (production), `httpOnly: true`, `sameSite: strict` (production), 24-hour expiry
 - **Dev Bypass Safety**: DEV_AUTH_BYPASS and DEV_DATA_BYPASS require BOTH `NODE_ENV === 'development'` AND specific env vars set to `'true'`
 - **Preview Routes**: Induction preview routes gated behind `NODE_ENV === 'development'` to prevent data leakage in production
+- **Logout Fix**: `Layout.tsx` auth query now uses `getQueryFn({ on401: "returnNull" })` to prevent 401 errors after logout triggering Vite's error overlay. `LogoutButton.tsx` clears cache and navigates in the correct order (clear → redirect), removing the invalidate-then-refetch cycle that triggered the 401 throw.
 
 ### Key Features & Technical Implementations
 - **Multi-Method Thermal Printing**: Supports TEC/Toshiba and Zebra thermal printers, including direct, browser, and Windows printing solutions with print quality and job tracking.

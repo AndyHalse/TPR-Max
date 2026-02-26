@@ -14,20 +14,13 @@ export default function LogoutButton() {
       return response.json();
     },
     onSuccess: () => {
+      // Navigate away first to avoid React re-renders with stale auth state
       localStorage.removeItem('visigate_user');
       localStorage.removeItem('tprmax-last-login');
       localStorage.removeItem('tprmax-logo-token');
-      
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
-      });
-      // Clear the user query cache and force immediate refetch
-      queryClient.setQueryData(["/api/auth/me"], null);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       // Clear all cached data to prevent cross-tenant data bleeding
       queryClient.clear();
-      // Force hard reload to ensure complete state cleanup
+      // Hard redirect — clears all React state cleanly
       window.location.href = '/login';
     },
     onError: (error: Error) => {
