@@ -1,38 +1,68 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Video, FileQuestion, Play, Eye, Sparkles, CheckCircle, XCircle, Maximize2, List } from "lucide-react";
+import {
+  Users, Video, FileQuestion, Play, Eye, Sparkles, CheckCircle, XCircle,
+  Maximize2, List, RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
+  BookOpen, Shield, Flame, HardHat, ClipboardList
+} from "lucide-react";
 import type { InductionSettings, InductionQuestion } from "@shared/schema";
 
-interface RoleSettingsFormProps {
-  roleType: string;
-  settings: InductionSettings | null;
-  onGenerateVideo: (roleType: string) => Promise<void>;
-  onPreviewInduction: (roleType: string) => void;
-  isGenerating?: boolean;
-  generatedVideo?: {
-    title: string;
-    duration: number;
-    scenes: number;
-    timestamp: string;
-    url: string;
-    htmlContent?: string;
-  } | null;
-  questions?: InductionQuestion[];
+interface GenerationStatus {
+  status: 'idle' | 'pending' | 'generating_script' | 'building_slides' | 'creating_questions' | 'saving' | 'done' | 'failed';
+  step: number;
+  totalSteps: number;
+  message: string;
+  startedAt?: number;
+  completedAt?: number;
+  error?: string;
 }
 
-const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduction, isGenerating, generatedVideo, questions }: RoleSettingsFormProps) => {
+const GENERATION_STEPS = [
+  { key: 'generating_script', label: 'Generating AI script', icon: BookOpen },
+  { key: 'building_slides', label: 'Building slides', icon: Video },
+  { key: 'creating_questions', label: 'Creating quiz questions', icon: FileQuestion },
+  { key: 'saving', label: 'Saving to database', icon: ClipboardList },
+  { key: 'done', label: 'Complete', icon: CheckCircle },
+];
+
+const CATEGORY_ICONS: Record<string, any> = {
+  'Emergency Procedures': Flame,
+  'PPE & Equipment': HardHat,
+  'Legal Responsibilities': Shield,
+  'Hazard Identification': AlertCircle,
+  'Site Rules & Safe Working': ClipboardList,
+};
+
+interface RoleCardProps {
+  roleType: 'visitor' | 'staff' | 'contractor';
+  settings: InductionSettings | null;
+  questions: InductionQuestion[];
+  onQuestionsRefetch: () => void;
+}
+
+const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCardProps) => {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [generationStatus, setGenerationStatus] = useState<GenerationStatus>({ status: 'idle', step: 0, totalSteps: 5, message: '' });
   const [showPreview, setShowPreview] = useState(false);
   const [showQuestions, setShowQuestions] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [isRegeneratingQuestions, setIsRegeneratingQuestions] = useState(false);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isGenerating = ['pending', 'generating_script', 'building_slides', 'creating_questions', 'saving'].includes(generationStatus.status);
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
@@ -45,157 +75,292 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
 
   const getRoleDescription = (role: string) => {
     switch (role) {
-      case 'visitor': return 'Brief overview for temporary visitors and contractors';
-      case 'staff': return 'Comprehensive induction for permanent and temporary staff members';
-      case 'contractor': return 'Safety-focused induction for contractors and sub-contractors';
+      case 'visitor': return 'Brief UK HSE-compliant overview for site visitors';
+      case 'staff': return 'Comprehensive induction for permanent and temporary staff';
+      case 'contractor': return 'Safety-focused induction including permit to work and CDM regulations';
       default: return '';
     }
   };
 
-  const handleGenerateVideo = async () => {
-    try {
-      await onGenerateVideo(roleType);
-      toast({
-        title: "✅ Success",
-        description: `Induction video generated for ${getRoleDisplayName(roleType).toLowerCase()}`
-      });
-    } catch (error) {
-      toast({
-        title: "❌ Error",
-        description: "Failed to generate video. Please try again.",
-        variant: "destructive"
-      });
+  const getProgressPercent = () => {
+    if (generationStatus.status === 'idle') return 0;
+    if (generationStatus.status === 'done') return 100;
+    if (generationStatus.status === 'failed') return 0;
+    return Math.round((generationStatus.step / generationStatus.totalSteps) * 100);
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
     }
   };
 
-  const handlePreview = async () => {
-    if (settings?.videoUrl || generatedVideo?.url) {
-      setLocation(`/induction-preview/${roleType}`);
-    } else {
-      toast({
-        title: "No video available",
-        description: "Please generate a video first.",
-        variant: "destructive"
-      });
+  const startPolling = () => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/induction/status/${roleType}`, { credentials: 'include' });
+        if (!res.ok) return;
+        const statusData: GenerationStatus = await res.json();
+        setGenerationStatus(statusData);
+
+        if (statusData.status === 'done') {
+          stopPolling();
+          toast({ title: "Video Generated", description: statusData.message });
+          queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
+          onQuestionsRefetch();
+          // Load preview HTML
+          try {
+            const videoRes = await fetch(`/api/induction/video/${roleType}`, { credentials: 'include' });
+            if (videoRes.ok) {
+              const html = await videoRes.text();
+              setPreviewHtml(html);
+            }
+          } catch (_e) {}
+        } else if (statusData.status === 'failed') {
+          stopPolling();
+          toast({ title: "Generation Failed", description: statusData.error || 'Please try again.', variant: 'destructive' });
+        }
+      } catch (_e) {}
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
+
+  const handleGenerateVideo = async () => {
+    try {
+      setGenerationStatus({ status: 'pending', step: 0, totalSteps: 5, message: 'Starting generation...' });
+      const response = await apiRequest('POST', `/api/induction/generate-video/${roleType}`, {});
+      const data = await response.json();
+
+      if (data.started) {
+        setGenerationStatus({ status: 'generating_script', step: 1, totalSteps: 5, message: 'Generating AI safety script...' });
+        startPolling();
+      } else if (data.error) {
+        setGenerationStatus({ status: 'failed', step: 0, totalSteps: 5, message: data.error, error: data.error });
+        toast({ title: "Generation Failed", description: data.error, variant: 'destructive' });
+      }
+    } catch (error: any) {
+      const msg = error?.message || 'Could not start generation. Please try again.';
+      setGenerationStatus({ status: 'failed', step: 0, totalSteps: 5, message: msg, error: msg });
+      toast({ title: "Generation Failed", description: msg, variant: 'destructive' });
     }
   };
+
+  const handleRegenerateQuestions = async () => {
+    setIsRegeneratingQuestions(true);
+    try {
+      const response = await apiRequest('POST', `/api/induction/generate-questions/${roleType}`, {});
+      const data = await response.json();
+      if (data.success) {
+        toast({ title: "Questions Updated", description: `Generated ${data.questionsGenerated} new questions` });
+        queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
+        onQuestionsRefetch();
+      } else {
+        toast({ title: "Failed", description: data.error || 'Could not regenerate questions', variant: 'destructive' });
+      }
+    } catch (error: any) {
+      toast({ title: "Failed", description: error?.message || 'Could not regenerate questions', variant: 'destructive' });
+    } finally {
+      setIsRegeneratingQuestions(false);
+    }
+  };
+
+  const handleCleanupQuestions = async () => {
+    setIsCleaningUp(true);
+    try {
+      const response = await fetch(`/api/induction/questions/cleanup?roleType=${roleType}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({ title: "Cleaned Up", description: `Removed stale questions for ${getRoleDisplayName(roleType)}` });
+        queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
+        onQuestionsRefetch();
+      }
+    } catch (error: any) {
+      toast({ title: "Failed", description: 'Could not clean up questions', variant: 'destructive' });
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
+  const handleOpenPreview = async () => {
+    if (previewHtml) {
+      setShowPreview(true);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/induction/video/${roleType}`, { credentials: 'include' });
+      if (res.ok && res.headers.get('content-type')?.includes('text/html')) {
+        const html = await res.text();
+        if (!html.includes('No video generated yet')) {
+          setPreviewHtml(html);
+          setShowPreview(true);
+          return;
+        }
+      }
+    } catch (_e) {}
+    toast({ title: "No video available", description: "Please generate a video first.", variant: 'destructive' });
+  };
+
+  const handleOpenFullscreen = () => {
+    if (previewHtml) {
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+        newWindow.document.write(previewHtml);
+        newWindow.document.close();
+      }
+    }
+  };
+
+  const hasVideo = settings?.videoUrl || previewHtml;
+  const questionsByCategory = questions.reduce((acc, q) => {
+    const cat = q.category || 'General Safety';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(q);
+    return acc;
+  }, {} as Record<string, InductionQuestion[]>);
 
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          {getRoleDisplayName(roleType)} Induction
-        </CardTitle>
-        <CardDescription>
-          {getRoleDescription(roleType)}
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              {getRoleDisplayName(roleType)} Induction
+            </CardTitle>
+            <CardDescription className="mt-1">{getRoleDescription(roleType)}</CardDescription>
+          </div>
+          {hasVideo && !isGenerating && (
+            <Badge className="bg-green-600 text-white shrink-0">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Ready
+            </Badge>
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Status Section */}
-        <div className="space-y-3">
+      <CardContent className="space-y-5">
+
+        {/* Video Status */}
+        <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Video className="h-4 w-4 text-blue-600" />
-            <h3 className="font-medium">Video Status</h3>
+            <h3 className="font-medium text-sm">Video Status</h3>
           </div>
-          {settings?.videoUrl ? (
+
+          {isGenerating ? (
+            <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                <p className="text-sm font-medium text-blue-900">{generationStatus.message}</p>
+              </div>
+              <Progress value={getProgressPercent()} className="h-2" />
+              <div className="flex items-center gap-1 flex-wrap">
+                {GENERATION_STEPS.map((step, idx) => {
+                  const stepNum = idx + 1;
+                  const isCurrent = generationStatus.step === stepNum;
+                  const isDone = generationStatus.step > stepNum || generationStatus.status === 'done';
+                  const StepIcon = step.icon;
+                  return (
+                    <div key={step.key} className="flex items-center gap-1">
+                      <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-all ${
+                        isDone ? 'bg-green-100 text-green-700' :
+                        isCurrent ? 'bg-blue-100 text-blue-700 font-medium' :
+                        'bg-gray-100 text-gray-400'
+                      }`}>
+                        <StepIcon className="h-3 w-3" />
+                        <span>{step.label}</span>
+                      </div>
+                      {idx < GENERATION_STEPS.length - 1 && (
+                        <ChevronRight className="h-3 w-3 text-gray-300" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : generationStatus.status === 'failed' ? (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <p className="text-sm font-medium text-red-900">Generation Failed</p>
+              </div>
+              {generationStatus.error && (
+                <p className="text-xs text-red-700 mt-1 ml-6">{generationStatus.error}</p>
+              )}
+              <p className="text-xs text-red-600 mt-2 ml-6">Click Generate Video to try again.</p>
+            </div>
+          ) : hasVideo ? (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-green-900">✓ Video Generated</p>
-                  <p className="text-xs text-green-700 mt-1">Click Preview to view the complete induction</p>
+                  <p className="text-sm font-medium text-green-900">
+                    <CheckCircle className="inline h-4 w-4 mr-1 text-green-600" />
+                    Video Ready
+                  </p>
+                  {settings?.videoDurationMinutes && (
+                    <p className="text-xs text-green-700 mt-1">
+                      <Clock className="inline h-3 w-3 mr-1" />
+                      ~{settings.videoDurationMinutes} min · {settings.generatedAt ? new Date(settings.generatedAt).toLocaleDateString('en-GB') : 'Generated'}
+                    </p>
+                  )}
                 </div>
-                <Badge className="bg-green-600">Ready</Badge>
+                <Button variant="outline" size="sm" onClick={handleOpenPreview} className="gap-1">
+                  <Eye className="h-3 w-3" />
+                  Preview
+                </Button>
               </div>
             </div>
           ) : (
-            <div className="p-4 bg-[var(--background)] border border-gray-200 rounded-lg">
-              <p className="text-sm text-variable">No video generated yet. Click "Generate Video" to create a professional induction presentation.</p>
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <p className="text-sm text-gray-600">
+                No video generated yet. Click "Generate Video" to create a professional UK HSE-compliant induction.
+              </p>
             </div>
           )}
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             onClick={handleGenerateVideo}
             disabled={isGenerating}
-            className="flex-1 flex items-center gap-2"
+            className="flex-1 min-w-[160px] flex items-center gap-2"
             data-testid={`button-generate-video-${roleType}`}
           >
             {isGenerating ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                 Generating...
               </>
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                Generate Video
+                {hasVideo ? 'Regenerate Video' : 'Generate Video'}
               </>
             )}
           </Button>
-          
-          {/* Inline Preview Button */}
-          {generatedVideo?.htmlContent && (
-            <Dialog open={showPreview} onOpenChange={setShowPreview}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  data-testid={`button-preview-inline-${roleType}`}
-                >
-                  <Eye className="h-4 w-4" />
-                  Preview
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0">
-                <DialogHeader className="p-4 pb-0">
-                  <DialogTitle className="flex items-center justify-between">
-                    <span>{getRoleDisplayName(roleType)} Induction Video Preview</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const newWindow = window.open('', '_blank');
-                        if (newWindow) {
-                          newWindow.document.write(generatedVideo.htmlContent || '');
-                          newWindow.document.close();
-                        }
-                      }}
-                    >
-                      <Maximize2 className="h-4 w-4 mr-1" />
-                      Full Screen
-                    </Button>
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 h-[80vh] p-4 pt-0">
-                  <iframe
-                    srcDoc={generatedVideo.htmlContent}
-                    className="w-full h-full border-0 rounded-lg"
-                    title={`${roleType} Induction Preview`}
-                    sandbox="allow-scripts allow-same-origin"
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
 
-          {/* Full screen Preview for saved videos */}
-          {!generatedVideo?.htmlContent && settings?.videoUrl && (
+          {previewHtml && (
             <Button
-              onClick={handlePreview}
               variant="outline"
-              className="flex items-center gap-2"
-              data-testid={`button-preview-fullscreen-${roleType}`}
+              onClick={handleOpenFullscreen}
+              className="flex items-center gap-1"
+              title="Open in full screen"
             >
-              <Play className="h-4 w-4" />
-              Preview
+              <Maximize2 className="h-4 w-4" />
+              Full Screen
             </Button>
           )}
 
           {/* Questions Button */}
-          {questions && questions.length > 0 && (
+          {questions.length > 0 && (
             <Dialog open={showQuestions} onOpenChange={setShowQuestions}>
               <DialogTrigger asChild>
                 <Button
@@ -207,134 +372,183 @@ const RoleSettingsForm = ({ roleType, settings, onGenerateVideo, onPreviewInduct
                   Questions ({questions.length})
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <FileQuestion className="h-5 w-5" />
                     {getRoleDisplayName(roleType)} Quiz Questions
+                    <Badge variant="outline" className="ml-auto">{questions.length} questions</Badge>
                   </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  {questions.map((q, index) => (
-                    <div key={q.id} className="p-4 bg-[var(--background)] rounded-lg border">
-                      <div className="flex items-start gap-3">
-                        <Badge variant="outline" className="shrink-0">Q{index + 1}</Badge>
-                        <div className="space-y-2 flex-1">
-                          <p className="font-medium">{q.questionText}</p>
-                          <div className="grid gap-1 text-sm">
-                            {['A', 'B', 'C', 'D'].map((opt) => {
-                              const optKey = `option${opt}` as keyof typeof q;
-                              const optionText = q[optKey];
-                              if (!optionText) return null;
-                              const isCorrect = q.correctAnswer === opt;
-                              return (
-                                <div 
-                                  key={opt} 
-                                  className={`p-2 rounded ${isCorrect ? 'bg-green-100 border border-green-300' : 'bg-white border'}`}
-                                >
-                                  <span className="font-medium mr-2">{opt}.</span>
-                                  {String(optionText)}
-                                  {isCorrect && <CheckCircle className="inline h-4 w-4 ml-2 text-green-600" />}
+
+                {/* Question management actions */}
+                <div className="flex gap-2 pt-2 pb-1 border-b">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRegenerateQuestions}
+                    disabled={isRegeneratingQuestions}
+                    className="gap-1 text-xs"
+                  >
+                    {isRegeneratingQuestions ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    Regenerate Questions
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCleanupQuestions}
+                    disabled={isCleaningUp}
+                    className="gap-1 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    {isCleaningUp ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                    Clear Stale
+                  </Button>
+                </div>
+
+                {/* Questions grouped by category */}
+                <div className="space-y-5 mt-2">
+                  {Object.entries(questionsByCategory).map(([category, catQuestions]) => {
+                    const CatIcon = CATEGORY_ICONS[category] || FileQuestion;
+                    return (
+                      <div key={category}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <CatIcon className="h-4 w-4 text-blue-600" />
+                          <h4 className="font-medium text-sm text-blue-900">{category}</h4>
+                          <Badge variant="secondary" className="text-xs">{catQuestions.length}</Badge>
+                        </div>
+                        <div className="space-y-3">
+                          {catQuestions.map((q, index) => (
+                            <div key={q.id} className="p-4 bg-gray-50 rounded-lg border">
+                              <div className="flex items-start gap-3">
+                                <Badge variant="outline" className="shrink-0 text-xs">Q{index + 1}</Badge>
+                                <div className="space-y-2 flex-1">
+                                  <p className="font-medium text-sm">{q.questionText}</p>
+                                  <div className="grid gap-1 text-xs">
+                                    {(['A', 'B', 'C', 'D'] as const).map((opt) => {
+                                      const optKey = `option${opt}` as keyof typeof q;
+                                      const optionText = q[optKey];
+                                      if (!optionText) return null;
+                                      const isCorrect = q.correctAnswer === opt;
+                                      return (
+                                        <div
+                                          key={opt}
+                                          className={`p-2 rounded flex items-start gap-2 ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-white border'}`}
+                                        >
+                                          <span className={`font-semibold shrink-0 ${isCorrect ? 'text-green-700' : 'text-gray-500'}`}>{opt}.</span>
+                                          <span className={isCorrect ? 'text-green-800' : ''}>{String(optionText)}</span>
+                                          {isCorrect && <CheckCircle className="h-3 w-3 ml-auto shrink-0 text-green-600 mt-0.5" />}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  {q.explanation && (
+                                    <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded border-l-2 border-blue-300 mt-1 italic">
+                                      {q.explanation}
+                                    </p>
+                                  )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                          {q.explanation && (
-                            <p className="text-xs text-variable mt-2 italic">
-                              Explanation: {q.explanation}
-                            </p>
-                          )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </DialogContent>
             </Dialog>
           )}
         </div>
 
-        {/* Info Section */}
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
-          <p className="font-medium mb-2">ℹ️ What's Included:</p>
-          <ul className="space-y-1 text-xs">
-            <li>✓ Professional slides with graphics</li>
-            <li>✓ UK Health & Safety compliance content</li>
-            <li>✓ Interactive navigation</li>
-            <li>✓ Knowledge assessment quiz</li>
-            <li>✓ Estimated duration: 10-15 minutes</li>
+        {/* What's included */}
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+          <p className="font-medium text-blue-900 mb-2">What's included:</p>
+          <ul className="space-y-1 text-xs text-blue-800">
+            <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600" /> Professional AI-generated slides with company branding</li>
+            <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600" /> UK HSE 2024 compliant content tailored to your industry</li>
+            <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600" /> 10 scenario-based quiz questions covering 5 safety categories</li>
+            <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600" /> 80% pass mark required for compliance certification</li>
+            <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600" /> Role-specific content (Visitors / Staff / Contractors)</li>
           </ul>
         </div>
 
-        {/* Generated Video Info */}
-        {generatedVideo && (
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-2 mb-3">
-              <Eye className="h-4 w-4 text-blue-700" />
-              <h4 className="font-medium text-blue-900">Latest Generated Video</h4>
-            </div>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-xs text-variable">Slides</p>
-                <p className="font-medium">{generatedVideo.scenes}</p>
+        {/* AI Model badge */}
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <Sparkles className="h-3 w-3 text-purple-500" />
+          <span>Powered by <span className="font-medium text-purple-700">GPT-5</span> via Replit AI — billed to Replit credits</span>
+        </div>
+
+        {/* Inline Preview Dialog */}
+        {showPreview && previewHtml && (
+          <Dialog open={showPreview} onOpenChange={setShowPreview}>
+            <DialogContent className="max-w-[96vw] max-h-[96vh] w-full h-full p-0">
+              <DialogHeader className="p-4 pb-0 flex-row items-center justify-between">
+                <DialogTitle>{getRoleDisplayName(roleType)} Induction Preview</DialogTitle>
+                <Button variant="outline" size="sm" onClick={handleOpenFullscreen} className="gap-1 mr-8">
+                  <Maximize2 className="h-4 w-4" />
+                  Full Screen
+                </Button>
+              </DialogHeader>
+              <div className="flex-1 h-[85vh] p-4 pt-2">
+                <iframe
+                  srcDoc={previewHtml}
+                  className="w-full h-full border-0 rounded-lg"
+                  title={`${roleType} Induction Preview`}
+                  sandbox="allow-scripts allow-same-origin"
+                />
               </div>
-              <div>
-                <p className="text-xs text-variable">Duration</p>
-                <p className="font-medium">~{generatedVideo.duration} min</p>
-              </div>
-              <div>
-                <p className="text-xs text-variable">Generated</p>
-                <p className="font-medium text-xs">{generatedVideo.timestamp}</p>
-              </div>
-            </div>
-          </div>
+            </DialogContent>
+          </Dialog>
         )}
       </CardContent>
-
-      {/* Full Screen Preview - opens in new window */}
     </Card>
   );
 };
 
 export default function InductionSettings() {
   const [activeRole, setActiveRole] = useState<'visitor' | 'staff' | 'contractor'>('visitor');
-  const [isGenerating, setIsGenerating] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState<Record<string, InductionSettings | null>>({
     visitor: null,
     staff: null,
     contractor: null
   });
-  const [generatedVideos, setGeneratedVideos] = useState<Record<string, any>>({});
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Fetch questions for each role type
-  const { data: visitorQuestions = [] } = useQuery<InductionQuestion[]>({
+  const { data: visitorQuestions = [], refetch: refetchVisitor } = useQuery<InductionQuestion[]>({
     queryKey: ['/api/induction/questions', 'visitor'],
     queryFn: async () => {
       const res = await fetch('/api/induction/questions?roleType=visitor', { credentials: 'include' });
       if (!res.ok) return [];
       const data = await res.json();
-      return data.questions || [];
+      return Array.isArray(data.questions) ? data.questions : [];
     }
   });
 
-  const { data: staffQuestions = [] } = useQuery<InductionQuestion[]>({
+  const { data: staffQuestions = [], refetch: refetchStaff } = useQuery<InductionQuestion[]>({
     queryKey: ['/api/induction/questions', 'staff'],
     queryFn: async () => {
       const res = await fetch('/api/induction/questions?roleType=staff', { credentials: 'include' });
       if (!res.ok) return [];
       const data = await res.json();
-      return data.questions || [];
+      return Array.isArray(data.questions) ? data.questions : [];
     }
   });
 
-  const { data: contractorQuestions = [] } = useQuery<InductionQuestion[]>({
+  const { data: contractorQuestions = [], refetch: refetchContractor } = useQuery<InductionQuestion[]>({
     queryKey: ['/api/induction/questions', 'contractor'],
     queryFn: async () => {
       const res = await fetch('/api/induction/questions?roleType=contractor', { credentials: 'include' });
       if (!res.ok) return [];
       const data = await res.json();
-      return data.questions || [];
+      return Array.isArray(data.questions) ? data.questions : [];
     }
   });
 
@@ -347,140 +561,101 @@ export default function InductionSettings() {
     }
   };
 
-  const handleGenerateVideo = async (roleType: string) => {
-    setIsGenerating(prev => ({ ...prev, [roleType]: true }));
-    try {
-      const response = await apiRequest('POST', `/api/induction/generate-video/${roleType}`, {});
-      const data = await response.json();
-
-      if (data.success) {
-        setGeneratedVideos(prev => ({
-          ...prev,
-          [roleType]: {
-            title: `${roleType} Induction Video`,
-            duration: data.totalDuration || 15,
-            scenes: data.sceneCount || 12,
-            timestamp: new Date().toLocaleDateString(),
-            url: data.videoUrl,
-            htmlContent: data.htmlContent // Store the HTML content for inline preview
-          }
-        }));
-
-        // Update settings
-        setSettings(prev => ({
-          ...prev,
-          [roleType]: {
-            ...prev[roleType],
-            videoUrl: data.videoUrl,
-            videoTitle: `${roleType} Induction Video`,
-            isActive: true
-          } as InductionSettings
-        }));
-
-        toast({
-          title: data.savedToDatabase ? "Video Generated" : "Video Generated (Preview Only)",
-          description: data.message || `Induction video created for ${roleType}s`
-        });
-      }
-    } catch (error: any) {
-      console.error('Error generating video:', error);
-      toast({
-        title: "Generation Failed",
-        description: error?.message || "Could not generate video. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(prev => ({ ...prev, [roleType]: false }));
+  const getRefetch = (roleType: string) => {
+    switch (roleType) {
+      case 'visitor': return refetchVisitor;
+      case 'staff': return refetchStaff;
+      case 'contractor': return refetchContractor;
+      default: return refetchVisitor;
     }
   };
 
-  const handlePreviewInduction = (roleType: string) => {
-    if (settings[roleType]?.videoUrl) {
-      window.open(`/api/induction/video/${roleType}`, '_blank');
-    }
-  };
+  const ROLES: Array<'visitor' | 'staff' | 'contractor'> = ['visitor', 'staff', 'contractor'];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <h1 className="text-xl sm:text-3xl font-bold">Health & Safety Induction</h1>
-        <p className="text-muted-foreground">
-          Create professional UK HSE-compliant induction videos for your team
+        <p className="text-muted-foreground text-sm">
+          Create professional UK HSE-compliant induction presentations for your team
         </p>
       </div>
 
-      {/* Tabs for Different Roles */}
+      {/* Tabs */}
       <Tabs value={activeRole} onValueChange={(v) => setActiveRole(v as any)} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="visitor" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Visitors</span>
+            {visitorQuestions.length > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5">{visitorQuestions.length}</Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="staff" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Staff</span>
+            {staffQuestions.length > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5">{staffQuestions.length}</Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="contractor" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Contractors</span>
+            {contractorQuestions.length > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5">{contractorQuestions.length}</Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="visitor" className="space-y-4 mt-6">
-          <RoleSettingsForm
-            roleType="visitor"
-            settings={settings.visitor}
-            onGenerateVideo={handleGenerateVideo}
-            onPreviewInduction={handlePreviewInduction}
-            isGenerating={isGenerating.visitor}
-            generatedVideo={generatedVideos.visitor}
-            questions={getQuestions('visitor')}
-          />
-        </TabsContent>
-
-        <TabsContent value="staff" className="space-y-4 mt-6">
-          <RoleSettingsForm
-            roleType="staff"
-            settings={settings.staff}
-            onGenerateVideo={handleGenerateVideo}
-            onPreviewInduction={handlePreviewInduction}
-            isGenerating={isGenerating.staff}
-            generatedVideo={generatedVideos.staff}
-            questions={getQuestions('staff')}
-          />
-        </TabsContent>
-
-        <TabsContent value="contractor" className="space-y-4 mt-6">
-          <RoleSettingsForm
-            roleType="contractor"
-            settings={settings.contractor}
-            onGenerateVideo={handleGenerateVideo}
-            onPreviewInduction={handlePreviewInduction}
-            isGenerating={isGenerating.contractor}
-            generatedVideo={generatedVideos.contractor}
-            questions={getQuestions('contractor')}
-          />
-        </TabsContent>
+        {ROLES.map(role => (
+          <TabsContent key={role} value={role} className="space-y-4 mt-6">
+            <RoleCard
+              roleType={role}
+              settings={settings[role]}
+              questions={getQuestions(role)}
+              onQuestionsRefetch={() => getRefetch(role)()}
+            />
+          </TabsContent>
+        ))}
       </Tabs>
 
-      {/* Help Section */}
+      {/* Help / About */}
       <Card className="bg-amber-50 border-amber-200">
-        <CardHeader>
-          <CardTitle className="text-base">📚 About Induction Videos</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-amber-700" />
+            About Induction Videos
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <p>Our induction videos are designed to meet UK Health & Safety Executive (HSE) compliance requirements and include:</p>
-          <ul className="space-y-2 ml-4 list-disc text-xs">
-            <li>Welcome and site orientation</li>
-            <li>Legal framework and responsibilities</li>
-            <li>Personal protective equipment (PPE)</li>
-            <li>Hazard identification and control</li>
-            <li>Emergency procedures and evacuation</li>
-            <li>Incident reporting requirements</li>
-            <li>Role-specific requirements (for Staff and Contractors)</li>
-          </ul>
-          <p className="mt-4">After completing the video, users will be required to pass a knowledge assessment quiz to confirm understanding.</p>
+        <CardContent className="space-y-3 text-sm text-amber-900">
+          <p>
+            Induction videos are AI-generated using your company settings and industry context, and are designed to meet
+            <strong> UK Health & Safety Executive (HSE)</strong> compliance requirements.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-2 text-xs">
+            <div className="space-y-1">
+              <p className="font-semibold">What's covered:</p>
+              <ul className="space-y-0.5 ml-2">
+                <li>• Welcome & site orientation</li>
+                <li>• UK legal framework (HASAWA 1974)</li>
+                <li>• PPE requirements & usage</li>
+                <li>• Hazard identification & control</li>
+              </ul>
+            </div>
+            <div className="space-y-1">
+              <p className="font-semibold">Plus role-specific:</p>
+              <ul className="space-y-0.5 ml-2">
+                <li>• Emergency procedures & evacuation</li>
+                <li>• Incident & near-miss reporting</li>
+                <li>• Contractor: Permit to Work / CDM</li>
+                <li>• Staff: DSE, ergonomics, wellbeing</li>
+              </ul>
+            </div>
+          </div>
+          <p className="text-xs text-amber-700 pt-1">
+            After completing the video, users must pass a 10-question knowledge assessment (80% pass mark) to confirm understanding and achieve compliance status.
+          </p>
         </CardContent>
       </Card>
     </div>

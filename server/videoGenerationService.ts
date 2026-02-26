@@ -407,12 +407,14 @@ export class VideoGenerationService {
           }
         ];
         
+        const isNewGenModel = selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7');
         const options = {
           model: selectedModel,
-          temperature: 0.7,
+          // GPT-5+ only supports default temperature (1), older models support custom values
+          ...(!isNewGenModel && { temperature: 0.7 }),
           response_format: { type: "json_object" },
           // Dynamic token allocation based on complexity and model capabilities
-          ...(selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7')
+          ...(isNewGenModel
             ? { 
               max_completion_tokens: this.calculateOptimalTokens(prompt.length, roleType, videoFormat),
               stream: false

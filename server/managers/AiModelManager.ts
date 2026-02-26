@@ -201,10 +201,15 @@ export class AiModelManager implements IAiChatClient {
     const maxTokens = options.maxTokens ?? config.maxTokens;
     const temperature = options.temperature ?? config.temperature;
 
-    // Handle different parameter names across models
-    const requestOptions: any = {
-      temperature,
-    };
+    // GPT-5+ models only support the default temperature (1); setting any other value causes an API error
+    const isNewGenModel = config.name === 'gpt-5' || config.name.includes('gpt-6') || config.name.includes('gpt-7') || config.name.startsWith('o');
+    
+    const requestOptions: any = {};
+
+    // Only include temperature for models that support it
+    if (!isNewGenModel) {
+      requestOptions.temperature = temperature;
+    }
 
     // All chat.completions use max_tokens (max_completion_tokens is for Responses API only)
     requestOptions.max_tokens = maxTokens;
