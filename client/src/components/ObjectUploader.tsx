@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ObjectUploaderProps {
   onUploadComplete?: (fileUrl: string) => void;
@@ -46,22 +47,29 @@ export function ObjectUploader({
     const file = fileToUpload || selectedFile;
     if (!file) return;
 
+    let arrayBuffer: ArrayBuffer;
+    try {
+      arrayBuffer = await file.arrayBuffer();
+    } catch (readError: any) {
+      toast({ title: "Error", description: "Could not read the file. Please try selecting it again.", variant: "destructive" });
+      return;
+    }
+
     setIsUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const response = await fetch("/api/objects/upload", {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to upload file");
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 8192)));
+      }
+      const base64 = btoa(binary);
+      const response = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
       const { objectPath } = await response.json();
       onUploadComplete?.(objectPath);
       toast({ title: "Success", description: "File uploaded successfully!" });
       setSelectedFile(null);
-    } catch (error) {
-      console.error("Upload error:", error);
+    } catch (error: any) {
+      console.error("Upload error:", error?.message || String(error));
       toast({ title: "Error", description: "Failed to upload file", variant: "destructive" });
     } finally {
       setIsUploading(false);

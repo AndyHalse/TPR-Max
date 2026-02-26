@@ -9284,37 +9284,32 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  // Object Storage endpoints for file upload (server-proxied to avoid CORS issues with direct GCS PUT)
-  const uploadMiddleware = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-  app.post("/api/objects/upload", uploadMiddleware.single("file"), async (req, res) => {
+  // Object Storage endpoints for file upload (server-proxied, base64 JSON to avoid multipart CORS issues)
+  app.post("/api/objects/upload", requireAuth, async (req, res) => {
     try {
+      console.log("[UPLOAD] POST /api/objects/upload received, body keys:", Object.keys(req.body || {}));
+      const { data, mimeType } = req.body;
+      if (!data || !mimeType) {
+        return res.status(400).json({ error: "Missing data or mimeType" });
+      }
+      const buffer = Buffer.from(data, "base64");
       const objectStorageService = new ObjectStorageService();
       const privateObjectDir = objectStorageService.getPrivateObjectDir();
       const objectId = randomUUID();
       const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-      // fullPath format: /bucketName/objectName...
       const parts = fullPath.slice(1).split("/");
       const bucketName = parts[0];
       const objectName = parts.slice(1).join("/");
-
-      if (req.file) {
-        // File upload via multipart - save directly to GCS
-        const bucket = objectStorageClient.bucket(bucketName);
-        const file = bucket.file(objectName);
-        await file.save(req.file.buffer, {
-          contentType: req.file.mimetype,
-          resumable: false,
-        });
-        const objectPath = `/objects/uploads/${objectId}`;
-        return res.json({ objectPath });
-      } else {
-        // Legacy: return a signed URL for direct upload (kept for backward compatibility)
-        const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-        return res.json({ uploadURL });
-      }
+      console.log(`[UPLOAD] Saving to bucket=${bucketName} object=${objectName} mimeType=${mimeType} size=${buffer.length}`);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(buffer, { contentType: mimeType, resumable: false });
+      const objectPath = `/objects/uploads/${objectId}`;
+      console.log(`[UPLOAD] Success: objectPath=${objectPath}`);
+      return res.json({ objectPath });
     } catch (error) {
-      console.error("Error uploading file:", error);
-      res.status(500).json({ error: "Failed to upload file" });
+      console.error("[UPLOAD] Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file", detail: String(error) });
     }
   });
 

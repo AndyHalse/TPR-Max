@@ -176,22 +176,29 @@ export default function Members() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    let arrayBuffer: ArrayBuffer;
+    try {
+      arrayBuffer = await file.arrayBuffer();
+    } catch (readError: any) {
+      toast({ title: "Error", description: "Could not read the file. Please try selecting it again.", variant: "destructive" });
+      return;
+    }
+
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const uploadResponse = await fetch("/api/objects/upload", {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      if (!uploadResponse.ok) throw new Error("Failed to upload photo");
-      const { objectPath } = await uploadResponse.json();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 8192)));
+      }
+      const base64 = btoa(binary);
+      const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+      const { objectPath } = await res.json();
       setUploadedPhoto(objectPath);
       setFormData(prev => ({ ...prev, photoUrl: objectPath }));
       toast({ title: "Success", description: "Photo uploaded successfully!" });
-    } catch (error) {
-      console.error("Photo upload error:", error);
+    } catch (error: any) {
+      console.error("Photo upload error:", error?.message || String(error));
       toast({ title: "Error", description: "Failed to upload photo", variant: "destructive" });
     } finally {
       setUploading(false);
