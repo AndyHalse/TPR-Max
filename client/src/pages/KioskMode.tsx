@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import WalkInVisitorForm from "@/components/WalkInVisitorForm";
+import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 import { UserPlus, BadgeInfo, LogOut, QrCode, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,8 @@ export default function KioskMode() {
   const [hostName, setHostName] = useState<string>();
   const [isPreBookedCheckIn, setIsPreBookedCheckIn] = useState(false);
   const [staffCheckResult, setStaffCheckResult] = useState<{ action: string; staff: any; message: string } | null>(null);
+  const [showHSModal, setShowHSModal] = useState(false);
+  const [pendingQrCode, setPendingQrCode] = useState<string | null>(null);
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -129,10 +132,9 @@ export default function KioskMode() {
   });
 
   const preBookingCheckInMutation = useMutation({
-    mutationFn: async (qrCode: string) => {
-      const response = await apiRequest("POST", "/api/prebookings/checkin", {
-        qrCode,
-      });
+    mutationFn: async (payload: string | { qrCode: string; hsRulesAccepted?: boolean }) => {
+      const body = typeof payload === "string" ? { qrCode: payload } : payload;
+      const response = await apiRequest("POST", "/api/prebookings/checkin", body);
       return response.json();
     },
     onSuccess: (data) => {
@@ -213,6 +215,12 @@ export default function KioskMode() {
     }
     
     if (scannedCode.startsWith("PBK-")) {
+      const settingsAny = settings as any;
+      if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
+        setPendingQrCode(scannedCode);
+        setShowHSModal(true);
+        return;
+      }
       preBookingCheckInMutation.mutate(scannedCode);
       return;
     }
@@ -229,6 +237,19 @@ export default function KioskMode() {
       description: "QR code not recognized. Please try again or proceed with manual check-in.",
       variant: "destructive",
     });
+  };
+
+  const handleKioskHSAccepted = () => {
+    setShowHSModal(false);
+    if (pendingQrCode) {
+      preBookingCheckInMutation.mutate({ qrCode: pendingQrCode, hsRulesAccepted: true });
+      setPendingQrCode(null);
+    }
+  };
+
+  const handleKioskHSDeclined = () => {
+    setShowHSModal(false);
+    setPendingQrCode(null);
   };
 
   if (activeSection === "walkin") {
@@ -357,6 +378,14 @@ export default function KioskMode() {
             />
           )}
         </div>
+
+        <HSAcceptanceModal
+          isOpen={showHSModal}
+          companyName={(settings as any)?.companyName}
+          hsRulesContent={(settings as any)?.hsRulesContent || ""}
+          onAccept={handleKioskHSAccepted}
+          onDecline={handleKioskHSDeclined}
+        />
       </div>
     );
   }
@@ -469,6 +498,14 @@ export default function KioskMode() {
           isPreBooked={isPreBookedCheckIn}
         />
       )}
+
+      <HSAcceptanceModal
+        isOpen={showHSModal}
+        companyName={(settings as any)?.companyName}
+        hsRulesContent={(settings as any)?.hsRulesContent || ""}
+        onAccept={handleKioskHSAccepted}
+        onDecline={handleKioskHSDeclined}
+      />
     </div>
   );
 }

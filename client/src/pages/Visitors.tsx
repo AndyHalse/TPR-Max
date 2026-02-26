@@ -38,8 +38,9 @@ import {
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { format, addDays } from "date-fns";
-import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor } from "@shared/schema";
+import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor, CompanySettings } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 
 // Company Combobox Component
 interface CompanyComboboxProps {
@@ -319,6 +320,11 @@ export default function Visitors() {
   // View mode state for existing visitors
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+  // H&S modal state
+  const [showHSModal, setShowHSModal] = useState(false);
+  const [pendingCheckinData, setPendingCheckinData] = useState<Omit<InsertVisitor, 'customerId'> | null>(null);
+  const [pendingCheckinType, setPendingCheckinType] = useState<'walkin' | 'previous' | null>(null);
+
   // GDPR Fix: Get staff by company for walk-in visitors
   const { data: walkInStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff/by-company", walkInData.company],
@@ -352,6 +358,10 @@ export default function Visitors() {
 
   const { data: companies = [] } = useQuery<string[]>({
     queryKey: ["/api/companies"],
+  });
+
+  const { data: settings } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
   });
 
   // Filter existing visitors based on search (exclude visitors with missing essential data)
@@ -701,7 +711,7 @@ export default function Visitors() {
       return;
     }
     
-    checkInWalkInMutation.mutate({
+    const visitorData: Omit<InsertVisitor, 'customerId'> = {
       firstName: walkInData.firstName.trim(),
       lastName: walkInData.lastName.trim(),
       email: walkInData.email.trim() || null,
@@ -713,6 +723,40 @@ export default function Visitors() {
       hostStaffId: walkInData.hostStaffId,
       purpose: walkInData.purpose.trim() || null,
       carRegistration: walkInData.carRegistration.trim() || null,
+    };
+
+    const settingsAny = settings as any;
+    if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
+      setPendingCheckinData(visitorData);
+      setPendingCheckinType('walkin');
+      setShowHSModal(true);
+    } else {
+      checkInWalkInMutation.mutate(visitorData);
+    }
+  };
+
+  const handleHSAccepted = () => {
+    setShowHSModal(false);
+    if (pendingCheckinData && pendingCheckinType) {
+      const dataWithHS = { ...pendingCheckinData, hsRulesAccepted: true } as any;
+      if (pendingCheckinType === 'walkin') {
+        checkInWalkInMutation.mutate(dataWithHS);
+      } else if (pendingCheckinType === 'previous') {
+        checkInPreviousVisitorMutation.mutate(dataWithHS);
+      }
+    }
+    setPendingCheckinData(null);
+    setPendingCheckinType(null);
+  };
+
+  const handleHSDeclined = () => {
+    setShowHSModal(false);
+    setPendingCheckinData(null);
+    setPendingCheckinType(null);
+    toast({
+      title: "Check-in Cancelled",
+      description: "You must accept the Health & Safety rules to check in.",
+      variant: "destructive",
     });
   };
 
@@ -775,14 +819,24 @@ export default function Visitors() {
         return;
       }
 
-      checkInPreviousVisitorMutation.mutate({
+      const previousVisitorData: Omit<InsertVisitor, 'customerId'> = {
         firstName: selectedPreviousVisitor.firstName,
         lastName: selectedPreviousVisitor.lastName,
         company: selectedPreviousVisitor.company || null,
         hostStaffId: selectedHostForPrevious,
         purpose: selectedPreviousVisitor.purpose || null,
         carRegistration: selectedPreviousVisitor.carRegistration || null,
-      });
+      };
+
+      const settingsAny = settings as any;
+      if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
+        setShowHostSelection(false);
+        setPendingCheckinData(previousVisitorData);
+        setPendingCheckinType('previous');
+        setShowHSModal(true);
+      } else {
+        checkInPreviousVisitorMutation.mutate(previousVisitorData);
+      }
     }
   };
 
@@ -1773,6 +1827,15 @@ export default function Visitors() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* H&S Acceptance Modal */}
+      <HSAcceptanceModal
+        isOpen={showHSModal}
+        onAccept={handleHSAccepted}
+        onDecline={handleHSDeclined}
+        hsRulesContent={(settings as any)?.hsRulesContent || ""}
+        companyName={(settings as any)?.companyName || ""}
+      />
 
       {/* Pass Preview Modal */}
       {checkedInVisitor && showPassPreview && (

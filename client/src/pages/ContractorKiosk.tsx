@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
+import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 import { 
   HardHat, 
   QrCode, 
@@ -32,7 +33,7 @@ import {
   Video
 } from "lucide-react";
 
-import type { ContractorCompany, ContractorWorker } from "@shared/schema";
+import type { ContractorCompany, ContractorWorker, CompanySettings } from "@shared/schema";
 
 export default function ContractorKiosk() {
   const { toast } = useToast();
@@ -52,6 +53,14 @@ export default function ContractorKiosk() {
   const [showHostSelection, setShowHostSelection] = useState(false);
   const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
 
+  // H&S acceptance state
+  const [showHSModal, setShowHSModal] = useState(false);
+  const [pendingCheckin, setPendingCheckin] = useState<{ workerId: string; hostId: string } | null>(null);
+
+  const { data: settings } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
+  });
+
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors"],
   });
@@ -67,9 +76,10 @@ export default function ContractorKiosk() {
   });
 
   const checkInMutation = useMutation({
-    mutationFn: async ({ workerId, hostId }: { workerId: string; hostId: string }) => {
+    mutationFn: async ({ workerId, hostId, hsRulesAccepted }: { workerId: string; hostId: string; hsRulesAccepted?: boolean }) => {
       const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkin`, {
-        hostId: hostId
+        hostId,
+        ...(hsRulesAccepted ? { hsRulesAccepted: true } : {})
       });
       return response.json();
     },
@@ -164,11 +174,34 @@ export default function ContractorKiosk() {
     }
 
     if (selectedWorkerForCheckIn) {
-      checkInMutation.mutate({
+      const checkinData = {
         workerId: selectedWorkerForCheckIn.id,
         hostId: selectedHostForWorker
-      });
+      };
+
+      const settingsAny = settings as any;
+      if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
+        setShowHostSelection(false);
+        setPendingCheckin(checkinData);
+        setShowHSModal(true);
+        return;
+      }
+
+      checkInMutation.mutate(checkinData);
     }
+  };
+
+  const handleHSAccepted = () => {
+    setShowHSModal(false);
+    if (pendingCheckin) {
+      checkInMutation.mutate({ ...pendingCheckin, hsRulesAccepted: true });
+      setPendingCheckin(null);
+    }
+  };
+
+  const handleHSDeclined = () => {
+    setShowHSModal(false);
+    setPendingCheckin(null);
   };
 
   // Show ALL contractors, not just approved ones
@@ -648,6 +681,14 @@ export default function ContractorKiosk() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <HSAcceptanceModal
+        isOpen={showHSModal}
+        companyName={(settings as any)?.companyName}
+        hsRulesContent={(settings as any)?.hsRulesContent || ""}
+        onAccept={handleHSAccepted}
+        onDecline={handleHSDeclined}
+      />
     </div>
   );
 }

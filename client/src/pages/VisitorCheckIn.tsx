@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
+import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 import { ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQRCode } from "@/lib/qr-generator";
-import type { Staff, InsertVisitor, Visitor } from "@shared/schema";
+import type { Staff, InsertVisitor, Visitor, CompanySettings } from "@shared/schema";
 
 interface Zone {
   id: string;
@@ -172,6 +173,8 @@ export default function VisitorCheckIn() {
   });
   const [createdVisitor, setCreatedVisitor] = useState<VisitorWithEPass | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
+  const [showHSModal, setShowHSModal] = useState(false);
+  const [pendingVisitorData, setPendingVisitorData] = useState<any>(null);
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -183,6 +186,10 @@ export default function VisitorCheckIn() {
 
   const { data: zones = [] } = useQuery<Zone[]>({
     queryKey: ["/api/zones"],
+  });
+
+  const { data: settings } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
   });
 
   // Function to automatically print visitor pass
@@ -487,7 +494,7 @@ export default function VisitorCheckIn() {
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || firstName;
     
-    checkinMutation.mutate({
+    const visitorData = {
       firstName,
       lastName,
       company: formData.company.trim() || null,
@@ -497,7 +504,32 @@ export default function VisitorCheckIn() {
       carRegistration: formData.carRegistration.trim() || null,
       zoneId: formData.zoneId || null,
       isCheckedIn: true,
-    });
+    };
+
+    const settingsAny = settings as any;
+    if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
+      setPendingVisitorData(visitorData);
+      setShowHSModal(true);
+      return;
+    }
+
+    checkinMutation.mutate(visitorData);
+  };
+
+  const handleHSAccepted = () => {
+    setShowHSModal(false);
+    if (pendingVisitorData) {
+      checkinMutation.mutate({
+        ...pendingVisitorData,
+        hsRulesAccepted: true,
+      });
+      setPendingVisitorData(null);
+    }
+  };
+
+  const handleHSDeclined = () => {
+    setShowHSModal(false);
+    setPendingVisitorData(null);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -673,6 +705,14 @@ export default function VisitorCheckIn() {
           hostName={staff?.find(s => s.id === createdVisitor.hostStaffId) ? `${staff.find(s => s.id === createdVisitor.hostStaffId)?.firstName} ${staff.find(s => s.id === createdVisitor.hostStaffId)?.lastName}` : "Unknown Host"}
         />
       )}
+
+      <HSAcceptanceModal
+        isOpen={showHSModal}
+        companyName={(settings as any)?.companyName}
+        hsRulesContent={(settings as any)?.hsRulesContent || ""}
+        onAccept={handleHSAccepted}
+        onDecline={handleHSDeclined}
+      />
     </div>
   );
 }

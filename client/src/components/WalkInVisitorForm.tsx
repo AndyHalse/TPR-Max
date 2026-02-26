@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import TouchKeyboard from "@/components/TouchKeyboard";
 import PassPreviewModal from "@/components/PassPreviewModal";
+import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +39,8 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const [selectedHost, setSelectedHost] = useState<Staff | null>(null);
   const [createdVisitor, setCreatedVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
+  const [showHSModal, setShowHSModal] = useState(false);
+  const [pendingVisitorData, setPendingVisitorData] = useState<InsertVisitor | null>(null);
 
   const { data: allStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -205,7 +208,30 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       carRegistration: null,
     };
 
+    const settingsAny = settings as any;
+    if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
+      setPendingVisitorData(visitorData);
+      setShowHSModal(true);
+      return;
+    }
+
     checkinMutation.mutate(visitorData);
+  };
+
+  const handleHSAccepted = () => {
+    setShowHSModal(false);
+    if (pendingVisitorData) {
+      checkinMutation.mutate({
+        ...pendingVisitorData,
+        hsRulesAccepted: true,
+      } as any);
+      setPendingVisitorData(null);
+    }
+  };
+
+  const handleHSDeclined = () => {
+    setShowHSModal(false);
+    setPendingVisitorData(null);
   };
 
   const canSubmit = formData.firstName.trim() && formData.lastName.trim() && formData.hostStaffId;
@@ -492,6 +518,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
             hostName={selectedHost ? `${selectedHost.firstName} ${selectedHost.lastName}` : undefined}
           />
         )}
+
+        <HSAcceptanceModal
+          isOpen={showHSModal}
+          companyName={(settings as any)?.companyName}
+          hsRulesContent={(settings as any)?.hsRulesContent || ""}
+          onAccept={handleHSAccepted}
+          onDecline={handleHSDeclined}
+        />
       </div>
     </div>
   );

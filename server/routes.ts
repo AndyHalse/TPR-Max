@@ -6572,6 +6572,21 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // Add customerId to visitor data for proper customer isolation
       const visitorData = insertVisitorSchema.parse({ ...req.body, customerId: context.customerId });
+
+      // Fetch company settings early (needed for H&S enforcement and e-pass)
+      const settings = await databaseService.getCompanySettings(context);
+
+      // Server-side H&S enforcement: reject check-in if acceptance is required but not provided
+      if ((settings as any)?.hsRulesEnabled !== false && (settings as any)?.hsRulesRequireAcceptance && !(req.body.hsRulesAccepted)) {
+        return res.status(400).json({
+          error: "Health & Safety acceptance required",
+          message: "You must accept the Health & Safety rules before checking in.",
+          requireHsAcceptance: true
+        });
+      }
+
+      const hsAccepted = req.body.hsRulesAccepted === true;
+      const hsAcceptedAt = hsAccepted ? new Date() : undefined;
       
       console.log(`🔍 Checking for duplicate: ${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'no company'}`);
       
@@ -6591,7 +6606,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             hostStaffId: visitorData.hostStaffId || undefined,
             purpose: visitorData.purpose || undefined,
             carRegistration: visitorData.carRegistration || undefined,
-            hsRulesAcceptanceToken: hsToken
+            hsRulesAcceptanceToken: hsToken,
+            ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {})
           });
         } else {
           // Visitor is already checked in
@@ -6608,13 +6624,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         visitor = await databaseService.createVisitor(context, {
           ...visitorData,
-          hsRulesAcceptanceToken: hsToken
+          hsRulesAcceptanceToken: hsToken,
+          ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {})
         });
         console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
       }
-      
-      // Get company settings to check if e-Pass is enabled
-      const settings = await databaseService.getCompanySettings(context);
       
       // Send e-Pass if enabled
       if (settings?.ePassEnabled && visitor) {
@@ -11058,7 +11072,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   app.post("/api/prebookings/checkin", requireAuth, async (req, res) => {
     try {
-      const { qrCode, deviceType, deviceIp } = req.body;
+      const { qrCode, deviceType, deviceIp, hsRulesAccepted } = req.body;
       if (!qrCode) {
         return res.status(400).json({ error: "QR code is required" });
       }
@@ -11070,6 +11084,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      // Server-side H&S enforcement for pre-booked visitors
+      const pbSettings = await databaseService.getCompanySettings(context);
+      if ((pbSettings as any)?.hsRulesEnabled !== false && (pbSettings as any)?.hsRulesRequireAcceptance && !hsRulesAccepted) {
+        return res.status(400).json({
+          error: "Health & Safety acceptance required",
+          message: "You must accept the Health & Safety rules before checking in.",
+          requireHsAcceptance: true
+        });
+      }
       
       let preBooking;
       
@@ -11106,6 +11130,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         visitPurpose: preBooking.purpose,
         isCheckedIn: true,
         checkedInAt: new Date(),
+        ...(hsRulesAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: new Date() } : {})
       });
       
       await customerDb.update(isolatedSchema.preBookings)
@@ -16066,6 +16091,19 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Worker is already checked in" });
       }
 
+      // Server-side H&S enforcement for contractors
+      const contractorSettings = await databaseService.getCompanySettings(context);
+      if ((contractorSettings as any)?.hsRulesEnabled !== false && (contractorSettings as any)?.hsRulesRequireAcceptance && !hsRulesAccepted) {
+        return res.status(400).json({
+          error: "Health & Safety acceptance required",
+          message: "You must accept the Health & Safety rules before checking in.",
+          requireHsAcceptance: true
+        });
+      }
+
+      const contractorHsAccepted = hsRulesAccepted === true || worker.hsRulesAccepted || false;
+      const contractorHsAcceptedAt = hsRulesAccepted === true ? new Date() : worker.hsRulesAcceptedAt;
+
       console.log(`🔄 Starting contractor check-in for: ${worker.firstName} ${worker.lastName} from ${company.name}`);
       
       // Generate QR code and pass URL
@@ -16075,10 +16113,10 @@ This is an automated notification from your visitor management system.`;
       // Mark worker as checked in using customer-isolated database service
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         qrCode: qrCode,
-        isCheckedIn: true,  // Always mark as checked in when check-in button is clicked
+        isCheckedIn: true,
         checkedInAt: new Date(),
-        // Keep H&S rules status separate - will be updated via e-pass link later
-        hsRulesAccepted: worker.hsRulesAccepted || hsRulesAccepted || false
+        hsRulesAccepted: contractorHsAccepted,
+        hsRulesAcceptedAt: contractorHsAcceptedAt
       });
 
       // Create a visit record for history tracking
@@ -16089,7 +16127,7 @@ This is an automated notification from your visitor management system.`;
         checkedInAt: new Date(),
         hostStaffId: hostStaffId,
         hostName: hostName,
-        hsRulesAccepted: worker.hsRulesAccepted || hsRulesAccepted || false,
+        hsRulesAccepted: contractorHsAccepted,
         qrCode: qrCode,
         passUrl: passUrl
       };
