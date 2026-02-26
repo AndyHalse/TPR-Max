@@ -8351,6 +8351,57 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Diagnostic report endpoint — returns sanitised system info for customer support
+  app.get("/api/diagnostics/report", requireAuth, async (req, res) => {
+    try {
+      const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      let dbOk = false;
+      try {
+        await simpleDatabaseService.getCompanySettings(context);
+        dbOk = true;
+      } catch {}
+
+      const emailConfigured = !!(
+        (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) ||
+        (settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword)
+      );
+
+      const uptimeSec = Math.floor(process.uptime());
+      const uptimeStr = `${Math.floor(uptimeSec / 3600)}h ${Math.floor((uptimeSec % 3600) / 60)}m ${uptimeSec % 60}s`;
+
+      const report = {
+        generatedAt: new Date().toISOString(),
+        appName: "TPR Max",
+        version: "v2026.02.26",
+        companyName: settings?.companyName ?? "Unknown",
+        customerId: req.customerId,
+        loggedInUser: req.user!.username,
+        serverUptime: uptimeStr,
+        nodeVersion: process.version,
+        environment: process.env.NODE_ENV ?? "unknown",
+        services: {
+          database: dbOk,
+          email: emailConfigured,
+          authentication: true,
+        },
+        memoryMB: {
+          heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+          heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+          rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        },
+      };
+
+      res.json(report);
+    } catch (error) {
+      console.error("Diagnostics report failed:", error);
+      res.status(500).json({ error: "Failed to generate diagnostics report" });
+    }
+  });
+
   // AI Settings API Endpoints for secure API key management
   app.get("/api/settings/ai-keys", requireAuth, async (req, res) => {
     try {

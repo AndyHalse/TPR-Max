@@ -5455,17 +5455,69 @@ export default function Settings() {
                   <CheckCircle className="w-5 h-5 text-green-500" />
                 </div>
 
-                {systemStatus?.uptime !== undefined && (
-                  <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Activity className="w-4 h-4" />
-                      <span className="text-sm font-medium">Server Uptime</span>
-                    </div>
-                    <span className="text-xs text-variable font-mono">
-                      {Math.floor(systemStatus.uptime / 3600)}h {Math.floor((systemStatus.uptime % 3600) / 60)}m
-                    </span>
-                  </div>
-                )}
+                <div className="pt-1">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center gap-2 text-sm"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/diagnostics/report", { credentials: "include" });
+                        if (!res.ok) throw new Error("Failed to fetch diagnostics");
+                        const data = await res.json();
+                        const lines = [
+                          "========================================",
+                          "  TPR MAX — DIAGNOSTIC REPORT",
+                          "========================================",
+                          "",
+                          `Generated:      ${new Date(data.generatedAt).toLocaleString()}`,
+                          `App Version:    ${data.version}`,
+                          `Company:        ${data.companyName}`,
+                          `Logged In As:   ${data.loggedInUser}`,
+                          `Environment:    ${data.environment}`,
+                          `Server Uptime:  ${data.serverUptime}`,
+                          `Node Version:   ${data.nodeVersion}`,
+                          "",
+                          "--- BROWSER ---",
+                          `User Agent:     ${navigator.userAgent}`,
+                          `Platform:       ${navigator.platform}`,
+                          `Language:       ${navigator.language}`,
+                          `Screen:         ${screen.width}x${screen.height}`,
+                          "",
+                          "--- SERVICES ---",
+                          `Database:       ${data.services.database ? "✓ OK" : "✗ Error"}`,
+                          `Email:          ${data.services.email ? "✓ Configured" : "✗ Not configured"}`,
+                          `Authentication: ${data.services.authentication ? "✓ OK" : "✗ Error"}`,
+                          "",
+                          "--- MEMORY ---",
+                          `Heap Used:      ${data.memoryMB.heapUsed} MB`,
+                          `Heap Total:     ${data.memoryMB.heapTotal} MB`,
+                          `RSS:            ${data.memoryMB.rss} MB`,
+                          "",
+                          "========================================",
+                          "  Please email this file to support",
+                          "  when reporting an issue.",
+                          "========================================",
+                        ];
+                        const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `tprmax-diagnostics-${new Date().toISOString().slice(0, 10)}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast({ title: "Diagnostics downloaded", description: "Email this file to support if you need help." });
+                      } catch (e: any) {
+                        toast({ title: "Error", description: "Could not generate diagnostics report.", variant: "destructive" });
+                      }
+                    }}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Diagnostic Report
+                  </Button>
+                  <p className="text-xs text-variable mt-1.5 text-center">
+                    Generates a safe, sanitised file — no passwords or sensitive data included
+                  </p>
+                </div>
               </div>
             </GlassCard>
           </div>
