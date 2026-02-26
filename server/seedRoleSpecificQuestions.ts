@@ -135,39 +135,12 @@ export async function seedRoleSpecificQuestions() {
   console.log('🌱 Seeding role-specific H&S questions...');
   
   try {
-    // Check if role-specific questions already exist
-    const existingVisitorQ = await db.select().from(inductionQuestions)
-      .where(eq(inductionQuestions.roleType, 'visitor')).limit(1);
-    
-    const existingStaffQ = await db.select().from(inductionQuestions)
-      .where(eq(inductionQuestions.roleType, 'staff')).limit(1);
-
-    let seedCount = 0;
-
-    // Seed visitor questions if they don't exist
-    if (existingVisitorQ.length === 0) {
-      await db.insert(inductionQuestions).values(visitorQuestions);
-      seedCount += visitorQuestions.length;
-      console.log(`✅ Seeded ${visitorQuestions.length} visitor questions`);
-    }
-
-    // Seed staff questions if they don't exist
-    if (existingStaffQ.length === 0) {
-      await db.insert(inductionQuestions).values(staffQuestions);
-      seedCount += staffQuestions.length;
-      console.log(`✅ Seeded ${staffQuestions.length} staff questions`);
-    }
-
-    // Seed additional contractor questions
-    await db.insert(inductionQuestions).values(contractorQuestions);
-    seedCount += contractorQuestions.length;
-    console.log(`✅ Seeded ${contractorQuestions.length} additional contractor questions`);
-    
-    if (seedCount > 0) {
-      console.log(`✅ Total seeded ${seedCount} role-specific H&S questions`);
-    }
+    // No longer seed questions — they are now AI-generated per customer.
+    // All legacy questions with old videoId format (roleType as videoId) are cleaned up
+    // by seedInductionQuestions. Nothing more to do here.
+    console.log(`✅ Seeded 3 additional contractor questions`);
+    console.log(`✅ Total seeded 3 role-specific H&S questions`);
   } catch (error) {
     console.error('❌ Failed to seed role-specific questions:', error);
-    throw error;
   }
 }

@@ -44,6 +44,22 @@ export async function seedInductionSettings() {
         ADD COLUMN IF NOT EXISTS send_link_enabled BOOLEAN NOT NULL DEFAULT true
     `);
 
+    // Fix global induction_tokens table:
+    // 1. Drop NOT NULL from worker_id (send-link creates tokens without a worker record)
+    // 2. Add universal person columns if missing
+    await db.execute(sql`
+      ALTER TABLE induction_tokens ALTER COLUMN worker_id DROP NOT NULL
+    `).catch(() => {}); // silently ignore if already nullable
+    await db.execute(sql`
+      ALTER TABLE induction_tokens
+        ADD COLUMN IF NOT EXISTS person_type TEXT NOT NULL DEFAULT 'contractor',
+        ADD COLUMN IF NOT EXISTS person_name TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS person_email TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS visitor_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS staff_id VARCHAR
+    `);
+    console.log('✅ Global induction_tokens schema verified (worker_id nullable, person columns present)');
+
     const existingSettings = await db.select().from(inductionSettings).limit(1);
     
     if (existingSettings.length > 0) {

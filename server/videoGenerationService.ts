@@ -1610,8 +1610,9 @@ Respond with valid JSON:
   async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string, preGeneratedImages: string[] = [], preGeneratedAudio: string[] = []): Promise<string> {
     console.log('🎨 Generating enhanced presentation with AI images...');
     
-    // Get company name for branding
+    // Get company name and logo for branding
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyLogoUrl = this.companySettings?.logoUrl || this.companySettings?.bannerUrl || null;
     
     // Use pre-generated AI images and audio if available
     let sceneImages: string[] = preGeneratedImages;
@@ -1844,13 +1845,19 @@ Respond with valid JSON:
 </head>
 <body>
     
+    <!-- Company branding bar (top-left, fixed) -->
+    <div style="position: fixed; top: 12px; left: 16px; z-index: 1000; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.55); padding: 8px 16px 8px 10px; border-radius: 30px; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 16px rgba(0,0,0,0.4); max-width: 280px;">
+        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName}" style="height: 32px; width: 32px; border-radius: 50%; object-fit: contain; background: white; padding: 3px; flex-shrink: 0;" onerror="this.style.display='none';" />` : `<div style="height: 32px; width: 32px; border-radius: 50%; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #4338ca; font-size: 14px; flex-shrink: 0;">${companyName.charAt(0)}</div>`}
+        <span style="font-size: 0.8rem; font-weight: 600; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${companyName}</span>
+    </div>
+
     <div class="presentation-container">
         ${scenes.map((scene, index) => `
             <div class="scene ${index === 0 ? 'active' : ''}" data-duration="${scene.duration}">
                 <div class="scene-counter">
                     <span id="current-scene">${index + 1}</span> / <span id="total-scenes">${scenes.length}</span>
                 </div>
-                <h1>${scene.title}</h1>
+                <h1 style="margin-top: 48px;">${scene.title}</h1>
                 ${sceneImages[index] ? `
                     <div class="scene-image" style="position: relative;">
                         <img src="${sceneImages[index]}" alt="${scene.title}" />
