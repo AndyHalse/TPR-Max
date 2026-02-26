@@ -59,6 +59,7 @@ export default function EmailOutbox() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [previewSummary, setPreviewSummary] = useState<EmailSummary | null>(null);
 
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -72,15 +73,16 @@ export default function EmailOutbox() {
     staleTime: 10 * 1000,
   });
 
-  const { data: previewData, isLoading: previewLoading } = useQuery<EmailDetail>({
+  const { data: previewData, isLoading: previewLoading, isError: previewError } = useQuery<EmailDetail>({
     queryKey: ["/api/email-log", previewId],
     queryFn: async () => {
       const res = await fetch(`/api/email-log/${previewId}`, { credentials: "include" });
-      if (!res.ok) throw new Error(`Failed to load email: ${res.status}`);
+      if (!res.ok) throw new Error(`${res.status}`);
       return res.json();
     },
     enabled: !!previewId,
     staleTime: 60 * 1000,
+    retry: false,
   });
 
   const clearMutation = useMutation({
@@ -228,7 +230,7 @@ export default function EmailOutbox() {
               {filtered.map((email) => (
                 <button
                   key={email.id}
-                  onClick={() => setPreviewId(email.id)}
+                  onClick={() => { setPreviewId(email.id); setPreviewSummary(email); }}
                   className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-start gap-3"
                 >
                   <div className="flex-1 min-w-0 space-y-1">
@@ -277,6 +279,17 @@ export default function EmailOutbox() {
               <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />
               <span className="ml-2 text-slate-500 text-sm">Loading email...</span>
             </div>
+          ) : previewError ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
+              <AlertTriangle className="w-10 h-10 text-amber-400" />
+              <p className="text-slate-600 dark:text-slate-400 font-medium">Session expired</p>
+              <p className="text-slate-500 dark:text-slate-500 text-sm max-w-xs">
+                Your login session has expired. Please log in again to view email previews.
+              </p>
+              <Button size="sm" onClick={() => { setPreviewId(null); navigate("/login"); }}>
+                Go to Login
+              </Button>
+            </div>
           ) : previewData ? (
             <div className="flex flex-col flex-1 min-h-0 space-y-3">
               {/* Meta */}
@@ -309,12 +322,12 @@ export default function EmailOutbox() {
                 </div>
               </div>
 
-              {/* HTML preview in sandboxed iframe */}
+              {/* HTML preview — links open in new tab exactly as recipient would see them */}
               <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-white">
                 {previewData.htmlBody ? (
                   <iframe
-                    srcDoc={previewData.htmlBody.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ')}
-                    sandbox="allow-same-origin"
+                    srcDoc={previewData.htmlBody.replace(/<a(\s)/gi, '<a target="_blank" rel="noopener noreferrer"$1')}
+                    sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                     style={{ width: "100%", height: "100%", minHeight: "520px", border: "none", display: "block" }}
                     title="Email preview"
                   />
@@ -324,6 +337,11 @@ export default function EmailOutbox() {
                   </div>
                 )}
               </div>
+            </div>
+          ) : previewSummary ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
+              <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />
+              <span className="text-slate-500 text-sm">Loading preview for: {previewSummary.subject}</span>
             </div>
           ) : null}
         </DialogContent>
