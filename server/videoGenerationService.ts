@@ -308,19 +308,14 @@ export class VideoGenerationService {
       console.log(`🔧 Starting script generation with comprehensive logging...`);
       console.log(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
       
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error('CRITICAL: OpenAI API key not configured');
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        throw new Error('CRITICAL: Replit AI Integrations OpenAI key not configured (AI_INTEGRATIONS_OPENAI_API_KEY)');
       }
       
-      // Use the latest available model with intelligent fallback
-      let selectedModel = this.companySettings?.openaiModel || "gpt-4o";
+      // Use modelType param first (from caller), fall back to company settings, then default to gpt-5
+      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
       
-      // Try GPT-5 first if configured, with fallback strategy
-      if (selectedModel === "gpt-5") {
-        console.log(`🤖 Attempting to use GPT-5 for enhanced induction generation...`);
-      } else {
-        console.log(`🤖 Selected AI model: ${selectedModel}`);
-      }
+      console.log(`🤖 Using AI model: ${selectedModel} for ${roleType} induction generation`);
       
       let response;
       let content: any = null;
@@ -330,16 +325,24 @@ export class VideoGenerationService {
         console.log(`📝 Prompt length: ${prompt.length} characters`);
         
         apiStartTime = Date.now();
-        const systemMessage = `You are a UK Health & Safety expert with extensive experience in workplace safety training and induction program development. Your expertise includes:
+        const systemMessage = `You are a senior UK Health & Safety expert with 20+ years of workplace safety training experience. Your expertise includes:
 
-            - NEBOSH and IOSH certified safety training principles
-            - UK HSE regulations and industry-specific compliance requirements  
-            - Adult learning psychology and engagement techniques
-            - Modern safety training methodologies and best practices
-            - Risk assessment and hazard identification expertise
-            - Emergency response planning and procedures
+            - NEBOSH (National Examination Board in Occupational Safety and Health) certified training principles
+            - IOSH (Institution of Occupational Safety and Health) safety management frameworks
+            - UK HSE (Health and Safety Executive) 2024 guidance and compliance requirements
+            - Health and Safety at Work Act 1974 and all current amendments
+            - Management of Health and Safety at Work Regulations 1999
+            - Personal Protective Equipment at Work Regulations 1992 (as amended 2022)
+            - Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013 (RIDDOR)
+            - Control of Substances Hazardous to Health Regulations 2002 (COSHH)
+            - Construction (Design and Management) Regulations 2015 (CDM)
+            - Adult learning psychology and modern eLearning engagement techniques
             
-            Your task is to create professional, engaging safety induction content that meets UK standards and is tailored to the specific company and industry context provided.`;
+            Your task is to create professional, engaging safety induction content that is:
+            - Fully compliant with UK HSE 2024 guidance and current legislation
+            - Tailored precisely to the specific company, industry, and role type provided
+            - Written in plain, accessible UK English with correct UK terminology (muster point, HSE, RIDDOR, etc.)
+            - Scenario-based and practical — not generic or theoretical`;
         
         const fullPrompt = `${systemMessage}\n\n${prompt}
 
@@ -426,10 +429,33 @@ export class VideoGenerationService {
         
         content = await this.aiJsonFromMessages(messages, "Induction script with scenes array", options);
       } catch (error: any) {
-        console.log(`⚠️ AI generation failed: ${error.message}`);
-        console.log(`🚨 Using emergency fallback content due to AI failure...`);
-        // AiModelManager handles retries, so if we get here, use fallback content
-        return this.generateEmergencyFallbackScript(roleType, videoFormat);
+        console.log(`⚠️ AI generation failed (attempt 1): ${error.message}`);
+        // Retry once with a simplified, shorter prompt before giving up
+        try {
+          console.log(`🔄 Retrying with simplified prompt (attempt 2)...`);
+          const simplifiedPrompt = `You are a UK Health & Safety expert. Generate a safety induction script for ${roleType}s at ${companyName} (${industryContext}).
+
+Create EXACTLY 6 scenes covering: Welcome, Legal Framework, PPE, Hazard Identification, Emergency Procedures, Safe Working.
+
+Respond with valid JSON:
+{
+  "script": "narration script 600+ words",
+  "scenes": [{"title":"string","content":"string 80-120 words","duration":150,"imagePrompt":"professional workplace safety image description"}],
+  "totalDuration": 900
+}`;
+          const retryMessages = [{ role: "user", content: simplifiedPrompt }];
+          const isNewGenRetry = selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7');
+          const retryOptions = {
+            model: selectedModel,
+            response_format: { type: "json_object" },
+            ...(isNewGenRetry ? { max_completion_tokens: 3000 } : { max_tokens: 3000, temperature: 0.7 })
+          };
+          content = await this.aiJsonFromMessages(retryMessages, undefined, retryOptions);
+          console.log(`✅ Retry succeeded`);
+        } catch (retryError: any) {
+          console.log(`🚨 Both attempts failed, using emergency fallback: ${retryError.message}`);
+          return this.generateEmergencyFallbackScript(roleType, videoFormat);
+        }
       }
 
       const apiDuration = Date.now() - apiStartTime;

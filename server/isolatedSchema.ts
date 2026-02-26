@@ -1007,6 +1007,10 @@ export const inductionSettings = pgTable("induction_settings", {
   modelType: text("model_type").default("gpt-5").notNull(), // 'gpt-4o', 'gpt-5', 'gpt-6', 'gpt-7'
   passPercentage: integer("pass_percentage").default(80), // Minimum percentage to pass
   isActive: boolean("is_active").default(true).notNull(),
+  generatedHtml: text("generated_html"), // Saved HTML presentation content (customer-isolated)
+  scenesData: text("scenes_data"), // JSON string of scenes array
+  generatedAt: timestamp("generated_at"), // When video was last generated
+  questionsGenerated: boolean("questions_generated").default(false), // Whether AI questions have been saved
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

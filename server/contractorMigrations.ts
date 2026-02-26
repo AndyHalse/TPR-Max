@@ -852,6 +852,22 @@ export const createAIImagesMigration: Migration = {
   }
 };
 
+// Migration 10: Add video storage columns to induction_settings
+export const addInductionVideoStorageMigration: Migration = {
+  version: '20260226_011_add_induction_video_storage',
+  description: 'Add generatedHtml, scenesData, generatedAt, questionsGenerated to induction_settings for customer-isolated video content',
+  async up(db: any) {
+    await db.execute(`
+      ALTER TABLE induction_settings 
+      ADD COLUMN IF NOT EXISTS generated_html TEXT,
+      ADD COLUMN IF NOT EXISTS scenes_data TEXT,
+      ADD COLUMN IF NOT EXISTS generated_at TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS questions_generated BOOLEAN DEFAULT false
+    `);
+    console.log('✅ Added video storage columns to induction_settings');
+  }
+};
+
 // Export all migrations
 export const contractorMigrations: Migration[] = [
   createCoreContractorTablesMigration,
@@ -863,4 +879,5 @@ export const contractorMigrations: Migration[] = [
   createContractorOperationsMigration,
   createUKHSDocumentSystemMigration,
   createAIImagesMigration,
+  addInductionVideoStorageMigration,
 ];

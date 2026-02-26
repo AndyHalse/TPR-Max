@@ -9565,41 +9565,56 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  // Cleanup stale questions for a role type (removes all inactive + legacy duplicates)
+  // Cleanup questions for a role type
+  // Default: removes all inactive + legacy duplicates
+  // With ?nuclear=true: deletes ALL questions for this customer+roleType (fresh start)
   app.delete('/api/induction/questions/cleanup', requireAuth, async (req, res) => {
     try {
       const roleType = (req.query.roleType as string) || 'contractor';
+      const nuclear = req.query.nuclear === 'true';
       const customerId = req.customerId || 'default';
       const customerVideoId = `${customerId}-${roleType}`;
 
-      // Delete ALL questions for this role that don't belong to this customer
-      // (keeps only this customer's questions with the correct videoId prefix)
-      const { count: deletedInactive } = await db
-        .delete(inductionQuestions)
-        .where(
-          and(
-            eq(inductionQuestions.roleType, roleType),
-            eq(inductionQuestions.isActive, false)
-          )
-        );
+      let deletedCount = 0;
 
-      // Also delete stale active questions with old videoId (no customerId prefix)
-      const { count: deletedLegacy } = await db
-        .delete(inductionQuestions)
-        .where(
-          and(
+      if (nuclear) {
+        // Nuclear: delete ALL questions for this customer+roleType (clean slate)
+        const result1 = await db
+          .delete(inductionQuestions)
+          .where(eq(inductionQuestions.videoId, customerVideoId));
+        // Also legacy questions stored with roleType as videoId
+        const result2 = await db
+          .delete(inductionQuestions)
+          .where(and(
             eq(inductionQuestions.roleType, roleType),
             eq(inductionQuestions.videoId, roleType)
-          )
-        );
-
-      console.log(`🧹 Cleanup: deleted stale/inactive questions for ${roleType}`);
-      res.json({ 
-        success: true, 
-        message: `Cleaned up stale questions for ${roleType}`,
-        deletedInactive: deletedInactive ?? 0,
-        deletedLegacy: deletedLegacy ?? 0
-      });
+          ));
+        // Also delete any inactive questions for this roleType regardless of videoId
+        const result3 = await db
+          .delete(inductionQuestions)
+          .where(and(
+            eq(inductionQuestions.roleType, roleType),
+            eq(inductionQuestions.isActive, false)
+          ));
+        console.log(`🧹 Nuclear cleanup: deleted all questions for ${roleType} (customer: ${customerId})`);
+        res.json({ success: true, message: `All questions cleared for ${roleType}`, deleted: deletedCount });
+      } else {
+        // Standard: delete inactive + legacy (non-customerVideoId) questions
+        await db
+          .delete(inductionQuestions)
+          .where(and(
+            eq(inductionQuestions.roleType, roleType),
+            eq(inductionQuestions.isActive, false)
+          ));
+        await db
+          .delete(inductionQuestions)
+          .where(and(
+            eq(inductionQuestions.roleType, roleType),
+            eq(inductionQuestions.videoId, roleType)
+          ));
+        console.log(`🧹 Cleanup: deleted stale/inactive questions for ${roleType}`);
+        res.json({ success: true, message: `Cleaned up stale questions for ${roleType}` });
+      }
     } catch (error) {
       console.error('Error cleaning up questions:', error);
       res.status(500).json({ error: 'Failed to cleanup questions' });
@@ -17057,12 +17072,10 @@ This is an automated notification from your visitor management system.`;
   // Induction Settings Management API Routes
   app.get('/api/induction/settings', requireAuth, async (req, res) => {
     try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // For now return empty until we implement customer-isolated induction settings
-      res.json({ settings: [] });
+      const customerId = req.customerId || 'default';
+      const settingsDb = await customerDbService.getCustomerDatabase(customerId);
+      const rows = await settingsDb.select().from(isolatedSchema.inductionSettings);
+      res.json({ settings: rows });
     } catch (error) {
       console.error('Error fetching induction settings:', error);
       res.status(500).json({ error: 'Failed to fetch induction settings' });
@@ -17273,129 +17286,160 @@ This is an automated notification from your visitor management system.`;
         statusKey
       });
 
-      // Run generation asynchronously
+      // Run generation asynchronously with granular step tracking
       (async () => {
+        const startedAt = inductionGenerationStatus.get(statusKey)!.startedAt;
+        const setStatus = (status: any, step: number, message: string, extra: any = {}) => {
+          inductionGenerationStatus.set(statusKey, { status, step, totalSteps: 5, message, startedAt, ...extra });
+        };
+
         try {
-          // Get induction settings for this role to determine video format and model
+          // Load customer database and settings
+          const inductionVContext = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
+          const custDb = await customerDbService.getCustomerDatabase(inductionVContext.customerId);
+
           let videoFormat = 'hybrid_enhanced';
           let modelType = 'gpt-5';
-          
-          const inductionVContext = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
-          const inductionVDb = await customerDbService.getCustomerDatabase(inductionVContext.customerId);
           try {
-            const inductionSettingsVRows = await inductionVDb.select().from(isolatedSchema.inductionSettings);
-            const roleSetting = inductionSettingsVRows.find((s: any) => s.roleType === roleType);
+            const rows = await custDb.select().from(isolatedSchema.inductionSettings);
+            const roleSetting = rows.find((s: any) => s.roleType === roleType);
             videoFormat = roleSetting?.videoFormat || 'hybrid_enhanced';
             modelType = roleSetting?.modelType || 'gpt-5';
           } catch (_e) {
             console.log('Using default video settings');
           }
-          
+
           console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
-
           const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
-          const settings = await simpleDatabaseService.getCompanySettings(context);
-          const videoService = new VideoGenerationService(settings);
+          const companySettings = await simpleDatabaseService.getCompanySettings(context);
+          const videoService = new VideoGenerationService(companySettings);
 
-          // Step 1: Generate script
-          inductionGenerationStatus.set(statusKey, { status: 'generating_script', step: 1, totalSteps: 5, message: 'Generating AI safety script...', startedAt: inductionGenerationStatus.get(statusKey)!.startedAt });
+          // ── Step 1: Generate AI script ─────────────────────────────────────
+          setStatus('generating_script', 1, 'Generating AI safety script...');
+          console.log(`📝 Step 1: Generating induction script for ${roleType}...`);
+          const { script, scenes, totalDuration } = await videoService.generateInductionScript(roleType, videoFormat, modelType);
+          console.log(`✅ Script ready: ${scenes.length} scenes, ${Math.round(totalDuration / 60)} min`);
 
-          // Step 2: Generate slides
-          inductionGenerationStatus.set(statusKey, { status: 'building_slides', step: 2, totalSteps: 5, message: 'Building professional slides...', startedAt: inductionGenerationStatus.get(statusKey)!.startedAt });
+          // ── Step 2: Build slides with AI images ────────────────────────────
+          setStatus('building_slides', 2, `Building ${scenes.length} slides with AI images...`);
+          console.log(`🎨 Step 2: Generating images for ${scenes.length} scenes...`);
 
-          const generatedContent = await videoService.generateVideoPresentation(roleType, videoFormat, modelType);
-          
-          // Step 3: Generate quiz questions
-          inductionGenerationStatus.set(statusKey, { status: 'creating_questions', step: 3, totalSteps: 5, message: 'Creating quiz questions...', startedAt: inductionGenerationStatus.get(statusKey)!.startedAt });
+          let sceneImages: string[] = [];
+          let sceneAudio: string[] = [];
 
-          console.log('🧠 Generating AI questions from video script...');
+          if (videoFormat === 'hybrid_enhanced') {
+            const [images, audio] = await Promise.all([
+              videoService.generateSceneImages(scenes),
+              videoService.generateSceneAudio(scenes)
+            ]);
+            sceneImages = images;
+            sceneAudio = audio;
+          } else {
+            sceneImages = await videoService.generateSceneImages(scenes);
+          }
+
+          console.log(`✅ Images ready: ${sceneImages.filter(Boolean).length}/${scenes.length} generated`);
+
+          setStatus('building_slides', 2, 'Assembling HTML presentation...');
+          const htmlContent = await videoService.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages, sceneAudio);
+          console.log(`✅ HTML presentation assembled (${Math.round(htmlContent.length / 1024)}KB)`);
+
+          // ── Step 3: Generate quiz questions ────────────────────────────────
+          setStatus('creating_questions', 3, 'Creating quiz questions...');
+          console.log(`🧠 Step 3: Generating AI quiz questions...`);
           let questionsStored = 0;
           try {
-            const aiQuestions = await videoService.generateQuestionsFromScript(
-              generatedContent.script, 
-              generatedContent.scenes, 
-              roleType, 
-              modelType
-            );
-            
+            const aiQuestions = await videoService.generateQuestionsFromScript(script, scenes, roleType, modelType);
+
             if (aiQuestions.length > 0) {
-              console.log(`💾 Storing ${aiQuestions.length} questions — deleting old ones first...`);
-              
-              // DELETE all existing questions for this customer+roleType (clean slate)
-              await db
-                .delete(inductionQuestions)
-                .where(eq(inductionQuestions.videoId, customerVideoId));
-
-              // Also clean up legacy questions stored under old roleType-only videoId
-              await db
-                .delete(inductionQuestions)
-                .where(and(
-                  eq(inductionQuestions.roleType, roleType),
-                  eq(inductionQuestions.videoId, roleType)
-                ));
-
-              // Insert new questions with customer-specific videoId
+              console.log(`💾 Storing ${aiQuestions.length} questions (deleting old ones first)...`);
+              // DELETE-then-INSERT: clean slate for this customer+roleType
+              await db.delete(inductionQuestions).where(eq(inductionQuestions.videoId, customerVideoId));
+              await db.delete(inductionQuestions).where(and(
+                eq(inductionQuestions.roleType, roleType),
+                eq(inductionQuestions.videoId, roleType)
+              ));
               for (let i = 0; i < aiQuestions.length; i++) {
-                const question = aiQuestions[i];
+                const q = aiQuestions[i];
                 await db.insert(inductionQuestions).values({
-                  questionText: question.questionText,
-                  questionType: question.questionType || 'multiple_choice',
-                  correctAnswer: question.correctAnswer,
-                  optionA: question.optionA,
-                  optionB: question.optionB,
-                  optionC: question.optionC,
-                  optionD: question.optionD,
-                  explanation: question.explanation,
-                  category: question.category,
-                  roleType: roleType,
+                  questionText: q.questionText,
+                  questionType: q.questionType || 'multiple_choice',
+                  correctAnswer: q.correctAnswer,
+                  optionA: q.optionA,
+                  optionB: q.optionB,
+                  optionC: q.optionC,
+                  optionD: q.optionD,
+                  explanation: q.explanation,
+                  category: q.category,
+                  roleType,
                   videoId: customerVideoId,
                   isAiGenerated: true,
                   orderIndex: i + 1,
                   isActive: true
                 });
               }
-              
               questionsStored = aiQuestions.length;
               console.log(`✅ Stored ${questionsStored} questions for ${roleType} (customer: ${customerId})`);
             }
           } catch (questionError) {
-            console.error('⚠️ Failed to generate AI questions:', questionError);
+            console.error('⚠️ Question generation failed (non-fatal):', questionError);
           }
-          
-          // Step 4: Save video to database
-          inductionGenerationStatus.set(statusKey, { status: 'saving', step: 4, totalSteps: 5, message: 'Saving video to database...', startedAt: inductionGenerationStatus.get(statusKey)!.startedAt });
 
+          // ── Step 4: Save video to customer-isolated database ───────────────
+          setStatus('saving', 4, 'Saving video to database...');
+          console.log(`💾 Step 4: Saving video to customer database...`);
           let savedToDatabase = false;
           try {
-            await videoService.updateSettingsWithGeneratedContent(roleType, generatedContent);
+            await custDb
+              .update(isolatedSchema.inductionSettings)
+              .set({
+                videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
+                videoUrl: 'generated',
+                videoDescription: `AI-generated UK HSE-compliant safety induction for ${roleType}s. Duration: ${Math.round(totalDuration / 60)} minutes.`,
+                videoDurationMinutes: Math.round(totalDuration / 60),
+                generatedHtml: htmlContent,
+                scenesData: JSON.stringify(scenes),
+                generatedAt: new Date(),
+                questionsGenerated: questionsStored > 0,
+                updatedAt: new Date()
+              } as any)
+              .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
             savedToDatabase = true;
-            console.log('✅ Successfully saved video to database');
+            console.log(`✅ Saved to customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
           } catch (saveError) {
-            console.error('⚠️ Failed to save video to database:', saveError);
+            console.error('⚠️ Customer DB save failed:', saveError);
+            // Fallback: try global DB save
+            try {
+              await db
+                .update(inductionSettings)
+                .set({
+                  videoUrl: 'generated',
+                  videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
+                  generatedHtml: htmlContent,
+                  scenesData: JSON.stringify(scenes),
+                  generatedAt: new Date(),
+                  updatedAt: new Date()
+                })
+                .where(eq(inductionSettings.roleType, roleType));
+              savedToDatabase = true;
+              console.log('✅ Saved to global DB fallback');
+            } catch (fallbackError) {
+              console.error('⚠️ Global DB fallback also failed:', fallbackError);
+            }
           }
 
-          // Step 5: Done
-          inductionGenerationStatus.set(statusKey, {
-            status: 'done',
-            step: 5,
-            totalSteps: 5,
-            message: savedToDatabase 
-              ? `Video generated with ${questionsStored} quiz questions` 
+          // ── Step 5: Done ───────────────────────────────────────────────────
+          setStatus('done', 5,
+            savedToDatabase
+              ? `Video generated with ${questionsStored} quiz questions`
               : 'Video generated (database save failed — preview available)',
-            startedAt: inductionGenerationStatus.get(statusKey)!.startedAt,
-            completedAt: Date.now()
-          });
-
+            { completedAt: Date.now() }
+          );
           console.log(`🎉 Generation complete for ${roleType} (customer: ${customerId})`);
 
         } catch (asyncError: any) {
-          console.error('Error in async video generation:', asyncError);
-          inductionGenerationStatus.set(statusKey, {
-            status: 'failed',
-            step: 0,
-            totalSteps: 5,
-            message: 'Generation failed',
-            startedAt: inductionGenerationStatus.get(statusKey)?.startedAt || Date.now(),
+          console.error('❌ Error in async video generation:', asyncError);
+          setStatus('failed', 0, 'Generation failed', {
             completedAt: Date.now(),
             error: asyncError.message || 'Unknown error'
           });
@@ -17454,12 +17498,37 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // Serve actual generated video content (no auth required for iframe access)
+  // Serve actual generated video content
   app.get('/api/induction/video/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
-      
-      // Get existing settings with generated content
+
+      // Try customer-isolated database first (if authenticated)
+      if (req.session?.userId && req.customerId) {
+        try {
+          const custVideoDb = await customerDbService.getCustomerDatabase(req.customerId);
+          const custRows = await custVideoDb
+            .select()
+            .from(isolatedSchema.inductionSettings)
+            .where(eq(isolatedSchema.inductionSettings.roleType, roleType))
+            .limit(1);
+
+          if (custRows.length > 0) {
+            const setting = custRows[0] as any;
+            if (setting.generatedHtml) {
+              console.log(`📄 Serving customer-isolated generatedHtml for ${roleType} (${req.customerId})`);
+              res.setHeader('Content-Type', 'text/html; charset=utf-8');
+              res.setHeader('Cache-Control', 'no-cache');
+              res.send(setting.generatedHtml);
+              return;
+            }
+          }
+        } catch (_custErr) {
+          console.log('⚠️ Customer DB lookup failed, falling back to global');
+        }
+      }
+
+      // Fallback: global shared inductionSettings (legacy / token-based access)
       const existingSettings = await db
         .select()
         .from(inductionSettings)
@@ -17471,7 +17540,7 @@ This is an automated notification from your visitor management system.`;
 
         // Prefer stored generatedHtml (clean, no base64 overhead)
         if ((setting as any).generatedHtml) {
-          console.log('📄 Serving generatedHtml for', roleType);
+          console.log('📄 Serving global generatedHtml for', roleType);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           res.setHeader('Cache-Control', 'no-cache');
           res.send((setting as any).generatedHtml);

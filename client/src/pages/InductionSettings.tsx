@@ -10,11 +10,27 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  Users, Video, FileQuestion, Play, Eye, Sparkles, CheckCircle, XCircle,
+  Users, Video, FileQuestion, Eye, Sparkles, CheckCircle, XCircle,
   Maximize2, List, RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
   BookOpen, Shield, Flame, HardHat, ClipboardList
 } from "lucide-react";
-import type { InductionSettings, InductionQuestion } from "@shared/schema";
+import type { InductionQuestion } from "@shared/schema";
+
+interface InductionSettingRow {
+  id: string;
+  roleType: string;
+  videoTitle: string;
+  videoUrl: string;
+  videoFormat: string;
+  modelType: string;
+  passPercentage: number;
+  generatedHtml?: string | null;
+  scenesData?: string | null;
+  generatedAt?: string | null;
+  questionsGenerated?: boolean;
+  videoDurationMinutes?: number;
+  updatedAt?: string;
+}
 
 interface GenerationStatus {
   status: 'idle' | 'pending' | 'generating_script' | 'building_slides' | 'creating_questions' | 'saving' | 'done' | 'failed';
@@ -44,7 +60,7 @@ const CATEGORY_ICONS: Record<string, any> = {
 
 interface RoleCardProps {
   roleType: 'visitor' | 'staff' | 'contractor';
-  settings: InductionSettings | null;
+  settings: InductionSettingRow | null;
   questions: InductionQuestion[];
   onQuestionsRefetch: () => void;
 }
@@ -109,6 +125,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
           stopPolling();
           toast({ title: "Video Generated", description: statusData.message });
           queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
+          queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
           onQuestionsRefetch();
           // Load preview HTML
           try {
@@ -125,6 +142,21 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
       } catch (_e) {}
     }, 3000);
   };
+
+  // Auto-load existing video when settings shows it was generated
+  useEffect(() => {
+    if (settings?.generatedAt && !previewHtml && generationStatus.status === 'idle') {
+      fetch(`/api/induction/video/${roleType}`, { credentials: 'include' })
+        .then(res => {
+          if (res.ok && res.headers.get('content-type')?.includes('text/html')) return res.text();
+          return null;
+        })
+        .then(html => {
+          if (html && !html.includes('No video generated yet')) setPreviewHtml(html);
+        })
+        .catch(() => {});
+    }
+  }, [settings?.generatedAt, roleType]);
 
   useEffect(() => {
     return () => stopPolling();
@@ -172,18 +204,18 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
   const handleCleanupQuestions = async () => {
     setIsCleaningUp(true);
     try {
-      const response = await fetch(`/api/induction/questions/cleanup?roleType=${roleType}`, {
+      const response = await fetch(`/api/induction/questions/cleanup?roleType=${roleType}&nuclear=true`, {
         method: 'DELETE',
         credentials: 'include'
       });
       const data = await response.json();
       if (data.success) {
-        toast({ title: "Cleaned Up", description: `Removed stale questions for ${getRoleDisplayName(roleType)}` });
+        toast({ title: "Questions Cleared", description: `All questions removed for ${getRoleDisplayName(roleType)} — regenerate to get fresh ones` });
         queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
         onQuestionsRefetch();
       }
     } catch (error: any) {
-      toast({ title: "Failed", description: 'Could not clean up questions', variant: 'destructive' });
+      toast({ title: "Failed", description: 'Could not clear questions', variant: 'destructive' });
     } finally {
       setIsCleaningUp(false);
     }
@@ -218,7 +250,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
     }
   };
 
-  const hasVideo = settings?.videoUrl || previewHtml;
+  const hasVideo = settings?.generatedAt || previewHtml;
   const questionsByCategory = questions.reduce((acc, q) => {
     const cat = q.category || 'General Safety';
     if (!acc[cat]) acc[cat] = [];
@@ -299,22 +331,37 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
           ) : hasVideo ? (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="space-y-1">
                   <p className="text-sm font-medium text-green-900">
                     <CheckCircle className="inline h-4 w-4 mr-1 text-green-600" />
                     Video Ready
                   </p>
-                  {settings?.videoDurationMinutes && (
-                    <p className="text-xs text-green-700 mt-1">
-                      <Clock className="inline h-3 w-3 mr-1" />
-                      ~{settings.videoDurationMinutes} min · {settings.generatedAt ? new Date(settings.generatedAt).toLocaleDateString('en-GB') : 'Generated'}
+                  <p className="text-xs text-green-700">
+                    <Clock className="inline h-3 w-3 mr-1" />
+                    {settings?.videoDurationMinutes ? `~${settings.videoDurationMinutes} min · ` : ''}
+                    {settings?.generatedAt
+                      ? `Generated ${new Date(settings.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                      : 'Ready to preview'}
+                  </p>
+                  {settings?.questionsGenerated && (
+                    <p className="text-xs text-green-600">
+                      <CheckCircle className="inline h-3 w-3 mr-1" />
+                      Quiz questions generated
                     </p>
                   )}
                 </div>
-                <Button variant="outline" size="sm" onClick={handleOpenPreview} className="gap-1">
-                  <Eye className="h-3 w-3" />
-                  Preview
-                </Button>
+                <div className="flex flex-col gap-1 items-end">
+                  <Button variant="outline" size="sm" onClick={handleOpenPreview} className="gap-1">
+                    <Eye className="h-3 w-3" />
+                    Preview
+                  </Button>
+                  {previewHtml && (
+                    <Button variant="ghost" size="sm" onClick={handleOpenFullscreen} className="gap-1 text-xs h-7">
+                      <Maximize2 className="h-3 w-3" />
+                      Full Screen
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -347,20 +394,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
             )}
           </Button>
 
-          {previewHtml && (
-            <Button
-              variant="outline"
-              onClick={handleOpenFullscreen}
-              className="flex items-center gap-1"
-              title="Open in full screen"
-            >
-              <Maximize2 className="h-4 w-4" />
-              Full Screen
-            </Button>
-          )}
-
-          {/* Questions Button */}
-          {questions.length > 0 && (
+          {/* Questions Button — always visible once video has been generated */}
+          {(questions.length > 0 || hasVideo) && (
             <Dialog open={showQuestions} onOpenChange={setShowQuestions}>
               <DialogTrigger asChild>
                 <Button
@@ -403,15 +438,25 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
                     onClick={handleCleanupQuestions}
                     disabled={isCleaningUp}
                     className="gap-1 text-xs text-red-600 hover:bg-red-50"
+                    title="Delete ALL questions and start fresh"
                   >
                     {isCleaningUp ? (
                       <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600" />
                     ) : (
                       <Trash2 className="h-3 w-3" />
                     )}
-                    Clear Stale
+                    Clear All
                   </Button>
                 </div>
+
+                {/* Empty state */}
+                {questions.length === 0 && (
+                  <div className="py-8 text-center text-gray-500">
+                    <FileQuestion className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm font-medium">No questions yet</p>
+                    <p className="text-xs mt-1">Generate a video or click "Regenerate Questions" to create quiz questions.</p>
+                  </div>
+                )}
 
                 {/* Questions grouped by category */}
                 <div className="space-y-5 mt-2">
@@ -515,12 +560,23 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
 
 export default function InductionSettings() {
   const [activeRole, setActiveRole] = useState<'visitor' | 'staff' | 'contractor'>('visitor');
-  const [settings, setSettings] = useState<Record<string, InductionSettings | null>>({
-    visitor: null,
-    staff: null,
-    contractor: null
-  });
   const queryClient = useQueryClient();
+
+  const { data: allSettings = [] } = useQuery<InductionSettingRow[]>({
+    queryKey: ['/api/induction/settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/induction/settings', { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data.settings) ? data.settings : [];
+    },
+    staleTime: 30000
+  });
+
+  const settingsByRole = (allSettings as InductionSettingRow[]).reduce((acc, s) => {
+    acc[s.roleType] = s;
+    return acc;
+  }, {} as Record<string, InductionSettingRow>);
 
   const { data: visitorQuestions = [], refetch: refetchVisitor } = useQuery<InductionQuestion[]>({
     queryKey: ['/api/induction/questions', 'visitor'],
@@ -612,9 +668,12 @@ export default function InductionSettings() {
           <TabsContent key={role} value={role} className="space-y-4 mt-6">
             <RoleCard
               roleType={role}
-              settings={settings[role]}
+              settings={settingsByRole[role] || null}
               questions={getQuestions(role)}
-              onQuestionsRefetch={() => getRefetch(role)()}
+              onQuestionsRefetch={() => {
+                getRefetch(role)();
+                queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
+              }}
             />
           </TabsContent>
         ))}

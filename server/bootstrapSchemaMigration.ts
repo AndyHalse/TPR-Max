@@ -947,6 +947,10 @@ export const bootstrapSchemaMigration: Migration = {
         model_type TEXT NOT NULL DEFAULT 'gpt-5',
         pass_percentage INTEGER DEFAULT 80,
         is_active BOOLEAN NOT NULL DEFAULT true,
+        generated_html TEXT,
+        scenes_data TEXT,
+        generated_at TIMESTAMP,
+        questions_generated BOOLEAN DEFAULT false,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
