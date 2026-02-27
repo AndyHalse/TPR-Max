@@ -608,6 +608,22 @@ export default function ContractorKiosk() {
   // ─── Main kiosk menu ──────────────────────────────────────────────────────
   return (
     <div className="h-screen bg-background flex flex-col px-4 sm:px-6 lg:px-8 py-3 sm:py-4 overflow-hidden">
+      {/* Company banner */}
+      {settingsAny?.bannerUrl && (
+        <div className="w-full max-w-2xl mx-auto mb-2 sm:mb-3 rounded-xl overflow-hidden flex-shrink-0" style={{ maxHeight: '18vh' }}>
+          <img
+            src={`/objects${settingsAny.bannerUrl}`}
+            alt={settingsAny.companyName || ''}
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const c = e.currentTarget.parentElement;
+              if (c) c.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+
       {/* Heading — tapping navigates back to dashboard (like main kiosk) */}
       <div className="text-center flex-shrink-0 py-2 sm:py-3">
         <h2

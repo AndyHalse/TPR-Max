@@ -262,6 +262,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/kiosk" component={KioskMode} />
+      <Route path="/contractor" component={ContractorKiosk} />
       <Route path="/marketing" component={MarketingPage} />
       <Route path="/induction-preview/:roleType">
         {(params) => {
@@ -290,7 +291,6 @@ function Router() {
             <Route path="/contractors" component={ContractorManagement} />
             <Route path="/contractors/legacy" component={Contractors} />
             <Route path="/contractors/:id" component={ContractorDetails} />
-            <Route path="/contractor" component={ContractorKiosk} />
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
