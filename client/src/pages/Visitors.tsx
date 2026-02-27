@@ -899,26 +899,26 @@ export default function Visitors() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 bg-white/50 backdrop-blur-sm rounded-xl p-1.5 sm:p-2 gap-1.5 sm:gap-0">
+        <TabsList className="flex w-full bg-white/50 backdrop-blur-sm rounded-xl p-1.5 gap-1">
           <TabsTrigger 
             value="existing" 
-            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap py-2 sm:py-2.5"
+            className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm py-2 sm:py-2.5 min-w-0"
           >
-            <History size={16} className="flex-shrink-0" />
+            <History size={15} className="flex-shrink-0" />
             <span className="truncate">Previous Visitors</span>
           </TabsTrigger>
           <TabsTrigger 
             value="walkin" 
-            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap py-2 sm:py-2.5"
+            className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm py-2 sm:py-2.5 min-w-0"
           >
-            <UserPlus size={16} className="flex-shrink-0" />
+            <UserPlus size={15} className="flex-shrink-0" />
             <span className="truncate">Walk-in Registration</span>
           </TabsTrigger>
           <TabsTrigger 
             value="prebook" 
-            className="flex items-center justify-center gap-1.5 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm whitespace-nowrap py-2 sm:py-2.5"
+            className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm py-2 sm:py-2.5 min-w-0"
           >
-            <CalendarPlus size={16} className="flex-shrink-0" />
+            <CalendarPlus size={15} className="flex-shrink-0" />
             <span className="truncate">Pre-booking</span>
           </TabsTrigger>
         </TabsList>
