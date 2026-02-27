@@ -414,6 +414,26 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     },
   });
 
+  const [inductionLinkSentEmail, setInductionLinkSentEmail] = useState<string | null>(null);
+  const sendInductionMutation = useMutation({
+    mutationFn: async () => {
+      if (!worker) throw new Error('No worker selected');
+      const response = await apiRequest('POST', `/api/contractors/${worker.id}/send-induction`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      setInductionLinkSentEmail(worker?.email || '');
+      setTimeout(() => setInductionLinkSentEmail(null), 4000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send induction link',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log('🔍 ContractorEditModal - Submitting form with data:', formData);
@@ -707,7 +727,6 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   {[
                     { field: 'asbestosAwareness', label: 'Asbestos Awareness', desc: 'CAR 2012 — required for most construction and refurbishment work' },
                     { field: 'manualHandling', label: 'Manual Handling', desc: 'MHOR 1992 — required for all roles involving lifting or carrying' },
-                    { field: 'inductionCompleted', label: 'Site Induction Completed', desc: 'Site-specific H&S briefing completed' },
                   ].map(({ field, label, desc }) => (
                     <label
                       key={field}
@@ -729,6 +748,53 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       </div>
                     </label>
                   ))}
+
+                  {/* Site Induction row with Send Link button */}
+                  <div className={`flex items-start gap-3 p-3 border rounded-lg transition-colors ${
+                    formData.inductionCompleted
+                      ? 'border-blue-300 bg-blue-50/60'
+                      : 'border-gray-200 bg-white/50'
+                  }`}>
+                    <label className="flex items-start gap-3 flex-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.inductionCompleted}
+                        onChange={(e) => handleInputChange('inductionCompleted', e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-blue-600 flex-shrink-0"
+                      />
+                      <div className="flex-1">
+                        <div className={`text-sm font-medium ${formData.inductionCompleted ? 'text-blue-700' : 'text-fixed'}`}>
+                          Site Induction Completed
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">Site-specific H&S briefing completed</div>
+                      </div>
+                    </label>
+                    <div className="flex flex-col items-end gap-1 ml-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={formData.inductionCompleted ? 'outline' : 'default'}
+                        className="text-xs whitespace-nowrap"
+                        disabled={!worker?.email || sendInductionMutation.isPending}
+                        onClick={() => sendInductionMutation.mutate()}
+                        title={!worker?.email ? 'No email address on file' : undefined}
+                      >
+                        {sendInductionMutation.isPending ? (
+                          <span className="flex items-center gap-1"><span className="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full" /> Sending…</span>
+                        ) : (
+                          <span className="flex items-center gap-1"><Send className="w-3 h-3" />{formData.inductionCompleted ? 'Re-send Link' : 'Send Link'}</span>
+                        )}
+                      </Button>
+                      {inductionLinkSentEmail && (
+                        <span className="text-xs text-green-600 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Sent to {inductionLinkSentEmail}
+                        </span>
+                      )}
+                      {!worker?.email && (
+                        <span className="text-xs text-gray-400">No email on file</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Compliance Summary */}

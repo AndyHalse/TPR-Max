@@ -1638,6 +1638,7 @@ export const inductionTokens = pgTable("induction_tokens", {
   workerId: varchar("worker_id").references(() => contractorWorkers.id), // For contractors
   visitorId: varchar("visitor_id"), // For visitors (no FK constraint for flexibility)
   staffId: varchar("staff_id"), // For staff (no FK constraint for flexibility)
+  customerId: varchar("customer_id"), // nullable — routes quiz results to correct isolated schema for notes
   personName: text("person_name").notNull(), // Name for email personalization
   personEmail: text("person_email").notNull(), // Email address for sending induction
   token: text("token").notNull().unique(),

@@ -37,7 +37,7 @@ export class InductionService {
   }
 
   // Create induction token for any person type (visitor, staff, contractor)
-  async createInductionToken(workerId: string, personName?: string, personEmail?: string): Promise<string> {
+  async createInductionToken(workerId: string, personName?: string, personEmail?: string, customerId?: string): Promise<string> {
     const token = this.generateToken();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days validity
@@ -49,7 +49,8 @@ export class InductionService {
       personEmail: personEmail || '',
       token,
       expiresAt,
-      status: 'pending'
+      status: 'pending',
+      ...(customerId ? { customerId } : {})
     };
 
     await db.insert(inductionTokens).values(insertData);
@@ -64,6 +65,7 @@ export class InductionService {
     workerId?: string;
     visitorId?: string;
     staffId?: string;
+    customerId?: string;
   }): Promise<string> {
     const token = this.generateToken();
     const expiresAt = new Date();
@@ -78,7 +80,8 @@ export class InductionService {
       staffId: params.staffId,
       token,
       expiresAt,
-      status: 'pending'
+      status: 'pending',
+      ...(params.customerId ? { customerId: params.customerId } : {})
     };
 
     await db.insert(inductionTokens).values(insertData);
@@ -98,8 +101,8 @@ export class InductionService {
         throw new Error('Worker not found or no email address');
       }
 
-      // Create induction token
-      const token = await this.createInductionToken(workerId);
+      // Create induction token (pass customerId so quiz completion can write notes to the right isolated schema)
+      const token = await this.createInductionToken(workerId, worker.firstName + ' ' + worker.lastName, worker.email, customerId);
       
       // Get token details including expiration date
       const [tokenRecord] = await db
@@ -238,14 +241,15 @@ VisiGate Pro - Contractor Management System
         throw new Error('Email address is required');
       }
 
-      // Create universal induction token
+      // Create universal induction token (pass customerId for note-writing on completion)
       const token = await this.createUniversalInductionToken({
         personType: params.personType,
         personName: params.personName,
         personEmail: params.personEmail,
         workerId: params.workerId,
         visitorId: params.visitorId,
-        staffId: params.staffId
+        staffId: params.staffId,
+        customerId: params.customerId
       });
 
       // Get token details including expiration date

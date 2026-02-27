@@ -18,6 +18,7 @@ import {
   insertPrinterConfigurationSchema,
   inductionSettings,
   insertInductionSettingsSchema,
+  inductionTokens,
   inductionQuestions,
   insertNvqQualificationSchema,
   aiGeneratedImages,
@@ -9664,6 +9665,30 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       const results = await inductionService.submitQuizAnswers(tokenId, answers);
       
+      // Fire-and-forget: write pass/fail note to worker_notes in the isolated customer schema
+      (async () => {
+        try {
+          const [token] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+          if (token?.customerId && token?.workerId) {
+            const noteCtx = simpleDatabaseService.createCustomerContext('system', token.customerId);
+            const noteDb = await databaseService.getCustomerDatabase(noteCtx);
+            const attemptNum = token.quizAttempts || 1;
+            const dateStr = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+            const noteText = results.passed
+              ? `Site induction PASSED — Score: ${results.score}% (80% required). Completed on ${dateStr}.`
+              : `Site induction attempt ${attemptNum} FAILED — Score: ${results.score}% (80% required). Worker may retry.`;
+            await noteDb.insert(isolatedSchema.workerNotes).values({
+              workerId: token.workerId,
+              changeType: results.passed ? 'induction_passed' : 'induction_failed',
+              notes: noteText,
+              changedBy: 'system',
+            });
+          }
+        } catch (noteErr) {
+          console.error('⚠️ Failed to write induction note to worker_notes (non-fatal):', noteErr);
+        }
+      })();
+
       res.json({ results });
     } catch (error) {
       console.error('Error submitting quiz:', error);

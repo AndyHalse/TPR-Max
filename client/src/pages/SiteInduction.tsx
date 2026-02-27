@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, Clock, Play, AlertTriangle, Shield, HardHat } from "lucide-react";
+import { CheckCircle, Clock, Play, AlertTriangle, Shield, HardHat, XCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface InductionToken {
@@ -69,8 +69,10 @@ export default function SiteInduction() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [quizResults, setQuizResults] = useState<{ score: number; passed: boolean; total: number } | null>(null);
+  const [quizResults, setQuizResults] = useState<{ score: number; passed: boolean; total: number; correct?: number } | null>(null);
   const [videoFullscreen, setVideoFullscreen] = useState(false);
+  const [tokenExpired, setTokenExpired] = useState(false);
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
 
   useEffect(() => {
     if (match && params?.token) {
@@ -97,12 +99,30 @@ export default function SiteInduction() {
 
       const tokenResponse = await tokenRes.json();
 
-      setTokenData(tokenResponse.token);
+      const tkn = tokenResponse.token;
+
+      // Check if token is expired
+      if (tkn.expiresAt && new Date(tkn.expiresAt) < new Date()) {
+        setTokenExpired(true);
+        setLoading(false);
+        return;
+      }
+
+      // Check if already completed (loaded fresh, not from this session)
+      if (tkn.status === "completed" && tkn.quizPassed) {
+        setAlreadyCompleted(true);
+        setTokenData(tkn);
+        setWorker(tokenResponse.worker);
+        setLoading(false);
+        return;
+      }
+
+      setTokenData(tkn);
       setWorker(tokenResponse.worker);
       setVideoContent(tokenResponse.videoContent);
       
       // Derive personType from token object - critical for correct quiz and messaging
-      const derivedPersonType = tokenResponse.token?.personType || 'contractor';
+      const derivedPersonType = tkn?.personType || 'contractor';
       setPersonType(derivedPersonType);
 
       // Fetch questions for the specific role type
@@ -113,9 +133,9 @@ export default function SiteInduction() {
       }
 
       // Determine current step based on progress
-      if (tokenResponse.token.status === "completed" || tokenResponse.token.quizPassed) {
+      if (tkn.status === "completed" || tkn.quizPassed) {
         setCurrentStep("completed");
-      } else if (tokenResponse.token.videoWatched && !tokenResponse.token.quizCompleted) {
+      } else if (tkn.videoWatched && !tkn.quizCompleted) {
         setCurrentStep("quiz");
       } else {
         setCurrentStep("video");
@@ -199,6 +219,7 @@ export default function SiteInduction() {
       const response = await res.json();
       setQuizResults(response.results);
       
+      const threshold = tokenData?.passThreshold ?? 80;
       if (response.results.passed) {
         setCurrentStep("completed");
         toast({
@@ -208,8 +229,8 @@ export default function SiteInduction() {
         });
       } else {
         toast({
-          title: "Quiz Failed",
-          description: `You scored ${response.results.score}%. You need 80% to pass. Please review the material and try again.`,
+          title: "Quiz Not Passed",
+          description: `You scored ${response.results.score}%. You need ${threshold}% to pass. Review the questions and retry.`,
           variant: "destructive",
           duration: 8000
         });
@@ -227,6 +248,13 @@ export default function SiteInduction() {
     }
   };
 
+  const retryQuiz = () => {
+    setAnswers({});
+    setCurrentQuestionIndex(0);
+    setQuizResults(null);
+    setQuizSubmitted(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center">
@@ -242,6 +270,46 @@ export default function SiteInduction() {
     );
   }
 
+  if (tokenExpired) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="p-8 text-center">
+            <Clock className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">This Link Has Expired</h2>
+            <p className="text-gray-600 mb-4">This induction link has passed its expiry date. Induction links are valid for 7 days from the date they were sent.</p>
+            <p className="text-sm text-gray-500">Please contact your site manager or administrator to request a new induction link.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (alreadyCompleted && tokenData && worker) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4 border-green-200">
+          <CardContent className="p-8 text-center">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-green-900 mb-2">Induction Already Completed</h2>
+            <p className="text-green-700 mb-2">
+              {worker.firstName} {worker.lastName} has already successfully completed this site induction.
+            </p>
+            {tokenData.expiresAt && (
+              <p className="text-sm text-gray-500 mt-4">
+                Completed before {new Date(tokenData.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            )}
+            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-left text-sm text-green-800">
+              <p className="font-medium mb-1">✅ Your induction record is confirmed</p>
+              <p>Present yourself to site management when you arrive on site.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!tokenData || !worker) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center">
@@ -249,7 +317,7 @@ export default function SiteInduction() {
           <CardContent className="p-8 text-center">
             <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-900 mb-2">Invalid Link</h2>
-            <p className="text-variable">This induction link is invalid or has expired.</p>
+            <p className="text-gray-600">This induction link is invalid. Please check the link and try again, or contact your site manager for a new link.</p>
           </CardContent>
         </Card>
       </div>
@@ -428,13 +496,26 @@ export default function SiteInduction() {
             </div>
             
             {quizResults && !quizResults.passed && (
-              <Alert className="mt-4" variant="destructive">
-                <AlertTriangle className="w-4 h-4" />
-                <AlertDescription>
-                  <strong>Quiz Failed:</strong> You scored {quizResults.score}% but need 80% to pass. 
-                  Review the questions and try again. You can retake the quiz multiple times.
-                </AlertDescription>
-              </Alert>
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-red-900">Quiz Not Passed</p>
+                    <p className="text-sm text-red-700">
+                      You scored <strong>{quizResults.score}%</strong> — you need <strong>{tokenData.passThreshold ?? 80}%</strong> to pass.
+                      {tokenData.quizAttempts > 0 && ` Attempt ${tokenData.quizAttempts} of unlimited.`}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={retryQuiz}
+                  variant="outline"
+                  className="w-full border-red-300 text-red-700 hover:bg-red-100"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry Quiz
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -442,38 +523,52 @@ export default function SiteInduction() {
     );
   };
 
-  const renderCompletedStep = () => (
-    <div className="space-y-6">
-      <Card className="border-green-200">
-        <CardContent className="p-8 text-center">
-          <CheckCircle className="w-24 h-24 text-green-500 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-green-900 mb-2">Induction Complete! 🎉</h2>
-          <p className="text-green-700 mb-6">
-            Congratulations! You have successfully completed the site induction.
-          </p>
-          
-          {quizResults && (
-            <div className="bg-green-50 p-4 rounded-lg mb-6">
-              <p className="text-green-800">
-                <strong>Final Score:</strong> {quizResults.score}% 
-                ({quizResults.score >= 80 ? "PASSED" : "FAILED"})
-              </p>
+  const renderCompletedStep = () => {
+    const threshold = tokenData?.passThreshold ?? 80;
+    const completedAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return (
+      <div className="space-y-6">
+        <Card className="border-green-200">
+          <CardContent className="p-8 text-center">
+            <CheckCircle className="w-24 h-24 text-green-500 mx-auto mb-6" />
+            <h2 className="text-2xl font-bold text-green-900 mb-2">Induction Complete!</h2>
+            <p className="text-green-700 mb-6">
+              Congratulations, {worker?.firstName}! You have successfully completed the site induction.
+            </p>
+
+            {quizResults && (
+              <div className="bg-green-50 border border-green-200 p-4 rounded-lg mb-6">
+                <p className="text-2xl font-bold text-green-800 mb-1">{quizResults.score}%</p>
+                <p className="text-sm text-green-700">
+                  {typeof quizResults.correct === 'number' && quizResults.total
+                    ? `${quizResults.correct} out of ${quizResults.total} correct`
+                    : `Pass mark: ${threshold}%`
+                  } — <strong>PASSED</strong>
+                </p>
+                <p className="text-xs text-green-600 mt-2">Completed {completedAt}</p>
+              </div>
+            )}
+
+            {!quizResults && (
+              <div className="bg-green-50 border border-green-200 p-4 rounded-lg mb-6">
+                <p className="text-sm text-green-700">Your induction has been recorded. Pass mark: {threshold}%.</p>
+              </div>
+            )}
+            
+            <div className="bg-blue-50 p-6 rounded-lg text-left">
+              <h3 className="font-semibold text-blue-900 mb-3">What happens next:</h3>
+              <ul className="text-blue-800 space-y-2">
+                <li>✅ Your induction status has been automatically updated</li>
+                <li>✅ You are now authorized for site access</li>
+                <li>✅ Present yourself to site management for check-in</li>
+                <li>✅ Remember to follow all safety procedures at all times</li>
+              </ul>
             </div>
-          )}
-          
-          <div className="bg-blue-50 p-6 rounded-lg text-left">
-            <h3 className="font-semibold text-blue-900 mb-3">What happens next:</h3>
-            <ul className="text-blue-800 space-y-2">
-              <li>✅ Your induction status has been automatically updated</li>
-              <li>✅ You are now authorized for site access</li>
-              <li>✅ Present yourself to site management for check-in</li>
-              <li>✅ Remember to follow all safety procedures at all times</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50">

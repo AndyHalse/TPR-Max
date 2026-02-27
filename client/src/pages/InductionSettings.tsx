@@ -91,6 +91,9 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
   const [isSendingLink, setIsSendingLink] = useState(false);
   const [sendName, setSendName] = useState('');
   const [sendEmail, setSendEmail] = useState('');
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [personFilter, setPersonFilter] = useState('');
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const isGenerating = ['pending', 'generating_script', 'building_slides', 'creating_questions', 'saving'].includes(generationStatus.status);
@@ -182,6 +185,50 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
     return () => stopPolling();
   }, []);
 
+  // Person list queries — enabled only when send dialog is open
+  const { data: workersList = [], isLoading: workersLoading } = useQuery<any[]>({
+    queryKey: ['/api/contractors/workers/all'],
+    enabled: showSendLink && roleType === 'contractor',
+  });
+  const { data: staffListRaw = [], isLoading: staffLoading } = useQuery<any[]>({
+    queryKey: ['/api/staff'],
+    enabled: showSendLink && roleType === 'staff',
+  });
+  const { data: visitorsListRaw = [], isLoading: visitorsLoading } = useQuery<any>({
+    queryKey: ['/api/visitors'],
+    enabled: showSendLink && roleType === 'visitor',
+  });
+  const staffList: any[] = Array.isArray(staffListRaw) ? staffListRaw : (staffListRaw as any)?.staff ?? [];
+  const visitorsList: any[] = Array.isArray(visitorsListRaw) ? visitorsListRaw : (visitorsListRaw as any)?.visitors ?? [];
+
+  const peopleLoading = (roleType === 'contractor' && workersLoading) || (roleType === 'staff' && staffLoading) || (roleType === 'visitor' && visitorsLoading);
+  const peopleList: { id: string; name: string; email: string; subtitle: string }[] = (() => {
+    if (roleType === 'contractor') return workersList.map((w: any) => ({ id: w.id, name: `${w.firstName} ${w.lastName}`, email: w.email || '', subtitle: w.companyName || '' }));
+    if (roleType === 'staff') return staffList.map((s: any) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`, email: s.email || '', subtitle: s.department || s.jobTitle || '' }));
+    if (roleType === 'visitor') return visitorsList.map((v: any) => ({ id: v.id, name: `${v.firstName} ${v.lastName}`, email: v.email || '', subtitle: v.company || v.organisation || '' }));
+    return [];
+  })();
+  const filteredPeople = personFilter.trim()
+    ? peopleList.filter(p => `${p.name} ${p.subtitle} ${p.email}`.toLowerCase().includes(personFilter.toLowerCase()))
+    : peopleList;
+
+  const handlePersonSelect = (person: { id: string; name: string; email: string }) => {
+    setSelectedPersonId(person.id);
+    setSendName(person.name);
+    setSendEmail(person.email);
+  };
+
+  const handleCloseSendDialog = (open: boolean) => {
+    setShowSendLink(open);
+    if (!open) {
+      setSelectedPersonId(null);
+      setSendName('');
+      setSendEmail('');
+      setManualMode(false);
+      setPersonFilter('');
+    }
+  };
+
   const handleGenerateVideo = async () => {
     try {
       setGenerationStatus({ status: 'pending', step: 0, totalSteps: 5, message: 'Starting generation...' });
@@ -270,17 +317,21 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
     setIsSendingLink(true);
     try {
       const personType = roleType === 'visitor' ? 'visitor' : roleType === 'staff' ? 'staff' : 'contractor';
-      const response = await apiRequest('POST', '/api/induction/send', {
+      const body: Record<string, any> = {
         personType,
         personName: sendName.trim(),
         personEmail: sendEmail.trim(),
-      });
+      };
+      if (!manualMode && selectedPersonId) {
+        if (roleType === 'contractor') body.workerId = selectedPersonId;
+        else if (roleType === 'staff') body.staffId = selectedPersonId;
+        else if (roleType === 'visitor') body.visitorId = selectedPersonId;
+      }
+      const response = await apiRequest('POST', '/api/induction/send', body);
       const data = await response.json();
       if (data.message) {
         toast({ title: "Induction link sent", description: `Email sent to ${sendEmail}` });
-        setSendName('');
-        setSendEmail('');
-        setShowSendLink(false);
+        handleCloseSendDialog(false);
       } else {
         toast({ title: "Failed", description: data.error || 'Could not send link', variant: 'destructive' });
       }
@@ -584,7 +635,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
 
           {/* Send Link button */}
           {hasVideo && (
-            <Dialog open={showSendLink} onOpenChange={setShowSendLink}>
+            <Dialog open={showSendLink} onOpenChange={handleCloseSendDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2" data-testid={`button-send-link-${roleType}`}>
                   <Send className="h-4 w-4" />
@@ -600,33 +651,94 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
                   <p className="text-sm text-muted-foreground">
-                    Send a secure induction link by email. The recipient completes the video and quiz remotely, and the system automatically records their completion.
+                    Select a {roleType === 'contractor' ? 'worker' : roleType === 'staff' ? 'staff member' : 'visitor'} to send a secure induction link. The recipient completes the video and quiz remotely.
                   </p>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`send-name-${roleType}`}>Full Name</Label>
+
+                  {!manualMode ? (
+                    <div className="space-y-2">
+                      <Label>Select {roleType === 'contractor' ? 'Worker' : roleType === 'staff' ? 'Staff Member' : 'Visitor'}</Label>
                       <Input
-                        id={`send-name-${roleType}`}
-                        placeholder="e.g. Jane Smith"
-                        value={sendName}
-                        onChange={e => setSendName(e.target.value)}
+                        placeholder="Search by name, company or email…"
+                        value={personFilter}
+                        onChange={e => setPersonFilter(e.target.value)}
+                        className="text-sm"
                       />
+                      <div className="border rounded-lg max-h-48 overflow-y-auto">
+                        {peopleLoading ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                          </div>
+                        ) : filteredPeople.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            {personFilter ? 'No results match your search' : `No ${roleType === 'contractor' ? 'workers' : roleType === 'staff' ? 'staff' : 'visitors'} found`}
+                          </div>
+                        ) : (
+                          filteredPeople.map(person => (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() => handlePersonSelect(person)}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors border-b last:border-b-0 ${selectedPersonId === person.id ? 'bg-blue-100 border-l-2 border-l-blue-500' : ''}`}
+                            >
+                              <div className="font-medium">{person.name}</div>
+                              <div className="text-xs text-muted-foreground">{person.subtitle}{person.email ? ` · ${person.email}` : ''}</div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                      {selectedPersonId && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm space-y-1">
+                          <div className="font-medium text-green-900 flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Selected</div>
+                          <div className="text-green-800">{sendName}</div>
+                          <div className="text-green-700 text-xs">{sendEmail || <span className="text-amber-600">No email on file — cannot send</span>}</div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setManualMode(true)}
+                        className="text-xs text-blue-600 hover:underline mt-1"
+                      >
+                        Or enter details manually
+                      </button>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`send-email-${roleType}`}>Email Address</Label>
-                      <Input
-                        id={`send-email-${roleType}`}
-                        type="email"
-                        placeholder="e.g. jane@example.com"
-                        value={sendEmail}
-                        onChange={e => setSendEmail(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleSendLink(); }}
-                      />
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`send-name-${roleType}`}>Full Name</Label>
+                        <Input
+                          id={`send-name-${roleType}`}
+                          placeholder="e.g. Jane Smith"
+                          value={sendName}
+                          onChange={e => setSendName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`send-email-${roleType}`}>Email Address</Label>
+                        <Input
+                          id={`send-email-${roleType}`}
+                          type="email"
+                          placeholder="e.g. jane@example.com"
+                          value={sendEmail}
+                          onChange={e => setSendEmail(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleSendLink(); }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setManualMode(false); setSendName(''); setSendEmail(''); setSelectedPersonId(null); }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        ← Back to person picker
+                      </button>
                     </div>
-                  </div>
+                  )}
+
                   <div className="flex gap-2 justify-end">
-                    <Button variant="outline" onClick={() => setShowSendLink(false)}>Cancel</Button>
-                    <Button onClick={handleSendLink} disabled={isSendingLink || !sendName.trim() || !sendEmail.trim()}>
+                    <Button variant="outline" onClick={() => handleCloseSendDialog(false)}>Cancel</Button>
+                    <Button
+                      onClick={handleSendLink}
+                      disabled={isSendingLink || !sendName.trim() || !sendEmail.trim()}
+                    >
                       {isSendingLink ? (
                         <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
                       ) : (
