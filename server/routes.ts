@@ -21884,10 +21884,14 @@ This is an automated notification from your visitor management system.`;
         } catch (_) {}
       }
 
-      // Insert 10 sample visitors
+      // Insert 10 sample visitors as pre-booked (not checked in, not on-site)
       for (let i = 0; i < 10; i++) {
         try {
           const qrCode = `VISITOR-DEMO-${Date.now()}-${i}`;
+          // Set checkedInAt to a past date and checkedOutAt to same day so they
+          // don't appear as currently on-site (column is NOT NULL so must have a value)
+          const pastDate = new Date(now.getTime() - (7 + i) * 24 * 60 * 60 * 1000); // 7–17 days ago
+          const pastCheckout = new Date(pastDate.getTime() + 2 * 60 * 60 * 1000); // 2 hrs later
           await customerDb.insert(isolatedSchema.visitors).values({
             firstName: firstNames[(i + 3) % 10],
             lastName: lastNames[(i + 5) % 10],
@@ -21897,7 +21901,10 @@ This is an automated notification from your visitor management system.`;
             purpose: 'Demo Visit',
             qrCode,
             isPreBooked: false,
-            isCheckedIn: false
+            isCheckedIn: false,
+            checkedInAt: pastDate,
+            checkedOutAt: pastCheckout,
+            checkoutType: 'manual-reset'
           });
           visitorsAdded++;
         } catch (_) {}
