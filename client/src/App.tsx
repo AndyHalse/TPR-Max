@@ -267,6 +267,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/kiosk" component={KioskMode} />
+      <Route path="/contractor" component={ContractorKiosk} />
       <Route path="/marketing" component={MarketingPage} />
       <Route path="/induction-preview/:roleType">
         {(params) => {
