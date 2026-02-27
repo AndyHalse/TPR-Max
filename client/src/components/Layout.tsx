@@ -298,8 +298,8 @@ export default function Layout({ children }: LayoutProps) {
             
             {user && (
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <div className="glass-effect px-2 sm:px-3 py-1 rounded-full flex items-center space-x-1 sm:space-x-2 max-w-[80px] sm:max-w-[140px]">
-                  <User size={14} className="flex-shrink-0" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}} />
+                <div className="flex items-center space-x-1 max-w-[80px] sm:max-w-[140px]">
+                  <User size={14} className="flex-shrink-0 opacity-70" style={bannerTextStyle} />
                   <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>{user.username}</span>
                 </div>
                 <LogoutButton bannerInvert={navInvert} />
