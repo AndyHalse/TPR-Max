@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -39,7 +38,6 @@ import type { ContractorCompany, ContractorWorker, CompanySettings } from "@shar
 
 export default function ContractorKiosk() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin" | "prebook" | "checkin">("main");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<string>("");
@@ -628,7 +626,7 @@ export default function ContractorKiosk() {
       <div className="text-center flex-shrink-0 py-2 sm:py-3">
         <h2
           className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-0.5 cursor-pointer hover:opacity-70 transition-opacity select-none"
-          onClick={() => setLocation("/")}
+          onClick={() => { window.location.href = "/"; }}
         >
           Welcome to {settingsAny?.companyName || 'Contractor Check-In'}
         </h2>
