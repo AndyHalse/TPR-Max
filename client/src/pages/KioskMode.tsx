@@ -34,7 +34,7 @@ export default function KioskMode() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastScannedRef = useRef<string | null>(null);
 
   const { data: staff } = useQuery<Staff[]>({
@@ -212,7 +212,7 @@ export default function KioskMode() {
 
   // ── Camera scanning ──────────────────────────────────────────
   const stopCamera = useCallback(() => {
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
@@ -256,11 +256,11 @@ export default function KioskMode() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) {
-      rafRef.current = requestAnimationFrame(scanFrame);
+      scanTimerRef.current = setTimeout(scanFrame, 50);
       return;
     }
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return;
+    if (!ctx) { scanTimerRef.current = setTimeout(scanFrame, 120); return; }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -269,7 +269,7 @@ export default function KioskMode() {
     if (code?.data) {
       processDetectedCode(code.data);
     } else {
-      rafRef.current = requestAnimationFrame(scanFrame);
+      scanTimerRef.current = setTimeout(scanFrame, 120);
     }
   }, [processDetectedCode]);
 
@@ -280,12 +280,12 @@ export default function KioskMode() {
     lastScannedRef.current = null;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }
       });
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
       setCameraState("scanning");
-      rafRef.current = requestAnimationFrame(scanFrame);
+      scanTimerRef.current = setTimeout(scanFrame, 120);
     } catch (err: any) {
       const msg = err?.name === "NotAllowedError"
         ? "Camera access denied. Enter the code manually below."
