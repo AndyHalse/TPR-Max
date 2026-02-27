@@ -9665,17 +9665,43 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       const results = await inductionService.submitQuizAnswers(tokenId, answers);
       
-      // Fire-and-forget: write pass/fail note to worker_notes in the isolated customer schema
+      // Fire-and-forget: update inductionCompleted on worker/staff/visitor + write worker_note
       (async () => {
         try {
           const [token] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
-          if (token?.customerId && token?.workerId) {
-            const noteCtx = simpleDatabaseService.createCustomerContext('system', token.customerId);
-            const noteDb = await databaseService.getCustomerDatabase(noteCtx);
-            const attemptNum = token.quizAttempts || 1;
-            const dateStr = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+          if (!token?.customerId) return;
+
+          const noteCtx = simpleDatabaseService.createCustomerContext('system', token.customerId);
+          const noteDb = await databaseService.getCustomerDatabase(noteCtx);
+          const now = new Date();
+          const dateStr = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+          const attemptNum = token.quizAttempts || 1;
+
+          // ── Update inductionCompleted on the correct isolated-schema record ──
+          if (results.passed) {
+            const personType = token.personType || 'contractor';
+            if (personType === 'contractor' && token.workerId) {
+              await noteDb
+                .update(isolatedSchema.contractorWorkers)
+                .set({ inductionCompleted: true, inductionCompletedAt: now })
+                .where(eq(isolatedSchema.contractorWorkers.id, token.workerId));
+            } else if (personType === 'staff' && token.staffId) {
+              await noteDb
+                .update(isolatedSchema.staff)
+                .set({ inductionCompleted: true, inductionCompletedAt: now })
+                .where(eq(isolatedSchema.staff.id, token.staffId));
+            } else if (personType === 'visitor' && token.visitorId) {
+              await noteDb
+                .update(isolatedSchema.visitors)
+                .set({ inductionCompleted: true, inductionCompletedAt: now })
+                .where(eq(isolatedSchema.visitors.id, token.visitorId));
+            }
+          }
+
+          // ── Write audit note to worker_notes (contractor only) ──
+          if (token.workerId) {
             const noteText = results.passed
-              ? `Site induction PASSED — Score: ${results.score}% (80% required). Completed on ${dateStr}.`
+              ? `Site induction PASSED — Score: ${results.score}% (${(results as any).correct ?? '?'}/${results.total} correct, 80% required). Completed on ${dateStr}.`
               : `Site induction attempt ${attemptNum} FAILED — Score: ${results.score}% (80% required). Worker may retry.`;
             await noteDb.insert(isolatedSchema.workerNotes).values({
               workerId: token.workerId,
@@ -9685,7 +9711,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             });
           }
         } catch (noteErr) {
-          console.error('⚠️ Failed to write induction note to worker_notes (non-fatal):', noteErr);
+          console.error('⚠️ Failed to update induction record (non-fatal):', noteErr);
         }
       })();
 

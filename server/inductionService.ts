@@ -442,61 +442,22 @@ VisiGate Pro - Visitor Management System
         quizAttempts: attemptNumber,
         quizCompleted: passed,
         quizCompletedAt: passed ? new Date() : undefined,
+        quizPassed: passed ? true : undefined,
         quizScore: score,
         status: passed ? 'completed' : 'in_progress',
         completedAt: passed ? new Date() : undefined
       })
       .where(eq(inductionTokens.id, tokenId));
 
-    // Update user induction status if passed
-    if (passed) {
-      const [token] = await db
-        .select()
-        .from(inductionTokens)
-        .where(eq(inductionTokens.id, tokenId));
-
-      if (token) {
-        // Update quizPassed flag
-        await db
-          .update(inductionTokens)
-          .set({ quizPassed: true })
-          .where(eq(inductionTokens.id, tokenId));
-
-        // Update person's induction status based on personType
-        const personType = token.personType || 'contractor';
-        
-        if (personType === 'contractor' && token.workerId) {
-          await db
-            .update(contractorWorkers)
-            .set({
-              inductionCompleted: true,
-              inductionCompletedAt: new Date()
-            })
-            .where(eq(contractorWorkers.id, token.workerId));
-        } else if (personType === 'staff' && token.staffId) {
-          await db
-            .update(staff)
-            .set({
-              inductionCompleted: true,
-              inductionCompletedAt: new Date()
-            })
-            .where(eq(staff.id, token.staffId));
-        } else if (personType === 'visitor' && token.visitorId) {
-          await db
-            .update(visitors)
-            .set({
-              inductionCompleted: true,
-              inductionCompletedAt: new Date()
-            })
-            .where(eq(visitors.id, token.visitorId));
-        }
-      }
-    }
+    // NOTE: Updating the worker/staff/visitor inductionCompleted flag is handled
+    // in the routes.ts submit-quiz handler using the isolated customer DB, because
+    // those records live in per-customer isolated schemas, not the shared DB.
 
     return {
       score,
       passed,
-      total: questions.length
+      total: questions.length,
+      correct: correctAnswers
     };
   }
 
