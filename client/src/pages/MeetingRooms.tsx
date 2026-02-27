@@ -19,6 +19,7 @@ import type { InsertMeetingRoom, MeetingRoom } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { RoomBookingCalendar } from "@/components/RoomBookingCalendar";
 import { RoomBookingForm } from "@/components/RoomBookingForm";
+import GlassCard from "@/components/GlassCard";
 import { 
   Plus, 
   Edit, 
@@ -32,7 +33,8 @@ import {
   PenTool,
   Calendar,
   CalendarDays,
-  Settings
+  Settings,
+  DoorOpen
 } from "lucide-react";
 
 export default function MeetingRooms() {
@@ -173,6 +175,28 @@ export default function MeetingRooms() {
     return isShared 
       ? "bg-emerald-100 text-emerald-800 border-emerald-200"
       : "bg-orange-100 text-orange-800 border-orange-200";
+  };
+
+  const getRoomGradient = (index: number) => {
+    const gradients = [
+      "bg-gradient-to-br from-blue-500 to-indigo-600",
+      "bg-gradient-to-br from-purple-500 to-pink-600",
+      "bg-gradient-to-br from-emerald-500 to-teal-600",
+      "bg-gradient-to-br from-orange-500 to-amber-600",
+      "bg-gradient-to-br from-rose-500 to-red-600",
+      "bg-gradient-to-br from-cyan-500 to-blue-600",
+    ];
+    return gradients[index % gradients.length];
+  };
+
+  const getFacilityLabels = (room: MeetingRoom) => {
+    const labels: { icon: any; label: string }[] = [];
+    if (room.hasProjector) labels.push({ icon: <Projector className="h-3 w-3" />, label: "Projector" });
+    if (room.hasVideoConference) labels.push({ icon: <Video className="h-3 w-3" />, label: "Video" });
+    if (room.hasTV) labels.push({ icon: <Tv className="h-3 w-3" />, label: "TV" });
+    if (room.hasWhiteboard) labels.push({ icon: <PenTool className="h-3 w-3" />, label: "Whiteboard" });
+    if (room.hasAirCon) labels.push({ icon: <Snowflake className="h-3 w-3" />, label: "Air Con" });
+    return labels;
   };
 
   const handleCreateBooking = (date: Date, roomId?: string) => {
@@ -570,105 +594,97 @@ export default function MeetingRooms() {
         {/* Rooms Management Tab */}
         <TabsContent value="rooms" className="space-y-6">
           {/* Rooms Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {rooms.map((room: MeetingRoom) => (
-          <Card 
-            key={room.id} 
-            className={`transition-all duration-200 hover:shadow-lg ${!room.isActive ? 'opacity-60' : ''}`}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {rooms.map((room: MeetingRoom, index: number) => (
+          <GlassCard
+            key={room.id}
+            hover
+            className={`p-4 ${!room.isActive ? 'opacity-60' : ''}`}
             data-testid={`card-room-${room.id}`}
           >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-lg font-semibold text-fixed">
-                    {room.name}
-                  </CardTitle>
-                  <div className="flex items-center text-sm text-variable mt-1">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {room.location}
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(room)}
-                    data-testid={`button-edit-${room.id}`}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(room)}
-                    className="hover:bg-red-50 hover:border-red-200"
-                    data-testid={`button-delete-${room.id}`}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </div>
+            {/* Top row: icon + name + status */}
+            <div className="flex items-start gap-3 mb-3">
+              <div className={`w-12 h-12 ${getRoomGradient(index)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                <DoorOpen className="h-6 w-6 text-white" />
               </div>
-            </CardHeader>
-
-            <CardContent>
-              <div className="space-y-3">
-                {/* Capacity & Type Badges */}
-                <div className="flex gap-2">
-                  <Badge className={`${getCapacityColor(room.capacity)} border`}>
-                    <Users className="h-3 w-3 mr-1" />
-                    {room.capacity} people
-                  </Badge>
-                  <Badge className={`${getAllocationTypeColor(room.isSharedRoom)} border`}>
-                    {room.isSharedRoom ? '🌐 Shared' : '🏢 Tenant Only'}
-                  </Badge>
-                  {!room.isActive && (
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-300">
-                      Inactive
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Description */}
-                {room.description && (
-                  <p className="text-sm text-variable line-clamp-2">
-                    {room.description}
-                  </p>
-                )}
-
-                {/* Facilities */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-variable">
-                    Facilities:
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <h3 className="font-semibold text-fixed text-sm truncate">{room.name}</h3>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${room.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                    {room.isActive ? 'Available' : 'Inactive'}
                   </span>
-                  {getFacilityIcons(room).length > 0 ? (
-                    <div className="flex gap-2 text-variable">
-                      {getFacilityIcons(room)}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-variable">Basic room</span>
-                  )}
                 </div>
-
-                {/* Quick Actions */}
-                <div className="flex gap-2 mt-3">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => {
-                      setSelectedRoom(room);
-                      setActiveTab('bookings');
-                    }}
-                    data-testid={`button-view-bookings-${room.id}`}
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    View Bookings
-                  </Button>
+                <div className="flex items-center text-xs text-variable mt-0.5">
+                  <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                  <span className="truncate">{room.location}</span>
                 </div>
+                {room.description && (
+                  <p className="text-xs text-variable/70 mt-0.5 line-clamp-1">{room.description}</p>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Badges row */}
+            <div className="flex items-center gap-1.5 flex-wrap mb-3">
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${getCapacityColor(room.capacity)}`}>
+                <Users className="h-3 w-3" />
+                {room.capacity} people
+              </span>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getAllocationTypeColor(room.isSharedRoom)}`}>
+                {room.isSharedRoom ? '🌐 Shared' : '🏢 Tenant Only'}
+              </span>
+            </div>
+
+            {/* Facilities */}
+            <div className="flex items-center gap-1.5 flex-wrap mb-3">
+              <span className="text-[10px] font-medium text-variable">Facilities:</span>
+              {getFacilityLabels(room).length > 0 ? (
+                getFacilityLabels(room).map(({ icon, label }) => (
+                  <span key={label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-white/50 border border-white/40 text-variable">
+                    {icon} {label}
+                  </span>
+                ))
+              ) : (
+                <span className="text-[10px] text-variable">Basic room</span>
+              )}
+            </div>
+
+            {/* Action row */}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleEdit(room)}
+                  className="h-8 w-8 p-0"
+                  data-testid={`button-edit-${room.id}`}
+                  title="Edit"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleDelete(room)}
+                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  data-testid={`button-delete-${room.id}`}
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setSelectedRoom(room); setActiveTab('bookings'); }}
+                className="h-9 px-3 text-sm font-medium text-blue-600 hover:text-blue-700 border-blue-300 hover:border-blue-400 hover:bg-blue-50"
+                data-testid={`button-view-bookings-${room.id}`}
+              >
+                <Calendar className="h-4 w-4 mr-1.5" />
+                View Bookings
+              </Button>
+            </div>
+          </GlassCard>
         ))}
       </div>
 
