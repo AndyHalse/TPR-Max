@@ -146,6 +146,7 @@ export default function ContractorDetails() {
       postcode: z.string().min(1, "Postcode is required"),
       transportMethod: z.enum(["car_diesel", "car_petrol", "electric_car", "public_transport", "motorcycle"]),
       rightToWork: z.string().min(1, "Right to work status is required"),
+      rightToWorkExpiryDate: z.string().optional(),
       cscsCard: z.string().optional(),
       cscsStatus: z.enum(["valid", "expired", "none", "pending"]),
       ipafStatus: z.enum(["valid", "expired", "none", "pending"]),
@@ -163,6 +164,7 @@ export default function ContractorDetails() {
       postcode: "",
       transportMethod: "car_diesel" as const,
       rightToWork: "valid",
+      rightToWorkExpiryDate: "",
       cscsCard: "",
       cscsStatus: "valid" as const,
       ipafStatus: "none" as const,
@@ -253,10 +255,10 @@ export default function ContractorDetails() {
   };
 
   const handleAddWorker = (data: any) => {
-    // Prepare worker data
     const workerData = {
       ...data,
       companyId: id,
+      rightToWorkExpiryDate: data.rightToWorkExpiryDate ? new Date(data.rightToWorkExpiryDate).toISOString() : undefined,
     };
     console.log("👷 Adding worker with data:", workerData);
     addWorkerMutation.mutate(workerData);
@@ -1683,6 +1685,19 @@ export default function ContractorDetails() {
                         <FormMessage />
                       </FormItem>
                     )} />
+                    {(workerForm.watch('rightToWork') === 'valid' || workerForm.watch('rightToWork') === 'expired') && (
+                      <FormField control={workerForm.control} name="rightToWorkExpiryDate" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-gray-600">
+                            {workerForm.watch('rightToWork') === 'expired' ? 'Expiry Date (when it expired)' : 'Expiry Date'}
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-worker-rtw-expiry" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    )}
                     {workerForm.watch('rightToWork') === 'pending' && (
                       <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800">
                         Worker cannot be permitted on site unsupervised until Right to Work is confirmed.

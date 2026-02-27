@@ -157,8 +157,12 @@ export default function ContractorManagement() {
   // Worker wizard state (for the add worker dialog)
   const [workerWizardStep, setWorkerWizardStep] = useState(1);
 
+  // Stores the newly created company after step 3 submit (used for "Add First Worker" flow)
+  const [justCreatedCompany, setJustCreatedCompany] = useState<any>(null);
+
   const resetAddWizard = () => {
     setAddWizardStep(1);
+    setJustCreatedCompany(null);
     setDocChecklist({ publicLiability: false, employersLiability: false, cisRegistration: false, healthSafetyPolicy: false, rams: false, modernSlavery: false, environmentalPolicy: false, professionalIndemnity: false });
     setContractorForm({ name: "", email: "", contactFirstName: "", contactLastName: "", phone: "", address: "", postcode: "", website: "", description: "", industry: "", status: "pending" });
   };
@@ -310,15 +314,13 @@ export default function ContractorManagement() {
   // Create contractor mutation
   const createContractorMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/contractors", data);
+      const res = await apiRequest("POST", "/api/contractors", data);
+      return await res.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Contractor company added successfully",
-      });
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
-      setShowAddContractorDialog(false);
+      setJustCreatedCompany(data);
+      setAddWizardStep(4);
       setContractorForm({
         name: "",
         email: "",
@@ -1993,11 +1995,53 @@ export default function ContractorManagement() {
             </div>
           )}
 
+          {/* Step 4 — Success */}
+          {addWizardStep === 4 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-8 flex flex-col items-center justify-center gap-6 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-9 h-9 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Contractor Added Successfully</h3>
+                <p className="text-sm text-gray-500">
+                  <span className="font-medium text-gray-800">{justCreatedCompany?.name || justCreatedCompany?.companyName || 'The company'}</span> has been registered.
+                  Upload their compliance documents from the detail page at any time.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setShowAddContractorDialog(false); resetAddWizard(); }}
+                >
+                  Done
+                </Button>
+                <Button
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    setShowAddContractorDialog(false);
+                    resetAddWizard();
+                    if (justCreatedCompany) {
+                      setSelectedContractor(justCreatedCompany as any);
+                      setWorkerForm({ ...workerForm, companyId: justCreatedCompany.id });
+                      setShowAddWorkerDialog(true);
+                    }
+                  }}
+                >
+                  Add First Worker →
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Footer navigation */}
           <div className="flex-shrink-0 border-t px-6 py-4 flex items-center justify-between gap-3">
-            <Button variant="outline" onClick={() => addWizardStep > 1 ? setAddWizardStep(addWizardStep - 1) : setShowAddContractorDialog(false)}>
-              {addWizardStep > 1 ? '← Back' : 'Cancel'}
-            </Button>
+            {addWizardStep < 4 && (
+              <Button variant="outline" onClick={() => addWizardStep > 1 ? setAddWizardStep(addWizardStep - 1) : setShowAddContractorDialog(false)}>
+                {addWizardStep > 1 ? '← Back' : 'Cancel'}
+              </Button>
+            )}
+            {addWizardStep === 4 && <div />}
             <div className="flex items-center gap-2">
               {addWizardStep < 3 ? (
                 <Button
@@ -2007,11 +2051,11 @@ export default function ContractorManagement() {
                 >
                   Next →
                 </Button>
-              ) : (
+              ) : addWizardStep === 3 ? (
                 <Button onClick={handleAddContractor} disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || createContractorMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-contractor">
                   {createContractorMutation.isPending ? "Creating..." : "Create Contractor"}
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         </DialogContent>
