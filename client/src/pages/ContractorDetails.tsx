@@ -46,6 +46,21 @@ export default function ContractorDetails() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+
+  // Read ?tab= from URL to support direct navigation (e.g. ?tab=documents)
+  const initialTab = new URLSearchParams(window.location.search).get("tab") || "workers";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Upload dialog state
+  const [uploadDialog, setUploadDialog] = useState<{ open: boolean; docKey: string; docName: string; requiresExpiry: boolean; existingId?: string }>({
+    open: false, docKey: "", docName: "", requiresExpiry: false
+  });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadExpiry, setUploadExpiry] = useState("");
+  const [uploadIssuer, setUploadIssuer] = useState("");
+  const [uploadPolicy, setUploadPolicy] = useState("");
+  const [uploading, setUploading] = useState(false);
+
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
   const [addingWorker, setAddingWorker] = useState(false);
@@ -455,6 +470,64 @@ export default function ContractorDetails() {
     );
   }
 
+  // Document upload handler
+  const handleDocumentUpload = async () => {
+    if (!uploadFile) {
+      toast({ title: "No file selected", description: "Please choose a file to upload", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      // Step 1: Get upload URL from object storage
+      const urlRes = await apiRequest("GET", `/api/contractors/${id}/documents/upload-url`);
+      const { uploadURL } = await urlRes.json();
+
+      // Step 2: Upload file directly to object storage via signed PUT URL
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: uploadFile,
+        headers: { "Content-Type": uploadFile.type || "application/octet-stream" },
+      });
+      if (!uploadRes.ok) throw new Error("File upload failed");
+      // The document URL is the signed URL without the query string
+      const documentUrl = uploadURL.split("?")[0];
+
+      // Step 3: Determine if this is an update or create
+      const docs = (contractor as any).documents || [];
+      const existing = docs.find((d: any) => d.documentType === uploadDialog.docKey);
+
+      if (existing) {
+        await apiRequest("PATCH", `/api/contractors/${id}/documents/${existing.id}`, {
+          documentUrl,
+          expiryDate: uploadExpiry || null,
+          issuedBy: uploadIssuer || null,
+          policyNumber: uploadPolicy || null,
+        });
+      } else {
+        await apiRequest("POST", `/api/contractors/${id}/documents`, {
+          documentType: uploadDialog.docKey,
+          documentName: uploadDialog.docName,
+          documentUrl,
+          expiryDate: uploadExpiry || null,
+          issuedBy: uploadIssuer || null,
+          policyNumber: uploadPolicy || null,
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      setUploadDialog({ open: false, docKey: "", docName: "", requiresExpiry: false });
+      setUploadFile(null);
+      setUploadExpiry("");
+      setUploadIssuer("");
+      setUploadPolicy("");
+      toast({ title: "Document uploaded", description: `${uploadDialog.docName} has been saved successfully.` });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message || "Please try again", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Type safety for contractor data
   const contractorData = contractor as any;
 
@@ -798,7 +871,7 @@ export default function ContractorDetails() {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="workers" className="space-y-4" data-testid="contractor-tabs">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" data-testid="contractor-tabs">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="workers" data-testid="tab-workers">Workers</TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">Documents</TabsTrigger>
@@ -932,9 +1005,13 @@ export default function ContractorDetails() {
                               </a>
                             )}
                             <button
-                              className="inline-flex items-center gap-1 text-xs text-gray-600 hover:bg-gray-100 px-2 py-1 border border-gray-200 rounded"
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 border border-blue-200 rounded font-medium"
                               onClick={() => {
-                                toast({ title: "Document Upload", description: "Document upload coming soon. Use the Compliance tab to manage document status." });
+                                setUploadFile(null);
+                                setUploadExpiry(uploaded?.expiryDate ? new Date(uploaded.expiryDate).toISOString().split('T')[0] : "");
+                                setUploadIssuer(uploaded?.issuedBy || "");
+                                setUploadPolicy(uploaded?.policyNumber || "");
+                                setUploadDialog({ open: true, docKey: doc.key, docName: doc.name, requiresExpiry: doc.requiresExpiry, existingId: uploaded?.id });
                               }}
                             >
                               <Upload className="w-3 h-3" /> {uploaded ? 'Replace' : 'Upload'}
@@ -1808,6 +1885,80 @@ export default function ContractorDetails() {
               data-testid="button-confirm-host-selection"
             >
               {checkInMutation.isPending ? "Checking In..." : "Check In"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Upload Dialog */}
+      <Dialog open={uploadDialog.open} onOpenChange={(open) => { if (!open) { setUploadDialog({ open: false, docKey: "", docName: "", requiresExpiry: false }); setUploadFile(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5 text-blue-600" />
+              {uploadDialog.existingId ? "Replace Document" : "Upload Document"}
+            </DialogTitle>
+            <DialogDescription>{uploadDialog.docName}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm font-medium">File <span className="text-red-500">*</span></Label>
+              <div className="mt-1.5">
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 rounded-md"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                />
+                <p className="text-xs text-gray-500 mt-1">PDF, Word, or image files accepted</p>
+              </div>
+            </div>
+            {uploadDialog.requiresExpiry && (
+              <div>
+                <Label htmlFor="upload-expiry" className="text-sm font-medium">
+                  Expiry Date {uploadDialog.requiresExpiry && <span className="text-red-500">*</span>}
+                </Label>
+                <Input
+                  id="upload-expiry"
+                  type="date"
+                  value={uploadExpiry}
+                  onChange={(e) => setUploadExpiry(e.target.value)}
+                  className="mt-1.5"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+            )}
+            <div>
+              <Label htmlFor="upload-issuer" className="text-sm font-medium">Issued by (optional)</Label>
+              <Input
+                id="upload-issuer"
+                placeholder="e.g. Zurich Insurance, QBE"
+                value={uploadIssuer}
+                onChange={(e) => setUploadIssuer(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="upload-policy" className="text-sm font-medium">Policy / Certificate Number (optional)</Label>
+              <Input
+                id="upload-policy"
+                placeholder="e.g. PL-2024-001234"
+                value={uploadPolicy}
+                onChange={(e) => setUploadPolicy(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setUploadDialog({ open: false, docKey: "", docName: "", requiresExpiry: false })}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDocumentUpload}
+              disabled={uploading || !uploadFile}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {uploading ? "Uploading..." : "Save Document"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -14694,26 +14694,87 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  app.get("/api/contractors/:companyId/documents/upload-url", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      const [company] = await db.select().from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, companyId)).limit(1);
+      if (!company) return res.status(404).json({ error: 'Company not found' });
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error('❌ Error getting company document upload URL:', error);
+      res.status(500).json({ error: 'Failed to get upload URL' });
+    }
+  });
+
   app.post("/api/contractors/:companyId/documents", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const documentData = insertComplianceDocumentSchema.parse({
-        ...req.body,
-        companyId
-      });
-      
-      const createDocContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const createDocDb = await customerDbService.getCustomerDatabase(createDocContext.customerId);
-      const [document] = await createDocDb.insert(isolatedSchema.complianceDocuments)
-        .values(documentData).returning();
-      res.json(document);
+      const { documentName, documentType, documentUrl, expiryDate, issuedBy, policyNumber } = req.body;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [currentUser] = await db.select().from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.username, username)).limit(1);
+
+      const objectStorageService = new ObjectStorageService();
+      const normalizedUrl = documentUrl ? objectStorageService.normalizeObjectEntityPath(documentUrl) : documentUrl;
+
+      const [document] = await db.insert(isolatedSchema.contractorDocuments).values({
+        companyId,
+        documentName: documentName || documentType,
+        documentType,
+        documentUrl: normalizedUrl,
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        uploadedBy: currentUser?.id || username,
+        issuedBy: issuedBy || null,
+        policyNumber: policyNumber || null,
+        status: 'pending',
+        isActive: true,
+      }).returning();
+
+      res.json({ success: true, document });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Invalid document data", details: error.errors });
-      } else {
-        console.error("Error creating document:", error);
-        res.status(500).json({ error: "Failed to create document" });
-      }
+      console.error("Error creating company document:", error);
+      res.status(500).json({ error: "Failed to create document" });
+    }
+  });
+
+  app.patch("/api/contractors/:companyId/documents/:documentId", requireAuth, async (req, res) => {
+    try {
+      const { companyId, documentId } = req.params;
+      const { documentUrl, expiryDate, issuedBy, policyNumber, status } = req.body;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const objectStorageService = new ObjectStorageService();
+      const normalizedUrl = documentUrl ? objectStorageService.normalizeObjectEntityPath(documentUrl) : undefined;
+
+      const updateData: any = { updatedAt: new Date() };
+      if (normalizedUrl) updateData.documentUrl = normalizedUrl;
+      if (expiryDate !== undefined) updateData.expiryDate = expiryDate ? new Date(expiryDate) : null;
+      if (issuedBy !== undefined) updateData.issuedBy = issuedBy;
+      if (policyNumber !== undefined) updateData.policyNumber = policyNumber;
+      if (status) updateData.status = status;
+
+      const [updated] = await db.update(isolatedSchema.contractorDocuments)
+        .set(updateData)
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.id, documentId),
+          eq(isolatedSchema.contractorDocuments.companyId, companyId)
+        )).returning();
+
+      res.json({ success: true, document: updated });
+    } catch (error) {
+      console.error("Error updating company document:", error);
+      res.status(500).json({ error: "Failed to update document" });
     }
   });
 

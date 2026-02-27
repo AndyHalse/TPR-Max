@@ -1317,7 +1317,11 @@ export default function ContractorManagement() {
                 <GlassCard key={company.id} className="p-4 hover:shadow-md transition-shadow">
                   <div className="space-y-3">
                     <div>
-                      <h3 className="font-semibold text-slate-800">
+                      <h3
+                        className="font-semibold text-slate-800 hover:text-blue-700 cursor-pointer hover:underline transition-colors"
+                        onClick={() => handleViewContractorDetails(company.id)}
+                        title="Click to view contractor details"
+                      >
                         {company.name}
                       </h3>
                       <p className="text-sm text-slate-600">{company.contactEmail || company.email}</p>
@@ -1385,6 +1389,18 @@ export default function ContractorManagement() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="flex-1 text-purple-600 border-purple-300 hover:bg-purple-50"
+                          onClick={() => setLocation(`/contractors/${company.id}?tab=documents`)}
+                          data-testid={`button-documents-${company.id}`}
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          Documents
+                        </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
                           onClick={() => {
                             setSelectedContractor(company);
@@ -1431,7 +1447,10 @@ export default function ContractorManagement() {
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-slate-800 truncate">{company.name}</h3>
+                          <h3
+                            className="font-semibold text-slate-800 truncate hover:text-blue-700 cursor-pointer hover:underline transition-colors"
+                            onClick={() => handleViewContractorDetails(company.id)}
+                          >{company.name}</h3>
                           <Badge 
                             className={`text-xs ${company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
                           >
@@ -1475,6 +1494,15 @@ export default function ContractorManagement() {
                       >
                         <Users className="h-3 w-3 mr-1" />
                         Workers
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                        onClick={() => setLocation(`/contractors/${company.id}?tab=documents`)}
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        Documents
                       </Button>
                       <Button
                         size="sm"
