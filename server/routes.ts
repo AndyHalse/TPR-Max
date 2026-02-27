@@ -20035,6 +20035,141 @@ This is an automated notification from your visitor management system.`;
   });
 
   // ===========================
+  // UNIVERSAL CAMERA QR SCAN
+  // ===========================
+
+  app.post('/api/qr-scan/universal', requireAuth, async (req, res) => {
+    try {
+      const { qrData } = req.body;
+      if (!qrData) {
+        return res.status(400).json({ success: false, message: 'QR code data is required' });
+      }
+
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      // 1. Try visitor pre-booking (PBK- prefix or raw QR on preBookings table)
+      let preBooking: any = null;
+      if (qrData.startsWith('PBK-')) {
+        const pbId = qrData.replace('PBK-', '');
+        const [found] = await customerDb.select().from(isolatedSchema.preBookings)
+          .where(eq(isolatedSchema.preBookings.id, pbId)).limit(1);
+        preBooking = found;
+      } else {
+        const [found] = await customerDb.select().from(isolatedSchema.preBookings)
+          .where(eq(isolatedSchema.preBookings.qrCode, qrData)).limit(1);
+        preBooking = found;
+      }
+
+      if (preBooking) {
+        if (preBooking.isCheckedIn) {
+          return res.json({
+            success: false,
+            personName: `${preBooking.visitorFirstName} ${preBooking.visitorLastName}`,
+            personType: 'visitor',
+            action: 'already_checked_in',
+            message: `${preBooking.visitorFirstName} ${preBooking.visitorLastName} has already been checked in from this pre-booking.`
+          });
+        }
+        const visitor = await databaseService.createVisitor(context, {
+          firstName: preBooking.visitorFirstName,
+          lastName: preBooking.visitorLastName,
+          email: preBooking.visitorEmail,
+          company: preBooking.company,
+          purpose: preBooking.purpose,
+          carRegistration: null,
+          hostStaffId: preBooking.hostStaffId,
+          isPreBooked: true,
+          expectedDateTime: preBooking.visitDate,
+          visitPurpose: preBooking.purpose,
+          isCheckedIn: true,
+          checkedInAt: new Date(),
+        });
+        await customerDb.update(isolatedSchema.preBookings)
+          .set({ isCheckedIn: true, checkedInAt: new Date(), visitorId: visitor.id })
+          .where(eq(isolatedSchema.preBookings.id, preBooking.id));
+        return res.json({
+          success: true,
+          personName: `${visitor.firstName} ${visitor.lastName}`,
+          personType: 'visitor',
+          action: 'checked_in',
+          message: `${visitor.firstName} ${visitor.lastName} checked in successfully from pre-booking.`,
+          details: { company: visitor.company, purpose: visitor.purpose }
+        });
+      }
+
+      // 2. Try contractor pre-booking
+      const [contractorPb] = await customerDb.select().from(isolatedSchema.contractorPreBookings)
+        .where(eq(isolatedSchema.contractorPreBookings.qrCode, qrData)).limit(1);
+      if (contractorPb) {
+        if (contractorPb.status === 'completed') {
+          return res.json({
+            success: false,
+            personName: contractorPb.workerName,
+            personType: 'contractor',
+            action: 'already_checked_in',
+            message: `${contractorPb.workerName} (${contractorPb.companyName}) is already checked in.`
+          });
+        }
+        await customerDb.update(isolatedSchema.contractorPreBookings)
+          .set({ status: 'completed' })
+          .where(eq(isolatedSchema.contractorPreBookings.id, contractorPb.id));
+        return res.json({
+          success: true,
+          personName: contractorPb.workerName,
+          personType: 'contractor',
+          action: 'checked_in',
+          message: `${contractorPb.workerName} (${contractorPb.companyName}) checked in successfully.`,
+          details: { company: contractorPb.companyName, purpose: contractorPb.purpose }
+        });
+      }
+
+      // 3. Try existing visitor by QR code
+      const visitor = await databaseService.getVisitorByQrCode(context, qrData);
+      if (visitor) {
+        const isCheckedIn = !visitor.isCheckedIn;
+        await customerDb.update(isolatedSchema.visitors)
+          .set({ isCheckedIn, checkedInAt: isCheckedIn ? new Date() : null } as any)
+          .where(eq(isolatedSchema.visitors.id, visitor.id));
+        return res.json({
+          success: true,
+          personName: `${visitor.firstName} ${visitor.lastName}`,
+          personType: 'visitor',
+          action: isCheckedIn ? 'checked_in' : 'checked_out',
+          message: `${visitor.firstName} ${visitor.lastName} ${isCheckedIn ? 'checked in' : 'checked out'} successfully.`,
+          details: { company: visitor.company }
+        });
+      }
+
+      // 4. Try staff by QR code
+      const staff = await databaseService.getStaffByQrCode(context, qrData);
+      if (staff) {
+        const isCheckedIn = !staff.isCheckedIn;
+        await customerDb.update(isolatedSchema.staff)
+          .set({ isCheckedIn } as any)
+          .where(eq(isolatedSchema.staff.id, staff.id));
+        return res.json({
+          success: true,
+          personName: `${staff.firstName} ${staff.lastName}`,
+          personType: 'staff',
+          action: isCheckedIn ? 'checked_in' : 'checked_out',
+          message: `${staff.firstName} ${staff.lastName} ${isCheckedIn ? 'checked in' : 'checked out'} successfully.`,
+          details: { department: staff.department }
+        });
+      }
+
+      // Nothing matched
+      return res.status(404).json({
+        success: false,
+        message: 'QR code not recognised. Please check the code and try again.',
+      });
+    } catch (error) {
+      console.error('Universal QR scan error:', error);
+      res.status(500).json({ success: false, message: 'Failed to process QR scan.' });
+    }
+  });
+
+  // ===========================
   // PROFESSIONAL THERMAL DESIGNER API
   // ===========================
 

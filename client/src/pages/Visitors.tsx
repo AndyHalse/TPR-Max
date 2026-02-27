@@ -41,6 +41,7 @@ import { format, addDays } from "date-fns";
 import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor, CompanySettings } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
+import QRScannerModal from "@/components/QRScannerModal";
 
 // Company Combobox Component
 interface CompanyComboboxProps {
@@ -255,6 +256,7 @@ export default function Visitors() {
   
   // Tab state
   const [activeTab, setActiveTab] = useState("existing");
+  const [showQRScanner, setShowQRScanner] = useState(false);
   
   // Pre-booking form state
   const getNextFullHourTime = () => {
@@ -896,6 +898,18 @@ export default function Visitors() {
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
         <h1 className="text-xl sm:text-3xl font-bold text-fixed">TPR Max</h1>
+        <Button
+          onClick={() => setShowQRScanner(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
+          title="Scan a visitor or contractor QR code to check them in"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+            <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
+          </svg>
+          <span className="hidden sm:inline">Scan QR</span>
+          <span className="sm:hidden">Scan</span>
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1852,6 +1866,11 @@ export default function Visitors() {
           }
         />
       )}
+
+      <QRScannerModal
+        isOpen={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+      />
     </div>
   );
 }
