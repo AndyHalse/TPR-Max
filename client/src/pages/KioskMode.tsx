@@ -553,20 +553,17 @@ export default function KioskMode() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col px-4 sm:px-6 lg:px-8 py-3 sm:py-4 overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col px-3 sm:px-6 lg:px-8 py-3 sm:py-4 overflow-auto sm:overflow-hidden sm:h-screen">
       {settings?.bannerUrl && (
-        <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0" style={{ maxHeight: '18vh' }}>
+        <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0 mb-2 sm:mb-0" style={{ maxHeight: '18vh' }}>
           <img 
             src={`/objects${settings.bannerUrl}`} 
             alt={settings.companyName}
             className="w-full h-full object-contain"
             onError={(e) => {
-              console.error("Main kiosk banner failed to load:", settings.bannerUrl);
               e.currentTarget.style.display = 'none';
               const container = e.currentTarget.parentElement;
-              if (container) {
-                container.style.display = 'none';
-              }
+              if (container) container.style.display = 'none';
             }}
           />
         </div>
@@ -574,21 +571,100 @@ export default function KioskMode() {
 
       <div className="text-center flex-shrink-0 py-2 sm:py-3">
         <h2 
-          className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-0.5 select-none" 
+          className="text-lg sm:text-2xl lg:text-3xl font-bold text-foreground mb-0.5 select-none leading-tight" 
           onClick={() => setLocation("/")}
           style={{ cursor: 'default' }}
         >
           Welcome to {settings?.companyName || 'TechCorp Ltd'}
         </h2>
-        <p className="text-muted-foreground text-sm sm:text-base">Please select your check-in option below</p>
+        <p className="text-muted-foreground text-xs sm:text-base">Please select your check-in option below</p>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full min-h-0">
-        <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
+      <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full sm:min-h-0">
+
+        {/* ── Mobile layout: stacked full-width buttons ── */}
+        <div className="flex flex-col gap-3 mb-4 sm:hidden">
+          <button
+            className="w-full cursor-pointer"
+            onClick={() => setActiveSection("scan")}
+            data-testid="button-qr-scanner"
+          >
+            <GlassCard hover className="flex items-center gap-4 px-5 py-4 group">
+              <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center group-active:scale-95 transition-transform">
+                <QrCode className="text-white w-7 h-7" />
+              </div>
+              <div className="text-left min-w-0">
+                <h3 className="text-base font-bold text-foreground">QR Scanner</h3>
+                <p className="text-muted-foreground text-sm leading-tight">Scan to check in or check out</p>
+              </div>
+              <div className="ml-auto text-muted-foreground">›</div>
+            </GlassCard>
+          </button>
+
+          <button
+            className="w-full cursor-pointer"
+            onClick={() => setActiveSection("walkin")}
+            data-testid="button-manual-checkin"
+          >
+            <GlassCard hover className="flex items-center gap-4 px-5 py-4 group">
+              <div className="w-14 h-14 flex-shrink-0 gradient-blue rounded-2xl flex items-center justify-center group-active:scale-95 transition-transform">
+                <UserPlus className="text-white w-7 h-7" />
+              </div>
+              <div className="text-left min-w-0">
+                <h3 className="text-base font-bold text-foreground">Manual Check-In</h3>
+                <p className="text-muted-foreground text-sm leading-tight">Walk-in visitor entry</p>
+              </div>
+              <div className="ml-auto text-muted-foreground">›</div>
+            </GlassCard>
+          </button>
+
+          <button
+            className="w-full cursor-pointer"
+            onClick={() => setActiveSection("scan")}
+            data-testid="button-staff-checkin"
+          >
+            <GlassCard hover className="flex items-center gap-4 px-5 py-4 group">
+              <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-r from-green-500 to-teal-500 rounded-2xl flex items-center justify-center group-active:scale-95 transition-transform">
+                <BadgeInfo className="text-white w-7 h-7" />
+              </div>
+              <div className="text-left min-w-0">
+                <h3 className="text-base font-bold text-foreground">Staff Check-In</h3>
+                <p className="text-muted-foreground text-sm leading-tight">Scan your employee ID</p>
+              </div>
+              <div className="ml-auto text-muted-foreground">›</div>
+            </GlassCard>
+          </button>
+        </div>
+
+        {/* Mobile instructions — compact horizontal strip */}
+        <GlassCard className="p-3 flex-shrink-0 sm:hidden">
+          <div className="flex justify-around text-variable">
+            <div className="text-center px-2">
+              <QrCode className="mx-auto mb-1 text-purple-500" size={18} />
+              <p className="text-xs font-medium text-[#ab94e0]">Pre-booked</p>
+              <p className="text-xs" style={{color: 'white'}}>Scan email QR</p>
+            </div>
+            <div className="w-px bg-white/20 self-stretch" />
+            <div className="text-center px-2">
+              <UserPlus className="mx-auto mb-1 text-blue-500" size={18} />
+              <p className="text-xs font-medium text-[#9b81d6]">New visitor</p>
+              <p className="text-xs" style={{color: 'white'}}>Manual entry</p>
+            </div>
+            <div className="w-px bg-white/20 self-stretch" />
+            <div className="text-center px-2">
+              <LogOut className="mx-auto mb-1 text-green-500" size={18} />
+              <p className="text-xs font-medium text-[#a587e5]">Leaving</p>
+              <p className="text-xs" style={{color: 'white'}}>Scan pass QR</p>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* ── Tablet / desktop layout: 3-column grid cards ── */}
+        <div className="hidden sm:grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
           <div 
             className="cursor-pointer" 
             onClick={() => setActiveSection("scan")}
-            data-testid="button-qr-scanner"
+            data-testid="button-qr-scanner-tablet"
           >
             <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
@@ -602,7 +678,7 @@ export default function KioskMode() {
           <div 
             className="cursor-pointer" 
             onClick={() => setActiveSection("walkin")}
-            data-testid="button-manual-checkin"
+            data-testid="button-manual-checkin-tablet"
           >
             <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 gradient-blue rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
@@ -613,7 +689,7 @@ export default function KioskMode() {
             </GlassCard>
           </div>
 
-          <div className="cursor-pointer" onClick={() => setActiveSection("scan")} data-testid="button-staff-checkin">
+          <div className="cursor-pointer" onClick={() => setActiveSection("scan")} data-testid="button-staff-checkin-tablet">
             <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <BadgeInfo className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
@@ -624,7 +700,7 @@ export default function KioskMode() {
           </div>
         </div>
 
-        <GlassCard className="p-4 sm:p-5 flex-shrink-0">
+        <GlassCard className="p-4 sm:p-5 flex-shrink-0 hidden sm:block">
           <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 text-center">Instructions</h3>
           <div className="grid grid-cols-3 gap-4 sm:gap-6 text-variable">
             <div className="text-center">
