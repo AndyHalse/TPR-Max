@@ -13916,10 +13916,12 @@ This is an automated notification from your visitor management system.`;
         ...contractorData,
         companyName: contractorData.name, // Map name to companyName for isolated schema
         contactEmail: contractorData.email, // Map email to contactEmail for isolated schema
+        contactPhone: contractorData.phone, // Map phone to contactPhone for isolated schema
       };
       // Remove the original fields since isolated schema uses different field names
       delete mappedContractorData.name;
       delete mappedContractorData.email;
+      delete mappedContractorData.phone;
       
       console.log("🔍 DEBUG: Mapped contractor data for isolated schema:", JSON.stringify(mappedContractorData, null, 2));
       

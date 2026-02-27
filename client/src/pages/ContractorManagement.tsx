@@ -491,7 +491,7 @@ export default function ContractorManagement() {
         email: contractorToEdit.email || "",
         contactFirstName: contractorToEdit.contactFirstName || "",
         contactLastName: contractorToEdit.contactLastName || "",
-        phone: contractorToEdit.phone || "",
+        phone: (contractorToEdit as any).contactPhone || contractorToEdit.phone || "",
         address: contractorToEdit.address || "",
         postcode: contractorToEdit.postcode || "",
         website: contractorToEdit.website || "",
@@ -505,7 +505,7 @@ export default function ContractorManagement() {
         mapped: {
           name: contractorToEdit.name || "",
           email: contractorToEdit.email || "",
-          phone: contractorToEdit.phone || "",
+          phone: (contractorToEdit as any).contactPhone || contractorToEdit.phone || "",
         }
       });
       setShowCompanyEditDialog(true);
