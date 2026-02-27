@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Mail, Search, Trash2, RefreshCw, Eye, X, AlertTriangle } from "lucide-react";
@@ -84,6 +84,31 @@ export default function EmailOutbox() {
     staleTime: 60 * 1000,
     retry: false,
   });
+
+  const blobUrlRef = useRef<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+    if (!previewData?.htmlBody) {
+      setBlobUrl(null);
+      return;
+    }
+    const htmlContent = previewData.htmlBody.includes("<head")
+      ? previewData.htmlBody.replace(/<head([^>]*)>/i, '<head$1><base target="_blank">')
+      : `<html><head><base target="_blank"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0">${previewData.htmlBody}</body></html>`;
+    const blob = new Blob([htmlContent], { type: "text/html; charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    blobUrlRef.current = url;
+    setBlobUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+      blobUrlRef.current = null;
+    };
+  }, [previewData?.htmlBody]);
 
   const clearMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", "/api/email-log/clear"),
@@ -322,18 +347,19 @@ export default function EmailOutbox() {
                 </div>
               </div>
 
-              {/* HTML preview — links open in new tab exactly as recipient would see them */}
-              <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-white">
-                {previewData.htmlBody ? (
+              {/* HTML preview — blob URL used instead of srcdoc for iOS Safari compatibility */}
+              <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-white" style={{ minHeight: "380px" }}>
+                {blobUrl ? (
                   <iframe
-                    srcDoc={
-                      previewData.htmlBody.includes("<head")
-                        ? previewData.htmlBody.replace(/<head([^>]*)>/i, '<head$1><base target="_blank">')
-                        : `<html><head><base target="_blank"></head><body>${previewData.htmlBody}</body></html>`
-                    }
-                    style={{ width: "100%", height: "100%", minHeight: "520px", border: "none", display: "block" }}
+                    key={blobUrl}
+                    src={blobUrl}
+                    style={{ width: "100%", height: "100%", minHeight: "380px", border: "none", display: "block" }}
                     title="Email preview"
                   />
+                ) : previewData.htmlBody ? (
+                  <div className="flex items-center justify-center h-full min-h-[380px]">
+                    <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />
+                  </div>
                 ) : (
                   <div className="p-4 whitespace-pre-wrap text-sm text-slate-700 font-mono overflow-auto h-full">
                     {previewData.textBody || "No content available"}
