@@ -9470,50 +9470,15 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(410).json({ error: 'This induction link has expired' });
       }
 
-      // Get person details based on personType - support all types
+      // Person details are stored on the token at creation time — use them directly.
+      // (Worker/staff/visitor records live in isolated customer schemas, not the shared DB.)
       const personType = tokenData.personType || 'contractor';
-      let personDetails: { firstName: string; lastName: string; email: string; companyName?: string } | null = null;
-
-      if (personType === 'contractor' && tokenData.workerId) {
-        const inductionContext = simpleDatabaseService.createDevelopmentContext();
-        const worker = await databaseService.getContractorWorkerById(inductionContext, tokenData.workerId);
-        if (worker) {
-          personDetails = {
-            firstName: worker.firstName,
-            lastName: worker.lastName,
-            email: worker.email || '',
-            companyName: worker.companyName
-          };
-        }
-      } else if (personType === 'staff' && tokenData.staffId) {
-        const [staffMember] = await db.select().from(staff).where(eq(staff.id, tokenData.staffId));
-        if (staffMember) {
-          personDetails = {
-            firstName: staffMember.firstName || '',
-            lastName: staffMember.lastName || '',
-            email: staffMember.email || ''
-          };
-        }
-      } else if (personType === 'visitor' && tokenData.visitorId) {
-        const [visitor] = await db.select().from(visitors).where(eq(visitors.id, tokenData.visitorId));
-        if (visitor) {
-          personDetails = {
-            firstName: visitor.firstName || '',
-            lastName: visitor.lastName || '',
-            email: visitor.email || ''
-          };
-        }
-      }
-
-      // Fallback to token personName/personEmail if no details found
-      if (!personDetails) {
-        const nameParts = (tokenData.personName || 'Unknown').split(' ');
-        personDetails = {
-          firstName: nameParts[0] || 'Unknown',
-          lastName: nameParts.slice(1).join(' ') || '',
-          email: tokenData.personEmail || ''
-        };
-      }
+      const nameParts = (tokenData.personName || 'Unknown Visitor').split(' ');
+      const personDetails = {
+        firstName: nameParts[0] || 'Unknown',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: tokenData.personEmail || ''
+      };
 
       // Get the saved video content for this role type
       const [videoSettings] = await db
