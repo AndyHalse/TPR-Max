@@ -9494,14 +9494,62 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           title: videoSettings.videoTitle,
           description: videoSettings.videoDescription,
           durationMinutes: videoSettings.videoDurationMinutes,
-          generatedHtml: videoSettings.generatedHtml,
           videoUrl: videoSettings.videoUrl,
           hasGeneratedContent: !!videoSettings.generatedHtml
+          // generatedHtml is NOT included here — it is large and fetched separately
+          // via GET /api/induction/video/by-token/:token (public endpoint)
         } : null
       });
       
     } catch (error) {
       console.error('Error getting induction token:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Public endpoint — returns the generated video HTML for a given token.
+  // Uses token's customerId to find the correct customer-isolated video without auth.
+  app.get('/api/induction/video/by-token/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const tokenData = await inductionService.getTokenByValue(token);
+      if (!tokenData) return res.status(404).json({ error: 'Token not found' });
+
+      const roleType = tokenData.personType || 'contractor';
+
+      // Try customer-isolated DB first using customerId stored on the token
+      if (tokenData.customerId) {
+        try {
+          const custCtx = simpleDatabaseService.createCustomerContext('system', tokenData.customerId);
+          const custDb = await databaseService.getCustomerDatabase(custCtx);
+          const [custRow] = await custDb
+            .select()
+            .from(isolatedSchema.inductionSettings)
+            .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+          if (custRow?.generatedHtml) {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-store');
+            return res.send(custRow.generatedHtml);
+          }
+        } catch (_e) {
+          console.warn('⚠️ Customer video lookup failed for by-token endpoint, falling back');
+        }
+      }
+
+      // Fallback: shared DB inductionSettings
+      const [row] = await db
+        .select()
+        .from(inductionSettings)
+        .where(eq(inductionSettings.roleType, roleType));
+      if (row?.generatedHtml) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.send(row.generatedHtml);
+      }
+
+      return res.status(404).json({ error: 'No video content available for this induction' });
+    } catch (error) {
+      console.error('Error fetching induction video by token:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });

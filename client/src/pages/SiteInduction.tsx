@@ -51,7 +51,6 @@ interface VideoContent {
   title: string;
   description: string;
   durationMinutes: number;
-  generatedHtml: string | null;
   videoUrl: string;
   hasGeneratedContent: boolean;
 }
@@ -62,6 +61,8 @@ export default function SiteInduction() {
   const [loading, setLoading] = useState(true);
   const [tokenData, setTokenData] = useState<InductionToken | null>(null);
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
+  const [videoHtml, setVideoHtml] = useState<string | null>(null);
+  const [videoHtmlLoading, setVideoHtmlLoading] = useState(false);
   const [videoContent, setVideoContent] = useState<VideoContent | null>(null);
   const [personType, setPersonType] = useState<string>("contractor");
   const [currentStep, setCurrentStep] = useState<"video" | "quiz" | "completed">("video");
@@ -125,6 +126,15 @@ export default function SiteInduction() {
       const derivedPersonType = tkn?.personType || 'contractor';
       setPersonType(derivedPersonType);
 
+      // Determine current step based on progress (do this before fetching questions)
+      if (tkn.status === "completed" || tkn.quizPassed) {
+        setCurrentStep("completed");
+      } else if (tkn.videoWatched && !tkn.quizCompleted) {
+        setCurrentStep("quiz");
+      } else {
+        setCurrentStep("video");
+      }
+
       // Fetch questions for the specific role type
       const questionsRes = await fetch(`/api/induction/questions?roleType=${derivedPersonType}`, { credentials: "include" });
       if (questionsRes.ok) {
@@ -132,13 +142,14 @@ export default function SiteInduction() {
         setQuestions(questionsResponse.questions || []);
       }
 
-      // Determine current step based on progress
-      if (tkn.status === "completed" || tkn.quizPassed) {
-        setCurrentStep("completed");
-      } else if (tkn.videoWatched && !tkn.quizCompleted) {
-        setCurrentStep("quiz");
-      } else {
-        setCurrentStep("video");
+      // Fetch video HTML in the background (it can be large — don't block page render)
+      if (tokenResponse.videoContent?.hasGeneratedContent) {
+        setVideoHtmlLoading(true);
+        fetch(`/api/induction/video/by-token/${token}`)
+          .then(r => r.ok ? r.text() : null)
+          .then(html => { if (html) setVideoHtml(html); })
+          .catch(() => {})
+          .finally(() => setVideoHtmlLoading(false));
       }
 
     } catch (error) {
@@ -325,7 +336,7 @@ export default function SiteInduction() {
   }
 
   const renderVideoStep = () => {
-    const hasGeneratedVideo = videoContent?.hasGeneratedContent && videoContent?.generatedHtml;
+    const hasGeneratedVideo = videoContent?.hasGeneratedContent;
     
     return (
       <div className="space-y-6">
@@ -342,27 +353,36 @@ export default function SiteInduction() {
           <CardContent>
             {hasGeneratedVideo ? (
               <>
-                <div className={`bg-gray-900 rounded-lg overflow-hidden mb-6 ${videoFullscreen ? 'fixed inset-0 z-50' : 'aspect-video'}`}>
-                  <div className="flex justify-between items-center bg-gray-800 px-4 py-2">
-                    <span className="text-white text-sm font-medium">AI-Generated Safety Induction</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-white hover:bg-gray-700"
-                      onClick={() => setVideoFullscreen(!videoFullscreen)}
-                      data-testid="button-toggle-fullscreen"
-                    >
-                      {videoFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                    </Button>
+                {videoHtmlLoading ? (
+                  <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-6 border border-gray-200">
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+                      <p className="text-sm text-gray-600">Loading induction video...</p>
+                    </div>
                   </div>
-                  <iframe
-                    srcDoc={videoContent.generatedHtml!}
-                    className={`w-full ${videoFullscreen ? 'h-[calc(100vh-50px)]' : 'h-[calc(100%-40px)]'} bg-white`}
-                    title="Induction Video"
-                    sandbox="allow-scripts allow-same-origin"
-                    data-testid="iframe-induction-video"
-                  />
-                </div>
+                ) : videoHtml ? (
+                  <div className={`bg-gray-900 rounded-lg overflow-hidden mb-6 ${videoFullscreen ? 'fixed inset-0 z-50' : 'aspect-video'}`}>
+                    <div className="flex justify-between items-center bg-gray-800 px-4 py-2">
+                      <span className="text-white text-sm font-medium">AI-Generated Safety Induction</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-gray-700"
+                        onClick={() => setVideoFullscreen(!videoFullscreen)}
+                        data-testid="button-toggle-fullscreen"
+                      >
+                        {videoFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                      </Button>
+                    </div>
+                    <iframe
+                      srcDoc={videoHtml}
+                      className={`w-full ${videoFullscreen ? 'h-[calc(100vh-50px)]' : 'h-[calc(100%-40px)]'} bg-white`}
+                      title="Induction Video"
+                      sandbox="allow-scripts allow-same-origin"
+                      data-testid="iframe-induction-video"
+                    />
+                  </div>
+                ) : null}
                 <p className="text-sm text-variable mb-4 text-center">
                   Please navigate through all slides to complete the induction video.
                 </p>
