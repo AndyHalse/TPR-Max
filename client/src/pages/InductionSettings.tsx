@@ -84,6 +84,16 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
   const [showSendLink, setShowSendLink] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+
+  // Convert HTML to blob URL so iOS Safari renders it (srcDoc is unreliable on mobile)
+  useEffect(() => {
+    if (!previewHtml) { setPreviewBlobUrl(null); return; }
+    const blob = new Blob([previewHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    setPreviewBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [previewHtml]);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [isRegeneratingQuestions, setIsRegeneratingQuestions] = useState(false);
   const [isTogglingKiosk, setIsTogglingKiosk] = useState(false);
@@ -847,7 +857,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
         </div>
 
         {/* Inline Preview Dialog */}
-        {showPreview && previewHtml && (
+        {showPreview && previewBlobUrl && (
           <Dialog open={showPreview} onOpenChange={setShowPreview}>
             <DialogContent className="max-w-[96vw] max-h-[96vh] w-full h-full p-0">
               <DialogHeader className="p-4 pb-0 flex-row items-center justify-between">
@@ -859,10 +869,9 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
               </DialogHeader>
               <div className="flex-1 h-[85vh] p-4 pt-2">
                 <iframe
-                  srcDoc={previewHtml}
+                  src={previewBlobUrl || undefined}
                   className="w-full h-full border-0 rounded-lg"
                   title={`${roleType} Induction Preview`}
-                  sandbox="allow-scripts allow-same-origin"
                 />
               </div>
             </DialogContent>

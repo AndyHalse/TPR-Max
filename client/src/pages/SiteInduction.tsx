@@ -62,8 +62,18 @@ export default function SiteInduction() {
   const [tokenData, setTokenData] = useState<InductionToken | null>(null);
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
   const [videoHtml, setVideoHtml] = useState<string | null>(null);
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
   const [videoHtmlLoading, setVideoHtmlLoading] = useState(false);
   const [videoContent, setVideoContent] = useState<VideoContent | null>(null);
+
+  // Convert video HTML to blob URL so iOS Safari renders it (srcDoc is unreliable on mobile)
+  useEffect(() => {
+    if (!videoHtml) { setVideoBlobUrl(null); return; }
+    const blob = new Blob([videoHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    setVideoBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [videoHtml]);
   const [personType, setPersonType] = useState<string>("contractor");
   const [currentStep, setCurrentStep] = useState<"video" | "quiz" | "completed">("video");
   const [questions, setQuestions] = useState<InductionQuestion[]>([]);
@@ -360,7 +370,7 @@ export default function SiteInduction() {
                       <p className="text-sm text-gray-600">Loading induction video...</p>
                     </div>
                   </div>
-                ) : videoHtml ? (
+                ) : videoBlobUrl ? (
                   <div className={`bg-gray-900 rounded-lg overflow-hidden mb-6 ${videoFullscreen ? 'fixed inset-0 z-50' : 'aspect-video'}`}>
                     <div className="flex justify-between items-center bg-gray-800 px-4 py-2">
                       <span className="text-white text-sm font-medium">AI-Generated Safety Induction</span>
@@ -375,10 +385,9 @@ export default function SiteInduction() {
                       </Button>
                     </div>
                     <iframe
-                      srcDoc={videoHtml}
+                      src={videoBlobUrl || undefined}
                       className={`w-full ${videoFullscreen ? 'h-[calc(100vh-50px)]' : 'h-[calc(100%-40px)]'} bg-white`}
                       title="Induction Video"
-                      sandbox="allow-scripts allow-same-origin"
                       data-testid="iframe-induction-video"
                     />
                   </div>
