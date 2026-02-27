@@ -10281,7 +10281,21 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         .returning();
       
       console.log('✅ Document saved successfully:', newDocument.id);
-      
+
+      // Audit trail — worker document uploaded
+      try {
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const docLabel = documentType?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || documentName;
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId,
+          changeType: 'document_uploaded',
+          notes: `Document "${docLabel}" uploaded by ${username} on ${auditTs}${expiryDate ? ` (expires ${new Date(expiryDate).toLocaleDateString('en-GB')})` : ''}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create document upload audit note (continuing):', auditErr);
+      }
+
       res.json({ 
         success: true, 
         document: newDocument 
@@ -10333,7 +10347,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       console.log('🗑️ Deleting document:', documentId);
       
       // Soft delete by setting isActive to false
-      await db
+      const [deletedDoc] = await db
         .update(isolatedSchema.contractorDocuments)
         .set({ isActive: false, updatedAt: new Date() })
         .where(
@@ -10341,10 +10355,24 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             eq(isolatedSchema.contractorDocuments.id, documentId),
             eq(isolatedSchema.contractorDocuments.workerId, workerId)
           )
-        );
+        ).returning();
       
       console.log('✅ Document deleted successfully');
-      
+
+      // Audit trail — worker document deleted
+      try {
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const docLabel = deletedDoc?.documentType?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || deletedDoc?.documentName || 'Unknown';
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId,
+          changeType: 'document_deleted',
+          notes: `Document "${docLabel}" removed by ${username} on ${auditTs}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create document delete audit note (continuing):', auditErr);
+      }
+
       res.json({ success: true, message: 'Document deleted' });
       
     } catch (error) {
@@ -12681,7 +12709,7 @@ This is an automated notification from your visitor management system.`;
         // History
         'staff_attendance_history', 'visitor_history',
         // Contractors
-        'contractor_companies', 'contractor_workers', 'worker_notes', 'contractor_documents',
+        'contractor_companies', 'contractor_workers', 'worker_notes', 'company_notes', 'contractor_documents',
         'compliance_documents', 'document_approvals', 'document_types', 'worker_competencies',
         'nvq_qualifications', 'card_offences', 'card_issues', 'worker_certifications',
         'rams_documents', 'contractor_visits', 'contractor_prebookings',
@@ -13926,6 +13954,21 @@ This is an automated notification from your visitor management system.`;
       
       // Use customer-isolated database service
       const contractor = await databaseService.createContractorCompany(context, mappedContractorData);
+
+      // Audit trail — company created
+      try {
+        const auditDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        await auditDb.insert(isolatedSchema.companyNotes).values({
+          companyId: contractor.id,
+          changeType: 'company_created',
+          notes: `Company "${contractor.companyName || mappedContractorData.companyName}" registered by ${username} on ${auditTs}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create company audit note (continuing):', auditErr);
+      }
+
       res.json(contractor);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -13989,7 +14032,22 @@ This is an automated notification from your visitor management system.`;
       }
       
       console.log("✅ DEBUG: Contractor updated successfully:", JSON.stringify(contractor, null, 2));
-      
+
+      // Audit trail — company updated
+      try {
+        const auditDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const changedFields = Object.keys(cleanUpdates).join(', ');
+        await auditDb.insert(isolatedSchema.companyNotes).values({
+          companyId: id,
+          changeType: 'company_updated',
+          notes: `Company details updated by ${username} on ${auditTs}. Fields changed: ${changedFields || 'general update'}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create company update audit note (continuing):', auditErr);
+      }
+
       res.json(contractor);
     } catch (error) {
       console.error("Error updating contractor:", error);
@@ -14650,7 +14708,28 @@ This is an automated notification from your visitor management system.`;
       const worker = await databaseService.createContractorWorker(context, workerData);
       
       console.log(`✅ Created contractor worker: ${workerData.firstName} ${workerData.lastName} (ID: ${worker.id}) for customer ${context.customerId}`);
-      
+
+      // Audit trail — worker created
+      try {
+        const auditDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        await auditDb.insert(isolatedSchema.workerNotes).values({
+          workerId: worker.id,
+          changeType: 'worker_created',
+          notes: `Worker profile created by ${username} on ${auditTs}`,
+          changedBy: username,
+        });
+        // Also log on the company audit trail
+        await auditDb.insert(isolatedSchema.companyNotes).values({
+          companyId: companyId,
+          changeType: 'worker_added',
+          notes: `Worker "${workerData.firstName} ${workerData.lastName}" added by ${username} on ${auditTs}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create worker audit note (continuing):', auditErr);
+      }
+
       res.json(worker);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -14761,6 +14840,20 @@ This is an automated notification from your visitor management system.`;
         isActive: true,
       }).returning();
 
+      // Audit trail — company document uploaded
+      try {
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const docLabel = (documentType || documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        await db.insert(isolatedSchema.companyNotes).values({
+          companyId,
+          changeType: 'document_uploaded',
+          notes: `Document "${docLabel}" uploaded by ${username} on ${auditTs}${expiryDate ? ` (expires ${new Date(expiryDate).toLocaleDateString('en-GB')})` : ''}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create company document audit note (continuing):', auditErr);
+      }
+
       res.json({ success: true, document });
     } catch (error) {
       console.error("Error creating company document:", error);
@@ -14793,10 +14886,41 @@ This is an automated notification from your visitor management system.`;
           eq(isolatedSchema.contractorDocuments.companyId, companyId)
         )).returning();
 
+      // Audit trail — company document replaced/updated
+      try {
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const docLabel = (updated?.documentType || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
+        const action = normalizedUrl ? 'replaced' : 'updated';
+        await db.insert(isolatedSchema.companyNotes).values({
+          companyId,
+          changeType: `document_${action}`,
+          notes: `Document "${docLabel}" ${action} by ${username} on ${auditTs}${expiryDate ? ` (new expiry: ${new Date(expiryDate).toLocaleDateString('en-GB')})` : ''}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create company document update audit note (continuing):', auditErr);
+      }
+
       res.json({ success: true, document: updated });
     } catch (error) {
       console.error("Error updating company document:", error);
       res.status(500).json({ error: "Failed to update document" });
+    }
+  });
+
+  // Company notes / audit trail
+  app.get("/api/contractors/:companyId/notes", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      const notes = await db.select().from(isolatedSchema.companyNotes)
+        .where(eq(isolatedSchema.companyNotes.companyId, companyId))
+        .orderBy(desc(isolatedSchema.companyNotes.changedAt));
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching company notes:", error);
+      res.status(500).json({ error: "Failed to fetch company notes" });
     }
   });
 

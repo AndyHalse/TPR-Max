@@ -747,6 +747,17 @@ export const workerNotes = pgTable("worker_notes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Company Notes - Audit trail for contractor company actions (creation, updates, document uploads)
+export const companyNotes = pgTable("company_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  changeType: text("change_type").notNull(), // company_created, company_updated, document_uploaded, document_replaced, document_deleted
+  notes: text("notes"),
+  changedBy: text("changed_by").notNull(),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Contractor Documents - Stores uploaded documents for contractors
 export const contractorDocuments = pgTable("contractor_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

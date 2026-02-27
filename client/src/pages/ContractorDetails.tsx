@@ -99,6 +99,12 @@ export default function ContractorDetails() {
     queryKey: ['/api/staff'],
   });
 
+  // Company audit trail / notes
+  const { data: companyNotes = [], isLoading: notesLoading } = useQuery<any[]>({
+    queryKey: [`/api/contractors/${id}/notes`],
+    enabled: !!id,
+  });
+
   // Form for issuing card violations
   const cardIssueForm = useForm({
     resolver: zodResolver(z.object({
@@ -874,12 +880,13 @@ export default function ContractorDetails() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" data-testid="contractor-tabs">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="workers" data-testid="tab-workers">Workers</TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">Documents</TabsTrigger>
           <TabsTrigger value="safety" data-testid="tab-safety">Safety</TabsTrigger>
           <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
           <TabsTrigger value="reporting" data-testid="tab-reporting">Reporting</TabsTrigger>
+          <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="workers" className="space-y-4" data-testid="workers-tab-content">
@@ -1159,6 +1166,72 @@ export default function ContractorDetails() {
             companyId={contractor?.id} 
             companyName={contractor?.name} 
           />
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4" data-testid="activity-tab-content">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Clock className="w-4 h-4" />
+                Company Activity Log
+              </CardTitle>
+              <CardDescription>Full audit trail of all actions taken on this contractor company record</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {notesLoading ? (
+                <div className="text-sm text-muted-foreground py-4 text-center">Loading activity...</div>
+              ) : companyNotes.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-8 text-center border border-dashed rounded-lg">
+                  <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p>No activity recorded yet.</p>
+                  <p className="text-xs mt-1">Actions like adding workers and uploading documents will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {companyNotes.map((note: any, index: number) => {
+                    const changeTypeColors: Record<string, string> = {
+                      company_created: 'bg-green-100 text-green-800 border-green-200',
+                      company_updated: 'bg-blue-100 text-blue-800 border-blue-200',
+                      worker_added: 'bg-purple-100 text-purple-800 border-purple-200',
+                      document_uploaded: 'bg-amber-100 text-amber-800 border-amber-200',
+                      document_replaced: 'bg-orange-100 text-orange-800 border-orange-200',
+                      document_updated: 'bg-sky-100 text-sky-800 border-sky-200',
+                    };
+                    const changeTypeLabels: Record<string, string> = {
+                      company_created: 'Company Created',
+                      company_updated: 'Details Updated',
+                      worker_added: 'Worker Added',
+                      document_uploaded: 'Document Uploaded',
+                      document_replaced: 'Document Replaced',
+                      document_updated: 'Document Updated',
+                    };
+                    const colorClass = changeTypeColors[note.changeType] || 'bg-gray-100 text-gray-800 border-gray-200';
+                    const label = changeTypeLabels[note.changeType] || note.changeType?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                    const isLast = index === companyNotes.length - 1;
+                    return (
+                      <div key={note.id} className="flex gap-3 py-3 relative">
+                        {!isLast && <div className="absolute left-[17px] top-9 bottom-0 w-0.5 bg-border" />}
+                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-muted border flex items-center justify-center mt-0.5">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border ${colorClass}`}>
+                              {label}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {note.changedAt ? new Date(note.changedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' }) : ''}
+                            </span>
+                          </div>
+                          <p className="text-sm text-foreground">{note.notes}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
