@@ -410,8 +410,7 @@ export default function SiteInduction() {
             <Alert className="mb-4">
               <Shield className="w-4 h-4" />
               <AlertDescription>
-                <strong>Important:</strong> You must complete the entire video before proceeding to the questionnaire. 
-                This is a legal requirement under UK Health & Safety regulations.
+                <strong>Important:</strong> Watch the full video, then answer the H&S questionnaire. You need at least <strong>{tokenData?.passThreshold ?? 80}%</strong> to pass — this is a UK Health & Safety legal requirement.
               </AlertDescription>
             </Alert>
 
@@ -595,17 +594,26 @@ export default function SiteInduction() {
       {/* Header */}
       <div className="bg-[var(--card)] shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Shield className="w-6 h-6 text-orange-600" />
-                VisiGate Pro - Site Induction
+                Site Induction
               </h1>
-              <p className="text-variable mt-1">Health & Safety Compliance System</p>
+              <p className="text-variable mt-1">Health & Safety Compliance</p>
             </div>
-            <div className="text-right">
-              <p className="font-medium text-gray-900">{worker.firstName} {worker.lastName}</p>
-              <p className="text-sm text-variable">{worker.companyName}</p>
+            <div className="text-right space-y-1">
+              <p className="font-semibold text-gray-900">{worker.firstName} {worker.lastName}</p>
+              {worker.companyName && <p className="text-sm text-variable">{worker.companyName}</p>}
+              <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
+                personType === 'visitor'
+                  ? 'bg-blue-100 text-blue-700'
+                  : personType === 'staff'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'bg-orange-100 text-orange-700'
+              }`}>
+                {personType === 'visitor' ? 'Visitor' : personType === 'staff' ? 'Staff' : 'Contractor'}
+              </span>
             </div>
           </div>
         </div>

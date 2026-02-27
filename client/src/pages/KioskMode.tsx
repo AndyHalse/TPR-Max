@@ -31,11 +31,13 @@ export default function KioskMode() {
   const [cameraState, setCameraState] = useState<"off" | "starting" | "scanning" | "processing" | "error">("off");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [checkinSuccess, setCheckinSuccess] = useState<{ name: string; company?: string } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastScannedRef = useRef<string | null>(null);
+  const isProcessingRef = useRef<boolean>(false);
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -152,29 +154,34 @@ export default function KioskMode() {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
-      
-      setCurrentVisitor(data.visitor);
-      setIsPreBookedCheckIn(true);
-      setShowPreview(true);
-      setScannedCode("");
-      setActiveSection("main");
-      
-      // Find host name
-      const hostStaffMember = staff?.find(s => s.id === data.visitor.hostStaffId);
-      setHostName(hostStaffMember ? `${hostStaffMember.firstName} ${hostStaffMember.lastName}` : undefined);
-      
-      toast({
-        title: "Success",
-        description: "Pre-booked visitor checked in successfully!",
-      });
+
+      const visitorName = `${data.visitor.firstName} ${data.visitor.lastName}`;
+      const visitorCompany = data.visitor.company || undefined;
+
+      // Show named check-in success overlay on the scan screen for 3.5s then go home
+      setCheckinSuccess({ name: visitorName, company: visitorCompany });
+      setCameraState("off");
+
+      setTimeout(() => {
+        setCheckinSuccess(null);
+        isProcessingRef.current = false;
+        lastScannedRef.current = null;
+        setScannedCode("");
+
+        const hostStaffMember = staff?.find(s => s.id === data.visitor.hostStaffId);
+        setHostName(hostStaffMember ? `${hostStaffMember.firstName} ${hostStaffMember.lastName}` : undefined);
+        setCurrentVisitor(data.visitor);
+        setIsPreBookedCheckIn(true);
+        setShowPreview(true);
+        setActiveSection("main");
+      }, 3500);
     },
     onError: (error: any) => {
       console.error("Pre-booking check-in error:", error);
-      toast({
-        title: "Error",
-        description: "QR code not found. Please try again or proceed with manual check-in.",
-        variant: "destructive",
-      });
+      isProcessingRef.current = false;
+      lastScannedRef.current = null;
+      setScanResult({ success: false, message: "QR code not found. Please try again or use manual check-in." });
+      setCameraState("error");
     },
   });
 
@@ -198,15 +205,21 @@ export default function KioskMode() {
       
       setTimeout(() => {
         setStaffCheckResult(null);
+        isProcessingRef.current = false;
+        lastScannedRef.current = null;
         setActiveSection("main");
       }, 5000);
     },
     onError: (error: any) => {
+      isProcessingRef.current = false;
+      lastScannedRef.current = null;
       toast({
         title: "Error",
         description: error.message || "Staff QR code not recognized",
         variant: "destructive",
       });
+      setCameraState("error");
+      setScanResult({ success: false, message: error.message || "Staff QR code not recognised." });
     },
   });
 
@@ -217,18 +230,25 @@ export default function KioskMode() {
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
-  const processDetectedCode = useCallback(async (code: string) => {
+  const processDetectedCode = useCallback((code: string) => {
+    // Hard block — prevent any re-entry while a result is being shown
+    if (isProcessingRef.current) return;
     if (lastScannedRef.current === code) return;
+
+    isProcessingRef.current = true;
     lastScannedRef.current = code;
     setCameraState("processing");
     stopCamera();
 
-    // Route to the correct mutation based on code prefix
+    // Staff QR code
     if (code.startsWith("STF-")) {
       staffQrMutation.mutate(code);
       setScanResult({ success: true, message: "Staff card recognised — processing…" });
+      // staffQrMutation.onSuccess handles navigation + resets after 5s
       return;
     }
+
+    // Pre-booking QR code — check-in only
     if (code.startsWith("PBK-")) {
       const settingsAny = settings as any;
       if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
@@ -239,18 +259,16 @@ export default function KioskMode() {
         return;
       }
       preBookingCheckInMutation.mutate(code);
-      setScanResult({ success: true, message: "Pre-booking QR recognised — processing…" });
+      setScanResult({ success: true, message: "Pre-booking found — checking in…" });
       return;
     }
-    // Visitor pass (checkout)
-    try {
-      await checkOutMutation.mutateAsync(code);
-      setScanResult({ success: true, message: "Visitor checked out successfully!" });
-    } catch {
-      setScanResult({ success: false, message: "QR code not recognised. Please try manual entry below." });
-      setCameraState("error");
-    }
-  }, [stopCamera, staffQrMutation, preBookingCheckInMutation, checkOutMutation, settings]);
+
+    // Kiosk is CHECK-IN ONLY — no checkout from the kiosk scanner
+    isProcessingRef.current = false;
+    lastScannedRef.current = null;
+    setScanResult({ success: false, message: "QR code not recognised. Please see reception or use manual check-in below." });
+    setCameraState("error");
+  }, [stopCamera, staffQrMutation, preBookingCheckInMutation, settings]);
 
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
@@ -297,15 +315,21 @@ export default function KioskMode() {
     }
   }, [scanFrame]);
 
-  // Start camera when scan section becomes active; stop when leaving
+  // Start camera when scan section becomes active; stop and reset when leaving
   useEffect(() => {
     if (activeSection === "scan") {
+      isProcessingRef.current = false;
+      lastScannedRef.current = null;
+      setCheckinSuccess(null);
+      setScanResult(null);
       startCamera();
     } else {
       stopCamera();
       setCameraState("off");
       setScanResult(null);
+      setCheckinSuccess(null);
       lastScannedRef.current = null;
+      isProcessingRef.current = false;
     }
     return () => stopCamera();
   }, [activeSection, startCamera, stopCamera]);
@@ -458,6 +482,22 @@ export default function KioskMode() {
                 </div>
               )}
 
+              {/* ✅ Pre-booking check-in success overlay — shows visitor name */}
+              {checkinSuccess && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/85">
+                  <div className="mx-4 p-6 rounded-xl border-2 bg-green-50 border-green-400 text-center w-full max-w-xs">
+                    <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
+                    <h3 className="text-2xl font-bold text-green-700 mb-1">Welcome!</h3>
+                    <p className="text-xl font-semibold text-gray-900">{checkinSuccess.name}</p>
+                    {checkinSuccess.company && (
+                      <p className="text-sm text-gray-600 mt-0.5">{checkinSuccess.company}</p>
+                    )}
+                    <p className="text-sm text-green-700 font-medium mt-3">✓ Checked in successfully</p>
+                    <p className="text-xs text-gray-500 mt-2">Your visitor pass will appear shortly…</p>
+                  </div>
+                </div>
+              )}
+
               {/* Staff check result overlay */}
               {staffCheckResult && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80">
@@ -478,8 +518,8 @@ export default function KioskMode() {
                 </div>
               )}
 
-              {/* Success result */}
-              {scanResult && !staffCheckResult && (
+              {/* Generic scan result (error / unrecognised) */}
+              {scanResult && !staffCheckResult && !checkinSuccess && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                   <div className={`mx-4 p-6 rounded-xl border-2 text-center ${scanResult.success ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
                     {scanResult.success
