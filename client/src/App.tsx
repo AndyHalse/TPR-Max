@@ -258,11 +258,15 @@ function Router() {
     console.log("✅ [AUTH STATE] User authenticated - showing main app for:", user.username);
   }
 
+  // Customer-facing kiosk pages — render without any admin Layout/nav
+  if (window.location.pathname === '/contractor') {
+    return <ContractorKiosk />;
+  }
+
   // Show main app (either authenticated or public route)
   return (
     <Switch>
       <Route path="/kiosk" component={KioskMode} />
-      <Route path="/contractor" component={ContractorKiosk} />
       <Route path="/marketing" component={MarketingPage} />
       <Route path="/induction-preview/:roleType">
         {(params) => {

@@ -378,7 +378,7 @@ export default function ContractorKiosk() {
     );
   }
 
-  // ─── Pre-Book Visit sub-section ───────────────────────────────────────────
+  // ─── Pre-Booked Contractor sub-section ───────────────────────────────────────────
   if (activeSection === "prebook") {
     const pendingBookings = todayPrebookings.filter((b: any) => b.status !== "completed" && b.status !== "cancelled");
     const completedBookings = todayPrebookings.filter((b: any) => b.status === "completed");
@@ -391,7 +391,7 @@ export default function ContractorKiosk() {
             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3">
               <ClipboardList className="text-white w-8 h-8 sm:w-10 sm:h-10" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-fixed mb-1">Pre-Booked Visits</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-fixed mb-1">Pre-Booked Contractor</h2>
             <p className="text-variable text-sm sm:text-base">Select your name below to check in</p>
           </div>
 
@@ -660,13 +660,13 @@ export default function ContractorKiosk() {
             </GlassCard>
           </div>
 
-          {/* Pre-Book Visit */}
+          {/* Pre-Booked Contractor */}
           <div className="cursor-pointer" onClick={() => setActiveSection("prebook")}>
             <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <CalendarPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Pre-Booked Visit</h3>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Pre-Booked Contractor</h3>
               <p className="text-muted-foreground text-xs sm:text-sm">Select your name to check in</p>
             </GlassCard>
           </div>
