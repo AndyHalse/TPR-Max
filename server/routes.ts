@@ -15450,7 +15450,6 @@ This is an automated notification from your visitor management system.`;
         .from(workerDocumentAssignments)
         .where(and(
           eq(workerDocumentAssignments.workerId, workerId),
-          eq(workerDocumentAssignments.customerId, context.customerId),
           eq(workerDocumentAssignments.isActive, true)
         ))
         .orderBy(desc(workerDocumentAssignments.assignedAt));

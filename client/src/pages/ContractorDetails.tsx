@@ -65,6 +65,7 @@ export default function ContractorDetails() {
   const [addingCertification, setAddingCertification] = useState(false);
   const [addingWorker, setAddingWorker] = useState(false);
   const [workerWizardStep, setWorkerWizardStep] = useState(1);
+  const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
@@ -215,11 +216,10 @@ export default function ContractorDetails() {
   // Add worker mutation
   const addWorkerMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', `/api/contractors/${id}/workers`, data),
-    onSuccess: () => {
-      toast({ title: "Worker added successfully" });
+    onSuccess: (_data: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
-      setAddingWorker(false);
-      workerForm.reset();
+      setWorkerWizardSavedName(`${variables.firstName} ${variables.lastName}`);
+      setWorkerWizardStep(4);
     },
     onError: (error: any) => {
       toast({ 
@@ -1585,7 +1585,7 @@ export default function ContractorDetails() {
       </Dialog>
 
       {/* Add Worker — 3-step Wizard */}
-      <Dialog open={addingWorker} onOpenChange={(open) => { setAddingWorker(open); if (!open) { setWorkerWizardStep(1); workerForm.reset(); } }}>
+      <Dialog open={addingWorker} onOpenChange={(open) => { setAddingWorker(open); if (!open) { setWorkerWizardStep(1); setWorkerWizardSavedName(""); workerForm.reset(); } }}>
         <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
           {/* Header + Progress */}
           <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
@@ -1834,7 +1834,31 @@ export default function ContractorDetails() {
                 </div>
               )}
 
+              {/* Step 4 — Success */}
+              {workerWizardStep === 4 && (
+                <div className="overflow-y-auto flex-1 min-h-0 px-6 py-10 flex flex-col items-center justify-center gap-5 text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                    <CheckCircle2 className="w-9 h-9 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Worker Added</h3>
+                    <p className="text-sm text-gray-500">
+                      <span className="font-medium text-gray-800">{workerWizardSavedName}</span> has been registered to {contractorData?.name}.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                    <Button variant="outline" className="flex-1" onClick={() => { setAddingWorker(false); setWorkerWizardStep(1); setWorkerWizardSavedName(""); workerForm.reset(); }}>
+                      Done
+                    </Button>
+                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => { setWorkerWizardStep(1); setWorkerWizardSavedName(""); workerForm.reset(); }}>
+                      Add Another Worker →
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Footer navigation */}
+              {workerWizardStep < 4 && (
               <div className="flex-shrink-0 border-t px-6 py-4 flex items-center justify-between gap-3">
                 <Button type="button" variant="outline" onClick={() => workerWizardStep > 1 ? setWorkerWizardStep(workerWizardStep - 1) : setAddingWorker(false)}>
                   {workerWizardStep > 1 ? '← Back' : 'Cancel'}
@@ -1849,6 +1873,7 @@ export default function ContractorDetails() {
                   </Button>
                 )}
               </div>
+              )}
             </form>
           </Form>
         </DialogContent>

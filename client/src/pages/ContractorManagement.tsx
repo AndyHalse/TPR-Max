@@ -167,9 +167,12 @@ export default function ContractorManagement() {
     setContractorForm({ name: "", email: "", contactFirstName: "", contactLastName: "", phone: "", address: "", postcode: "", website: "", description: "", industry: "", status: "pending" });
   };
 
+  const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
+
   const resetWorkerWizard = () => {
     setWorkerWizardStep(1);
-    setWorkerForm({ companyId: "", firstName: "", lastName: "", email: "", phone: "", postcode: "", rightToWork: "pending", cscsCard: "", cscsStatus: "pending", ipafStatus: "none", asbestosAwareness: false, manualHandling: false, workingAtHeight: false, inductionCompleted: false, isActive: true });
+    setWorkerWizardSavedName("");
+    setWorkerForm({ companyId: "", firstName: "", lastName: "", email: "", phone: "", postcode: "", transportMethod: "car_diesel", rightToWork: "pending", cscsCard: "", cscsStatus: "pending", ipafStatus: "none", asbestosAwareness: false, manualHandling: false, workingAtHeight: false, inductionCompleted: false, isActive: true });
   };
 
   // UK Compliance Document framework
@@ -252,6 +255,7 @@ export default function ContractorManagement() {
     email: "",
     phone: "",
     postcode: "", // HOME POSTCODE - MANDATORY for emissions calculations
+    transportMethod: "car_diesel",
     rightToWork: "pending" as "valid" | "expired" | "pending",
     cscsCard: "",
     cscsStatus: "pending" as "valid" | "expired" | "pending",
@@ -384,31 +388,11 @@ export default function ContractorManagement() {
     mutationFn: async (data: any) => {
       return await apiRequest("POST", `/api/contractors/${data.companyId}/workers`, data);
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Worker added successfully",
-      });
+    onSuccess: (_data: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all", customerId] });
-      setShowAddWorkerDialog(false);
-      setWorkerForm({
-        companyId: selectedContractor?.id || "",
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        postcode: "", // Reset postcode field
-        rightToWork: "pending",
-        cscsCard: "",
-        cscsStatus: "pending",
-        ipafStatus: "none",
-        asbestosAwareness: false,
-        manualHandling: false,
-        workingAtHeight: false,
-        inductionCompleted: false,
-        isActive: true
-      });
+      setWorkerWizardSavedName(`${variables.firstName} ${variables.lastName}`);
+      setWorkerWizardStep(4);
     },
     onError: (error: any) => {
       toast({
@@ -2108,6 +2092,25 @@ export default function ContractorManagement() {
                   <Input value={workerForm.postcode} onChange={(e) => setWorkerForm({ ...workerForm, postcode: e.target.value })} data-testid="input-worker-postcode" />
                   <p className="text-xs text-slate-500">Used for CO2 emissions calculations</p>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Vehicle / Transport</label>
+                  <Select value={workerForm.transportMethod} onValueChange={(v) => setWorkerForm({ ...workerForm, transportMethod: v })}>
+                    <SelectTrigger data-testid="select-worker-transport"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="car_diesel">Car (Diesel)</SelectItem>
+                      <SelectItem value="car_petrol">Car (Petrol)</SelectItem>
+                      <SelectItem value="electric_car">Electric Car</SelectItem>
+                      <SelectItem value="hybrid_car">Hybrid Car</SelectItem>
+                      <SelectItem value="van_diesel">Van (Diesel)</SelectItem>
+                      <SelectItem value="van_petrol">Van (Petrol)</SelectItem>
+                      <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                      <SelectItem value="public_transport">Public Transport</SelectItem>
+                      <SelectItem value="bicycle">Bicycle</SelectItem>
+                      <SelectItem value="walking">Walking</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">Used for CO2 emissions calculations</p>
+                </div>
               </div>
             </div>
           )}
@@ -2274,7 +2277,31 @@ export default function ContractorManagement() {
             </div>
           )}
 
+          {/* Step 4 — Success */}
+          {workerWizardStep === 4 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-10 flex flex-col items-center justify-center gap-5 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-9 h-9 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Worker Added</h3>
+                <p className="text-sm text-gray-500">
+                  <span className="font-medium text-gray-800">{workerWizardSavedName}</span> has been registered to {selectedContractor?.name}.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                <Button variant="outline" className="flex-1" onClick={() => { setShowAddWorkerDialog(false); resetWorkerWizard(); }}>
+                  Done
+                </Button>
+                <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => resetWorkerWizard()}>
+                  Add Another Worker →
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Footer navigation */}
+          {workerWizardStep < 4 && (
           <div className="flex-shrink-0 border-t px-6 py-4 flex items-center justify-between gap-3">
             <Button variant="outline" onClick={() => workerWizardStep > 1 ? setWorkerWizardStep(workerWizardStep - 1) : setShowAddWorkerDialog(false)}>
               {workerWizardStep > 1 ? '← Back' : 'Cancel'}
@@ -2291,6 +2318,7 @@ export default function ContractorManagement() {
               )}
             </div>
           </div>
+          )}
         </DialogContent>
       </Dialog>
 
