@@ -58,7 +58,7 @@ import express from "express";
 import { randomUUID, randomBytes } from "crypto";
 import { CO2CalculationService } from "./co2CalculationService";
 
-import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from "./objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, objectStorageClient, parseObjectPath as parseObjectStoragePath } from "./objectStorage";
 import multer from "multer";
 
 // Staff authentication schema
@@ -9480,22 +9480,50 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         email: tokenData.personEmail || ''
       };
 
-      // Get the saved video content for this role type
-      const [videoSettings] = await db
-        .select()
-        .from(inductionSettings)
-        .where(eq(inductionSettings.roleType, personType));
+      // ── Get video metadata — prefer customer-isolated DB ─────────────────
+      const isObjStoragePath = (u: string | null | undefined) =>
+        !!(u && u !== 'generated' && !u.startsWith('http') && !u.startsWith('data:'));
+
+      let videoSettingsAny: any = null;
+
+      // 1. Try customer-isolated DB (where generated videos are stored)
+      if (tokenData.customerId) {
+        try {
+          const tokCtx = simpleDatabaseService.createCustomerContext('system', tokenData.customerId);
+          const tokDb = await databaseService.getCustomerDatabase(tokCtx);
+          const [custVidRow] = await tokDb
+            .select({
+              videoTitle: isolatedSchema.inductionSettings.videoTitle,
+              videoDescription: isolatedSchema.inductionSettings.videoDescription,
+              videoDurationMinutes: isolatedSchema.inductionSettings.videoDurationMinutes,
+              videoUrl: isolatedSchema.inductionSettings.videoUrl,
+              generatedHtml: isolatedSchema.inductionSettings.generatedHtml,
+            })
+            .from(isolatedSchema.inductionSettings)
+            .where(eq(isolatedSchema.inductionSettings.roleType, personType));
+          if (custVidRow) videoSettingsAny = custVidRow;
+        } catch (_tokErr) { /* fall through */ }
+      }
+
+      // 2. Fallback: shared DB inductionSettings
+      if (!videoSettingsAny) {
+        const [row] = await db
+          .select()
+          .from(inductionSettings)
+          .where(eq(inductionSettings.roleType, personType));
+        if (row) videoSettingsAny = row;
+      }
 
       res.json({
         token: tokenData,
         worker: personDetails,
         personType,
-        videoContent: videoSettings ? {
-          title: videoSettings.videoTitle,
-          description: videoSettings.videoDescription,
-          durationMinutes: videoSettings.videoDurationMinutes,
-          videoUrl: videoSettings.videoUrl,
-          hasGeneratedContent: !!videoSettings.generatedHtml
+        videoContent: videoSettingsAny ? {
+          title: videoSettingsAny.videoTitle,
+          description: videoSettingsAny.videoDescription,
+          durationMinutes: videoSettingsAny.videoDurationMinutes,
+          videoUrl: videoSettingsAny.videoUrl,
+          hasGeneratedContent: !!(videoSettingsAny.generatedHtml || isObjStoragePath(videoSettingsAny.videoUrl))
           // generatedHtml is NOT included here — it is large and fetched separately
           // via GET /api/induction/video/by-token/:token (public endpoint)
         } : null
@@ -9517,6 +9545,23 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       const roleType = tokenData.personType || 'contractor';
 
+      // ── Helper: stream from object storage path ──────────────────────────
+      const tryStreamFromObjectStorage = (objPath: string): boolean => {
+        if (!objPath || objPath === 'generated' || objPath.startsWith('http')) return false;
+        try {
+          const { bucketName, objectName } = parseObjectStoragePath(objPath);
+          const file = objectStorageClient.bucket(bucketName).file(objectName);
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          const stream = file.createReadStream();
+          stream.on('error', () => { /* stream errors handled by Express */ });
+          stream.pipe(res);
+          return true;
+        } catch (_e) {
+          return false;
+        }
+      };
+
       // Try customer-isolated DB first using customerId stored on the token
       if (tokenData.customerId) {
         try {
@@ -9526,10 +9571,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             .select()
             .from(isolatedSchema.inductionSettings)
             .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
-          if (custRow?.generatedHtml) {
-            res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            res.setHeader('Cache-Control', 'no-store');
-            return res.send(custRow.generatedHtml);
+          if (custRow) {
+            // Prefer object storage path (fast CDN stream) over raw DB blob
+            if (custRow.videoUrl && tryStreamFromObjectStorage(custRow.videoUrl)) return;
+            if (custRow.generatedHtml) {
+              res.setHeader('Content-Type', 'text/html; charset=utf-8');
+              res.setHeader('Cache-Control', 'public, max-age=3600');
+              return res.send(custRow.generatedHtml);
+            }
           }
         } catch (_e) {
           console.warn('⚠️ Customer video lookup failed for by-token endpoint, falling back');
@@ -9543,7 +9592,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         .where(eq(inductionSettings.roleType, roleType));
       if (row?.generatedHtml) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
         return res.send(row.generatedHtml);
       }
 
@@ -17844,13 +17893,37 @@ This is an automated notification from your visitor management system.`;
           setStatus('saving', 4, 'Saving video to database...');
           console.log(`💾 Step 4: Saving video to customer database...`);
           let savedToDatabase = false;
+
+          // ── Upload HTML to object storage (fast CDN delivery on mobile) ────
+          let objStoragePath: string | null = null;
+          try {
+            const privateDir = process.env.PRIVATE_OBJECT_DIR || '';
+            if (privateDir) {
+              const safeRoleType = roleType.replace(/[^a-z0-9_-]/gi, '');
+              const safeCustId = customerId.replace(/[^a-z0-9_-]/gi, '');
+              const fullObjPath = `${privateDir}/induction-videos/${safeCustId}/${safeRoleType}.html`;
+              const { bucketName, objectName } = parseObjectStoragePath(fullObjPath);
+              const bucket = objectStorageClient.bucket(bucketName);
+              await bucket.file(objectName).save(Buffer.from(htmlContent, 'utf-8'), {
+                contentType: 'text/html; charset=utf-8',
+                metadata: { cacheControl: 'public, max-age=3600' }
+              });
+              objStoragePath = fullObjPath;
+              console.log(`✅ Uploaded video to object storage: ${fullObjPath} (${Math.round(htmlContent.length / 1024)}KB raw, gzip on delivery)`);
+            }
+          } catch (objErr) {
+            console.warn('⚠️ Object storage upload failed (non-fatal, falling back to DB blob):', objErr);
+          }
+
           try {
             const videoData = {
               videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Safety Induction`,
-              videoUrl: 'generated',
+              // Store object storage path in videoUrl if upload succeeded — served as fast stream
+              videoUrl: objStoragePath || 'generated',
               videoDescription: `AI-generated UK HSE-compliant safety induction for ${roleType}s. Duration: ${Math.round(totalDuration / 60)} minutes.`,
               videoDurationMinutes: Math.round(totalDuration / 60),
-              generatedHtml: htmlContent,
+              // Keep generatedHtml as fallback only if object storage upload failed
+              generatedHtml: objStoragePath ? null : htmlContent,
               scenesData: JSON.stringify(scenes),
               generatedAt: new Date(),
               questionsGenerated: questionsStored > 0,
@@ -17979,10 +18052,21 @@ This is an automated notification from your visitor management system.`;
 
           if (custRows.length > 0) {
             const setting = custRows[0] as any;
+            // Prefer object storage path (fast stream, gzip on delivery)
+            if (setting.videoUrl && setting.videoUrl !== 'generated' && !setting.videoUrl.startsWith('http') && !setting.videoUrl.startsWith('data:')) {
+              try {
+                const { bucketName, objectName } = parseObjectStoragePath(setting.videoUrl);
+                const file = objectStorageClient.bucket(bucketName).file(objectName);
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.setHeader('Cache-Control', 'public, max-age=3600');
+                file.createReadStream().pipe(res);
+                return;
+              } catch (_streamErr) { /* fall through to generatedHtml */ }
+            }
             if (setting.generatedHtml) {
               console.log(`📄 Serving customer-isolated generatedHtml for ${roleType} (${req.customerId})`);
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              res.setHeader('Cache-Control', 'no-cache');
+              res.setHeader('Cache-Control', 'public, max-age=3600');
               res.send(setting.generatedHtml);
               return;
             }
@@ -18006,7 +18090,7 @@ This is an automated notification from your visitor management system.`;
         if ((setting as any).generatedHtml) {
           console.log('📄 Serving global generatedHtml for', roleType);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          res.setHeader('Cache-Control', 'no-cache');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
           res.send((setting as any).generatedHtml);
           return;
         }
@@ -18017,7 +18101,7 @@ This is an automated notification from your visitor management system.`;
           const htmlContent = Buffer.from(base64Content, 'base64').toString('utf-8');
           console.log('📄 Serving base64-decoded HTML for', roleType);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          res.setHeader('Cache-Control', 'no-cache');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
           res.send(htmlContent);
           return;
         }

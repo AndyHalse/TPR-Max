@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "pg";
@@ -57,6 +58,10 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
+
+// ── Gzip compression ── applied to all routes before anything else
+// On 3G/4G, this alone cuts HTML payload by 60-70% (text compresses extremely well)
+app.use(compression({ level: 6, threshold: 1024 }));
 
 // Set trust proxy for proper session handling
 app.set('trust proxy', 1);
