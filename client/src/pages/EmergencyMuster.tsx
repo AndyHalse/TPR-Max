@@ -644,95 +644,71 @@ export default function EmergencyMuster() {
         </GlassCard>
       )}
 
-      {/* Emergency Stats */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        <GlassCard hover className={`dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 lg:w-48 shrink-0 cursor-pointer transition-all ${typeFilter === 'all' ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-600' : 'border-emerald-200 dark:border-emerald-800'}`} onClick={() => setTypeFilter('all')}>
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Total People</p>
-              <p className="text-4xl font-bold text-emerald-700 dark:text-emerald-300 mt-1" data-testid="stat-total-people">
-                {totalPeople}
-              </p>
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">On-Site Now</p>
-            </div>
-            <div className="w-12 h-12 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
-              <Users className="text-emerald-700 dark:text-emerald-300" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard hover className="dark:glass-dark">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-variable text-sm font-medium">Accounted For</p>
-              <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400 mt-1" data-testid="stat-accounted">
-                {accountedFor}
-              </p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                {totalPeople > 0 ? Math.round((accountedFor / totalPeople) * 100) : 0}% Complete
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <CheckCircle className="text-green-600 dark:text-green-400" size={24} />
-            </div>
-          </div>
-        </GlassCard>
-
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${memberCount > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-6 flex-1`}>
-          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-variable text-sm font-medium">Staff</p>
-                <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-count">
-                  {staffCount}
+      {/* Emergency Stats — compact 2-row grid for quick reading on mobile */}
+      <div className="space-y-2 sm:space-y-3">
+        {/* Row 1: Total + Accounted — the two most critical numbers */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <GlassCard hover className={`dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 cursor-pointer transition-all !p-3 sm:!p-5 ${typeFilter === 'all' ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-600' : 'border-emerald-200 dark:border-emerald-800'}`} onClick={() => setTypeFilter('all')}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-semibold leading-tight">Total People</p>
+                <p className="text-4xl sm:text-5xl font-black text-emerald-700 dark:text-emerald-300 leading-none mt-1" data-testid="stat-total-people">
+                  {totalPeople}
                 </p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">On-Site Now</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-                <Users className="text-purple-600 dark:text-purple-400" size={24} />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
+                <Users className="text-emerald-700 dark:text-emerald-300" size={18} />
               </div>
             </div>
           </GlassCard>
-          
-          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'visitor' ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'visitor' ? 'all' : 'visitor')}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-variable text-sm font-medium">Visitors</p>
-                <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-visitor-count">
-                  {visitorCount}
+
+          <GlassCard hover className="dark:glass-dark border-2 border-transparent !p-3 sm:!p-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-variable text-xs sm:text-sm font-semibold leading-tight">Accounted For</p>
+                <p className="text-4xl sm:text-5xl font-black text-green-600 dark:text-green-400 leading-none mt-1" data-testid="stat-accounted">
+                  {accountedFor}
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
+                  {totalPeople > 0 ? Math.round((accountedFor / totalPeople) * 100) : 0}% Complete
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
-                <User className="text-blue-600 dark:text-blue-400" size={24} />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <CheckCircle className="text-green-600 dark:text-green-400" size={18} />
               </div>
             </div>
           </GlassCard>
-          
-          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'contractor' ? 'border-orange-500 dark:border-orange-400 ring-2 ring-orange-300 dark:ring-orange-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'contractor' ? 'all' : 'contractor')}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-variable text-sm font-medium">Contractors</p>
-                <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractor-count">
-                  {contractorCount}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
-                <HardHat className="text-orange-600 dark:text-orange-400" size={24} />
-              </div>
+        </div>
+
+        {/* Row 2: Category breakdown — tap to filter */}
+        <div className={`grid gap-2 sm:gap-3 ${memberCount > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
+            <div className="text-center">
+              <p className="text-xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 leading-none" data-testid="stat-staff-count">{staffCount}</p>
+              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Staff</p>
+            </div>
+          </GlassCard>
+
+          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'visitor' ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'visitor' ? 'all' : 'visitor')}>
+            <div className="text-center">
+              <p className="text-xl sm:text-3xl font-black text-blue-600 dark:text-blue-400 leading-none" data-testid="stat-visitor-count">{visitorCount}</p>
+              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Visitors</p>
+            </div>
+          </GlassCard>
+
+          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'contractor' ? 'border-orange-500 dark:border-orange-400 ring-2 ring-orange-300 dark:ring-orange-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'contractor' ? 'all' : 'contractor')}>
+            <div className="text-center">
+              <p className="text-xl sm:text-3xl font-black text-orange-600 dark:text-orange-400 leading-none" data-testid="stat-contractor-count">{contractorCount}</p>
+              <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Contractors</p>
             </div>
           </GlassCard>
 
           {memberCount > 0 && (
-            <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 ${typeFilter === 'member' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'member' ? 'all' : 'member')}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Members</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-member-count">
-                    {memberCount}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-                  <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
-                </div>
+            <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'member' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'member' ? 'all' : 'member')}>
+              <div className="text-center">
+                <p className="text-xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 leading-none" data-testid="stat-member-count">{memberCount}</p>
+                <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Members</p>
               </div>
             </GlassCard>
           )}
@@ -753,28 +729,26 @@ export default function EmergencyMuster() {
                   </span>
                 )}
               </h3>
-              <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {hasActiveEvacuation && (
                   <Button 
                     variant="outline" 
-                    size="sm" 
                     onClick={() => markAllSafeMutation.mutate()}
                     disabled={markAllSafeMutation.isPending}
                     data-testid="button-mark-all-safe"
-                    className="text-xs sm:text-sm whitespace-nowrap"
+                    className="w-full sm:w-auto text-sm py-2.5 sm:py-2 font-semibold"
                   >
-                    <CheckCircle className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
+                    <CheckCircle className="mr-2 flex-shrink-0" size={16} />
                     {markAllSafeMutation.isPending ? "Marking..." : "Mark All Safe"}
                   </Button>
                 )}
                 <Button 
                   variant="outline" 
-                  size="sm" 
                   onClick={exportMusterList}
                   data-testid="button-export-muster"
-                  className="text-xs sm:text-sm whitespace-nowrap"
+                  className="w-full sm:w-auto text-sm py-2.5 sm:py-2 font-semibold"
                 >
-                  <Download className="mr-1.5 sm:mr-2 flex-shrink-0" size={14} />
+                  <Download className="mr-2 flex-shrink-0" size={16} />
                   Export List
                 </Button>
               </div>
@@ -798,70 +772,72 @@ export default function EmergencyMuster() {
               </div>
             </div>
             
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-2 sm:space-y-3 max-h-[55vh] sm:max-h-[60vh] overflow-y-auto">
               {filteredList.map((person) => (
                 <div 
                   key={person.id} 
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl transition-all gap-3 ${
+                  className={`flex items-center justify-between p-3 sm:p-4 rounded-xl transition-all gap-2 sm:gap-3 ${
                     person.accounted 
                       ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
                       : 'bg-white/50 dark:bg-slate-800/50 border border-gray-200 dark:border-gray-600'
                   }`}
                   data-testid={`person-${person.id}`}
                 >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${
-                      person.type === 'staff' ? 'bg-blue-500' : 
-                      person.type === 'visitor' ? 'bg-orange-500' : 
-                      person.type === 'member' ? 'bg-purple-500' : 'bg-yellow-500'
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className={`w-10 h-10 sm:w-11 sm:h-11 flex-shrink-0 rounded-full flex items-center justify-center ${
+                      person.type === 'staff' ? 'bg-purple-500' : 
+                      person.type === 'visitor' ? 'bg-blue-500' : 
+                      person.type === 'member' ? 'bg-purple-500' : 'bg-orange-500'
                     }`}>
-                      <span className="text-white font-medium text-sm">
-                        {person.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      <span className="text-white font-bold text-sm">
+                        {person.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-fixed text-sm sm:text-base truncate">{person.name}</p>
-                      <p className="text-xs sm:text-sm text-variable truncate">
-                        {person.type === 'staff' ? person.department : person.company} • {person.location}
+                      <p className="font-semibold text-fixed text-sm sm:text-base truncate leading-tight">{person.name}</p>
+                      <p className="text-xs text-variable truncate mt-0.5">
+                        <span className={`inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          person.type === 'staff' ? 'bg-purple-100 text-purple-700' :
+                          person.type === 'visitor' ? 'bg-blue-100 text-blue-700' :
+                          person.type === 'member' ? 'bg-purple-100 text-purple-700' :
+                          'bg-orange-100 text-orange-700'
+                        }`}>{person.type}</span>
+                        {person.type === 'staff' ? person.department : person.company}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    <Badge variant={person.type === 'staff' ? 'default' : 'secondary'} className="text-xs">
-                      {person.type}
-                    </Badge>
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                     {hasActiveEvacuation && (
-                      <>
-                        {person.accounted ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
-                            <CheckCircle className="mr-1" size={12} />
-                            Safe
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
-                            <XCircle className="mr-1" size={12} />
-                            Unsafe
-                          </Badge>
-                        )}
-                      </>
+                      person.accounted ? (
+                        <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
+                          <CheckCircle size={11} />
+                          Safe
+                        </span>
+                      ) : (
+                        <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
+                          <XCircle size={11} />
+                          Unsafe
+                        </span>
+                      )
                     )}
                     <Button
-                      size="sm"
                       variant={person.accounted ? "outline" : "default"}
-                      className={`${person.accounted ? "" : "bg-green-600 hover:bg-green-700 text-white"} text-xs whitespace-nowrap`}
+                      className={`${person.accounted ? "border-gray-300 text-gray-600" : "bg-green-600 hover:bg-green-700 text-white"} text-xs sm:text-sm font-semibold px-3 sm:px-4 py-2 h-auto whitespace-nowrap`}
                       onClick={() => toggleAccountedStatus(person.id, person.type)}
                       data-testid={`button-toggle-${person.id}`}
                     >
                       {person.accounted ? (
                         <>
-                          <XCircle className="mr-1" size={12} />
-                          Unmark
+                          <XCircle className="mr-1 sm:mr-1.5" size={13} />
+                          <span className="hidden sm:inline">Unmark</span>
+                          <span className="sm:hidden">Undo</span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="mr-1" size={12} />
-                          Mark Safe
+                          <CheckCircle className="mr-1 sm:mr-1.5" size={13} />
+                          <span className="hidden sm:inline">Mark Safe</span>
+                          <span className="sm:hidden">Safe</span>
                         </>
                       )}
                     </Button>
