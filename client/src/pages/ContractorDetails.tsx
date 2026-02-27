@@ -22,7 +22,8 @@ import { format } from "date-fns";
 import { 
   Building2, Users, FileText, Shield, AlertTriangle, CheckCircle2, 
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
-  XCircle, Clock, AlertCircle, CalendarPlus
+  XCircle, Clock, AlertCircle, CalendarPlus, Lock, CheckSquare,
+  ChevronRight, Upload, Eye
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import { apiRequest } from "@/lib/queryClient";
@@ -48,6 +49,7 @@ export default function ContractorDetails() {
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
   const [addingWorker, setAddingWorker] = useState(false);
+  const [workerWizardStep, setWorkerWizardStep] = useState(1);
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
@@ -843,49 +845,150 @@ export default function ContractorDetails() {
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4" data-testid="documents-tab-content">
-          <div className="grid gap-4">
-            {contractorData.documents?.length > 0 ? (
-              contractorData.documents.map((doc: any) => (
-                <Card key={doc.id} data-testid={`card-document-${doc.id}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg" data-testid={`text-document-name-${doc.id}`}>
-                        {doc.documentName}
-                      </CardTitle>
-                      <Badge 
-                        variant={doc.status === "approved" ? "default" : doc.status === "rejected" ? "destructive" : "secondary"}
-                        data-testid={`badge-document-status-${doc.id}`}
-                      >
-                        {doc.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}</span>
-                        </div>
-                        {doc.expiryDate && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">Expires: {new Date(doc.expiryDate).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
+          {/* UK Document Checklist */}
+          {(() => {
+            const docs = contractorData.documents || [];
+
+            const UK_DOC_FRAMEWORK = [
+              // Legally Required
+              { key: 'publicLiability', name: 'Public Liability Insurance', basis: 'Common law duty of care', note: 'Minimum £2m', category: 'legal', requiresExpiry: true },
+              { key: 'employersLiability', name: "Employers' Liability Insurance", basis: "Employers' Liability Act 1969", note: 'Minimum £5m', category: 'legal', requiresExpiry: true },
+              { key: 'cisRegistration', name: 'CIS Registration', basis: 'Finance Act 2004', note: 'Construction industry only', category: 'legal', requiresExpiry: false },
+              // Site Required
+              { key: 'healthSafety', name: 'Health & Safety Policy', basis: 'H&S at Work Act 1974', note: 'Required before work commences', category: 'site', requiresExpiry: true },
+              { key: 'rams', name: 'Risk Assessment & Method Statement (RAMS)', basis: 'MHSWR 1999', note: 'Site-specific, required before each job', category: 'site', requiresExpiry: true },
+              // Good Practice
+              { key: 'modernSlavery', name: 'Modern Slavery Statement', basis: 'Modern Slavery Act 2015', note: 'Mandatory for businesses >£36m turnover', category: 'good', requiresExpiry: false },
+              { key: 'environmentalPolicy', name: 'Environmental Policy', basis: 'Client / ISO 14001', note: 'Increasingly required by clients', category: 'good', requiresExpiry: false },
+              { key: 'professionalIndemnity', name: 'Professional Indemnity Insurance', basis: 'Client / design work', note: 'Required for design/consultancy roles', category: 'good', requiresExpiry: true },
+            ];
+
+            const getDocStatus = (key: string) => {
+              const uploaded = docs.find((d: any) => d.documentType === key);
+              if (!uploaded) return 'missing';
+              if (uploaded.expiryDate) {
+                const expiry = new Date(uploaded.expiryDate);
+                const now = new Date();
+                const daysToExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                if (expiry < now) return 'expired';
+                if (daysToExpiry <= 30) return 'expiring';
+              }
+              return uploaded.status || 'pending';
+            };
+
+            const getStatusBadge = (status: string) => {
+              switch (status) {
+                case 'approved': return <Badge className="bg-green-100 text-green-700">✅ Valid</Badge>;
+                case 'expiring': return <Badge className="bg-amber-100 text-amber-700">⚠️ Expiring soon</Badge>;
+                case 'expired': return <Badge className="bg-red-100 text-red-700">❌ Expired</Badge>;
+                case 'pending': return <Badge className="bg-blue-100 text-blue-700">🔄 Pending review</Badge>;
+                case 'missing': return <Badge variant="outline" className="text-gray-400 border-gray-300">— Missing</Badge>;
+                default: return <Badge className="bg-blue-100 text-blue-700">{status}</Badge>;
+              }
+            };
+
+            const legalDocs = UK_DOC_FRAMEWORK.filter(d => d.category === 'legal');
+            const siteDocs = UK_DOC_FRAMEWORK.filter(d => d.category === 'site');
+            const goodDocs = UK_DOC_FRAMEWORK.filter(d => d.category === 'good');
+
+            const requiredDocs = [...legalDocs, ...siteDocs];
+            const compliantCount = requiredDocs.filter(d => ['approved', 'expiring'].includes(getDocStatus(d.key))).length;
+            const pct = Math.round((compliantCount / requiredDocs.length) * 100);
+
+            const DocSection = ({ title, icon, badge, items }: { title: string; icon: any; badge: any; items: typeof UK_DOC_FRAMEWORK }) => (
               <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">No documents uploaded for this contractor.</p>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    {icon}
+                    <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+                    {badge}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {items.map(doc => {
+                    const status = getDocStatus(doc.key);
+                    const uploaded = docs.find((d: any) => d.documentType === doc.key);
+                    return (
+                      <div key={doc.key} className={`border rounded-lg p-3 ${status === 'missing' ? 'border-gray-200' : status === 'expired' ? 'border-red-200 bg-red-50' : status === 'expiring' ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm text-gray-900">{doc.name}</p>
+                              {getStatusBadge(status)}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">{doc.basis} — {doc.note}</p>
+                            {uploaded?.expiryDate && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+                                <Clock className="w-3 h-3" />
+                                Expires: {new Date(uploaded.expiryDate).toLocaleDateString('en-GB')}
+                                {status === 'expiring' && <span className="text-amber-700 font-medium ml-1">⚠️ Renew soon</span>}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {uploaded?.documentUrl && (
+                              <a href={uploaded.documentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline px-2 py-1 border border-blue-200 rounded">
+                                <Eye className="w-3 h-3" /> View
+                              </a>
+                            )}
+                            <button
+                              className="inline-flex items-center gap-1 text-xs text-gray-600 hover:bg-gray-100 px-2 py-1 border border-gray-200 rounded"
+                              onClick={() => {
+                                toast({ title: "Document Upload", description: "Document upload coming soon. Use the Compliance tab to manage document status." });
+                              }}
+                            >
+                              <Upload className="w-3 h-3" /> {uploaded ? 'Replace' : 'Upload'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
-            )}
-          </div>
+            );
+
+            return (
+              <div className="space-y-4">
+                {/* Compliance score bar */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-medium text-sm">Required Documents Complete</p>
+                      <span className="text-sm font-bold text-blue-700">{compliantCount} of {requiredDocs.length} — {pct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    {pct < 100 && (
+                      <p className="text-xs text-gray-500 mt-1.5">Upload the missing documents below to reach 100% compliance.</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <DocSection
+                  title="Legally Required"
+                  icon={<div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center"><Lock className="w-3.5 h-3.5 text-red-600" /></div>}
+                  badge={<Badge className="bg-red-100 text-red-700 text-xs">UK Law</Badge>}
+                  items={legalDocs}
+                />
+
+                <DocSection
+                  title="Site Required"
+                  icon={<div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center"><Shield className="w-3.5 h-3.5 text-amber-600" /></div>}
+                  badge={<Badge className="bg-amber-100 text-amber-700 text-xs">Most sites</Badge>}
+                  items={siteDocs}
+                />
+
+                <DocSection
+                  title="Good Practice"
+                  icon={<div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center"><CheckSquare className="w-3.5 h-3.5 text-green-600" /></div>}
+                  badge={<Badge className="bg-green-100 text-green-700 text-xs">Recommended</Badge>}
+                  items={goodDocs}
+                />
+              </div>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="safety" className="space-y-4" data-testid="safety-tab-content">
@@ -1402,306 +1505,258 @@ export default function ContractorDetails() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Worker Modal */}
-      <Dialog open={addingWorker} onOpenChange={setAddingWorker}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Worker</DialogTitle>
-            <DialogDescription>
-              Add a new contractor worker to {contractorData.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...workerForm}>
-            <form onSubmit={workerForm.handleSubmit(handleAddWorker)} className="space-y-4">
-              {/* Personal Information */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={workerForm.control}
-                  name="firstName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First Name *</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-worker-first-name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={workerForm.control}
-                  name="lastName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last Name *</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-worker-last-name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={workerForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} data-testid="input-worker-email" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={workerForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-worker-phone" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={workerForm.control}
-                  name="postcode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Postcode *</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-worker-postcode" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={workerForm.control}
-                  name="transportMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Transport Method</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-worker-transport">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="car_diesel">Car (Diesel)</SelectItem>
-                          <SelectItem value="car_petrol">Car (Petrol)</SelectItem>
-                          <SelectItem value="electric_car">Electric Car</SelectItem>
-                          <SelectItem value="public_transport">Public Transport</SelectItem>
-                          <SelectItem value="motorcycle">Motorcycle</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={workerForm.control}
-                  name="rightToWork"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Right to Work *</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-worker-right-to-work" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={workerForm.control}
-                  name="cscsCard"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CSCS Card Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-worker-cscs-card" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={workerForm.control}
-                  name="cscsStatus"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CSCS Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-worker-cscs-status">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="valid">Valid</SelectItem>
-                          <SelectItem value="expired">Expired</SelectItem>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={workerForm.control}
-                  name="ipafStatus"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IPAF Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-worker-ipaf-status">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="valid">Valid</SelectItem>
-                          <SelectItem value="expired">Expired</SelectItem>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Training Checkboxes */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-medium">Training & Certifications</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={workerForm.control}
-                    name="asbestosAwareness"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <input
-                            type="checkbox"
-                            checked={field.value}
-                            onChange={field.onChange}
-                            data-testid="checkbox-worker-asbestos"
-                            className="mt-1"
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="text-sm font-normal">
-                            Asbestos Awareness
-                          </FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={workerForm.control}
-                    name="manualHandling"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <input
-                            type="checkbox"
-                            checked={field.value}
-                            onChange={field.onChange}
-                            data-testid="checkbox-worker-manual-handling"
-                            className="mt-1"
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="text-sm font-normal">
-                            Manual Handling
-                          </FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={workerForm.control}
-                    name="workingAtHeight"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <input
-                            type="checkbox"
-                            checked={field.value}
-                            onChange={field.onChange}
-                            data-testid="checkbox-worker-working-height"
-                            className="mt-1"
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="text-sm font-normal">
-                            Working at Height
-                          </FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={workerForm.control}
-                    name="inductionCompleted"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <input
-                            type="checkbox"
-                            checked={field.value}
-                            onChange={field.onChange}
-                            data-testid="checkbox-worker-induction"
-                            className="mt-1"
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="text-sm font-normal">
-                            Induction Completed
-                          </FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
+      {/* Add Worker — 3-step Wizard */}
+      <Dialog open={addingWorker} onOpenChange={(open) => { setAddingWorker(open); if (!open) { setWorkerWizardStep(1); workerForm.reset(); } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
+          {/* Header + Progress */}
+          <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold mb-4">
+              <User className="h-5 w-5 text-blue-600" />
+              Add Worker — {contractorData?.name}
+            </DialogTitle>
+            <div className="flex items-center gap-0">
+              {[{ n: 1, label: "Personal Details" }, { n: 2, label: "Right to Work & Cards" }, { n: 3, label: "Training & Review" }].map((s, i) => (
+                <div key={s.n} className={`flex items-center ${i < 2 ? 'flex-1' : ''}`}>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${workerWizardStep >= s.n ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{workerWizardStep > s.n ? '✓' : s.n}</div>
+                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${workerWizardStep >= s.n ? 'text-blue-700' : 'text-gray-400'}`}>{s.label}</span>
+                  </div>
+                  {i < 2 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${workerWizardStep > s.n ? 'bg-blue-600' : 'bg-gray-200'}`} />}
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
 
-              <DialogFooter className="pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setAddingWorker(false)}
-                  data-testid="button-cancel-add-worker"
-                >
-                  Cancel
+          <Form {...workerForm}>
+            <form onSubmit={workerForm.handleSubmit(handleAddWorker)} className="flex flex-col flex-1 min-h-0">
+
+              {/* Step 1 — Personal Details */}
+              {workerWizardStep === 1 && (
+                <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={workerForm.control} name="firstName" render={({ field }) => (
+                      <FormItem><FormLabel>First Name *</FormLabel><FormControl><Input {...field} data-testid="input-worker-first-name" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={workerForm.control} name="lastName" render={({ field }) => (
+                      <FormItem><FormLabel>Last Name *</FormLabel><FormControl><Input {...field} data-testid="input-worker-last-name" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={workerForm.control} name="email" render={({ field }) => (
+                      <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} data-testid="input-worker-email" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={workerForm.control} name="phone" render={({ field }) => (
+                      <FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} data-testid="input-worker-phone" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={workerForm.control} name="postcode" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Home Postcode</FormLabel>
+                        <FormControl><Input {...field} data-testid="input-worker-postcode" /></FormControl>
+                        <p className="text-xs text-gray-500">Used for CO2 reporting</p>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={workerForm.control} name="transportMethod" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Transport Method</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger data-testid="select-worker-transport"><SelectValue /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="car_diesel">Car (Diesel)</SelectItem>
+                            <SelectItem value="car_petrol">Car (Petrol)</SelectItem>
+                            <SelectItem value="electric_car">Electric Car</SelectItem>
+                            <SelectItem value="public_transport">Public Transport</SelectItem>
+                            <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2 — Right to Work & Competence Cards */}
+              {workerWizardStep === 2 && (
+                <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
+
+                  {/* Right to Work */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Lock className="w-3.5 h-3.5 text-red-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-sm">Right to Work</h4>
+                        <p className="text-xs text-gray-500">Immigration Act 2014 — <span className="font-semibold text-red-600">Legally required before commencing work</span></p>
+                      </div>
+                    </div>
+                    <FormField control={workerForm.control} name="rightToWork" render={({ field }) => (
+                      <FormItem>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger data-testid="input-worker-right-to-work"><SelectValue placeholder="Select status" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="valid">✅ Valid — check complete</SelectItem>
+                            <SelectItem value="pending">⏳ Pending — check in progress</SelectItem>
+                            <SelectItem value="expired">❌ Expired — requires re-check</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    {workerForm.watch('rightToWork') === 'pending' && (
+                      <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800">
+                        Worker cannot be permitted on site unsupervised until Right to Work is confirmed.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CSCS Card */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Shield className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-sm">CSCS Card</h4>
+                        <p className="text-xs text-gray-500">CDM 2015 / Site policy — required on most construction sites</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField control={workerForm.control} name="cscsCard" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Card Number</FormLabel>
+                          <FormControl><Input {...field} placeholder="e.g. CS-1234567" data-testid="input-worker-cscs-card" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={workerForm.control} name="cscsStatus" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Status</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger data-testid="select-worker-cscs-status"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="valid">Valid</SelectItem>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="expired">Expired</SelectItem>
+                              <SelectItem value="none">Not held</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                  </div>
+
+                  {/* IPAF */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Shield className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-sm">IPAF Card</h4>
+                        <p className="text-xs text-gray-500">PUWER / WAHR 2005 — required for MEWP operation</p>
+                      </div>
+                    </div>
+                    <FormField control={workerForm.control} name="ipafStatus" render={({ field }) => (
+                      <FormItem>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger data-testid="select-worker-ipaf-status"><SelectValue /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">Not applicable / not held</SelectItem>
+                            <SelectItem value="valid">Valid</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="expired">Expired</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3 — Training & Summary */}
+              {workerWizardStep === 3 && (
+                <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
+                  {/* Training certificates */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm mb-3">Training Certificates</h4>
+                    <div className="space-y-2">
+                      <FormField control={workerForm.control} name="asbestosAwareness" render={({ field }) => (
+                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-asbestos" />
+                          <div><p className="font-medium text-sm">Asbestos Awareness</p><p className="text-xs text-gray-500">CAR 2012 — required for most construction/refurbishment work</p></div>
+                        </label>
+                      )} />
+                      <FormField control={workerForm.control} name="manualHandling" render={({ field }) => (
+                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-manual-handling" />
+                          <div><p className="font-medium text-sm">Manual Handling</p><p className="text-xs text-gray-500">MHOR 1992 — required for roles involving lifting or carrying</p></div>
+                        </label>
+                      )} />
+                      <FormField control={workerForm.control} name="workingAtHeight" render={({ field }) => (
+                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-working-height" />
+                          <div><p className="font-medium text-sm">Working at Height</p><p className="text-xs text-gray-500">WAHR 2005 — required when using ladders, scaffolding, or MEWPs</p></div>
+                        </label>
+                      )} />
+                      <FormField control={workerForm.control} name="inductionCompleted" render={({ field }) => (
+                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-induction" />
+                          <div><p className="font-medium text-sm">Site Induction Completed</p><p className="text-xs text-gray-500">Site-specific H&S briefing completed</p></div>
+                        </label>
+                      )} />
+                    </div>
+                  </div>
+
+                  {/* Compliance summary */}
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-2"><Shield className="w-4 h-4" /> Compliance Summary</h4>
+                    <div className="space-y-1.5 text-sm">
+                      {[
+                        { label: 'Right to Work', val: workerForm.watch('rightToWork'), valid: 'valid', pending: 'pending' },
+                        { label: 'CSCS Card', val: workerForm.watch('cscsStatus'), valid: 'valid', pending: 'pending' },
+                        { label: 'IPAF', val: workerForm.watch('ipafStatus'), valid: 'valid', pending: 'none' },
+                      ].map(item => (
+                        <div key={item.label} className="flex items-center justify-between">
+                          <span className="text-gray-600">{item.label}</span>
+                          <Badge className={item.val === item.valid ? 'bg-green-100 text-green-700' : item.val === item.pending ? 'bg-gray-100 text-gray-500' : item.val === 'expired' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}>
+                            {item.val === item.valid ? '✅ Valid' : item.val === 'expired' ? '❌ Expired' : item.val === 'none' ? '— N/A' : `⏳ ${item.val}`}
+                          </Badge>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Asbestos Awareness</span>
+                        <Badge className={workerForm.watch('asbestosAwareness') ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>{workerForm.watch('asbestosAwareness') ? '✅ Held' : '— Not recorded'}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Manual Handling</span>
+                        <Badge className={workerForm.watch('manualHandling') ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>{workerForm.watch('manualHandling') ? '✅ Held' : '— Not recorded'}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer navigation */}
+              <div className="flex-shrink-0 border-t px-6 py-4 flex items-center justify-between gap-3">
+                <Button type="button" variant="outline" onClick={() => workerWizardStep > 1 ? setWorkerWizardStep(workerWizardStep - 1) : setAddingWorker(false)}>
+                  {workerWizardStep > 1 ? '← Back' : 'Cancel'}
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={addWorkerMutation.isPending}
-                  data-testid="button-submit-add-worker"
-                >
-                  {addWorkerMutation.isPending ? "Adding..." : "Add Worker"}
-                </Button>
-              </DialogFooter>
+                {workerWizardStep < 3 ? (
+                  <Button type="button" onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={workerWizardStep === 1 && (!workerForm.watch('firstName') || !workerForm.watch('lastName'))} className="bg-blue-600 hover:bg-blue-700">
+                    Next →
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={addWorkerMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-submit-add-worker">
+                    {addWorkerMutation.isPending ? "Saving..." : "Save Worker"}
+                  </Button>
+                )}
+              </div>
             </form>
           </Form>
         </DialogContent>

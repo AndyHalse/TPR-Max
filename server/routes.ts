@@ -13466,7 +13466,7 @@ This is an automated notification from your visitor management system.`;
         const documents = await docsDb.select().from(isolatedSchema.contractorDocuments)
           .where(eq(isolatedSchema.contractorDocuments.companyId, contractor.id));
         
-        const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'];
+        const docTypes = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration', 'rams', 'modernSlavery', 'environmentalPolicy', 'professionalIndemnity'];
         const documentsStatus = docTypes.reduce((acc, type) => {
           const doc = documents.find(d => d.documentType === type);
           if (!doc) {

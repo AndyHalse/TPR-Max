@@ -43,7 +43,13 @@ import {
   Leaf,
   Shield,
   LayoutGrid,
-  List
+  List,
+  Lock,
+  FileText,
+  CheckSquare,
+  Square,
+  ChevronRight,
+  Zap,
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -134,6 +140,49 @@ export default function ContractorManagement() {
   });
 
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  // Company wizard state
+  const [addWizardStep, setAddWizardStep] = useState(1);
+  const [docChecklist, setDocChecklist] = useState({
+    publicLiability: false,
+    employersLiability: false,
+    cisRegistration: false,
+    healthSafetyPolicy: false,
+    rams: false,
+    modernSlavery: false,
+    environmentalPolicy: false,
+    professionalIndemnity: false,
+  });
+
+  // Worker wizard state (for the add worker dialog)
+  const [workerWizardStep, setWorkerWizardStep] = useState(1);
+
+  const resetAddWizard = () => {
+    setAddWizardStep(1);
+    setDocChecklist({ publicLiability: false, employersLiability: false, cisRegistration: false, healthSafetyPolicy: false, rams: false, modernSlavery: false, environmentalPolicy: false, professionalIndemnity: false });
+    setContractorForm({ name: "", email: "", contactFirstName: "", contactLastName: "", phone: "", address: "", postcode: "", website: "", description: "", industry: "", status: "pending" });
+  };
+
+  const resetWorkerWizard = () => {
+    setWorkerWizardStep(1);
+    setWorkerForm({ companyId: "", firstName: "", lastName: "", email: "", phone: "", postcode: "", rightToWork: "pending", cscsCard: "", cscsStatus: "pending", ipafStatus: "none", asbestosAwareness: false, manualHandling: false, workingAtHeight: false, inductionCompleted: false, isActive: true });
+  };
+
+  // UK Compliance Document framework
+  const UK_LEGAL_DOCS = [
+    { key: "publicLiability" as const, name: "Public Liability Insurance", basis: "Common law duty of care", note: "Minimum £2m recommended" },
+    { key: "employersLiability" as const, name: "Employers' Liability Insurance", basis: "Employers' Liability Act 1969", note: "Minimum £5m — required if they employ anyone" },
+    { key: "cisRegistration" as const, name: "CIS Registration", basis: "Finance Act 2004", note: "Construction industry only — skip if not applicable" },
+  ];
+  const UK_SITE_DOCS = [
+    { key: "healthSafetyPolicy" as const, name: "Health & Safety Policy", basis: "H&S at Work Act 1974", note: "Required before work commences" },
+    { key: "rams" as const, name: "Risk Assessment & Method Statement (RAMS)", basis: "MHSWR 1999", note: "Site-specific — required before each job" },
+  ];
+  const UK_GOOD_DOCS = [
+    { key: "modernSlavery" as const, name: "Modern Slavery Statement", basis: "Modern Slavery Act 2015", note: "Good practice — mandatory for businesses >£36m turnover" },
+    { key: "environmentalPolicy" as const, name: "Environmental Policy", basis: "Client / ISO 14001", note: "Increasingly required by clients" },
+    { key: "professionalIndemnity" as const, name: "Professional Indemnity Insurance", basis: "Client / design work", note: "Required for design/consultancy work" },
+  ];
 
   // Get current user for customer isolation and admin access control
   const { data: currentUser, isError: authError } = useQuery<{ id: string; username: string; customerId: string; role?: string }>({
@@ -654,6 +703,20 @@ export default function ContractorManagement() {
     if (rating.startsWith('D')) return 'bg-red-100 text-red-800';
     if (rating === 'F') return 'bg-red-200 text-red-900';
     return 'bg-gray-100 text-gray-800';
+  };
+
+  // Derive compliance badge from documentsStatus returned by the API
+  const getComplianceBadge = (documentsStatus?: Record<string, string>) => {
+    if (!documentsStatus) return { label: 'Not started', className: 'bg-gray-100 text-gray-600', icon: '⬜' };
+    const allMissing = Object.values(documentsStatus).every(v => v === 'missing');
+    if (allMissing) return { label: 'Not started', className: 'bg-gray-100 text-gray-600', icon: '⬜' };
+    const missingLegal = documentsStatus.publicLiability === 'missing' || documentsStatus.employersLiability === 'missing'
+      || documentsStatus.publicLiability === 'expired' || documentsStatus.employersLiability === 'expired';
+    if (missingLegal) return { label: 'Missing legal docs', className: 'bg-red-100 text-red-700', icon: '🔴' };
+    const missingSite = (documentsStatus.healthSafety === 'missing' || documentsStatus.rams === 'missing'
+      || documentsStatus.healthSafety === 'expired' || documentsStatus.rams === 'expired');
+    if (missingSite) return { label: 'Incomplete', className: 'bg-amber-100 text-amber-700', icon: '🟡' };
+    return { label: 'Compliant', className: 'bg-green-100 text-green-700', icon: '🟢' };
   };
 
   if (showWalkInForm) {
@@ -1280,10 +1343,32 @@ export default function ContractorManagement() {
                         {company.complianceScore || 'N/A'}
                       </Badge>
                       
-                      <Badge className="bg-blue-100 text-blue-800">
-                        {company.serviceType || company.industry || 'General'}
-                      </Badge>
+                      {company.industry && (
+                        <Badge className="bg-blue-100 text-blue-800 capitalize">
+                          {company.serviceType || company.industry}
+                        </Badge>
+                      )}
+
+                      {/* Compliance badge — derived from documentsStatus */}
+                      {(() => {
+                        const badge = getComplianceBadge((company as any).documentsStatus);
+                        return (
+                          <Badge className={`${badge.className} text-xs`} title="Document compliance status">
+                            {badge.icon} {badge.label}
+                          </Badge>
+                        );
+                      })()}
                     </div>
+
+                    {/* Finish setup link if onboarding incomplete */}
+                    {(company as any).onboardingCompleted === false && (
+                      <button
+                        className="text-xs text-amber-600 font-medium flex items-center gap-1 hover:underline"
+                        onClick={() => handleViewContractorDetails(company.id)}
+                      >
+                        <Zap className="w-3 h-3" /> Finish setup
+                      </button>
+                    )}
 
                     <div className="space-y-2">
                       <div className="flex gap-2">
@@ -1345,7 +1430,7 @@ export default function ContractorManagement() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-slate-800 truncate">{company.name}</h3>
                           <Badge 
                             className={`text-xs ${company.status === 'approved' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
@@ -1359,6 +1444,20 @@ export default function ContractorManagement() {
                             <Badge className="text-xs bg-blue-100 text-blue-800 capitalize">
                               {company.serviceType || company.industry}
                             </Badge>
+                          )}
+                          {/* Compliance badge */}
+                          {(() => {
+                            const badge = getComplianceBadge((company as any).documentsStatus);
+                            return (
+                              <Badge className={`${badge.className} text-xs`}>
+                                {badge.icon} {badge.label}
+                              </Badge>
+                            );
+                          })()}
+                          {(company as any).onboardingCompleted === false && (
+                            <span className="text-xs text-amber-600 font-medium flex items-center gap-1 cursor-pointer hover:underline" onClick={() => handleViewContractorDetails(company.id)}>
+                              <Zap className="w-3 h-3" /> Finish setup
+                            </span>
                           )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-slate-600 mt-1">
@@ -1644,374 +1743,482 @@ export default function ContractorManagement() {
         </DialogContent>
       </Dialog>
       
-      {/* Add Contractor Dialog */}
-      <Dialog open={showAddContractorDialog} onOpenChange={setShowAddContractorDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+      {/* Add Contractor Company — 3-step Wizard */}
+      <Dialog open={showAddContractorDialog} onOpenChange={(open) => { setShowAddContractorDialog(open); if (!open) resetAddWizard(); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
+          {/* Header + Progress */}
+          <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold mb-4">
+              <Building2 className="h-5 w-5 text-blue-600" />
               Add New Contractor Company
             </DialogTitle>
-            <DialogDescription>
-              Add a new contractor company to the system with contact details and service information.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Company Name *</label>
-              <Input
-                value={contractorForm.name}
-                onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
-                placeholder=""
-                data-testid="input-company-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Contact First Name *</label>
-              <Input
-                value={contractorForm.contactFirstName}
-                onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })}
-                placeholder=""
-                data-testid="input-contact-first-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Contact Last Name *</label>
-              <Input
-                value={contractorForm.contactLastName}
-                onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })}
-                placeholder=""
-                data-testid="input-contact-last-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email Address *</label>
-              <Input
-                type="email"
-                value={contractorForm.email}
-                onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
-                placeholder=""
-                data-testid="input-email"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Phone Number *</label>
-              <Input
-                type="tel"
-                value={contractorForm.phone}
-                onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
-                placeholder=""
-                data-testid="input-phone"
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <label className="text-sm font-medium text-slate-700">Address *</label>
-              <Textarea
-                value={contractorForm.address}
-                onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })}
-                placeholder=""
-                data-testid="input-address"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Postcode</label>
-              <Input
-                value={contractorForm.postcode}
-                onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })}
-                placeholder=""
-                data-testid="input-postcode"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Website</label>
-              <Input
-                value={contractorForm.website}
-                onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })}
-                placeholder=""
-                data-testid="input-website"
-              />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-700">Description</label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateDescription}
-                  disabled={isGeneratingDescription || !contractorForm.website || !contractorForm.name}
-                  className="text-xs"
-                  data-testid="button-generate-description"
-                >
-                  {isGeneratingDescription ? (
-                    <>🤖 Generating...</>
-                  ) : (
-                    <>🤖 Auto-fill with AI</>
-                  )}
-                </Button>
-              </div>
-              <Textarea
-                value={contractorForm.description}
-                onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })}
-                placeholder=""
-                data-testid="input-description"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Industry</label>
-              <Select
-                value={contractorForm.industry}
-                onValueChange={(value: string) => 
-                  setContractorForm({ ...contractorForm, industry: value })
-                }
-              >
-                <SelectTrigger data-testid="select-industry">
-                  <SelectValue placeholder="Select industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="construction">Construction</SelectItem>
-                  <SelectItem value="electrical">Electrical</SelectItem>
-                  <SelectItem value="plumbing">Plumbing</SelectItem>
-                  <SelectItem value="hvac">HVAC</SelectItem>
-                  <SelectItem value="roofing">Roofing</SelectItem>
-                  <SelectItem value="painting">Painting</SelectItem>
-                  <SelectItem value="landscaping">Landscaping</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="it">IT Services</SelectItem>
-                  <SelectItem value="catering">Catering</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Status</label>
-              <Select
-                value={contractorForm.status}
-                onValueChange={(value: "pending" | "approved" | "suspended") => 
-                  setContractorForm({ ...contractorForm, status: value })
-                }
-              >
-                <SelectTrigger data-testid="select-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Step indicator */}
+            <div className="flex items-center gap-0">
+              {[{ n: 1, label: "Company Details" }, { n: 2, label: "UK Documents" }, { n: 3, label: "Review" }].map((s, i) => (
+                <div key={s.n} className={`flex items-center ${i < 2 ? 'flex-1' : ''}`}>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${addWizardStep >= s.n ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{addWizardStep > s.n ? '✓' : s.n}</div>
+                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${addWizardStep >= s.n ? 'text-blue-700' : 'text-gray-400'}`}>{s.label}</span>
+                  </div>
+                  {i < 2 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${addWizardStep > s.n ? 'bg-blue-600' : 'bg-gray-200'}`} />}
+                </div>
+              ))}
             </div>
           </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAddContractorDialog(false)}
-              data-testid="button-cancel-add"
-            >
-              Cancel
+
+          {/* Step 1 — Company Details */}
+          {addWizardStep === 1 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Company Name *</label>
+                  <Input value={contractorForm.name} onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })} data-testid="input-company-name" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Industry</label>
+                  <Select value={contractorForm.industry} onValueChange={(v) => setContractorForm({ ...contractorForm, industry: v })}>
+                    <SelectTrigger data-testid="select-industry"><SelectValue placeholder="Select industry" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="construction">Construction</SelectItem>
+                      <SelectItem value="electrical">Electrical</SelectItem>
+                      <SelectItem value="plumbing">Plumbing & Heating</SelectItem>
+                      <SelectItem value="hvac">HVAC / Mechanical</SelectItem>
+                      <SelectItem value="roofing">Roofing</SelectItem>
+                      <SelectItem value="painting">Painting & Decorating</SelectItem>
+                      <SelectItem value="landscaping">Landscaping / Grounds</SelectItem>
+                      <SelectItem value="security">Security</SelectItem>
+                      <SelectItem value="cleaning">Cleaning / Facilities</SelectItem>
+                      <SelectItem value="it">IT Services</SelectItem>
+                      <SelectItem value="catering">Catering</SelectItem>
+                      <SelectItem value="engineering">Engineering</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Contact First Name *</label>
+                  <Input value={contractorForm.contactFirstName} onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })} data-testid="input-contact-first-name" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Contact Last Name *</label>
+                  <Input value={contractorForm.contactLastName} onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })} data-testid="input-contact-last-name" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Email Address *</label>
+                  <Input type="email" value={contractorForm.email} onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })} data-testid="input-email" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Phone Number *</label>
+                  <Input type="tel" value={contractorForm.phone} onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })} data-testid="input-phone" />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Address</label>
+                  <Textarea value={contractorForm.address} onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })} data-testid="input-address" rows={2} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Postcode</label>
+                  <Input value={contractorForm.postcode} onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })} data-testid="input-postcode" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Website</label>
+                  <Input value={contractorForm.website} onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })} data-testid="input-website" />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-slate-700">Description</label>
+                    <Button type="button" variant="outline" size="sm" onClick={handleGenerateDescription} disabled={isGeneratingDescription || !contractorForm.website || !contractorForm.name} className="text-xs" data-testid="button-generate-description">
+                      {isGeneratingDescription ? <>🤖 Generating...</> : <>🤖 Auto-fill with AI</>}
+                    </Button>
+                  </div>
+                  <Textarea value={contractorForm.description} onChange={(e) => setContractorForm({ ...contractorForm, description: e.target.value })} data-testid="input-description" rows={2} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 — UK Compliance Documents */}
+          {addWizardStep === 2 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+                Tick which documents this contractor currently holds. You can upload the actual files from their detail page after registration. This helps you track compliance from day one.
+              </div>
+
+              {/* Legally Required */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Lock className="w-3.5 h-3.5 text-red-600" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 text-sm">Legally Required</h4>
+                  <Badge className="bg-red-100 text-red-700 text-xs">UK Law</Badge>
+                </div>
+                <div className="space-y-2">
+                  {UK_LEGAL_DOCS.map(doc => (
+                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <input type="checkbox" checked={docChecklist[doc.key]} onChange={(e) => setDocChecklist({ ...docChecklist, [doc.key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-gray-900">{doc.name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{doc.basis} — {doc.note}</p>
+                      </div>
+                      {docChecklist[doc.key] && <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Site Required */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 text-sm">Site Required</h4>
+                  <Badge className="bg-amber-100 text-amber-700 text-xs">Most sites</Badge>
+                </div>
+                <div className="space-y-2">
+                  {UK_SITE_DOCS.map(doc => (
+                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <input type="checkbox" checked={docChecklist[doc.key]} onChange={(e) => setDocChecklist({ ...docChecklist, [doc.key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-gray-900">{doc.name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{doc.basis} — {doc.note}</p>
+                      </div>
+                      {docChecklist[doc.key] && <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Good Practice */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <CheckSquare className="w-3.5 h-3.5 text-green-600" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 text-sm">Good Practice</h4>
+                  <Badge className="bg-green-100 text-green-700 text-xs">Recommended</Badge>
+                </div>
+                <div className="space-y-2">
+                  {UK_GOOD_DOCS.map(doc => (
+                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <input type="checkbox" checked={docChecklist[doc.key]} onChange={(e) => setDocChecklist({ ...docChecklist, [doc.key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-gray-900">{doc.name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{doc.basis} — {doc.note}</p>
+                      </div>
+                      {docChecklist[doc.key] && <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Running count */}
+              <div className="text-center text-sm text-gray-600 pt-1">
+                {Object.values(docChecklist).filter(Boolean).length} of {[...UK_LEGAL_DOCS, ...UK_SITE_DOCS].length} required documents confirmed
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — Review & Submit */}
+          {addWizardStep === 3 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-600">Please review the details before creating the contractor record.</p>
+
+              {/* Company summary */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2"><Building2 className="w-4 h-4" /> Company Details</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <span className="text-gray-500">Company</span><span className="font-medium">{contractorForm.name}</span>
+                  <span className="text-gray-500">Contact</span><span>{contractorForm.contactFirstName} {contractorForm.contactLastName}</span>
+                  <span className="text-gray-500">Email</span><span>{contractorForm.email}</span>
+                  <span className="text-gray-500">Phone</span><span>{contractorForm.phone || '—'}</span>
+                  <span className="text-gray-500">Industry</span><span className="capitalize">{contractorForm.industry || '—'}</span>
+                  <span className="text-gray-500">Postcode</span><span>{contractorForm.postcode || '—'}</span>
+                </div>
+              </div>
+
+              {/* Document checklist summary */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4" /> Compliance Documents</h4>
+                <div className="space-y-1.5">
+                  {[...UK_LEGAL_DOCS, ...UK_SITE_DOCS, ...UK_GOOD_DOCS].map(doc => (
+                    <div key={doc.key} className="flex items-center gap-2 text-sm">
+                      {docChecklist[doc.key]
+                        ? <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        : <div className="w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                      }
+                      <span className={docChecklist[doc.key] ? 'text-gray-800' : 'text-gray-400'}>{doc.name}</span>
+                      {!docChecklist[doc.key] && UK_LEGAL_DOCS.some(d => d.key === doc.key) && <Badge className="bg-red-100 text-red-700 text-xs ml-auto">Required</Badge>}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Upload the actual document files from the contractor's detail page after registration.</p>
+              </div>
+
+              {/* Warnings */}
+              {(!docChecklist.publicLiability || !docChecklist.employersLiability) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-2 text-sm text-amber-800">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>Some legally required documents have not been confirmed. Ensure these are provided before the contractor begins any work on site.</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer navigation */}
+          <div className="flex-shrink-0 border-t px-6 py-4 flex items-center justify-between gap-3">
+            <Button variant="outline" onClick={() => addWizardStep > 1 ? setAddWizardStep(addWizardStep - 1) : setShowAddContractorDialog(false)}>
+              {addWizardStep > 1 ? '← Back' : 'Cancel'}
             </Button>
-            <Button 
-              onClick={handleAddContractor}
-              disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || !contractorForm.phone || !contractorForm.address || createContractorMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
-              data-testid="button-save-contractor"
-            >
-              {createContractorMutation.isPending ? "Adding..." : "Add Contractor"}
-            </Button>
-          </DialogFooter>
+            <div className="flex items-center gap-2">
+              {addWizardStep < 3 ? (
+                <Button
+                  onClick={() => setAddWizardStep(addWizardStep + 1)}
+                  disabled={addWizardStep === 1 && (!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || !contractorForm.phone)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Next →
+                </Button>
+              ) : (
+                <Button onClick={handleAddContractor} disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || createContractorMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-contractor">
+                  {createContractorMutation.isPending ? "Creating..." : "Create Contractor"}
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       
-      {/* Add Worker Dialog */}
-      <Dialog open={showAddWorkerDialog} onOpenChange={setShowAddWorkerDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Add New Worker to {selectedContractor?.name}
+      {/* Add Worker — 3-step Wizard */}
+      <Dialog open={showAddWorkerDialog} onOpenChange={(open) => { setShowAddWorkerDialog(open); if (!open) resetWorkerWizard(); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
+          {/* Header + Progress */}
+          <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold mb-4">
+              <User className="h-5 w-5 text-blue-600" />
+              Add Worker — {selectedContractor?.name}
             </DialogTitle>
-            <DialogDescription>
-              Add a new worker to this contractor company with their personal details and certifications.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">First Name *</label>
-              <Input
-                value={workerForm.firstName}
-                onChange={(e) => setWorkerForm({ ...workerForm, firstName: e.target.value })}
-                placeholder=""
-                data-testid="input-worker-firstname"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Last Name *</label>
-              <Input
-                value={workerForm.lastName}
-                onChange={(e) => setWorkerForm({ ...workerForm, lastName: e.target.value })}
-                placeholder=""
-                data-testid="input-worker-lastname"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email Address</label>
-              <Input
-                type="email"
-                value={workerForm.email}
-                onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })}
-                placeholder=""
-                data-testid="input-worker-email"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Phone Number</label>
-              <Input
-                type="tel"
-                value={workerForm.phone}
-                onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })}
-                placeholder=""
-                data-testid="input-worker-phone"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Home Postcode *</label>
-              <Input
-                value={workerForm.postcode}
-                onChange={(e) => setWorkerForm({ ...workerForm, postcode: e.target.value })}
-                placeholder=""
-                data-testid="input-worker-postcode"
-              />
-              <p className="text-xs text-slate-500">Required for CO2 emissions calculations</p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Right to Work Status</label>
-              <Select
-                value={workerForm.rightToWork}
-                onValueChange={(value: "valid" | "expired" | "pending") => setWorkerForm({ ...workerForm, rightToWork: value })}
-              >
-                <SelectTrigger data-testid="select-right-to-work">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="valid">Valid</SelectItem>
-                  <SelectItem value="pending">Pending Verification</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">CSCS Card Number</label>
-              <Input
-                value={workerForm.cscsCard}
-                onChange={(e) => setWorkerForm({ ...workerForm, cscsCard: e.target.value })}
-                placeholder=""
-                data-testid="input-cscs-card"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">CSCS Status</label>
-              <Select
-                value={workerForm.cscsStatus}
-                onValueChange={(value: "valid" | "expired" | "pending") => 
-                  setWorkerForm({ ...workerForm, cscsStatus: value })
-                }
-              >
-                <SelectTrigger data-testid="select-cscs-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="valid">Valid</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">IPAF Status</label>
-              <Select
-                value={workerForm.ipafStatus}
-                onValueChange={(value: "none" | "3a" | "3b" | "1+" | "expired") => 
-                  setWorkerForm({ ...workerForm, ipafStatus: value })
-                }
-              >
-                <SelectTrigger data-testid="select-ipaf-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="3a">3a - Mobile Vertical</SelectItem>
-                  <SelectItem value="3b">3b - Mobile Boom</SelectItem>
-                  <SelectItem value="1+">1+ - Static Vertical</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-2">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Safety Training & Certifications</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={workerForm.asbestosAwareness}
-                    onChange={(e) => setWorkerForm({ ...workerForm, asbestosAwareness: e.target.checked })}
-                    className="rounded border-gray-300"
-                    data-testid="checkbox-asbestos"
-                  />
-                  <span className="text-sm text-slate-700">Asbestos Awareness</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={workerForm.manualHandling}
-                    onChange={(e) => setWorkerForm({ ...workerForm, manualHandling: e.target.checked })}
-                    className="rounded border-gray-300"
-                    data-testid="checkbox-manual-handling"
-                  />
-                  <span className="text-sm text-slate-700">Manual Handling</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={workerForm.workingAtHeight}
-                    onChange={(e) => setWorkerForm({ ...workerForm, workingAtHeight: e.target.checked })}
-                    className="rounded border-gray-300"
-                    data-testid="checkbox-working-height"
-                  />
-                  <span className="text-sm text-slate-700">Working at Height</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={workerForm.inductionCompleted}
-                    onChange={(e) => setWorkerForm({ ...workerForm, inductionCompleted: e.target.checked })}
-                    className="rounded border-gray-300"
-                    data-testid="checkbox-induction"
-                  />
-                  <span className="text-sm text-slate-700">Site Induction Completed</span>
-                </label>
-              </div>
+            <div className="flex items-center gap-0">
+              {[{ n: 1, label: "Personal Details" }, { n: 2, label: "Right to Work & Cards" }, { n: 3, label: "Training & Review" }].map((s, i) => (
+                <div key={s.n} className={`flex items-center ${i < 2 ? 'flex-1' : ''}`}>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${workerWizardStep >= s.n ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{workerWizardStep > s.n ? '✓' : s.n}</div>
+                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${workerWizardStep >= s.n ? 'text-blue-700' : 'text-gray-400'}`}>{s.label}</span>
+                  </div>
+                  {i < 2 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${workerWizardStep > s.n ? 'bg-blue-600' : 'bg-gray-200'}`} />}
+                </div>
+              ))}
             </div>
           </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAddWorkerDialog(false)}
-              data-testid="button-cancel-add-worker"
-            >
-              Cancel
+
+          {/* Step 1 — Personal Details */}
+          {workerWizardStep === 1 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">First Name *</label>
+                  <Input value={workerForm.firstName} onChange={(e) => setWorkerForm({ ...workerForm, firstName: e.target.value })} data-testid="input-worker-firstname" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Last Name *</label>
+                  <Input value={workerForm.lastName} onChange={(e) => setWorkerForm({ ...workerForm, lastName: e.target.value })} data-testid="input-worker-lastname" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Email Address</label>
+                  <Input type="email" value={workerForm.email} onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })} data-testid="input-worker-email" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Phone Number</label>
+                  <Input type="tel" value={workerForm.phone} onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })} data-testid="input-worker-phone" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Home Postcode</label>
+                  <Input value={workerForm.postcode} onChange={(e) => setWorkerForm({ ...workerForm, postcode: e.target.value })} data-testid="input-worker-postcode" />
+                  <p className="text-xs text-slate-500">Used for CO2 emissions calculations</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 — Right to Work & Competence Cards */}
+          {workerWizardStep === 2 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
+
+              {/* Right to Work */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Lock className="w-3.5 h-3.5 text-red-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">Right to Work</h4>
+                    <p className="text-xs text-gray-500">Immigration Act 2014 — <span className="font-semibold text-red-600">Legally required before work commences</span></p>
+                  </div>
+                </div>
+                <Select value={workerForm.rightToWork} onValueChange={(v: "valid" | "expired" | "pending") => setWorkerForm({ ...workerForm, rightToWork: v })}>
+                  <SelectTrigger data-testid="select-right-to-work"><SelectValue placeholder="Select status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="valid">✅ Valid — check complete</SelectItem>
+                    <SelectItem value="pending">⏳ Pending — check in progress</SelectItem>
+                    <SelectItem value="expired">❌ Expired — requires re-check</SelectItem>
+                  </SelectContent>
+                </Select>
+                {workerForm.rightToWork === 'pending' && (
+                  <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800">
+                    Worker cannot be permitted to work unsupervised until Right to Work is confirmed.
+                  </div>
+                )}
+              </div>
+
+              {/* CSCS Card */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">CSCS Card</h4>
+                    <p className="text-xs text-gray-500">CDM 2015 / Site policy — required on most construction sites</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Card Number</label>
+                    <Input value={workerForm.cscsCard} onChange={(e) => setWorkerForm({ ...workerForm, cscsCard: e.target.value })} placeholder="e.g. CS-1234567" data-testid="input-cscs-card" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Status</label>
+                    <Select value={workerForm.cscsStatus} onValueChange={(v: "valid" | "expired" | "pending") => setWorkerForm({ ...workerForm, cscsStatus: v })}>
+                      <SelectTrigger data-testid="select-cscs-status"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="valid">Valid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="expired">Expired</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* IPAF */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">IPAF Card</h4>
+                    <p className="text-xs text-gray-500">PUWER / WAHR 2005 — required for MEWP operation (cherry pickers, scissor lifts)</p>
+                  </div>
+                </div>
+                <Select value={workerForm.ipafStatus} onValueChange={(v: "none" | "3a" | "3b" | "1+" | "expired") => setWorkerForm({ ...workerForm, ipafStatus: v })}>
+                  <SelectTrigger data-testid="select-ipaf-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not applicable / not held</SelectItem>
+                    <SelectItem value="3a">3a — Mobile Vertical (scissor lifts)</SelectItem>
+                    <SelectItem value="3b">3b — Mobile Boom (cherry pickers)</SelectItem>
+                    <SelectItem value="1+">1+ — Static Vertical (push-around)</SelectItem>
+                    <SelectItem value="expired">Held but Expired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — Training & Summary */}
+          {workerWizardStep === 3 && (
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
+              {/* Training certificates */}
+              <div>
+                <h4 className="font-semibold text-gray-900 text-sm mb-3">Training Certificates</h4>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={workerForm.asbestosAwareness} onChange={(e) => setWorkerForm({ ...workerForm, asbestosAwareness: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-asbestos" />
+                    <div>
+                      <p className="font-medium text-sm">Asbestos Awareness</p>
+                      <p className="text-xs text-gray-500">CAR 2012 — required for most construction and refurbishment work</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={workerForm.manualHandling} onChange={(e) => setWorkerForm({ ...workerForm, manualHandling: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-manual-handling" />
+                    <div>
+                      <p className="font-medium text-sm">Manual Handling</p>
+                      <p className="text-xs text-gray-500">MHOR 1992 — required for all roles involving lifting or carrying</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={workerForm.workingAtHeight} onChange={(e) => setWorkerForm({ ...workerForm, workingAtHeight: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-working-height" />
+                    <div>
+                      <p className="font-medium text-sm">Working at Height</p>
+                      <p className="text-xs text-gray-500">WAHR 2005 — required when using ladders, scaffolding, or MEWPs</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={workerForm.inductionCompleted} onChange={(e) => setWorkerForm({ ...workerForm, inductionCompleted: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-induction" />
+                    <div>
+                      <p className="font-medium text-sm">Site Induction Completed</p>
+                      <p className="text-xs text-gray-500">Site-specific H&S briefing completed</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Compliance summary panel */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-2"><Shield className="w-4 h-4" /> Compliance Summary</h4>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Right to Work</span>
+                    <Badge className={workerForm.rightToWork === 'valid' ? 'bg-green-100 text-green-700' : workerForm.rightToWork === 'expired' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}>
+                      {workerForm.rightToWork === 'valid' ? '✅ Valid' : workerForm.rightToWork === 'expired' ? '❌ Expired' : '⏳ Pending'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">CSCS Card</span>
+                    <Badge className={workerForm.cscsStatus === 'valid' ? 'bg-green-100 text-green-700' : workerForm.cscsStatus === 'expired' ? 'bg-red-100 text-red-700' : workerForm.cscsCard ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}>
+                      {workerForm.cscsStatus === 'valid' ? '✅ Valid' : workerForm.cscsStatus === 'expired' ? '❌ Expired' : workerForm.cscsCard ? '⏳ Pending' : '— Not recorded'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">IPAF</span>
+                    <Badge className={workerForm.ipafStatus === 'none' ? 'bg-gray-100 text-gray-500' : workerForm.ipafStatus === 'expired' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}>
+                      {workerForm.ipafStatus === 'none' ? '— Not applicable' : workerForm.ipafStatus === 'expired' ? '❌ Expired' : `✅ ${workerForm.ipafStatus}`}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Asbestos Awareness</span>
+                    <Badge className={workerForm.asbestosAwareness ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
+                      {workerForm.asbestosAwareness ? '✅ Held' : '— Not recorded'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Manual Handling</span>
+                    <Badge className={workerForm.manualHandling ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
+                      {workerForm.manualHandling ? '✅ Held' : '— Not recorded'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Footer navigation */}
+          <div className="flex-shrink-0 border-t px-6 py-4 flex items-center justify-between gap-3">
+            <Button variant="outline" onClick={() => workerWizardStep > 1 ? setWorkerWizardStep(workerWizardStep - 1) : setShowAddWorkerDialog(false)}>
+              {workerWizardStep > 1 ? '← Back' : 'Cancel'}
             </Button>
-            <Button 
-              onClick={handleAddWorker}
-              disabled={!workerForm.firstName || !workerForm.lastName || createWorkerMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
-              data-testid="button-save-worker"
-            >
-              {createWorkerMutation.isPending ? "Adding..." : "Add Worker"}
-            </Button>
-          </DialogFooter>
+            <div className="flex items-center gap-2">
+              {workerWizardStep < 3 ? (
+                <Button onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={workerWizardStep === 1 && (!workerForm.firstName || !workerForm.lastName)} className="bg-blue-600 hover:bg-blue-700">
+                  Next →
+                </Button>
+              ) : (
+                <Button onClick={handleAddWorker} disabled={!workerForm.firstName || !workerForm.lastName || createWorkerMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-worker">
+                  {createWorkerMutation.isPending ? "Saving..." : "Save Worker"}
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
